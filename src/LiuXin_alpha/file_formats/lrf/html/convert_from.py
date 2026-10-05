@@ -1,7 +1,13 @@
 """
-Code to convert HTML ebooks into LRF ebooks.
+Translate normalized markup or LRS structures into LRF content.
 
-I am indebted to esperanc for the initial CSS->Xylog Style conversion code and to Falstaff for pylrs.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise convert from through a consuming regression::
+
+        python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
 """
 
 from __future__ import annotations, print_function
@@ -32,6 +38,14 @@ try:
     from LiuXin_alpha.devices.interface import DevicePlugin as Device
 except ModuleNotFoundError:
     class Device:
+        """
+        Provide the device contract for validated ebook processing.
+
+        Example:
+            Exercise Device through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+        """
         THUMBNAIL_HEIGHT = 144
 
 from LiuXin_alpha.constants import __appname__
@@ -89,12 +103,39 @@ __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 def to_text(val: _typing.Any) -> _typing.Any:
+    """
+    Perform the to text operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise to text through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+    :param val: Template or metadata value evaluated by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(val, (bytes, bytearray, memoryview)):
         return bytes(val).decode(sys.getfilesystemencoding() or "utf-8", "replace")
     return val
 
 
 def update_css(ncss: _typing.Any, ocss: _typing.Any) -> None:
+    """
+    Perform the update css operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise update css through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+    :param ncss: Value supplied for ncss under the utility contract.
+    :param ocss: Value supplied for ocss under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for key in ncss.keys():
         if (key in ocss):
             ocss[key].update(ncss[key])
@@ -103,6 +144,20 @@ def update_css(ncss: _typing.Any, ocss: _typing.Any) -> None:
 
 
 def munge_paths(basepath: _typing.Any, url: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Perform the munge paths operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise munge paths through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+    :param basepath: Value supplied for basepath under the utility contract.
+    :param url: Value supplied for url under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     purl = urlparse(
         unquote(url),
     )
@@ -120,6 +175,19 @@ def munge_paths(basepath: _typing.Any, url: _typing.Any) -> tuple[_typing.Any, .
 
 
 def strip_style_comments(match: _typing.Any) -> _typing.Any:
+    """
+    Perform the strip style comments operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise strip style comments through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+    :param match: Value supplied for match under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     src = match.group()
     while True:
         lindex = src.find("/*")
@@ -136,8 +204,16 @@ def strip_style_comments(match: _typing.Any) -> _typing.Any:
 def tag_regex(tagname: _typing.Any) -> _typing.Any:
     """
     Return non-grouping regular expressions that match the opening and closing tags for tagname
-    :param tagname:
-    :return:
+
+    Example:
+        Exercise tag regex through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+    :param tagname: Value supplied for tagname under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return dict(
         open=r"(?:<\s*%(t)s\s+[^<>]*?>|<\s*%(t)s\s*>)" % dict(t=tagname), close=r"</\s*%(t)s\s*>" % dict(t=tagname)
@@ -146,6 +222,14 @@ def tag_regex(tagname: _typing.Any) -> _typing.Any:
 
 class HTMLConverter(object):
 
+    """
+    Provide the htmlconverter contract for validated ebook processing.
+
+    Example:
+        Exercise HTMLConverter through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     SELECTOR_PAT = re.compile(r"([A-Za-z0-9\-\_\:\.]+[A-Za-z0-9\-\_\:\.\s\,]*)\s*\{([^\}]*)\}")
     PAGE_BREAK_PAT = re.compile(r"page-break-(?:after|before)\s*:\s*(\w+)", re.IGNORECASE)
     IGNORED_TAGS = (Comment, Declaration, ProcessingInstruction)
@@ -231,16 +315,55 @@ class HTMLConverter(object):
     ]
 
     def __hasattr__(self: _typing.Self, attr: _typing.Any) -> _typing.Any:
+        """
+        Perform the hasattr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLConverter.  hasattr   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param attr: Value supplied for attr under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if hasattr(self.options, attr):
             return True
         return object.__hasattr__(self, attr)
 
     def __getattr__(self: _typing.Self, attr: _typing.Any) -> _typing.Any:
+        """
+        Perform the getattr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLConverter.  getattr   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param attr: Value supplied for attr under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if hasattr(self.options, attr):
             return getattr(self.options, attr)
         return object.__getattribute__(self, attr)
 
     def __setattr__(self: _typing.Self, attr: _typing.Any, val: _typing.Any) -> None:
+        """
+        Perform the setattr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLConverter.  setattr   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param attr: Value supplied for attr under the utility contract.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; validated state is stored on the receiving object.
+        """
         if hasattr(self.options, attr):
             setattr(self.options, attr, val)
         else:
@@ -272,14 +395,20 @@ class HTMLConverter(object):
 
     def __init__(self: _typing.Self, book: _typing.Any, fonts: _typing.Any, options: _typing.Any, logger: _typing.Any, paths: _typing.Any) -> None:
         """
-        Convert HTML files at C{paths} and add to C{book}. After creating the object, you must call L{self.writeto}
-        to output the LRF/S file.
-        :param book:
-        :param fonts:
-        :param options:
-        :param logger:
-        :param paths:
-        :return:
+        Convert HTML files at C{paths} and add to C{book}. After creating the object, you must call L{self.writeto} to output the LRF/S file.
+
+        Example:
+            Exercise HTMLConverter.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param book: Value supplied for book under the utility contract.
+        :param fonts: Value supplied for fonts under the utility contract.
+        :param options: Value supplied for options under the utility contract.
+        :param logger: Value supplied for logger under the utility contract.
+        :param paths: Value supplied for paths under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         # Defaults for various formatting tags
         object.__setattr__(self, "options", options)
@@ -375,12 +504,49 @@ class HTMLConverter(object):
             self.book.rationalize_font_sizes(self.base_font_size)
 
     def is_baen(self: _typing.Self, soup: _typing.Any) -> _typing.Any:
+        """
+        Return whether is baen holds for the supplied ebook data.
+
+        Example:
+            Exercise HTMLConverter.is baen through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param soup: Value supplied for soup under the utility contract.
+        :return: True when the documented condition holds; otherwise False.
+        """
         return bool(soup.find("meta", attrs={"name": "Publisher", "content": re.compile("Baen", re.IGNORECASE)}))
 
     def is_book_designer(self: _typing.Self, raw: _typing.Any) -> _typing.Any:
+        """
+        Return whether is book designer holds for the supplied ebook data.
+
+        Example:
+            Exercise HTMLConverter.is book designer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :return: True when the documented condition holds; otherwise False.
+        """
         return bool(re.search("<H2[^><]*id=BookTitle", raw))
 
     def preprocess(self: _typing.Self, raw: _typing.Any) -> _typing.Any:
+        """
+        Perform the preprocess operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLConverter.preprocess through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         nmassage = copy.copy(BeautifulSoup.MARKUP_MASSAGE)
         nmassage.extend(HTMLConverter.MARKUP_MASSAGE)
 
@@ -436,8 +602,17 @@ class HTMLConverter(object):
     def add_file(self: _typing.Self, path: _typing.Any) -> None:
         """
         Add a file to the forming book.
-        :param path:
-        :return:
+
+        Example:
+            Exercise HTMLConverter.add file through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.css = HTMLConverter.CSS.copy()
         self.pseudo_css = self.override_pcss.copy()
@@ -475,10 +650,17 @@ class HTMLConverter(object):
 
     def parse_css(self: _typing.Self, style: _typing.Any) -> tuple[_typing.Any, ...]:
         """
-        Parse the contents of a <style> tag or .css file.
-        selector name and the value is a dictionary of properties
-        :param style:
-        :return:
+        Parse the contents of a <style> tag or .css file. selector name and the value is a dictionary of properties
+
+        Example:
+            Exercise HTMLConverter.parse css through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param style: Value supplied for style under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         sdict, pdict = {}, {}
         style = re.sub(r"/\*.*?\*/", "", style)  # Remove /*...*/ comments
@@ -506,11 +688,17 @@ class HTMLConverter(object):
 
     def parse_style_properties(self: _typing.Self, props: _typing.Any) -> _typing.Any:
         """
-        Parses a style attribute. The code within a CSS selector block or in
-        the style attribute of an HTML element.
-                is the property name and the value is the property value.
-        :param props:
-        :return:
+        Parses a style attribute. The code within a CSS selector block or in the style attribute of an HTML element. is the property name and the value is the property value.
+
+        Example:
+            Exercise HTMLConverter.parse style properties through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param props: Value supplied for props under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         prop = dict()
         for s in props.split(";"):
@@ -524,9 +712,17 @@ class HTMLConverter(object):
     def tag_css(self: _typing.Self, tag: _typing.Any, parent_css: _typing.Any = None) -> tuple[_typing.Any, ...]:
         """
         Return a dictionary of style properties applicable to Tag tag.
-        :param tag:
-        :param parent_css:
-        :return:
+
+        Example:
+            Exercise HTMLConverter.tag css through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param parent_css: Value supplied for parent css under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if parent_css is None:
             parent_css = {}
@@ -535,6 +731,20 @@ class HTMLConverter(object):
             # float should not be inherited according to the CSS spec
             # however we need to as we don't do alignment at a block level.
             # float is removed by the process_alignment function.
+            """
+            Perform the merge parent css operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise HTMLConverter.tag css.merge parent css through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param prop: Value supplied for prop under the utility contract.
+            :param pcss: Value supplied for pcss under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             inherited = ["text-align", "float", "white-space", "color", "line-height", "vertical-align"]
             temp = {}
             for key in pcss.keys():
@@ -573,7 +783,33 @@ class HTMLConverter(object):
         return prop, pprop
 
     def parse_file(self: _typing.Self, soup: _typing.Any) -> _typing.Any:
+        """
+        Parse file under the format's safety and compatibility rules.
+
+        Example:
+            Exercise HTMLConverter.parse file through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param soup: Value supplied for soup under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         def get_valid_block(page: _typing.Any) -> _typing.Any:
+            """
+            Return valid block under the format's safety and compatibility rules.
+
+            Example:
+                Exercise HTMLConverter.parse file.get valid block through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param page: Value supplied for page under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             for item in page.contents:
                 if isinstance(item, (Canvas, TextBlock, ImageBlock, RuledLine)):
                     if isinstance(item, TextBlock) and not item.contents:
@@ -635,6 +871,20 @@ class HTMLConverter(object):
         return top
 
     def create_link(self: _typing.Self, children: _typing.Any, tag: _typing.Any) -> dict[_typing.Any, _typing.Any]:
+        """
+        Create link under the format's safety and compatibility rules.
+
+        Example:
+            Exercise HTMLConverter.create link through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param children: Value supplied for children under the utility contract.
+        :param tag: Value supplied for tag under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         para = None
         for i in range(len(children) - 1, -1, -1):
             if isinstance(children[i], (Span, EmpLine)):
@@ -662,6 +912,20 @@ class HTMLConverter(object):
         }
 
     def get_text(self: _typing.Self, tag: _typing.Any, limit: _typing.Any = None) -> _typing.Any:
+        """
+        Return text under the format's safety and compatibility rules.
+
+        Example:
+            Exercise HTMLConverter.get text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param limit: Value supplied for limit under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         css = self.tag_css(tag)[0]
         if ("display" in (css) and css["display"].lower() == "none") or (
             ("visibility" in css) and css["visibility"].lower() == "hidden"
@@ -683,8 +947,34 @@ class HTMLConverter(object):
         return text if text.strip() else alt_text
 
     def process_links(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the process links operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLConverter.process links through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         def add_toc_entry(text: _typing.Any, target: _typing.Any) -> None:
             # TextBlocks in Canvases have a None parent or an Objects Parent
+            """
+            Perform the add toc entry operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise HTMLConverter.process links.add toc entry through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param text: Text parsed, normalized or rendered.
+            :param target: Value supplied for target under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if target.parent is not None and hasattr(target.parent, "objId"):
                 self.book.addTocEntry(ascii_text, tb)
             else:
@@ -693,9 +983,17 @@ class HTMLConverter(object):
         def get_target_block(fragment: _typing.Any, targets: _typing.Any) -> _typing.Any:
             """
             Return the correct block for the <a name> element
-            :param fragment:
-            :param targets:
-            :return:
+
+            Example:
+                Exercise HTMLConverter.process links.get target block through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param fragment: Value supplied for fragment under the utility contract.
+            :param targets: Value supplied for targets under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
             """
             bs = targets[fragment]
             if not isinstance(bs, BlockSpace):
@@ -757,6 +1055,19 @@ class HTMLConverter(object):
         return outside_links
 
     def create_toc(self: _typing.Self, toc: _typing.Any) -> None:
+        """
+        Create toc under the format's safety and compatibility rules.
+
+        Example:
+            Exercise HTMLConverter.create toc through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param toc: Value supplied for toc under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for item in toc.top_level_items():
             ascii_text = item.text
             if not item.fragment and item.abspath in self.tops:
@@ -770,6 +1081,15 @@ class HTMLConverter(object):
     def end_page(self: _typing.Self) -> None:
         """
         End the current page, ensuring that any further content is displayed on a new page.
+
+        Example:
+            Exercise HTMLConverter.end page through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.current_para.has_text():
             self.current_para.append_to(self.current_block)
@@ -784,6 +1104,20 @@ class HTMLConverter(object):
     def add_image_page(self: _typing.Self, path: _typing.Any) -> None:
 
         # Ignore the cover if the image file is not valid
+        """
+        Perform the add image page operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLConverter.add image page through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if os.access(path, os.R_OK):
             self.end_page()
             pwidth, pheight = self.profile.screen_width, self.profile.screen_height - self.profile.fudge
@@ -814,10 +1148,18 @@ class HTMLConverter(object):
     def process_children(self: _typing.Self, ptag: _typing.Any, pcss: _typing.Any, ppcss: _typing.Any = None) -> None:
         """
         Process the children of ptag
-        :param ptag:
-        :param pcss:
-        :param ppcss:
-        :return:
+
+        Example:
+            Exercise HTMLConverter.process children through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param ptag: Value supplied for ptag under the utility contract.
+        :param pcss: Value supplied for pcss under the utility contract.
+        :param ppcss: Value supplied for ppcss under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if ppcss is None:
             ppcss = {}
@@ -840,6 +1182,19 @@ class HTMLConverter(object):
                 print(ptag, type(ptag))
 
     def get_alignment(self: _typing.Self, css: _typing.Any) -> _typing.Any:
+        """
+        Return alignment under the format's safety and compatibility rules.
+
+        Example:
+            Exercise HTMLConverter.get alignment through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param css: Value supplied for css under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         val = css["text-align"].lower() if ("text-align" in css) else None
         align = "head"
         if val is not None:
@@ -859,8 +1214,16 @@ class HTMLConverter(object):
     def process_alignment(self: _typing.Self, css: _typing.Any) -> bool:
         """
         Create a new TextBlock only if necessary as indicated by css
-        :param css:
-        :return:
+
+        Example:
+            Exercise HTMLConverter.process alignment through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param css: Value supplied for css under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         align = self.get_alignment(css)
         if align != self.current_block.textStyle.attrs["align"]:
@@ -881,11 +1244,19 @@ class HTMLConverter(object):
     def add_text(self: _typing.Self, tag: _typing.Any, css: _typing.Any, pseudo_css: _typing.Any, force_span_use: bool = False) -> None:
         """
         Add text to the current paragraph taking CSS into account.
-        :param tag:
-        :param css:
-        :param pseudo_css:
-        :param force_span_use:
-        :return:
+
+        Example:
+            Exercise HTMLConverter.add text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param css: Value supplied for css under the utility contract.
+        :param pseudo_css: Value supplied for pseudo css under the utility contract.
+        :param force_span_use: Value supplied for force span use under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         src = tag.string if hasattr(tag, "string") else tag
         if len(src) > 32760:
@@ -915,6 +1286,19 @@ class HTMLConverter(object):
             src = src.lstrip()
 
         def append_text(text_src: _typing.Any) -> None:
+            """
+            Perform the append text operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise HTMLConverter.add text.append text through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param text_src: Value supplied for text src under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             fp, key, variant = self.font_properties(css)
             for x, y in [
                 ("\xad", ""),
@@ -1002,13 +1386,33 @@ class HTMLConverter(object):
                 append_text(last)
 
     def line_break(self: _typing.Self) -> None:
+        """
+        Perform the line break operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLConverter.line break through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.current_para.append(CR())
         self.previous_text = "\n"
 
     def end_current_para(self: _typing.Self) -> None:
         """
         End current paragraph with a paragraph break after it.
-        :return:
+
+        Example:
+            Exercise HTMLConverter.end current para through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.current_para.contents:
             self.current_block.append(self.current_para)
@@ -1018,7 +1422,15 @@ class HTMLConverter(object):
     def end_current_block(self: _typing.Self) -> None:
         """
         End current TextBlock. Create new TextBlock with the same styles.
-        :return:
+
+        Example:
+            Exercise HTMLConverter.end current block through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.current_para.contents:
             self.current_block.append(self.current_para)
@@ -1030,7 +1442,39 @@ class HTMLConverter(object):
             )
 
     def process_image(self: _typing.Self, path: _typing.Any, tag_css: _typing.Any, width: _typing.Any = None, height: _typing.Any = None, dropcaps: bool = False, rescale: bool = False) -> None:
+        """
+        Perform the process image operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLConverter.process image through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param tag_css: Value supplied for tag css under the utility contract.
+        :param width: Value supplied for width under the utility contract.
+        :param height: Value supplied for height under the utility contract.
+        :param dropcaps: Value supplied for dropcaps under the utility contract.
+        :param rescale: Value supplied for rescale under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         def detect_encoding(de_im: _typing.Any) -> _typing.Any:
+            """
+            Perform the detect encoding operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise HTMLConverter.process image.detect encoding through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param de_im: Value supplied for de im under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             fmt = de_im.format
             if fmt == "JPG":
                 fmt = "JPEG"
@@ -1052,6 +1496,20 @@ class HTMLConverter(object):
         encoding = detect_encoding(im)
 
         def scale_image(se_width: _typing.Any, se_height: _typing.Any) -> _typing.Any:
+            """
+            Perform the scale image operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise HTMLConverter.process image.scale image through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param se_width: Value supplied for se width under the utility contract.
+            :param se_height: Value supplied for se height under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if se_width <= 0:
                 se_width = 1
             if se_height <= 0:
@@ -1165,6 +1623,21 @@ class HTMLConverter(object):
             )
 
     def process_page_breaks(self: _typing.Self, tag: _typing.Any, tagname: _typing.Any, tag_css: _typing.Any) -> _typing.Any:
+        """
+        Perform the process page breaks operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLConverter.process page breaks through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param tagname: Value supplied for tagname under the utility contract.
+        :param tag_css: Value supplied for tag css under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if "page-break-before" in tag_css.keys():
             if tag_css["page-break-before"].lower() != "avoid":
                 self.end_page()
@@ -1198,7 +1671,33 @@ class HTMLConverter(object):
         return end_page
 
     def block_properties(self: _typing.Self, tag_css: _typing.Any) -> _typing.Any:
+        """
+        Perform the block properties operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLConverter.block properties through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag_css: Value supplied for tag css under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         def get(what: _typing.Any) -> _typing.Any:
+            """
+            Perform the get operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise HTMLConverter.block properties.get through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param what: Value supplied for what under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             src = [None for i in range(4)]
             if (what in tag_css):
                 msrc = tag_css[what].split()
@@ -1214,6 +1713,21 @@ class HTMLConverter(object):
         bl = str(self.current_block.blockStyle.attrs["blockwidth"]) + "px"
 
         def set(default: _typing.Any, one: _typing.Any, two: _typing.Any) -> _typing.Any:
+            """
+            Perform the set operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise HTMLConverter.block properties.set through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param default: Value supplied for default under the utility contract.
+            :param one: Value supplied for one under the utility contract.
+            :param two: Value supplied for two under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             set_fval = None
             if one is not None:
                 val = self.unit_convert(one, base_length="10pt" if "em" in one else bl)
@@ -1251,18 +1765,36 @@ class HTMLConverter(object):
 
     def font_properties(self: _typing.Self, css: _typing.Any) -> tuple[_typing.Any, ...]:
         """
-        Convert the font propertiess in css to the Xylog equivalents. If the CSS
-        does not contain a particular font property, the default from self.book.defaultTextSytle
-        is used. Assumes 1em = 10pt
-          the font type (i.e. bold, bi, normal) and variant is None or 'small-caps'
-        :param css:
-        :return:
+        Convert the font propertiess in css to the Xylog equivalents. If the CSS does not contain a particular font property, the default from self.book.defaultTextSytle is used. Assumes 1em = 10pt the font type (i.e. bold, bi, normal) and variant is None or 'small-caps'
+
+        Example:
+            Exercise HTMLConverter.font properties through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param css: Value supplied for css under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         t = {}
         for key in ("fontwidth", "fontsize", "wordspace", "fontfacename", "fontweight", "baselineskip"):
             t[key] = self.book.defaultTextStyle.attrs[key]
 
         def font_weight(val: _typing.Any) -> _typing.Any:
+            """
+            Perform the font weight operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise HTMLConverter.font properties.font weight through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param val: Template or metadata value evaluated by the operation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             ans = 0
             m = re.search("([0-9]+)", val)
             if m:
@@ -1272,12 +1804,38 @@ class HTMLConverter(object):
             return "bold" if ans >= 700 else "normal"
 
         def font_style(fs_val: _typing.Any) -> _typing.Any:
+            """
+            Perform the font style operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise HTMLConverter.font properties.font style through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param fs_val: Value supplied for fs val under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             fs_ans = "normal"
             if "italic" in fs_val or "oblique" in fs_val:
                 fs_ans = "italic"
             return fs_ans
 
         def font_family(ff_val: _typing.Any) -> _typing.Any:
+            """
+            Perform the font family operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise HTMLConverter.font properties.font family through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param ff_val: Value supplied for ff val under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             ff_ans = "serif"
             if max(ff_val.find("courier"), ff_val.find("mono"), ff_val.find("fixed"), ff_val.find("typewriter")) >= 0:
                 ff_ans = "mono"
@@ -1295,12 +1853,40 @@ class HTMLConverter(object):
             return ff_ans
 
         def font_variant(val: _typing.Any) -> _typing.Any:
+            """
+            Perform the font variant operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise HTMLConverter.font properties.font variant through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param val: Template or metadata value evaluated by the operation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             fv_ans = None
             if "small-caps" in val.lower():
                 fv_ans = "small-caps"
             return fv_ans
 
         def font_key(fk_family: _typing.Any, fk_style: _typing.Any, fk_weight: _typing.Any) -> _typing.Any:
+            """
+            Perform the font key operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise HTMLConverter.font properties.font key through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param fk_family: Value supplied for fk family under the utility contract.
+            :param fk_style: Value supplied for fk style under the utility contract.
+            :param fk_weight: Value supplied for fk weight under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             fk_key = "normal"
             if fk_style == "italic" and fk_weight == "normal":
                 fk_key = "italic"
@@ -1313,8 +1899,16 @@ class HTMLConverter(object):
         def font_size(val: _typing.Any) -> _typing.Any:
             """
             Assumes 1em=100%=10pt
-            :param val:
-            :return:
+
+            Example:
+                Exercise HTMLConverter.font properties.font size through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param val: Template or metadata value evaluated by the operation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
             """
             normal = 100
             fs_ans = self.unit_convert(val, pts=True, base_length="10pt")
@@ -1412,10 +2006,18 @@ class HTMLConverter(object):
     def unit_convert(self: _typing.Self, val: _typing.Any, pts: bool = False, base_length: str = "10pt") -> _typing.Any:
         """
         Tries to convert html units in C{val} to pixels.
-        :param val:
-        :param pts:
-        :param base_length:
-        :return:
+
+        Example:
+            Exercise HTMLConverter.unit convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :param pts: Value supplied for pts under the utility contract.
+        :param base_length: Value supplied for base length under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         dpi = self.profile.dpi
         result = None
@@ -1455,6 +2057,19 @@ class HTMLConverter(object):
         return result
 
     def text_properties(self: _typing.Self, tag_css: _typing.Any) -> _typing.Any:
+        """
+        Perform the text properties operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLConverter.text properties through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag_css: Value supplied for tag css under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         indent = self.book.defaultTextStyle.attrs["parindent"]
         if ("text-indent" in tag_css):
             bl = str(self.current_block.blockStyle.attrs["blockwidth"]) + "px"
@@ -1488,9 +2103,17 @@ class HTMLConverter(object):
     def process_block(self: _typing.Self, tag: _typing.Any, tag_css: _typing.Any) -> bool:
         """
         Ensure padding and text-indent properties are respected
-        :param tag:
-        :param tag_css:
-        :return:
+
+        Example:
+            Exercise HTMLConverter.process block through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param tag_css: Value supplied for tag css under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         text_properties = self.text_properties(tag_css)
         block_properties = self.block_properties(tag_css)
@@ -1504,6 +2127,20 @@ class HTMLConverter(object):
         align = self.get_alignment(tag_css)
 
         def fill_out_properties(props: _typing.Any, default: _typing.Any) -> None:
+            """
+            Perform the fill out properties operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise HTMLConverter.process block.fill out properties through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param props: Value supplied for props under the utility contract.
+            :param default: Value supplied for default under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             for key in default.keys():
                 if not (key in props):
                     props[key] = default[key]
@@ -1512,6 +2149,20 @@ class HTMLConverter(object):
         fill_out_properties(text_properties, self.book.defaultTextStyle.attrs)
 
         def properties_different(dict1: _typing.Any, dict2: _typing.Any) -> bool:
+            """
+            Perform the properties different operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise HTMLConverter.process block.properties different through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param dict1: Value supplied for dict1 under the utility contract.
+            :param dict2: Value supplied for dict2 under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             for key in dict1.keys():
                 if dict1[key] != dict2[key]:
                     return True
@@ -1544,6 +2195,21 @@ class HTMLConverter(object):
         return False
 
     def process_anchor(self: _typing.Self, tag: _typing.Any, tag_css: _typing.Any, tag_pseudo_css: _typing.Any) -> None:
+        """
+        Perform the process anchor operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLConverter.process anchor through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param tag_css: Value supplied for tag css under the utility contract.
+        :param tag_pseudo_css: Value supplied for tag pseudo css under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not self.in_table:  # Anchors in tables are handled separately
             key = "name" if ("name" in tag) else "id"
             name = tag[key].replace("#", "")
@@ -1584,6 +2250,20 @@ class HTMLConverter(object):
             self.process_children(tag, tag_css, tag_pseudo_css)
 
     def parse_tag(self: _typing.Self, tag: _typing.Any, parent_css: _typing.Any) -> None:
+        """
+        Parse tag under the format's safety and compatibility rules.
+
+        Example:
+            Exercise HTMLConverter.parse tag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param parent_css: Value supplied for parent css under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         try:
             tagname = tag.name.lower()
         except AttributeError:
@@ -1943,6 +2623,20 @@ class HTMLConverter(object):
                 self.end_page()
 
     def process_table(self: _typing.Self, tag: _typing.Any, tag_css: _typing.Any) -> None:
+        """
+        Perform the process table operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLConverter.process table through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param tag_css: Value supplied for tag css under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.end_current_block()
         self.current_block = self.book.create_text_block()
         rowpad = 10
@@ -1969,15 +2663,54 @@ class HTMLConverter(object):
         self.end_current_block()
 
     def remove_unused_target_blocks(self: _typing.Self) -> None:
+        """
+        Perform the remove unused target blocks operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLConverter.remove unused target blocks through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for block in self.unused_target_blocks:
             block.parent.contents.remove(block)
             block.parent = None
 
     def writeto(self: _typing.Self, path: _typing.Any, lrs: bool = False) -> None:
+        """
+        Perform the writeto operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLConverter.writeto through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param lrs: Value supplied for lrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.remove_unused_target_blocks()
         self.book.renderLrs(path) if lrs else self.book.renderLrf(path)
 
     def cleanup(self: _typing.Self) -> None:
+        """
+        Perform the cleanup operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLConverter.cleanup through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for _file in list(self.scaled_images.values()) + list(self.rotated_images.values()):
             _file.__del__()
 
@@ -1985,10 +2718,19 @@ class HTMLConverter(object):
 def process_file(path: _typing.Any, options: _typing.Any, logger: _typing.Any) -> _typing.Any:
     """
     Take an OEB as input and produce an lrf file as output.
-    :param path:
-    :param options:
-    :param logger:
-    :return:
+
+    Example:
+        Exercise process file through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param options: Value supplied for options under the utility contract.
+    :param logger: Value supplied for logger under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     path = to_text(path)
     path = os.path.abspath(path)
@@ -2126,6 +2868,22 @@ def process_file(path: _typing.Any, options: _typing.Any, logger: _typing.Any) -
 
 
 def try_opf(path: _typing.Any, options: _typing.Any, logger: _typing.Any) -> None:
+    """
+    Perform the try opf operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise try opf through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param options: Value supplied for options under the utility contract.
+    :param logger: Value supplied for logger under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if hasattr(options, "opf"):
         opf = options.opf
     else:

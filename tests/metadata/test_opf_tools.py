@@ -1,3 +1,14 @@
+"""
+Verify OPF metadata parsing, rendering and identifier helpers against representative packages.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test opf tools through its owning regression module::
+
+        python -m pytest -q tests/metadata/test_opf_tools.py
+"""
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -42,6 +53,18 @@ OPF2_MINIMAL = b"""<?xml version='1.0' encoding='utf-8'?>
 
 
 def _values(raw):
+    """
+    Perform the values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise values through its owning regression module::
+
+            python -m pytest -q tests/metadata/test_opf_tools.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, Mapping):
@@ -55,6 +78,19 @@ def _values(raw):
 
 
 def _first_mapping_value(raw, default=None):
+    """
+    Perform the first mapping value test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise first mapping value through its owning regression module::
+
+            python -m pytest -q tests/metadata/test_opf_tools.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :param default: Value supplied for default in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if isinstance(raw, Mapping):
         try:
             return next(iter(raw.values()))
@@ -64,6 +100,18 @@ def _first_mapping_value(raw, default=None):
 
 
 def _contains_forbidden_xml_char(text: str) -> bool:
+    """
+    Perform the contains forbidden xml char test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise contains forbidden xml char through its owning regression module::
+
+            python -m pytest -q tests/metadata/test_opf_tools.py
+
+
+    :param text: Value supplied for text in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     for ch in text:
         cp = ord(ch)
         if cp == 0x7F:
@@ -81,6 +129,17 @@ def _contains_forbidden_xml_char(text: str) -> bool:
 
 
 def _sample_liuxin_metadata() -> CalibreLikeLiuXinBookMetaData:
+    """
+    Perform the sample liuxin metadata test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise sample liuxin metadata through its owning regression module::
+
+            python -m pytest -q tests/metadata/test_opf_tools.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     metadata = CalibreLikeLiuXinBookMetaData("OPF Tools Title", ["Ada Lovelace"])
     metadata.title_sort = "Tools, OPF"
     metadata.tags = ["tag-one", "tag-two"]
@@ -94,6 +153,17 @@ def _sample_liuxin_metadata() -> CalibreLikeLiuXinBookMetaData:
 
 
 def test_liuxin_metadata_serializes_to_opf_bytes_and_reads_back() -> None:
+    """
+    Verify liuxin metadata serializes to opf bytes and reads back.
+
+    Example:
+        Exercise test liuxin metadata serializes to opf bytes and reads back through its owning regression module::
+
+            python -m pytest -q tests/metadata/test_opf_tools.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     raw = metadata_to_opf_bytes(_sample_liuxin_metadata())
 
     assert b"<package" in raw
@@ -113,6 +183,17 @@ def test_liuxin_metadata_serializes_to_opf_bytes_and_reads_back() -> None:
 
 
 def test_metadata_to_opf_bytes_sanitizes_hostile_xml_without_mutating_input() -> None:
+    """
+    Verify metadata to opf bytes sanitizes hostile xml without mutating input.
+
+    Example:
+        Exercise test metadata to opf bytes sanitizes hostile xml without mutating input through its owning regression module::
+
+            python -m pytest -q tests/metadata/test_opf_tools.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = CalibreLikeLiuXinBookMetaData("Bad\x00Title\ud800 😀", ["Author\x01 One"])
     metadata.tags = ["Tag\x02One", "Emoji 😀"]
     metadata.comments = "Comment\x03 with <xml> & emoji 😀"
@@ -138,6 +219,18 @@ def test_metadata_to_opf_bytes_sanitizes_hostile_xml_without_mutating_input() ->
 
 
 def test_opf_file_helpers_round_trip_calibre_and_liuxin_metadata(tmp_path) -> None:
+    """
+    Verify opf file helpers round trip calibre and liuxin metadata.
+
+    Example:
+        Exercise test opf file helpers round trip calibre and liuxin metadata through its owning regression module::
+
+            python -m pytest -q tests/metadata/test_opf_tools.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     target = tmp_path / "metadata.opf"
     written = metadata_to_opf_file(_sample_liuxin_metadata(), target)
 
@@ -154,6 +247,17 @@ def test_opf_file_helpers_round_trip_calibre_and_liuxin_metadata(tmp_path) -> No
 
 
 def test_update_opf_bytes_preserves_existing_package_structure() -> None:
+    """
+    Verify update opf bytes preserves existing package structure.
+
+    Example:
+        Exercise test update opf bytes preserves existing package structure through its owning regression module::
+
+            python -m pytest -q tests/metadata/test_opf_tools.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = CalibreLikeLiuXinBookMetaData("Updated OPF Title", ["Updated Author"])
     metadata.tags = "updated-tag"
     metadata.comments = "Updated comments"
@@ -169,6 +273,18 @@ def test_update_opf_bytes_preserves_existing_package_structure() -> None:
 
 
 def test_update_opf_file_sanitizes_hostile_xml_and_preserves_source_file(tmp_path) -> None:
+    """
+    Verify update opf file sanitizes hostile xml and preserves source file.
+
+    Example:
+        Exercise test update opf file sanitizes hostile xml and preserves source file through its owning regression module::
+
+            python -m pytest -q tests/metadata/test_opf_tools.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     source = tmp_path / "source.opf"
     output = tmp_path / "updated.opf"
     source.write_bytes(OPF2_MINIMAL)
@@ -196,6 +312,17 @@ def test_update_opf_file_sanitizes_hostile_xml_and_preserves_source_file(tmp_pat
 
 
 def test_wemi_metadata_opf_helpers_keep_explicit_item_id() -> None:
+    """
+    Verify wemi metadata opf helpers keep explicit item id.
+
+    Example:
+        Exercise test wemi metadata opf helpers keep explicit item id through its owning regression module::
+
+            python -m pytest -q tests/metadata/test_opf_tools.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = LiuXinWEMIMetadata("WEMI OPF Title", ["WEMI Author"])
     metadata.tags = "wemi-tag"
 

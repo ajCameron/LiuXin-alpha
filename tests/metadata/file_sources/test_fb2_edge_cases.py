@@ -1,3 +1,14 @@
+"""
+Exercise FB2 XML, encoding, namespace and malformed-input edge cases.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test fb2 edge cases through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_fb2_edge_cases.py
+"""
 from __future__ import annotations
 
 import base64
@@ -15,6 +26,18 @@ from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
 
 def _values(raw):
+    """
+    Perform the values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise values through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_edge_cases.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, dict):
@@ -28,35 +51,141 @@ def _values(raw):
 
 
 def _first(raw):
+    """
+    Perform the first test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise first through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_edge_cases.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     vals = _values(raw)
     return vals[0] if vals else None
 
 
 class _NamedBytes(io.BytesIO):
+    """
+    Provide the NamedBytes test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise NamedBytes through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_edge_cases.py
+    """
     def __init__(self, payload: bytes, name: str = "stream.fb2") -> None:
+        """
+        Initialize the NamedBytes test double.
+
+        Example:
+            Exercise NamedBytes.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_fb2_edge_cases.py
+
+
+        :param payload: Value supplied for payload in the focused test operation.
+        :param name: Value supplied for name in the focused test operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         super().__init__(payload)
         self.name = name
 
 
 class _TellBrokenStream(_NamedBytes):
+    """
+    Provide the TellBrokenStream test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise TellBrokenStream through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_edge_cases.py
+    """
     def tell(self) -> int:
+        """
+        Perform the tell test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise TellBrokenStream.tell through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_fb2_edge_cases.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise RuntimeError("no tell")
 
 
 class _SeekBrokenStream(_NamedBytes):
+    """
+    Provide the SeekBrokenStream test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise SeekBrokenStream through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_edge_cases.py
+    """
     def seek(self, *_args, **_kwargs):
+        """
+        Perform the seek test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise SeekBrokenStream.seek through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_fb2_edge_cases.py
+
+
+        :param _args: Value supplied for args in the focused test operation.
+        :param _kwargs: Value supplied for kwargs in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise RuntimeError("no seek")
 
 
 class _NullLike:
+    """
+    Provide the NullLike test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise NullLike through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_edge_cases.py
+    """
     title = ""
     comments = ""
 
     def is_null(self, _field: str) -> bool:
+        """
+        Perform the is null test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise NullLike.is null through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_fb2_edge_cases.py
+
+
+        :param _field: Value supplied for field in the focused test operation.
+        :return: True when the tested condition is satisfied; otherwise False.
+        """
         raise RuntimeError("boom")
 
 
 def _fb2_payload(*, include_cover: bool = True) -> bytes:
+    """
+    Perform the fb2 payload test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise fb2 payload through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_edge_cases.py
+
+
+    :param include_cover: Value supplied for include cover in the focused test
+        operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     cover_payload = b"\x89PNG\r\n\x1a\nnot-a-real-image-but-good-enough"
     cover_b64 = base64.b64encode(cover_payload).decode("ascii")
     coverpage = (
@@ -102,6 +231,17 @@ def _fb2_payload(*, include_cover: bool = True) -> bytes:
 
 
 def test_fb2_inline_unicode_torture_reads_all_core_fields() -> None:
+    """
+    Verify fb2 inline unicode torture reads all core fields.
+
+    Example:
+        Exercise test fb2 inline unicode torture reads all core fields through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.fb2 import get_metadata
 
     stream = _NamedBytes(_fb2_payload(), "unicode_torture.fb2")
@@ -124,6 +264,17 @@ def test_fb2_inline_unicode_torture_reads_all_core_fields() -> None:
 
 
 def test_fb2_document_info_author_and_shell_title_fallback() -> None:
+    """
+    Verify fb2 document info author and shell title fallback.
+
+    Example:
+        Exercise test fb2 document info author and shell title fallback through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.fb2 import get_metadata
 
     payload = b"""<?xml version="1.0" encoding="UTF-8"?>
@@ -143,14 +294,55 @@ def test_fb2_document_info_author_and_shell_title_fallback() -> None:
 
 
 def test_fb2_bad_parser_step_logs_and_keeps_other_metadata(monkeypatch) -> None:
+    """
+    Verify fb2 bad parser step logs and keeps other metadata.
+
+    Example:
+        Exercise test fb2 bad parser step logs and keeps other metadata through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.fb2 as fb2
 
     events: list[str] = []
 
     def _raise(_root, _mi):
+        """
+        Perform the raise test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test fb2 bad parser step logs and keeps other metadata.raise through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_fb2_edge_cases.py
+
+
+        :param _root: Value supplied for root in the focused test operation.
+        :param _mi: Value supplied for mi in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise RuntimeError("parser boom")
 
     def _record(message, _err, _level, *args):
+        """
+        Perform the record test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test fb2 bad parser step logs and keeps other metadata.record through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_fb2_edge_cases.py
+
+
+        :param message: Value supplied for message in the focused test operation.
+        :param _err: Value supplied for err in the focused test operation.
+        :param _level: Value supplied for level in the focused test operation.
+        :param args: Positional values forwarded by the test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del args
         events.append(str(message))
 
@@ -165,6 +357,20 @@ def test_fb2_bad_parser_step_logs_and_keeps_other_metadata(monkeypatch) -> None:
 
 
 def test_fb2_helper_edges_for_payloads_covers_and_text(tmp_path: Path, monkeypatch) -> None:
+    """
+    Verify fb2 helper edges for payloads covers and text.
+
+    Example:
+        Exercise test fb2 helper edges for payloads covers and text through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_edge_cases.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.fb2 as fb2
 
     assert fb2._source_name(tmp_path / "book.fb2").endswith("book.fb2")
@@ -218,6 +424,17 @@ def test_fb2_helper_edges_for_payloads_covers_and_text(tmp_path: Path, monkeypat
 
 
 def test_fb2_zip_payload_selection_is_strict() -> None:
+    """
+    Verify fb2 zip payload selection remains strict.
+
+    Example:
+        Exercise test fb2 zip payload selection is strict through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.fb2 as fb2
 
     assert fb2._extract_fb2_payload(b"") == (b"", None)
@@ -249,6 +466,17 @@ def test_fb2_zip_payload_selection_is_strict() -> None:
 
 
 def test_fb2_apply_null_write_clears_existing_fields() -> None:
+    """
+    Verify fb2 apply null write clears existing fields.
+
+    Example:
+        Exercise test fb2 apply null write clears existing fields through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.fb2 import get_metadata, set_metadata
 
     stream = _NamedBytes(_fb2_payload(include_cover=False), "clear.fb2")
@@ -267,6 +495,19 @@ def test_fb2_apply_null_write_clears_existing_fields() -> None:
 
 
 def test_fb2_set_metadata_cover_and_single_name_author_paths(monkeypatch) -> None:
+    """
+    Verify fb2 set metadata cover and single name author paths.
+
+    Example:
+        Exercise test fb2 set metadata cover and single name author paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.fb2 as fb2
     from LiuXin_alpha.metadata.file_sources.fb2 import get_metadata, set_metadata
 
@@ -291,6 +532,17 @@ def test_fb2_set_metadata_cover_and_single_name_author_paths(monkeypatch) -> Non
 
 
 def test_fb2_stream_type_and_seek_failures_are_soft() -> None:
+    """
+    Verify fb2 stream type and seek failures remain soft.
+
+    Example:
+        Exercise test fb2 stream type and seek failures are soft through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.fb2 import get_metadata, set_metadata
 
     try:

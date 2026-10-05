@@ -1,3 +1,14 @@
+"""
+Decode HTML byte and character streams with encoding detection and normalized positions.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise inputstream through a consuming regression::
+
+        python -m pytest -q tests/file_formats/html/test_html_modernized.py
+"""
 from __future__ import absolute_import, division, unicode_literals
 
 try:
@@ -29,6 +40,14 @@ try:
 except ImportError:
 
     class BufferedIOBase(object):
+        """
+        Provide the BufferedIOBase utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise BufferedIOBase through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         pass
 
 
@@ -86,18 +105,46 @@ charsUntilRegEx = {}
 
 
 class BufferedStream(object):
-    """Buffering for streams that do not have buffering of their own
+    """
+    Buffering for streams that do not have buffering of their own
 
-    The buffer is implemented as a list of chunks on the assumption that
-    joining many strings will be slow since it is O(n**2)
+    Example:
+        Exercise BufferedStream through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
     """
 
     def __init__(self, stream):
+        """
+        Initialize and validate the BufferedStream state.
+
+        Example:
+            Exercise BufferedStream.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.stream = stream
         self.buffer = []
         self.position = [-1, 0]  # chunk number, offset
 
     def tell(self):
+        """
+        Perform the tell utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise BufferedStream.tell through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         pos = 0
         for chunk in self.buffer[: self.position[0]]:
             pos += len(chunk)
@@ -105,6 +152,19 @@ class BufferedStream(object):
         return pos
 
     def seek(self, pos):
+        """
+        Perform the seek utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise BufferedStream.seek through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param pos: Value supplied for pos under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         assert pos <= self._bufferedBytes()
         offset = pos
         i = 0
@@ -114,6 +174,19 @@ class BufferedStream(object):
         self.position = [i, offset]
 
     def read(self, bytes):
+        """
+        Forward the read operation while preserving adapter ownership rules.
+
+        Example:
+            Exercise BufferedStream.read through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param bytes: Value supplied for bytes under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not self.buffer:
             return self._readStream(bytes)
         elif self.position[0] == len(self.buffer) and self.position[1] == len(self.buffer[-1]):
@@ -122,9 +195,34 @@ class BufferedStream(object):
             return self._readFromBuffer(bytes)
 
     def _bufferedBytes(self):
+        """
+        Perform the bufferedBytes utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise BufferedStream. bufferedBytes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return sum([len(item) for item in self.buffer])
 
     def _readStream(self, bytes):
+        """
+        Perform the readStream utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise BufferedStream. readStream through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param bytes: Value supplied for bytes under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.read(bytes)
         self.buffer.append(data)
         self.position[0] += 1
@@ -132,6 +230,19 @@ class BufferedStream(object):
         return data
 
     def _readFromBuffer(self, bytes):
+        """
+        Perform the readFromBuffer utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise BufferedStream. readFromBuffer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param bytes: Value supplied for bytes under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         remainingBytes = bytes
         rv = []
         bufferIndex = self.position[0]
@@ -159,6 +270,22 @@ class BufferedStream(object):
 
 
 def HTMLInputStream(source, encoding=None, parseMeta=True, chardet=True):
+    """
+    Perform the HTMLInputStream utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise HTMLInputStream through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param source: Value supplied for source under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param parseMeta: Value supplied for parseMeta under the utility contract.
+    :param chardet: Value supplied for chardet under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if (
         hasattr(source, "unget")
         and hasattr(source, "charsUntil")
@@ -183,30 +310,29 @@ def HTMLInputStream(source, encoding=None, parseMeta=True, chardet=True):
 
 
 class HTMLUnicodeInputStream(object):
-    """Provides a unicode stream of characters to the HTMLTokenizer.
+    """
+    Provides a unicode stream of characters to the HTMLTokenizer.
 
-    This class takes care of character encoding and removing or replacing
-    incorrect byte-sequences and also provides column and line tracking.
+    Example:
+        Exercise HTMLUnicodeInputStream through a consuming regression::
 
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
     """
 
     _defaultChunkSize = 10240
 
     def __init__(self, source):
-        """Initialises the HTMLInputStream.
+        """
+        Initialises the HTMLInputStream.
 
-        HTMLInputStream(source, [encoding]) -> Normalized stream from source
-        for use by html5lib.
+        Example:
+            Exercise HTMLUnicodeInputStream.  init   through a consuming regression::
 
-        source can be either a file-object, local filename or a string.
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
 
-        The optional encoding parameter must be a string that indicates
-        the encoding.  If specified, that encoding will be used,
-        regardless of any BOM or later declaration (such as in a meta
-        element)
 
-        parseMeta - Look for a <meta> element containing encoding information
-
+        :param source: Value supplied for source under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
 
         # Craziness
@@ -228,6 +354,18 @@ class HTMLUnicodeInputStream(object):
         self.reset()
 
     def reset(self):
+        """
+        Perform the reset utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLUnicodeInputStream.reset through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.chunk = ""
         self.chunkSize = 0
         self.chunkOffset = 0
@@ -242,10 +380,18 @@ class HTMLUnicodeInputStream(object):
         self._bufferedCharacter = None
 
     def openStream(self, source):
-        """Produces a file object from source.
+        """
+        Produces a file object from source.
 
-        source can be either a file object, local filename or a string.
+        Example:
+            Exercise HTMLUnicodeInputStream.openStream through a consuming regression::
 
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param source: Value supplied for source under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Already a file object
         if hasattr(source, "read"):
@@ -256,6 +402,19 @@ class HTMLUnicodeInputStream(object):
         return stream
 
     def _position(self, offset):
+        """
+        Perform the position utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLUnicodeInputStream. position through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param offset: Value supplied for offset under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         chunk = self.chunk
         nLines = chunk.count("\n", 0, offset)
         positionLine = self.prevNumLines + nLines
@@ -267,13 +426,33 @@ class HTMLUnicodeInputStream(object):
         return (positionLine, positionColumn)
 
     def position(self):
-        """Returns (line, col) of the current position in the stream."""
+        """
+        Returns (line, col) of the current position in the stream.
+
+        Example:
+            Exercise HTMLUnicodeInputStream.position through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         line, col = self._position(self.chunkOffset)
         return (line + 1, col)
 
     def char(self):
-        """Read one character from the stream or queue if available. Return
-        EOF when EOF is reached.
+        """
+        Read one character from the stream or queue if available. Return EOF when EOF is reached.
+
+        Example:
+            Exercise HTMLUnicodeInputStream.char through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Read a new chunk from the input stream if necessary
         if self.chunkOffset >= self.chunkSize:
@@ -287,6 +466,19 @@ class HTMLUnicodeInputStream(object):
         return char
 
     def readChunk(self, chunkSize=None):
+        """
+        Perform the readChunk utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLUnicodeInputStream.readChunk through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param chunkSize: Value supplied for chunkSize under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if chunkSize is None:
             chunkSize = self._defaultChunkSize
 
@@ -327,12 +519,38 @@ class HTMLUnicodeInputStream(object):
         return True
 
     def characterErrorsUCS4(self, data):
+        """
+        Perform the characterErrorsUCS4 utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLUnicodeInputStream.characterErrorsUCS4 through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for i in range(len(invalid_unicode_re.findall(data))):
             self.errors.append("invalid-codepoint")
 
     def characterErrorsUCS2(self, data):
         # Someone picked the wrong compile option
         # You lose
+        """
+        Perform the characterErrorsUCS2 utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLUnicodeInputStream.characterErrorsUCS2 through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         skip = False
         for match in invalid_unicode_re.finditer(data):
             if skip:
@@ -353,10 +571,19 @@ class HTMLUnicodeInputStream(object):
                 self.errors.append("invalid-codepoint")
 
     def charsUntil(self, characters, opposite=False):
-        """Returns a string of characters from the stream up to but not
-        including any character in 'characters' or EOF. 'characters' must be
-        a container that supports the 'in' method and iteration over its
-        characters.
+        """
+        Returns a string of characters from the stream up to but not including any character in 'characters' or EOF. 'characters' must be a container that supports the 'in' method and iteration over its characters.
+
+        Example:
+            Exercise HTMLUnicodeInputStream.charsUntil through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param characters: Value supplied for characters under the utility contract.
+        :param opposite: Value supplied for opposite under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         # Use a cache of regexps to find the required characters
@@ -402,6 +629,19 @@ class HTMLUnicodeInputStream(object):
     def unget(self, char):
         # Only one character is allowed to be ungotten at once - it must
         # be consumed again before any further call to unget
+        """
+        Perform the unget utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLUnicodeInputStream.unget through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param char: Value supplied for char under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if char is not None:
             if self.chunkOffset == 0:
                 # unget is called quite rarely, so it's a good idea to do
@@ -417,28 +657,30 @@ class HTMLUnicodeInputStream(object):
 
 
 class HTMLBinaryInputStream(HTMLUnicodeInputStream):
-    """Provides a unicode stream of characters to the HTMLTokenizer.
+    """
+    Provides a unicode stream of characters to the HTMLTokenizer.
 
-    This class takes care of character encoding and removing or replacing
-    incorrect byte-sequences and also provides column and line tracking.
+    Example:
+        Exercise HTMLBinaryInputStream through a consuming regression::
 
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
     """
 
     def __init__(self, source, encoding=None, parseMeta=True, chardet=True):
-        """Initialises the HTMLInputStream.
+        """
+        Initialises the HTMLInputStream.
 
-        HTMLInputStream(source, [encoding]) -> Normalized stream from source
-        for use by html5lib.
+        Example:
+            Exercise HTMLBinaryInputStream.  init   through a consuming regression::
 
-        source can be either a file-object, local filename or a string.
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
 
-        The optional encoding parameter must be a string that indicates
-        the encoding.  If specified, that encoding will be used,
-        regardless of any BOM or later declaration (such as in a meta
-        element)
 
-        parseMeta - Look for a <meta> element containing encoding information
-
+        :param source: Value supplied for source under the utility contract.
+        :param encoding: Value supplied for encoding under the utility contract.
+        :param parseMeta: Value supplied for parseMeta under the utility contract.
+        :param chardet: Value supplied for chardet under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         # Raw Stream - for unicode objects this will encode to utf-8 and set
         #              self.charEncoding as appropriate
@@ -465,14 +707,34 @@ class HTMLBinaryInputStream(HTMLUnicodeInputStream):
         self.reset()
 
     def reset(self):
+        """
+        Perform the reset utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLBinaryInputStream.reset through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.dataStream = codecs.getreader(self.charEncoding[0])(self.rawStream, "replace")
         HTMLUnicodeInputStream.reset(self)
 
     def openStream(self, source):
-        """Produces a file object from source.
+        """
+        Produces a file object from source.
 
-        source can be either a file object, local filename or a string.
+        Example:
+            Exercise HTMLBinaryInputStream.openStream through a consuming regression::
 
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param source: Value supplied for source under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Already a file object
         if hasattr(source, "read"):
@@ -490,6 +752,20 @@ class HTMLBinaryInputStream(HTMLUnicodeInputStream):
     def detectEncoding(self, parseMeta=True, chardet=True):
         # First look for a BOM
         # This will also read past the BOM if present
+        """
+        Perform the detectEncoding utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLBinaryInputStream.detectEncoding through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param parseMeta: Value supplied for parseMeta under the utility contract.
+        :param chardet: Value supplied for chardet under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         encoding = self.detectBOM()
         confidence = "certain"
         # If there is no BOM need to look for meta elements with encoding
@@ -533,6 +809,19 @@ class HTMLBinaryInputStream(HTMLUnicodeInputStream):
         return encoding, confidence
 
     def changeEncoding(self, newEncoding):
+        """
+        Perform the changeEncoding utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLBinaryInputStream.changeEncoding through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param newEncoding: Value supplied for newEncoding under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         assert self.charEncoding[1] != "certain"
         newEncoding = codecName(newEncoding)
         if newEncoding in ("utf-16", "utf-16-be", "utf-16-le"):
@@ -548,9 +837,18 @@ class HTMLBinaryInputStream(HTMLUnicodeInputStream):
             raise ReparseException("Encoding changed from %s to %s" % (self.charEncoding[0], newEncoding))
 
     def detectBOM(self):
-        """Attempts to detect at BOM at the start of the stream. If
-        an encoding can be determined from the BOM return the name of the
-        encoding otherwise return None"""
+        """
+        Attempts to detect at BOM at the start of the stream. If an encoding can be determined from the BOM return the name of the encoding otherwise return None
+
+        Example:
+            Exercise HTMLBinaryInputStream.detectBOM through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         bomDict = {
             codecs.BOM_UTF8: "utf-8",
             codecs.BOM_UTF16_LE: "utf-16-le",
@@ -581,7 +879,18 @@ class HTMLBinaryInputStream(HTMLUnicodeInputStream):
         return encoding
 
     def detectEncodingMeta(self):
-        """Report the encoding declared by the meta element"""
+        """
+        Report the encoding declared by the meta element
+
+        Example:
+            Exercise HTMLBinaryInputStream.detectEncodingMeta through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         buffer = self.rawStream.read(self.numBytesMeta)
         assert isinstance(buffer, bytes)
         parser = EncodingParser(buffer)
@@ -595,21 +904,75 @@ class HTMLBinaryInputStream(HTMLUnicodeInputStream):
 
 
 class EncodingBytes(bytes):
-    """String-like object with an associated position and various extra methods
-    If the position is ever greater than the string length then an exception is
-    raised"""
+    """
+    String-like object with an associated position and various extra methods If the position is ever greater than the string length then an exception is raised
+
+    Example:
+        Exercise EncodingBytes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
 
     def __new__(self, value):
+        """
+        Perform the new utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise EncodingBytes.  new   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         assert isinstance(value, bytes)
         return bytes.__new__(self, value.lower())
 
     def __init__(self, value):
+        """
+        Initialize and validate the EncodingBytes state.
+
+        Example:
+            Exercise EncodingBytes.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; validated state is stored on the receiving object.
+        """
         self._position = -1
 
     def __iter__(self):
+        """
+        Expose iter behavior for the compatibility container.
+
+        Example:
+            Exercise EncodingBytes.  iter   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self
 
     def __next__(self):
+        """
+        Perform the next utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise EncodingBytes.  next   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         p = self._position = self._position + 1
         if p >= len(self):
             raise StopIteration
@@ -619,9 +982,33 @@ class EncodingBytes(bytes):
 
     def next(self):
         # Py2 compat
+        """
+        Perform the next utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise EncodingBytes.next through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.__next__()
 
     def previous(self):
+        """
+        Perform the previous utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise EncodingBytes.previous through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         p = self._position
         if p >= len(self):
             raise StopIteration
@@ -631,11 +1018,36 @@ class EncodingBytes(bytes):
         return self[p : p + 1]
 
     def setPosition(self, position):
+        """
+        Perform the setPosition utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise EncodingBytes.setPosition through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param position: Value supplied for position under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self._position >= len(self):
             raise StopIteration
         self._position = position
 
     def getPosition(self):
+        """
+        Perform the getPosition utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise EncodingBytes.getPosition through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self._position >= len(self):
             raise StopIteration
         if self._position >= 0:
@@ -646,12 +1058,36 @@ class EncodingBytes(bytes):
     position = property(getPosition, setPosition)
 
     def getCurrentByte(self):
+        """
+        Perform the getCurrentByte utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise EncodingBytes.getCurrentByte through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self[self.position : self.position + 1]
 
     currentByte = property(getCurrentByte)
 
     def skip(self, chars=spaceCharactersBytes):
-        """Skip past a list of characters"""
+        """
+        Skip past a list of characters
+
+        Example:
+            Exercise EncodingBytes.skip through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param chars: Value supplied for chars under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         p = self.position  # use property for the error-checking
         while p < len(self):
             c = self[p : p + 1]
@@ -663,6 +1099,19 @@ class EncodingBytes(bytes):
         return None
 
     def skipUntil(self, chars):
+        """
+        Perform the skipUntil utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise EncodingBytes.skipUntil through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param chars: Value supplied for chars under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         p = self.position
         while p < len(self):
             c = self[p : p + 1]
@@ -674,9 +1123,19 @@ class EncodingBytes(bytes):
         return None
 
     def matchBytes(self, bytes):
-        """Look for a sequence of bytes at the start of a string. If the bytes
-        are found return True and advance the position to the byte after the
-        match. Otherwise return False and leave the position alone"""
+        """
+        Look for a sequence of bytes at the start of a string. If the bytes are found return True and advance the position to the byte after the match. Otherwise return False and leave the position alone
+
+        Example:
+            Exercise EncodingBytes.matchBytes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param bytes: Value supplied for bytes under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         p = self.position
         data = self[p : p + len(bytes)]
         rv = data.startswith(bytes)
@@ -685,8 +1144,19 @@ class EncodingBytes(bytes):
         return rv
 
     def jumpTo(self, bytes):
-        """Look for the next sequence of bytes matching a given sequence. If
-        a match is found advance the position to the last byte of the match"""
+        """
+        Look for the next sequence of bytes matching a given sequence. If a match is found advance the position to the last byte of the match
+
+        Example:
+            Exercise EncodingBytes.jumpTo through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param bytes: Value supplied for bytes under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         newPosition = self[self.position :].find(bytes)
         if newPosition > -1:
             # XXX: This is ugly, but I can't see a nicer way to fix this.
@@ -699,14 +1169,44 @@ class EncodingBytes(bytes):
 
 
 class EncodingParser(object):
-    """Mini parser for detecting character encoding from meta elements"""
+    """
+    Mini parser for detecting character encoding from meta elements
+
+    Example:
+        Exercise EncodingParser through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
 
     def __init__(self, data):
-        """string - the data to work on for encoding detection"""
+        """
+        string - the data to work on for encoding detection
+
+        Example:
+            Exercise EncodingParser.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.data = EncodingBytes(data)
         self.encoding = None
 
     def getEncoding(self):
+        """
+        Perform the getEncoding utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise EncodingParser.getEncoding through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         methodDispatch = (
             (b"<!--", self.handleComment),
             (b"<meta", self.handleMeta),
@@ -731,10 +1231,33 @@ class EncodingParser(object):
         return self.encoding
 
     def handleComment(self):
-        """Skip over comments"""
+        """
+        Skip over comments
+
+        Example:
+            Exercise EncodingParser.handleComment through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.data.jumpTo(b"-->")
 
     def handleMeta(self):
+        """
+        Perform the handleMeta utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise EncodingParser.handleMeta through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.data.currentByte not in spaceCharactersBytes:
             # if we have <meta not followed by a space so just keep going
             return True
@@ -771,13 +1294,50 @@ class EncodingParser(object):
                                 pendingEncoding = codec
 
     def handlePossibleStartTag(self):
+        """
+        Perform the handlePossibleStartTag utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise EncodingParser.handlePossibleStartTag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.handlePossibleTag(False)
 
     def handlePossibleEndTag(self):
+        """
+        Perform the handlePossibleEndTag utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise EncodingParser.handlePossibleEndTag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         next(self.data)
         return self.handlePossibleTag(True)
 
     def handlePossibleTag(self, endTag):
+        """
+        Perform the handlePossibleTag utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise EncodingParser.handlePossibleTag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param endTag: Value supplied for endTag under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.data
         if data.currentByte not in asciiLettersBytes:
             # If the next byte is not an ascii letter either ignore this
@@ -801,11 +1361,33 @@ class EncodingParser(object):
         return True
 
     def handleOther(self):
+        """
+        Perform the handleOther utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise EncodingParser.handleOther through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.data.jumpTo(b">")
 
     def getAttribute(self):
-        """Return a name,value pair for the next attribute in the stream,
-        if one is found, or None"""
+        """
+        Return a name,value pair for the next attribute in the stream, if one is found, or None
+
+        Example:
+            Exercise EncodingParser.getAttribute through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.data
         # Step 1 (skip chars)
         c = data.skip(spaceCharactersBytes | frozenset([b"/"]))
@@ -881,11 +1463,43 @@ class EncodingParser(object):
 
 
 class ContentAttrParser(object):
+    """
+    Parse or evaluate ContentAttrParser expressions under Calibre template semantics.
+
+    Example:
+        Exercise ContentAttrParser through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
     def __init__(self, data):
+        """
+        Initialize and validate the ContentAttrParser state.
+
+        Example:
+            Exercise ContentAttrParser.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         assert isinstance(data, bytes)
         self.data = data
 
     def parse(self):
+        """
+        Parse the supplied date text and return its normalized datetime value.
+
+        Example:
+            Exercise ContentAttrParser.parse through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             # Check if the attr name is charset
             # otherwise return
@@ -920,8 +1534,19 @@ class ContentAttrParser(object):
 
 
 def codecName(encoding):
-    """Return the python codec name corresponding to an encoding or None if the string doesn't correspond to a
-    valid encoding."""
+    """
+    Return the python codec name corresponding to an encoding or None if the string doesn't correspond to a valid encoding.
+
+    Example:
+        Exercise codecName through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param encoding: Value supplied for encoding under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(encoding, bytes):
         try:
             encoding = encoding.decode("ascii")

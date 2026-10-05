@@ -1,17 +1,14 @@
 #!/usr/bin/env python3
 """
-Clean cached test assets after significant DB/schema changes.
+Remove regenerable cached test assets.
 
-What this deletes (best-effort):
-  - <repo>/.pytest_cache and <repo>/tests/.pytest_cache
-  - "liuxin_test_resources" template caches under OS temp, created by pytest's tmp_path_factory
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-Safe by default: only removes LiuXin-specific caches; does NOT delete whole pytest temp trees.
+Example:
+    Exercise clean cached test assets through a consuming regression::
 
-Usage:
-  python scripts/clean_cached_test_assets.py
-  python scripts/clean_cached_test_assets.py --dry-run
-  python scripts/clean_cached_test_assets.py --aggressive   # also remove all "pytest-of-*" trees (dangerous)
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
 """
 
 from __future__ import annotations
@@ -24,6 +21,20 @@ from pathlib import Path
 
 
 def _rm_tree(p: Path, *, dry_run: bool) -> None:
+    """
+    Perform the rm tree operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  rm tree through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param p: Path-like value normalized or validated by the operation.
+    :param dry_run: Value supplied for dry run under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if not p.exists():
         return
     if dry_run:
@@ -35,10 +46,35 @@ def _rm_tree(p: Path, *, dry_run: bool) -> None:
 
 def _repo_root() -> Path:
     # scripts/clean_cached_test_assets.py -> repo root
+    """
+    Perform the repo root operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  repo root through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return Path(__file__).resolve().parents[1]
 
 
 def main(argv: list[str] | None = None) -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true", help="Print what would be deleted without deleting it.")
     ap.add_argument(

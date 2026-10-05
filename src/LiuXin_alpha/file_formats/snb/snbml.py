@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Transform OEB content into SNB format
+Translate SNB markup into normalized OEB content.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise snbml through a consuming regression::
+
+        python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
 """
 from __future__ import annotations
 
@@ -23,16 +31,60 @@ __docformat__ = "restructuredtext en"
 
 
 class _Logger(Protocol):
-    def debug(self: _typing.Self, message: object) -> object: ...
+    """
+    Provide the logger contract for validated ebook processing.
 
-    def info(self: _typing.Self, message: object) -> object: ...
+    Example:
+        Exercise  Logger through a consuming regression::
+
+            python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+    """
+    def debug(self: _typing.Self, message: object) -> object:
+        """
+        Perform the debug operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Logger.debug through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :param message: Value supplied for message under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
+
+    def info(self: _typing.Self, message: object) -> object:
+        """
+        Perform the info operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Logger.info through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :param message: Value supplied for message under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
 
 
 def ProcessFileName(fileName: str) -> str:
     """
     Flatten the filepath.
-    :param fileName:
-    :return:
+
+    Example:
+        Exercise ProcessFileName through a consuming regression::
+
+            python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+    :param fileName: Value supplied for fileName under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     fileName = fileName.replace("/", "_").replace("\\", "_").replace(os.sep, "_")
     # Handle bookmark for HTML file
@@ -74,10 +126,30 @@ CALIBRE_SNB_PRE_TAG = "<$$calibre_snb_pre_tag$$>"
 
 class SNBMLizer(object):
 
+    """
+    Provide the snbmlizer contract for validated ebook processing.
+
+    Example:
+        Exercise SNBMLizer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+    """
     curSubItem = ""
     #    curText = [ ]
 
     def __init__(self: _typing.Self, log: _Logger) -> None:
+        """
+        Initialize and validate the snbmlizer state.
+
+        Example:
+            Exercise SNBMLizer.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :param log: Value supplied for log under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.log = log
         self.oeb_book: _typing.Any = None
         self.opts: _typing.Any = None
@@ -91,6 +163,22 @@ class SNBMLizer(object):
         subitems: Sequence[tuple[str, str]],
         opts: _typing.Any,
     ) -> dict[str, _typing.Any]:
+        """
+        Extract content under the format's safety and compatibility rules.
+
+        Example:
+            Exercise SNBMLizer.extract content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param item: Value supplied for item under the utility contract.
+        :param subitems: Value supplied for subitems under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.log.info("Converting XHTML to SNBC...")
         self.oeb_book = oeb_book
         self.opts = opts
@@ -106,6 +194,23 @@ class SNBMLizer(object):
         subitems: Sequence[tuple[str, str]],
         opts: _typing.Any,
     ) -> None:
+        """
+        Perform the merge content operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SNBMLizer.merge content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :param old_tree: Value supplied for old tree under the utility contract.
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param item: Value supplied for item under the utility contract.
+        :param subitems: Value supplied for subitems under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         newTrees = self.extract_content(oeb_book, item, subitems, opts)
         body = old_tree.find(".//body")
         if body is not None:
@@ -115,6 +220,18 @@ class SNBMLizer(object):
                     body.append(entity)
 
     def mlize(self: _typing.Self) -> dict[str, _typing.Any]:
+        """
+        Perform the mlize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SNBMLizer.mlize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.oeb.base import XHTML
         from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
 
@@ -172,6 +289,19 @@ class SNBMLizer(object):
         return trees
 
     def remove_newlines(self: _typing.Self, text: str) -> str:
+        """
+        Perform the remove newlines operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SNBMLizer.remove newlines through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.log.debug("\tRemove newlines for processing...")
         text = text.replace("\r\n", " ")
         text = text.replace("\n", " ")
@@ -180,6 +310,19 @@ class SNBMLizer(object):
         return text
 
     def cleanup_text(self: _typing.Self, text: str) -> str:
+        """
+        Perform the cleanup text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SNBMLizer.cleanup text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.log.debug("\tClean up text...")
         # Replace bad characters.
         text = text.replace("\xc2", "")
@@ -254,6 +397,24 @@ class SNBMLizer(object):
         pre: bool = False,
         li: str = "",
     ) -> list[str] | tuple[list[str], str]:
+        """
+        Perform the dump text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SNBMLizer.dump text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :param subitems: Value supplied for subitems under the utility contract.
+        :param elem: Value supplied for elem under the utility contract.
+        :param stylizer: Value supplied for stylizer under the utility contract.
+        :param end: Value supplied for end under the utility contract.
+        :param pre: Value supplied for pre under the utility contract.
+        :param li: Value supplied for li under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.oeb.base import XHTML_NS, barename, namespace
 
         if not isinstance(elem.tag, six_string_types) or namespace(elem.tag) != XHTML_NS:

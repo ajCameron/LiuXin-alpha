@@ -1,9 +1,13 @@
 """
+Expose the supported json local clone compatibility surface.
 
-liuxin_json is a modified version of json which encodes all strings as base64.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-So it can handle
+Example:
+    Exercise   init   through a consuming regression::
 
+        python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
 """
 
 __version__ = '2.0.9'
@@ -32,46 +36,29 @@ _default_encoder = JSONEncoder(
 def dump(obj, fp, *, skipkeys=False, ensure_ascii=True, check_circular=True,
         allow_nan=True, cls=None, indent=None, separators=None,
         default=None, sort_keys=False, **kw):
-    """Serialize ``obj`` as a JSON formatted stream to ``fp`` (a
-    ``.write()``-supporting file-like object).
+    """
+    Serialize ``obj`` as a JSON formatted stream to ``fp`` (a ``.write()``-supporting file-like object).
 
-    If ``skipkeys`` is true then ``dict`` keys that are not basic types
-    (``str``, ``int``, ``float``, ``bool``, ``None``) will be skipped
-    instead of raising a ``TypeError``.
+    Example:
+        Exercise dump through a consuming regression::
 
-    If ``ensure_ascii`` is false, then the strings written to ``fp`` can
-    contain non-ASCII characters if they appear in strings contained in
-    ``obj``. Otherwise, all such characters are escaped in JSON strings.
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
 
-    If ``check_circular`` is false, then the circular reference check
-    for container types will be skipped and a circular reference will
-    result in an ``RecursionError`` (or worse).
 
-    If ``allow_nan`` is false, then it will be a ``ValueError`` to
-    serialize out of range ``float`` values (``nan``, ``inf``, ``-inf``)
-    in strict compliance of the JSON specification, instead of using the
-    JavaScript equivalents (``NaN``, ``Infinity``, ``-Infinity``).
-
-    If ``indent`` is a non-negative integer, then JSON array elements and
-    object members will be pretty-printed with that indent level. An indent
-    level of 0 will only insert newlines. ``None`` is the most compact
-    representation.
-
-    If specified, ``separators`` should be an ``(item_separator, key_separator)``
-    tuple.  The default is ``(', ', ': ')`` if *indent* is ``None`` and
-    ``(',', ': ')`` otherwise.  To get the most compact JSON representation,
-    you should specify ``(',', ':')`` to eliminate whitespace.
-
-    ``default(obj)`` is a function that should return a serializable version
-    of obj or raise TypeError. The default simply raises TypeError.
-
-    If *sort_keys* is true (default: ``False``), then the output of
-    dictionaries will be sorted by key.
-
-    To use a custom ``JSONEncoder`` subclass (e.g. one that overrides the
-    ``.default()`` method to serialize additional types), specify it with
-    the ``cls`` kwarg; otherwise ``JSONEncoder`` is used.
-
+    :param obj: Value supplied for obj under the utility contract.
+    :param fp: Value supplied for fp under the utility contract.
+    :param skipkeys: Value supplied for skipkeys under the utility contract.
+    :param ensure_ascii: Value supplied for ensure ascii under the utility contract.
+    :param check_circular: Value supplied for check circular under the utility contract.
+    :param allow_nan: Value supplied for allow nan under the utility contract.
+    :param cls: Value supplied for cls under the utility contract.
+    :param indent: Value supplied for indent under the utility contract.
+    :param separators: Value supplied for separators under the utility contract.
+    :param default: Value supplied for default under the utility contract.
+    :param sort_keys: Value supplied for sort keys under the utility contract.
+    :param kw: Value supplied for kw under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     # cached encoder
     if (not skipkeys and ensure_ascii and
@@ -95,45 +82,28 @@ def dump(obj, fp, *, skipkeys=False, ensure_ascii=True, check_circular=True,
 def dumps(obj, *, skipkeys=False, ensure_ascii=True, check_circular=True,
         allow_nan=True, cls=None, indent=None, separators=None,
         default=None, sort_keys=False, **kw):
-    """Serialize ``obj`` to a JSON formatted ``str``.
+    """
+    Serialize ``obj`` to a JSON formatted ``str``.
 
-    If ``skipkeys`` is true then ``dict`` keys that are not basic types
-    (``str``, ``int``, ``float``, ``bool``, ``None``) will be skipped
-    instead of raising a ``TypeError``.
+    Example:
+        Exercise dumps through a consuming regression::
 
-    If ``ensure_ascii`` is false, then the return value can contain non-ASCII
-    characters if they appear in strings contained in ``obj``. Otherwise, all
-    such characters are escaped in JSON strings.
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
 
-    If ``check_circular`` is false, then the circular reference check
-    for container types will be skipped and a circular reference will
-    result in an ``RecursionError`` (or worse).
 
-    If ``allow_nan`` is false, then it will be a ``ValueError`` to
-    serialize out of range ``float`` values (``nan``, ``inf``, ``-inf``) in
-    strict compliance of the JSON specification, instead of using the
-    JavaScript equivalents (``NaN``, ``Infinity``, ``-Infinity``).
-
-    If ``indent`` is a non-negative integer, then JSON array elements and
-    object members will be pretty-printed with that indent level. An indent
-    level of 0 will only insert newlines. ``None`` is the most compact
-    representation.
-
-    If specified, ``separators`` should be an ``(item_separator, key_separator)``
-    tuple.  The default is ``(', ', ': ')`` if *indent* is ``None`` and
-    ``(',', ': ')`` otherwise.  To get the most compact JSON representation,
-    you should specify ``(',', ':')`` to eliminate whitespace.
-
-    ``default(obj)`` is a function that should return a serializable version
-    of obj or raise TypeError. The default simply raises TypeError.
-
-    If *sort_keys* is true (default: ``False``), then the output of
-    dictionaries will be sorted by key.
-
-    To use a custom ``JSONEncoder`` subclass (e.g. one that overrides the
-    ``.default()`` method to serialize additional types), specify it with
-    the ``cls`` kwarg; otherwise ``JSONEncoder`` is used.
-
+    :param obj: Value supplied for obj under the utility contract.
+    :param skipkeys: Value supplied for skipkeys under the utility contract.
+    :param ensure_ascii: Value supplied for ensure ascii under the utility contract.
+    :param check_circular: Value supplied for check circular under the utility contract.
+    :param allow_nan: Value supplied for allow nan under the utility contract.
+    :param cls: Value supplied for cls under the utility contract.
+    :param indent: Value supplied for indent under the utility contract.
+    :param separators: Value supplied for separators under the utility contract.
+    :param default: Value supplied for default under the utility contract.
+    :param sort_keys: Value supplied for sort keys under the utility contract.
+    :param kw: Value supplied for kw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     # cached encoder
     if (not skipkeys and ensure_ascii and
@@ -154,6 +124,19 @@ _default_decoder = JSONDecoder(object_hook=None, object_pairs_hook=None)
 
 
 def detect_encoding(b):
+    """
+    Perform the detect encoding utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise detect encoding through a consuming regression::
+
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+    :param b: Value supplied for b under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     bstartswith = b.startswith
     if bstartswith((codecs.BOM_UTF32_BE, codecs.BOM_UTF32_LE)):
         return 'utf-32'
@@ -185,22 +168,26 @@ def detect_encoding(b):
 
 def load(fp, *, cls=None, object_hook=None, parse_float=None,
         parse_int=None, parse_constant=None, object_pairs_hook=None, **kw):
-    """Deserialize ``fp`` (a ``.read()``-supporting file-like object containing
-    a JSON document) to a Python object.
+    """
+    Deserialize ``fp`` (a ``.read()``-supporting file-like object containing a JSON document) to a Python object.
 
-    ``object_hook`` is an optional function that will be called with the
-    result of any object literal decode (a ``dict``). The return value of
-    ``object_hook`` will be used instead of the ``dict``. This feature
-    can be used to implement custom decoders (e.g. JSON-RPC class hinting).
+    Example:
+        Exercise load through a consuming regression::
 
-    ``object_pairs_hook`` is an optional function that will be called with the
-    result of any object literal decoded with an ordered list of pairs.  The
-    return value of ``object_pairs_hook`` will be used instead of the ``dict``.
-    This feature can be used to implement custom decoders.  If ``object_hook``
-    is also defined, the ``object_pairs_hook`` takes priority.
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
 
-    To use a custom ``JSONDecoder`` subclass, specify it with the ``cls``
-    kwarg; otherwise ``JSONDecoder`` is used.
+
+    :param fp: Value supplied for fp under the utility contract.
+    :param cls: Value supplied for cls under the utility contract.
+    :param object_hook: Value supplied for object hook under the utility contract.
+    :param parse_float: Value supplied for parse float under the utility contract.
+    :param parse_int: Value supplied for parse int under the utility contract.
+    :param parse_constant: Value supplied for parse constant under the utility contract.
+    :param object_pairs_hook: Value supplied for object pairs hook under the utility
+        contract.
+    :param kw: Value supplied for kw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return loads(fp.read(),
         cls=cls, object_hook=object_hook,
@@ -210,37 +197,26 @@ def load(fp, *, cls=None, object_hook=None, parse_float=None,
 
 def loads(s, *, cls=None, object_hook=None, parse_float=None,
         parse_int=None, parse_constant=None, object_pairs_hook=None, **kw):
-    """Deserialize ``s`` (a ``str``, ``bytes`` or ``bytearray`` instance
-    containing a JSON document) to a Python object.
+    """
+    Deserialize ``s`` (a ``str``, ``bytes`` or ``bytearray`` instance containing a JSON document) to a Python object.
 
-    ``object_hook`` is an optional function that will be called with the
-    result of any object literal decode (a ``dict``). The return value of
-    ``object_hook`` will be used instead of the ``dict``. This feature
-    can be used to implement custom decoders (e.g. JSON-RPC class hinting).
+    Example:
+        Exercise loads through a consuming regression::
 
-    ``object_pairs_hook`` is an optional function that will be called with the
-    result of any object literal decoded with an ordered list of pairs.  The
-    return value of ``object_pairs_hook`` will be used instead of the ``dict``.
-    This feature can be used to implement custom decoders.  If ``object_hook``
-    is also defined, the ``object_pairs_hook`` takes priority.
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
 
-    ``parse_float``, if specified, will be called with the string
-    of every JSON float to be decoded. By default this is equivalent to
-    float(num_str). This can be used to use another datatype or parser
-    for JSON floats (e.g. decimal.Decimal).
 
-    ``parse_int``, if specified, will be called with the string
-    of every JSON int to be decoded. By default this is equivalent to
-    int(num_str). This can be used to use another datatype or parser
-    for JSON integers (e.g. float).
-
-    ``parse_constant``, if specified, will be called with one of the
-    following strings: -Infinity, Infinity, NaN.
-    This can be used to raise an exception if invalid JSON numbers
-    are encountered.
-
-    To use a custom ``JSONDecoder`` subclass, specify it with the ``cls``
-    kwarg; otherwise ``JSONDecoder`` is used.
+    :param s: Value supplied for s under the utility contract.
+    :param cls: Value supplied for cls under the utility contract.
+    :param object_hook: Value supplied for object hook under the utility contract.
+    :param parse_float: Value supplied for parse float under the utility contract.
+    :param parse_int: Value supplied for parse int under the utility contract.
+    :param parse_constant: Value supplied for parse constant under the utility contract.
+    :param object_pairs_hook: Value supplied for object pairs hook under the utility
+        contract.
+    :param kw: Value supplied for kw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if isinstance(s, str):
         if s.startswith('\ufeff'):

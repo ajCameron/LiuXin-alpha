@@ -1,3 +1,14 @@
+"""
+Verify non-WEMI containers hydrate from their main-table row shapes.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test non wemi main table rows through its owning regression module::
+
+        python -m pytest -q tests/metadata/containers/test_non_wemi_main_table_rows.py
+"""
 from __future__ import annotations
 
 import importlib
@@ -28,6 +39,17 @@ from LiuXin_alpha.metadata.containers import (
 
 
 def test_non_wemi_row_container_mapping_round_trip() -> None:
+    """
+    Verify non wemi row container mapping round trip.
+
+    Example:
+        Exercise test non wemi row container mapping round trip through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_non_wemi_main_table_rows.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     language = LanguageRow.from_mapping(
         {
             "language_id": 1,
@@ -64,6 +86,17 @@ def test_non_wemi_row_container_mapping_round_trip() -> None:
 
 
 def test_non_wemi_row_container_accepts_sqlite_row() -> None:
+    """
+    Verify non wemi row container accepts sqlite row.
+
+    Example:
+        Exercise test non wemi row container accepts sqlite row through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_non_wemi_main_table_rows.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
     try:
@@ -80,6 +113,17 @@ def test_non_wemi_row_container_accepts_sqlite_row() -> None:
 
 
 def test_non_wemi_self_relation_container_models_inline_tree_link() -> None:
+    """
+    Verify non wemi self relation container models inline tree link.
+
+    Example:
+        Exercise test non wemi self relation container models inline tree link through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_non_wemi_main_table_rows.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     parent = GenreRow(genre_id=1, genre="Fiction")
     child = GenreRow(
         genre_id=2,
@@ -116,6 +160,17 @@ def test_non_wemi_self_relation_container_models_inline_tree_link() -> None:
 
 
 def test_non_wemi_self_relation_container_validates_shape_and_duplicate_children() -> None:
+    """
+    Verify non wemi self relation container validates shape and duplicate children.
+
+    Example:
+        Exercise test non wemi self relation container validates shape and duplicate children through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_non_wemi_main_table_rows.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     parent = GenreRow(genre_id=1, genre="Fiction")
     child = GenreRow(genre_id=2, genre="Science Fiction", genre_parent_id=1)
     relation_link = GenreTreeRelation(child=child, parent=parent)
@@ -140,6 +195,17 @@ def test_non_wemi_self_relation_container_validates_shape_and_duplicate_children
 
 
 def test_non_wemi_self_relation_payloads_for_subject_and_series() -> None:
+    """
+    Verify non wemi self relation payloads for subject and series.
+
+    Example:
+        Exercise test non wemi self relation payloads for subject and series through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_non_wemi_main_table_rows.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     subject_relation = SubjectTreeRelation.from_child_row(
         SubjectRow(
             subject_id=2,
@@ -171,6 +237,17 @@ def test_non_wemi_self_relation_payloads_for_subject_and_series() -> None:
 
 @pytest.fixture(scope="module")
 def frbr_schema_conn() -> sqlite3.Connection:
+    """
+    Perform the frbr schema conn test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise frbr schema conn through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_non_wemi_main_table_rows.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     conn = sqlite3.connect(":memory:")
     conn.execute("PRAGMA foreign_keys = ON;")
     frbr_gen.create_new_database(conn)
@@ -182,6 +259,21 @@ def test_non_wemi_row_container_fields_match_schema(
     frbr_schema_conn: sqlite3.Connection,
     container_cls: Type[MetadataTableRow],
 ) -> None:
+    """
+    Verify non wemi row container fields match schema.
+
+    Example:
+        Exercise test non wemi row container fields match schema through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_non_wemi_main_table_rows.py
+
+
+    :param frbr_schema_conn: Value supplied for frbr schema conn in the focused test
+        operation.
+    :param container_cls: Value supplied for container cls in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     actual_cols = {
         row[1]
         for row in frbr_schema_conn.execute(
@@ -198,6 +290,20 @@ def test_non_wemi_self_relation_columns_exist_in_schema(
     frbr_schema_conn: sqlite3.Connection,
     relation_cls,
 ) -> None:
+    """
+    Verify non wemi self relation columns exist in schema.
+
+    Example:
+        Exercise test non wemi self relation columns exist in schema through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_non_wemi_main_table_rows.py
+
+
+    :param frbr_schema_conn: Value supplied for frbr schema conn in the focused test
+        operation.
+    :param relation_cls: Value supplied for relation cls in the focused test operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     actual_cols = {
         row[1]
         for row in frbr_schema_conn.execute(
@@ -217,6 +323,17 @@ def test_non_wemi_self_relation_columns_exist_in_schema(
 
 
 def test_non_wemi_rows_export_from_concrete_surface_not_api() -> None:
+    """
+    Verify non wemi rows export from concrete surface not api.
+
+    Example:
+        Exercise test non wemi rows export from concrete surface not api through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_non_wemi_main_table_rows.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     expected_names = [
         "AnnotationRow",
         "CommentRow",
@@ -264,6 +381,17 @@ def test_non_wemi_rows_export_from_concrete_surface_not_api() -> None:
 
 
 def test_non_wemi_main_table_rows_are_split_by_table_module() -> None:
+    """
+    Verify non wemi main table rows remain split by table module.
+
+    Example:
+        Exercise test non wemi main table rows are split by table module through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_non_wemi_main_table_rows.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     expected_modules = {
         "AnnotationRow": "annotation_row",
         "CommentRow": "comment_row",

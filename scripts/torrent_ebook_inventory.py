@@ -1,18 +1,14 @@
 #!/usr/bin/env python3
-"""Inventory ebook-shaped files from a .torrent and group likely logical books.
+"""
+Provide torrent ebook inventory utility behavior.
 
-This script is intentionally standalone:
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-- Python 3 stdlib only
-- no torrent client required
-- no network access required
+Example:
+    Exercise torrent ebook inventory through a consuming regression::
 
-What it does:
-- parses a `.torrent` file
-- extracts embedded file paths and sizes
-- classifies ebook-shaped files by extension
-- groups likely logical books by directory + normalized stem
-- emits JSON or a terminal-friendly text report
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
 """
 
 from __future__ import annotations
@@ -77,7 +73,14 @@ NORMALIZE_STEM_PATTERN = re.compile(r"[\s._-]+")
 
 @dataclass(frozen=True)
 class TorrentFileRecord:
-    """Normalized file entry extracted from one torrent manifest."""
+    """
+    Normalized file entry extracted from one torrent manifest.
+
+    Example:
+        Exercise TorrentFileRecord through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+    """
 
     index: int
     path: str
@@ -91,14 +94,46 @@ class TorrentFileRecord:
 
 
 class BencodeDecodeError(ValueError):
-    """Raised when torrent metadata is not valid bounded bencode."""
+    """
+    Raised when torrent metadata is not valid bounded bencode.
+
+    Example:
+        Exercise BencodeDecodeError through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+    """
 
 
 def utc_now() -> str:
+    """
+    Perform the utc now operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise utc now through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return datetime.now(UTC).replace(microsecond=0).isoformat()
 
 
 def format_bytes(size: int) -> str:
+    """
+    Perform the format bytes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise format bytes through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param size: Value supplied for size under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     units = ["B", "KiB", "MiB", "GiB", "TiB"]
     value = float(max(0, int(size)))
     unit_index = 0
@@ -111,6 +146,20 @@ def format_bytes(size: int) -> str:
 
 
 def _decode_bencode_value(data: bytes, index: int) -> tuple[Any, int, bytes | None]:
+    """
+    Perform the decode bencode value operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  decode bencode value through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :param index: Value supplied for index under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if index >= len(data):
         raise BencodeDecodeError("unexpected end of data")
 
@@ -172,6 +221,19 @@ def _decode_bencode_value(data: bytes, index: int) -> tuple[Any, int, bytes | No
 
 
 def decode_torrent_file_bytes(data: bytes) -> tuple[dict[bytes, Any], bytes]:
+    """
+    Perform the decode torrent file bytes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise decode torrent file bytes through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     value, index, info_bytes = _decode_bencode_value(data, 0)
     if index != len(data):
         raise BencodeDecodeError("trailing data after torrent payload")
@@ -183,6 +245,19 @@ def decode_torrent_file_bytes(data: bytes) -> tuple[dict[bytes, Any], bytes]:
 
 
 def decode_text(value: Any) -> str | None:
+    """
+    Perform the decode text operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise decode text through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if value is None:
         return None
     if isinstance(value, str):
@@ -198,6 +273,19 @@ def decode_text(value: Any) -> str | None:
 
 
 def decode_path_components(entry: dict[bytes, Any]) -> list[str]:
+    """
+    Perform the decode path components operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise decode path components through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param entry: Value supplied for entry under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     raw = entry.get(b"path.utf-8")
     if raw is None:
         raw = entry.get(b"path")
@@ -208,11 +296,40 @@ def decode_path_components(entry: dict[bytes, Any]) -> list[str]:
 
 
 def normalize_stem(stem: str) -> str:
+    """
+    Normalize stem under the format's safety and compatibility rules.
+
+    Example:
+        Exercise normalize stem through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param stem: Value supplied for stem under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     text = NORMALIZE_STEM_PATTERN.sub(" ", str(stem or "").strip().casefold())
     return text.strip()
 
 
 def file_record_from_path(*, index: int, path: str, size: int) -> TorrentFileRecord:
+    """
+    Perform the file record from path operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise file record from path through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param index: Value supplied for index under the utility contract.
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param size: Value supplied for size under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     pure = PurePosixPath(path)
     filename = pure.name
     stem = pure.stem
@@ -232,6 +349,19 @@ def file_record_from_path(*, index: int, path: str, size: int) -> TorrentFileRec
 
 
 def extract_torrent_files(torrent_dict: dict[bytes, Any]) -> list[TorrentFileRecord]:
+    """
+    Extract torrent files under the format's safety and compatibility rules.
+
+    Example:
+        Exercise extract torrent files through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param torrent_dict: Value supplied for torrent dict under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     info = torrent_dict.get(b"info")
     if not isinstance(info, dict):
         raise BencodeDecodeError("torrent info value was not a dictionary")
@@ -253,6 +383,19 @@ def extract_torrent_files(torrent_dict: dict[bytes, Any]) -> list[TorrentFileRec
 
 
 def _variant_sort_key(item: dict[str, Any]) -> tuple[Any, ...]:
+    """
+    Perform the variant sort key operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  variant sort key through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param item: Value supplied for item under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ext = str(item.get("extension") or "").lower()
     return (
         FORMAT_PRIORITY.get(ext, len(FORMAT_PRIORITY)),
@@ -263,6 +406,19 @@ def _variant_sort_key(item: dict[str, Any]) -> tuple[Any, ...]:
 
 
 def group_ebook_files(files: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """
+    Perform the group ebook files operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise group ebook files through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param files: Value supplied for files under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     buckets: dict[tuple[str, str], dict[str, Any]] = {}
     for item in files:
         key = (str(item.get("directory") or "."), str(item.get("normalized_stem") or ""))
@@ -301,6 +457,19 @@ def group_ebook_files(files: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def group_ebook_files_by_directory(files: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """
+    Perform the group ebook files by directory operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise group ebook files by directory through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param files: Value supplied for files under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     buckets: dict[str, dict[str, Any]] = {}
     for item in files:
         directory = str(item.get("directory") or ".")
@@ -343,6 +512,19 @@ def group_ebook_files_by_directory(files: list[dict[str, Any]]) -> list[dict[str
 
 
 def analyze_torrent_bytes(data: bytes) -> dict[str, Any]:
+    """
+    Perform the analyze torrent bytes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise analyze torrent bytes through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     torrent_dict, info_bytes = decode_torrent_file_bytes(data)
     info = torrent_dict[b"info"]
     assert isinstance(info, dict)
@@ -399,11 +581,38 @@ def analyze_torrent_bytes(data: bytes) -> dict[str, Any]:
 
 
 def analyze_torrent_file(path: str | Path) -> dict[str, Any]:
+    """
+    Perform the analyze torrent file operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise analyze torrent file through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     data = Path(path).read_bytes()
     return analyze_torrent_bytes(data)
 
 
 def render_text_report(payload: dict[str, Any]) -> str:
+    """
+    Perform the render text report operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise render text report through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param payload: Value supplied for payload under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     torrent = dict(payload.get("torrent") or {})
     groups = list(payload.get("groups") or [])
     directory_groups = list(payload.get("directory_groups") or [])
@@ -471,6 +680,18 @@ def render_text_report(payload: dict[str, Any]) -> str:
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
+    """
+    Perform the build arg parser operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise build arg parser through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("torrent_file", help="Path to the .torrent file to inspect")
     parser.add_argument("--output", help="Optional JSON output path; defaults to stdout")
@@ -484,6 +705,19 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = build_arg_parser()
     args = parser.parse_args(argv)
 

@@ -1,3 +1,14 @@
+"""
+Convert arbitrary path text into a safe display or filesystem name.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise safe path to name through a consuming regression::
+
+        python -m pytest -q tests/utils/text/test_text_core.py
+"""
 from __future__ import annotations
 
 import os
@@ -21,11 +32,37 @@ _WINDOWS_RESERVED = {
 
 def _looks_like_windows_path(s: str) -> bool:
     # Drive letter, UNC prefix, or backslashes are strong signals.
+    """
+    Perform the looks like windows path utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  looks like windows path through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return bool(re.match(r"^[a-zA-Z]:", s)) or s.startswith("\\\\") or ("\\" in s)
 
 
 def _strip_diacritics_to_ascii(s: str) -> str:
     # NFKD splits accents so we can drop combining marks.
+    """
+    Perform the strip diacritics to ascii utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  strip diacritics to ascii through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     norm = unicodedata.normalize("NFKD", s)
     return "".join(ch for ch in norm if not unicodedata.combining(ch)).encode("ascii", "ignore").decode("ascii")
 
@@ -37,6 +74,22 @@ def _sanitize_component(
     lowercase: bool,
     replacement: str = "-",
 ) -> str:
+    """
+    Perform the sanitize component utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  sanitize component through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :param allow_unicode: Value supplied for allow unicode under the utility contract.
+    :param lowercase: Value supplied for lowercase under the utility contract.
+    :param replacement: Value supplied for replacement under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     s = s.strip()
 
     if not allow_unicode:
@@ -82,12 +135,22 @@ def safe_path_to_name(
     """
     Convert a Windows or POSIX path into a filename-safe name (cross-platform).
 
-    - Works with Windows (drive letters, UNC) and POSIX paths.
-    - Produces a mostly human-readable slug.
-    - Optionally appends a short hash to avoid collisions.
-    - Enforces a maximum length while preserving uniqueness.
+    Example:
+        Exercise safe path to name through a consuming regression::
 
-    Returns a string that is safe to use as a filename on Windows/macOS/Linux.
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param max_len: Value supplied for max len under the utility contract.
+    :param sep: Delimiter used to split or join list values.
+    :param allow_unicode: Value supplied for allow unicode under the utility contract.
+    :param lowercase: Value supplied for lowercase under the utility contract.
+    :param add_hash: Value supplied for add hash under the utility contract.
+    :param hash_len: Value supplied for hash len under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if max_len < 8:
         raise ValueError("max_len must be >= 8")

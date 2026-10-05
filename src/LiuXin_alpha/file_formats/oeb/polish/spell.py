@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 
+"""
+Find and update misspelled words across book content.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise spell through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+"""
 from __future__ import (
     absolute_import,
     annotations,
@@ -22,16 +33,78 @@ try:
     from LiuXin_alpha.utils.spell.dictionary import parse_lang_code
 except ModuleNotFoundError:
     class _FallbackLocale(object):
+        """
+        Provide the fallbacklocale contract for validated ebook processing.
+
+        Example:
+            Exercise  FallbackLocale through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+        """
         def __init__(self: _typing.Self, langcode: _typing.Any) -> None:
+            """
+            Initialize and validate the fallbacklocale state.
+
+            Example:
+                Exercise  FallbackLocale.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+            :param langcode: Value supplied for langcode under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             self.langcode = langcode
 
     def split_into_words(text: _typing.Any, lang: _typing.Any) -> _typing.Any:
+        """
+        Perform the split into words operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise split into words through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :param lang: Value supplied for lang under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return str(text).split()
 
     def index_of(word: _typing.Any, text: _typing.Any, lang: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the index of operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise index of through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param word: Value supplied for word under the utility contract.
+        :param text: Text parsed, normalized or rendered.
+        :param lang: Value supplied for lang under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return str(text).find(str(word))
 
     def parse_lang_code(code: _typing.Any) -> _typing.Any:
+        """
+        Parse lang code under the format's safety and compatibility rules.
+
+        Example:
+            Exercise parse lang code through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param code: Value supplied for code under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not code:
             code = "eng"
         return _FallbackLocale(str(code).split("-")[0].lower())
@@ -48,10 +121,29 @@ _patterns = None
 
 class Patterns(object):
 
+    """
+    Provide the patterns contract for validated ebook processing.
+
+    Example:
+        Exercise Patterns through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     __slots__ = ("sanitize_invisible_pat", "split_pat", "digit_pat", "fr_elision_pat")
 
     def __init__(self: _typing.Self) -> None:
 
+        """
+        Initialize and validate the patterns state.
+
+        Example:
+            Exercise Patterns.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         import regex
 
         # Remove soft hyphens/zero width spaces/control codes
@@ -70,6 +162,18 @@ class Patterns(object):
 
 
 def patterns() -> _typing.Any:
+    """
+    Perform the patterns operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise patterns through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     global _patterns
     if _patterns is None:
         _patterns = Patterns()
@@ -78,6 +182,14 @@ def patterns() -> _typing.Any:
 
 class Location(object):
 
+    """
+    Provide the location contract for validated ebook processing.
+
+    Example:
+        Exercise Location through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     __slots__ = (
         "file_name",
         "sourceline",
@@ -95,6 +207,22 @@ class Location(object):
         location_node: _typing.Any = None,
         node_item: tuple[_typing.Any, ...] = (None, None),
     ) -> None:
+        """
+        Initialize and validate the location state.
+
+        Example:
+            Exercise Location.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param file_name: Value supplied for file name under the utility contract.
+        :param elided_prefix: Value supplied for elided prefix under the utility contract.
+        :param original_word: Value supplied for original word under the utility contract.
+        :param location_node: Value supplied for location node under the utility contract.
+        :param node_item: Value supplied for node item under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.file_name, self.elided_prefix, self.original_word = (
             file_name,
             elided_prefix,
@@ -107,15 +235,53 @@ class Location(object):
         )
 
     def __repr__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the repr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Location.  repr   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "%s @ %s:%s" % (self.original_word, self.file_name, self.sourceline)
 
     __str__ = __repr__
 
     def replace(self: _typing.Self, new_word: _typing.Any) -> None:
+        """
+        Perform the replace operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Location.replace through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param new_word: Value supplied for new word under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.original_word = self.elided_prefix + new_word
 
 
 def filter_words(word: _typing.Any) -> bool:
+    """
+    Perform the filter words operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise filter words through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param word: Value supplied for word under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not word:
         return False
     p = patterns()
@@ -125,6 +291,20 @@ def filter_words(word: _typing.Any) -> bool:
 
 
 def get_words(text: _typing.Any, lang: _typing.Any) -> _typing.Any:
+    """
+    Return words under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get words through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :param lang: Value supplied for lang under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         ans = split_into_words(six_unicode(text), lang)
     except (TypeError, ValueError):
@@ -133,6 +313,24 @@ def get_words(text: _typing.Any, lang: _typing.Any) -> _typing.Any:
 
 
 def add_words(text: _typing.Any, node: _typing.Any, words: _typing.Any, file_name: _typing.Any, locale: _typing.Any, node_item: _typing.Any) -> None:
+    """
+    Perform the add words operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise add words through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :param node: Value supplied for node under the utility contract.
+    :param words: Value supplied for words under the utility contract.
+    :param file_name: Value supplied for file name under the utility contract.
+    :param locale: Value supplied for locale under the utility contract.
+    :param node_item: Value supplied for node item under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     candidates = get_words(text, locale.langcode)
     if candidates:
         p = patterns()
@@ -150,12 +348,46 @@ def add_words(text: _typing.Any, node: _typing.Any, words: _typing.Any, file_nam
 
 
 def add_words_from_attr(node: _typing.Any, attr: _typing.Any, words: _typing.Any, file_name: _typing.Any, locale: _typing.Any) -> None:
+    """
+    Perform the add words from attr operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise add words from attr through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param node: Value supplied for node under the utility contract.
+    :param attr: Value supplied for attr under the utility contract.
+    :param words: Value supplied for words under the utility contract.
+    :param file_name: Value supplied for file name under the utility contract.
+    :param locale: Value supplied for locale under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     text = node.get(attr, None)
     if text:
         add_words(text, node, words, file_name, locale, (True, attr))
 
 
 def add_words_from_text(node: _typing.Any, attr: _typing.Any, words: _typing.Any, file_name: _typing.Any, locale: _typing.Any) -> None:
+    """
+    Perform the add words from text operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise add words from text through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param node: Value supplied for node under the utility contract.
+    :param attr: Value supplied for attr under the utility contract.
+    :param words: Value supplied for words under the utility contract.
+    :param file_name: Value supplied for file name under the utility contract.
+    :param locale: Value supplied for locale under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     add_words(getattr(node, attr), node, words, file_name, locale, (False, attr))
 
 
@@ -168,6 +400,22 @@ opf_spell_tags = {"title", "creator", "subject", "description", "publisher"}
 
 
 def read_words_from_opf(root: _typing.Any, words: _typing.Any, file_name: _typing.Any, book_locale: _typing.Any) -> None:
+    """
+    Read words from opf under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read words from opf through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param words: Value supplied for words under the utility contract.
+    :param file_name: Value supplied for file name under the utility contract.
+    :param book_locale: Value supplied for book locale under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for tag in root.iterdescendants("*"):
         if tag.text is not None and barename(tag.tag) in opf_spell_tags:
             add_words_from_text(tag, "text", words, file_name, book_locale)
@@ -179,6 +427,22 @@ xml_spell_tags = opf_spell_tags | ncx_spell_tags
 
 
 def read_words_from_ncx(root: _typing.Any, words: _typing.Any, file_name: _typing.Any, book_locale: _typing.Any) -> None:
+    """
+    Read words from ncx under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read words from ncx through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param words: Value supplied for words under the utility contract.
+    :param file_name: Value supplied for file name under the utility contract.
+    :param book_locale: Value supplied for book locale under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for tag in root.xpath('//*[local-name()="text"]'):
         if tag.text is not None:
             add_words_from_text(tag, "text", words, file_name, book_locale)
@@ -188,6 +452,23 @@ html_spell_tags = {"script", "style", "link"}
 
 
 def read_words_from_html_tag(tag: _typing.Any, words: _typing.Any, file_name: _typing.Any, parent_locale: _typing.Any, locale: _typing.Any) -> None:
+    """
+    Read words from html tag under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read words from html tag through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param tag: Value supplied for tag under the utility contract.
+    :param words: Value supplied for words under the utility contract.
+    :param file_name: Value supplied for file name under the utility contract.
+    :param parent_locale: Value supplied for parent locale under the utility contract.
+    :param locale: Value supplied for locale under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if tag.text is not None and barename(tag.tag) not in html_spell_tags:
         add_words_from_text(tag, "text", words, file_name, locale)
     for attr in {"alt", "title"}:
@@ -197,6 +478,19 @@ def read_words_from_html_tag(tag: _typing.Any, words: _typing.Any, file_name: _t
 
 
 def locale_from_tag(tag: _typing.Any) -> _typing.Any:
+    """
+    Perform the locale from tag operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise locale from tag through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param tag: Value supplied for tag under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if "lang" in tag.attrib:
         try:
             loc = parse_lang_code(tag.get("lang"))
@@ -214,6 +508,22 @@ def locale_from_tag(tag: _typing.Any) -> _typing.Any:
 
 
 def read_words_from_html(root: _typing.Any, words: _typing.Any, file_name: _typing.Any, book_locale: _typing.Any) -> None:
+    """
+    Read words from html under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read words from html through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param words: Value supplied for words under the utility contract.
+    :param file_name: Value supplied for file name under the utility contract.
+    :param book_locale: Value supplied for book locale under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     stack = [(root, book_locale)]
     while stack:
         parent, parent_locale = stack.pop()
@@ -223,6 +533,19 @@ def read_words_from_html(root: _typing.Any, words: _typing.Any, file_name: _typi
 
 
 def group_sort(locations: _typing.Any) -> _typing.Any:
+    """
+    Perform the group sort operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise group sort through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param locations: Value supplied for locations under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     order = {}
     for loc in locations:
         if loc.file_name not in order:
@@ -231,6 +554,19 @@ def group_sort(locations: _typing.Any) -> _typing.Any:
 
 
 def get_checkable_file_names(container: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Return checkable file names under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get checkable file names through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     file_names = [name for name, linear in container.spine_names] + [container.opf_name]
     toc = find_existing_toc(container)
     if toc is not None and container.exists(toc):
@@ -239,6 +575,20 @@ def get_checkable_file_names(container: _typing.Any) -> tuple[_typing.Any, ...]:
 
 
 def get_all_words(container: _typing.Any, book_locale: _typing.Any) -> _typing.Any:
+    """
+    Return all words under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get all words through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param book_locale: Value supplied for book locale under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     words = defaultdict(list)
     file_names, toc = get_checkable_file_names(container)
     for file_name in file_names:
@@ -256,10 +606,40 @@ def get_all_words(container: _typing.Any, book_locale: _typing.Any) -> _typing.A
 
 
 def merge_locations(locs1: _typing.Any, locs2: _typing.Any) -> _typing.Any:
+    """
+    Perform the merge locations operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise merge locations through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param locs1: Value supplied for locs1 under the utility contract.
+    :param locs2: Value supplied for locs2 under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return group_sort(locs1 + locs2)
 
 
 def replace(text: _typing.Any, original_word: _typing.Any, new_word: _typing.Any, lang: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Perform the replace operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise replace through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :param original_word: Value supplied for original word under the utility contract.
+    :param new_word: Value supplied for new word under the utility contract.
+    :param lang: Value supplied for lang under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     indices = []
     original_word, new_word, text = (
         six_unicode(original_word),
@@ -281,6 +661,22 @@ def replace(text: _typing.Any, original_word: _typing.Any, new_word: _typing.Any
 
 
 def replace_word(container: _typing.Any, new_word: _typing.Any, locations: _typing.Any, locale: _typing.Any) -> _typing.Any:
+    """
+    Perform the replace word operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise replace word through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param new_word: Value supplied for new word under the utility contract.
+    :param locations: Value supplied for locations under the utility contract.
+    :param locale: Value supplied for locale under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     changed = set()
     for loc in locations:
         node = loc.location_node

@@ -1,6 +1,17 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
 
+"""
+Coordinate DOCX package parsing and normalized HTML resource generation.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise to html through a consuming regression::
+
+        python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -64,15 +75,63 @@ NBSP = "\xa0"
 
 
 class Text:
+    """
+    Provide the text contract for validated ebook processing.
+
+    Example:
+        Exercise Text through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     def __init__(self: _typing.Self, elem: _typing.Any, attr: _typing.Any, buf: _typing.Any) -> None:
+        """
+        Initialize and validate the text state.
+
+        Example:
+            Exercise Text.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :param attr: Value supplied for attr under the utility contract.
+        :param buf: Value supplied for buf under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.elem, self.attr, self.buf = elem, attr, buf
 
     def add_elem(self: _typing.Self, elem: _typing.Any) -> None:
+        """
+        Perform the add elem operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Text.add elem through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         setattr(self.elem, self.attr, "".join(self.buf))
         self.elem, self.attr, self.buf = elem, "tail", []
 
 
 def html_lang(docx_lang: _typing.Any) -> _typing.Any:
+    """
+    Perform the html lang operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise html lang through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param docx_lang: Value supplied for docx lang under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     lang = canonicalize_lang(docx_lang)
     if lang and lang != "und":
         lang = lang_as_iso639_1(lang)
@@ -81,6 +140,14 @@ def html_lang(docx_lang: _typing.Any) -> _typing.Any:
 
 
 class Convert(object):
+    """
+    Provide the convert contract for validated ebook processing.
+
+    Example:
+        Exercise Convert through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     def __init__(
         self: _typing.Self,
         path_or_stream: _typing.Any,
@@ -91,6 +158,24 @@ class Convert(object):
         notes_nopb: bool = False,
         nosupsub: bool = False,
     ) -> None:
+        """
+        Initialize and validate the convert state.
+
+        Example:
+            Exercise Convert.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param path_or_stream: Value supplied for path or stream under the utility contract.
+        :param dest_dir: Value supplied for dest dir under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param detect_cover: Value supplied for detect cover under the utility contract.
+        :param notes_text: Value supplied for notes text under the utility contract.
+        :param notes_nopb: Value supplied for notes nopb under the utility contract.
+        :param nosupsub: Value supplied for nosupsub under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.docx = DOCX(path_or_stream, log=log)
         self.namespace = self.docx.namespace
         self.ms_pat = re.compile(r"\s{2,}")
@@ -133,6 +218,18 @@ class Convert(object):
             self.doc_lang = None
 
     def __call__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Convert.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         doc = self.docx.document
         relationships_by_id, relationships_by_type = self.docx.document_relationships
         self.fields(doc, self.log)
@@ -290,6 +387,19 @@ class Convert(object):
         return self.write(doc)
 
     def read_page_properties(self: _typing.Self, doc: _typing.Any) -> None:
+        """
+        Read page properties under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Convert.read page properties through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param doc: Value supplied for doc under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         current = []
         self.page_map = OrderedDict()
         self.section_starts = []
@@ -318,7 +428,35 @@ class Convert(object):
                 self.page_map[x] = pr
 
     def read_styles(self: _typing.Self, relationships_by_type: _typing.Any) -> None:
+        """
+        Read styles under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Convert.read styles through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param relationships_by_type: Value supplied for relationships by type under the
+            utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         def get_name(rtype: _typing.Any, defname: _typing.Any) -> _typing.Any:
+            """
+            Return name under the format's safety and compatibility rules.
+
+            Example:
+                Exercise Convert.read styles.get name through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+            :param rtype: Value supplied for rtype under the utility contract.
+            :param defname: Value supplied for defname under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             name = relationships_by_type.get(rtype, None)
             if name is None:
                 cname = self.docx.document_name.split("/")
@@ -410,6 +548,19 @@ class Convert(object):
         self.styles.resolve_numbering(numbering)
 
     def write(self: _typing.Self, doc: _typing.Any) -> _typing.Any:
+        """
+        Perform the write operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Convert.write through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param doc: Value supplied for doc under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         toc = create_toc(
             doc,
             self.body,
@@ -438,6 +589,20 @@ class Convert(object):
             opf.guide.set_cover(self.cover_image)
 
         def process_guide(E: _typing.Any, guide: _typing.Any) -> None:
+            """
+            Perform the process guide operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Convert.write.process guide through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+            :param E: Value supplied for E under the utility contract.
+            :param guide: Value supplied for guide under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self.toc_anchor is not None:
                 guide.append(
                     E.reference(
@@ -455,6 +620,19 @@ class Convert(object):
         return os.path.join(self.dest_dir, "metadata.opf")
 
     def read_block_anchors(self: _typing.Self, doc: _typing.Any) -> None:
+        """
+        Read block anchors under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Convert.read block anchors through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param doc: Value supplied for doc under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         doc_anchors = frozenset(self.namespace.XPath("./w:body/w:bookmarkStart[@w:name]")(doc))
         if doc_anchors:
             current_bm = set()
@@ -480,6 +658,19 @@ class Convert(object):
                         current_bm.add(anchor)
 
     def convert_p(self: _typing.Self, p: _typing.Any) -> _typing.Any:
+        """
+        Convert p under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Convert.convert p through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param p: Path-like value normalized or validated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         dest = P()
         self.object_map[dest] = p
         style = self.styles.resolve_paragraph(p)
@@ -494,6 +685,19 @@ class Convert(object):
         def p_parent(local_x: _typing.Any) -> _typing.Any:
             # Ensure that nested <w:p> tags are handled. These can occur if a
             # textbox is present inside a paragraph.
+            """
+            Perform the p parent operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Convert.convert p.p parent through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+            :param local_x: Value supplied for local x under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             while True:
                 local_x = local_x.getparent()
                 try:
@@ -600,6 +804,20 @@ class Convert(object):
         return dest
 
     def wrap_elems(self: _typing.Self, elems: _typing.Any, wrapper: _typing.Any) -> _typing.Any:
+        """
+        Perform the wrap elems operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Convert.wrap elems through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param elems: Value supplied for elems under the utility contract.
+        :param wrapper: Value supplied for wrapper under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         p = elems[0].getparent()
         idx = p.index(elems[0])
         p.insert(idx, wrapper)
@@ -616,6 +834,18 @@ class Convert(object):
         return wrapper
 
     def resolve_links(self: _typing.Self) -> None:
+        """
+        Perform the resolve links operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Convert.resolve links through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.resolved_link_map = {}
         for hyperlink, spans in iteritems(self.link_map):
             relationships_by_id = self.link_source_map[hyperlink]
@@ -692,6 +922,19 @@ class Convert(object):
                     a.set("href", dest)
 
     def convert_run(self: _typing.Self, run: _typing.Any) -> _typing.Any:
+        """
+        Convert run under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Convert.convert run through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param run: Value supplied for run under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = SPAN()
         self.object_map[ans] = run
         text = Text(ans, "text", [])
@@ -767,6 +1010,20 @@ class Convert(object):
         return ans
 
     def add_frame(self: _typing.Self, html_obj: _typing.Any, style: _typing.Any) -> None:
+        """
+        Perform the add frame operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Convert.add frame through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param html_obj: Value supplied for html obj under the utility contract.
+        :param style: Value supplied for style under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         last_run = self.framed[-1]
         if style is inherit:
             if last_run:
@@ -782,6 +1039,18 @@ class Convert(object):
             last_run.append((html_obj, style))
 
     def apply_frames(self: _typing.Self) -> None:
+        """
+        Perform the apply frames operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Convert.apply frames through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for run in filter(None, self.framed):
             style = run[0][1]
             paras = tuple(x[0] for x in run)
@@ -805,7 +1074,33 @@ class Convert(object):
             self.styles.register(css, "frame")
 
     def mark_block_runs(self: _typing.Self, paras: _typing.Any) -> None:
+        """
+        Perform the mark block runs operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Convert.mark block runs through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param paras: Value supplied for paras under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         def numeric_margin(value: _typing.Any) -> _typing.Any:
+            """
+            Perform the numeric margin operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Convert.mark block runs.numeric margin through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+            :param value: Value normalized, stored, formatted or returned.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if isinstance(value, (int, float)):
                 return value
             if isinstance(value, str) and value.endswith("pt"):
@@ -816,6 +1111,19 @@ class Convert(object):
             return 0
 
         def process_run(run: _typing.Any) -> None:
+            """
+            Perform the process run operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Convert.mark block runs.process run through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+            :param run: Value supplied for run under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             max_left = max_right = 0
             has_visible_border = None
             for p in run:

@@ -104,6 +104,7 @@ class StorageDriverLifecycleAPI(abc.ABC):
         """
         return self.status().writable
 
+    # Todo: We want a subclass for the return for this function
     def close(self) -> None:
         """
         Release backend resources; repeated closure should be safe.

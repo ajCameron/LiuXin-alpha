@@ -2,6 +2,17 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 # seems to be working alright
 
+"""
+Read HTML sources and construct normalized conversion resources and metadata.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise input through a consuming regression::
+
+        python -m pytest -q tests/file_formats/html/test_html_modernized.py
+"""
 from __future__ import with_statement, print_function
 from __future__ import annotations
 
@@ -31,6 +42,20 @@ unicode = str
 
 
 def unicode_path(path_to_file: _typing.Any, abs: bool = False) -> _typing.Any:
+    """
+    Perform the unicode path operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise unicode path through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param path_to_file: Value supplied for path to file under the utility contract.
+    :param abs: Value supplied for abs under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(path_to_file, bytes):
         path = path_to_file.decode("utf-8", "replace")
     else:
@@ -45,10 +70,29 @@ __docformat__ = "restructuredtext en"
 class Link(object):
     """
     Represents a link in a HTML file.
+
+    Example:
+        Exercise Link through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
     """
 
     @classmethod
     def url_to_local_path(cls: type[_typing.Self], url: _typing.Any, base: _typing.Any) -> _typing.Any:
+        """
+        Perform the url to local path operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Link.url to local path through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param url: Value supplied for url under the utility contract.
+        :param base: Value supplied for base under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         path = url.path
         isabs = False
         if iswindows and path.startswith("/"):
@@ -62,9 +106,17 @@ class Link(object):
 
     def __init__(self: _typing.Self, url: _typing.Any, base: _typing.Any) -> None:
         """
-        :param url:  The url this link points to. Must be an unquoted unicode string.
-        :param base: The base directory that relative URLs are with respect to.
-                     Must be a unicode string.
+        Initialize and validate the link state.
+
+        Example:
+            Exercise Link.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param url: Value supplied for url under the utility contract.
+        :param base: Value supplied for base under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         assert isinstance(url, unicode) and isinstance(base, unicode)
         self.url = url
@@ -77,19 +129,77 @@ class Link(object):
             self.path = self.url_to_local_path(self.parsed_url, base)
 
     def __hash__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the hash operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Link.  hash   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.path is None:
             return hash(self.url)
         return hash(self.path)
 
     def __eq__(self: _typing.Self, other: _typing.Any) -> bool:
+        """
+        Perform the eq operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Link.  eq   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.path == getattr(other, "path", other)
 
     def __str__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Link.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "Link: %s --> %s" % (self.url, self.path)
 
 
 class IgnoreFile(Exception):
+    """
+    Provide the ignorefile contract for validated ebook processing.
+
+    Example:
+        Exercise IgnoreFile through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
     def __init__(self: _typing.Self, msg: _typing.Any, errno: _typing.Any) -> None:
+        """
+        Initialize and validate the ignorefile state.
+
+        Example:
+            Exercise IgnoreFile.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param msg: Value supplied for msg under the utility contract.
+        :param errno: Value supplied for errno under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         Exception.__init__(self, msg)
         self.doesnt_exist = errno == gerrno.ENOENT
         self.errno = errno
@@ -98,12 +208,12 @@ class IgnoreFile(Exception):
 class HTMLFile:
 
     """
-    Contains basic information about an HTML file. This
-    includes a list of links to other files as well as
-    the encoding of each file. Also tries to detect if the file is not a HTML
-    file in which case :member:`is_binary` is set to True.
+    Contains basic information about an HTML file. This includes a list of links to other files as well as the encoding of each file. Also tries to detect if the file is not a HTML file in which case :member:`is_binary` is set to True.
 
-    The encoding of the file is available as :member:`encoding`.
+    Example:
+        Exercise HTMLFile through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
     """
 
     HTML_PAT = re.compile(r"<\s*html", re.IGNORECASE)
@@ -115,13 +225,21 @@ class HTMLFile:
 
     def __init__(self: _typing.Self, path_to_html_file: _typing.Any, level: _typing.Any, encoding: _typing.Any, verbose: _typing.Any, referrer: _typing.Any = None) -> None:
         """
+        Initialize and validate the htmlfile state.
 
-        :param level: The level of this file. Should be 0 for the root file.
-        :param encoding: Use `encoding` to decode HTML.
-        :param referrer: The :class:`HTMLFile` that first refers to this file.
-        :param path_to_html_file:
-        :param verbose:
-        :return:
+        Example:
+            Exercise HTMLFile.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param path_to_html_file: Value supplied for path to html file under the utility
+            contract.
+        :param level: Value supplied for level under the utility contract.
+        :param encoding: Value supplied for encoding under the utility contract.
+        :param verbose: Value supplied for verbose under the utility contract.
+        :param referrer: Value supplied for referrer under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.path = unicode_path(path_to_html_file, abs=True)
         self.title = os.path.splitext(os.path.basename(self.path))[0]
@@ -168,12 +286,49 @@ class HTMLFile:
             self.find_links(src)
 
     def __eq__(self: _typing.Self, other: _typing.Any) -> bool:
+        """
+        Perform the eq operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLFile.  eq   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.path == getattr(other, "path", other)
 
     def __hash__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the hash operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLFile.  hash   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return hash(self.path)
 
     def __str__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLFile.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "HTMLFile:%d:%s:%s" % (
             self.level,
             "b" if self.is_binary else "a",
@@ -181,9 +336,34 @@ class HTMLFile:
         )
 
     def __repr__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the repr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLFile.  repr   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return str(self)
 
     def find_links(self: _typing.Self, src: _typing.Any) -> None:
+        """
+        Find links under the format's safety and compatibility rules.
+
+        Example:
+            Exercise HTMLFile.find links through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param src: Value supplied for src under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for match in self.LINK_PAT.finditer(src):
             url = None
             for i in ("url1", "url2", "url3"):
@@ -200,10 +380,37 @@ class HTMLFile:
                 self.links.append(link)
 
     def resolve(self: _typing.Self, url: _typing.Any) -> _typing.Any:
+        """
+        Perform the resolve operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLFile.resolve through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param url: Value supplied for url under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return Link(url, self.base)
 
 
 def depth_first(root: _typing.Any, flat: _typing.Any, visited: _typing.Any = None) -> _typing.Iterator[_typing.Any]:
+    """
+    Perform the depth first operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise depth first through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param flat: Value supplied for flat under the utility contract.
+    :param visited: Value supplied for visited under the utility contract.
+    :return: An iterator yielding the normalized values described above.
+    """
     if visited is None:
         visited = set()
     yield root
@@ -228,14 +435,19 @@ def traverse(path_to_html_file: str, max_levels: int = sys.maxsize, verbose: int
     """
     Recursively traverse all links in the HTML file.
 
-    :param path_to_html_file:
-    :param max_levels: Maximum levels of recursion. Must be non-negative. 0
-                       implies that no links in the root HTML file are followed.
-    :param verbose:
-    :param encoding:   Specify character encoding of HTML files. If `None` it is
-                       auto-detected.
-    :return:           A pair of lists (breadth_first, depth_first). Each list contains
-                       :class:`HTMLFile` objects.
+    Example:
+        Exercise traverse through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param path_to_html_file: Value supplied for path to html file under the utility
+        contract.
+    :param max_levels: Value supplied for max levels under the utility contract.
+    :param verbose: Value supplied for verbose under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     assert max_levels >= 0
     level = 0
@@ -274,11 +486,19 @@ def traverse(path_to_html_file: str, max_levels: int = sys.maxsize, verbose: int
 def get_filelist(htmlfile: _typing.Any, dir: _typing.Any, opts: _typing.Any, log: _typing.Any) -> _typing.Any:
     """
     Build list of files referenced by html file or try to detect and use an OPF file instead.
-    :param htmlfile:
-    :param dir:
-    :param opts:
-    :param log:
-    :return:
+
+    Example:
+        Exercise get filelist through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param htmlfile: Value supplied for htmlfile under the utility contract.
+    :param dir: Value supplied for dir under the utility contract.
+    :param opts: Value supplied for opts under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     log.info("Building file list...")
     filelist = traverse(

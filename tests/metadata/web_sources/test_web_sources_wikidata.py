@@ -1,3 +1,14 @@
+"""
+Verify Wikidata search, claims, linked entities, SPARQL and metadata projection.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test web sources wikidata through its owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+"""
 from __future__ import annotations
 
 import queue
@@ -6,34 +17,149 @@ from threading import Event
 
 
 class _Log:
+    """
+    Provide the Log test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise Log through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+    """
     def __init__(self) -> None:
+        """
+        Initialize the Log test double.
+
+        Example:
+            Exercise Log.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :return: None; the function records state or raises through its assertions.
+        """
         self.events = []
 
     def __call__(self, *parts):
+        """
+        Perform the call test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.call through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("call", parts))
 
     def info(self, *parts):
+        """
+        Perform the info test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.info through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("info", parts))
 
     def warning(self, *parts):
+        """
+        Perform the warning test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.warning through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("warning", parts))
 
     def error(self, *parts):
+        """
+        Perform the error test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.error through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("error", parts))
 
     def exception(self, *parts):
+        """
+        Perform the exception test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.exception through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("exception", parts))
 
 
 def _claim(value):
+    """
+    Perform the claim test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise claim through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :param value: Value stored, compared or projected by the operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return {"mainsnak": {"datavalue": {"value": value}}}
 
 
 def _entity_value(qid: str) -> dict:
+    """
+    Perform the entity value test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise entity value through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :param qid: Value supplied for qid in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return {"entity-type": "item", "numeric-id": int(qid[1:]), "id": qid}
 
 
 def _sample_entity(qid: str = "Q123") -> dict:
+    """
+    Perform the sample entity test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise sample entity through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :param qid: Value supplied for qid in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return {
         "id": qid,
         "labels": {"en": {"language": "en", "value": "Sample Book"}},
@@ -56,10 +182,33 @@ def _sample_entity(qid: str = "Q123") -> dict:
 
 
 def _entities_payload(*entities: dict) -> dict:
+    """
+    Perform the entities payload test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise entities payload through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :param entities: Value supplied for entities in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return {"entities": {entity["id"]: entity for entity in entities}}
 
 
 def _label_payload() -> dict:
+    """
+    Perform the label payload test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise label payload through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return _entities_payload(
         {"id": "Q42", "labels": {"en": {"value": "Douglas Adams"}}},
         {"id": "Q500", "labels": {"en": {"value": "Example Press"}}},
@@ -70,16 +219,57 @@ def _label_payload() -> dict:
 
 
 def test_web_sources_wikidata_import_smoke() -> None:
+    """
+    Verify web sources wikidata import smoke.
+
+    Example:
+        Exercise test web sources wikidata import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.wikidata as wikidata
 
     assert wikidata is not None
 
 
 def test_wikidata_helper_edges() -> None:
+    """
+    Verify wikidata helper edges.
+
+    Example:
+        Exercise test wikidata helper edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.wikidata as wd
 
     class BadString:
+        """
+        Provide the BadString test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test wikidata helper edges.BadString through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+        """
         def __str__(self):
+            """
+            Perform the str test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test wikidata helper edges.BadString.str through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             raise RuntimeError("bad")
 
     assert wd._as_text(b"hello") == "hello"
@@ -97,6 +287,17 @@ def test_wikidata_helper_edges() -> None:
 
 
 def test_wikidata_url_and_query_builders() -> None:
+    """
+    Verify wikidata url and query builders.
+
+    Example:
+        Exercise test wikidata url and query builders through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.wikidata import Wikidata
 
     plugin = Wikidata()
@@ -117,6 +318,17 @@ def test_wikidata_url_and_query_builders() -> None:
 
 
 def test_wikidata_payload_parsers() -> None:
+    """
+    Verify wikidata payload parsers.
+
+    Example:
+        Exercise test wikidata payload parsers through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.wikidata import Wikidata
 
     assert Wikidata._qids_from_search_payload({"search": [{"id": "Q1"}, {"id": "Q1"}, {"id": "Q2"}]}) == ["Q1", "Q2"]
@@ -131,6 +343,19 @@ def test_wikidata_payload_parsers() -> None:
 
 
 def test_wikidata_claim_and_date_helpers(monkeypatch) -> None:
+    """
+    Verify wikidata claim and date helpers.
+
+    Example:
+        Exercise test wikidata claim and date helpers through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.wikidata as wd
 
     monkeypatch.setattr(wd, "parse_only_date", lambda raw: datetime.fromisoformat({"1937-09-21": "1937-09-21", "1937-09": "1937-09-15", "1937": "1937-01-15"}[raw]))
@@ -146,6 +371,19 @@ def test_wikidata_claim_and_date_helpers(monkeypatch) -> None:
 
 
 def test_wikidata_metadata_from_entity(monkeypatch) -> None:
+    """
+    Verify wikidata metadata from entity.
+
+    Example:
+        Exercise test wikidata metadata from entity through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.wikidata as wd
 
     plugin = wd.Wikidata()
@@ -174,6 +412,17 @@ def test_wikidata_metadata_from_entity(monkeypatch) -> None:
 
 
 def test_wikidata_metadata_fallbacks_and_postprocess() -> None:
+    """
+    Verify wikidata metadata fallbacks and postprocess.
+
+    Example:
+        Exercise test wikidata metadata fallbacks and postprocess through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.wikidata import Wikidata
 
     plugin = Wikidata()
@@ -193,6 +442,19 @@ def test_wikidata_metadata_fallbacks_and_postprocess() -> None:
 
 
 def test_wikidata_request_failure_is_logged(monkeypatch) -> None:
+    """
+    Verify wikidata request failure remains logged.
+
+    Example:
+        Exercise test wikidata request failure is logged through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.wikidata import Wikidata
 
     plugin = Wikidata()
@@ -203,12 +465,41 @@ def test_wikidata_request_failure_is_logged(monkeypatch) -> None:
 
 
 def test_wikidata_identify_direct_search_and_sparql(monkeypatch) -> None:
+    """
+    Verify wikidata identify direct search and sparql.
+
+    Example:
+        Exercise test wikidata identify direct search and sparql through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.wikidata import Wikidata
 
     plugin = Wikidata()
     calls = []
 
     def _request(log, abort, url, timeout, context):
+        """
+        Perform the request test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test wikidata identify direct search and sparql.request through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param url: Value supplied for url in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :param context: Value supplied for context in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del log, abort, timeout
         calls.append((url, context))
         if context == "Wikidata entities":
@@ -227,6 +518,22 @@ def test_wikidata_identify_direct_search_and_sparql(monkeypatch) -> None:
     calls = []
 
     def _search_request(log, abort, url, timeout, context):
+        """
+        Perform the search request test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test wikidata identify direct search and sparql.search request through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param url: Value supplied for url in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :param context: Value supplied for context in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del log, abort, timeout
         calls.append((url, context))
         if context == "Wikidata search":
@@ -247,6 +554,22 @@ def test_wikidata_identify_direct_search_and_sparql(monkeypatch) -> None:
     calls = []
 
     def _sparql_request(log, abort, url, timeout, context):
+        """
+        Perform the sparql request test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test wikidata identify direct search and sparql.sparql request through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param url: Value supplied for url in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :param context: Value supplied for context in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del log, abort, timeout
         calls.append((url, context))
         if context == "Wikidata sparql":
@@ -265,6 +588,19 @@ def test_wikidata_identify_direct_search_and_sparql(monkeypatch) -> None:
 
 
 def test_wikidata_identify_empty_abort_and_parse_failure(monkeypatch) -> None:
+    """
+    Verify wikidata identify empty abort and parse failure.
+
+    Example:
+        Exercise test wikidata identify empty abort and parse failure through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.wikidata import Wikidata
 
     plugin = Wikidata()
@@ -293,6 +629,17 @@ def test_wikidata_identify_empty_abort_and_parse_failure(monkeypatch) -> None:
 
 
 def test_wikidata_imports_from_known_modules() -> None:
+    """
+    Verify wikidata imports from known modules.
+
+    Example:
+        Exercise test wikidata imports from known modules through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources import import_web_source_module, iter_known_web_source_modules
 
     assert "wikidata" in iter_known_web_source_modules()

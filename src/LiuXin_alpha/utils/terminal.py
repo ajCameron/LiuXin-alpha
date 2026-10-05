@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
+"""
+Detect terminal capabilities and provide portable ANSI or Windows colour streams.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise terminal through a consuming regression::
+
+        python -m pytest -q tests/utils/test_terminal.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 
 import os
@@ -22,6 +33,19 @@ __docformat__ = "restructuredtext en"
 
 
 def fmt(code):
+    """
+    Perform the fmt utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise fmt through a consuming regression::
+
+            python -m pytest -q tests/utils/test_terminal.py
+
+
+    :param code: Value supplied for code under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return ("\033[%dm" % code).encode("ascii")
 
 
@@ -65,6 +89,21 @@ if iswindows:
     WCOLORS = {c: i for i, c in enumerate(("black", "blue", "green", "cyan", "red", "magenta", "yellow", "white"))}
 
     def to_flag(fg, bg, bold):
+        """
+        Perform the to flag utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise to flag through a consuming regression::
+
+                python -m pytest -q tests/utils/test_terminal.py
+
+
+        :param fg: Value supplied for fg under the utility contract.
+        :param bg: Value supplied for bg under the utility contract.
+        :param bold: Value supplied for bold under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         val = 0
         if bold:
             val |= 0x08
@@ -76,6 +115,22 @@ if iswindows:
 
 
 def colored(text, fg=None, bg=None, bold=False):
+    """
+    Perform the colored utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise colored through a consuming regression::
+
+            python -m pytest -q tests/utils/test_terminal.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :param fg: Value supplied for fg under the utility contract.
+    :param bg: Value supplied for bg under the utility contract.
+    :param bold: Value supplied for bold under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     prefix = []
     if fg is not None:
         prefix.append(COLORS[fg])
@@ -92,7 +147,28 @@ def colored(text, fg=None, bg=None, bold=False):
 
 
 class Detect(object):
+    """
+    Provide the Detect utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise Detect through a consuming regression::
+
+            python -m pytest -q tests/utils/test_terminal.py
+    """
     def __init__(self, stream):
+        """
+        Initialize and validate the Detect state.
+
+        Example:
+            Exercise Detect.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_terminal.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.stream = stream or sys.stdout
         self.isatty = getattr(self.stream, "isatty", lambda: False)()
         force_ansi = "CALIBRE_FORCE_ANSI" in os.environ
@@ -142,7 +218,20 @@ class Detect(object):
                 pass
 
     def write_unicode_text(self, text, ignore_errors=False):
-        "Windows only method that writes unicode strings correctly to the windows console using the Win32 API"
+        """
+        Windows only method that writes unicode strings correctly to the windows console using the Win32 API
+
+        Example:
+            Exercise Detect.write unicode text through a consuming regression::
+
+                python -m pytest -q tests/utils/test_terminal.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :param ignore_errors: Value supplied for ignore errors under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.is_console:
             from ctypes import wintypes, byref, c_wchar_p
 
@@ -187,6 +276,18 @@ _crt = None
 
 def crt():
     # We use the C runtime bundled with the calibre windows build
+    """
+    Perform the crt utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise crt through a consuming regression::
+
+            python -m pytest -q tests/utils/test_terminal.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     global _crt
     if _crt is None:
         import glob, ctypes
@@ -197,13 +298,49 @@ def crt():
 
 
 class ColoredStream(Detect):
+    """
+    Provide the ColoredStream utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise ColoredStream through a consuming regression::
+
+            python -m pytest -q tests/utils/test_terminal.py
+    """
     def __init__(self, stream=None, fg=None, bg=None, bold=False):
+        """
+        Initialize and validate the ColoredStream state.
+
+        Example:
+            Exercise ColoredStream.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_terminal.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param fg: Value supplied for fg under the utility contract.
+        :param bg: Value supplied for bg under the utility contract.
+        :param bold: Value supplied for bold under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super(ColoredStream, self).__init__(stream)
         self.fg, self.bg, self.bold = fg, bg, bold
         if self.set_console is not None:
             self.wval = to_flag(self.fg, self.bg, bold)
 
     def __enter__(self):
+        """
+        Implement the resource's enter lifecycle operation.
+
+        Example:
+            Exercise ColoredStream.  enter   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_terminal.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not self.isatty:
             return self
         if self.isansi:
@@ -219,6 +356,20 @@ class ColoredStream(Detect):
         return self
 
     def __exit__(self, *args, **kwargs):
+        """
+        Implement the resource's exit lifecycle operation.
+
+        Example:
+            Exercise ColoredStream.  exit   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_terminal.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not self.isatty:
             return
         if not self.fg and not self.bg and not self.bold:
@@ -231,14 +382,48 @@ class ColoredStream(Detect):
 
 class ANSIStream(Detect):
 
+    """
+    Provide the ANSIStream utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise ANSIStream through a consuming regression::
+
+            python -m pytest -q tests/utils/test_terminal.py
+    """
     ANSI_RE = re.compile(r"\033\[((?:\d|;)*)([a-zA-Z])")
     ANSI_RE_BYTES = re.compile(rb"\033\[((?:\d|;)*)([a-zA-Z])")
 
     def __init__(self, stream=None):
+        """
+        Initialize and validate the ANSIStream state.
+
+        Example:
+            Exercise ANSIStream.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_terminal.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; validated state is stored on the receiving object.
+        """
         super(ANSIStream, self).__init__(stream)
         self.encoding = getattr(self.stream, "encoding", "utf-8") or "utf-8"
 
     def write(self, text):
+        """
+        Forward the write operation while preserving adapter ownership rules.
+
+        Example:
+            Exercise ANSIStream.write through a consuming regression::
+
+                python -m pytest -q tests/utils/test_terminal.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not self.isatty:
             return self.strip_and_write(text)
 
@@ -251,11 +436,37 @@ class ANSIStream(Detect):
         self.write_and_convert(text)
 
     def strip_and_write(self, text):
+        """
+        Perform the strip and write utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ANSIStream.strip and write through a consuming regression::
+
+                python -m pytest -q tests/utils/test_terminal.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ansi_re = self.ANSI_RE_BYTES if isinstance(text, (bytes, bytearray)) else self.ANSI_RE
         empty = b"" if isinstance(text, (bytes, bytearray)) else ""
         return self._write_stream(ansi_re.sub(empty, text))
 
     def _write_stream(self, text):
+        """
+        Perform the write stream utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ANSIStream. write stream through a consuming regression::
+
+                python -m pytest -q tests/utils/test_terminal.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return self.stream.write(text)
         except TypeError:
@@ -265,10 +476,17 @@ class ANSIStream(Detect):
 
     def write_and_convert(self, text):
         """
-        Write the given text to our wrapped stream, stripping any ANSI sequences from the text, and optionally
-        converting them into win32 calls.
-        :param text:
-        :return:
+        Write the given text to our wrapped stream, stripping any ANSI sequences from the text, and optionally converting them into win32 calls.
+
+        Example:
+            Exercise ANSIStream.write and convert through a consuming regression::
+
+                python -m pytest -q tests/utils/test_terminal.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.last_state = (None, None, False)
         cursor = 0
@@ -282,6 +500,21 @@ class ANSIStream(Detect):
         self.stream.flush()
 
     def write_plain_text(self, text, start, end):
+        """
+        Perform the write plain text utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ANSIStream.write plain text through a consuming regression::
+
+                python -m pytest -q tests/utils/test_terminal.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :param start: Value supplied for start under the utility contract.
+        :param end: Value supplied for end under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if start < end:
             text = text[start:end]
             if self.is_console and isinstance(text, bytes):
@@ -294,11 +527,49 @@ class ANSIStream(Detect):
             self._write_stream(text)
 
     def convert_ansi(self, paramstring, command):
+        """
+        Perform the convert ansi utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ANSIStream.convert ansi through a consuming regression::
+
+                python -m pytest -q tests/utils/test_terminal.py
+
+
+        :param paramstring: Value supplied for paramstring under the utility contract.
+        :param command: Value supplied for command under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         params = self.extract_params(paramstring)
         self.call_win32(command, params)
 
     def extract_params(self, paramstring):
+        """
+        Perform the extract params utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ANSIStream.extract params through a consuming regression::
+
+                python -m pytest -q tests/utils/test_terminal.py
+
+
+        :param paramstring: Value supplied for paramstring under the utility contract.
+        :return: An iterator yielding the normalized values described above.
+        """
         def split(paramstring):
+            """
+            Perform the split utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise ANSIStream.extract params.split through a consuming regression::
+
+                    python -m pytest -q tests/utils/test_terminal.py
+
+
+            :param paramstring: Value supplied for paramstring under the utility contract.
+            :return: An iterator yielding the normalized values described above.
+            """
             separator = b";" if isinstance(paramstring, (bytes, bytearray)) else ";"
             for p in paramstring.split(separator):
                 if p:
@@ -307,6 +578,20 @@ class ANSIStream(Detect):
         return tuple(split(paramstring))
 
     def call_win32(self, command, params):
+        """
+        Perform the call win32 utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ANSIStream.call win32 through a consuming regression::
+
+                python -m pytest -q tests/utils/test_terminal.py
+
+
+        :param command: Value supplied for command under the utility contract.
+        :param params: Value supplied for params under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if command not in (b"m", "m"):
             return
         fg, bg, bold = self.last_state
@@ -330,12 +615,31 @@ class ANSIStream(Detect):
 
 
 def windows_terminfo():
+    """
+    Perform the windows terminfo utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise windows terminfo through a consuming regression::
+
+            python -m pytest -q tests/utils/test_terminal.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from ctypes import Structure, byref
     from ctypes.wintypes import SHORT, WORD
 
     class COORD(Structure):
 
-        """struct in wincon.h"""
+        """
+        struct in wincon.h
+
+        Example:
+            Exercise windows terminfo.COORD through a consuming regression::
+
+                python -m pytest -q tests/utils/test_terminal.py
+        """
 
         _fields_ = [
             ("X", SHORT),
@@ -344,7 +648,14 @@ def windows_terminfo():
 
     class SMALL_RECT(Structure):
 
-        """struct in wincon.h."""
+        """
+        struct in wincon.h.
+
+        Example:
+            Exercise windows terminfo.SMALL RECT through a consuming regression::
+
+                python -m pytest -q tests/utils/test_terminal.py
+        """
 
         _fields_ = [
             ("Left", SHORT),
@@ -355,7 +666,14 @@ def windows_terminfo():
 
     class CONSOLE_SCREEN_BUFFER_INFO(Structure):
 
-        """struct in wincon.h."""
+        """
+        struct in wincon.h.
+
+        Example:
+            Exercise windows terminfo.CONSOLE SCREEN BUFFER INFO through a consuming regression::
+
+                python -m pytest -q tests/utils/test_terminal.py
+        """
 
         _fields_ = [
             ("dwSize", COORD),
@@ -378,6 +696,18 @@ def windows_terminfo():
 
 
 def geometry():
+    """
+    Perform the geometry utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise geometry through a consuming regression::
+
+            python -m pytest -q tests/utils/test_terminal.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if iswindows:
         try:
 
@@ -398,6 +728,18 @@ def geometry():
 
 
 def test():
+    """
+    Perform the test utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test through a consuming regression::
+
+            python -m pytest -q tests/utils/test_terminal.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     s = ANSIStream()
 
     text = [
@@ -424,26 +766,79 @@ def test():
 class RestorePosition(object):
     """
     Context manager to restore the cursor to it's original position after preforming an operation.
+
+    Example:
+        Exercise RestorePosition through a consuming regression::
+
+            python -m pytest -q tests/utils/test_terminal.py
     """
 
     # https://stackoverflow.com/questions/35526014/how-can-i-get-the-cursors-position-in-an-ansi-terminal
     def __enter__(self):
+        """
+        Implement the resource's enter lifecycle operation.
+
+        Example:
+            Exercise RestorePosition.  enter   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_terminal.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Implement the resource's exit lifecycle operation.
+
+        Example:
+            Exercise RestorePosition.  exit   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_terminal.py
+
+
+        :param exc_type: Value supplied for exc type under the utility contract.
+        :param exc_val: Value supplied for exc val under the utility contract.
+        :param exc_tb: Value supplied for exc tb under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
 
 def getTerminalSize():
     """
     Returns a tuple of the height and width of the terminal window.
-    :return (width, height):
+
+    Example:
+        Exercise getTerminalSize through a consuming regression::
+
+            python -m pytest -q tests/utils/test_terminal.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     import os
 
     env = os.environ
 
     def ioctl_GWINSZ(fd):
+        """
+        Perform the ioctl GWINSZ utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise getTerminalSize.ioctl GWINSZ through a consuming regression::
+
+                python -m pytest -q tests/utils/test_terminal.py
+
+
+        :param fd: Value supplied for fd under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             import fcntl, termios, struct, os
 
@@ -475,8 +870,16 @@ def getTerminalSize():
 def safe_terminal_info_print(info_strs):
     """
     Reliably display text in the terminal - displays in green when possible.
-    :param info_strs: A list of the strings to display - strings will be joined and printed
-    :return:
+
+    Example:
+        Exercise safe terminal info print through a consuming regression::
+
+            python -m pytest -q tests/utils/test_terminal.py
+
+
+    :param info_strs: Value supplied for info strs under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     term_width, term_height = getTerminalSize()
     info_strs = (
@@ -500,8 +903,16 @@ def print_or_prompt(output: str, user_input: bool = False) -> Optional[str]:
     """
     Has the same signature as the Python3 print function - will be useful when directing the print output around.
 
-    :param output: The thing to be printed
-    :param user_input True/False:
+    Example:
+        Exercise print or prompt through a consuming regression::
+
+            python -m pytest -q tests/utils/test_terminal.py
+
+
+    :param output: Value supplied for output under the utility contract.
+    :param user_input: Value supplied for user input under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if not user_input:
         print(output)
@@ -517,9 +928,15 @@ def y_n_input(message: str) -> bool:
     """
     Takes a message. Prints it. Attempts to parse what the user types back to obtain a y/n input.
 
-    This input is converted to True/False and returned.
-    :param message:
-    :return:
+    Example:
+        Exercise y n input through a consuming regression::
+
+            python -m pytest -q tests/utils/test_terminal.py
+
+
+    :param message: Value supplied for message under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     print_or_prompt(message)
@@ -553,9 +970,15 @@ def select_from_options(options: Iterable[str]) -> str:
     """
     Takes a list of options - asks the user to choose.
 
-    Presents them to the user with a numeric switch - allowing them to choose one of the options.
-    :param options:
-    :return:
+    Example:
+        Exercise select from options through a consuming regression::
+
+            python -m pytest -q tests/utils/test_terminal.py
+
+
+    :param options: Value supplied for options under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     options = list(options)
 

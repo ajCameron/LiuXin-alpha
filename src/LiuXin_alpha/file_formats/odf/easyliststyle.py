@@ -19,6 +19,17 @@
 # Contributor(s):
 #
 
+"""
+Build ODF list styles from compact level specifications.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise easyliststyle through a consuming regression::
+
+        python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -51,11 +62,44 @@ SHOW_ONE_LEVEL = False
 
 
 def styleFromString(name: _typing.Any, specifiers: _typing.Any, delim: _typing.Any, spacing: _typing.Any, showAllLevels: _typing.Any) -> _typing.Any:
+    """
+    Perform the styleFromString operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise styleFromString through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param specifiers: Value supplied for specifiers under the utility contract.
+    :param delim: Value supplied for delim under the utility contract.
+    :param spacing: Value supplied for spacing under the utility contract.
+    :param showAllLevels: Value supplied for showAllLevels under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     specArray = specifiers.split(delim)
     return styleFromList(name, specArray, spacing, showAllLevels)
 
 
 def styleFromList(styleName: _typing.Any, specArray: _typing.Any, spacing: _typing.Any, showAllLevels: _typing.Any) -> _typing.Any:
+    """
+    Perform the styleFromList operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise styleFromList through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param styleName: Value supplied for styleName under the utility contract.
+    :param specArray: Value supplied for specArray under the utility contract.
+    :param spacing: Value supplied for spacing under the utility contract.
+    :param showAllLevels: Value supplied for showAllLevels under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     bullet = ""
     numPrefix = ""
     numSuffix = ""

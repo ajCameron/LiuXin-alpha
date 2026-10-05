@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
+"""
+Subset embedded fonts to the glyphs used by book content.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise subset through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -24,6 +35,14 @@ except ModuleNotFoundError:
     _HAS_FONT_UTILS = False
 
     class UnsupportedFont(Exception):
+        """
+        Provide the unsupportedfont contract for validated ebook processing.
+
+        Example:
+            Exercise UnsupportedFont through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+        """
         pass
 
 # Py2/Py3 compatability layer
@@ -36,6 +55,22 @@ __docformat__ = "restructuredtext en"
 
 
 def remove_font_face_rules(container: _typing.Any, sheet: _typing.Any, remove_names: _typing.Any, base: _typing.Any) -> _typing.Any:
+    """
+    Perform the remove font face rules operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise remove font face rules through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param sheet: Value supplied for sheet under the utility contract.
+    :param remove_names: Value supplied for remove names under the utility contract.
+    :param base: Value supplied for base under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     changed = False
     for rule in tuple(sheet.cssRules):
         if rule.type != rule.FONT_FACE_RULE:
@@ -52,6 +87,21 @@ def remove_font_face_rules(container: _typing.Any, sheet: _typing.Any, remove_na
 
 
 def subset_all_fonts(container: _typing.Any, font_stats: _typing.Any, report: _typing.Any) -> _typing.Any:
+    """
+    Subset every embedded font to glyphs used by the book.
+
+    Example:
+        Exercise subset all fonts through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param font_stats: Value supplied for font stats under the utility contract.
+    :param report: Value supplied for report under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not _HAS_FONT_UTILS:
         report("Font subsetting support is unavailable (LiuXin_alpha.utils.fonts not ported).")
         return False

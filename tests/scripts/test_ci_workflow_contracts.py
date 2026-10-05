@@ -1,4 +1,14 @@
-"""Protect single-owner CI selection and execute the real summary failure gate."""
+"""
+Provide test ci workflow contracts utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test ci workflow contracts through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+"""
 
 from __future__ import annotations
 
@@ -28,10 +38,35 @@ MERGE_EVENTS = (
 
 def _workflow(name: str = PRIMARY) -> dict:
     # BaseLoader keeps GitHub's `on` key a string, not YAML 1.1's boolean True.
+    """
+    Perform the workflow operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  workflow through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return yaml.load((WORKFLOW_ROOT / name).read_text(), Loader=yaml.BaseLoader)
 
 
 def test_full_suite_has_one_workflow_owner() -> None:
+    """
+    Perform the test full suite has one workflow owner operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test full suite has one workflow owner through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     owners = []
     for path in sorted(WORKFLOW_ROOT.glob("*.y*ml")):
         for job_id, job in _workflow(path.name)["jobs"].items():
@@ -45,6 +80,18 @@ def test_full_suite_has_one_workflow_owner() -> None:
 
 
 def test_workflow_preserves_event_selection_and_dependency_extras() -> None:
+    """
+    Perform the test workflow preserves event selection and dependency extras operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test workflow preserves event selection and dependency extras through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     workflow = _workflow()
     assert set(workflow["on"]) == {"push", "pull_request", "workflow_dispatch"}
     jobs = workflow["jobs"]
@@ -66,6 +113,18 @@ def test_workflow_preserves_event_selection_and_dependency_extras() -> None:
 
 
 def test_summary_requires_all_merge_jobs_even_after_failure() -> None:
+    """
+    Perform the test summary requires all merge jobs even after failure operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test summary requires all merge jobs even after failure through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     jobs = _workflow()["jobs"]
     summary = jobs["tests-passed"]
     assert summary["name"] == "Tests Passed"
@@ -83,6 +142,19 @@ def test_summary_requires_all_merge_jobs_even_after_failure() -> None:
 
 
 def _run_summary(results: list[str]) -> subprocess.CompletedProcess[str]:
+    """
+    Perform the run summary operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  run summary through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param results: Value supplied for results under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     step = _workflow()["jobs"]["tests-passed"]["steps"][0]
     return subprocess.run(
         ["bash", "--noprofile", "--norc", "-e", "-o", "pipefail", "-c", step["run"]],
@@ -94,6 +166,18 @@ def _run_summary(results: list[str]) -> subprocess.CompletedProcess[str]:
 
 
 def test_summary_accepts_all_successful_dependencies() -> None:
+    """
+    Perform the test summary accepts all successful dependencies operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test summary accepts all successful dependencies through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     result = _run_summary(["success"] * len(MERGE_JOBS))
     assert result.returncode == 0, result.stdout + result.stderr
 
@@ -103,6 +187,20 @@ def test_summary_accepts_all_successful_dependencies() -> None:
 def test_summary_rejects_every_non_successful_dependency(
     position: int, outcome: str
 ) -> None:
+    """
+    Perform the test summary rejects every non successful dependency operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test summary rejects every non successful dependency through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param position: Value supplied for position under the utility contract.
+    :param outcome: Value supplied for outcome under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     results = ["success"] * len(MERGE_JOBS)
     results[position] = outcome
     result = _run_summary(results)
@@ -111,10 +209,34 @@ def test_summary_rejects_every_non_successful_dependency(
 
 
 def test_summary_rejects_missing_results() -> None:
+    """
+    Perform the test summary rejects missing results operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test summary rejects missing results through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     assert _run_summary([]).returncode != 0
 
 
 def test_quality_job_owns_syntax_lint_and_closeout_contracts() -> None:
+    """
+    Perform the test quality job owns syntax lint and closeout contracts operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test quality job owns syntax lint and closeout contracts through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     steps = _workflow()["jobs"]["quality-modern"]["steps"]
     assert any(step.get("run") == "bash scripts/run_type_checks.sh" for step in steps)
     syntax = [step for step in steps if "compileall" in step.get("run", "")]
@@ -131,6 +253,18 @@ def test_quality_job_owns_syntax_lint_and_closeout_contracts() -> None:
 
 
 def test_workflow_shell_bodies_are_valid_bash() -> None:
+    """
+    Perform the test workflow shell bodies are valid bash operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test workflow shell bodies are valid bash through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for job_id, job in _workflow()["jobs"].items():
         for step in job["steps"]:
             if "run" in step:

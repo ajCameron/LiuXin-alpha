@@ -1,8 +1,13 @@
 """
-Fallback layer: alpha (prefer fast/featureful backends).
+Provide magick utility behavior.
 
-For `magick`, alpha means "Wand/ MagickWand bindings" — in-process calls
-(if the underlying ImageMagick libs are available).
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise magick through a consuming regression::
+
+        python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
 """
 
 from __future__ import annotations
@@ -11,6 +16,18 @@ from ..magick import *  # noqa: F403,F401
 
 
 def __liuxin_plugin_probe__():
+    """
+    Perform the liuxin plugin probe utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise   liuxin plugin probe   through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         from wand.image import Image as WandImage  # type: ignore
         # Tiny functional probe: create 1x1 and blob it (catches missing IM libs)

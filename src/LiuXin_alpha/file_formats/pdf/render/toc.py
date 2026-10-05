@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 
+"""
+Render hierarchical book navigation as linked PDF outline entries.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise toc through a consuming regression::
+
+        python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -16,6 +27,22 @@ from LiuXin_alpha.utils.localization import trans as _
 
 
 def convert_node(toc: _typing.Any, table: _typing.Any, level: _typing.Any, pdf: _typing.Any) -> None:
+    """
+    Convert node under the format's safety and compatibility rules.
+
+    Example:
+        Exercise convert node through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+    :param toc: Value supplied for toc under the utility contract.
+    :param table: Value supplied for table under the utility contract.
+    :param level: Value supplied for level under the utility contract.
+    :param pdf: Value supplied for pdf under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     tr = TR(TD(toc.text or _("Unknown")), TD())
     tr.set("class", "level-%d" % level)
     anchors = pdf.links.anchors
@@ -35,12 +62,43 @@ def convert_node(toc: _typing.Any, table: _typing.Any, level: _typing.Any, pdf: 
 
 
 def process_children(toc: _typing.Any, table: _typing.Any, level: _typing.Any, pdf: _typing.Any) -> None:
+    """
+    Perform the process children operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise process children through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+    :param toc: Value supplied for toc under the utility contract.
+    :param table: Value supplied for table under the utility contract.
+    :param level: Value supplied for level under the utility contract.
+    :param pdf: Value supplied for pdf under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for child in toc:
         convert_node(child, table, level, pdf)
         process_children(child, table, level + 1, pdf)
 
 
 def toc_as_html(toc: _typing.Any, pdf: _typing.Any, opts: _typing.Any) -> _typing.Any:
+    """
+    Perform the toc as html operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise toc as html through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+    :param toc: Value supplied for toc under the utility contract.
+    :param pdf: Value supplied for pdf under the utility contract.
+    :param opts: Value supplied for opts under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     pdf = pdf.engine.pdf
     indents = []
     for i in memory_range(1, 7):

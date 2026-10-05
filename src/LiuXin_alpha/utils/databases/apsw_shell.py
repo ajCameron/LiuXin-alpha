@@ -2,6 +2,17 @@
 # This is a patched version of sheel.py to fix
 # https://code.google.com/p/apsw/issues/detail?id=142
 
+"""
+Implement the retained APSW interactive shell, formatting and command dispatch surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise apsw shell through a consuming regression::
+
+        python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+"""
 import sys
 import apsw
 import shlex
@@ -28,73 +39,45 @@ if sys.platform == "win32":
 
 
 class Shell(object):
-    """Implements a SQLite shell
+    """
+    Implements a SQLite shell
 
-    :param stdin: Where to read input from (default sys.stdin)
-    :param stdout: Where to send output (default sys.stdout)
-    :param stderr: Where to send errors (default sys.stderr)
-    :param encoding: Default encoding for files opened/created by the
-      Shell.  If you want stdin/out/err to use a particular encoding
-      then you need to provide them `already configured <http://docs.python.org/library/codecs.html#codecs.open>`__ that way.
-    :param args: This should be program arguments only (ie if
-      passing in sys.argv do not include sys.argv[0] which is the
-      program name.  You can also pass in None and then call
-      :meth:`process_args` if you want to catch any errors
-      in handling the arguments yourself.
-    :param db: A existing :class:`Connection` you wish to use
+    Example:
+        Exercise Shell through a consuming regression::
 
-    The commands and behaviour are modelled after the `interactive
-    shell <https://sqlite.org/sqlite.html>`__ that is part of
-    SQLite.
-
-    You can inherit from this class to embed in your own code and user
-    interface.  Internally everything is handled as unicode.
-    Conversions only happen at the point of input or output which you
-    can override in your own code.
-
-    This implementation fixes a number of bugs/quirks present in the
-    sqlite shell.  Its control-C handling is also friendlier.  Some
-    examples of issues not present in this implementation:
-
-    * https://sqlite.org/src/info/c25aab7e7e
-    * https://sqlite.org/src/info/7b61b6c6ce
-    * https://sqlite.org/src/info/ee19e690ec
-    * https://sqlite.org/src/info/2466653295
-
-    Errors and diagnostics are only ever sent to error output
-    (self.stderr) and never to the regular output (self.stdout).  This
-    means using shell output is always easy and consistent.
-
-    Shell commands begin with a dot (eg .help).  They are implemented
-    as a method named after the command (eg command_help).  The method
-    is passed one parameter which is the list of arguments to the
-    command.
-
-    Output modes are implemented by functions named after the mode (eg
-    output_column).
-
-    When you request help the help information is automatically
-    generated from the docstrings for the command and output
-    functions.
-
-    You should not use a Shell object concurrently from multiple
-    threads.  It is one huge set of state information which would
-    become inconsistent if used simultaneously, and then give baffling
-    errors.  It is safe to call methods one at a time from different
-    threads.  ie it doesn't care what thread calls methods as long as
-    you don't call more than one concurrently.
+            python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
     """
 
     class Error(Exception):
-        """Class raised on errors.  The expectation is that the error
-        will be displayed by the shell as text so there are no
-        specific subclasses as the distinctions between different
-        types of errors doesn't matter."""
+        """
+        Class raised on errors. The expectation is that the error will be displayed by the shell as text so there are no specific subclasses as the distinctions between different types of errors doesn't matter.
+
+        Example:
+            Exercise Shell.Error through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+        """
 
         pass
 
     def __init__(self, stdin=None, stdout=None, stderr=None, encoding="utf8", args=None, db=None):
-        """Create instance, set defaults and do argument processing."""
+        """
+        Create instance, set defaults and do argument processing.
+
+        Example:
+            Exercise Shell.  init   through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param stdin: Value supplied for stdin under the utility contract.
+        :param stdout: Value supplied for stdout under the utility contract.
+        :param stderr: Value supplied for stderr under the utility contract.
+        :param encoding: Value supplied for encoding under the utility contract.
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param db: Value supplied for db under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super(Shell, self).__init__()
         # The parameter doc has to be in main class doc as sphinx
         # ignores any described here
@@ -164,7 +147,18 @@ class Shell(object):
             )
 
     def _ensure_db(self):
-        "The database isn't opened until first use.  This function ensures it is now open."
+        """
+        The database isn't opened until first use. This function ensures it is now open.
+
+        Example:
+            Exercise Shell. ensure db through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not self._db:
             if not self.dbfilename:
                 self.dbfilename = ":memory:"
@@ -175,7 +169,19 @@ class Shell(object):
         return self._db
 
     def _set_db(self, newv):
-        "Sets the open database (or None) and filename"
+        """
+        Sets the open database (or None) and filename
+
+        Example:
+            Exercise Shell. set db through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param newv: Value supplied for newv under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         (db, dbfilename) = newv
         if self._db:
             self._db.close()
@@ -186,27 +192,18 @@ class Shell(object):
     db = property(_ensure_db, _set_db, None, "The current :class:`Connection`")
 
     def process_args(self, args):
-        """Process command line options specified in args.  It is safe to
-        call this multiple times.  We try to be compatible with SQLite shell
-        argument parsing.
+        """
+        Process command line options specified in args. It is safe to call this multiple times. We try to be compatible with SQLite shell argument parsing.
 
-        :param args: A list of string options.  Do not include the
-           program as args[0]
+        Example:
+            Exercise Shell.process args through a consuming regression::
 
-        :returns: A tuple of (databasefilename, initfiles,
-           sqlncommands).  This is provided for informational purposes
-           only - they have already been acted upon.  An example use
-           is that the SQLite shell does not enter the main interactive
-           loop if any sql/commands were provided.
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
 
-        The first non-option is the database file name.  Each
-        remaining non-option is treated as a complete input (ie it
-        isn't joined with others looking for a trailing semi-colon).
 
-        The SQLite shell uses single dash in front of options.  We
-        allow both single and double dashes.  When an unrecognized
-        argument is encountered then
-        :meth:`process_unknown_args` is called.
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # we don't use optparse as we need to use single dashes for
         # options - all hand parsed
@@ -303,21 +300,34 @@ class Shell(object):
         return self.dbfilename, inits, sqls
 
     def process_unknown_args(self, args):
-        """This is called when :meth:`process_args` encounters an
-        argument it doesn't understand.  Override this method if you
-        want to be able to understand additional command line arguments.
+        """
+        This is called when :meth:`process_args` encounters an argument it doesn't understand. Override this method if you want to be able to understand additional command line arguments.
 
-        :param args: A list of the remaining arguments.  The initial one will
-           have had the leading dashes removed (eg if it was --foo on the command
-           line then args[0] will be "foo"
-        :returns: None if you don't recognize the argument either.  Otherwise
-           return the list of remaining arguments after you have processed
-           yours.
+        Example:
+            Exercise Shell.process unknown args through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return None
 
     def usage(self):
-        "Returns the usage message.  Make sure it is newline terminated"
+        """
+        Returns the usage message. Make sure it is newline terminated
+
+        Example:
+            Exercise Shell.usage through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         msg = """
 Usage: program [OPTIONS] FILENAME [SQL|CMD] [SQL|CMD]...
@@ -360,7 +370,19 @@ OPTIONS include:
     ]
 
     def _fmt_c_string(self, v):
-        "Format as a C string including surrounding double quotes"
+        """
+        Format as a C string including surrounding double quotes
+
+        Example:
+            Exercise Shell. fmt c string through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param v: Value supplied for v under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if isinstance(v, self._basestring):
             op = ['"']
             for c in v:
@@ -400,7 +422,19 @@ OPTIONS include:
             return '"%s"' % (v,)
 
     def _fmt_html_col(self, v):
-        "Format as HTML (mainly escaping &/</>"
+        """
+        Format as HTML (mainly escaping &/</>
+
+        Example:
+            Exercise Shell. fmt html col through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param v: Value supplied for v under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return (
             self._fmt_text_col(v)
             .replace("&", "&amp;")
@@ -411,7 +445,19 @@ OPTIONS include:
         )
 
     def _fmt_json_value(self, v):
-        "Format a value."
+        """
+        Format a value.
+
+        Example:
+            Exercise Shell. fmt json value through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param v: Value supplied for v under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if isinstance(v, self._basestring):
             # we assume utf8 so only some characters need to be escaed
             op = ['"']
@@ -454,7 +500,19 @@ OPTIONS include:
             return "%s" % (v,)
 
     def _fmt_python(self, v):
-        "Format as python literal"
+        """
+        Format as python literal
+
+        Example:
+            Exercise Shell. fmt python through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param v: Value supplied for v under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if v is None:
             return "None"
         elif isinstance(v, self._basestring):
@@ -482,7 +540,19 @@ OPTIONS include:
             return "%s" % (v,)
 
     def _fmt_sql_identifier(self, v):
-        "Return the identifier quoted in SQL syntax if needed (eg table and column names)"
+        """
+        Return the identifier quoted in SQL syntax if needed (eg table and column names)
+
+        Example:
+            Exercise Shell. fmt sql identifier through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param v: Value supplied for v under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not len(v):  # yes sqlite does allow zero length identifiers
             return '""'
         nonalnum = re.sub("[A-Za-z_0-9]+", "", v)
@@ -497,7 +567,19 @@ OPTIONS include:
         return '"%s"' % (v,)
 
     def _fmt_text_col(self, v):
-        "Regular text formatting"
+        """
+        Regular text formatting
+
+        Example:
+            Exercise Shell. fmt text col through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param v: Value supplied for v under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if v is None:
             return self.nullvalue
         elif isinstance(v, self._basestring):
@@ -517,17 +599,37 @@ OPTIONS include:
 
     def output_column(self, header, line):
         """
-        Items left aligned in space padded columns.  They are
-        truncated if they do not fit. If the width hasn't been
-        specified for a column then 10 is used unless the column name
-        (header) is longer in which case that width is used.  Use the
-        .width command to change column sizes.
+        Items left aligned in space padded columns. They are truncated if they do not fit. If the width hasn't been specified for a column then 10 is used unless the column name (header) is longer in which case that width is used. Use the .width command to change column sizes.
+
+        Example:
+            Exercise Shell.output column through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param header: Value supplied for header under the utility contract.
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # as an optimization we calculate self._actualwidths which is
         # reset for each query
         if header:
 
             def gw(n):
+                """
+                Perform the gw utility operation under explicit compatibility rules.
+
+                Example:
+                    Exercise Shell.output column.gw through a consuming regression::
+
+                        python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+                :param n: Value supplied for n under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 if n < len(self.widths) and self.widths[n] != 0:
                     return self.widths[n]
                 # if width is not present or 0 then autosize
@@ -562,12 +664,18 @@ OPTIONS include:
 
     def output_csv(self, header, line):
         """
-        Items in csv format (comma separated).  Use tabs mode for tab
-        separated.  You can use the .separator command to use a
-        different one after switching mode.  A separator of comma uses
-        double quotes for quoting while other separators do not do any
-        quoting.  The Python csv library used for this only supports
-        single character separators.
+        Items in csv format (comma separated). Use tabs mode for tab separated. You can use the .separator command to use a different one after switching mode. A separator of comma uses double quotes for quoting while other separators do not do any quoting. The Python csv library used for this only supports single character separators.
+
+        Example:
+            Exercise Shell.output csv through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param header: Value supplied for header under the utility contract.
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
 
         # we use self._csv for the work, setup when header is
@@ -627,7 +735,20 @@ OPTIONS include:
         self._csv[0].seek(0)
 
     def output_html(self, header, line):
-        "HTML table style"
+        """
+        HTML table style
+
+        Example:
+            Exercise Shell.output html through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param header: Value supplied for header under the utility contract.
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if header:
             if not self.header:
                 return
@@ -645,9 +766,18 @@ OPTIONS include:
 
     def output_insert(self, header, line):
         """
-        Lines as SQL insert statements.  The table name is "table"
-        unless you specified a different one as the second parameter
-        to the .mode command.
+        Lines as SQL insert statements. The table name is "table" unless you specified a different one as the second parameter to the .mode command.
+
+        Example:
+            Exercise Shell.output insert through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param header: Value supplied for header under the utility contract.
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if header:
             return
@@ -657,9 +787,18 @@ OPTIONS include:
 
     def output_json(self, header, line):
         """
-        Each line as a JSON object with a trailing comma.  Blobs are
-        output as base64 encoded strings.  You should be using UTF8
-        output encoding.
+        Each line as a JSON object with a trailing comma. Blobs are output as base64 encoded strings. You should be using UTF8 output encoding.
+
+        Example:
+            Exercise Shell.output json through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param header: Value supplied for header under the utility contract.
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if header:
             self._output_json_cols = line
@@ -670,8 +809,18 @@ OPTIONS include:
 
     def output_line(self, header, line):
         """
-        One value per line in the form 'column = value' with a blank
-        line between rows.
+        One value per line in the form 'column = value' with a blank line between rows.
+
+        Example:
+            Exercise Shell.output line through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param header: Value supplied for header under the utility contract.
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if header:
             w = 5
@@ -687,7 +836,20 @@ OPTIONS include:
         self.write(self.stdout, "\n")
 
     def output_list(self, header, line):
-        "All items on one line with separator"
+        """
+        All items on one line with separator
+
+        Example:
+            Exercise Shell.output list through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param header: Value supplied for header under the utility contract.
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if header:
             if not self.header:
                 return
@@ -698,7 +860,20 @@ OPTIONS include:
         self.write(self.stdout, self.separator.join([fmt(x) for x in line]) + "\n")
 
     def output_python(self, header, line):
-        "Tuples in Python source form for each row"
+        """
+        Tuples in Python source form for each row
+
+        Example:
+            Exercise Shell.output python through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param header: Value supplied for header under the utility contract.
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if header:
             if not self.header:
                 return
@@ -709,7 +884,20 @@ OPTIONS include:
         self.write(self.stdout, "(" + ", ".join([fmt(l) for l in line]) + "),\n")
 
     def output_tcl(self, header, line):
-        "Outputs TCL/C style strings using current separator"
+        """
+        Outputs TCL/C style strings using current separator
+
+        Example:
+            Exercise Shell.output tcl through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param header: Value supplied for header under the utility contract.
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         # In theory you could paste the output into your source ...
         if header:
             if not self.header:
@@ -722,6 +910,19 @@ OPTIONS include:
 
     def _output_summary(self, summary):
         # internal routine to output a summary line or two
+        """
+        Perform the output summary utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Shell. output summary through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param summary: Value supplied for summary under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.write(self.stdout, self.colour.summary + summary + self.colour.summary_)
 
     ###
@@ -729,10 +930,18 @@ OPTIONS include:
     ###
 
     def cmdloop(self, intro=None):
-        """Runs the main interactive command loop.
+        """
+        Runs the main interactive command loop.
 
-        :param intro: Initial text banner to display instead of the
-           default.  Make sure you newline terminate it.
+        Example:
+            Exercise Shell.cmdloop through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param intro: Value supplied for intro under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if intro is None:
             intro = """
@@ -800,8 +1009,18 @@ Enter SQL statements terminated with a ";"
                 readline.write_history_file(os.path.expanduser(self.history_file))
 
     def handle_exception(self):
-        """Handles the current exception, printing a message to stderr as appropriate.
-        It will reraise the exception if necessary (eg if bail is true)"""
+        """
+        Handles the current exception, printing a message to stderr as appropriate. It will reraise the exception if necessary (eg if bail is true)
+
+        Example:
+            Exercise Shell.handle exception through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         eclass, eval, etb = sys.exc_info()  # py2&3 compatible way of doing this
         if isinstance(eval, SystemExit):
             eval._handle_exception_saw_this = True
@@ -856,27 +1075,42 @@ Enter SQL statements terminated with a ";"
             raise
 
     def process_sql(self, sql, bindings=None, internal=False, summary=None):
-        """Processes SQL text consisting of one or more statements
+        """
+        Processes SQL text consisting of one or more statements
 
-        :param sql: SQL to execute
+        Example:
+            Exercise Shell.process sql through a consuming regression::
 
-        :param bindings: bindings for the *sql*
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
 
-        :param internal: If True then this is an internal execution
-          (eg the .tables or .database command).  When executing
-          internal sql timings are not shown nor is the SQL echoed.
 
-        :param summary: If not None then should be a tuple of two
-          items.  If the ``sql`` returns any data then the first item
-          is printed before the first row, and the second item is
-          printed after the last row.  An example usage is the .find
-          command which shows table names.
+        :param sql: Value supplied for sql under the utility contract.
+        :param bindings: Value supplied for bindings under the utility contract.
+        :param internal: Value supplied for internal under the utility contract.
+        :param summary: Value supplied for summary under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         cur = self.db.cursor()
         # we need to know when each new statement is executed
         state = {"newsql": True, "timing": None}
 
         def et(cur, sql, bindings):
+            """
+            Perform the et utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise Shell.process sql.et through a consuming regression::
+
+                    python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+            :param cur: Value supplied for cur under the utility contract.
+            :param sql: Value supplied for sql under the utility contract.
+            :param bindings: Value supplied for bindings under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             state["newsql"] = True
             # if time reporting, do so now
             if not internal and self.timer:
@@ -938,11 +1172,18 @@ Enter SQL statements terminated with a ";"
             self.display_timing(state["timing"], self.get_resource_usage())
 
     def process_command(self, cmd):
-        """Processes a dot command.  It is split into parts using the
-        `shlex.split
-        <http://docs.python.org/library/shlex.html#shlex.split>`__
-        function which is roughly the same method used by Unix/POSIX
-        shells.
+        """
+        Processes a dot command. It is split into parts using the `shlex.split <http://docs.python.org/library/shlex.html#shlex.split>`__ function which is roughly the same method used by Unix/POSIX shells.
+
+        Example:
+            Exercise Shell.process command through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.echo:
             self.write(self.stderr, cmd + "\n")
@@ -964,7 +1205,20 @@ Enter SQL statements terminated with a ";"
     ###
 
     def _boolean_command(self, name, cmd):
-        "Parse and verify boolean parameter"
+        """
+        Parse and verify boolean parameter
+
+        Example:
+            Exercise Shell. boolean command through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if len(cmd) != 1 or cmd[0].lower() not in ("on", "off"):
             raise self.Error(name + " expected ON or OFF")
         return cmd[0].lower() == "on"
@@ -972,14 +1226,18 @@ Enter SQL statements terminated with a ";"
     # Note that doc text is used for generating help output.
 
     def command_backup(self, cmd):
-        """backup ?DB? FILE: Backup DB (default "main") to FILE
+        """
+        backup ?DB? FILE: Backup DB (default "main") to FILE
 
-        Copies the contents of the current database to FILE
-        overwriting whatever was in FILE.  If you have attached databases
-        then you can specify their name instead of the default of "main".
+        Example:
+            Exercise Shell.command backup through a consuming regression::
 
-        The backup is done at the page level - SQLite copies the pages
-        as is.  There is no round trip through SQL code.
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         dbname = "main"
         if len(cmd) == 1:
@@ -999,22 +1257,34 @@ Enter SQL statements terminated with a ";"
             out.close()
 
     def command_bail(self, cmd):
-        """bail ON|OFF: Stop after hitting an error (default OFF)
+        """
+        bail ON|OFF: Stop after hitting an error (default OFF)
 
-        If an error is encountered while processing commands or SQL
-        then exit.  (Note this is different than SQLite shell which
-        only exits for errors in SQL.)
+        Example:
+            Exercise Shell.command bail through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.bail = self._boolean_command("bail", cmd)
 
     def command_colour(self, cmd=[]):
-        """colour SCHEME: Selects a colour scheme
+        """
+        colour SCHEME: Selects a colour scheme
 
-        Residents of both countries that have not adopted the metric
-        system may also spell this command without a 'u'.  If using a
-        colour terminal in interactive mode then output is
-        automatically coloured to make it more readable.  Use 'off' to
-        turn off colour, and no name or 'default' for the default.
+        Example:
+            Exercise Shell.command colour through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if len(cmd) > 1:
             raise self.Error("Too many colour schemes")
@@ -1027,7 +1297,19 @@ Enter SQL statements terminated with a ";"
     command_color = command_colour
 
     def command_databases(self, cmd):
-        """databases: Lists names and files of attached databases"""
+        """
+        databases: Lists names and files of attached databases
+
+        Example:
+            Exercise Shell.command databases through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if len(cmd):
             raise self.Error("databases command doesn't take any parameters")
         self.push_output()
@@ -1041,28 +1323,18 @@ Enter SQL statements terminated with a ";"
             self.pop_output()
 
     def command_dump(self, cmd):
-        """dump ?TABLE? [TABLE...]: Dumps all or specified tables in SQL text format
+        """
+        dump ?TABLE? [TABLE...]: Dumps all or specified tables in SQL text format
 
-        The table name is treated as like pattern so you can use % as
-        a wildcard.  You can use dump to make a text based backup of
-        the database.  It is also useful for comparing differences or
-        making the data available to other databases.  Indices and
-        triggers for the table(s) are also dumped.  Finally views
-        matching the table pattern name are dumped (it isn't possible
-        to work out which views access which table and views can
-        access multiple tables anyway).
+        Example:
+            Exercise Shell.command dump through a consuming regression::
 
-        Note that if you are dumping virtual tables such as used by
-        the FTS3 module then they may use other tables to store
-        information.  For example if you create a FTS3 table named
-        *recipes* then it also creates *recipes_content*,
-        *recipes_segdir* etc.  Consequently to dump this example
-        correctly use::
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
 
-           .dump recipes recipes_%
 
-        If the database is empty or no tables/views match then there
-        is no output.
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Simple tables are easy to dump.  More complicated is dealing
         # with virtual tables, foreign keys etc.
@@ -1078,6 +1350,20 @@ Enter SQL statements terminated with a ";"
             v = {"virtuals": False, "foreigns": False}
 
             def check(name, sql):
+                """
+                Perform the check utility operation under explicit compatibility rules.
+
+                Example:
+                    Exercise Shell.command dump.check through a consuming regression::
+
+                        python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+                :param name: Field, file, function or resource name addressed by the operation.
+                :param sql: Value supplied for sql under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 if name.lower().startswith("sqlite_"):
                     return False
                 sql = sql.lower()
@@ -1126,9 +1412,34 @@ Enter SQL statements terminated with a ";"
             analyze_needed.sort()
 
             def blank():
+                """
+                Perform the blank utility operation under explicit compatibility rules.
+
+                Example:
+                    Exercise Shell.command dump.blank through a consuming regression::
+
+                        python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+                :return: None; the operation mutates state, writes output or performs cleanup in
+                    place.
+                """
                 self.write(self.stdout, "\n")
 
             def comment(s):
+                """
+                Perform the comment utility operation under explicit compatibility rules.
+
+                Example:
+                    Exercise Shell.command dump.comment through a consuming regression::
+
+                        python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+                :param s: Value supplied for s under the utility contract.
+                :return: None; the operation mutates state, writes output or performs cleanup in
+                    place.
+                """
                 if isinstance(s, bytes):
                     s = s.decode("utf-8", "replace")
                 self.write(
@@ -1195,6 +1506,19 @@ Enter SQL statements terminated with a ";"
                 # return formatted sql watching out for embedded
                 # comments at the end forcing trailing ; onto next
                 # line https://sqlite.org/src/info/c04a8b8a4f
+                """
+                Perform the sqldef utility operation under explicit compatibility rules.
+
+                Example:
+                    Exercise Shell.command dump.sqldef through a consuming regression::
+
+                        python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+                :param s: Value supplied for s under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 if "--" in s.split("\n")[-1]:
                     nl = "\n"
                 else:
@@ -1356,19 +1680,34 @@ Enter SQL statements terminated with a ";"
             self.process_sql("END", internal=True)
 
     def command_echo(self, cmd):
-        """echo ON|OFF: If ON then each SQL statement or command is printed before execution (default OFF)
+        """
+        echo ON|OFF: If ON then each SQL statement or command is printed before execution (default OFF)
 
-        The SQL statement or command is sent to error output so that
-        it is not intermingled with regular output.
+        Example:
+            Exercise Shell.command echo through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.echo = self._boolean_command("echo", cmd)
 
     def set_encoding(self, enc):
-        """Saves *enc* as the default encoding, after verifying that
-        it is valid.  You can also include :error to specify error
-        handling - eg 'cp437:replace'
+        """
+        Saves *enc* as the default encoding, after verifying that it is valid. You can also include :error to specify error handling - eg 'cp437:replace'
 
-        Raises an exception on invalid encoding or error
+        Example:
+            Exercise Shell.set encoding through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param enc: Value supplied for enc under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         enc = enc.split(":", 1)
         if len(enc) > 1:
@@ -1388,71 +1727,88 @@ Enter SQL statements terminated with a ";"
         self.encoding = enc, errors
 
     def command_encoding(self, cmd):
-        """encoding ENCODING: Set the encoding used for new files opened via .output and imports
+        """
+        encoding ENCODING: Set the encoding used for new files opened via .output and imports
 
-        SQLite and APSW work internally using Unicode and characters.
-        Files however are a sequence of bytes.  An encoding describes
-        how to convert between bytes and characters.  The default
-        encoding is utf8 and that is generally the best value to use
-        when other programs give you a choice.
+        Example:
+            Exercise Shell.command encoding through a consuming regression::
 
-        You can also specify an error handler.  For example
-        'cp437:replace' will use code page 437 and any Unicode
-        codepoints not present in cp437 will be replaced (typically
-        with something like a question mark).  Other error handlers
-        include 'ignore', 'strict' (default) and 'xmlcharrefreplace'.
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
 
-        For the default input/output/error streams on startup the
-        shell defers to Python's detection of encoding.  For example
-        on Windows it asks what code page is in use and on Unix it
-        looks at the LC_CTYPE environment variable.  You can set the
-        PYTHONIOENCODING environment variable to override this
-        detection.
 
-        This command affects files opened after setting the encoding
-        as well as imports.
-
-        See the online APSW documentation for more details.
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if len(cmd) != 1:
             raise self.Error("Encoding takes one argument")
         self.set_encoding(cmd[0])
 
     def command_exceptions(self, cmd):
-        """exceptions ON|OFF: If ON then detailed tracebacks are shown on exceptions (default OFF)
+        """
+        exceptions ON|OFF: If ON then detailed tracebacks are shown on exceptions (default OFF)
 
-        Normally when an exception occurs the error string only is
-        displayed.  However it is sometimes useful to get a full
-        traceback.  An example would be when you are developing
-        virtual tables and using the shell to exercise them.  In
-        addition to displaying each stack frame, the local variables
-        within each frame are also displayed.
+        Example:
+            Exercise Shell.command exceptions through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.exceptions = self._boolean_command("exceptions", cmd)
 
     def command_exit(self, cmd):
-        """exit:Exit this program"""
+        """
+        exit:Exit this program
+
+        Example:
+            Exercise Shell.command exit through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if len(cmd):
             raise self.Error("Exit doesn't take any parameters")
         sys.exit(0)
 
     def command_quit(self, cmd):
-        """quit:Exit this program"""
+        """
+        quit:Exit this program
+
+        Example:
+            Exercise Shell.command quit through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if len(cmd):
             raise self.Error("Quit doesn't take any parameters")
         sys.exit(0)
 
     def command_explain(self, cmd):
-        """explain ON|OFF: Set output mode suitable for explain (default OFF)
+        """
+        explain ON|OFF: Set output mode suitable for explain (default OFF)
 
-        Explain shows the underlying SQLite virtual machine code for a
-        statement.  You need to prefix the SQL with explain.  For example:
+        Example:
+            Exercise Shell.command explain through a consuming regression::
 
-           explain select * from table;
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
 
-        This output mode formats the explain output nicely.  If you do
-        '.explain OFF' then the output mode and settings in place when
-        you did '.explain ON' are restored.
+
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if len(cmd) == 0 or self._boolean_command("explain", cmd):
             self.push_output()
@@ -1464,21 +1820,18 @@ Enter SQL statements terminated with a ";"
             self.pop_output()
 
     def command_find(self, cmd):
-        """find what ?TABLE?: Searches all columns of all tables for a value
+        """
+        find what ?TABLE?: Searches all columns of all tables for a value
 
-        The find command helps you locate data across your database
-        for example to find a string or any references to an id.
+        Example:
+            Exercise Shell.command find through a consuming regression::
 
-        You can specify a like pattern to limit the search to a subset
-        of tables (eg specifying 'CUSTOMER%' for all tables beginning
-        with CUSTOMER).
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
 
-        The what value will be treated as a string and/or integer if
-        possible.  If what contains % or _ then it is also treated as
-        a like pattern.
 
-        This command will take a long time to execute needing to read
-        all of the relevant tables.
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if len(cmd) < 1 or len(cmd) > 2:
             raise self.Error("At least one argument required and at most two accepted")
@@ -1489,6 +1842,18 @@ Enter SQL statements terminated with a ";"
         queryparams = []
 
         def qp():  # binding for current queryparams
+            """
+            Perform the qp utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise Shell.command find.qp through a consuming regression::
+
+                    python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return "?" + str(len(queryparams))
 
         s = cmd[0]
@@ -1522,7 +1887,19 @@ Enter SQL statements terminated with a ";"
             )
 
     def command_header(self, cmd):
-        """header(s) ON|OFF: Display the column names in output (default OFF)"""
+        """
+        header(s) ON|OFF: Display the column names in output (default OFF)
+
+        Example:
+            Exercise Shell.command header through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.header = self._boolean_command("header", cmd)
 
     command_headers = command_header
@@ -1530,7 +1907,19 @@ Enter SQL statements terminated with a ";"
     _help_info = None
 
     def command_help(self, cmd):
-        """help ?COMMAND?: Shows list of commands and their usage.  If COMMAND is specified then shows detail about that COMMAND.  ('.help all' will show detailed help about all commands.)"""
+        """
+        help ?COMMAND?: Shows list of commands and their usage. If COMMAND is specified then shows detail about that COMMAND. ('.help all' will show detailed help about all commands.)
+
+        Example:
+            Exercise Shell.command help through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not self._help_info:
             # buildup help database
             self._help_info = {}
@@ -1642,37 +2031,18 @@ Enter SQL statements terminated with a ";"
         self.write(self.stderr, "\n")
 
     def command_import(self, cmd):
-        """import FILE TABLE: Imports separated data from FILE into TABLE
+        """
+        import FILE TABLE: Imports separated data from FILE into TABLE
 
-        Reads data from the file into the named table using the
-        current separator and encoding.  For example if the separator
-        is currently a comma then the file should be CSV (comma
-        separated values).
+        Example:
+            Exercise Shell.command import through a consuming regression::
 
-        All values read in are supplied to SQLite as strings.  If you
-        want SQLite to treat them as other types then declare your
-        columns appropriately.  For example declaring a column 'REAL'
-        will result in the values being stored as floating point if
-        they can be safely converted.  See this page for more details:
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
 
-          https://sqlite.org/datatype3.html
 
-        Another alternative is to create a tempory table, insert the
-        values into that and then use casting.
-
-          CREATE TEMPORARY TABLE import(a,b,c);
-
-          .import filename import
-
-          CREATE TABLE final AS SELECT cast(a as BLOB), cast(b as INTEGER), cast(c as CHAR) from import;
-
-          DROP TABLE import;
-
-        You can also get more sophisticated using the SQL CASE
-        operator.  For example this will turn zero length strings into
-        null:
-
-          SELECT CASE col WHEN '' THEN null ELSE col END FROM ...
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if len(cmd) != 2:
             raise self.Error("import takes two parameters")
@@ -1729,6 +2099,19 @@ Enter SQL statements terminated with a ";"
         # dialect dict to configure reader
 
         # Very easy for python 3
+        """
+        Perform the csvin wrapper utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Shell. csvin wrapper through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param filename: Filename used for type inference or archive output.
+        :param dialect: Value supplied for dialect under the utility contract.
+        :return: An iterator yielding the normalized values described above.
+        """
         if sys.version_info >= (3, 0):
             thefile = codecs.open(filename, "r", self.encoding[0])
             for line in csv.reader(thefile, **dialect.copy()):
@@ -1760,35 +2143,18 @@ Enter SQL statements terminated with a ";"
         thefile.close()
 
     def command_autoimport(self, cmd):
-        """autoimport FILENAME ?TABLE?: Imports filename creating a table and automatically working out separators and data types (alternative to .import command)
+        """
+        autoimport FILENAME ?TABLE?: Imports filename creating a table and automatically working out separators and data types (alternative to .import command)
 
-        The import command requires that you precisely pre-setup the
-        table and schema, and set the data separators (eg commas or
-        tabs).  In many cases this information can be automatically
-        deduced from the file contents which is what this command
-        does.  There must be at least two columns and two rows.
+        Example:
+            Exercise Shell.command autoimport through a consuming regression::
 
-        If the table is not specified then the basename of the file
-        will be used.
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
 
-        Additionally the type of the contents of each column is also
-        deduced - for example if it is a number or date.  Empty values
-        are turned into nulls.  Dates are normalized into YYYY-MM-DD
-        format and DateTime are normalized into ISO8601 format to
-        allow easy sorting and searching.  4 digit years must be used
-        to detect dates.  US (swapped day and month) versus rest of
-        the world is also detected providing there is at least one
-        value that resolves the ambiguity.
 
-        Care is taken to ensure that columns looking like numbers are
-        only treated as numbers if they do not have unnecessary
-        leading zeroes or plus signs.  This is to avoid treating phone
-        numbers and similar number like strings as integers.
-
-        This command can take quite some time on large files as they
-        are effectively imported twice.  The first time is to
-        determine the format and the types for each column while the
-        second pass actually imports the data.
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if len(cmd) < 1 or len(cmd) > 2:
             raise self.Error("Expected one or two parameters")
@@ -1812,9 +2178,36 @@ Enter SQL statements terminated with a ";"
 
             # The types we support deducing
             def DateUS(v):  # US formatted date with wrong ordering of day and month
+                """
+                Perform the DateUS utility operation under explicit compatibility rules.
+
+                Example:
+                    Exercise Shell.command autoimport.DateUS through a consuming regression::
+
+                        python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+                :param v: Value supplied for v under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 return DateWorld(v, switchdm=True)
 
             def DateWorld(v, switchdm=False):  # Sensibly formatted date as used anywhere else in the world
+                """
+                Perform the DateWorld utility operation under explicit compatibility rules.
+
+                Example:
+                    Exercise Shell.command autoimport.DateWorld through a consuming regression::
+
+                        python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+                :param v: Value supplied for v under the utility contract.
+                :param switchdm: Value supplied for switchdm under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 y, m, d = self._getdate(v)
                 if switchdm:
                     m, d = d, m
@@ -1823,9 +2216,36 @@ Enter SQL statements terminated with a ";"
                 return "%d-%02d-%02d" % (y, m, d)
 
             def DateTimeUS(v):  # US date and time
+                """
+                Perform the DateTimeUS utility operation under explicit compatibility rules.
+
+                Example:
+                    Exercise Shell.command autoimport.DateTimeUS through a consuming regression::
+
+                        python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+                :param v: Value supplied for v under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 return DateTimeWorld(v, switchdm=True)
 
             def DateTimeWorld(v, switchdm=False):  # Sensible date and time
+                """
+                Perform the DateTimeWorld utility operation under explicit compatibility rules.
+
+                Example:
+                    Exercise Shell.command autoimport.DateTimeWorld through a consuming regression::
+
+                        python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+                :param v: Value supplied for v under the utility contract.
+                :param switchdm: Value supplied for switchdm under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 y, m, d, h, M, s = self._getdatetime(v)
                 if switchdm:
                     m, d = d, m
@@ -1835,6 +2255,19 @@ Enter SQL statements terminated with a ";"
 
             def Number(v):  # we really don't want phone numbers etc to match
                 # Python's float & int constructors allow whitespace which we don't
+                """
+                Perform the Number utility operation under explicit compatibility rules.
+
+                Example:
+                    Exercise Shell.command autoimport.Number through a consuming regression::
+
+                        python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+                :param v: Value supplied for v under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 if re.search(r"\s", v):
                     raise ValueError
                 if v == "0":
@@ -1992,6 +2425,19 @@ Enter SQL statements terminated with a ";"
 
     def _getdate(self, v):
         # Returns a tuple of 3 items y,m,d from string v
+        """
+        Perform the getdate utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Shell. getdate through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param v: Value supplied for v under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         m = re.match(r"^([0-9]+)[^0-9]([0-9]+)[^0-9]([0-9]+)$", v)
         if not m:
             raise ValueError
@@ -2004,6 +2450,19 @@ Enter SQL statements terminated with a ";"
 
     def _getdatetime(self, v):
         # must be at least HH:MM
+        """
+        Perform the getdatetime utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Shell. getdatetime through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param v: Value supplied for v under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         m = re.match(
             r"^([0-9]+)[^0-9]([0-9]+)[^0-9]([0-9]+)[^0-9]+([0-9]+)[^0-9]([0-9]+)([^0-9]([0-9]+))?$",
             v,
@@ -2022,7 +2481,19 @@ Enter SQL statements terminated with a ";"
         return items
 
     def command_indices(self, cmd):
-        """indices TABLE: Lists all indices on table TABLE"""
+        """
+        indices TABLE: Lists all indices on table TABLE
+
+        Example:
+            Exercise Shell.command indices through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if len(cmd) != 1:
             raise self.Error("indices takes one table name")
         self.push_output()
@@ -2040,23 +2511,18 @@ Enter SQL statements terminated with a ";"
             self.pop_output()
 
     def command_load(self, cmd):
-        """load FILE ?ENTRY?: Loads a SQLite extension library
+        """
+        load FILE ?ENTRY?: Loads a SQLite extension library
 
-        Note: Extension loading may not be enabled in the SQLite
-        library version you are using.
+        Example:
+            Exercise Shell.command load through a consuming regression::
 
-        Extensions are an easy way to add new functions and
-        functionality.  For a useful extension look at the bottom of
-        https://sqlite.org/contrib
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
 
-        By default sqlite3_extension_init is called in the library but
-        you can specify an alternate entry point.
 
-        If you get an error about the extension not being found you
-        may need to explicitly specify the directory.  For example if
-        it is in the current directory then use:
-
-          .load ./extension.so
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if len(cmd) < 1 or len(cmd) > 2:
             raise self.Error("load takes one or two parameters")
@@ -2070,7 +2536,19 @@ Enter SQL statements terminated with a ";"
     _output_modes = None
 
     def command_mode(self, cmd):
-        """mode MODE ?TABLE?: Sets output mode to one of"""
+        """
+        mode MODE ?TABLE?: Sets output mode to one of
+
+        Example:
+            Exercise Shell.command mode through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if len(cmd) in (1, 2):
             w = cmd[0]
             if w == "tabs":
@@ -2103,6 +2581,18 @@ Enter SQL statements terminated with a ";"
 
     # needed so command completion and help can use it
     def _cache_output_modes(self):
+        """
+        Perform the cache output modes utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Shell. cache output modes through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         modes = [m[len("output_") :] for m in dir(self) if m.startswith("output_")]
         modes.append("tabs")
         modes.sort()
@@ -2122,28 +2612,36 @@ Enter SQL statements terminated with a ";"
         self._output_modes_detail = detail
 
     def command_nullvalue(self, cmd):
-        """nullvalue STRING: Print STRING in place of null values
+        """
+        nullvalue STRING: Print STRING in place of null values
 
-        This affects textual output modes like column and list and
-        sets how SQL null values are shown.  The default is a zero
-        length string.  Insert mode and dumps are not affected by this
-        setting.  You can use double quotes to supply a zero length
-        string.  For example:
+        Example:
+            Exercise Shell.command nullvalue through a consuming regression::
 
-          .nullvalue ""         # the default
-          .nullvalue <NULL>     # rather obvious
-          .nullvalue " \\t "     # A tab surrounded by spaces
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if len(cmd) != 1:
             raise self.Error("nullvalue takes exactly one parameter")
         self.nullvalue = self.fixup_backslashes(cmd[0])
 
     def command_output(self, cmd):
-        """output FILENAME: Send output to FILENAME (or stdout)
+        """
+        output FILENAME: Send output to FILENAME (or stdout)
 
-        If the FILENAME is stdout then output is sent to standard
-        output from when the shell was started.  The file is opened
-        using the current encoding (change with .encoding command).
+        Example:
+            Exercise Shell.command output through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Flush everything
         self.stdout.flush()
@@ -2182,26 +2680,34 @@ Enter SQL statements terminated with a ";"
             self._out_colour()
 
     def command_print(self, cmd):
-        """print STRING: print the literal STRING
+        """
+        print STRING: print the literal STRING
 
-        If more than one argument is supplied then they are printed
-        space separated.  You can use backslash escapes such as \\n
-        and \\t.
+        Example:
+            Exercise Shell.command print through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.write(self.stdout, " ".join([self.fixup_backslashes(i) for i in cmd]) + "\n")
 
     def command_prompt(self, cmd):
-        """prompt MAIN ?CONTINUE?: Changes the prompts for first line and continuation lines
+        """
+        prompt MAIN ?CONTINUE?: Changes the prompts for first line and continuation lines
 
-        The default is to print 'sqlite> ' for the main prompt where
-        you can enter a dot command or a SQL statement.  If the SQL
-        statement is complete (eg not ; terminated) then you are
-        prompted for more using the continuation prompt which defaults
-        to ' ..> '.  Example:
+        Example:
+            Exercise Shell.command prompt through a consuming regression::
 
-          .prompt "Yes, Master> " "More, Master> "
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
 
-        You can use backslash escapes such as \\n and \\t.
+
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if len(cmd) < 1 or len(cmd) > 2:
             raise self.Error("prompt takes one or two arguments")
@@ -2210,14 +2716,18 @@ Enter SQL statements terminated with a ";"
             self.moreprompt = self.fixup_backslashes(cmd[1])
 
     def command_read(self, cmd):
-        """read FILENAME: Processes SQL and commands in FILENAME (or Python if FILENAME ends with .py)
+        """
+        read FILENAME: Processes SQL and commands in FILENAME (or Python if FILENAME ends with .py)
 
-        Treats the specified file as input (a mixture or SQL and/or
-        dot commands).  If the filename ends in .py then it is treated
-        as Python code instead.
+        Example:
+            Exercise Shell.command read through a consuming regression::
 
-        For Python code the symbol 'shell' refers to the instance of
-        the shell and 'apsw' is the apsw module.
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if len(cmd) != 1:
             raise self.Error("read takes a single filename")
@@ -2253,11 +2763,18 @@ Enter SQL statements terminated with a ";"
                 f.close()
 
     def command_restore(self, cmd):
-        """restore ?DB? FILE: Restore database from FILE into DB (default "main")
+        """
+        restore ?DB? FILE: Restore database from FILE into DB (default "main")
 
-        Copies the contents of FILE to the current database (default "main").
-        The backup is done at the page level - SQLite copies the pages as
-        is.  There is no round trip through SQL code.
+        Example:
+            Exercise Shell.command restore through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         dbname = "main"
         if len(cmd) == 1:
@@ -2277,12 +2794,18 @@ Enter SQL statements terminated with a ";"
             input.close()
 
     def command_schema(self, cmd):
-        """schema ?TABLE? [TABLE...]: Shows SQL for table
+        """
+        schema ?TABLE? [TABLE...]: Shows SQL for table
 
-        If you give one or more tables then their schema is listed
-        (including indices).  If you don't specify any then all
-        schemas are listed. TABLE is a like pattern so you can % for
-        wildcards.
+        Example:
+            Exercise Shell.command schema through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.push_output()
         self.output = self.output_list
@@ -2305,16 +2828,18 @@ Enter SQL statements terminated with a ";"
             self.pop_output()
 
     def command_separator(self, cmd):
-        """separator STRING: Change separator for output mode and .import
+        """
+        separator STRING: Change separator for output mode and .import
 
-        You can use quotes and backslashes.  For example to set the
-        separator to space tab space you can use:
+        Example:
+            Exercise Shell.command separator through a consuming regression::
 
-          .separator " \\t "
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
 
-        The setting is automatically changed when you switch to csv or
-        tabs output mode.  You should also set it before doing an
-        import (ie , for CSV and \\t for TSV).
+
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if len(cmd) != 1:
             raise self.Error("separator takes exactly one parameter")
@@ -2334,7 +2859,19 @@ Enter SQL statements terminated with a ";"
     )
 
     def command_show(self, cmd):
-        """show: Show the current values for various settings."""
+        """
+        show: Show the current values for various settings.
+
+        Example:
+            Exercise Shell.command show through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if len(cmd) > 1:
             raise self.Error("show takes at most one parameter")
         if len(cmd):
@@ -2396,9 +2933,18 @@ Enter SQL statements terminated with a ";"
             self.write(self.stderr, "%*.*s: %s\n" % (l, l, k, v))
 
     def command_tables(self, cmd):
-        """tables ?PATTERN?: Lists names of tables matching LIKE pattern
+        """
+        tables ?PATTERN?: Lists names of tables matching LIKE pattern
 
-        This also returns views.
+        Example:
+            Exercise Shell.command tables through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.push_output()
         self.output = self.output_list
@@ -2427,12 +2973,18 @@ Enter SQL statements terminated with a ";"
             self.pop_output()
 
     def command_timeout(self, cmd):
-        """timeout MS: Try opening locked tables for MS milliseconds
+        """
+        timeout MS: Try opening locked tables for MS milliseconds
 
-        If a database is locked by another process SQLite will keep
-        retrying.  This sets how many thousandths of a second it will
-        keep trying for.  If you supply zero or a negative number then
-        all busy handlers are disabled.
+        Example:
+            Exercise Shell.command timeout through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if len(cmd) != 1:
             raise self.Error("timeout takes a number")
@@ -2443,12 +2995,18 @@ Enter SQL statements terminated with a ";"
         self.db.setbusytimeout(t)
 
     def command_timer(self, cmd):
-        """timer ON|OFF: Control printing of time and resource usage after each query
+        """
+        timer ON|OFF: Control printing of time and resource usage after each query
 
-        The values displayed are in seconds when shown as floating
-        point or an absolute count.  Only items that have changed
-        since starting the query are shown.  On non-Windows platforms
-        considerably more information can be shown.
+        Example:
+            Exercise Shell.command timer through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self._boolean_command("timer", cmd):
             try:
@@ -2460,11 +3018,18 @@ Enter SQL statements terminated with a ";"
             self.timer = False
 
     def command_width(self, cmd):
-        """width NUM NUM ...: Set the column widths for "column" mode
+        """
+        width NUM NUM ...: Set the column widths for "column" mode
 
-        In "column" output mode, each column is a fixed width with values truncated to
-        fit.  Specify new widths using this command.  Use a negative number
-        to right justify and zero for default column width.
+        Example:
+            Exercise Shell.command width through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if len(cmd) == 0:
             raise self.Error("You need to specify some widths!")
@@ -2477,8 +3042,18 @@ Enter SQL statements terminated with a ";"
         self.widths = w
 
     def _terminal_width(self):
-        """Works out the terminal width which is used for word wrapping
-        some output (eg .help)"""
+        """
+        Works out the terminal width which is used for word wrapping some output (eg .help)
+
+        Example:
+            Exercise Shell. terminal width through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             if sys.platform == "win32":
                 import ctypes, struct
@@ -2506,27 +3081,35 @@ Enter SQL statements terminated with a ";"
                 return 80
 
     def push_output(self):
-        """Saves the current output settings onto a stack.  See
-        :meth:`pop_output` for more details as to why you would use
-        this."""
+        """
+        Saves the current output settings onto a stack. See
+
+        Example:
+            Exercise Shell.push output through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         o = {}
         for k in "separator", "header", "nullvalue", "output", "widths", "truncate":
             o[k] = getattr(self, k)
         self._output_stack.append(o)
 
     def pop_output(self):
-        """Restores most recently pushed output.  There are many
-        output parameters such as nullvalue, mode
-        (list/tcl/html/insert etc), column widths, header etc.  If you
-        temporarily need to change some settings then
-        :meth:`push_output`, change the settings and then pop the old
-        ones back.
+        """
+        Restores most recently pushed output. There are many output parameters such as nullvalue, mode (list/tcl/html/insert etc), column widths, header etc. If you temporarily need to change some settings then
 
-        A simple example is implementing a command like .dump.  Push
-        the current output, change the mode to insert so we get SQL
-        inserts printed and then pop to go back to what was there
-        before.
+        Example:
+            Exercise Shell.pop output through a consuming regression::
 
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # first item should always be present
         assert len(self._output_stack)
@@ -2538,10 +3121,17 @@ Enter SQL statements terminated with a ";"
             setattr(self, k, v)
 
     def _append_input_description(self):
-        """When displaying an error in :meth:`handle_exception` we
-        want to give context such as when the commands being executed
-        came from a .read command (which in turn could execute another
-        .read).
+        """
+        When displaying an error in :meth:`handle_exception` we want to give context such as when the commands being executed came from a .read command (which in turn could execute another .read).
+
+        Example:
+            Exercise Shell. append input description through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.interactive:
             return
@@ -2551,10 +3141,18 @@ Enter SQL statements terminated with a ";"
         self._input_descriptions.append(" ".join(res))
 
     def fixup_backslashes(self, s):
-        """Implements the various backlash sequences in s such as
-        turning backslash t into a tab.
+        """
+        Implements the various backlash sequences in s such as turning backslash t into a tab.
 
-        This function is needed because shlex does not do it for us.
+        Example:
+            Exercise Shell.fixup backslashes through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param s: Value supplied for s under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if "\\" not in s:
             return s
@@ -2579,7 +3177,20 @@ Enter SQL statements terminated with a ";"
     if sys.version_info < (3, 0):
 
         def write(self, dest, text):
-            """Writes text to dest.  dest will typically be one of self.stdout or self.stderr."""
+            """
+            Writes text to dest. dest will typically be one of self.stdout or self.stderr.
+
+            Example:
+                Exercise Shell.write through a consuming regression::
+
+                    python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+            :param dest: Value supplied for dest under the utility contract.
+            :param text: Text parsed, normalized or rendered.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             # ensure text is unicode to catch codeset issues here
             if type(text) != unicode:
                 text = unicode(text)
@@ -2609,16 +3220,37 @@ Enter SQL statements terminated with a ";"
     else:
 
         def write(self, dest, text):
-            "Writes text to dest.  dest will typically be one of self.stdout or self.stderr."
+            """
+            Writes text to dest. dest will typically be one of self.stdout or self.stderr.
+
+            Example:
+                Exercise Shell.write through a consuming regression::
+
+                    python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+            :param dest: Value supplied for dest under the utility contract.
+            :param text: Text parsed, normalized or rendered.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             dest.write(text)
 
         _raw_input = input
 
     def getline(self, prompt=""):
-        """Returns a single line of input (may be incomplete SQL) from self.stdin.
+        """
+        Returns a single line of input (may be incomplete SQL) from self.stdin.
 
-        If EOF is reached then return None.  Do not include trailing
-        newline in return.
+        Example:
+            Exercise Shell.getline through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param prompt: Value supplied for prompt under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self.stdout.flush()
         self.stderr.flush()
@@ -2654,12 +3286,18 @@ Enter SQL statements terminated with a ";"
         return line
 
     def getcompleteline(self):
-        """Returns a complete input.
+        """
+        Returns a complete input.
 
-        For dot commands it will be one line.  For SQL statements it
-        will be as many as is necessary to have a
-        :meth:`~apsw.complete` statement (ie semicolon terminated).
-        Returns None on end of file."""
+        Example:
+            Exercise Shell.getcompleteline through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             self._completion_first = True
             command = self.getline(self.prompt)
@@ -2691,8 +3329,18 @@ Enter SQL statements terminated with a ";"
             return ""
 
     def handle_interrupt(self):
-        """Deal with keyboard interrupt (typically Control-C).  It
-        will :meth:`~Connection.interrupt` the database and print"^C" if interactive."""
+        """
+        Deal with keyboard interrupt (typically Control-C). It will :meth:`~Connection.interrupt` the database and print"^C" if interactive.
+
+        Example:
+            Exercise Shell.handle interrupt through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.db.interrupt()
         if not self.bail and self.interactive:
             self.write(self.stderr, "^C\n")
@@ -2700,8 +3348,19 @@ Enter SQL statements terminated with a ";"
         raise
 
     def process_complete_line(self, command):
-        """Given some text will call the appropriate method to process
-        it (eg :meth:`process_sql` or :meth:`process_command`)"""
+        """
+        Given some text will call the appropriate method to process it (eg :meth:`process_sql` or :meth:`process_command`)
+
+        Example:
+            Exercise Shell.process complete line through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param command: Value supplied for command under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         try:
             if len(command.strip()) == 0:
                 return
@@ -2713,17 +3372,35 @@ Enter SQL statements terminated with a ";"
             self.handle_interrupt()
 
     def push_input(self):
-        """Saves the current input paramaters to a stack.  See :meth:`pop_input`."""
+        """
+        Saves the current input paramaters to a stack. See :meth:`pop_input`.
+
+        Example:
+            Exercise Shell.push input through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         d = {}
         for i in "interactive", "stdin", "input_line_number":
             d[i] = getattr(self, i)
         self._input_stack.append(d)
 
     def pop_input(self):
-        """Restore most recently pushed input parameters (interactive,
-        self.stdin, linenumber etc).  Use this if implementing a
-        command like read.  Push the current input, read the file and
-        then pop the input to go back to before.
+        """
+        Restore most recently pushed input parameters (interactive, self.stdin, linenumber etc). Use this if implementing a command like read. Push the current input, read the file and then pop the input to go back to before.
+
+        Example:
+            Exercise Shell.pop input through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         assert (len(self._input_stack)) > 1
         d = self._input_stack.pop()
@@ -2731,17 +3408,19 @@ Enter SQL statements terminated with a ";"
             setattr(self, k, v)
 
     def complete(self, token, state):
-        """Return a possible completion for readline
+        """
+        Return a possible completion for readline
 
-        This function is called with state starting at zero to get the
-        first completion, then one/two/three etc until you return None.  The best
-        implementation is to generate the list when state==0, save it,
-        and provide members on each increase.
+        Example:
+            Exercise Shell.complete through a consuming regression::
 
-        The default implementation extracts the current full input
-        from readline and then calls :meth:`complete_command` or
-        :meth:`complete_sql` as appropriate saving the results for
-        subsequent calls.
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param token: Value supplied for token under the utility contract.
+        :param state: Value supplied for state under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if state == 0:
             import readline
@@ -2849,17 +3528,38 @@ Enter SQL statements terminated with a ";"
     }
 
     def _get_prev_tokens(self, line, end):
-        "Returns the tokens prior to pos end in the line"
+        """
+        Returns the tokens prior to pos end in the line
+
+        Example:
+            Exercise Shell. get prev tokens through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :param end: Value supplied for end under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return re.findall(r'"?\w+"?', line[:end])
 
     def complete_sql(self, line, token, beg, end):
-        """Provide some completions for SQL
+        """
+        Provide some completions for SQL
 
-        :param line: The current complete input line
-        :param token: The word readline is looking for matches
-        :param beg: Integer offset of token in line
-        :param end: Integer end of token in line
-        :return: A list of completions, or an empty list if none
+        Example:
+            Exercise Shell.complete sql through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :param token: Value supplied for token under the utility contract.
+        :param beg: Value supplied for beg under the utility contract.
+        :param end: Value supplied for end under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if self._completion_cache is None:
             cur = self.db.cursor()
@@ -2965,13 +3665,21 @@ Enter SQL statements terminated with a ";"
     _builtin_commands = None
 
     def complete_command(self, line, token, beg, end):
-        """Provide some completions for dot commands
+        """
+        Provide some completions for dot commands
 
-        :param line: The current complete input line
-        :param token: The word readline is looking for matches
-        :param beg: Integer offset of token in line
-        :param end: Integer end of token in line
-        :return: A list of completions, or an empty list if none
+        Example:
+            Exercise Shell.complete command through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :param token: Value supplied for token under the utility contract.
+        :param beg: Value supplied for beg under the utility contract.
+        :param end: Value supplied for end under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if not self._builtin_commands:
             self._builtin_commands = [
@@ -2984,9 +3692,18 @@ Enter SQL statements terminated with a ";"
         return None
 
     def get_resource_usage(self):
-        """Return a dict of various numbers (ints or floats).  The
-        .timer command shows the difference between before and after
-        results of what this returns by calling :meth:`display_timing`"""
+        """
+        Return a dict of various numbers (ints or floats). The .timer command shows the difference between before and after results of what this returns by calling :meth:`display_timing`
+
+        Example:
+            Exercise Shell.get resource usage through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if sys.platform == "win32":
             import ctypes, time, platform
 
@@ -3046,9 +3763,20 @@ Enter SQL statements terminated with a ";"
             return res
 
     def display_timing(self, b4, after):
-        """Writes the difference between b4 and after to self.stderr.
-        The data is dictionaries returned from
-        :meth:`get_resource_usage`."""
+        """
+        Writes the difference between b4 and after to self.stderr. The data is dictionaries returned from
+
+        Example:
+            Exercise Shell.display timing through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :param b4: Value supplied for b4 under the utility contract.
+        :param after: Value supplied for after under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         v = list(b4.keys())
         for i in after:
             if i not in v:
@@ -3071,6 +3799,18 @@ Enter SQL statements terminated with a ";"
         # Sets up color for output.  Input being interactive doesn't
         # matter.  This method needs to be called on all changes to
         # output.
+        """
+        Perform the out colour utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Shell. out colour through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if getattr(self.stdout, "isatty", False) and self.stdout.isatty():
             self.colour = self._colours[self.colour_scheme]
         else:
@@ -3080,20 +3820,90 @@ Enter SQL statements terminated with a ";"
     # so that it doesn't matter if a colour scheme leaves something
     # out.
     class _colourscheme:
+        """
+        Provide the colourscheme utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise Shell. colourscheme through a consuming regression::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+        """
         def __init__(self, **kwargs):
+            """
+            Initialize and validate the colourscheme state.
+
+            Example:
+                Exercise Shell. colourscheme.  init   through a consuming regression::
+
+                    python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+            :param kwargs: Keyword values forwarded to the compatibility implementation.
+            :return: None; validated state is stored on the receiving object.
+            """
             for k, v in kwargs.items():
                 setattr(self, k, v)
 
         def __nonzero__(self):
+            """
+            Expose nonzero behavior for the compatibility container.
+
+            Example:
+                Exercise Shell. colourscheme.  nonzero   through a consuming regression::
+
+                    python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+            :return: True when the documented condition holds; otherwise False.
+            """
             return True
 
         def __str__(self):
+            """
+            Perform the str utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise Shell. colourscheme.  str   through a consuming regression::
+
+                    python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return "_colourscheme(" + str(self.__dict__) + ")"
 
         def __getattr__(self, k):
+            """
+            Perform the getattr utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise Shell. colourscheme.  getattr   through a consuming regression::
+
+                    python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+            :param k: Value supplied for k under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return ""
 
         def colour_value(self, val, formatted):
+            """
+            Perform the colour value utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise Shell. colourscheme.colour value through a consuming regression::
+
+                    python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+            :param val: Template or metadata value evaluated by the operation.
+            :param formatted: Value supplied for formatted under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.colour
             if val is None:
                 return self.vnull + formatted + self.vnull_
@@ -3182,9 +3992,16 @@ Enter SQL statements terminated with a ";"
 def main():
     # Docstring must start on second line so dedenting works correctly
     """
-    Call this to run the interactive shell.  It automatically passes
-    in sys.argv[1:] and exits Python when done.
+    Call this to run the interactive shell. It automatically passes in sys.argv[1:] and exits Python when done.
 
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     try:
         s = Shell()

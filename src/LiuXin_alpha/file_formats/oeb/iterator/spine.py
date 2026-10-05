@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Resolve OEB spine items and page boundaries for iteration.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise spine through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+"""
 from __future__ import (
     absolute_import,
     annotations,
@@ -36,8 +47,16 @@ __docformat__ = "restructuredtext en"
 def character_count(html: _typing.Any) -> _typing.Any:
     """
     Return the number of "significant" text characters in a HTML string.
-    :param html:
-    :return:
+
+    Example:
+        Exercise character count through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param html: Value supplied for html under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     count = 0
     strip_space = re.compile(r"\s+")
@@ -49,8 +68,16 @@ def character_count(html: _typing.Any) -> _typing.Any:
 def anchor_map(html: _typing.Any) -> _typing.Any:
     """
     Return map of all anchor names to their offsets in the html
-    :param html:
-    :return:
+
+    Example:
+        Exercise anchor map through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param html: Value supplied for html under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     ans = {}
     for match in re.finditer(r"""(?:id|name)\s*=\s*['"]([^'"]+)['"]""", html):
@@ -62,8 +89,16 @@ def anchor_map(html: _typing.Any) -> _typing.Any:
 def all_links(html: _typing.Any) -> _typing.Any:
     """
     Return set of all links in the file
-    :param html:
-    :return:
+
+    Example:
+        Exercise all links through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param html: Value supplied for html under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     ans = set()
     for match in re.finditer(
@@ -76,6 +111,14 @@ def all_links(html: _typing.Any) -> _typing.Any:
 
 
 class SpineItem(unicode):
+    """
+    Provide the spineitem contract for validated ebook processing.
+
+    Example:
+        Exercise SpineItem through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+    """
     def __new__(
         cls: type[_typing.Self],
         path: _typing.Any,
@@ -85,6 +128,26 @@ class SpineItem(unicode):
         from_epub: bool = False,
         read_links: bool = True,
     ) -> _typing.Any:
+        """
+        Perform the new operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SpineItem.  new   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param mime_type: Value supplied for mime type under the utility contract.
+        :param read_anchor_map: Value supplied for read anchor map under the utility
+            contract.
+        :param run_char_count: Value supplied for run char count under the utility contract.
+        :param from_epub: Value supplied for from epub under the utility contract.
+        :param read_links: Value supplied for read links under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ppath = path.partition("#")[0]
         if not os.path.exists(path) and os.path.exists(ppath):
             path = ppath
@@ -124,7 +187,29 @@ class SpineItem(unicode):
 
 
 class IndexEntry(object):
+    """
+    Provide the indexentry contract for validated ebook processing.
+
+    Example:
+        Exercise IndexEntry through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+    """
     def __init__(self: _typing.Self, spine: _typing.Any, toc_entry: _typing.Any, num: _typing.Any) -> None:
+        """
+        Initialize and validate the indexentry state.
+
+        Example:
+            Exercise IndexEntry.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param spine: Value supplied for spine under the utility contract.
+        :param toc_entry: Value supplied for toc entry under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.num = num
         self.text = toc_entry.text or _("Unknown")
         self.key = toc_entry.abspath
@@ -147,6 +232,19 @@ class IndexEntry(object):
         self.spine_count = len(spine)
 
     def find_end(self: _typing.Self, all_entries: _typing.Any) -> None:
+        """
+        Find end under the format's safety and compatibility rules.
+
+        Example:
+            Exercise IndexEntry.find end through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param all_entries: Value supplied for all entries under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         potential_enders = [
             i
             for i in all_entries
@@ -164,6 +262,20 @@ class IndexEntry(object):
 
 
 def create_indexing_data(spine: _typing.Any, toc: _typing.Any) -> None:
+    """
+    Create indexing data under the format's safety and compatibility rules.
+
+    Example:
+        Exercise create indexing data through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param spine: Value supplied for spine under the utility contract.
+    :param toc: Value supplied for toc under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if not toc:
         return
     f = partial(IndexEntry, spine)

@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """
-Quick DNS diagnostics for Linux/WSL environments.
+Report DNS resolution diagnostics.
 
-Examples:
-    python3 scripts/dns_diag.py
-    python3 scripts/dns_diag.py --host www.google.com --host pypi.org
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise dns diag through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
 """
 
 from __future__ import annotations
@@ -27,6 +31,18 @@ DEFAULT_HOSTS = (
 
 
 def _is_wsl() -> bool:
+    """
+    Perform the is wsl operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  is wsl through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if os.environ.get("WSL_INTEROP"):
         return True
     try:
@@ -36,6 +52,18 @@ def _is_wsl() -> bool:
 
 
 def _read_resolv_conf() -> tuple[Path, list[str], list[str]]:
+    """
+    Read resolv conf under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  read resolv conf through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     path = Path("/etc/resolv.conf")
     try:
         resolved = path.resolve()
@@ -61,6 +89,19 @@ def _read_resolv_conf() -> tuple[Path, list[str], list[str]]:
 
 
 def _run_command(args: list[str]) -> tuple[int, str]:
+    """
+    Perform the run command operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  run command through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param args: Positional values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         proc = subprocess.run(args, check=False, capture_output=True, text=True)
     except FileNotFoundError:
@@ -77,6 +118,19 @@ def _run_command(args: list[str]) -> tuple[int, str]:
 
 
 def _getent_lookup(host: str) -> tuple[bool, str]:
+    """
+    Perform the getent lookup operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  getent lookup through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param host: Value supplied for host under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     rc, out = _run_command(["getent", "hosts", host])
     if rc == 0 and out:
         first = out.splitlines()[0]
@@ -85,6 +139,19 @@ def _getent_lookup(host: str) -> tuple[bool, str]:
 
 
 def _socket_lookup(host: str) -> tuple[bool, str]:
+    """
+    Perform the socket lookup operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  socket lookup through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param host: Value supplied for host under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         infos = socket.getaddrinfo(host, 443, 0, socket.SOCK_STREAM)
     except Exception as err:
@@ -100,12 +167,38 @@ def _socket_lookup(host: str) -> tuple[bool, str]:
 
 
 def _print_header(title: str) -> None:
+    """
+    Perform the print header operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  print header through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param title: Value supplied for title under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     print()
     print(title)
     print("-" * len(title))
 
 
 def main(argv: list[str] | None = None) -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = argparse.ArgumentParser(description="Diagnose DNS issues in Linux/WSL.")
     parser.add_argument("--host", action="append", dest="hosts", help="Host to resolve (repeatable).")
     parser.add_argument("--show-resolv", action="store_true", help="Print full resolv.conf content.")

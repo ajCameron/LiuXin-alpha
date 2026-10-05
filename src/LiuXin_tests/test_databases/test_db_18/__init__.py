@@ -1,14 +1,41 @@
+"""
+Expose the supported test db 18 compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+"""
 from LiuXin_alpha.exceptions import DatabaseIntegrityError
 
 from LiuXin_tests.test_databases.test_db_4 import TestDB4Builder
 
 
 class TestDB17Builder(TestDB4Builder):
+    """
+    Provide the testdb17builder contract for validated ebook processing.
+
+    Example:
+        Exercise TestDB17Builder through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+    """
     def add_new_main_tables(self, scatch_db):
         """
         Add custom columns to the database - linking a number of them to titles
-        :param scatch_db: DatabasePing which is being detailed
-        :return:
+
+        Example:
+            Exercise TestDB17Builder.add new main tables through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scatch_db: Value supplied for scatch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # ONE TO ONE
         # Build secondary_uuid custom table linked to titles
@@ -76,16 +103,20 @@ class TestDB17Builder(TestDB4Builder):
         self, scratch_db, linked_to="titles", new_table_name=None, add_mode="all"
     ):
         """
-        Build a new main table with a one to one link to the given table.
-        Add entries to the new table with the mode specified by :param add_mode: - default is "all" for generating a
-        new entry for every element of the table being linked to
-        :param scratch_db: DatabasePing to operate on
-        :param linked_to: The other main table to link the new one to
-        :param new_table_name: An override name to specify the name of the new table manually - one will be
-                               automatically generated if None is passed
-        :param add_mode: How should the new table be populated in relation to the old
-                         "all" - just adds entries for all the entries in the original table
-        :return:
+        Build a new main table with a one to one link to the given table. Add entries to the new table with the mode specified by :param add_mode: - default is "all" for generating a new entry for every element of the table being linked to
+
+        Example:
+            Exercise TestDB17Builder.build new main table with one one links through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :param linked_to: Value supplied for linked to under the utility contract.
+        :param new_table_name: Value supplied for new table name under the utility contract.
+        :param add_mode: Value supplied for add mode under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         internal_rng = self.get_internal_rng(45682214)
 
@@ -139,19 +170,23 @@ class TestDB17Builder(TestDB4Builder):
         restricted_types=None,
     ):
         """
-        Build a new main table with a one to many link to the given table.
-        One element in the linked_to table can be linked to many elements in the other table - or none.
-        Add entries to the new table with the mode specified by :param add_mode: - default is "all" for generating a
-        random number of elements (between 0 and :param add_limit:) for every element in the :param linked_to: table.
-        :param scratch_db: DatabasePing to operate on
-        :param linked_to: The other main table to link the new one to
-        :param new_table_name: An override name to specify the name of the new table manually - one will be
-                               automatically generated if None is passed
-        :param add_mode: How should the new table be populated in relation to the old
-                         "all" - just adds entries for all the entries in the original table
-        :param add_limit: Specify the maximum number of elements in the new table which will be
-        :param restricted_types: A restriction to the types which will be set for the links
-        :return:
+        Build a new main table with a one to many link to the given table. One element in the linked_to table can be linked to many elements in the other table - or none. Add entries to the new table with the mode specified by :param add_mode: - default is "all" for generating a random number of elements (between 0 and :param add_limit:) for every element in the :param linked_to: table.
+
+        Example:
+            Exercise TestDB17Builder.build new main table with one many links through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :param linked_to: Value supplied for linked to under the utility contract.
+        :param new_table_name: Value supplied for new table name under the utility contract.
+        :param add_mode: Value supplied for add mode under the utility contract.
+        :param add_limit: Value supplied for add limit under the utility contract.
+        :param restricted_types: Value supplied for restricted types under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.info("About to build {} linked to {}".format(new_table_name, linked_to))
 
@@ -229,22 +264,21 @@ class TestDB17Builder(TestDB4Builder):
         """
         Build a new main table with a many to one link to the given table.
 
-        e.g. Many items in the new table should be linked to a single element in the linked_to table.
-        However any given item in the new table should only be linked to a single title
+        Example:
+            Exercise TestDB17Builder.build new main table with many one links through a consuming regression::
 
-        Many elements in :param linked_to: can be linked to up to one element in the new table that will be generated.
-        Elements from :param linked_to: will be linked to elements in the newly created table with the mode
-        :param add_mode: - default is "all" where every element in the new table (control element count in the new table
-        with :param other_table_count:) will be linked to between 0 and :param add_limit: elements from the
-        :param linked_to: table.
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
 
-        :param scratch_db: The database to operate on
-        :param linked_to: The table which the new table will be linked to
-        :param new_table_name: Override name for the new table that will be generated
-        :param add_mode: Mode to add links between the two table
-        :param other_table_count: How many elements should be generated in the other table
-        :param add_limit: Maximum number of links between the old table and the new one
-        :return:
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :param linked_to: Value supplied for linked to under the utility contract.
+        :param new_table_name: Value supplied for new table name under the utility contract.
+        :param add_mode: Value supplied for add mode under the utility contract.
+        :param other_table_count: Value supplied for other table count under the utility
+            contract.
+        :param add_limit: Value supplied for add limit under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.info("About to build {} linked to {}".format(new_table_name, linked_to))
 
@@ -324,20 +358,23 @@ class TestDB17Builder(TestDB4Builder):
         add_limit=5,
     ):
         """
-        Build a new main table with a many to one link to the given table.
-        Many elements in :param linked_to: can be linked to up to one element in the new table that will be generated.
-        Elements from :param linked_to: will be linked to elements in the newly created table with the mode
-        :param add_mode: - default is "all" where every element in the new table (control element count in the new table
-        with :param other_table_count:) will be linked to between 0 and :param add_limit: elements from the
-        :param linked_to: table.
+        Build a new main table with a many to one link to the given table. Many elements in :param linked_to: can be linked to up to one element in the new table that will be generated. Elements from :param linked_to: will be linked to elements in the newly created table with the mode
 
-        :param scratch_db: The database to operate on
-        :param linked_to: The table which the new table will be linked to
-        :param new_table_name: Override name for the new table that will be generated
-        :param add_mode: Mode to add links between the two table
-        :param other_table_count: How many elements should be generated in the other table
-        :param add_limit: Maximum number of links between the old table and the new one
-        :return:
+        Example:
+            Exercise TestDB17Builder.build new main table with many many links through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :param linked_to: Value supplied for linked to under the utility contract.
+        :param new_table_name: Value supplied for new table name under the utility contract.
+        :param add_mode: Value supplied for add mode under the utility contract.
+        :param other_table_count: Value supplied for other table count under the utility
+            contract.
+        :param add_limit: Value supplied for add limit under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.info("About to build {} linked to {}".format(new_table_name, linked_to))
 
@@ -435,12 +472,22 @@ def build_test_db(
     test_asset_version=None,
 ):
     """
-    Construct the test database specified by this module.
-    In this case a blank database is constructed and filled with data - before being copied into the test_databases
-    folder.
-    :param dst_file_path: The file to write the database to after it's been built.
-    :param dump: HERE IGNORED
-    :return:
+    Construct the test database specified by this module. In this case a blank database is constructed and filled with data - before being copied into the test_databases folder.
+
+    Example:
+        Exercise build test db through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+    :param dst_file_path: Value supplied for dst file path under the utility contract.
+    :param dump: Value supplied for dump under the utility contract.
+    :param plugin_name: Value supplied for plugin name under the utility contract.
+    :param new_db_uuid: Value supplied for new db uuid under the utility contract.
+    :param test_asset_version: Value supplied for test asset version under the utility
+        contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     test_db_builder = TestDB17Builder(
         dst_file_path=dst_file_path,

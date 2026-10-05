@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Prototype: index existing drives and build SquashFS backup packs."""
+"""
+Provide prototype existing drives to squashfs utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise prototype existing drives to squashfs through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+"""
 
 from __future__ import annotations
 
@@ -16,6 +26,19 @@ from LiuXin_alpha.storage.backup import ExistingDriveSquashfsPrototype
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """
+    Parse args under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  parse args through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = argparse.ArgumentParser(description="Index one or more existing directories and build SquashFS backup packs.")
     parser.add_argument("paths", nargs="+", help="Existing directories to index and back up.")
     parser.add_argument("--db-path", required=True, help="SQLite database path to create/update.")
@@ -32,6 +55,19 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     args = _parse_args(argv)
     if args.delete_originals:
         raise SystemExit("--delete-originals is intentionally not implemented yet. Build, verify, and review the packs first.")

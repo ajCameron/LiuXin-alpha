@@ -1,7 +1,11 @@
-"""pytest fixture plugins and file-based fixtures.
+"""
+Expose deterministic fixture builders shared across the test suite.
 
-This directory also contains non-Python fixture payloads (e.g. Calibre library
-snapshots). Adding an ``__init__.py`` lets us ship reusable fixture plugins as
-importable modules (via ``pytest_plugins``) without changing how data files are
-laid out.
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_docstring_ownership.py
 """

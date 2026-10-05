@@ -2,11 +2,15 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 """
-Data model to represent tables from the database.
+Expose the supported tables compatibility surface.
 
-Classes to cache data from the database for active manipulation
-Stores the relevant contents of those tables for faster access.
-Provides methods to update the cached copy and the database backend.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/library/test_unified_library.py
 """
 
 from __future__ import unicode_literals, division, absolute_import, print_function
@@ -106,11 +110,17 @@ def calibre_create_table(
     """
     Create a calibre style table from the given name and metadata.
 
-    Fields are empty - with no data loaded - that has to happen elsewhere.
-    :param name: Name of the table.
-    :param metadata: Metadata from field_metadata
-    :param fsm: The folder store manager for this instance of the library
-    :return:
+    Example:
+        Exercise calibre create table through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param metadata: Value supplied for metadata under the utility contract.
+    :param fsm: Value supplied for fsm under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     # - one_to_one tables
     if name in (
@@ -203,10 +213,17 @@ def calibre_create_custom_table(
     """
     Create tables to hold custom values.
 
-    :param name:
-    :param metadata:
-    :param link_table:
-    :return:
+    Example:
+        Exercise calibre create custom table through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param metadata: Value supplied for metadata under the utility contract.
+    :param fsm: Value supplied for fsm under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     # Read the metadata to determine the type of table which has to be created and returned
     cc_datatype = metadata["datatype"]

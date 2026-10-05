@@ -1,15 +1,53 @@
 #! /usr/bin/env python
 
+"""
+Exercise seeking behavior for bundled RAR entry streams.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise testseek through a consuming regression::
+
+        python -m pytest -q tests/utils/decompression/test_archives.py
+"""
 import rarfile, os, os.path, time, sys
 
 
 def show_fds():
+    """
+    Perform the show fds utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise show fds through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     fdir = "/proc/%d/fd" % os.getpid()
     if os.path.isdir(fdir):
         os.system('printf "fds = "; ls -l %s | wc -l' % fdir)
 
 
 def do_seek(f, pos, lim):
+    """
+    Perform the do seek utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise do seek through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param f: Value supplied for f under the utility contract.
+    :param pos: Value supplied for pos under the utility contract.
+    :param lim: Value supplied for lim under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     ofs = pos * 4
     fsize = lim * 4
 
@@ -38,6 +76,20 @@ def do_seek(f, pos, lim):
 
 
 def test_seek(rf, fn):
+    """
+    Perform the test seek utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test seek through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param rf: Value supplied for rf under the utility contract.
+    :param fn: Value supplied for fn under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     inf = rf.getinfo(fn)
     cnt = int(inf.file_size / 4)
     f = rf.open(fn)
@@ -60,6 +112,18 @@ def test_seek(rf, fn):
 
 
 def main():
+    """
+    Perform the main utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     files = ["stest1.txt", "stest2.txt"]
     arc = "files/seektest.rar"
 

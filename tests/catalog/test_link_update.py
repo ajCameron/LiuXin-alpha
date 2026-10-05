@@ -1,4 +1,14 @@
-"""Tests for the database-link update produced by catalog writers."""
+"""
+Verify test link update behavior against the public catalog contracts.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test link update through its owning regression module::
+
+        python -m pytest -q tests/catalog/test_link_update.py
+"""
 
 from __future__ import annotations
 
@@ -17,6 +27,17 @@ from LiuXin_alpha.databases.schema_specs import StorageLinkSpec
 
 
 def _link_spec() -> StorageLinkSpec:
+    """
+    Perform the link spec test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise link spec through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return StorageLinkSpec(
         primary_table="titles",
         secondary_table="creators",
@@ -32,6 +53,17 @@ def _link_spec() -> StorageLinkSpec:
 
 
 def _plain_link_spec() -> StorageLinkSpec:
+    """
+    Perform the plain link spec test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise plain link spec through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return StorageLinkSpec(
         primary_table="titles",
         secondary_table="tags",
@@ -42,21 +74,67 @@ def _plain_link_spec() -> StorageLinkSpec:
 
 
 def _operation_payload(operation: str, payload: object) -> dict[str, object]:
+    """
+    Perform the operation payload test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise operation payload through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param operation: Value supplied for operation under the catalog contract.
+    :param payload: Value supplied for payload under the catalog contract.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return {operation: payload}
 
 
 def _ids(update: LinkUpdate, operation: str, primary_id: int = 10) -> tuple[object, ...]:
+    """
+    Perform the ids test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise ids through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param update: Prepared catalog update to validate or apply.
+    :param operation: Value supplied for operation under the catalog contract.
+    :param primary_id: Primary catalog row identity owning the link operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     links = getattr(update, operation)[primary_id]
     return tuple(link.secondary_id for link in links)
 
 
 class _RecordingMacros:
-    """Small portable-macro double used to inspect update composition."""
+    """
+    Small portable-macro double used to inspect update composition.
+
+    Example:
+        Exercise RecordingMacros through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+    """
 
     def __init__(
         self,
         current: Mapping[int, tuple[LinkRow, ...]] | None = None,
     ) -> None:
+        """
+        Initialize the RecordingMacros test double.
+
+        Example:
+            Exercise RecordingMacros.init through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param current: Value supplied for current under the catalog contract.
+        :return: None; the function records state or raises through its assertions.
+        """
         self.current = dict(current or {})
         self.reads: list[tuple[StorageLinkSpec, tuple[int, ...], object]] = []
         self.writes: list[
@@ -70,6 +148,20 @@ class _RecordingMacros:
         *,
         link_type: object = LINK_TYPE_UNSET,
     ) -> dict[int, tuple[LinkRow, ...]]:
+        """
+        Return link rows bulk from deterministic test state.
+
+        Example:
+            Exercise RecordingMacros.get link rows bulk through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param link_spec: Value supplied for link spec under the catalog contract.
+        :param primary_ids: Value supplied for primary ids under the catalog contract.
+        :param link_type: Optional typed relation value carried by the link.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         ids = tuple(primary_ids)
         self.reads.append((link_spec, ids, link_type))
         return {primary_id: self.current.get(primary_id, ()) for primary_id in ids}
@@ -81,6 +173,20 @@ class _RecordingMacros:
         *,
         link_type: object = LINK_TYPE_UNSET,
     ) -> dict[int, tuple[LinkRow, ...]]:
+        """
+        Perform the replace links bulk test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise RecordingMacros.replace links bulk through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param link_spec: Value supplied for link spec under the catalog contract.
+        :param replacements: Value supplied for replacements under the catalog contract.
+        :param link_type: Optional typed relation value carried by the link.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         stable = {
             primary_id: tuple(links)
             for primary_id, links in replacements.items()
@@ -102,6 +208,17 @@ class _RecordingMacros:
 
 
 def test_link_update_materialises_complete_replacement_sets() -> None:
+    """
+    Verify link update materialises complete replacement sets.
+
+    Example:
+        Exercise test link update materialises complete replacement sets through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     supplied = [
         LinkValue(
             secondary_id=20,
@@ -136,6 +253,17 @@ def test_link_update_materialises_complete_replacement_sets() -> None:
 
 
 def test_link_update_materialises_incremental_operations_and_link_extras() -> None:
+    """
+    Verify link update materialises incremental operations and link extras.
+
+    Example:
+        Exercise test link update materialises incremental operations and link extras through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     extra = {"credited_as": "A. Writer"}
     additions = [LinkValue(secondary_id=20, extra=extra)]
     deletions = [LinkValue(secondary_id=21)]
@@ -163,6 +291,17 @@ def test_link_update_materialises_incremental_operations_and_link_extras() -> No
 
 
 def test_link_update_can_scope_a_typed_replacement() -> None:
+    """
+    Verify link update can scope a typed replacement.
+
+    Example:
+        Exercise test link update can scope a typed replacement through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     update = LinkUpdate(
         link_spec=_link_spec(),
         replacements={10: [LinkValue(secondary_id=20, link_type="editor")]},
@@ -174,6 +313,17 @@ def test_link_update_can_scope_a_typed_replacement() -> None:
 
 
 def test_link_update_scope_is_inherited_by_all_operations() -> None:
+    """
+    Verify link update scope remains inherited by all operations.
+
+    Example:
+        Exercise test link update scope is inherited by all operations through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     update = LinkUpdate(
         link_spec=_link_spec(),
         link_type="editor",
@@ -193,6 +343,17 @@ def test_link_update_scope_is_inherited_by_all_operations() -> None:
 
 
 def test_link_update_rejects_types_outside_the_declared_allowed_set() -> None:
+    """
+    Verify link update rejects types outside the declared allowed set.
+
+    Example:
+        Exercise test link update rejects types outside the declared allowed set through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     spec = replace(_link_spec(), allowed_types=("author", "editor"))
 
     with pytest.raises(ValueError, match="not allowed by the link spec"):
@@ -220,6 +381,20 @@ def test_link_update_rejects_invalid_named_type_values(
     error: type[Exception],
     message: str,
 ) -> None:
+    """
+    Verify link update rejects invalid named type values.
+
+    Example:
+        Exercise test link update rejects invalid named type values through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param link_type: Optional typed relation value carried by the link.
+    :param error: Value supplied for error under the catalog contract.
+    :param message: Value supplied for message under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     with pytest.raises(error, match=message):
         LinkUpdate(
             link_spec=_link_spec(),
@@ -228,6 +403,17 @@ def test_link_update_rejects_invalid_named_type_values(
 
 
 def test_link_update_allows_null_type_with_declared_allowed_types() -> None:
+    """
+    Verify link update allows null type with declared allowed types.
+
+    Example:
+        Exercise test link update allows null type with declared allowed types through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     spec = replace(_link_spec(), allowed_types=("author", "editor"))
 
     update = LinkUpdate(
@@ -240,6 +426,17 @@ def test_link_update_allows_null_type_with_declared_allowed_types() -> None:
 
 
 def test_link_update_rejects_ambiguous_or_untyped_payloads() -> None:
+    """
+    Verify link update rejects ambiguous or untyped payloads.
+
+    Example:
+        Exercise test link update rejects ambiguous or untyped payloads through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     with pytest.raises(TypeError, match="empty iterable"):
         LinkUpdate(link_spec=_link_spec(), replacements={10: None})  # type: ignore[dict-item]
 
@@ -254,6 +451,17 @@ def test_link_update_rejects_ambiguous_or_untyped_payloads() -> None:
 
 
 def test_link_update_replacement_map_is_read_only() -> None:
+    """
+    Verify link update replacement map remains read only.
+
+    Example:
+        Exercise test link update replacement map is read only through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     update = LinkUpdate(link_spec=_link_spec(), replacements={10: []})
 
     with pytest.raises(TypeError):
@@ -261,6 +469,17 @@ def test_link_update_replacement_map_is_read_only() -> None:
 
 
 def test_link_update_from_ids_accepts_cache_writer_shapes() -> None:
+    """
+    Verify link update from ids accepts cache writer shapes.
+
+    Example:
+        Exercise test link update from ids accepts cache writer shapes through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     update = LinkUpdate.from_ids(
         _link_spec(),
         {
@@ -284,6 +503,17 @@ def test_link_update_from_ids_accepts_cache_writer_shapes() -> None:
 
 
 def test_link_update_from_ids_accepts_typed_cache_writer_shapes() -> None:
+    """
+    Verify link update from ids accepts typed cache writer shapes.
+
+    Example:
+        Exercise test link update from ids accepts typed cache writer shapes through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     update = LinkUpdate.from_ids(
         _link_spec(),
         replacements={
@@ -303,6 +533,17 @@ def test_link_update_from_ids_accepts_typed_cache_writer_shapes() -> None:
 
 
 def test_link_update_from_values_resolves_secondary_values() -> None:
+    """
+    Verify link update from values resolves secondary values.
+
+    Example:
+        Exercise test link update from values resolves secondary values through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     ids = {"Ada": 20, "Grace": 21, "Edsger": 22}
 
     update = LinkUpdate.from_values(
@@ -323,6 +564,17 @@ def test_link_update_from_values_resolves_secondary_values() -> None:
 
 
 def test_link_update_compact_factories_preserve_rich_link_values() -> None:
+    """
+    Verify link update compact factories preserve rich link values.
+
+    Example:
+        Exercise test link update compact factories preserve rich link values through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     rich = LinkValue(
         secondary_id=20,
         link_type="author",
@@ -340,6 +592,17 @@ def test_link_update_compact_factories_preserve_rich_link_values() -> None:
 
 
 def test_link_update_compact_factories_validate_nested_and_none_values() -> None:
+    """
+    Verify link update compact factories validate nested and none values.
+
+    Example:
+        Exercise test link update compact factories validate nested and none values through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     untyped_spec = StorageLinkSpec(
         primary_table="titles",
         secondary_table="tags",
@@ -363,10 +626,33 @@ def test_link_update_compact_factories_validate_nested_and_none_values() -> None
 
 
 def test_link_update_from_legacy_matches_values_but_preserves_existing_ids() -> None:
+    """
+    Verify link update from legacy matches values but preserves existing ids.
+
+    Example:
+        Exercise test link update from legacy matches values but preserves existing ids through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     calls: list[str] = []
     ids = {"Ada": 21, "Grace": 22}
 
     def resolve(value: str) -> int:
+        """
+        Perform the resolve test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test link update from legacy matches values but preserves existing ids.resolve through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param value: Public or stored value to normalize, compare or write.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         calls.append(value)
         return ids[value]
 
@@ -388,6 +674,17 @@ def test_link_update_from_legacy_matches_values_but_preserves_existing_ids() -> 
 
 
 def test_compact_factories_remove_duplicate_legacy_link_identities() -> None:
+    """
+    Verify compact factories remove duplicate legacy link identities.
+
+    Example:
+        Exercise test compact factories remove duplicate legacy link identities through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     update = LinkUpdate.from_ids(
         _link_spec(),
         replacements={10: [20, 20, 21]},
@@ -399,9 +696,32 @@ def test_compact_factories_remove_duplicate_legacy_link_identities() -> None:
 
 
 def test_value_factory_matches_each_repeated_metadata_value_once() -> None:
+    """
+    Verify value factory matches each repeated metadata value once.
+
+    Example:
+        Exercise test value factory matches each repeated metadata value once through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     calls: list[str] = []
 
     def resolve(value: str) -> int:
+        """
+        Perform the resolve test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test value factory matches each repeated metadata value once.resolve through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param value: Public or stored value to normalize, compare or write.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         calls.append(value)
         return 20
 
@@ -418,6 +738,17 @@ def test_value_factory_matches_each_repeated_metadata_value_once() -> None:
 
 
 def test_direct_construction_rejects_duplicate_logical_link_identities() -> None:
+    """
+    Verify direct construction rejects duplicate logical link identities.
+
+    Example:
+        Exercise test direct construction rejects duplicate logical link identities through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     with pytest.raises(ValueError, match="duplicate logical identity"):
         LinkUpdate(
             link_spec=_link_spec(),
@@ -431,6 +762,17 @@ def test_direct_construction_rejects_duplicate_logical_link_identities() -> None
 
 
 def test_link_update_rejects_database_incompatible_link_capabilities() -> None:
+    """
+    Verify link update rejects database incompatible link capabilities.
+
+    Example:
+        Exercise test link update rejects database incompatible link capabilities through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     with pytest.raises(ValueError, match="type on an untyped link spec"):
         LinkUpdate(
             link_spec=_plain_link_spec(),
@@ -452,6 +794,17 @@ def test_link_update_rejects_database_incompatible_link_capabilities() -> None:
 
 
 def test_link_update_composes_incrementals_into_pure_replacements() -> None:
+    """
+    Verify link update composes incrementals into pure replacements.
+
+    Example:
+        Exercise test link update composes incrementals into pure replacements through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     macros = _RecordingMacros(
         {
             11: (
@@ -501,6 +854,17 @@ def test_link_update_composes_incrementals_into_pure_replacements() -> None:
 
 
 def test_replacement_composition_deduplicates_rows_and_preserves_readded_order() -> None:
+    """
+    Verify replacement composition deduplicates rows and preserves readded order.
+
+    Example:
+        Exercise test replacement composition deduplicates rows and preserves readded order through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     macros = _RecordingMacros(
         {
             10: (
@@ -525,6 +889,17 @@ def test_replacement_composition_deduplicates_rows_and_preserves_readded_order()
 
 
 def test_link_update_write_uses_one_bulk_replacement_with_scope() -> None:
+    """
+    Verify link update write uses one bulk replacement with scope.
+
+    Example:
+        Exercise test link update write uses one bulk replacement with scope through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     macros = _RecordingMacros(
         {
             10: (
@@ -551,6 +926,17 @@ def test_link_update_write_uses_one_bulk_replacement_with_scope() -> None:
 
 
 def test_catalog_writes_link_update_through_its_database_macros() -> None:
+    """
+    Verify catalog writes link update through its database macros.
+
+    Example:
+        Exercise test catalog writes link update through its database macros through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     macros = _RecordingMacros()
     catalog = Catalog(type("Database", (), {"macros": macros})())
     update = LinkUpdate.from_ids(
@@ -573,6 +959,17 @@ def test_catalog_writes_link_update_through_its_database_macros() -> None:
 
 
 def test_catalog_link_update_boundary_rejects_other_values_and_preserves_noop() -> None:
+    """
+    Verify catalog link update boundary rejects other values and preserves noop.
+
+    Example:
+        Exercise test catalog link update boundary rejects other values and preserves noop through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     macros = _RecordingMacros()
     catalog = Catalog(type("Database", (), {"macros": macros})())
 
@@ -585,6 +982,17 @@ def test_catalog_link_update_boundary_rejects_other_values_and_preserves_noop() 
 
 
 def test_empty_link_update_write_does_not_touch_the_database() -> None:
+    """
+    Verify empty link update write does not touch the database.
+
+    Example:
+        Exercise test empty link update write does not touch the database through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     macros = _RecordingMacros()
 
     assert LinkUpdate(link_spec=_link_spec()).write(macros) == {}  # type: ignore[arg-type]
@@ -593,6 +1001,17 @@ def test_empty_link_update_write_does_not_touch_the_database() -> None:
 
 
 def test_link_update_exposes_effective_primary_ids_and_mapping_access() -> None:
+    """
+    Verify link update exposes effective primary ids and mapping access.
+
+    Example:
+        Exercise test link update exposes effective primary ids and mapping access through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     update = LinkUpdate(
         link_spec=_link_spec(),
         replacements={
@@ -643,6 +1062,17 @@ def test_link_update_exposes_effective_primary_ids_and_mapping_access() -> None:
 
 
 def test_per_id_view_is_read_only_and_identifies_incremental_updates() -> None:
+    """
+    Verify per id view remains read only and identifies incremental updates.
+
+    Example:
+        Exercise test per id view is read only and identifies incremental updates through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     update = LinkUpdate.from_ids(
         _link_spec(),
         additions={10: [20, 21]},
@@ -668,6 +1098,17 @@ def test_per_id_view_is_read_only_and_identifies_incremental_updates() -> None:
 
 
 def test_link_update_pretty_format_is_deterministic_and_operation_ordered() -> None:
+    """
+    Verify link update pretty format remains deterministic and operation ordered.
+
+    Example:
+        Exercise test link update pretty format is deterministic and operation ordered through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     update = LinkUpdate(
         link_spec=_link_spec(),
         replacements={10: [LinkValue(20, link_type="author", priority=2)]},
@@ -705,6 +1146,17 @@ def test_link_update_pretty_format_is_deterministic_and_operation_ordered() -> N
 
 
 def test_empty_incremental_entries_are_visible_but_do_not_write() -> None:
+    """
+    Verify empty incremental entries remain visible but do not write.
+
+    Example:
+        Exercise test empty incremental entries are visible but do not write through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     macros = _RecordingMacros()
     update = LinkUpdate.from_ids(
         _link_spec(),
@@ -723,6 +1175,17 @@ def test_empty_incremental_entries_are_visible_but_do_not_write() -> None:
 
 
 def test_link_update_returns_one_dataclass_per_link_in_operation_order() -> None:
+    """
+    Verify link update returns one dataclass per link in operation order.
+
+    Example:
+        Exercise test link update returns one dataclass per link in operation order through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     update = LinkUpdate(
         link_spec=_link_spec(),
         replacements={
@@ -768,6 +1231,17 @@ def test_link_update_returns_one_dataclass_per_link_in_operation_order() -> None
 
 
 def test_link_dataclass_is_a_read_only_mapping_over_its_extras() -> None:
+    """
+    Verify link dataclass remains a read only mapping over its extras.
+
+    Example:
+        Exercise test link dataclass is a read only mapping over its extras through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     link = LinkUpdateLink(
         src_id=10,
         dst_id=20,
@@ -808,6 +1282,17 @@ def test_link_dataclass_is_a_read_only_mapping_over_its_extras() -> None:
 
 
 def test_iter_links_is_lazy_and_does_not_load_destination_values() -> None:
+    """
+    Verify iter links remains lazy and does not load destination values.
+
+    Example:
+        Exercise test iter links is lazy and does not load destination values through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     calls: list[int] = []
     update = LinkUpdate.from_ids(
         _link_spec(),
@@ -827,9 +1312,32 @@ def test_iter_links_is_lazy_and_does_not_load_destination_values() -> None:
 
 
 def test_link_dataclass_resolves_and_caches_its_destination_value_lazily() -> None:
+    """
+    Verify link dataclass resolves and caches its destination value lazily.
+
+    Example:
+        Exercise test link dataclass resolves and caches its destination value lazily through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     calls: list[int] = []
 
     def load(dst_id: int) -> str:
+        """
+        Load deterministic cache state for adapter tests.
+
+        Example:
+            Exercise test link dataclass resolves and caches its destination value lazily.load through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param dst_id: Value supplied for dst id under the catalog contract.
+        :return: None; the function records state or raises through its assertions.
+        """
         calls.append(dst_id)
         return {20: "Ada"}[dst_id]
 
@@ -862,6 +1370,17 @@ def test_link_dataclass_resolves_and_caches_its_destination_value_lazily() -> No
 
 
 def test_link_destination_loader_handles_none_retries_failures_and_requires_loader() -> None:
+    """
+    Verify link destination loader handles none retries failures and requires loader.
+
+    Example:
+        Exercise test link destination loader handles none retries failures and requires loader through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     no_loader = LinkUpdateLink(src_id=10, dst_id=20, operation="additions")
     with pytest.raises(RuntimeError, match="no destination-value loader"):
         no_loader.get_dst_value()
@@ -884,6 +1403,18 @@ def test_link_destination_loader_handles_none_retries_failures_and_requires_load
     attempts: list[int] = []
 
     def flaky(dst_id: int) -> str:
+        """
+        Perform the flaky test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test link destination loader handles none retries failures and requires loader.flaky through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param dst_id: Value supplied for dst id under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         attempts.append(dst_id)
         if len(attempts) == 1:
             raise LookupError(dst_id)
@@ -913,6 +1444,17 @@ def test_link_destination_loader_handles_none_retries_failures_and_requires_load
 
 
 def test_link_dataclass_rejects_non_mapping_extras_and_non_callable_lazy_loader() -> None:
+    """
+    Verify link dataclass rejects non mapping extras and non callable lazy loader.
+
+    Example:
+        Exercise test link dataclass rejects non mapping extras and non callable lazy loader through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     with pytest.raises(TypeError, match="link extras must be a mapping"):
         LinkUpdateLink(
             src_id=10,
@@ -928,6 +1470,17 @@ def test_link_dataclass_rejects_non_mapping_extras_and_non_callable_lazy_loader(
 
 
 def test_link_dataclass_display_includes_priority_without_other_optional_fields() -> None:
+    """
+    Verify link dataclass display includes priority without other optional fields.
+
+    Example:
+        Exercise test link dataclass display includes priority without other optional fields through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     link = LinkUpdateLink(
         src_id=10,
         dst_id=20,
@@ -945,6 +1498,17 @@ def test_link_dataclass_display_includes_priority_without_other_optional_fields(
 
 
 def test_link_dataclass_snapshots_extras_and_is_frozen_and_slotted() -> None:
+    """
+    Verify link dataclass snapshots extras and remains frozen and slotted.
+
+    Example:
+        Exercise test link dataclass snapshots extras and is frozen and slotted through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     extra = {"credited_as": "Original"}
     link = LinkUpdateLink(
         src_id=10,
@@ -967,6 +1531,18 @@ def test_link_dataclass_snapshots_extras_and_is_frozen_and_slotted() -> None:
 
 
 def test_legacy_value_to_normalized_link_update_writes_through_real_db(db) -> None:
+    """
+    Verify legacy value to normalized link update writes through real db.
+
+    Example:
+        Exercise test legacy value to normalized link update writes through real db through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param db: Value supplied for db under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     db.driver_wrapper.executescript(
         """
         CREATE TABLE catalog_update_sources (
@@ -1002,6 +1578,18 @@ def test_legacy_value_to_normalized_link_update_writes_through_real_db(db) -> No
     catalog = Catalog(db)
 
     def match_value(value: str) -> int:
+        """
+        Perform the match value test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test legacy value to normalized link update writes through real db.match value through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param value: Public or stored value to normalize, compare or write.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return db.macros.ensure_table_value(
             spec.secondary_table,
             "catalog_update_value_name",
@@ -1045,6 +1633,17 @@ def test_legacy_value_to_normalized_link_update_writes_through_real_db(db) -> No
 
 
 def test_link_update_defaults_to_independent_empty_read_only_operations() -> None:
+    """
+    Verify link update defaults to independent empty read only operations.
+
+    Example:
+        Exercise test link update defaults to independent empty read only operations through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     first = LinkUpdate(link_spec=_link_spec())
     second = LinkUpdate(link_spec=_link_spec())
 
@@ -1060,6 +1659,17 @@ def test_link_update_defaults_to_independent_empty_read_only_operations() -> Non
 
 
 def test_link_update_is_frozen_and_slotted() -> None:
+    """
+    Verify link update remains frozen and slotted.
+
+    Example:
+        Exercise test link update is frozen and slotted through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     update = LinkUpdate(link_spec=_link_spec())
 
     with pytest.raises(FrozenInstanceError):
@@ -1089,6 +1699,20 @@ def test_direct_construction_materialises_legacy_link_collections(
     operation: str,
     collection_factory: Callable[[tuple[LinkValue, ...]], Iterable[LinkValue]],
 ) -> None:
+    """
+    Verify direct construction materialises legacy link collections.
+
+    Example:
+        Exercise test direct construction materialises legacy link collections through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param operation: Value supplied for operation under the catalog contract.
+    :param collection_factory: Value supplied for collection factory under the catalog
+        contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     links = (LinkValue(20), LinkValue(21))
     supplied = collection_factory(links)
 
@@ -1102,6 +1726,17 @@ def test_direct_construction_materialises_legacy_link_collections(
 
 
 def test_direct_construction_snapshots_all_caller_owned_containers() -> None:
+    """
+    Verify direct construction snapshots all caller owned containers.
+
+    Example:
+        Exercise test direct construction snapshots all caller owned containers through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     replacement_extra = UserDict({"credited_as": "Original"})
     replacement_links = [LinkValue(20, extra=replacement_extra)]
     addition_links = [LinkValue(21)]
@@ -1133,6 +1768,17 @@ def test_direct_construction_snapshots_all_caller_owned_containers() -> None:
 
 
 def test_direct_construction_preserves_overlapping_operations() -> None:
+    """
+    Verify direct construction preserves overlapping operations.
+
+    Example:
+        Exercise test direct construction preserves overlapping operations through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     replacement = LinkValue(20, priority=1)
     deletion = LinkValue(20)
     addition = LinkValue(20, priority=2)
@@ -1153,6 +1799,18 @@ def test_direct_construction_preserves_overlapping_operations() -> None:
 def test_direct_construction_inherits_scope_without_losing_link_properties(
     operation: str,
 ) -> None:
+    """
+    Verify direct construction inherits scope without losing link properties.
+
+    Example:
+        Exercise test direct construction inherits scope without losing link properties through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param operation: Value supplied for operation under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     supplied = LinkValue(
         20,
         priority=3,
@@ -1177,6 +1835,18 @@ def test_direct_construction_inherits_scope_without_losing_link_properties(
 
 @pytest.mark.parametrize("operation", ("replacements", "additions", "deletions"))
 def test_direct_construction_accepts_an_explicit_matching_scope(operation: str) -> None:
+    """
+    Verify direct construction accepts an explicit matching scope.
+
+    Example:
+        Exercise test direct construction accepts an explicit matching scope through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param operation: Value supplied for operation under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     supplied = LinkValue(20, link_type="author")
 
     update = LinkUpdate(
@@ -1216,6 +1886,20 @@ def test_from_ids_normalises_ordered_legacy_shapes_for_every_operation(
     raw_factory: Callable[[], object],
     expected_ids: tuple[int, ...],
 ) -> None:
+    """
+    Verify from ids normalises ordered legacy shapes for every operation.
+
+    Example:
+        Exercise test from ids normalises ordered legacy shapes for every operation through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param operation: Value supplied for operation under the catalog contract.
+    :param raw_factory: Value supplied for raw factory under the catalog contract.
+    :param expected_ids: Value supplied for expected ids under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     update = LinkUpdate.from_ids(
         _link_spec(),
         **_operation_payload(operation, {10: raw_factory()}),  # type: ignore[arg-type]
@@ -1237,6 +1921,19 @@ def test_from_ids_normalises_unordered_legacy_shapes_for_every_operation(
     operation: str,
     raw_factory: Callable[[], Iterable[int]],
 ) -> None:
+    """
+    Verify from ids normalises unordered legacy shapes for every operation.
+
+    Example:
+        Exercise test from ids normalises unordered legacy shapes for every operation through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param operation: Value supplied for operation under the catalog contract.
+    :param raw_factory: Value supplied for raw factory under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     update = LinkUpdate.from_ids(
         _link_spec(),
         **_operation_payload(operation, {10: raw_factory()}),  # type: ignore[arg-type]
@@ -1264,12 +1961,36 @@ def test_from_ids_normalises_unordered_legacy_shapes_for_every_operation(
 def test_from_ids_accepts_legacy_mapping_implementations(
     mapping_factory: Callable[[], Mapping[int, object]],
 ) -> None:
+    """
+    Verify from ids accepts legacy mapping implementations.
+
+    Example:
+        Exercise test from ids accepts legacy mapping implementations through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param mapping_factory: Value supplied for mapping factory under the catalog
+        contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     update = LinkUpdate.from_ids(_link_spec(), mapping_factory())  # type: ignore[arg-type]
 
     assert _ids(update, "replacements") == (20, 21)
 
 
 def test_from_ids_snapshots_legacy_update_dict_and_inner_list() -> None:
+    """
+    Verify from ids snapshots legacy update dict and inner list.
+
+    Example:
+        Exercise test from ids snapshots legacy update dict and inner list through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     values = [20, 21]
     supplied = UpdateDict({10: values})
 
@@ -1281,6 +2002,17 @@ def test_from_ids_snapshots_legacy_update_dict_and_inner_list() -> None:
 
 
 def test_from_ids_normalises_a_mixed_typed_legacy_update() -> None:
+    """
+    Verify from ids normalises a mixed typed legacy update.
+
+    Example:
+        Exercise test from ids normalises a mixed typed legacy update through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     typed_values: defaultdict[str, object] = defaultdict(list)
     typed_values["author"] = [20, 21]
     typed_values["editor"] = 22
@@ -1310,6 +2042,18 @@ def test_from_ids_normalises_a_mixed_typed_legacy_update() -> None:
 
 @pytest.mark.parametrize("operation", ("replacements", "additions", "deletions"))
 def test_from_ids_supports_typed_maps_for_every_operation(operation: str) -> None:
+    """
+    Verify from ids supports typed maps for every operation.
+
+    Example:
+        Exercise test from ids supports typed maps for every operation through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param operation: Value supplied for operation under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     update = LinkUpdate.from_ids(
         _link_spec(),
         **_operation_payload(
@@ -1326,6 +2070,17 @@ def test_from_ids_supports_typed_maps_for_every_operation(operation: str) -> Non
 
 
 def test_nested_typed_map_only_supplies_a_missing_rich_link_type() -> None:
+    """
+    Verify nested typed map only supplies a missing rich link type.
+
+    Example:
+        Exercise test nested typed map only supplies a missing rich link type through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     missing_type = LinkValue(20, priority=1)
     explicit_type = LinkValue(21, link_type="contributor", priority=2)
 
@@ -1341,6 +2096,17 @@ def test_nested_typed_map_only_supplies_a_missing_rich_link_type() -> None:
 
 
 def test_factory_scope_is_applied_to_every_compact_operation() -> None:
+    """
+    Verify factory scope remains applied to every compact operation.
+
+    Example:
+        Exercise test factory scope is applied to every compact operation through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     update = LinkUpdate.from_ids(
         _link_spec(),
         {10: [20]},
@@ -1355,6 +2121,17 @@ def test_factory_scope_is_applied_to_every_compact_operation() -> None:
 
 
 def test_from_ids_preserves_rich_links_without_treating_them_as_ids() -> None:
+    """
+    Verify from ids preserves rich links without treating them as ids.
+
+    Example:
+        Exercise test from ids preserves rich links without treating them as ids through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     rich = LinkValue(
         20,
         link_type="author",
@@ -1374,6 +2151,18 @@ def test_from_ids_preserves_rich_links_without_treating_them_as_ids() -> None:
 
 @pytest.mark.parametrize("operation", ("replacements", "additions", "deletions"))
 def test_none_is_a_distinct_sql_null_link_type_scope(operation: str) -> None:
+    """
+    Verify none remains a distinct sql null link type scope.
+
+    Example:
+        Exercise test none is a distinct sql null link type scope through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param operation: Value supplied for operation under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     update = LinkUpdate.from_ids(
         _link_spec(),
         link_type=None,
@@ -1412,9 +2201,34 @@ def test_from_values_treats_legacy_scalar_types_as_one_value(
     operation: str,
     raw_value: object,
 ) -> None:
+    """
+    Verify from values treats legacy scalar types as one value.
+
+    Example:
+        Exercise test from values treats legacy scalar types as one value through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param operation: Value supplied for operation under the catalog contract.
+    :param raw_value: Value supplied for raw value under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     resolved: list[object] = []
 
     def resolve(value: object) -> int:
+        """
+        Perform the resolve test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test from values treats legacy scalar types as one value.resolve through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param value: Public or stored value to normalize, compare or write.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         resolved.append(value)
         return 20
 
@@ -1444,10 +2258,34 @@ def test_from_values_treats_legacy_scalar_types_as_one_value(
 def test_from_values_resolves_ordered_legacy_collections_once(
     raw_factory: Callable[[], Iterable[str]],
 ) -> None:
+    """
+    Verify from values resolves ordered legacy collections once.
+
+    Example:
+        Exercise test from values resolves ordered legacy collections once through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param raw_factory: Value supplied for raw factory under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     resolved: list[str] = []
     ids = {"Ada": 20, "Grace": 21}
 
     def resolve(value: str) -> int:
+        """
+        Perform the resolve test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test from values resolves ordered legacy collections once.resolve through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param value: Public or stored value to normalize, compare or write.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         resolved.append(value)
         return ids[value]
 
@@ -1471,6 +2309,18 @@ def test_from_values_resolves_ordered_legacy_collections_once(
 def test_from_values_resolves_unordered_legacy_collections(
     raw_factory: Callable[[], Iterable[str]],
 ) -> None:
+    """
+    Verify from values resolves unordered legacy collections.
+
+    Example:
+        Exercise test from values resolves unordered legacy collections through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param raw_factory: Value supplied for raw factory under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     ids = {"Ada": 20, "Grace": 21}
 
     update = LinkUpdate.from_values(
@@ -1483,6 +2333,17 @@ def test_from_values_resolves_unordered_legacy_collections(
 
 
 def test_from_values_resolves_mixed_legacy_values_but_bypasses_rich_links() -> None:
+    """
+    Verify from values resolves mixed legacy values but bypasses rich links.
+
+    Example:
+        Exercise test from values resolves mixed legacy values but bypasses rich links through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     rich = LinkValue(
         99,
         link_type="author",
@@ -1492,6 +2353,18 @@ def test_from_values_resolves_mixed_legacy_values_but_bypasses_rich_links() -> N
     calls: list[object] = []
 
     def resolve(value: object) -> int:
+        """
+        Perform the resolve test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test from values resolves mixed legacy values but bypasses rich links.resolve through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param value: Public or stored value to normalize, compare or write.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         calls.append(value)
         return {"Ada": 20, 21: 21}[value]
 
@@ -1510,6 +2383,17 @@ def test_from_values_resolves_mixed_legacy_values_but_bypasses_rich_links() -> N
 
 
 def test_from_values_does_not_resolve_none_clears_or_empty_roles() -> None:
+    """
+    Verify from values does not resolve none clears or empty roles.
+
+    Example:
+        Exercise test from values does not resolve none clears or empty roles through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     update = LinkUpdate.from_values(
         _link_spec(),
         replacements={10: None, 11: {"author": None, "editor": []}},
@@ -1520,10 +2404,33 @@ def test_from_values_does_not_resolve_none_clears_or_empty_roles() -> None:
 
 
 def test_from_values_preserves_typed_role_order_and_resolution_order() -> None:
+    """
+    Verify from values preserves typed role order and resolution order.
+
+    Example:
+        Exercise test from values preserves typed role order and resolution order through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     calls: list[str] = []
     ids = {"Ada": 20, "Grace": 21, "Edsger": 22}
 
     def resolve(value: str) -> int:
+        """
+        Perform the resolve test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test from values preserves typed role order and resolution order.resolve through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param value: Public or stored value to normalize, compare or write.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         calls.append(value)
         return ids[value]
 
@@ -1547,9 +2454,32 @@ def test_from_values_preserves_typed_role_order_and_resolution_order() -> None:
 
 
 def test_from_values_propagates_resolver_exceptions_and_stops() -> None:
+    """
+    Verify from values propagates resolver exceptions and stops.
+
+    Example:
+        Exercise test from values propagates resolver exceptions and stops through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     calls: list[str] = []
 
     def resolve(value: str) -> int:
+        """
+        Perform the resolve test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test from values propagates resolver exceptions and stops.resolve through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param value: Public or stored value to normalize, compare or write.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         calls.append(value)
         if value == "bad":
             raise KeyError(value)
@@ -1570,6 +2500,18 @@ def test_from_values_propagates_resolver_exceptions_and_stops() -> None:
 
 @pytest.mark.parametrize("bad_spec", (None, "titles-creators", object()))
 def test_direct_construction_rejects_non_link_specs(bad_spec: object) -> None:
+    """
+    Verify direct construction rejects non link specs.
+
+    Example:
+        Exercise test direct construction rejects non link specs through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param bad_spec: Value supplied for bad spec under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     with pytest.raises(TypeError, match="link_spec must be a StorageLinkSpec"):
         LinkUpdate(link_spec=bad_spec)  # type: ignore[arg-type]
 
@@ -1577,6 +2519,19 @@ def test_direct_construction_rejects_non_link_specs(bad_spec: object) -> None:
 @pytest.mark.parametrize("factory", ("from_ids", "from_values"))
 @pytest.mark.parametrize("bad_spec", (None, "titles-creators", object()))
 def test_compact_factories_reject_non_link_specs(factory: str, bad_spec: object) -> None:
+    """
+    Verify compact factories reject non link specs.
+
+    Example:
+        Exercise test compact factories reject non link specs through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param factory: Value supplied for factory under the catalog contract.
+    :param bad_spec: Value supplied for bad spec under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     if factory == "from_ids":
         call = lambda: LinkUpdate.from_ids(bad_spec)  # type: ignore[arg-type]
     else:
@@ -1603,6 +2558,19 @@ def test_direct_construction_rejects_non_mapping_operations(
     operation: str,
     bad_mapping: object,
 ) -> None:
+    """
+    Verify direct construction rejects non mapping operations.
+
+    Example:
+        Exercise test direct construction rejects non mapping operations through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param operation: Value supplied for operation under the catalog contract.
+    :param bad_mapping: Value supplied for bad mapping under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     with pytest.raises(TypeError, match=rf"{operation} must be a mapping"):
         LinkUpdate(
             link_spec=_link_spec(),
@@ -1624,6 +2592,19 @@ def test_direct_construction_rejects_non_link_value_collections(
     operation: str,
     bad_links: object,
 ) -> None:
+    """
+    Verify direct construction rejects non link value collections.
+
+    Example:
+        Exercise test direct construction rejects non link value collections through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param operation: Value supplied for operation under the catalog contract.
+    :param bad_links: Value supplied for bad links under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     singular = operation.removesuffix("s")
     with pytest.raises(TypeError, match=rf"{singular} links must be LinkValue"):
         LinkUpdate(
@@ -1644,6 +2625,19 @@ def test_direct_construction_rejects_none_entries(
     operation: str,
     message: str,
 ) -> None:
+    """
+    Verify direct construction rejects none entries.
+
+    Example:
+        Exercise test direct construction rejects none entries through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param operation: Value supplied for operation under the catalog contract.
+    :param message: Value supplied for message under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     with pytest.raises(TypeError, match=message):
         LinkUpdate(
             link_spec=_link_spec(),
@@ -1653,6 +2647,18 @@ def test_direct_construction_rejects_none_entries(
 
 @pytest.mark.parametrize("operation", ("replacements", "additions", "deletions"))
 def test_direct_construction_rejects_non_mapping_extras(operation: str) -> None:
+    """
+    Verify direct construction rejects non mapping extras.
+
+    Example:
+        Exercise test direct construction rejects non mapping extras through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param operation: Value supplied for operation under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     bad_link = LinkValue(20, extra=[("credited_as", "A. Writer")])  # type: ignore[arg-type]
     singular = operation.removesuffix("s")
 
@@ -1667,6 +2673,18 @@ def test_direct_construction_rejects_non_mapping_extras(operation: str) -> None:
 def test_direct_construction_rejects_scope_mismatches_for_every_operation(
     operation: str,
 ) -> None:
+    """
+    Verify direct construction rejects scope mismatches for every operation.
+
+    Example:
+        Exercise test direct construction rejects scope mismatches for every operation through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param operation: Value supplied for operation under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     with pytest.raises(
         ValueError,
         match=rf"{operation.removesuffix('s')} link type 'editor'.*scope 'author'",
@@ -1695,6 +2713,19 @@ def test_from_ids_rejects_non_mapping_operations(
     operation: str,
     bad_mapping: object,
 ) -> None:
+    """
+    Verify from ids rejects non mapping operations.
+
+    Example:
+        Exercise test from ids rejects non mapping operations through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param operation: Value supplied for operation under the catalog contract.
+    :param bad_mapping: Value supplied for bad mapping under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     with pytest.raises(TypeError, match=rf"{operation} must be a mapping"):
         LinkUpdate.from_ids(
             _link_spec(),
@@ -1704,6 +2735,18 @@ def test_from_ids_rejects_non_mapping_operations(
 
 @pytest.mark.parametrize("operation", ("replacements", "additions", "deletions"))
 def test_from_values_rejects_non_mapping_operations(operation: str) -> None:
+    """
+    Verify from values rejects non mapping operations.
+
+    Example:
+        Exercise test from values rejects non mapping operations through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param operation: Value supplied for operation under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     with pytest.raises(TypeError, match=rf"{operation} must be a mapping"):
         LinkUpdate.from_values(
             _link_spec(),
@@ -1718,6 +2761,19 @@ def test_compact_factories_reject_typed_maps_for_plain_links(
     factory: str,
     operation: str,
 ) -> None:
+    """
+    Verify compact factories reject typed maps for plain links.
+
+    Example:
+        Exercise test compact factories reject typed maps for plain links through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param factory: Value supplied for factory under the catalog contract.
+    :param operation: Value supplied for operation under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     kwargs = _operation_payload(operation, {10: {"subject": [20]}})
 
     with pytest.raises(TypeError, match="nested link-type mappings require a typed link spec"):
@@ -1746,6 +2802,21 @@ def test_compact_factories_reject_none_inside_value_collections(
     operation: str,
     bad_values_factory: Callable[[], Iterable[int | None]],
 ) -> None:
+    """
+    Verify compact factories reject none inside value collections.
+
+    Example:
+        Exercise test compact factories reject none inside value collections through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param factory: Value supplied for factory under the catalog contract.
+    :param operation: Value supplied for operation under the catalog contract.
+    :param bad_values_factory: Value supplied for bad values factory under the catalog
+        contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     kwargs = _operation_payload(operation, {10: bad_values_factory()})
 
     with pytest.raises(TypeError, match="None is only valid as the complete value"):
@@ -1761,6 +2832,18 @@ def test_compact_factories_reject_none_inside_value_collections(
 
 @pytest.mark.parametrize("bad_resolver", (None, 0, "resolver", object()))
 def test_from_values_rejects_every_non_callable_resolver(bad_resolver: object) -> None:
+    """
+    Verify from values rejects every non callable resolver.
+
+    Example:
+        Exercise test from values rejects every non callable resolver through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param bad_resolver: Value supplied for bad resolver under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     with pytest.raises(TypeError, match="secondary_id_for must be callable"):
         LinkUpdate.from_values(
             _link_spec(),
@@ -1771,6 +2854,18 @@ def test_from_values_rejects_every_non_callable_resolver(bad_resolver: object) -
 
 @pytest.mark.parametrize("bad_resolver", (None, 0, "resolver", object()))
 def test_from_legacy_rejects_every_non_callable_resolver(bad_resolver: object) -> None:
+    """
+    Verify from legacy rejects every non callable resolver.
+
+    Example:
+        Exercise test from legacy rejects every non callable resolver through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param bad_resolver: Value supplied for bad resolver under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     with pytest.raises(TypeError, match="secondary_id_for must be callable"):
         LinkUpdate.from_legacy(
             _link_spec(),
@@ -1780,6 +2875,17 @@ def test_from_legacy_rejects_every_non_callable_resolver(bad_resolver: object) -
 
 
 def test_factory_scope_rejects_a_nested_type_that_conflicts_with_it() -> None:
+    """
+    Verify factory scope rejects a nested type that conflicts with it.
+
+    Example:
+        Exercise test factory scope rejects a nested type that conflicts with it through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     with pytest.raises(ValueError, match="link type 'editor'.*scope 'author'"):
         LinkUpdate.from_ids(
             _link_spec(),

@@ -1,6 +1,14 @@
 
 """
-Load the test data into the database, dump it to csv, and then reload it - tests the entire test_data cycle.
+Dump and reload fixture test data.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise dump reload test data through a consuming regression::
+
+        python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
 """
 
 if __name__ == "__main__":

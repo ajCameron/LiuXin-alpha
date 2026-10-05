@@ -1,3 +1,14 @@
+"""
+Verify SNB archive metadata and cover extraction.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test snb metadata source through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_snb_metadata_source.py
+"""
 from __future__ import annotations
 
 import io
@@ -8,6 +19,18 @@ import pytest
 
 
 def _values(raw):
+    """
+    Perform the values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise values through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_snb_metadata_source.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, Mapping):
@@ -21,11 +44,35 @@ def _values(raw):
 
 
 def _first(raw):
+    """
+    Perform the first test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise first through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_snb_metadata_source.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     vals = _values(raw)
     return vals[0] if vals else None
 
 
 def _snapshot(md) -> dict:
+    """
+    Perform the snapshot test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise snapshot through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_snb_metadata_source.py
+
+
+    :param md: Value supplied for md in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return {
         "title": _first(getattr(md, "title", None)),
         "authors": sorted(_values(getattr(md, "authors", None))),
@@ -36,6 +83,19 @@ def _snapshot(md) -> dict:
 
 
 def _build_snb_bytes(tmp_path: Path, payloads: dict[str, bytes]) -> bytes:
+    """
+    Perform the build snb bytes test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise build snb bytes through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_snb_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param payloads: Value supplied for payloads in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     from LiuXin_alpha.file_formats.snb.snbfile import SNBFile
 
     src = tmp_path / "snb_src"
@@ -53,12 +113,35 @@ def _build_snb_bytes(tmp_path: Path, payloads: dict[str, bytes]) -> bytes:
 
 
 def test_snb_metadata_module_import_smoke() -> None:
+    """
+    Verify snb metadata module import smoke.
+
+    Example:
+        Exercise test snb metadata module import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_snb_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.snb as snb_md
 
     assert snb_md is not None
 
 
 def test_snb_reader_plugin_is_available_and_preserves_stream_position(tmp_path: Path) -> None:
+    """
+    Verify snb reader plugin remains available and preserves stream position.
+
+    Example:
+        Exercise test snb reader plugin is available and preserves stream position through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_snb_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
 
     book = (
@@ -84,6 +167,18 @@ def test_snb_reader_plugin_is_available_and_preserves_stream_position(tmp_path: 
 
 
 def test_snb_get_metadata_parses_unicode_tags_and_cover(tmp_path: Path) -> None:
+    """
+    Verify snb get metadata parses unicode tags and cover.
+
+    Example:
+        Exercise test snb get metadata parses unicode tags and cover through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_snb_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.snb import get_metadata
 
     book = (
@@ -120,6 +215,18 @@ def test_snb_get_metadata_parses_unicode_tags_and_cover(tmp_path: Path) -> None:
 
 
 def test_snb_get_metadata_pathlike_input(tmp_path: Path) -> None:
+    """
+    Verify snb get metadata pathlike input.
+
+    Example:
+        Exercise test snb get metadata pathlike input through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_snb_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.snb import get_metadata
 
     book = (
@@ -136,6 +243,17 @@ def test_snb_get_metadata_pathlike_input(tmp_path: Path) -> None:
 
 
 def test_snb_invalid_payload_raises_by_default_and_can_opt_into_fallback() -> None:
+    """
+    Verify snb invalid payload raises by default and can opt into fallback.
+
+    Example:
+        Exercise test snb invalid payload raises by default and can opt into fallback through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_snb_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.snb import SnbFormatError, get_metadata
 
     with pytest.raises(SnbFormatError):
@@ -147,6 +265,18 @@ def test_snb_invalid_payload_raises_by_default_and_can_opt_into_fallback() -> No
 
 
 def test_snb_missing_book_metadata_returns_safe_default(tmp_path: Path) -> None:
+    """
+    Verify snb missing book metadata returns safe default.
+
+    Example:
+        Exercise test snb missing book metadata returns safe default through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_snb_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.snb import get_metadata
 
     snb_bytes = _build_snb_bytes(tmp_path, {"snbf/toc.snbf": b"<toc-snbf><head/></toc-snbf>"})
@@ -157,6 +287,18 @@ def test_snb_missing_book_metadata_returns_safe_default(tmp_path: Path) -> None:
 
 
 def test_snb_malformed_book_metadata_xml_fails_gracefully(tmp_path: Path) -> None:
+    """
+    Verify snb malformed book metadata xml fails gracefully.
+
+    Example:
+        Exercise test snb malformed book metadata xml fails gracefully through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_snb_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.snb import get_metadata
 
     snb_bytes = _build_snb_bytes(tmp_path, {"snbf/book.snbf": b"<book-snbf><head><name>Broken"})
@@ -167,6 +309,19 @@ def test_snb_malformed_book_metadata_xml_fails_gracefully(tmp_path: Path) -> Non
 
 
 def test_snb_md_fixture_smoke_and_deterministic(md_test_fixture) -> None:
+    """
+    Verify snb md fixture smoke and deterministic.
+
+    Example:
+        Exercise test snb md fixture smoke and deterministic through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_snb_metadata_source.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.snb import get_metadata
 
     fixture = md_test_fixture(file_ext="snb", file_num=1, verify_hash=True)

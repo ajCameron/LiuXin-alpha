@@ -10,6 +10,17 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+"""
+Build structured tables from normalized RTF row and cell tokens.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise table through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -50,10 +61,12 @@ States.
 
 class Table:
     """
-    Make tables.
-    Logic:
-    Read one line at a time. The default state (self.__state) is
-    'not_in_table'. Look for either a 'cw<tb<in-table__', or a row definition.
+    Make tables. Logic: Read one line at a time. The default state (self.__state) is 'not_in_table'. Look for either a 'cw<tb<in-table__', or a row definition.
+
+    Example:
+        Exercise Table through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
     """
 
     def __init__(
@@ -64,14 +77,19 @@ class Table:
         run_level: int = 1,
     ) -> None:
         """
-        Required:
-            'file'--file to parse
-        Optional:
-            'copy'-- whether to make a copy of result for debugging
-            'temp_dir' --where to output temporary results (default is
-            directory from which the script is run.)
-        Returns:
-            nothing
+        Required: 'file'--file to parse Optional: 'copy'-- whether to make a copy of result for debugging 'temp_dir' --where to output temporary results (default is directory from which the script is run.) Returns: nothing
+
+        Example:
+            Exercise Table.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param copy: Value supplied for copy under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.__file = in_file
         self.__bug_handler = bug_handler
@@ -82,6 +100,15 @@ class Table:
     def __initiate_values(self: _typing.Self) -> None:
         """
         Initiate all values.
+
+        Example:
+            Exercise Table.  initiate values through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__state_dict = {
             "in_table": self.__in_table_func,
@@ -118,12 +145,17 @@ class Table:
 
     def __in_table_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line -- line to parse
-        Logic:
-            Look for the end of the table. If found, close out the table.
-            Look for  'mi<mk<pard-start', which marks the beginning of a row. Start
-            a row and start a cell.
+        Requires: line -- line to parse Logic: Look for the end of the table. If found, close out the table. Look for 'mi<mk<pard-start', which marks the beginning of a row. Start a row and start a cell.
+
+        Example:
+            Exercise Table.  in table func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # 'cell'               :	('tb', 'cell______', self.default_func),
         if (
@@ -145,15 +177,17 @@ class Table:
 
     def __not_in_table_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line -- the line of text read in from document
-        Returns:
-            nothing
-        Logic:
-            The state is not in a table, so look for the two tokens that
-            mark the start of a table: 'cw<tb<row-def', or 'cw<tb<in-table__'.
-            If these tokens are found, use another method to start a table
-            and change states. Otherwise, just output the line.
+        Requires: line -- the line of text read in from document Returns: nothing Logic: The state is not in a table, so look for the two tokens that mark the start of a table: 'cw<tb<row-def', or 'cw<tb<in-table__'. If these tokens are found, use another method to start a table and change states. Otherwise, just output the line.
+
+        Example:
+            Exercise Table.  not in table func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         action = self.__not_in_table_dict.get(self.__token_info)
         if action:
@@ -162,14 +196,17 @@ class Table:
 
     def __close_table(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line -- line to parse
-        Returns:
-            ?
-        Logic:
-            Write the end marker for the table.
-            Write the end tag for the table.
-            Set the state to ['not_in_table']
+        Requires: line -- line to parse Returns: ? Logic: Write the end marker for the table. Write the end tag for the table. Set the state to ['not_in_table']
+
+        Example:
+            Exercise Table.  close table through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__write_obj.write("mi<mk<table-end_\n")
         self.__state = ["not_in_table"]
@@ -182,13 +219,17 @@ class Table:
 
     def __found_row_def_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line don't need this except for consistency with other methods.
-        Returns:
-            nothing
-        Logic:
-            A row definition has been found. Collect all the data from this
-            to use later in writing attributes for the table.
+        Requires: line don't need this except for consistency with other methods. Returns: nothing Logic: A row definition has been found. Collect all the data from this to use later in writing attributes for the table.
+
+        Example:
+            Exercise Table.  found row def func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__state.append("in_row_def")
         self.__last_cell_position = 0
@@ -199,14 +240,17 @@ class Table:
 
     def __start_table_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line -- line to parse
-        Returns:
-            ?
-        Logic:
-            Add the 'in_table' to the state list.
-            Write out the table marker.
-            Initialize table values (not sure about these yet)
+        Requires: line -- line to parse Returns: ? Logic: Add the 'in_table' to the state list. Write out the table marker. Initialize table values (not sure about these yet)
+
+        Example:
+            Exercise Table.  start table func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__rows_in_table = 0
         self.__cells_in_table = 0
@@ -219,26 +263,33 @@ class Table:
 
     def __end_row_table_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --just for consistencey
-        Returns:
-            ?
-        Logic:
-            ?
+        Requires: line --just for consistencey Returns: ? Logic: ?
+
+        Example:
+            Exercise Table.  end row table func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__close_table(self, line)
 
     def __end_row_def_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --just for consistency
-        Returns:
-            nothing
-        Logic:
-            change the state.
-            get rid of the last {} in the cell list
-            figure out the number of cells based on the self.__row_dict[widths]
-            ('122, 122')
+        Requires: line --just for consistency Returns: nothing Logic: change the state. get rid of the last {} in the cell list figure out the number of cells based on the self.__row_dict[widths] ('122, 122')
+
+        Example:
+            Exercise Table.  end row def func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if len(self.__state) > 0:
             if self.__state[-1] == "in_row_def":
@@ -253,17 +304,17 @@ class Table:
 
     def __in_row_def_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --line to parse
-        Returns:
-            nothing
-        Logic:
-            In the text that defines a row. If a control word is found, handle the
-            control word with another method.
-            Check for states that will end this state.
-            While in the row definition, certain tokens can end a row or end a table.
-            If a paragrah definition (pard-start) is found, and the you are already in
-            a table, start of a row.
+        Requires: line --line to parse Returns: nothing Logic: In the text that defines a row. If a control word is found, handle the control word with another method. Check for states that will end this state. While in the row definition, certain tokens can end a row or end a table. If a paragrah definition (pard-start) is found, and the you are already in a table, start of a row.
+
+        Example:
+            Exercise Table.  in row def func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "cw<tb<row_______":
             # write tags
@@ -296,20 +347,17 @@ class Table:
 
     def __handle_row_token(self: _typing.Self, line: _typing.Any) -> None:
         """
-            Requires:
-                line -- line to parse
-            Returns:
-                ?
-            Logic:
-                the tokens in the row definition contain the following information:
-                   1. row borders.
-                   2. cell borders for all cells in the row.
-                   3. cell positions for all cells in the row.
-                Put all information about row borders into a row dictionary.
-                Put all information about cell borders into into the dictionary in
-                the last item in the cell list. ([{border:something, width:something},
-                        {border:something, width:something}])
-        cw<bd<bor-t-r-to<nu<bdr-hair__|bdr-li-wid:0.50
+        Requires: line -- line to parse Returns: ? Logic: the tokens in the row definition contain the following information: 1. row borders. 2. cell borders for all cells in the row. 3. cell positions for all cells in the row. Put all information about row borders into a row dictionary. Put all information about cell borders into into the dictionary in the last item in the cell list. ([{border:something, width:something}, {border:something, width:something}]) cw<bd<bor-t-r-to<nu<bdr-hair__|bdr-li-wid:0.50
+
+        Example:
+            Exercise Table.  handle row token through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if line[3:5] == "bd":
             border_obj = border_parse.BorderParse()
@@ -337,16 +385,17 @@ class Table:
 
     def __start_cell_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line -- the line of text
-        Returns:
-            nothing
-        Logic:
-            Append 'in_cell' for states
-            If the self.__cell list containst dictionaries, get the last dictionary.
-            Write value => attributes for key=> value
-            pop the self.__cell_list.
-            Otherwise, print out a cell tag.
+        Required: line -- the line of text Returns: nothing Logic: Append 'in_cell' for states If the self.__cell list containst dictionaries, get the last dictionary. Write value => attributes for key=> value pop the self.__cell_list. Otherwise, print out a cell tag.
+
+        Example:
+            Exercise Table.  start cell func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__state.append("in_cell")
         # self.__cell_list = []
@@ -368,13 +417,17 @@ class Table:
 
     def __start_row_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line -- the line of text
-        Returns:
-            nothing
-        Logic:
-            Append 'in_row' for states
-            Write value => attributes for key=> value
+        Required: line -- the line of text Returns: nothing Logic: Append 'in_row' for states Write value => attributes for key=> value
+
+        Example:
+            Exercise Table.  start row func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__state.append("in_row")
         self.__write_obj.write("mi<tg<open-att__<row")
@@ -387,15 +440,17 @@ class Table:
 
     def __found_cell_position(self: _typing.Self, line: _typing.Any) -> None:
         """
-        needs:
-            line: current line
-        returns:
-            nothing
-        logic:
-           Calculate the cell width.
-           If the cell is the first cell, you should add the left cell position to it.
-           (This value is often negative.)
-            Next, set the new last_cell_position to the current cell position.
+        needs: line: current line returns: nothing logic: Calculate the cell width. If the cell is the first cell, you should add the left cell position to it. (This value is often negative.) Next, set the new last_cell_position to the current cell position.
+
+        Example:
+            Exercise Table.  found cell position through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # cw<tb<cell-posit<nu<216.00
         new_cell_position = round(float(line[20:-1]), 2)
@@ -418,17 +473,17 @@ class Table:
 
     def __in_cell_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line
-        Returns:
-            nothing
-        Logic:
-            In the middle of a cell.
-            Look for the close of the table. If found, use the close table function to close
-            the table.
-            Look for the close of the cell. If found, use the close cell function to close out
-            the cell.
-            Otherwise, print out the line.
+        Required: line Returns: nothing Logic: In the middle of a cell. Look for the close of the table. If found, use the close table function to close the table. Look for the close of the cell. If found, use the close cell function to close out the cell. Otherwise, print out the line.
+
+        Example:
+            Exercise Table.  in cell func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # cw<tb<cell______<nu<true
         # mi<mk<sect-start
@@ -449,12 +504,17 @@ class Table:
 
     def __end_cell_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line
-        Returns:
-            nothing
-        Logic:
-            End the cell. Print out the closing marks. Pop the self.__state.
+        Requires: line Returns: nothing Logic: End the cell. Print out the closing marks. Pop the self.__state.
+
+        Example:
+            Exercise Table.  end cell func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if len(self.__state) > 1:
             if self.__state[-1] == "in_cell":
@@ -464,6 +524,19 @@ class Table:
         self.__write_obj.write("mi<mk<closecell_\n")
 
     def __in_row_func(self: _typing.Self, line: _typing.Any) -> None:
+        """
+        Perform the in row func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Table.  in row func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if (
             self.__token_info == "mi<mk<not-in-tbl"
             or self.__token_info == "mi<mk<sect-start"
@@ -490,7 +563,19 @@ class Table:
         """
 
     def __end_row_func(self: _typing.Self, line: _typing.Any) -> None:
-        """ """
+        """
+        Perform the end row func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Table.  end row func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if len(self.__state) > 1 and self.__state[-1] == "in_row":
             self.__state.pop()
             self.__write_obj.write("mi<tg<close_____<row\n")
@@ -503,13 +588,17 @@ class Table:
 
     def __empty_cell(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line -- line of text
-        Returns:
-            nothing
-        Logic:
-            Write an empty tag with attributes if there are attributes.
-            Otherwise, written an empty tag with cell as element.
+        Required: line -- line of text Returns: nothing Logic: Write an empty tag with attributes if there are attributes. Otherwise, written an empty tag with cell as element.
+
+        Example:
+            Exercise Table.  empty cell through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if len(self.__cell_list) > 0:
             self.__write_obj.write("mi<tg<empty-att_<cell")
@@ -525,13 +614,17 @@ class Table:
 
     def __mode(self: _typing.Self, the_list: _typing.Any) -> _typing.Any:
         """
-        Required:
-            the_list -- a list of something
-        Returns:
-            the number that occurs the most
-        Logic:
-            get the count of each item in list. The count that is the greatest
-            is the mode.
+        Required: the_list -- a list of something Returns: the number that occurs the most Logic: get the count of each item in list. The count that is the greatest is the mode.
+
+        Example:
+            Exercise Table.  mode through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param the_list: Value supplied for the list under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         max = 0
         mode = "not-defined"
@@ -544,13 +637,16 @@ class Table:
 
     def make_table(self: _typing.Self) -> _typing.Any:
         """
-        Requires:
-            nothing
-        Returns:
-            A dictionary of values for the beginning of the table.
-        Logic:
-            Read one line in at a time. Determine what action to take based on
-            the state.
+        Requires: nothing Returns: A dictionary of values for the beginning of the table. Logic: Read one line in at a time. Determine what action to take based on the state.
+
+        Example:
+            Exercise Table.make table through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self.__initiate_values()
         read_obj = open_for_read(self.__file)

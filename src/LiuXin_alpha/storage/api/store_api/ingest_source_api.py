@@ -131,7 +131,6 @@ class IngestSourceCapabilities:
         >>> profile.object_resume
         <IngestObjectResume.STABLE_RANGE: 'stable_range'>
 
-
     :ivar read_consistency: Strongest advertised inspect/read relationship, normalized to its enum.
     :ivar object_delivery: Streaming, disk-spooled, or memory-buffered source delivery model.
     :ivar inventory_resume: Strongest advertised inventory checkpoint mechanism; NONE by default.
@@ -141,10 +140,14 @@ class IngestSourceCapabilities:
     """
 
     read_consistency: IngestReadConsistency
+
     object_delivery: IngestObjectDelivery
+
     inventory_resume: IngestInventoryResume = IngestInventoryResume.NONE
     object_resume: IngestObjectResume = IngestObjectResume.NONE
+
     authoritative_digest_algorithms: tuple[str, ...] = ()
+
     metadata_availability: IngestMetadataAvailability = (
         IngestMetadataAvailability.NONE
     )
@@ -178,6 +181,7 @@ class IngestSourceCapabilities:
         metadata_availability = IngestMetadataAvailability(
             self.metadata_availability
         )
+
         algorithms = tuple(
             str(algorithm).strip().lower()
             for algorithm in self.authoritative_digest_algorithms
@@ -186,15 +190,18 @@ class IngestSourceCapabilities:
             raise ValueError(
                 "authoritative digest algorithm names must not be empty."
             )
+
         if len(algorithms) != len(set(algorithms)):
             raise ValueError(
                 "authoritative digest algorithm names must be unique."
             )
+
         if (
             object_resume is IngestObjectResume.STABLE_RANGE
             and read_consistency is IngestReadConsistency.UNGUARDED
         ):
             raise ValueError("stable object resume requires stable reads.")
+
         object.__setattr__(self, "read_consistency", read_consistency)
         object.__setattr__(self, "object_delivery", object_delivery)
         object.__setattr__(self, "inventory_resume", inventory_resume)
@@ -273,7 +280,6 @@ class PreparedIngestObject:
         >>> prepared.info.location.key
         'book.epub'
 
-
     :ivar info: File or inventory observations for the candidate; Store ownership is not checked by this record.
     :ivar read_consistency: Actual per-object inspect/read guarantee, normalized to its enum.
     :ivar authoritative_digests: Trusted source digest claims with unique algorithm names; no byte verification occurs here.
@@ -281,8 +287,11 @@ class PreparedIngestObject:
     """
 
     info: FileInfo | StoreInventoryEntry
+
     read_consistency: IngestReadConsistency
+
     authoritative_digests: tuple[Digest, ...] = ()
+
     provenance_uri: str | None = None
 
     def __post_init__(self) -> None:

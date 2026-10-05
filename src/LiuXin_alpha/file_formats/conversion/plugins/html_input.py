@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Convert HTML content into the normalized ebook conversion pipeline.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise html input through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -35,6 +46,14 @@ __docformat__ = "restructuredtext en"
 
 class HTMLInput(InputFormatPlugin):
 
+    """
+    Convert htmlinput sources into the normalized OEB pipeline model.
+
+    Example:
+        Exercise HTMLInput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     name = "HTML Input"
     author = "Kovid Goyal"
     description = "Convert HTML and OPF files to an OEB"
@@ -74,12 +93,21 @@ class HTMLInput(InputFormatPlugin):
     def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
         """
         Convert a html file stream into an OEB file.
-        :param stream: The html stream (open as rb).
-        :param options:
-        :param file_ext:
-        :param log:
-        :param accelerators:
-        :return:
+
+        Example:
+            Exercise HTMLInput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param options: Value supplied for options under the utility contract.
+        :param file_ext: Value supplied for file ext under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param accelerators: Value supplied for accelerators under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self._is_case_sensitive = None
         basedir = os.getcwd()
@@ -139,6 +167,19 @@ class HTMLInput(InputFormatPlugin):
 
     def is_case_sensitive(self: _typing.Self, path: _typing.Any) -> _typing.Any:
 
+        """
+        Return whether is case sensitive holds for the supplied ebook data.
+
+        Example:
+            Exercise HTMLInput.is case sensitive through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: True when the documented condition holds; otherwise False.
+        """
         if getattr(self, "_is_case_sensitive", None) is not None:
             return self._is_case_sensitive
         if not path or not os.path.exists(path):
@@ -149,12 +190,20 @@ class HTMLInput(InputFormatPlugin):
     def create_oebbook(self: _typing.Self, htmlpath: _typing.Any, basedir: _typing.Any, opts: _typing.Any, log: _typing.Any, mi: _typing.Any) -> _typing.Any:
         """
         Create an oeb book from an HTML document.
-        :param htmlpath: The path to the HTML
-        :param basedir:
-        :param opts: Options for the conversion
-        :param log: A log instance
-        :param mi: Metadata to be written into the file
-        :return:
+
+        Example:
+            Exercise HTMLInput.create oebbook through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param htmlpath: Value supplied for htmlpath under the utility contract.
+        :param basedir: Value supplied for basedir under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param mi: Metadata object exposed to the template function.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         import uuid
         try:
@@ -291,6 +340,20 @@ class HTMLInput(InputFormatPlugin):
 
     def link_to_local_path(self: _typing.Self, link_: _typing.Any, base: _typing.Any = None) -> tuple[_typing.Any, ...]:
 
+        """
+        Perform the link to local path operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLInput.link to local path through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param link_: Value supplied for link under the utility contract.
+        :param base: Value supplied for base under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.html.input import Link
 
         if not isinstance(link_, unicode):
@@ -316,6 +379,20 @@ class HTMLInput(InputFormatPlugin):
         return link, frag
 
     def resource_adder(self: _typing.Self, link_: _typing.Any, base: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the resource adder operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLInput.resource adder through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param link_: Value supplied for link under the utility contract.
+        :param base: Value supplied for base under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from urllib.parse import quote
 
         link, frag = self.link_to_local_path(link_, base=base)
@@ -373,6 +450,20 @@ class HTMLInput(InputFormatPlugin):
         return nlink
 
     def css_import_handler(self: _typing.Self, base: _typing.Any, href: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the css import handler operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLInput.css import handler through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param base: Value supplied for base under the utility contract.
+        :param href: Value supplied for href under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         link, frag = self.link_to_local_path(href, base=base)
         if link is None or not os.access(link, os.R_OK) or os.path.isdir(link):
             return None, None

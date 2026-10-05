@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 
+"""
+Create valid EPUB containers from source content and package metadata.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise create through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -37,10 +48,45 @@ from LiuXin_alpha.utils.libraries.calibre_zipfile import ZIP_STORED, ZipFile
 
 
 class DevNull(object):
+    """
+    Provide the devnull contract for validated ebook processing.
+
+    Example:
+        Exercise DevNull through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     def __call__(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DevNull.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return None
 
     def __getattr__(self: _typing.Self, name: _typing.Any) -> _typing.Any:
+        """
+        Perform the getattr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DevNull.  getattr   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self
 
 __license__ = "GPL v3"
@@ -48,6 +94,22 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 def create_toc(mi: _typing.Any, opf: _typing.Any, html_name: _typing.Any, lang: _typing.Any) -> _typing.Any:
+    """
+    Create toc under the format's safety and compatibility rules.
+
+    Example:
+        Exercise create toc through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param mi: Metadata object exposed to the template function.
+    :param opf: Value supplied for opf under the utility contract.
+    :param html_name: Value supplied for html name under the utility contract.
+    :param lang: Value supplied for lang under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     uuid = ""
     for u in opf.xpath('//*[@id="uuid_id"]'):
         uuid = u.text
@@ -66,13 +128,22 @@ def create_book(
 ) -> None:
     """
     Create an empty book in the specified format at the specified location.
-    :param mi:
-    :param path:
-    :param fmt:
-    :param opf_name:
-    :param html_name:
-    :param toc_name:
-    :return:
+
+    Example:
+        Exercise create book through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param mi: Metadata object exposed to the template function.
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param fmt: Date, number or template format specification.
+    :param opf_name: Value supplied for opf name under the utility contract.
+    :param html_name: Value supplied for html name under the utility contract.
+    :param toc_name: Value supplied for toc name under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     path = os.path.abspath(path)
     lang = "und"

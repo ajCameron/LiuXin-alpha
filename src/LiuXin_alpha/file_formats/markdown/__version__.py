@@ -1,3 +1,14 @@
+"""
+Define retained Markdown package version metadata.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   version   through a consuming regression::
+
+        python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -14,7 +25,18 @@ version_info = (2, 3, 1, "final", 0)
 
 
 def _get_version() -> _typing.Any:
-    "Returns a PEP 386-compliant version number from version_info."
+    """
+    Returns a PEP 386-compliant version number from version_info.
+
+    Example:
+        Exercise  get version through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     assert len(version_info) == 5
     assert version_info[3] in ("alpha", "beta", "rc", "final")
 

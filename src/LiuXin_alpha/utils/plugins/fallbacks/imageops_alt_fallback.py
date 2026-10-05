@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-Pure-python fallback for the compiled ``imageops`` extension.
+Provide imageops alt fallback utility behavior.
 
-The compiled extension provides various image manipulation operations. This fallback
-offers a tiny subset by shelling out to ImageMagick (if available).
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-Currently implemented:
-    - resize(data: bytes, width: int, height: int, fmt: str = "png") -> bytes
+Example:
+    Exercise imageops alt fallback through a consuming regression::
 
-If ImageMagick isn't available, these functions raise RuntimeError.
+        python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
 """
 
 from __future__ import annotations
@@ -22,7 +22,14 @@ def _convert_cmd() -> Optional[list]:
     """
     Generate the base of the conversion command.
 
-    :return:
+    Example:
+        Exercise  convert cmd through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     magick = shutil.which("magick")
     if magick:
@@ -37,11 +44,18 @@ def resize(data: bytes, width: int, height: int, fmt: str = "png") -> bytes:
     """
     Preform a resize operation on a image.
 
-    :param data:
-    :param width:
-    :param height:
-    :param fmt:
-    :return:
+    Example:
+        Exercise resize through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :param width: Value supplied for width under the utility contract.
+    :param height: Value supplied for height under the utility contract.
+    :param fmt: Date, number or template format specification.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     cmd = _convert_cmd()
     if not cmd:

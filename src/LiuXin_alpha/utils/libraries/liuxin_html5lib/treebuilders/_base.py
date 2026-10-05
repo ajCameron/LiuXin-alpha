@@ -1,3 +1,14 @@
+"""
+Provide base utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise  base through a consuming regression::
+
+        python -m pytest -q tests/file_formats/html/test_html_modernized.py
+"""
 from __future__ import absolute_import, division, unicode_literals
 
 try:
@@ -38,16 +49,26 @@ listElementsMap = {
 
 
 class Node(object):
+    """
+    Provide the Node utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise Node through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
     def __init__(self, name):
-        """Node representing an item in the tree.
-        name - The tag name associated with the node
-        parent - The parent of the current node (or None for the document node)
-        value - The value of the current node (applies to text nodes and
-        comments
-        attributes - a dict holding name, value pairs for attributes of the node
-        childNodes - a list of child nodes of the current node. This must
-        include all elements but not necessarily other node types
-        _flags - A list of miscellaneous flags that can be set on the node
+        """
+        Node representing an item in the tree. name - The tag name associated with the node parent - The parent of the current node (or None for the document node) value - The value of the current node (applies to text nodes and comments attributes - a dict holding name, value pairs for attributes of the node childNodes - a list of child nodes of the current node. This must include all elements but not necessarily other node types _flags - A list of miscellaneous flags that can be set on the node
+
+        Example:
+            Exercise Node.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: None; validated state is stored on the receiving object.
         """
         self.name = name
         self.parent = None
@@ -57,6 +78,18 @@ class Node(object):
         self._flags = []
 
     def __str__(self):
+        """
+        Perform the str utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Node.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         attributesStr = " ".join(['%s="%s"' % (name, value) for name, value in self.attributes.items()])
         if attributesStr:
             return "<%s %s>" % (self.name, attributesStr)
@@ -64,32 +97,99 @@ class Node(object):
             return "<%s>" % (self.name)
 
     def __repr__(self):
+        """
+        Perform the repr utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Node.  repr   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "<%s>" % (self.name)
 
     def appendChild(self, node):
-        """Insert node as a child of the current node"""
+        """
+        Insert node as a child of the current node
+
+        Example:
+            Exercise Node.appendChild through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise NotImplementedError
 
     def insertText(self, data, insertBefore=None):
-        """Insert data as text in the current node, positioned before the
-        start of node insertBefore or to the end of the node's text.
+        """
+        Insert data as text in the current node, positioned before the start of node insertBefore or to the end of the node's text.
+
+        Example:
+            Exercise Node.insertText through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :param insertBefore: Value supplied for insertBefore under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
     def insertBefore(self, node, refNode):
-        """Insert node as a child of the current node, before refNode in the
-        list of child nodes. Raises ValueError if refNode is not a child of
-        the current node"""
+        """
+        Insert node as a child of the current node, before refNode in the list of child nodes. Raises ValueError if refNode is not a child of the current node
+
+        Example:
+            Exercise Node.insertBefore through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :param refNode: Value supplied for refNode under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise NotImplementedError
 
     def removeChild(self, node):
-        """Remove node from the children of the current node"""
+        """
+        Remove node from the children of the current node
+
+        Example:
+            Exercise Node.removeChild through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise NotImplementedError
 
     def reparentChildren(self, newParent):
-        """Move all the children of the current node to newParent.
-        This is needed so that trees that don't store text as nodes move the
-        text in the correct way
+        """
+        Move all the children of the current node to newParent. This is needed so that trees that don't store text as nodes move the text in the correct way
+
+        Example:
+            Exercise Node.reparentChildren through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param newParent: Value supplied for newParent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # XXX - should this method be made more general?
         for child in self.childNodes:
@@ -97,18 +197,59 @@ class Node(object):
         self.childNodes = []
 
     def cloneNode(self):
-        """Return a shallow copy of the current node i.e. a node with the same
-        name and attributes but with no parent or child nodes
+        """
+        Return a shallow copy of the current node i.e. a node with the same name and attributes but with no parent or child nodes
+
+        Example:
+            Exercise Node.cloneNode through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
     def hasContent(self):
-        """Return true if the node has children or text, false otherwise"""
+        """
+        Return true if the node has children or text, false otherwise
+
+        Example:
+            Exercise Node.hasContent through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise NotImplementedError
 
 
 class ActiveFormattingElements(list):
+    """
+    Provide the ActiveFormattingElements utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise ActiveFormattingElements through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
     def append(self, node):
+        """
+        Perform the append utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ActiveFormattingElements.append through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         equalCount = 0
         if node != Marker:
             for element in self[::-1]:
@@ -122,6 +263,20 @@ class ActiveFormattingElements(list):
         list.append(self, node)
 
     def nodesEqual(self, node1, node2):
+        """
+        Perform the nodesEqual utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ActiveFormattingElements.nodesEqual through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param node1: Value supplied for node1 under the utility contract.
+        :param node2: Value supplied for node2 under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not node1.nameTuple == node2.nameTuple:
             return False
 
@@ -132,11 +287,13 @@ class ActiveFormattingElements(list):
 
 
 class TreeBuilder(object):
-    """Base treebuilder implementation
-    documentClass - the class to use for the bottommost node of a document
-    elementClass - the class to use for HTML Elements
-    commentClass - the class to use for comments
-    doctypeClass - the class to use for doctypes
+    """
+    Base treebuilder implementation documentClass - the class to use for the bottommost node of a document elementClass - the class to use for HTML Elements commentClass - the class to use for comments doctypeClass - the class to use for doctypes
+
+    Example:
+        Exercise TreeBuilder through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
     """
 
     # Document class
@@ -155,6 +312,19 @@ class TreeBuilder(object):
     fragmentClass = None
 
     def __init__(self, namespaceHTMLElements):
+        """
+        Initialize and validate the TreeBuilder state.
+
+        Example:
+            Exercise TreeBuilder.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param namespaceHTMLElements: Value supplied for namespaceHTMLElements under the
+            utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         if namespaceHTMLElements:
             self.defaultNamespace = "http://www.w3.org/1999/xhtml"
         else:
@@ -162,6 +332,18 @@ class TreeBuilder(object):
         self.reset()
 
     def reset(self):
+        """
+        Perform the reset utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise TreeBuilder.reset through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.openElements = []
         self.activeFormattingElements = ActiveFormattingElements()
 
@@ -177,6 +359,20 @@ class TreeBuilder(object):
 
         # If we pass a node in we match that. if we pass a string
         # match any node with that name
+        """
+        Perform the elementInScope utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise TreeBuilder.elementInScope through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param target: Value supplied for target under the utility contract.
+        :param variant: Value supplied for variant under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         exactNode = hasattr(target, "nameTuple")
 
         listElements, invert = listElementsMap[variant]
@@ -195,6 +391,18 @@ class TreeBuilder(object):
         # code. It should still do the same though.
 
         # Step 1: stop the algorithm when there's nothing to do.
+        """
+        Perform the reconstructActiveFormattingElements utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise TreeBuilder.reconstructActiveFormattingElements through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not self.activeFormattingElements:
             return
 
@@ -240,14 +448,36 @@ class TreeBuilder(object):
                 break
 
     def clearActiveFormattingElements(self):
+        """
+        Perform the clearActiveFormattingElements utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise TreeBuilder.clearActiveFormattingElements through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         entry = self.activeFormattingElements.pop()
         while self.activeFormattingElements and entry != Marker:
             entry = self.activeFormattingElements.pop()
 
     def elementInActiveFormattingElements(self, name):
-        """Check if an element exists between the end of the active
-        formatting elements and the last marker. If it does, return it, else
-        return false"""
+        """
+        Check if an element exists between the end of the active formatting elements and the last marker. If it does, return it, else return false
+
+        Example:
+            Exercise TreeBuilder.elementInActiveFormattingElements through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         for item in self.activeFormattingElements[::-1]:
             # Check for Marker first because if it's a Marker it doesn't have a
@@ -259,11 +489,37 @@ class TreeBuilder(object):
         return False
 
     def insertRoot(self, token):
+        """
+        Perform the insertRoot utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise TreeBuilder.insertRoot through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param token: Value supplied for token under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         element = self.createElement(token)
         self.openElements.append(element)
         self.document.appendChild(element)
 
     def insertDoctype(self, token):
+        """
+        Perform the insertDoctype utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise TreeBuilder.insertDoctype through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param token: Value supplied for token under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         name = token["name"]
         publicId = token["publicId"]
         systemId = token["systemId"]
@@ -272,12 +528,38 @@ class TreeBuilder(object):
         self.document.appendChild(doctype)
 
     def insertComment(self, token, parent=None):
+        """
+        Perform the insertComment utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise TreeBuilder.insertComment through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param token: Value supplied for token under the utility contract.
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if parent is None:
             parent = self.openElements[-1]
         parent.appendChild(self.commentClass(token["data"]))
 
     def createElement(self, token):
-        """Create an element but don't insert it anywhere"""
+        """
+        Create an element but don't insert it anywhere
+
+        Example:
+            Exercise TreeBuilder.createElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param token: Value supplied for token under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         name = token["name"]
         namespace = token.get("namespace", self.defaultNamespace)
         element = self.elementClass(name, namespace)
@@ -285,21 +567,70 @@ class TreeBuilder(object):
         return element
 
     def apply_html_attributes(self, attrs):
+        """
+        Perform the apply html attributes utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise TreeBuilder.apply html attributes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for attr, value in attrs.items():
             if attr not in self.openElements[0].attributes:
                 self.openElements[0].attributes[attr] = value
 
     def apply_body_attributes(self, attrs):
+        """
+        Perform the apply body attributes utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise TreeBuilder.apply body attributes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for attr, value in attrs.items():
             if attr not in self.openElements[1].attributes:
                 self.openElements[1].attributes[attr] = value
 
     def _getInsertFromTable(self):
+        """
+        Perform the getInsertFromTable utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise TreeBuilder. getInsertFromTable through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._insertFromTable
 
     def _setInsertFromTable(self, value):
-        """Switch the function used to insert an element from the
-        normal one to the misnested table one and back again"""
+        """
+        Switch the function used to insert an element from the normal one to the misnested table one and back again
+
+        Example:
+            Exercise TreeBuilder. setInsertFromTable through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._insertFromTable = value
         if value:
             self.insertElement = self.insertElementTable
@@ -309,6 +640,19 @@ class TreeBuilder(object):
     insertFromTable = property(_getInsertFromTable, _setInsertFromTable)
 
     def insertElementNormal(self, token):
+        """
+        Perform the insertElementNormal utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise TreeBuilder.insertElementNormal through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param token: Value supplied for token under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         name = token["name"]
         assert isinstance(name, text_type), "Element %s not unicode" % name
         namespace = token.get("namespace", self.defaultNamespace)
@@ -319,7 +663,19 @@ class TreeBuilder(object):
         return element
 
     def insertElementTable(self, token):
-        """Create an element and insert it into the tree"""
+        """
+        Create an element and insert it into the tree
+
+        Example:
+            Exercise TreeBuilder.insertElementTable through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param token: Value supplied for token under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         element = self.createElement(token)
         if self.openElements[-1].name not in tableInsertModeElements:
             return self.insertElementNormal(token)
@@ -335,7 +691,20 @@ class TreeBuilder(object):
         return element
 
     def insertText(self, data, parent=None):
-        """Insert text data."""
+        """
+        Insert text data.
+
+        Example:
+            Exercise TreeBuilder.insertText through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if parent is None:
             parent = self.openElements[-1]
 
@@ -350,8 +719,18 @@ class TreeBuilder(object):
             parent.insertText(data, insertBefore)
 
     def getTableMisnestedNodePosition(self):
-        """Get the foster parent element, and sibling to insert before
-        (or None) when inserting a misnested table node"""
+        """
+        Get the foster parent element, and sibling to insert before (or None) when inserting a misnested table node
+
+        Example:
+            Exercise TreeBuilder.getTableMisnestedNodePosition through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         # The foster parent element is the one which comes before the most
         # recently opened table element
         # XXX - this is really inelegant
@@ -375,6 +754,19 @@ class TreeBuilder(object):
         return fosterParent, insertBefore
 
     def generateImpliedEndTags(self, exclude=None):
+        """
+        Perform the generateImpliedEndTags utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise TreeBuilder.generateImpliedEndTags through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param exclude: Value supplied for exclude under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         name = self.openElements[-1].name
         # XXX td, th and tr are not actually needed
         if name in frozenset(("dd", "dt", "li", "option", "optgroup", "p", "rp", "rt")) and name != exclude:
@@ -384,17 +776,50 @@ class TreeBuilder(object):
             self.generateImpliedEndTags(exclude)
 
     def getDocument(self):
-        "Return the final tree"
+        """
+        Return the final tree
+
+        Example:
+            Exercise TreeBuilder.getDocument through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.document
 
     def getFragment(self):
-        "Return the final fragment"
+        """
+        Return the final fragment
+
+        Example:
+            Exercise TreeBuilder.getFragment through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         # assert self.innerHTML
         fragment = self.fragmentClass()
         self.openElements[0].reparentChildren(fragment)
         return fragment
 
     def testSerializer(self, node):
-        """Serialize the subtree of node in the format required by unit tests
-        node - the node from which to start serializing"""
+        """
+        Serialize the subtree of node in the format required by unit tests node - the node from which to start serializing
+
+        Example:
+            Exercise TreeBuilder.testSerializer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise NotImplementedError

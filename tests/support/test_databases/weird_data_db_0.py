@@ -1,3 +1,14 @@
+"""
+Build deterministic test-database weird data db 0 data and relationships.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise weird data db 0 through a consuming regression::
+
+        python -m pytest -q tests/databases/test_test_resources_manager.py
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -17,6 +28,20 @@ DB_NAME = "weird_data_db_0"
 
 
 def populate_bundle(bundle_dir: Path) -> None:
+    """
+    Populate one deterministic fixture bundle with related database rows.
+
+    Example:
+        Exercise populate bundle through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param bundle_dir: Value supplied for bundle dir under the deterministic fixture
+        contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     bundle_dir = Path(bundle_dir)
     bundle_dir.mkdir(parents=True, exist_ok=True)
     db_path = build_base_profiled_db(bundle_dir=bundle_dir, db_name=DB_NAME, books=3)
@@ -72,6 +97,21 @@ def populate_bundle(bundle_dir: Path) -> None:
             )
 
         def _insert_simple_row(table: str, column: str, value: str) -> int:
+            """
+            Insert simple row for deterministic fixture consumers.
+
+            Example:
+                Exercise populate bundle. insert simple row through a consuming regression::
+
+                    python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+            :param table: Database table addressed by the fixture operation.
+            :param column: Column created, populated or inspected by the fixture operation.
+            :param value: Fixture value normalized, encoded, stored or returned.
+            :return: The deterministic fixture value, path, bytes, record or collection
+                described above.
+            """
             return int(conn.execute(f"INSERT INTO {table} ({column}) VALUES (?);", (value,)).lastrowid)
 
         note_id = _insert_simple_row(

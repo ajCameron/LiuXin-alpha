@@ -1,3 +1,14 @@
+"""
+Convert RTF content into the normalized ebook conversion pipeline.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise rtf input through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -57,6 +68,14 @@ border_style_map = {
 
 class RTFInput(InputFormatPlugin):
 
+    """
+    Convert rtfinput sources into the normalized OEB pipeline model.
+
+    Example:
+        Exercise RTFInput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     name = "RTF Input"
     author = "Kovid Goyal"
     description = "Convert RTF files to HTML"
@@ -71,6 +90,20 @@ class RTFInput(InputFormatPlugin):
     }
 
     def generate_xml(self: _typing.Self, stream: _typing.Any) -> _typing.Any:
+        """
+        Perform the generate xml operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RTFInput.generate xml through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.rtf2xml.ParseRtf import ParseRtf
 
         ofile = "dataxml.xml"
@@ -125,6 +158,19 @@ class RTFInput(InputFormatPlugin):
             return f.read()
 
     def extract_images(self: _typing.Self, picts: _typing.Any) -> _typing.Any:
+        """
+        Extract images under the format's safety and compatibility rules.
+
+        Example:
+            Exercise RTFInput.extract images through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param picts: Value supplied for picts under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.utils.image_tools.imghdr import what
 
         self.log("Extracting images...")
@@ -154,6 +200,19 @@ class RTFInput(InputFormatPlugin):
         return self.convert_images(imap)
 
     def convert_images(self: _typing.Self, imap: _typing.Any) -> _typing.Any:
+        """
+        Convert images under the format's safety and compatibility rules.
+
+        Example:
+            Exercise RTFInput.convert images through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param imap: Value supplied for imap under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.default_img = None
         for count, val in iteritems(imap):
             try:
@@ -167,6 +226,19 @@ class RTFInput(InputFormatPlugin):
         return imap
 
     def convert_image(self: _typing.Self, name: _typing.Any) -> _typing.Any:
+        """
+        Convert image under the format's safety and compatibility rules.
+
+        Example:
+            Exercise RTFInput.convert image through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not name.endswith(".wmf"):
             return name
         try:
@@ -176,6 +248,19 @@ class RTFInput(InputFormatPlugin):
         return self.replace_wmf(name)
 
     def replace_wmf(self: _typing.Self, name: _typing.Any) -> _typing.Any:
+        """
+        Perform the replace wmf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RTFInput.replace wmf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.opts.ignore_wmf:
             os.remove(name)
             return "__REMOVE_ME__"
@@ -194,6 +279,19 @@ class RTFInput(InputFormatPlugin):
         return name
 
     def rasterize_wmf(self: _typing.Self, name: _typing.Any) -> _typing.Any:
+        """
+        Perform the rasterize wmf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RTFInput.rasterize wmf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.utils.wmf.parse import wmf_unwrap
 
         with open(name, "rb") as f:
@@ -205,6 +303,20 @@ class RTFInput(InputFormatPlugin):
         return name
 
     def write_inline_css(self: _typing.Self, ic: _typing.Any, border_styles: _typing.Any) -> None:
+        """
+        Write inline css under the format's safety and compatibility rules.
+
+        Example:
+            Exercise RTFInput.write inline css through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param ic: Value supplied for ic under the utility contract.
+        :param border_styles: Value supplied for border styles under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         font_size_classes = ["span.fs%d { font-size: %spt }" % (i, x) for i, x in enumerate(ic.font_sizes)]
         color_classes = ["span.col%d { color: %s }" % (i, x) for i, x in enumerate(ic.colors) if x != "false"]
         css = textwrap.dedent(
@@ -237,6 +349,19 @@ class RTFInput(InputFormatPlugin):
             f.write(css)
 
     def convert_borders(self: _typing.Self, doc: _typing.Any) -> _typing.Any:
+        """
+        Convert borders under the format's safety and compatibility rules.
+
+        Example:
+            Exercise RTFInput.convert borders through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param doc: Value supplied for doc under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         border_styles = []
         style_map = {}
         for elem in doc.xpath(r'//*[local-name()="cell"]'):
@@ -262,6 +387,24 @@ class RTFInput(InputFormatPlugin):
         return style_map
 
     def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
+        """
+        Convert the supplied source into the stage's normalized output representation.
+
+        Example:
+            Exercise RTFInput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param options: Value supplied for options under the utility contract.
+        :param file_ext: Value supplied for file ext under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param accelerators: Value supplied for accelerators under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from lxml import etree
         from LiuXin_alpha.metadata.file_sources import get_metadata
         from LiuXin_alpha.metadata.utils import calibreMetaInformation
@@ -349,6 +492,21 @@ class RTFInput(InputFormatPlugin):
             return os.path.abspath("metadata.opf")
 
     def postprocess_book(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
+        """
+        Perform the postprocess book operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RTFInput.postprocess book through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for item in oeb.spine:
             for img in item.data.xpath('//*[local-name()="img" and @src="__REMOVE_ME__"]'):
                 p = img.getparent()

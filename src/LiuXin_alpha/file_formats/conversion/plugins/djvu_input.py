@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
 
+"""
+Convert DjVu documents into normalized conversion input.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise djvu input through a consuming regression::
+
+        python -m pytest -q tests/file_formats/djvu/test_djvu_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -21,6 +32,14 @@ __docformat__ = "restructuredtext en"
 
 class DJVUInput(InputFormatPlugin):
 
+    """
+    Convert djvuinput sources into the normalized OEB pipeline model.
+
+    Example:
+        Exercise DJVUInput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/djvu/test_djvu_modernized.py
+    """
     name = "DJVU Input"
     author = "Anthon van der Neut"
     description = "Convert OCR-ed DJVU files (.djvu) to HTML"
@@ -28,6 +47,24 @@ class DJVUInput(InputFormatPlugin):
 
     def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
 
+        """
+        Convert the supplied source into the stage's normalized output representation.
+
+        Example:
+            Exercise DJVUInput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/djvu/test_djvu_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param options: Value supplied for options under the utility contract.
+        :param file_ext: Value supplied for file ext under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param accelerators: Value supplied for accelerators under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.txt.processor import convert_basic
 
         stdout = BytesIO()

@@ -1,4 +1,13 @@
-"""Value objects passed from catalog writers to database link operations."""
+"""
+Normalize, validate, merge and serialize catalog relation updates.
+
+The module keeps validation, normalization and host mutation boundaries explicit.
+
+Example:
+    Exercise link update through its owning regression module::
+
+        python -m pytest -q tests/catalog/test_link_update.py
+"""
 
 from __future__ import annotations
 
@@ -37,15 +46,49 @@ _LINK_OPERATION_NAMES = ("replacements", "deletions", "additions")
 
 
 def _identity(value: DstTableID) -> DstTableID:
+    """
+    Return the stable identity tuple used to compare and deduplicate links.
+
+    Example:
+        Exercise identity through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param value: Public or stored value to normalize, compare or write.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return value
 
 
 def _empty_link_operation() -> dict[SrcTableID, tuple[LinkValue, ...]]:
+    """
+    Return whether a link-operation payload is semantically empty.
+
+    Example:
+        Exercise empty link operation through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return {}
 
 
 def _link_value_to_dict(link: LinkValue) -> dict[str, Any]:
-    """Return a compact, plain representation used only for inspection."""
+    """
+    Return a compact, plain representation used only for inspection.
+
+    Example:
+        Exercise link value to dict through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
+
+
+    :param link: Value supplied for link under the catalog contract.
+    :return: The deterministic value, row, identity or collection described above.
+    """
 
     rendered: dict[str, Any] = {"secondary_id": link.secondary_id}
     if link.link_type is not None:
@@ -59,22 +102,13 @@ def _link_value_to_dict(link: LinkValue) -> dict[str, Any]:
 
 @dataclass(frozen=True, slots=True)
 class LinkUpdateLink(Mapping[str, Any]):
-    """Read-only, display-friendly view of one link instruction.
+    """
+    Read-only, display-friendly view of one link instruction.
 
-    ``src_id`` and ``dst_id`` are the relation endpoints and ``operation`` is
-    one of ``replacements``, ``deletions``, or ``additions``. The optional
-    ``dst_value_for`` callback is never called during construction or display.
-    It may instead be passed on the first :meth:`get_dst_value` call. The
-    method caches its result for this view; :attr:`dst_value` is the equivalent
-    lazy property when a callback was bound during construction.
+    Example:
+        Exercise LinkUpdateLink through its owning regression module::
 
-    The link is also a read-only mapping over its extra link-table columns.
-    Thus ``link["credited_as"]``, ``link.get(...)``, ``link.keys()``, and
-    ``dict(link)`` operate on :attr:`extra`; endpoint and operation fields
-    remain explicit attributes.
-
-    The dataclass is frozen, but its private destination-value cache is an
-    implementation detail and does not participate in equality or repr.
+            python -m pytest -q tests/catalog/test_link_update.py
     """
 
     src_id: SrcTableID
@@ -98,6 +132,17 @@ class LinkUpdateLink(Mapping[str, Any]):
     )
 
     def __post_init__(self) -> None:
+        """
+        Initialize and validate the LinkUpdateLink state.
+
+        Example:
+            Exercise LinkUpdateLink.post init through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :return: None; the function records state or raises through its assertions.
+        """
         if self.operation not in _LINK_OPERATION_NAMES:
             raise ValueError(
                 "operation must be replacements, deletions, or additions"
@@ -112,9 +157,14 @@ class LinkUpdateLink(Mapping[str, Any]):
         """
         Return one extra link-column value.
 
-        :param key: Extra link-column name.
-        :return: Stored value for the named extra column.
-        :raises KeyError: If the link carries no extra with that name.
+        Example:
+            Exercise LinkUpdateLink.getitem through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param key: Value supplied for key under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         return self.extra[key]
@@ -123,7 +173,13 @@ class LinkUpdateLink(Mapping[str, Any]):
         """
         Iterate over extra link-column names in their supplied order.
 
-        :return: Iterator over extra column names.
+        Example:
+            Exercise LinkUpdateLink.iter through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         return iter(self.extra)
@@ -132,14 +188,30 @@ class LinkUpdateLink(Mapping[str, Any]):
         """
         Return the number of extra link columns.
 
-        :return: Number of stored extra column values.
+        Example:
+            Exercise LinkUpdateLink.len through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         return len(self.extra)
 
     @property
     def dst_value_loaded(self) -> bool:
-        """Return whether this view has resolved its destination value."""
+        """
+        Return whether this view has resolved its destination value.
+
+        Example:
+            Exercise LinkUpdateLink.dst value loaded through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
 
         return self._dst_value_loaded
 
@@ -147,11 +219,17 @@ class LinkUpdateLink(Mapping[str, Any]):
         self,
         dst_value_for: Callable[[DstTableID], Any] | None = None,
     ) -> Any:
-        """Resolve and cache the destination value on first access.
+        """
+        Resolve and cache the destination value on first access.
 
-        ``dst_value_for`` overrides the construction-time loader on the first
-        successful call. A failed loader call is not cached, allowing a later
-        call to retry.
+        Example:
+            Exercise LinkUpdateLink.get dst value through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param dst_value_for: Value supplied for dst value for under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         if not self._dst_value_loaded:
@@ -173,12 +251,32 @@ class LinkUpdateLink(Mapping[str, Any]):
 
     @property
     def dst_value(self) -> Any:
-        """Lazily resolve and return the destination value."""
+        """
+        Lazily resolve and return the destination value.
+
+        Example:
+            Exercise LinkUpdateLink.dst value through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
 
         return self.get_dst_value()
 
     def to_dict(self) -> dict[str, Any]:
-        """Return plain inspection data without forcing destination loading."""
+        """
+        Return plain inspection data without forcing destination loading.
+
+        Example:
+            Exercise LinkUpdateLink.to dict through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
 
         rendered: dict[str, Any] = {
             "src_id": self.src_id,
@@ -195,7 +293,19 @@ class LinkUpdateLink(Mapping[str, Any]):
         return rendered
 
     def pformat(self, *, indent: int = 2, width: int = 88) -> str:
-        """Pretty-format this link without forcing destination loading."""
+        """
+        Pretty-format this link without forcing destination loading.
+
+        Example:
+            Exercise LinkUpdateLink.pformat through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param indent: Value supplied for indent under the catalog contract.
+        :param width: Value supplied for width under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
 
         return _pformat(
             self.to_dict(),
@@ -205,18 +315,29 @@ class LinkUpdateLink(Mapping[str, Any]):
         )
 
     def __str__(self) -> str:
+        """
+        Render the catalog update in a stable diagnostic representation.
+
+        Example:
+            Exercise LinkUpdateLink.str through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return self.pformat()
 
 
 @dataclass(frozen=True, slots=True)
 class LinkUpdateEntry:
-    """Read-only view of every effective operation for one primary id.
+    """
+    Read-only view of every effective operation for one primary id.
 
-    ``replacements`` is ``None`` when no authoritative replacement was
-    supplied and an empty tuple when links should be cleared. Empty additions
-    and deletions are omitted from :attr:`operations` because they are no-ops.
-    Operations are always exposed in database application order:
-    replacements, deletions, then additions.
+    Example:
+        Exercise LinkUpdateEntry through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_update.py
     """
 
     primary_id: SrcTableID
@@ -226,25 +347,65 @@ class LinkUpdateEntry:
 
     @property
     def has_replacement(self) -> bool:
-        """Return whether this id has an authoritative replacement."""
+        """
+        Return whether this id has an authoritative replacement.
+
+        Example:
+            Exercise LinkUpdateEntry.has replacement through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :return: True when the tested condition is satisfied; otherwise False.
+        """
 
         return self.replacements is not None
 
     @property
     def clears_scope(self) -> bool:
-        """Return whether the replacement intentionally starts from empty."""
+        """
+        Return whether the replacement intentionally starts from empty.
+
+        Example:
+            Exercise LinkUpdateEntry.clears scope through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
 
         return self.replacements == ()
 
     @property
     def is_incremental(self) -> bool:
-        """Return whether this entry changes links without replacing them."""
+        """
+        Return whether this entry changes links without replacing them.
+
+        Example:
+            Exercise LinkUpdateEntry.is incremental through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :return: True when the tested condition is satisfied; otherwise False.
+        """
 
         return not self.has_replacement and bool(self.deletions or self.additions)
 
     @property
     def operations(self) -> Mapping[str, tuple[LinkValue, ...]]:
-        """Return effective operations in their database application order."""
+        """
+        Return effective operations in their database application order.
+
+        Example:
+            Exercise LinkUpdateEntry.operations through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
 
         operations: dict[str, tuple[LinkValue, ...]] = {}
         if self.replacements is not None:
@@ -257,12 +418,32 @@ class LinkUpdateEntry:
 
     @property
     def operation_names(self) -> tuple[str, ...]:
-        """Return the names of effective operations for this id."""
+        """
+        Return the names of effective operations for this id.
+
+        Example:
+            Exercise LinkUpdateEntry.operation names through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
 
         return tuple(self.operations)
 
     def __bool__(self) -> bool:
-        """Return whether at least one effective operation is present."""
+        """
+        Return whether at least one effective operation is present.
+
+        Example:
+            Exercise LinkUpdateEntry.bool through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
 
         return bool(self.operations)
 
@@ -274,12 +455,14 @@ class LinkUpdateEntry:
         """
         Iterate over link instructions for this primary ID.
 
-        Links are yielded in database application order: replacements,
-        deletions, then additions. Destination-value loading remains lazy.
+        Example:
+            Exercise LinkUpdateEntry.iter links through its owning regression module::
 
-        :param dst_value_for: Optional lazy destination-value loader attached
-            to each yielded link.
-        :return: Iterator over immutable per-link views.
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param dst_value_for: Value supplied for dst value for under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         return (
@@ -304,15 +487,30 @@ class LinkUpdateEntry:
         """
         Return all link instructions for this primary ID.
 
-        :param dst_value_for: Optional lazy destination-value loader attached
-            to each returned link.
-        :return: Immutable tuple of per-link views.
+        Example:
+            Exercise LinkUpdateEntry.links through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param dst_value_for: Value supplied for dst value for under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         return tuple(self.iter_links(dst_value_for=dst_value_for))
 
     def to_dict(self) -> dict[str, Any]:
-        """Return a plain, inspection-friendly representation of this view."""
+        """
+        Return a plain, inspection-friendly representation of this view.
+
+        Example:
+            Exercise LinkUpdateEntry.to dict through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
 
         return {
             "primary_id": self.primary_id,
@@ -323,7 +521,19 @@ class LinkUpdateEntry:
         }
 
     def pformat(self, *, indent: int = 2, width: int = 88) -> str:
-        """Pretty-format this per-id view without printing as a side effect."""
+        """
+        Pretty-format this per-id view without printing as a side effect.
+
+        Example:
+            Exercise LinkUpdateEntry.pformat through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param indent: Value supplied for indent under the catalog contract.
+        :param width: Value supplied for width under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
 
         return _pformat(
             self.to_dict(),
@@ -333,50 +543,29 @@ class LinkUpdateEntry:
         )
 
     def __str__(self) -> str:
+        """
+        Render the catalog update in a stable diagnostic representation.
+
+        Example:
+            Exercise LinkUpdateEntry.str through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return self.pformat()
 
 
 @dataclass(frozen=True, slots=True)
 class LinkUpdate:
-    """A collection of changes to links between two database tables.
+    """
+    A collection of changes to links between two database tables.
 
-    Each operation is keyed by an id in ``link_spec.primary_table``:
+    Example:
+        Exercise LinkUpdate through its owning regression module::
 
-    * ``replacements`` contains complete desired link sets. An omitted primary
-      id is untouched and an empty iterable clears the links in scope.
-    * ``additions`` contains links to insert or update without removing other
-      links.
-    * ``deletions`` contains logical link identities to remove. It never means
-      that the referenced row in the secondary table should be deleted.
-
-    Consumers apply replacements, then deletions, then additions. This makes a
-    link present in both incremental collections an upsert, while a primary id
-    in ``replacements`` still starts from an authoritative state.
-
-    ``link_type`` optionally scopes the whole request to one type on a link
-    whose type is part of its identity. A missing type on a supplied
-    :class:`LinkValue` inherits this scope.
-
-    Direct construction is deliberately strict and accepts only
-    :class:`LinkValue` instances. :meth:`from_ids` and :meth:`from_values`
-    normalize the compact mapping forms used by cache writers: a primary id
-    can map to ``None``, one value, an iterable of values, or (for typed links)
-    a mapping of link type to any of those forms. A nested typed mapping is a
-    complete desired set when used for replacements.
-
-    :meth:`from_legacy` covers the mixed convention used by the older catalog
-    and cache writers: integer secondary ids pass through, while non-integer
-    metadata values are matched by a caller-supplied resolver. :meth:`write`
-    then reduces all three operations to one authoritative replacement per
-    touched primary id and delegates the atomic database change to the
-    portable macro layer.
-
-    The object also behaves like a small ordered collection of effective
-    primary-id updates. Iterate over :attr:`primary_ids`, use ``update[id]``
-    or :meth:`for_primary_id` for a :class:`LinkUpdateEntry`, and use
-    :meth:`iter_links` to stream one :class:`LinkUpdateLink` dataclass per
-    instruction. :meth:`links` materializes the same views as a tuple.
-    :meth:`pformat`/``str(update)`` provide deterministic diagnostic display.
+            python -m pytest -q tests/catalog/test_link_update.py
     """
 
     link_spec: StorageLinkSpec
@@ -394,7 +583,17 @@ class LinkUpdate:
     )
 
     def __post_init__(self) -> None:
-        """Materialise caller-owned containers into a stable update request."""
+        """
+        Materialise caller-owned containers into a stable update request.
+
+        Example:
+            Exercise LinkUpdate.post init through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :return: None; the function records state or raises through its assertions.
+        """
 
         if not isinstance(self.link_spec, StorageLinkSpec):
             raise TypeError("link_spec must be a StorageLinkSpec")
@@ -436,12 +635,15 @@ class LinkUpdate:
         """
         Validate a type against capabilities recorded in the link spec.
 
-        :param link_type: Explicit type value to validate.
-        :param origin: Input location used in validation messages.
-        :return: None.
-        :raises TypeError: If a named type is not a string.
-        :raises ValueError: If the link is untyped, the type is blank, or the
-            value is not in the declared allowed set.
+        Example:
+            Exercise LinkUpdate.validate declared link type through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param link_type: Optional typed relation value carried by the link.
+        :param origin: Value supplied for origin under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         if not self.link_spec.typed:
@@ -473,6 +675,19 @@ class LinkUpdate:
         name: str,
         supplied: object,
     ) -> Mapping[SrcTableID, tuple[LinkValue, ...]]:
+        """
+        Normalize materialise operation into the canonical link-update representation.
+
+        Example:
+            Exercise LinkUpdate.materialise operation through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param name: Value supplied for name under the catalog contract.
+        :param supplied: Value supplied for supplied under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         if not isinstance(supplied, Mapping):
             raise TypeError(f"{name} must be a mapping")
 
@@ -506,6 +721,19 @@ class LinkUpdate:
         return MappingProxyType(materialised)
 
     def _materialise_link(self, link: LinkValue, *, operation: str) -> LinkValue:
+        """
+        Normalize materialise link into the canonical link-update representation.
+
+        Example:
+            Exercise LinkUpdate.materialise link through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param link: Value supplied for link under the catalog contract.
+        :param operation: Value supplied for operation under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         if not isinstance(link.extra, Mapping):
             raise TypeError(f"{operation} link extras must be a mapping")
 
@@ -540,6 +768,20 @@ class LinkUpdate:
         operation: str,
         primary_id: SrcTableID,
     ) -> None:
+        """
+        Perform the catalog reject duplicate identities operation under explicit validation and ordering rules.
+
+        Example:
+            Exercise LinkUpdate.reject duplicate identities through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param links: Value supplied for links under the catalog contract.
+        :param operation: Value supplied for operation under the catalog contract.
+        :param primary_id: Primary catalog row identity owning the link operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         seen: set[tuple[Any, ...]] = set()
         for link in links:
             identity = self._link_identity(self.link_spec, link)
@@ -552,10 +794,16 @@ class LinkUpdate:
 
     @property
     def mentioned_primary_ids(self) -> tuple[SrcTableID, ...]:
-        """Return all ids named by any operation map, preserving first order.
+        """
+        Return all ids named by any operation map, preserving first order.
 
-        Unlike :attr:`primary_ids`, this includes ids whose only supplied
-        incremental operations are empty and therefore have no effect.
+        Example:
+            Exercise LinkUpdate.mentioned primary ids through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         return tuple(
@@ -570,7 +818,17 @@ class LinkUpdate:
 
     @property
     def primary_ids(self) -> tuple[SrcTableID, ...]:
-        """Return ids with effective work, preserving application order."""
+        """
+        Return ids with effective work, preserving application order.
+
+        Example:
+            Exercise LinkUpdate.primary ids through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
 
         return tuple(
             primary_id
@@ -579,12 +837,17 @@ class LinkUpdate:
         )
 
     def for_primary_id(self, primary_id: SrcTableID) -> LinkUpdateEntry:
-        """Return the complete operation view for ``primary_id``.
+        """
+        Return the complete operation view for ``primary_id``.
 
-        An unknown id returns an empty view, which is convenient for callers
-        asking whether a particular row is affected without first checking
-        membership. Indexing with ``update[primary_id]`` is the strict form and
-        raises :class:`KeyError` when this view is empty.
+        Example:
+            Exercise LinkUpdate.for primary id through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param primary_id: Primary catalog row identity owning the link operation.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         replacements = (
@@ -600,6 +863,18 @@ class LinkUpdate:
         )
 
     def __getitem__(self, primary_id: SrcTableID) -> LinkUpdateEntry:
+        """
+        Return or iterate getitem from the normalized catalog state.
+
+        Example:
+            Exercise LinkUpdate.getitem through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param primary_id: Primary catalog row identity owning the link operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         entry = self.for_primary_id(primary_id)
         if not entry:
             raise KeyError(primary_id)
@@ -610,36 +885,123 @@ class LinkUpdate:
         primary_id: SrcTableID,
         default: Any = None,
     ) -> LinkUpdateEntry | Any:
-        """Return an effective per-id entry, or ``default`` when absent."""
+        """
+        Return an effective per-id entry, or ``default`` when absent.
+
+        Example:
+            Exercise LinkUpdate.get through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param primary_id: Primary catalog row identity owning the link operation.
+        :param default: Value supplied for default under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
 
         entry = self.for_primary_id(primary_id)
         return entry if entry else default
 
     def keys(self) -> tuple[SrcTableID, ...]:
-        """Return effective primary ids in stable order."""
+        """
+        Return effective primary ids in stable order.
+
+        Example:
+            Exercise LinkUpdate.keys through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
 
         return self.primary_ids
 
     def values(self) -> Iterator[LinkUpdateEntry]:
-        """Iterate over effective per-id views in stable order."""
+        """
+        Iterate over effective per-id views in stable order.
+
+        Example:
+            Exercise LinkUpdate.values through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
 
         return (self[primary_id] for primary_id in self.primary_ids)
 
     def items(self) -> Iterator[tuple[SrcTableID, LinkUpdateEntry]]:
-        """Iterate over effective ``(primary_id, entry)`` pairs."""
+        """
+        Iterate over effective ``(primary_id, entry)`` pairs.
+
+        Example:
+            Exercise LinkUpdate.items through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
 
         return ((primary_id, self[primary_id]) for primary_id in self.primary_ids)
 
     def __iter__(self) -> Iterator[SrcTableID]:
+        """
+        Return or iterate iter from the normalized catalog state.
+
+        Example:
+            Exercise LinkUpdate.iter through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return iter(self.primary_ids)
 
     def __len__(self) -> int:
+        """
+        Expose the normalized update's len behavior.
+
+        Example:
+            Exercise LinkUpdate.len through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return len(self.primary_ids)
 
     def __bool__(self) -> bool:
+        """
+        Expose the normalized update's bool behavior.
+
+        Example:
+            Exercise LinkUpdate.bool through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return bool(self.primary_ids)
 
     def __contains__(self, primary_id: object) -> bool:
+        """
+        Expose the normalized update's contains behavior.
+
+        Example:
+            Exercise LinkUpdate.contains through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param primary_id: Primary catalog row identity owning the link operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return primary_id in self.primary_ids
 
     def links_for_primary_id(
@@ -648,7 +1010,19 @@ class LinkUpdate:
         *,
         dst_value_for: Callable[[DstTableID], Any] | None = None,
     ) -> tuple[LinkUpdateLink, ...]:
-        """Return display-friendly link dataclasses for one primary id."""
+        """
+        Return display-friendly link dataclasses for one primary id.
+
+        Example:
+            Exercise LinkUpdate.links for primary id through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param primary_id: Primary catalog row identity owning the link operation.
+        :param dst_value_for: Value supplied for dst value for under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
 
         return self.for_primary_id(primary_id).links(
             dst_value_for=dst_value_for,
@@ -662,13 +1036,14 @@ class LinkUpdate:
         """
         Iterate over every effective link instruction in this update.
 
-        Links follow primary-ID order and, within each ID, database operation
-        order. Iteration creates views on demand. The optional destination
-        resolver is attached to each view but is not invoked during iteration.
+        Example:
+            Exercise LinkUpdate.iter links through its owning regression module::
 
-        :param dst_value_for: Optional lazy destination-value loader attached
-            to each yielded link.
-        :return: Iterator over immutable per-link views.
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param dst_value_for: Value supplied for dst value for under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         return (
@@ -682,17 +1057,33 @@ class LinkUpdate:
         *,
         dst_value_for: Callable[[DstTableID], Any] | None = None,
     ) -> tuple[LinkUpdateLink, ...]:
-        """Return one dataclass per effective link instruction.
+        """
+        Return one dataclass per effective link instruction.
 
-        Links follow primary-id order and, within each id, database operation
-        order. The optional destination resolver is attached to each view but
-        remains lazy until that view's destination value is requested.
+        Example:
+            Exercise LinkUpdate.links through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param dst_value_for: Value supplied for dst value for under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         return tuple(self.iter_links(dst_value_for=dst_value_for))
 
     def to_dict(self) -> dict[str, Any]:
-        """Return a plain, deterministic representation for inspection."""
+        """
+        Return a plain, deterministic representation for inspection.
+
+        Example:
+            Exercise LinkUpdate.to dict through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
 
         return {
             "primary_table": self.link_spec.primary_table,
@@ -709,7 +1100,19 @@ class LinkUpdate:
         }
 
     def pformat(self, *, indent: int = 2, width: int = 88) -> str:
-        """Pretty-format this update without printing as a side effect."""
+        """
+        Pretty-format this update without printing as a side effect.
+
+        Example:
+            Exercise LinkUpdate.pformat through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param indent: Value supplied for indent under the catalog contract.
+        :param width: Value supplied for width under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
 
         return _pformat(
             self.to_dict(),
@@ -719,6 +1122,17 @@ class LinkUpdate:
         )
 
     def __str__(self) -> str:
+        """
+        Render the catalog update in a stable diagnostic representation.
+
+        Example:
+            Exercise LinkUpdate.str through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return self.pformat()
 
     @classmethod
@@ -731,11 +1145,21 @@ class LinkUpdate:
         deletions: _CompactMap[DstTableID] | None = None,
         link_type: _LinkTypeScope = LINK_TYPE_UNSET,
     ) -> Self:
-        """Build an update from compact maps whose values are secondary ids.
+        """
+        Build an update from compact maps whose values are secondary ids.
 
-        Scalars become one link, iterable values become several links, and
-        ``None`` becomes an empty link set. For a typed link, a nested mapping
-        assigns its keys as link types.
+        Example:
+            Exercise LinkUpdate.from ids through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param link_spec: Value supplied for link spec under the catalog contract.
+        :param replacements: Value supplied for replacements under the catalog contract.
+        :param additions: Value supplied for additions under the catalog contract.
+        :param deletions: Value supplied for deletions under the catalog contract.
+        :param link_type: Optional typed relation value carried by the link.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         return cls._from_compact_maps(
@@ -758,11 +1182,23 @@ class LinkUpdate:
         deletions: _CompactMap[_RawValueT] | None = None,
         link_type: _LinkTypeScope = LINK_TYPE_UNSET,
     ) -> Self:
-        """Build an update from compact maps of secondary-table values.
+        """
+        Build an update from compact maps of secondary-table values.
 
-        ``secondary_id_for`` resolves each raw scalar value to the id used in
-        the link table. Existing :class:`LinkValue` objects are already rich
-        link instructions and therefore bypass the resolver.
+        Example:
+            Exercise LinkUpdate.from values through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param link_spec: Value supplied for link spec under the catalog contract.
+        :param replacements: Value supplied for replacements under the catalog contract.
+        :param secondary_id_for: Value supplied for secondary id for under the catalog
+            contract.
+        :param additions: Value supplied for additions under the catalog contract.
+        :param deletions: Value supplied for deletions under the catalog contract.
+        :param link_type: Optional typed relation value carried by the link.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         if not callable(secondary_id_for):
@@ -787,17 +1223,23 @@ class LinkUpdate:
         deletions: _CompactMap[_RawValueT | DstTableID] | None = None,
         link_type: _LinkTypeScope = LINK_TYPE_UNSET,
     ) -> Self:
-        """Build an update from the mixed legacy writer value convention.
+        """
+        Build an update from the mixed legacy writer value convention.
 
-        Catalog and cache writers historically accept integer secondary ids
-        alongside metadata values which still need matching (and may need a
-        row created). Integer ids therefore bypass ``secondary_id_for``;
-        every other raw value is passed to it. Rich :class:`LinkValue`
-        instructions bypass it as they do in :meth:`from_values`.
+        Example:
+            Exercise LinkUpdate.from legacy through its owning regression module::
 
-        The resolver owns metadata-aware matching policy. A catalog writer can
-        pass its existing lookup/create helper, while a portable caller can
-        delegate to ``ensure_table_value``.
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param link_spec: Value supplied for link spec under the catalog contract.
+        :param replacements: Value supplied for replacements under the catalog contract.
+        :param secondary_id_for: Value supplied for secondary id for under the catalog
+            contract.
+        :param additions: Value supplied for additions under the catalog contract.
+        :param deletions: Value supplied for deletions under the catalog contract.
+        :param link_type: Optional typed relation value carried by the link.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         if not callable(secondary_id_for):
@@ -806,6 +1248,18 @@ class LinkUpdate:
         def resolve_legacy(value: _RawValueT | DstTableID) -> DstTableID:
             # This deliberately mirrors the established cache/catalog writer
             # contract, where an int denotes an already-matched database id.
+            """
+            Resolve legacy under destination-table identity rules.
+
+            Example:
+                Exercise LinkUpdate.from legacy.resolve legacy through its owning regression module::
+
+                    python -m pytest -q tests/catalog/test_link_update.py
+
+
+            :param value: Public or stored value to normalize, compare or write.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             if isinstance(value, int):
                 return cast(DstTableID, value)
             return secondary_id_for(cast(_RawValueT, value))
@@ -830,13 +1284,42 @@ class LinkUpdate:
         link_type: _LinkTypeScope,
         secondary_id_for: Callable[[_RawValueT], DstTableID],
     ) -> Self:
+        """
+        Construct a canonical link update from compact maps.
+
+        Example:
+            Exercise LinkUpdate.from compact maps through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param link_spec: Value supplied for link spec under the catalog contract.
+        :param replacements: Value supplied for replacements under the catalog contract.
+        :param additions: Value supplied for additions under the catalog contract.
+        :param deletions: Value supplied for deletions under the catalog contract.
+        :param link_type: Optional typed relation value carried by the link.
+        :param secondary_id_for: Value supplied for secondary id for under the catalog
+            contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         if not isinstance(link_spec, StorageLinkSpec):
             raise TypeError("link_spec must be a StorageLinkSpec")
 
         resolved_ids: dict[tuple[type, Any], DstTableID] = {}
 
         def resolve_once(value: _RawValueT) -> DstTableID:
-            """Avoid repeating metadata matching for duplicate legacy values."""
+            """
+            Avoid repeating metadata matching for duplicate legacy values.
+
+            Example:
+                Exercise LinkUpdate.from compact maps.resolve once through its owning regression module::
+
+                    python -m pytest -q tests/catalog/test_link_update.py
+
+
+            :param value: Public or stored value to normalize, compare or write.
+            :return: The deterministic value, row, identity or collection described above.
+            """
 
             try:
                 key = (type(value), value)
@@ -886,6 +1369,23 @@ class LinkUpdate:
         secondary_id_for: Callable[[_RawValueT], DstTableID],
         name: str,
     ) -> dict[SrcTableID, tuple[LinkValue, ...]]:
+        """
+        Normalize normalise compact map into the canonical link-update representation.
+
+        Example:
+            Exercise LinkUpdate.normalise compact map through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param link_spec: Value supplied for link spec under the catalog contract.
+        :param supplied: Value supplied for supplied under the catalog contract.
+        :param link_type: Optional typed relation value carried by the link.
+        :param secondary_id_for: Value supplied for secondary id for under the catalog
+            contract.
+        :param name: Value supplied for name under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         if supplied is None:
             return {}
         if not isinstance(supplied, Mapping):
@@ -913,6 +1413,19 @@ class LinkUpdate:
         link_spec: StorageLinkSpec,
         links: tuple[LinkValue, ...],
     ) -> tuple[LinkValue, ...]:
+        """
+        Normalize deduplicate links into the canonical link-update representation.
+
+        Example:
+            Exercise LinkUpdate.deduplicate links through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param link_spec: Value supplied for link spec under the catalog contract.
+        :param links: Value supplied for links under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         seen: set[tuple[Any, ...]] = set()
         deduplicated: list[LinkValue] = []
         for link in links:
@@ -931,6 +1444,22 @@ class LinkUpdate:
         link_type: _LinkTypeScope,
         secondary_id_for: Callable[[_RawValueT], DstTableID],
     ) -> tuple[LinkValue, ...]:
+        """
+        Normalize normalise compact links into the canonical link-update representation.
+
+        Example:
+            Exercise LinkUpdate.normalise compact links through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param link_spec: Value supplied for link spec under the catalog contract.
+        :param raw_links: Value supplied for raw links under the catalog contract.
+        :param link_type: Optional typed relation value carried by the link.
+        :param secondary_id_for: Value supplied for secondary id for under the catalog
+            contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         if raw_links is None:
             return ()
 
@@ -981,6 +1510,21 @@ class LinkUpdate:
         link_type: _LinkTypeScope,
         secondary_id_for: Callable[[_RawValueT], DstTableID],
     ) -> LinkValue:
+        """
+        Perform the catalog link value from compact value operation under explicit validation and ordering rules.
+
+        Example:
+            Exercise LinkUpdate.link value from compact value through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param value: Public or stored value to normalize, compare or write.
+        :param link_type: Optional typed relation value carried by the link.
+        :param secondary_id_for: Value supplied for secondary id for under the catalog
+            contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         assigned_type = None if link_type is LINK_TYPE_UNSET else link_type
 
         if isinstance(value, LinkValue):
@@ -1004,7 +1548,19 @@ class LinkUpdate:
         link_spec: StorageLinkSpec,
         link: LinkValue | LinkRow,
     ) -> tuple[Any, ...]:
-        """Return the same logical identity used by portable DB macros."""
+        """
+        Return the same logical identity used by portable DB macros.
+
+        Example:
+            Exercise LinkUpdate.link identity through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param link_spec: Value supplied for link spec under the catalog contract.
+        :param link: Value supplied for link under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
 
         identity = [link.secondary_id]
         if link_spec.type_part_of_identity:
@@ -1013,7 +1569,18 @@ class LinkUpdate:
 
     @staticmethod
     def _value_from_row(row: LinkRow) -> LinkValue:
-        """Preserve every writable property while composing incrementals."""
+        """
+        Preserve every writable property while composing incrementals.
+
+        Example:
+            Exercise LinkUpdate.value from row through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param row: Value supplied for row under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
 
         return LinkValue(
             secondary_id=row.secondary_id,
@@ -1024,12 +1591,18 @@ class LinkUpdate:
 
     @staticmethod
     def _merge_upsert(base: LinkValue, addition: LinkValue) -> LinkValue:
-        """Compose an addition with the properties of an existing link.
+        """
+        Compose an addition with the properties of an existing link.
 
-        Portable upserts preserve an existing priority and unspecified extra
-        columns. Reproducing that rule here lets a mixed update be written as
-        one atomic bulk replacement instead of several partially committed
-        database calls.
+        Example:
+            Exercise LinkUpdate.merge upsert through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param base: Value supplied for base under the catalog contract.
+        :param addition: Value supplied for addition under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         return LinkValue(
@@ -1042,17 +1615,17 @@ class LinkUpdate:
         )
 
     def as_replacement_update(self, macros: PortableMacrosAPI) -> Self:
-        """Resolve incremental operations into authoritative replacements.
+        """
+        Resolve incremental operations into authoritative replacements.
 
-        Primary ids already present in ``replacements`` need no read. For ids
-        which contain only additions and/or deletions, current rows are read
-        in one batch and converted to :class:`LinkValue` objects. Deletions
-        remove logical identities and additions then upsert them, preserving
-        existing properties omitted by the addition.
+        Example:
+            Exercise LinkUpdate.as replacement update through its owning regression module::
 
-        The returned update contains only ``replacements`` and is therefore a
-        pure relation-id-to-relation-id instruction ready for
-        ``replace_links_bulk``. The original object remains unchanged.
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param macros: Value supplied for macros under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         touched_ids = self.primary_ids
@@ -1118,12 +1691,17 @@ class LinkUpdate:
         self,
         macros: PortableMacrosAPI,
     ) -> Mapping[SrcTableID, tuple[LinkRow, ...]]:
-        """Apply this update through the portable database macro surface.
+        """
+        Apply this update through the portable database macro surface.
 
-        Mixed operations are first composed by :meth:`as_replacement_update`.
-        The final call is one ``replace_links_bulk`` transaction, so a failure
-        for any touched primary id rolls back the whole normalized update.
-        Supplying an empty update performs no database call.
+        Example:
+            Exercise LinkUpdate.write through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_update.py
+
+
+        :param macros: Value supplied for macros under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         replacement_update = self.as_replacement_update(macros)

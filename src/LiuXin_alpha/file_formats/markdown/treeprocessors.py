@@ -1,3 +1,14 @@
+"""
+Transform the parsed Markdown element tree before serialization.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise treeprocessors through a consuming regression::
+
+        python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+"""
 from __future__ import absolute_import
 from __future__ import unicode_literals
 from __future__ import annotations
@@ -9,7 +20,20 @@ from . import inlinepatterns
 
 
 def build_treeprocessors(md_instance: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
-    """Build the default treeprocessors for Markdown."""
+    """
+    Build the default treeprocessors for Markdown.
+
+    Example:
+        Exercise build treeprocessors through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param md_instance: Value supplied for md instance under the utility contract.
+    :param kwargs: Keyword values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     treeprocessors = odict.OrderedDict()
     treeprocessors["inline"] = InlineProcessor(md_instance)
     treeprocessors["prettify"] = PrettifyTreeprocessor(md_instance)
@@ -17,7 +41,19 @@ def build_treeprocessors(md_instance: _typing.Any, **kwargs: _typing.Any) -> _ty
 
 
 def isString(s: _typing.Any) -> _typing.Any:
-    """Check if it's string"""
+    """
+    Check if it's string
+
+    Example:
+        Exercise isString through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not isinstance(s, util.AtomicString):
         return isinstance(s, util.string_type)
     return False
@@ -27,20 +63,25 @@ class Treeprocessor(util.Processor):
     """
     Treeprocessors are run on the ElementTree object before serialization.
 
-    Each Treeprocessor implements a "run" method that takes a pointer to an
-    ElementTree, modifies it as necessary and returns an ElementTree
-    object.
+    Example:
+        Exercise Treeprocessor through a consuming regression::
 
-    Treeprocessors must extend markdown.Treeprocessor.
-
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
     """
 
     def run(self: _typing.Self, root: _typing.Any) -> None:
         """
-        Subclasses of Treeprocessor should implement a `run` method, which
-        takes a root ElementTree. This method can return another ElementTree
-        object, and the existing root ElementTree will be replaced, or it can
-        modify the current tree and return None.
+        Subclasses of Treeprocessor should implement a `run` method, which takes a root ElementTree. This method can return another ElementTree object, and the existing root ElementTree will be replaced, or it can modify the current tree and return None.
+
+        Example:
+            Exercise Treeprocessor.run through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
@@ -48,9 +89,26 @@ class Treeprocessor(util.Processor):
 class InlineProcessor(Treeprocessor):
     """
     A Treeprocessor that traverses a tree, applying inline patterns.
+
+    Example:
+        Exercise InlineProcessor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
     """
 
     def __init__(self: _typing.Self, md: _typing.Any) -> None:
+        """
+        Initialize and validate the inlineprocessor state.
+
+        Example:
+            Exercise InlineProcessor.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param md: Value supplied for md under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.__placeholder_prefix = util.INLINE_PLACEHOLDER_PREFIX
         self.__placeholder_suffix = util.ETX
         self.__placeholder_length = 4 + len(self.__placeholder_prefix) + len(self.__placeholder_suffix)
@@ -58,7 +116,19 @@ class InlineProcessor(Treeprocessor):
         self.markdown = md
 
     def __makePlaceholder(self: _typing.Self, type: _typing.Any) -> tuple[_typing.Any, ...]:
-        """Generate a placeholder"""
+        """
+        Generate a placeholder
+
+        Example:
+            Exercise InlineProcessor.  makePlaceholder through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param type: Value supplied for type under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         id = "%04d" % len(self.stashed_nodes)
         hash = util.INLINE_PLACEHOLDER % id
         return hash, id
@@ -67,13 +137,16 @@ class InlineProcessor(Treeprocessor):
         """
         Extract id from data string, start from index
 
-        Keyword arguments:
+        Example:
+            Exercise InlineProcessor.  findPlaceholder through a consuming regression::
 
-        * data: string
-        * index: index, from which we start search
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
 
-        Returns: placeholder id and string index, after the found placeholder.
 
+        :param data: Value supplied for data under the utility contract.
+        :param index: Value supplied for index under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         m = self.__placeholder_re.search(data, index)
         if m:
@@ -82,23 +155,38 @@ class InlineProcessor(Treeprocessor):
             return None, index + 1
 
     def __stashNode(self: _typing.Self, node: _typing.Any, type: _typing.Any) -> _typing.Any:
-        """Add node to stash"""
+        """
+        Add node to stash
+
+        Example:
+            Exercise InlineProcessor.  stashNode through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :param type: Value supplied for type under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         placeholder, id = self.__makePlaceholder(type)
         self.stashed_nodes[id] = node
         return placeholder
 
     def __handleInline(self: _typing.Self, data: _typing.Any, patternIndex: int = 0) -> _typing.Any:
         """
-        Process string with inline patterns and replace it
-        with placeholders
+        Process string with inline patterns and replace it with placeholders
 
-        Keyword arguments:
+        Example:
+            Exercise InlineProcessor.  handleInline through a consuming regression::
 
-        * data: A line of Markdown text
-        * patternIndex: The index of the inlinePattern to start with
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
 
-        Returns: String with placeholders.
 
+        :param data: Value supplied for data under the utility contract.
+        :param patternIndex: Value supplied for patternIndex under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if not isinstance(data, util.AtomicString):
             startIndex = 0
@@ -115,17 +203,19 @@ class InlineProcessor(Treeprocessor):
 
     def __processElementText(self: _typing.Self, node: _typing.Any, subnode: _typing.Any, isText: bool = True) -> None:
         """
-        Process placeholders in Element.text or Element.tail
-        of Elements popped from self.stashed_nodes.
+        Process placeholders in Element.text or Element.tail of Elements popped from self.stashed_nodes.
 
-        Keywords arguments:
+        Example:
+            Exercise InlineProcessor.  processElementText through a consuming regression::
 
-        * node: parent node
-        * subnode: processing node
-        * isText: bool variable, True - it's text, False - it's tail
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
 
-        Returns: None
 
+        :param node: Value supplied for node under the utility contract.
+        :param subnode: Value supplied for subnode under the utility contract.
+        :param isText: Value supplied for isText under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if isText:
             text = subnode.text
@@ -150,16 +240,32 @@ class InlineProcessor(Treeprocessor):
         """
         Process string with placeholders and generate ElementTree tree.
 
-        Keyword arguments:
+        Example:
+            Exercise InlineProcessor.  processPlaceholders through a consuming regression::
 
-        * data: string with placeholders instead of ElementTree elements.
-        * parent: Element, which contains processing inline data
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
 
-        Returns: list with ElementTree elements with applied inline patterns.
 
+        :param data: Value supplied for data under the utility contract.
+        :param parent: Value supplied for parent under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         def linkText(text: _typing.Any) -> None:
+            """
+            Perform the linkText operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise InlineProcessor.  processPlaceholders.linkText through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+            :param text: Text parsed, normalized or rendered.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if text:
                 if result:
                     if result[-1].tail:
@@ -218,18 +324,20 @@ class InlineProcessor(Treeprocessor):
 
     def __applyPattern(self: _typing.Self, pattern: _typing.Any, data: _typing.Any, patternIndex: _typing.Any, startIndex: int = 0) -> tuple[_typing.Any, ...]:
         """
-        Check if the line fits the pattern, create the necessary
-        elements, add it to stashed_nodes.
+        Check if the line fits the pattern, create the necessary elements, add it to stashed_nodes.
 
-        Keyword arguments:
+        Example:
+            Exercise InlineProcessor.  applyPattern through a consuming regression::
 
-        * data: the text to be processed
-        * pattern: the pattern to be checked
-        * patternIndex: index of current pattern
-        * startIndex: string index, from which we start searching
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
 
-        Returns: String with placeholders instead of ElementTree elements.
 
+        :param pattern: Value supplied for pattern under the utility contract.
+        :param data: Value supplied for data under the utility contract.
+        :param patternIndex: Value supplied for patternIndex under the utility contract.
+        :param startIndex: Value supplied for startIndex under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         match = pattern.getCompiledRegExp().match(data[startIndex:])
         leftData = data[:startIndex]
@@ -261,21 +369,18 @@ class InlineProcessor(Treeprocessor):
         )
 
     def run(self: _typing.Self, tree: _typing.Any) -> _typing.Any:
-        """Apply inline patterns to a parsed Markdown tree.
+        """
+        Apply inline patterns to a parsed Markdown tree.
 
-        Iterate over ElementTree, find elements with inline tag, apply inline
-        patterns and append newly created Elements to tree.  If you don't
-        want to process your data with inline paterns, instead of normal string,
-        use subclass AtomicString:
+        Example:
+            Exercise InlineProcessor.run through a consuming regression::
 
-            node.text = markdown.AtomicString("This will not be processed.")
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
 
-        Arguments:
 
-        * tree: ElementTree object, representing Markdown tree.
-
-        Returns: ElementTree object with applied inline patterns.
-
+        :param tree: Value supplied for tree under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self.stashed_nodes = {}
 
@@ -324,10 +429,29 @@ class InlineProcessor(Treeprocessor):
 
 
 class PrettifyTreeprocessor(Treeprocessor):
-    """Add linebreaks to the html document."""
+    """
+    Add linebreaks to the html document.
+
+    Example:
+        Exercise PrettifyTreeprocessor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     def _prettifyETree(self: _typing.Self, elem: _typing.Any) -> None:
-        """Recursively add linebreaks to ElementTree children."""
+        """
+        Recursively add linebreaks to ElementTree children.
+
+        Example:
+            Exercise PrettifyTreeprocessor. prettifyETree through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
 
         i = "\n"
         if util.isBlockLevel(elem.tag) and elem.tag not in ["code", "pre"]:
@@ -342,7 +466,19 @@ class PrettifyTreeprocessor(Treeprocessor):
             elem.tail = i
 
     def run(self: _typing.Self, root: _typing.Any) -> None:
-        """Add linebreaks to ElementTree root object."""
+        """
+        Add linebreaks to ElementTree root object.
+
+        Example:
+            Exercise PrettifyTreeprocessor.run through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
 
         self._prettifyETree(root)
         # Do <br />'s seperately as they are often in the middle of

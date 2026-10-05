@@ -1,3 +1,14 @@
+"""
+Resolve and validate versioned metadata test fixtures.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise md test fixture hashes through a consuming regression::
+
+        python -m pytest -q tests/metadata/file_sources/test_md_fixture_access_helper.py
+"""
 from __future__ import annotations
 
 import hashlib
@@ -57,7 +68,19 @@ EXPECTED_MD_TEST_FILE_HASHES: dict[str, str] = {
 
 
 def legacy_sha512_size_hash(path: Path) -> str:
-    """Return the historical LiuXin file hash used by metadata fixture tests."""
+    """
+    Return the historical LiuXin file hash used by metadata fixture tests.
+
+    Example:
+        Exercise legacy sha512 size hash through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_md_fixture_access_helper.py
+
+
+    :param path: Filesystem path read, written or validated by the fixture operation.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     hasher = hashlib.sha512()
     with path.open("rb") as stream:
         while True:

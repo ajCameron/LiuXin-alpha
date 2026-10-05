@@ -1,6 +1,17 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
 
+"""
+Collect DOCX index entries and generate normalized index content.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise index through a consuming regression::
+
+        python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -21,6 +32,22 @@ __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 def get_applicable_xe_fields(index: _typing.Any, xe_fields: _typing.Any, XPath: _typing.Any, expand: _typing.Any) -> _typing.Any:
+    """
+    Return applicable xe fields under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get applicable xe fields through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param index: Value supplied for index under the utility contract.
+    :param xe_fields: Value supplied for xe fields under the utility contract.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :param expand: Value supplied for expand under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     iet = index.get("entry-type", None)
     xe_fields = [xe for xe in xe_fields if xe.get("entry-type", None) == iet]
 
@@ -31,6 +58,19 @@ def get_applicable_xe_fields(index: _typing.Any, xe_fields: _typing.Any, XPath: 
         if sl and el:
 
             def inrange(text: _typing.Any) -> bool:
+                """
+                Perform the inrange operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise get applicable xe fields.inrange through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+                :param text: Text parsed, normalized or rendered.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 return sl <= text[0] <= el
 
             xe_fields = [xe for xe in xe_fields if inrange(xe.get("text", ""))]
@@ -45,12 +85,41 @@ def get_applicable_xe_fields(index: _typing.Any, xe_fields: _typing.Any, XPath: 
     def contained(local_xe: _typing.Any) -> _typing.Any:
         # Check if the xe field is contained inside a bookmark with the
         # specified name
+        """
+        Perform the contained operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise get applicable xe fields.contained through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param local_xe: Value supplied for local xe under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return bool(set(ancestors(local_xe["start_elem"])) & bookmarks)
 
     return [xe for xe in xe_fields if contained(xe)]
 
 
 def make_block(expand: _typing.Any, style: _typing.Any, parent: _typing.Any, pos: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Perform the make block operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise make block through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param expand: Value supplied for expand under the utility contract.
+    :param style: Value supplied for style under the utility contract.
+    :param parent: Value supplied for parent under the utility contract.
+    :param pos: Value supplied for pos under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     p = parent.makeelement(expand("w:p"))
     parent.insert(pos, p)
     if style is not None:
@@ -68,6 +137,21 @@ def make_block(expand: _typing.Any, style: _typing.Any, parent: _typing.Any, pos
 
 
 def add_xe(xe: _typing.Any, t: _typing.Any, expand: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Perform the add xe operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise add xe through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param xe: Value supplied for xe under the utility contract.
+    :param t: Value supplied for t under the utility contract.
+    :param expand: Value supplied for expand under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     text = xe.get("text", "")
     pt = xe.get("page-number-text", None)
     t.text = text or " "
@@ -85,13 +169,21 @@ def add_xe(xe: _typing.Any, t: _typing.Any, expand: _typing.Any) -> tuple[_typin
 def process_index(field: _typing.Any, index: _typing.Any, xe_fields: _typing.Any, log: _typing.Any, XPath: _typing.Any, expand: _typing.Any) -> tuple[_typing.Any, ...]:
     """
     We remove all the word generated index markup and replace it with our own that is more suitable for an ebook.
-    :param field:
-    :param index:
-    :param xe_fields:
-    :param log:
-    :param XPath:
-    :param expand:
-    :return:
+
+    Example:
+        Exercise process index through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param field: Metadata or template field addressed by the operation.
+    :param index: Value supplied for index under the utility contract.
+    :param xe_fields: Value supplied for xe fields under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :param expand: Value supplied for expand under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     styles = []
     heading_text = index.get("heading", None)
@@ -140,6 +232,23 @@ def process_index(field: _typing.Any, index: _typing.Any, xe_fields: _typing.Any
 
 
 def split_up_block(block: _typing.Any, a: _typing.Any, text: _typing.Any, parts: _typing.Any, ldict: _typing.Any) -> None:
+    """
+    Perform the split up block operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise split up block through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param block: Value supplied for block under the utility contract.
+    :param a: Value supplied for a under the utility contract.
+    :param text: Text parsed, normalized or rendered.
+    :param parts: Value supplied for parts under the utility contract.
+    :param ldict: Value supplied for ldict under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     prefix = parts[:-1]
     a.text = parts[-1]
     parent = a.getparent()
@@ -192,6 +301,22 @@ to insert nk+1 and all following entries from n into p immediately following pk.
 
 
 def find_match(prev_block: _typing.Any, pind: _typing.Any, nextent: _typing.Any, ldict: _typing.Any) -> _typing.Any:
+    """
+    Find match under the format's safety and compatibility rules.
+
+    Example:
+        Exercise find match through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param prev_block: Value supplied for prev block under the utility contract.
+    :param pind: Value supplied for pind under the utility contract.
+    :param nextent: Value supplied for nextent under the utility contract.
+    :param ldict: Value supplied for ldict under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     curlevel = ldict.get(prev_block[pind], -1)
     if curlevel < 0:
         return -1
@@ -207,6 +332,21 @@ def find_match(prev_block: _typing.Any, pind: _typing.Any, nextent: _typing.Any,
 
 
 def add_link(pent: _typing.Any, nent: _typing.Any, ldict: _typing.Any) -> None:
+    """
+    Perform the add link operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise add link through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param pent: Value supplied for pent under the utility contract.
+    :param nent: Value supplied for nent under the utility contract.
+    :param ldict: Value supplied for ldict under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     na = nent.xpath("descendant::a[1]")
     # If there is no link, leave it as text
     if not na or len(na) == 0:
@@ -227,6 +367,24 @@ def add_link(pent: _typing.Any, nent: _typing.Any, ldict: _typing.Any) -> None:
 
 def merge_blocks(prev_block: _typing.Any, next_block: _typing.Any, pind: _typing.Any, nind: _typing.Any, next_path: _typing.Any, ldict: _typing.Any) -> None:
     # First elements match. Any more in next?
+    """
+    Perform the merge blocks operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise merge blocks through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param prev_block: Value supplied for prev block under the utility contract.
+    :param next_block: Value supplied for next block under the utility contract.
+    :param pind: Value supplied for pind under the utility contract.
+    :param nind: Value supplied for nind under the utility contract.
+    :param next_path: Value supplied for next path under the utility contract.
+    :param ldict: Value supplied for ldict under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if len(next_path) == (nind + 1):
         nextent = next_block[nind]
         add_link(prev_block[pind], nextent, ldict)
@@ -250,6 +408,20 @@ def merge_blocks(prev_block: _typing.Any, next_block: _typing.Any, pind: _typing
 
 def polish_index_markup(index: _typing.Any, blocks: _typing.Any) -> None:
     # Blocks are in reverse order at this point
+    """
+    Perform the polish index markup operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise polish index markup through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param index: Value supplied for index under the utility contract.
+    :param blocks: Value supplied for blocks under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     path_map = {}
     ldict = {}
     for block in blocks:

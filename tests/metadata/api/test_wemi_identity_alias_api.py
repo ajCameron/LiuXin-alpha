@@ -1,3 +1,14 @@
+"""
+Verify WEMI identity aliases, normalization and mapping semantics.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test wemi identity alias api through its owning regression module::
+
+        python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+"""
 from __future__ import annotations
 
 from typing import Any
@@ -18,16 +29,61 @@ from LiuXin_alpha.metadata.api import (
 
 
 def _stored_property(name: str) -> property:
+    """
+    Perform the stored property test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise stored property through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+
+
+    :param name: Value supplied for name in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     def getter(self):
+        """
+        Perform the getter test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise stored property.getter through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+
+
+        :param self: Value supplied for self in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return self._values.get(name)
 
     def setter(self, value) -> None:
+        """
+        Perform the setter test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise stored property.setter through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+
+
+        :param self: Value supplied for self in the focused test operation.
+        :param value: Value stored, compared or projected by the operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self._values[name] = value
 
     return property(getter, setter)
 
 
 class _ConcreteWorkIdentity(WorkIdentityAPI):
+    """
+    Provide the ConcreteWorkIdentity test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise ConcreteWorkIdentity through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+    """
     work_id = _stored_property("work_id")
     work_type = _stored_property("work_type")
     work_medium = _stored_property("work_medium")
@@ -46,17 +102,60 @@ class _ConcreteWorkIdentity(WorkIdentityAPI):
     work_scratch = _stored_property("work_scratch")
 
     def __init__(self, **values: Any) -> None:
+        """
+        Initialize the ConcreteWorkIdentity test double.
+
+        Example:
+            Exercise ConcreteWorkIdentity.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+
+
+        :param values: Values stored, compared or projected by the operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self._values = dict(values)
 
     @classmethod
     def from_mapping(cls, row):
+        """
+        Perform the from mapping test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise ConcreteWorkIdentity.from mapping through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+
+
+        :param row: Row mapping supplied to the in-memory test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return cls(**row)
 
     def to_mapping(self):
+        """
+        Perform the to mapping test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise ConcreteWorkIdentity.to mapping through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return dict(self._values)
 
 
 class _ConcreteItemIdentity(ItemIdentityAPI):
+    """
+    Provide the ConcreteItemIdentity test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise ConcreteItemIdentity through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+    """
     item_id = _stored_property("item_id")
     item_manifestation_id = _stored_property("item_manifestation_id")
     item_flags = _stored_property("item_flags")
@@ -73,17 +172,60 @@ class _ConcreteItemIdentity(ItemIdentityAPI):
     item_condition = _stored_property("item_condition")
 
     def __init__(self, **values: Any) -> None:
+        """
+        Initialize the ConcreteItemIdentity test double.
+
+        Example:
+            Exercise ConcreteItemIdentity.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+
+
+        :param values: Values stored, compared or projected by the operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self._values = dict(values)
 
     @classmethod
     def from_mapping(cls, row):
+        """
+        Perform the from mapping test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise ConcreteItemIdentity.from mapping through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+
+
+        :param row: Row mapping supplied to the in-memory test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return cls(**row)
 
     def to_mapping(self):
+        """
+        Perform the to mapping test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise ConcreteItemIdentity.to mapping through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return dict(self._values)
 
 
 class _ConcreteExpressionIdentity(ExpressionIdentityAPI):
+    """
+    Provide the ConcreteExpressionIdentity test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise ConcreteExpressionIdentity through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+    """
     expression_id = _stored_property("expression_id")
     expression_type = _stored_property("expression_type")
     expression_language_id = _stored_property("expression_language_id")
@@ -94,18 +236,61 @@ class _ConcreteExpressionIdentity(ExpressionIdentityAPI):
     expression_status = _stored_property("expression_status")
 
     def __init__(self, **values: Any) -> None:
+        """
+        Initialize the ConcreteExpressionIdentity test double.
+
+        Example:
+            Exercise ConcreteExpressionIdentity.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+
+
+        :param values: Values stored, compared or projected by the operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self._values = dict(values)
 
     @classmethod
     def from_mapping(cls, row: MetadataRecord):
+        """
+        Perform the from mapping test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise ConcreteExpressionIdentity.from mapping through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+
+
+        :param row: Row mapping supplied to the in-memory test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return cls(**row)
 
     @property
     def to_mapping(self) -> MutableMetadataRecord:
+        """
+        Perform the to mapping test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise ConcreteExpressionIdentity.to mapping through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return dict(self._values)
 
 
 class _ConcreteManifestationIdentity(ManifestationIdentityAPI):
+    """
+    Provide the ConcreteManifestationIdentity test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise ConcreteManifestationIdentity through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+    """
     manifestation_id = _stored_property("manifestation_id")
     manifestation_expression_id = _stored_property("manifestation_expression_id")
     manifestation_format_detail = _stored_property("manifestation_format_detail")
@@ -116,27 +301,90 @@ class _ConcreteManifestationIdentity(ManifestationIdentityAPI):
     manifestation_flags = _stored_property("manifestation_flags")
 
     def __init__(self, **values: Any) -> None:
+        """
+        Initialize the ConcreteManifestationIdentity test double.
+
+        Example:
+            Exercise ConcreteManifestationIdentity.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+
+
+        :param values: Values stored, compared or projected by the operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self._values = dict(values)
 
     @classmethod
     def from_mapping(cls, row: MetadataRecord):
+        """
+        Perform the from mapping test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise ConcreteManifestationIdentity.from mapping through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+
+
+        :param row: Row mapping supplied to the in-memory test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return cls(**row)
 
     @property
     def to_mapping(self) -> MutableMetadataRecord:
+        """
+        Perform the to mapping test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise ConcreteManifestationIdentity.to mapping through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return dict(self._values)
 
 
 class _ConcreteAgentIdentity(AgentIdentityAPI):
+    """
+    Provide the ConcreteAgentIdentity test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise ConcreteAgentIdentity through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+    """
     agent_id = _stored_property("agent_id")
     agent_type = _stored_property("agent_type")
     display_name = _stored_property("display_name")
 
     def __init__(self, **values: Any) -> None:
+        """
+        Initialize the ConcreteAgentIdentity test double.
+
+        Example:
+            Exercise ConcreteAgentIdentity.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+
+
+        :param values: Values stored, compared or projected by the operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self._values = dict(values)
 
 
 class _ConcreteAgentProfile(AgentProfileAPI):
+    """
+    Provide the ConcreteAgentProfile test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise ConcreteAgentProfile through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+    """
     agent = _stored_property("agent")
     aliases = _stored_property("aliases")
     notes = _stored_property("notes")
@@ -148,27 +396,104 @@ class _ConcreteAgentProfile(AgentProfileAPI):
     extra = _stored_property("extra")
 
     def __init__(self, **values: Any) -> None:
+        """
+        Initialize the ConcreteAgentProfile test double.
+
+        Example:
+            Exercise ConcreteAgentProfile.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+
+
+        :param values: Values stored, compared or projected by the operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self._values = dict(values)
 
     def to_mapping(self) -> MutableMetadataRecord:
+        """
+        Perform the to mapping test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise ConcreteAgentProfile.to mapping through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return dict(self._values)
 
 
 class _ConcreteWemiIdentity(WemiIdentityAPI):
+    """
+    Provide the ConcreteWemiIdentity test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise ConcreteWemiIdentity through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+    """
     id = _stored_property("id")
 
     def __init__(self, **values: Any) -> None:
+        """
+        Initialize the ConcreteWemiIdentity test double.
+
+        Example:
+            Exercise ConcreteWemiIdentity.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+
+
+        :param values: Values stored, compared or projected by the operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self._values = dict(values)
 
     @classmethod
     def from_mapping(cls, row: MetadataRecord):
+        """
+        Perform the from mapping test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise ConcreteWemiIdentity.from mapping through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+
+
+        :param row: Row mapping supplied to the in-memory test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return cls(**row)
 
     def to_mapping(self) -> MutableMetadataRecord:
+        """
+        Perform the to mapping test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise ConcreteWemiIdentity.to mapping through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return dict(self._values)
 
 
 def test_work_identity_aliases_delegate_to_work_fields() -> None:
+    """
+    Verify work identity aliases delegate to work fields.
+
+    Example:
+        Exercise test work identity aliases delegate to work fields through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     identity = _ConcreteWorkIdentity.from_mapping({"work_id": 1})
     alias_pairs = (
         ("id", "work_id", 101),
@@ -199,6 +524,17 @@ def test_work_identity_aliases_delegate_to_work_fields() -> None:
 
 
 def test_item_identity_aliases_delegate_to_item_fields() -> None:
+    """
+    Verify item identity aliases delegate to item fields.
+
+    Example:
+        Exercise test item identity aliases delegate to item fields through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     identity = _ConcreteItemIdentity()
     alias_pairs = (
         ("id", "item_id", 201),
@@ -226,6 +562,17 @@ def test_item_identity_aliases_delegate_to_item_fields() -> None:
 
 
 def test_expression_identity_alias_and_string_path() -> None:
+    """
+    Verify expression identity alias and string path.
+
+    Example:
+        Exercise test expression identity alias and string path through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     identity = _ConcreteExpressionIdentity.from_mapping({"expression_id": 1})
 
     identity.id = 55
@@ -237,6 +584,17 @@ def test_expression_identity_alias_and_string_path() -> None:
 
 
 def test_manifestation_identity_aliases_delegate_to_manifestation_fields() -> None:
+    """
+    Verify manifestation identity aliases delegate to manifestation fields.
+
+    Example:
+        Exercise test manifestation identity aliases delegate to manifestation fields through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     identity = _ConcreteManifestationIdentity.from_mapping({})
 
     identity.id = 65
@@ -251,6 +609,17 @@ def test_manifestation_identity_aliases_delegate_to_manifestation_fields() -> No
 
 
 def test_agent_identity_and_profile_defaults_and_passthroughs() -> None:
+    """
+    Verify agent identity and profile defaults and passthroughs.
+
+    Example:
+        Exercise test agent identity and profile defaults and passthroughs through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     unnamed = _ConcreteAgentIdentity(agent_id=1, agent_type="human", display_name=None)
     named = _ConcreteAgentIdentity(agent_id=2, agent_type="human", display_name="Agent Name")
     profile = _ConcreteAgentProfile(agent=named)
@@ -278,6 +647,17 @@ def test_agent_identity_and_profile_defaults_and_passthroughs() -> None:
 
 
 def test_base_wemi_identity_string_path() -> None:
+    """
+    Verify base wemi identity string path.
+
+    Example:
+        Exercise test base wemi identity string path through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_wemi_identity_alias_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     identity = _ConcreteWemiIdentity.from_mapping({"id": 88})
 
     assert identity.to_mapping() == {"id": 88}

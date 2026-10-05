@@ -1,5 +1,16 @@
 # Generates test_db_11 - a database with complex series and some apparently valid asset data
 
+"""
+Expose the supported test db 11 compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+"""
 import os
 
 from LiuXin_alpha.utils.libraries.liuxin_clint import puts, colored
@@ -28,9 +39,26 @@ random = LiuXinBadPseudoRandomGenerator(seed=1194)
 class TestDB11Builder(TestDatabaseBuilder):
     """
     Generates test_db_11 - which has complex series metadata and some apparently valid asset data.
+
+    Example:
+        Exercise TestDB11Builder through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
     """
 
     def load_base_database(self):
+        """
+        Perform the load base database operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TestDB11Builder.load base database through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return load_data(folder_path=None, overwrite_db=False, base_data=False, load_from=None)
 
     @staticmethod
@@ -38,6 +66,19 @@ class TestDB11Builder(TestDatabaseBuilder):
         # There is some redundancy here
         # Clear the link tables as well - should be cleared when the tables are cleared - but might not be (faulty db?)
         # Want to make sure as to the final state.
+        """
+        Perform the purge tables operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TestDB11Builder.purge tables through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         puts(colored.green("Purging asset rows - all will be removed. Also removing links from the assets to md rows"))
         scratch_db.driver_wrapper.clear("files")
         scratch_db.driver_wrapper.clear("file_folder_links")
@@ -53,6 +94,19 @@ class TestDB11Builder(TestDatabaseBuilder):
 
     def detail_databases(self, scratch_db):
         # Include the complex series data
+        """
+        Perform the detail databases operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TestDB11Builder.detail databases through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         puts(colored.green("Adding complex series data"))
         scratch_db = add_complex_series_to_db(scratch_db)
 
@@ -72,20 +126,27 @@ class TestDB11Builder(TestDatabaseBuilder):
         series_cover_count=150,
     ):
         """
-        All asset data has been cleared from the database by this point - now creating a set of valid entries in a set
-        of test folder stores.
-        Assets will be removed after they've been created and added to the database - it's just easier to actually
-        use the existing methods to make the test database with the rest of it.
-        :param scratch_db: DB to build the asset data for
-        :param fs_count: The number of folder stores to build - defaults to 10
-        :param book_folder_count: The number of book folders to make - book folders will be evenly distributed among the
-                                  folder stores.
-        :param format_count: The number of formats to be added to the folder store. They will be added to random book
-                             folders in random folder stores.
-        :param book_cover_count: The total number of covers to add to books on the system.
-        :param creator_cover_count: The number of covers to add to creators on the system
-        :param series_cover_count: The total number of covers to add to series on the system.
-        :return:
+        All asset data has been cleared from the database by this point - now creating a set of valid entries in a set of test folder stores. Assets will be removed after they've been created and added to the database - it's just easier to actually use the existing methods to make the test database with the rest of it.
+
+        Example:
+            Exercise TestDB11Builder.build valid asset data through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :param fs_count: Value supplied for fs count under the utility contract.
+        :param book_folder_count: Value supplied for book folder count under the utility
+            contract.
+        :param format_count: Value supplied for format count under the utility contract.
+        :param book_cover_count: Value supplied for book cover count under the utility
+            contract.
+        :param creator_cover_count: Value supplied for creator cover count under the utility
+            contract.
+        :param series_cover_count: Value supplied for series cover count under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         from utils.lx_libraries.liuxin_random import LiuXinBadPseudoRandomGenerator
 
@@ -270,15 +331,22 @@ def build_test_db(
     test_asset_version=None,
 ):
     """
-    test_db_2 is intended for applications where the whole database had to be read into the cache - as such size is at a
-    premium in order to speed up the tests.
-    The test database has one title - it's got all the metadata associated with that title - but it only has one title.
-    This method constructs the test database - starting with a regular test database and removing everything except
-    title 1 (and the unknown title - if it exists).
-    :param dst_file_path: Place to copy the database file to after it's been built
-    :param dump: If True then the csv files compromising this database will be written into the folder where this
-                 script is running.
-    :return:
+    test_db_2 is intended for applications where the whole database had to be read into the cache - as such size is at a premium in order to speed up the tests. The test database has one title - it's got all the metadata associated with that title - but it only has one title. This method constructs the test database - starting with a regular test database and removing everything except title 1 (and the unknown title - if it exists).
+
+    Example:
+        Exercise build test db through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+    :param dst_file_path: Value supplied for dst file path under the utility contract.
+    :param dump: Value supplied for dump under the utility contract.
+    :param plugin_name: Value supplied for plugin name under the utility contract.
+    :param new_db_uuid: Value supplied for new db uuid under the utility contract.
+    :param test_asset_version: Value supplied for test asset version under the utility
+        contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     test_db_builder = TestDB11Builder(
         dst_file_path=dst_file_path,
@@ -295,11 +363,19 @@ def build_test_db(
 def draw_fs_resource_id_combo(folder_store_count, resource_count, bad_combos):
     """
     Return a randomly selected folder store, folder combination.
-    :param folder_store_count: The total number of folder stores
-    :param resource_count: The total number of books on the system
-    :param bad_combos: A set of tuples - first element being the folder store, second element being the book id.
-                       Only combinations not in the bad_combos will be returned.
-    :return:
+
+    Example:
+        Exercise draw fs resource id combo through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+    :param folder_store_count: Value supplied for folder store count under the utility
+        contract.
+    :param resource_count: Value supplied for resource count under the utility contract.
+    :param bad_combos: Value supplied for bad combos under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     give_up_count = 50
     try_count = 0

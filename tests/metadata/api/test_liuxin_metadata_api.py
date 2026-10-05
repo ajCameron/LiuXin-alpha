@@ -1,3 +1,14 @@
+"""
+Verify the shared LiuXin metadata base contract.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test liuxin metadata api through its owning regression module::
+
+        python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+"""
 from __future__ import annotations
 
 from LiuXin_alpha.metadata.api import (
@@ -11,16 +22,49 @@ from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
 
 
 def test_liuxin_metadata_api_is_exported_from_metadata_api_root() -> None:
+    """
+    Verify liuxin metadata api remains exported from metadata api root.
+
+    Example:
+        Exercise test liuxin metadata api is exported from metadata api root through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     assert "LiuXinMetadataAPI" in metadata_api_all
     assert "LiuXinMetaInformationAPI" in metadata_api_all
 
 
 def test_liuxin_metadata_api_keeps_rendering_out_of_core_contract() -> None:
+    """
+    Verify liuxin metadata api keeps rendering out of core contract.
+
+    Example:
+        Exercise test liuxin metadata api keeps rendering out of core contract through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     assert not hasattr(LiuXinMetadataAPI, "to_html")
     assert not hasattr(LiuXinMetadataAPI, "format_series_index")
 
 
 def test_calibre_like_container_supports_legacy_liuxin_metadata_contract() -> None:
+    """
+    Verify calibre like container supports legacy liuxin metadata contract.
+
+    Example:
+        Exercise test calibre like container supports legacy liuxin metadata contract through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata: LiuXinMetadataAPI = CalibreLikeLiuXinBookMetaData(
         "Title",
         ["Author"],
@@ -42,6 +86,17 @@ def test_calibre_like_container_supports_legacy_liuxin_metadata_contract() -> No
 
 
 def test_liuxin_meta_information_alias_tracks_metadata_contract() -> None:
+    """
+    Verify liuxin meta information alias tracks metadata contract.
+
+    Example:
+        Exercise test liuxin meta information alias tracks metadata contract through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata: LiuXinMetaInformationAPI = CalibreLikeLiuXinBookMetaData(
         "Alias Title",
         ["Alias Author"],

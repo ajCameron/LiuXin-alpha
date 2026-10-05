@@ -1,4 +1,13 @@
-"""Catalog writer types and implementations."""
+"""
+Export catalog writer factories, updates and host-facing contracts.
+
+The module keeps validation, normalization and host mutation boundaries explicit.
+
+Example:
+    Exercise init through its owning regression module::
+
+        python -m pytest -q tests/catalog/test_writer_factory.py
+"""
 
 from LiuXin_alpha.catalog.write.base_writer import (
     BaseCatalogWriter,

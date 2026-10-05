@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Reconstruct MOBI markup, links and resource references.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise markup through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+"""
 from __future__ import (
     absolute_import,
     annotations,
@@ -32,6 +43,20 @@ def update_internal_links(mobi8_reader: _typing.Any, log: _typing.Any) -> _typin
     #       XXXX is the offset in records into divtbl
     #       YYYYYYYYYYYY is a base32 number you add to the divtbl insertpos to get final position
 
+    """
+    Perform the update internal links operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise update internal links through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param mobi8_reader: Value supplied for mobi8 reader under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     mr = mobi8_reader
 
     # pos:fid pattern
@@ -68,6 +93,19 @@ def update_internal_links(mobi8_reader: _typing.Any, log: _typing.Any) -> _typin
 def remove_kindlegen_markup(parts: _typing.Any) -> None:
 
     # we can safely remove all of the Kindlegen generated aid tags
+    """
+    Perform the remove kindlegen markup operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise remove kindlegen markup through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param parts: Value supplied for parts under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     find_tag_with_aid_pattern = re.compile(r"""(<[^>]*\said\s*=[^>]*>)""", re.IGNORECASE)
     within_tag_aid_position_pattern = re.compile(r"""\said\s*=['"][^'"]*['"]""")
 
@@ -108,6 +146,21 @@ def update_flow_links(mobi8_reader: _typing.Any, resource_map: _typing.Any, log:
     #   kindle:flow:XXXX?mime=YYYY/ZZZ (used for style sheets, svg images, etc)
     #   kindle:embed:XXXX   (used for fonts)
 
+    """
+    Perform the update flow links operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise update flow links through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param mobi8_reader: Value supplied for mobi8 reader under the utility contract.
+    :param resource_map: Value supplied for resource map under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     mr = mobi8_reader
     flows = []
 
@@ -211,6 +264,22 @@ def update_flow_links(mobi8_reader: _typing.Any, resource_map: _typing.Any, log:
 
 
 def insert_flows_into_markup(parts: _typing.Any, flows: _typing.Any, mobi8_reader: _typing.Any, log: _typing.Any) -> None:
+    """
+    Perform the insert flows into markup operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise insert flows into markup through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param parts: Value supplied for parts under the utility contract.
+    :param flows: Value supplied for flows under the utility contract.
+    :param mobi8_reader: Value supplied for mobi8 reader under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     mr = mobi8_reader
 
     # kindle:flow:XXXX?mime=YYYY/ZZZ (used for style sheets, svg images, etc)
@@ -246,6 +315,21 @@ def insert_flows_into_markup(parts: _typing.Any, flows: _typing.Any, mobi8_reade
 def insert_images_into_markup(parts: _typing.Any, resource_map: _typing.Any, log: _typing.Any) -> None:
     # Handle any embedded raster images links in the xhtml text
     # kindle:embed:XXXX?mime=image/gif (png, jpeg, etc) (used for images)
+    """
+    Perform the insert images into markup operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise insert images into markup through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param parts: Value supplied for parts under the utility contract.
+    :param resource_map: Value supplied for resource map under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     img_pattern = re.compile(r"""(<[img\s|image\s][^>]*>)""", re.IGNORECASE)
     img_index_pattern = re.compile(r"""[('"]kindle:embed:([0-9|A-V]+)[^')"]*[)'"]""")
 
@@ -294,6 +378,19 @@ def insert_images_into_markup(parts: _typing.Any, resource_map: _typing.Any, log
 
 
 def upshift_markup(parts: _typing.Any) -> None:
+    """
+    Perform the upshift markup operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise upshift markup through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param parts: Value supplied for parts under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     tag_pattern = re.compile(r"""(<(?:svg)[^>]*>)""", re.IGNORECASE)
 
     for i in memory_range(len(parts)):
@@ -314,6 +411,21 @@ def upshift_markup(parts: _typing.Any) -> None:
 
 def expand_mobi8_markup(mobi8_reader: _typing.Any, resource_map: _typing.Any, log: _typing.Any) -> _typing.Any:
     # First update all internal links that are based on offsets
+    """
+    Perform the expand mobi8 markup operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise expand mobi8 markup through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param mobi8_reader: Value supplied for mobi8 reader under the utility contract.
+    :param resource_map: Value supplied for resource map under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parts = update_internal_links(mobi8_reader, log)
 
     # Remove pointless markup inserted by kindlegen

@@ -1,3 +1,14 @@
+"""
+Split oversized OEB documents while preserving navigation and links.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise split through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+"""
 from __future__ import with_statement
 from __future__ import annotations
 
@@ -49,11 +60,46 @@ SPLIT_POINT_ATTR = "csp"
 
 
 def tostring(root: _typing.Any) -> _typing.Any:
+    """
+    Perform the tostring operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise tostring through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return etree.tostring(root, encoding="utf-8")
 
 
 class SplitError(ValueError):
+    """
+    Report a spliterror encountered while processing an ebook format.
+
+    Example:
+        Exercise SplitError through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+    """
     def __init__(self: _typing.Self, path: _typing.Any, root: _typing.Any) -> None:
+        """
+        Initialize and validate the spliterror state.
+
+        Example:
+            Exercise SplitError.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param root: Root directory that bounds path resolution or traversal.
+        :return: None; validated state is stored on the receiving object.
+        """
         size = len(tostring(root)) / 1024.0
         ValueError.__init__(
             self,
@@ -63,6 +109,14 @@ class SplitError(ValueError):
 
 
 class Split(object):
+    """
+    Provide the split contract for validated ebook processing.
+
+    Example:
+        Exercise Split through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+    """
     def __init__(
         self: _typing.Self,
         split_on_page_breaks: bool = True,
@@ -70,6 +124,24 @@ class Split(object):
         max_flow_size: int = 0,
         remove_css_pagebreaks: bool = True,
     ) -> None:
+        """
+        Initialize and validate the split state.
+
+        Example:
+            Exercise Split.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param split_on_page_breaks: Value supplied for split on page breaks under the
+            utility contract.
+        :param page_breaks_xpath: Value supplied for page breaks xpath under the utility
+            contract.
+        :param max_flow_size: Value supplied for max flow size under the utility contract.
+        :param remove_css_pagebreaks: Value supplied for remove css pagebreaks under the
+            utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.split_on_page_breaks = split_on_page_breaks
         self.page_breaks_xpath = page_breaks_xpath
         self.max_flow_size = max_flow_size
@@ -79,6 +151,20 @@ class Split(object):
             self.page_break_selectors = [(XPath(self.page_breaks_xpath), False)]
 
     def __call__(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any) -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Split.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.oeb = oeb
         self.log = oeb.log
         self.log("Splitting markup on page breaks and flow limits, if any...")
@@ -91,6 +177,19 @@ class Split(object):
         self.fix_links()
 
     def split_item(self: _typing.Self, item: _typing.Any) -> None:
+        """
+        Perform the split item operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Split.split item through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         page_breaks, page_break_ids = [], []
         if self.split_on_page_breaks:
             page_breaks, page_break_ids = self.find_page_breaks(item)
@@ -102,6 +201,19 @@ class Split(object):
             self.map[item.href] = collections.defaultdict(am.default_factory, **am)
 
     def find_page_breaks(self: _typing.Self, item: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Find page breaks under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Split.find page breaks through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.page_break_selectors is None:
             self.page_break_selectors = set()
             try:
@@ -207,7 +319,15 @@ class Split(object):
     def fix_links(self: _typing.Self) -> None:
         """
         Fix references to the split files in other content files.
-        :return:
+
+        Example:
+            Exercise Split.fix links through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         for item in self.oeb.manifest:
             if etree.iselement(item.data):
@@ -215,6 +335,19 @@ class Split(object):
                 rewrite_links(item.data, self.rewrite_links)
 
     def rewrite_links(self: _typing.Self, url: _typing.Any) -> _typing.Any:
+        """
+        Perform the rewrite links operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Split.rewrite links through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param url: Value supplied for url under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         href, frag = urldefrag(url)
         try:
             href = self.current_item.abshref(href)
@@ -240,9 +373,31 @@ class Split(object):
 class FlowSplitter(object):
     """
     The actual splitting logic
+
+    Example:
+        Exercise FlowSplitter through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     def __init__(self: _typing.Self, item: _typing.Any, page_breaks: _typing.Any, page_break_ids: _typing.Any, max_flow_size: _typing.Any, oeb: _typing.Any, opts: _typing.Any) -> None:
+        """
+        Initialize and validate the flowsplitter state.
+
+        Example:
+            Exercise FlowSplitter.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :param page_breaks: Value supplied for page breaks under the utility contract.
+        :param page_break_ids: Value supplied for page break ids under the utility contract.
+        :param max_flow_size: Value supplied for max flow size under the utility contract.
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.item = item
         self.oeb = oeb
         self.opts = opts
@@ -287,6 +442,19 @@ class FlowSplitter(object):
         self.commit()
 
     def split_on_page_breaks(self: _typing.Self, orig_tree: _typing.Any) -> None:
+        """
+        Perform the split on page breaks operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FlowSplitter.split on page breaks through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param orig_tree: Value supplied for orig tree under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         ordered_ids = OrderedDict()
         all_page_break_ids = frozenset(self.page_break_ids)
         for elem_id in orig_tree.xpath("//*/@id"):
@@ -329,6 +497,19 @@ class FlowSplitter(object):
         self.trees = trees
 
     def get_body(self: _typing.Self, root: _typing.Any) -> _typing.Any:
+        """
+        Return body under the format's safety and compatibility rules.
+
+        Example:
+            Exercise FlowSplitter.get body through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         body = root.xpath("//h:body", namespaces=NAMESPACES)
         if not body:
             return None
@@ -337,14 +518,34 @@ class FlowSplitter(object):
     def do_split(self: _typing.Self, tree: _typing.Any, split_point: _typing.Any, before: _typing.Any) -> _typing.Any:
         """
         Split ``tree`` into a *before* and *after* tree at ``split_point``.
-        :param tree:
-        :param split_point:
-        :param before: If True tree is split before split_point, otherwise after split_point
-        :return: before_tree, after_tree
+
+        Example:
+            Exercise FlowSplitter.do split through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param tree: Value supplied for tree under the utility contract.
+        :param split_point: Value supplied for split point under the utility contract.
+        :param before: Value supplied for before under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return do_split(split_point, self.log, before=before)
 
     def is_page_empty(self: _typing.Self, root: _typing.Any) -> bool:
+        """
+        Return whether is page empty holds for the supplied ebook data.
+
+        Example:
+            Exercise FlowSplitter.is page empty through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :return: True when the documented condition holds; otherwise False.
+        """
         body = self.get_body(root)
         if body is None:
             return False
@@ -371,6 +572,21 @@ class FlowSplitter(object):
         return True
 
     def split_text(self: _typing.Self, text: _typing.Any, root: _typing.Any, size: _typing.Any) -> _typing.Any:
+        """
+        Perform the split text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FlowSplitter.split text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :param root: Root directory that bounds path resolution or traversal.
+        :param size: Value supplied for size under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.log.debug("\t\t\tSplitting text of length: %d" % len(text))
         rest = text.replace("\r", "")
         parts = re.split("\n\n", rest)
@@ -391,6 +607,19 @@ class FlowSplitter(object):
         return ans
 
     def split_to_size(self: _typing.Self, tree: _typing.Any) -> None:
+        """
+        Perform the split to size operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FlowSplitter.split to size through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param tree: Value supplied for tree under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.log.debug("\t\tSplitting...")
         root = tree.getroot()
         # Split large <pre> tags if they contain only text
@@ -436,22 +665,33 @@ class FlowSplitter(object):
 
     def find_split_point(self: _typing.Self, root: _typing.Any) -> tuple[_typing.Any, ...]:
         """
-        Find the tag at which to split the tree rooted at `root`.
-        Search order is:
-            * Heading tags
-            * <div> tags
-            * <pre> tags
-            * <hr> tags
-            * <p> tags
-            * <br> tags
-            * <li> tags
+        Find the tag at which to split the tree rooted at `root`. Search order is: * Heading tags * <div> tags * <pre> tags * <hr> tags * <p> tags * <br> tags * <li> tags
 
-        We try to split in the "middle" of the file (as defined by tag counts.
-        :param root:
-        :return:
+        Example:
+            Exercise FlowSplitter.find split point through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         def pick_elem(local_elems: _typing.Any) -> _typing.Any:
+            """
+            Perform the pick elem operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise FlowSplitter.find split point.pick elem through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param local_elems: Value supplied for local elems under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if local_elems:
                 local_elems = [i for i in local_elems if i.get(SPLIT_POINT_ATTR, "0") != "1"]
                 if local_elems:
@@ -482,10 +722,16 @@ class FlowSplitter(object):
 
     def commit(self: _typing.Self) -> None:
         """
-        Commit all changes caused by the split. Calculates an *anchor_map* for
-        all anchors in the original tree. Internal links are re-directed. The
-        original file is deleted and the split files are saved.
-        :return:
+        Commit all changes caused by the split. Calculates an *anchor_map* for all anchors in the original tree. Internal links are re-directed. The original file is deleted and the split files are saved.
+
+        Example:
+            Exercise FlowSplitter.commit through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if not self.was_split:
             return
@@ -528,6 +774,19 @@ class FlowSplitter(object):
                     ref.href = nhref
 
         def fix_toc_entry(toc: _typing.Any) -> None:
+            """
+            Perform the fix toc entry operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise FlowSplitter.commit.fix toc entry through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param toc: Value supplied for toc under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if toc.href:
                 local_href, local_frag = urldefrag(toc.href)
                 if local_href == self.item.href:

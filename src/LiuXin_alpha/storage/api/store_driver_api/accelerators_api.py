@@ -29,6 +29,7 @@ _DriverObjectAddressContraT = TypeVar(
 )
 
 
+# Todo: Are there any other things we can add as native capabilities?
 @runtime_checkable
 class NativeCopyStorageDriverAPI(Protocol[DriverObjectAddressT]):
     """

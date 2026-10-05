@@ -1,3 +1,14 @@
+"""
+Define tokenizer, parser, namespace and serialization constants for the bundled HTML5 implementation.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise constants through a consuming regression::
+
+        python -m pytest -q tests/file_formats/html/test_html_modernized.py
+"""
 from __future__ import absolute_import, division, unicode_literals
 
 import string
@@ -3006,8 +3017,24 @@ prefixes["http://www.w3.org/1998/Math/MathML"] = "math"
 
 
 class DataLossWarning(UserWarning):
+    """
+    Provide the DataLossWarning utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise DataLossWarning through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
     pass
 
 
 class ReparseException(Exception):
+    """
+    Provide the ReparseException utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise ReparseException through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
     pass

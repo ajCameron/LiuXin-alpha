@@ -10,6 +10,17 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+"""
+Resolve RTF list numbering and attach labels to paragraphs.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise list numbers through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -21,8 +32,12 @@ from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
 
 class ListNumbers:
     """
-    RTF puts list numbers outside of the paragraph. The public method
-    in this class put the list numbers inside the paragraphs.
+    RTF puts list numbers outside of the paragraph. The public method in this class put the list numbers inside the paragraphs.
+
+    Example:
+        Exercise ListNumbers through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
     """
 
     def __init__(
@@ -33,14 +48,19 @@ class ListNumbers:
         run_level: int = 1,
     ) -> None:
         """
-        Required:
-            'file'
-        Optional:
-            'copy'-- whether to make a copy of result for debugging
-            'temp_dir' --where to output temporary results (default is
-            directory from which the script is run.)
-        Returns:
-            nothing
+        Required: 'file' Optional: 'copy'-- whether to make a copy of result for debugging 'temp_dir' --where to output temporary results (default is directory from which the script is run.) Returns: nothing
+
+        Example:
+            Exercise ListNumbers.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param copy: Value supplied for copy under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.__file = in_file
         self.__bug_handler = bug_handler
@@ -49,11 +69,16 @@ class ListNumbers:
 
     def __initiate_values(self: _typing.Self) -> None:
         """
-        initiate values for fix_list_numbers.
-        Required:
-            Nothing
-        Return:
-            Nothing
+        initiate values for fix_list_numbers. Required: Nothing Return: Nothing
+
+        Example:
+            Exercise ListNumbers.  initiate values through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__state = "default"
         self.__list_chunk = ""
@@ -68,11 +93,17 @@ class ListNumbers:
 
     def __after_ob_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Handle the line immediately after an open bracket.
-        Required:
-            self, line
-        Returns:
-            Nothing
+        Handle the line immediately after an open bracket. Required: self, line Returns: Nothing
+
+        Example:
+            Exercise ListNumbers.  after ob func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "cw<ls<list-text_":
             self.__state = "list_text"
@@ -86,8 +117,17 @@ class ListNumbers:
 
     def __after_list_text_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Look for an open bracket or a line of text, and then print out the
-        self.__list_chunk. Print out the line.
+        Look for an open bracket or a line of text, and then print out the self.__list_chunk. Print out the line.
+
+        Example:
+            Exercise ListNumbers.  after list text func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if line[0:2] == "ob" or line[0:2] == "tx":
             self.__state = "default"
@@ -107,6 +147,16 @@ class ListNumbers:
     def __determine_list_type(self: _typing.Self, chunk: _typing.Any) -> str:
         """
         Determine if the list is ordered or itemized
+
+        Example:
+            Exercise ListNumbers.  determine list type through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param chunk: Value supplied for chunk under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         lines = chunk.split("\n")
         text_string = ""
@@ -131,13 +181,17 @@ class ListNumbers:
 
     def __list_text_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Handle lines that are part of the list text. If the end of the list
-        text is found (the closing bracket matches the self.__list_text_ob),
-        then change  the state. Always add the line to the self.__list_chunk
-        Required:
-            self, line
-        Returns:
-            Nothing
+        Handle lines that are part of the list text. If the end of the list text is found (the closing bracket matches the self.__list_text_ob), then change the state. Always add the line to the self.__list_chunk Required: self, line Returns: Nothing
+
+        Example:
+            Exercise ListNumbers.  list text func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__list_text_ob == self.__cb_count:
             self.__state = "after_list_text"
@@ -149,14 +203,17 @@ class ListNumbers:
 
     def __default_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Handle the lines that are not part of any special state. Look for an
-        opening bracket. If an open bracket is found, add this line to a
-        temporary self.__previous line, which other methods need. Otherwise,
-        print out the line.
-        Required:
-            self, line
-        Returns:
-            Nothing
+        Handle the lines that are not part of any special state. Look for an opening bracket. If an open bracket is found, add this line to a temporary self.__previous line, which other methods need. Otherwise, print out the line. Required: self, line Returns: Nothing
+
+        Example:
+            Exercise ListNumbers.  default func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "ob<nu<open-brack":
             self.__state = "after_ob"
@@ -166,20 +223,16 @@ class ListNumbers:
 
     def fix_list_numbers(self: _typing.Self) -> None:
         """
-        Required:
-            nothing
-        Returns:
-            original file will be changed
-        Logic:
-            Read in one line a time from the file. Keep track of opening and
-            closing brackets. Determine the method ('action') by passing the
-            state to the self.__state_dict.
-            Simply print out the line to a temp file until an open bracket
-            is found. Check the next line. If it is list-text, then start
-            adding to the self.__list_chunk until the closing bracket is
-            found.
-            Next, look for an open bracket or text. When either is found,
-            print out self.__list_chunk and the line.
+        Required: nothing Returns: original file will be changed Logic: Read in one line a time from the file. Keep track of opening and closing brackets. Determine the method ('action') by passing the state to the self.__state_dict. Simply print out the line to a temp file until an open bracket is found. Check the next line. If it is list-text, then start adding to the self.__list_chunk until the closing bracket is found. Next, look for an open bracket or text. When either is found, print out self.__list_chunk and the line.
+
+        Example:
+            Exercise ListNumbers.fix list numbers through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__initiate_values()
         read_obj = open_for_read(self.__file)

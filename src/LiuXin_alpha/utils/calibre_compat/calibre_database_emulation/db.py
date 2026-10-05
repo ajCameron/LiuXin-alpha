@@ -1,12 +1,13 @@
 """
-Read-only connection wrapper and schema discovery for Calibre libraries.
+Open and validate Calibre metadata databases behind a read-oriented compatibility facade.
 
-- Open an existing ``metadata.db`` safely (read-only)
-- Discover schema info (application_id, user_version, table/trigger lists)
-- Discover custom columns (from ``custom_columns`` table)
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-This is intentionally minimal and conservative: higher-level readers will build
-on this layer.
+Example:
+    Exercise db through a consuming regression::
+
+        python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_db.py
 """
 
 from __future__ import annotations
@@ -31,8 +32,15 @@ def _as_path(p: str | Path) -> Path:
     """
     Attempt to cast the given object to a path.
 
-    :param p:
-    :return:
+    Example:
+        Exercise  as path through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_db.py
+
+
+    :param p: Path-like value normalized or validated by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return p if isinstance(p, Path) else Path(p)
 
@@ -47,12 +55,18 @@ def _connect_sqlite(
     """
     Open sqlite3 connection (optionally read-only) with safe pragmas.
 
-    The aim is a as-safe-as-possible connection to enable database reading.
-    :param db_path:
-    :param read_only:
-    :param timeout_ms:
-    :param row_factory:
-    :return:
+    Example:
+        Exercise  connect sqlite through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_db.py
+
+
+    :param db_path: Value supplied for db path under the utility contract.
+    :param read_only: Value supplied for read only under the utility contract.
+    :param timeout_ms: Value supplied for timeout ms under the utility contract.
+    :param row_factory: Value supplied for row factory under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if read_only:
         # Use a proper file:// URI (with escaping) to support spaces/unicode.
@@ -91,9 +105,16 @@ def _sqlite_master_names(conn: sqlite3.Connection, *, kind: str) -> Tuple[str, .
     """
     Extract the master names from the master schema table of the database.
 
-    :param conn:
-    :param kind:
-    :return:
+    Example:
+        Exercise  sqlite master names through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_db.py
+
+
+    :param conn: SQLite connection used for schema or metadata queries.
+    :param kind: Value supplied for kind under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     rows = conn.execute(
         "SELECT name FROM sqlite_master WHERE type=? AND name NOT LIKE 'sqlite_%' ORDER BY name",
@@ -106,9 +127,16 @@ def _table_exists(conn: sqlite3.Connection, table_name: str) -> bool:
     """
     Check to see if a table exists in the database.
 
-    :param conn:
-    :param table_name:
-    :return:
+    Example:
+        Exercise  table exists through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_db.py
+
+
+    :param conn: SQLite connection used for schema or metadata queries.
+    :param table_name: Value supplied for table name under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     row = conn.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name=? LIMIT 1",
@@ -121,8 +149,15 @@ def _parse_display_json(raw: Any) -> dict[str, Any]:
     """
     Parse a raw JSON string into a dict.
 
-    :param raw:
-    :return:
+    Example:
+        Exercise  parse display json through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_db.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if raw is None:
         return {}
@@ -148,9 +183,16 @@ def _table_columns(conn: sqlite3.Connection, table_name: str) -> Tuple[str, ...]
     """
     Return column names for a table via PRAGMA table_info (best-effort).
 
-    :param conn:
-    :param table_name:
-    :return:
+    Example:
+        Exercise  table columns through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_db.py
+
+
+    :param conn: SQLite connection used for schema or metadata queries.
+    :param table_name: Value supplied for table name under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     try:
         rows = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
@@ -167,7 +209,14 @@ def _table_columns(conn: sqlite3.Connection, table_name: str) -> Tuple[str, ...]
 
 @dataclass(frozen=True, slots=True)
 class CalibreDB:
-    """A small wrapper around a Calibre metadata.db for safe reads."""
+    """
+    A small wrapper around a Calibre metadata.db for safe reads.
+
+    Example:
+        Exercise CalibreDB through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_db.py
+    """
 
     paths: CalibreLibraryPaths
     read_only: bool = True
@@ -184,15 +233,33 @@ class CalibreDB:
         """
         Attempt to locate and load a calibre library from a root path.
 
-        :param library_root:
-        :param read_only:
-        :param timeout_ms:
-        :return:
+        Example:
+            Exercise CalibreDB.from root through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_db.py
+
+
+        :param library_root: Root directory of the Calibre library being inspected.
+        :param read_only: Value supplied for read only under the utility contract.
+        :param timeout_ms: Value supplied for timeout ms under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return cls(paths=CalibreLibraryPaths.from_root(_as_path(library_root)), read_only=read_only, timeout_ms=timeout_ms)
 
     def connect(self) -> sqlite3.Connection:
-        """Open a sqlite3 connection to metadata.db (caller must close)."""
+        """
+        Open a sqlite3 connection to metadata.db (caller must close).
+
+        Example:
+            Exercise CalibreDB.connect through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_db.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         db_path = _as_path(self.paths.metadata_db_path)
         if not db_path.exists():
             raise CalibreLibraryNotFoundError(f"metadata.db not found: {db_path}")
@@ -219,16 +286,25 @@ class CalibreDB:
         """
         Return observed schema info for the library.
 
-        The aim of this class is to pull as much data as possible out of a calibre database.
-        As such, we're introspecting to discover the schema.
-        :param include_tables:
-        :param include_triggers:
-        :param include_custom_columns:
-        :param include_version_plan:
-        :param require_core_tables:
-        :param best_effort:
-        :param version_policy:
-        :return:
+        Example:
+            Exercise CalibreDB.schema info through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_db.py
+
+
+        :param include_tables: Value supplied for include tables under the utility contract.
+        :param include_triggers: Value supplied for include triggers under the utility
+            contract.
+        :param include_custom_columns: Value supplied for include custom columns under the
+            utility contract.
+        :param include_version_plan: Value supplied for include version plan under the
+            utility contract.
+        :param require_core_tables: Value supplied for require core tables under the utility
+            contract.
+        :param best_effort: Value supplied for best effort under the utility contract.
+        :param version_policy: Value supplied for version policy under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         conn = self.connect()
         issues: list[CalibreIssue] = []
@@ -303,9 +379,15 @@ class CalibreDB:
         """
         Check the database for core tables.
 
-        If we don't have these, then there's not much to salvage.
-        :param conn:
-        :return:
+        Example:
+            Exercise CalibreDB. validate core tables through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_db.py
+
+
+        :param conn: SQLite connection used for schema or metadata queries.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         required = {
             "books",
@@ -329,14 +411,18 @@ class CalibreDB:
         """
         Read custom column definitions with best-effort column discovery.
 
-        Real Calibre libraries include extra columns such as `normalized` and
-        `editable`. Some mangled/minimal DBs may not; in that case we fall back
-        to Calibre's datatype rules and record issues when appropriate.
+        Example:
+            Exercise CalibreDB. read custom columns through a consuming regression::
 
-        :param conn: connection to database
-        :param existing_tables: If we know about some tables, hint them here.
-        :param issues_out:
-        :return:
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_db.py
+
+
+        :param conn: SQLite connection used for schema or metadata queries.
+        :param existing_tables: Value supplied for existing tables under the utility
+            contract.
+        :param issues_out: Value supplied for issues out under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         # Compute existing tables once if not supplied.
@@ -348,6 +434,19 @@ class CalibreDB:
             return ()
 
         def col_or_null(name: str) -> str:
+            """
+            Perform the col or null utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise CalibreDB. read custom columns.col or null through a consuming regression::
+
+                    python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_db.py
+
+
+            :param name: Field, file, function or resource name addressed by the operation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             real = cc_cols.get(name.lower())
             return f"{real} AS {name}" if real else f"NULL AS {name}"
 

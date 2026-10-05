@@ -18,6 +18,17 @@
 # Contributor(s):
 #
 
+"""
+Define permitted ODF child and attribute grammar.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise grammar through a consuming regression::
+
+        python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+"""
 from __future__ import annotations
 __doc__ = """ In principle the OpenDocument schema converted to python structures.
 Currently it contains the legal child elements of a given element.

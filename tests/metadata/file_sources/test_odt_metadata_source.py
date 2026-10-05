@@ -1,3 +1,14 @@
+"""
+Verify primary ODT metadata and cover extraction.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test odt metadata source through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+"""
 from __future__ import annotations
 
 import io
@@ -20,6 +31,19 @@ from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
 
 def _inject_dc_identifiers(path: Path, identifiers: list[str]) -> None:
+    """
+    Perform the inject dc identifiers test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise inject dc identifiers through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param path: Value supplied for path in the focused test operation.
+    :param identifiers: Value supplied for identifiers in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     with zipfile.ZipFile(path, "r") as zf:
         members = {info.filename: zf.read(info.filename) for info in zf.infolist()}
 
@@ -40,6 +64,19 @@ def _inject_dc_identifiers(path: Path, identifiers: list[str]) -> None:
 
 
 def _build_odt_with_metadata(path: Path, *, series_index: str = "3.0") -> None:
+    """
+    Perform the build odt with metadata test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise build odt with metadata through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param path: Value supplied for path in the focused test operation.
+    :param series_index: Value supplied for series index in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     doc = OpenDocumentText()
     para = P()
     addTextToElement(para, "metadata source smoke")
@@ -64,6 +101,18 @@ def _build_odt_with_metadata(path: Path, *, series_index: str = "3.0") -> None:
 
 
 def _build_odt_with_unicode_torture_metadata(path: Path) -> None:
+    """
+    Perform the build odt with unicode torture metadata test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise build odt with unicode torture metadata through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param path: Value supplied for path in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     doc = OpenDocumentText()
     para = P()
     addTextToElement(para, "unicode metadata source smoke")
@@ -86,9 +135,36 @@ def _build_odt_with_unicode_torture_metadata(path: Path) -> None:
 
 
 def _png_bytes(width: int, height: int, rgb: tuple[int, int, int] = (180, 90, 40)) -> bytes:
+    """
+    Perform the png bytes test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise png bytes through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param width: Value supplied for width in the focused test operation.
+    :param height: Value supplied for height in the focused test operation.
+    :param rgb: Value supplied for rgb in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     signature = b"\x89PNG\r\n\x1a\n"
 
     def chunk(tag: bytes, payload: bytes) -> bytes:
+        """
+        Perform the chunk test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise png bytes.chunk through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+        :param tag: Value supplied for tag in the focused test operation.
+        :param payload: Value supplied for payload in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return (
             struct.pack(">I", len(payload))
             + tag
@@ -104,6 +180,19 @@ def _png_bytes(width: int, height: int, rgb: tuple[int, int, int] = (180, 90, 40
 
 
 def _build_odt_with_cover(path: Path, *, opf_nocover: bool = False) -> None:
+    """
+    Perform the build odt with cover test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise build odt with cover through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param path: Value supplied for path in the focused test operation.
+    :param opf_nocover: Value supplied for opf nocover in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     doc = OpenDocumentText()
     para = P()
     addTextToElement(para, "cover test")
@@ -121,10 +210,33 @@ def _build_odt_with_cover(path: Path, *, opf_nocover: bool = False) -> None:
 
 
 def test_odt_metadata_module_import_smoke() -> None:
+    """
+    Verify odt metadata module import smoke.
+
+    Example:
+        Exercise test odt metadata module import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     importlib.import_module("LiuXin_alpha.metadata.file_sources.odt")
 
 
 def test_odt_metadata_extracts_core_fields_and_opf_overrides(tmp_path: Path) -> None:
+    """
+    Verify odt metadata extracts core fields and opf overrides.
+
+    Example:
+        Exercise test odt metadata extracts core fields and opf overrides through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.odt import get_metadata
 
     path = tmp_path / "odt_md_source.odt"
@@ -145,6 +257,18 @@ def test_odt_metadata_extracts_core_fields_and_opf_overrides(tmp_path: Path) -> 
 
 
 def test_odt_metadata_accepts_comma_series_index(tmp_path: Path) -> None:
+    """
+    Verify odt metadata accepts comma series index.
+
+    Example:
+        Exercise test odt metadata accepts comma series index through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.odt import get_metadata
 
     path = tmp_path / "odt_md_series_comma.odt"
@@ -157,6 +281,18 @@ def test_odt_metadata_accepts_comma_series_index(tmp_path: Path) -> None:
 
 
 def test_odt_metadata_reader_plugin_is_available(tmp_path: Path) -> None:
+    """
+    Verify odt metadata reader plugin remains available.
+
+    Example:
+        Exercise test odt metadata reader plugin is available through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
 
     path = tmp_path / "odt_md_plugin.odt"
@@ -174,6 +310,18 @@ def test_odt_metadata_reader_plugin_is_available(tmp_path: Path) -> None:
 
 
 def test_odt_metadata_source_accepts_pathlike_and_inplace(tmp_path: Path) -> None:
+    """
+    Verify odt metadata source accepts pathlike and inplace.
+
+    Example:
+        Exercise test odt metadata source accepts pathlike and inplace through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.odt import get_metadata, get_metadata_inplace
 
     path = tmp_path / "odt_md_pathlike.odt"
@@ -187,6 +335,17 @@ def test_odt_metadata_source_accepts_pathlike_and_inplace(tmp_path: Path) -> Non
 
 
 def test_odt_metadata_rejects_malformed_container_and_preserves_cursor() -> None:
+    """
+    Verify odt metadata rejects malformed container and preserves cursor.
+
+    Example:
+        Exercise test odt metadata rejects malformed container and preserves cursor through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.odt import OdtFormatError, get_metadata
 
     stream = io.BytesIO(b"not an odt")
@@ -200,6 +359,17 @@ def test_odt_metadata_rejects_malformed_container_and_preserves_cursor() -> None
 
 
 def test_odt_metadata_fallback_is_explicit_opt_in() -> None:
+    """
+    Verify odt metadata fallback remains explicit opt in.
+
+    Example:
+        Exercise test odt metadata fallback is explicit opt in through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.odt import get_metadata
 
     stream = io.BytesIO(b"not an odt")
@@ -214,6 +384,18 @@ def test_odt_metadata_fallback_is_explicit_opt_in() -> None:
 
 
 def test_odt_metadata_extracts_cover_from_opf_cover_frame(tmp_path: Path) -> None:
+    """
+    Verify odt metadata extracts cover from opf cover frame.
+
+    Example:
+        Exercise test odt metadata extracts cover from opf cover frame through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.odt import get_metadata
 
     path = tmp_path / "odt_md_cover.odt"
@@ -230,6 +412,18 @@ def test_odt_metadata_extracts_cover_from_opf_cover_frame(tmp_path: Path) -> Non
 
 
 def test_odt_metadata_respects_opf_nocover(tmp_path: Path) -> None:
+    """
+    Verify odt metadata respects opf nocover.
+
+    Example:
+        Exercise test odt metadata respects opf nocover through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.odt import get_metadata
 
     path = tmp_path / "odt_md_nocover.odt"
@@ -242,6 +436,18 @@ def test_odt_metadata_respects_opf_nocover(tmp_path: Path) -> None:
 
 
 def test_odt_metadata_unicode_torture_fields(tmp_path: Path) -> None:
+    """
+    Verify odt metadata unicode torture fields.
+
+    Example:
+        Exercise test odt metadata unicode torture fields through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.odt import get_metadata
 
     path = tmp_path / "odt_md_unicode_torture.odt"
@@ -260,6 +466,18 @@ def test_odt_metadata_unicode_torture_fields(tmp_path: Path) -> None:
 
 
 def test_odt_metadata_stream_cursor_is_preserved(tmp_path: Path) -> None:
+    """
+    Verify odt metadata stream cursor remains preserved.
+
+    Example:
+        Exercise test odt metadata stream cursor is preserved through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.odt import get_metadata
 
     path = tmp_path / "odt_md_cursor_restore.odt"
@@ -276,6 +494,18 @@ def test_odt_metadata_stream_cursor_is_preserved(tmp_path: Path) -> None:
 
 
 def test_odt_metadata_recover_parses_mildly_malformed_meta_xml_when_lxml_available(tmp_path: Path) -> None:
+    """
+    Verify odt metadata recover parses mildly malformed meta xml when lxml available.
+
+    Example:
+        Exercise test odt metadata recover parses mildly malformed meta xml when lxml available through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.odt import get_metadata
     from LiuXin_alpha.utils.libraries import liuxin_etree
 

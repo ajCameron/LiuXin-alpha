@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
+"""
+Serialize PDF gradient functions and shading dictionaries.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise gradients through a consuming regression::
+
+        python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -35,7 +46,33 @@ Stop = namedtuple("Stop", "t color")
 
 
 class LinearGradientPattern(Dictionary):
+    """
+    Provide the lineargradientpattern contract for validated ebook processing.
+
+    Example:
+        Exercise LinearGradientPattern through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+    """
     def __init__(self: _typing.Self, brush: _typing.Any, matrix: _typing.Any, pdf: _typing.Any, pixel_page_width: _typing.Any, pixel_page_height: _typing.Any) -> None:
+        """
+        Initialize and validate the lineargradientpattern state.
+
+        Example:
+            Exercise LinearGradientPattern.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param brush: Value supplied for brush under the utility contract.
+        :param matrix: Value supplied for matrix under the utility contract.
+        :param pdf: Value supplied for pdf under the utility contract.
+        :param pixel_page_width: Value supplied for pixel page width under the utility
+            contract.
+        :param pixel_page_height: Value supplied for pixel page height under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         if sip is None or QLinearGradient is None or QPointF is None:
             raise RuntimeError("PyQt5/sip is required for PDF gradient rendering.")
         self.matrix = (
@@ -113,6 +150,24 @@ class LinearGradientPattern(Dictionary):
         )
 
     def spread_gradient(self: _typing.Self, gradient: _typing.Any, pixel_page_width: _typing.Any, pixel_page_height: _typing.Any, matrix: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the spread gradient operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LinearGradientPattern.spread gradient through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param gradient: Value supplied for gradient under the utility contract.
+        :param pixel_page_width: Value supplied for pixel page width under the utility
+            contract.
+        :param pixel_page_height: Value supplied for pixel page height under the utility
+            contract.
+        :param matrix: Value supplied for matrix under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         start = gradient.start()
         stop = gradient.finalStop()
         stops = list(six_map(lambda x: [x[0], x[1].getRgbF()], gradient.stops()))
@@ -138,6 +193,19 @@ class LinearGradientPattern(Dictionary):
                 miny, maxy = min(miny, p.y()), max(maxy, p.y())
 
             def in_page(point: _typing.Any) -> bool:
+                """
+                Perform the in page operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise LinearGradientPattern.spread gradient.in page through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+                :param point: Value supplied for point under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 return minx <= point.x() <= maxx and miny <= point.y() <= maxy
 
             offset = stop - start

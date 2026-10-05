@@ -1,3 +1,14 @@
+"""
+Provide test event log handler utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test event log handler through a consuming regression::
+
+        python -m pytest -q tests/utils/logging/test_event_log_handler.py
+"""
 from __future__ import annotations
 
 import json
@@ -16,10 +27,37 @@ from LiuXin_alpha.utils.logging.run_logging import (
 
 
 def _jsonl(path: Path) -> list[dict[str, object]]:
+    """
+    Perform the jsonl utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  jsonl through a consuming regression::
+
+            python -m pytest -q tests/utils/logging/test_event_log_handler.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
 
 
 def test_persisted_level_name_does_not_deadlock(tmp_path: Path) -> None:
+    """
+    Perform the test persisted level name does not deadlock utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test persisted level name does not deadlock through a consuming regression::
+
+            python -m pytest -q tests/utils/logging/test_event_log_handler.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     event_log = InMemoryEventLog(
         persist_path=tmp_path / "events.jsonl",
         include_level_name_in_jsonl=True,
@@ -27,6 +65,18 @@ def test_persisted_level_name_does_not_deadlock(tmp_path: Path) -> None:
     finished = threading.Event()
 
     def write() -> None:
+        """
+        Forward the write operation while preserving adapter ownership rules.
+
+        Example:
+            Exercise test persisted level name does not deadlock.write through a consuming regression::
+
+                python -m pytest -q tests/utils/logging/test_event_log_handler.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         _ = event_log.put_event("ready", level=logging.INFO)
         finished.set()
 
@@ -42,6 +92,19 @@ def test_persisted_level_name_does_not_deadlock(tmp_path: Path) -> None:
 
 
 def test_persistence_round_trips_surrogateescaped_paths(tmp_path: Path) -> None:
+    """
+    Perform the test persistence round trips surrogateescaped paths utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test persistence round trips surrogateescaped paths through a consuming regression::
+
+            python -m pytest -q tests/utils/logging/test_event_log_handler.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     path = tmp_path / "events.jsonl"
     tortured = "pack-\udcff/深い/📚 e\u0301.epub"
     with InMemoryEventLog(persist_path=path) as event_log:
@@ -56,6 +119,18 @@ def test_persistence_round_trips_surrogateescaped_paths(tmp_path: Path) -> None:
 
 
 def test_logging_handler_retains_structured_context_and_traceback() -> None:
+    """
+    Perform the test logging handler retains structured context and traceback utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test logging handler retains structured context and traceback through a consuming regression::
+
+            python -m pytest -q tests/utils/logging/test_event_log_handler.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     event_log = InMemoryEventLog()
     handler = EventLogHandler(event_log)
     logger = logging.getLogger("tests.liuxin.event-handler")
@@ -98,6 +173,19 @@ def test_logging_handler_retains_structured_context_and_traceback() -> None:
 def test_run_logging_session_writes_complete_jsonl_and_rotating_text(
     tmp_path: Path,
 ) -> None:
+    """
+    Perform the test run logging session writes complete jsonl and rotating text utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test run logging session writes complete jsonl and rotating text through a consuming regression::
+
+            python -m pytest -q tests/utils/logging/test_event_log_handler.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     run_id = uuid4()
     logger = logging.getLogger("tests.liuxin.run-session")
     with RunLoggingSession(
@@ -147,6 +235,18 @@ def test_run_logging_session_writes_complete_jsonl_and_rotating_text(
 
 
 def test_human_formatter_bounds_cyclic_context() -> None:
+    """
+    Perform the test human formatter bounds cyclic context utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test human formatter bounds cyclic context through a consuming regression::
+
+            python -m pytest -q tests/utils/logging/test_event_log_handler.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     cyclic: dict[str, object] = {}
     cyclic["again"] = cyclic
     record = logging.LogRecord(

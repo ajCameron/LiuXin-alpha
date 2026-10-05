@@ -1,10 +1,13 @@
 """
-OneToManyTable is keyed with one book and valued with many items.
+Expose the supported one many tables compatibility surface.
 
-The items are just linked to the book - a single item cannot be linked to multiple books
-(that would be a ManyToMany table).
-E.g. (though it isn't currently in the db schema) - "text_hash"
-A single book can have many text hashes - (formatting would do it) - but no two books should share text hashes.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/library/test_unified_library.py
 """
 
 from LiuXin_alpha.library.caches.calibre.tables.one_many_tables.one_to_many_table import CalibreOneToManyTable

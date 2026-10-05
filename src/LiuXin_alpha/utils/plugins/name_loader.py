@@ -1,3 +1,14 @@
+"""
+Load and update retained first-name and surname resources.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise name loader through a consuming regression::
+
+        python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+"""
 __author__ = "Cameron"
 # Loads LiuXin's databases of names
 
@@ -29,7 +40,15 @@ def load_names(lower_case: bool = True) -> tuple[set[str], set[str]]:
     """
     Loads the first name and last name CSV files into memory.
 
-    :return first_name_set, last_name_set: Sets of all the first and last names present in the csv files.
+    Example:
+        Exercise load names through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param lower_case: Value supplied for lower case under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     global FIRST_NAMES
     global LAST_NAMES
@@ -63,10 +82,17 @@ def add_name(name: str, first_name: bool = False, last_name: bool = False) -> bo
     """
     Add a name to the namelist csv files.
 
-    :param name:
-    :param first_name:
-    :param last_name:
-    :return:
+    Example:
+        Exercise add name through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param first_name: Value supplied for first name under the utility contract.
+    :param last_name: Value supplied for last name under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     name = deepcopy(name)
     assert first_name or last_name, "Please specify if the name is first, last or both"

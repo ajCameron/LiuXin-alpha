@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Build trailing-byte sequences for MOBI records.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise tbs through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -42,6 +53,22 @@ Entry = namedtuple(
 
 
 def fill_entry(entry: _typing.Any, start_offset: _typing.Any, text_record_length: _typing.Any) -> _typing.Any:
+    """
+    Perform the fill entry operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise fill entry through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+    :param entry: Value supplied for entry under the utility contract.
+    :param start_offset: Value supplied for start offset under the utility contract.
+    :param text_record_length: Value supplied for text record length under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     length_offset = start_offset + entry.length
     if start_offset < 0:
         action = "spans" if length_offset > text_record_length else "ends"
@@ -52,6 +79,20 @@ def fill_entry(entry: _typing.Any, start_offset: _typing.Any, text_record_length
 
 
 def populate_strand(parent: _typing.Any, entries: _typing.Any) -> _typing.Any:
+    """
+    Perform the populate strand operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise populate strand through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param entries: Value supplied for entries under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ans = [parent]
     children = [c for c in entries if c.parent == parent.index]
     if children:
@@ -80,6 +121,19 @@ def populate_strand(parent: _typing.Any, entries: _typing.Any) -> _typing.Any:
 
 
 def separate_strands(entries: _typing.Any) -> _typing.Any:
+    """
+    Perform the separate strands operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise separate strands through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+    :param entries: Value supplied for entries under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ans = []
     while entries:
         top, entries = entries[0], entries[1:]
@@ -95,11 +149,19 @@ def separate_strands(entries: _typing.Any) -> _typing.Any:
 
 def collect_indexing_data(entries: _typing.Any, text_record_lengths: _typing.Any) -> _typing.Any:
     """
-    For every text record calculate which index entries start, end, span or are contained within that record.
-    Arrange these entries in 'strands'.
-    :param entries:
-    :param text_record_lengths:
-    :return:
+    For every text record calculate which index entries start, end, span or are contained within that record. Arrange these entries in 'strands'.
+
+    Example:
+        Exercise collect indexing data through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+    :param entries: Value supplied for entries under the utility contract.
+    :param text_record_lengths: Value supplied for text record lengths under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     data = []
@@ -126,15 +188,31 @@ def collect_indexing_data(entries: _typing.Any, text_record_lengths: _typing.Any
 
 
 class NegativeStrandIndex(Exception):
+    """
+    Provide the negativestrandindex contract for validated ebook processing.
+
+    Example:
+        Exercise NegativeStrandIndex through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+    """
     pass
 
 
 def encode_strands_as_sequences(strands: _typing.Any, tbs_type: int = 8) -> _typing.Any:
     """
     Encode the list of strands for a single text record into a list of sequences, ready to be converted into TBS bytes.
-    :param strands:
-    :param tbs_type:
-    :return:
+
+    Example:
+        Exercise encode strands as sequences through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+    :param strands: Value supplied for strands under the utility contract.
+    :param tbs_type: Value supplied for tbs type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     ans = []
     last_index = None
@@ -198,6 +276,19 @@ def encode_strands_as_sequences(strands: _typing.Any, tbs_type: int = 8) -> _typ
 
 
 def sequences_to_bytes(sequences: _typing.Any) -> _typing.Any:
+    """
+    Perform the sequences to bytes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise sequences to bytes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+    :param sequences: Value supplied for sequences under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ans = []
     flag_size = 3
     for val, extra in sequences:
@@ -207,6 +298,20 @@ def sequences_to_bytes(sequences: _typing.Any) -> _typing.Any:
 
 
 def calculate_all_tbs(indexing_data: _typing.Any, tbs_type: int = 8) -> _typing.Any:
+    """
+    Perform the calculate all tbs operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise calculate all tbs through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+    :param indexing_data: Value supplied for indexing data under the utility contract.
+    :param tbs_type: Value supplied for tbs type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     rmap = {}
     for i, strands in enumerate(indexing_data):
         sequences = encode_strands_as_sequences(strands, tbs_type=tbs_type)
@@ -216,6 +321,22 @@ def calculate_all_tbs(indexing_data: _typing.Any, tbs_type: int = 8) -> _typing.
 
 
 def apply_trailing_byte_sequences(index_table: _typing.Any, records: _typing.Any, text_record_lengths: _typing.Any) -> bool:
+    """
+    Perform the apply trailing byte sequences operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise apply trailing byte sequences through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+    :param index_table: Value supplied for index table under the utility contract.
+    :param records: Value supplied for records under the utility contract.
+    :param text_record_lengths: Value supplied for text record lengths under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     entries = tuple(
         Entry(
             r["index"],

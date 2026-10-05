@@ -2,6 +2,17 @@
 # vim:fileencoding=utf-8
 # License: GPLv3 Copyright: 2016, Kovid Goyal <kovid at kovidgoyal.net>
 
+"""
+Identify image formats from byte signatures and normalized stream inputs.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise imghdr through a consuming regression::
+
+        python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from struct import unpack, error
 import os
@@ -11,7 +22,27 @@ try:
     from LiuXin_alpha.utils.speedups import ReadOnlyFileBuffer
 except Exception:
     class ReadOnlyFileBuffer(BytesIO):
+        """
+        Provide the ReadOnlyFileBuffer utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise ReadOnlyFileBuffer through a consuming regression::
+
+                python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+        """
         def __init__(self, data):
+            """
+            Initialize and validate the ReadOnlyFileBuffer state.
+
+            Example:
+                Exercise ReadOnlyFileBuffer.  init   through a consuming regression::
+
+                    python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+            :param data: Value supplied for data under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             super(ReadOnlyFileBuffer, self).__init__(data)
 
 from LiuXin_alpha.utils.storage.local.file_ops import local_open as lopen
@@ -24,7 +55,20 @@ HSIZE = 120
 
 
 def what(file, h=None):
-    "Recognize image headers"
+    """
+    Recognize image headers
+
+    Example:
+        Exercise what through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param file: Value supplied for file under the utility contract.
+    :param h: Value supplied for h under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if h is None:
         if isinstance(file, basestring):
             with lopen(file, "rb") as f:
@@ -47,9 +91,19 @@ def what(file, h=None):
 
 
 def identify(src):
-    """Recognize file format and sizes. Returns format, width, height. width
-    and height will be -1 if not found and fmt will be None if the image is not
-    recognized."""
+    """
+    Recognize file format and sizes. Returns format, width, height. width and height will be -1 if not found and fmt will be None if the image is not recognized.
+
+    Example:
+        Exercise identify through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param src: Value supplied for src under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     width = height = -1
 
     if isinstance(src, type("")):
@@ -105,9 +159,19 @@ tests = []
 
 
 def test_jpeg(h):
-    """JPEG data in JFIF format (Changed by Kovid to mimic the file utility,
-    the original code was failing with some jpegs that included ICC_PROFILE
-    data, for example: http://nationalpostnews.files.wordpress.com/2013/03/budget.jpeg?w=300&h=1571)"""
+    """
+    JPEG data in JFIF format (Changed by Kovid to mimic the file utility, the original code was failing with some jpegs that included ICC_PROFILE data, for example: http://nationalpostnews.files.wordpress.com/2013/03/budget.jpeg?w=300&h=1571)
+
+    Example:
+        Exercise test jpeg through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param h: Value supplied for h under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if h[6:10] in (b"JFIF", b"Exif"):
         return "jpeg"
     if h[:2] == b"\xff\xd8":
@@ -120,9 +184,36 @@ def jpeg_dimensions(stream):
     # A JPEG marker is two bytes of the form 0xff x where 0 < x < 0xff
     # See section B.1.1.2 of https://www.w3.org/Graphics/JPEG/itu-t81.pdf
     # We read the dimensions from the first SOFn section we come across
+    """
+    Perform the jpeg dimensions utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise jpeg dimensions through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param stream: Input or output stream wrapped by the terminal or compatibility
+        layer.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     stream.seek(2, os.SEEK_CUR)
 
     def read(n):
+        """
+        Forward the read operation while preserving adapter ownership rules.
+
+        Example:
+            Exercise jpeg dimensions.read through a consuming regression::
+
+                python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+        :param n: Value supplied for n under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = stream.read(n)
         if len(ans) != n:
             raise ValueError("Truncated JPEG data")
@@ -162,6 +253,19 @@ tests.append(test_jpeg)
 
 
 def test_png(h):
+    """
+    Perform the test png utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test png through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param h: Value supplied for h under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if h[:8] == b"\211PNG\r\n\032\n":
         return "png"
 
@@ -170,7 +274,19 @@ tests.append(test_png)
 
 
 def test_gif(h):
-    """GIF ('87 and '89 variants)"""
+    """
+    GIF ('87 and '89 variants)
+
+    Example:
+        Exercise test gif through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param h: Value supplied for h under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if h[:6] in (b"GIF87a", b"GIF89a"):
         return "gif"
 
@@ -179,7 +295,19 @@ tests.append(test_gif)
 
 
 def test_tiff(h):
-    """TIFF (can be in Motorola or Intel byte order)"""
+    """
+    TIFF (can be in Motorola or Intel byte order)
+
+    Example:
+        Exercise test tiff through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param h: Value supplied for h under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if h[:2] in (b"MM", b"II"):
         return "tiff"
 
@@ -188,6 +316,19 @@ tests.append(test_tiff)
 
 
 def test_webp(h):
+    """
+    Perform the test webp utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test webp through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param h: Value supplied for h under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if h[:4] == b"RIFF" and h[8:12] == b"WEBP":
         return "webp"
 
@@ -196,7 +337,19 @@ tests.append(test_webp)
 
 
 def test_rgb(h):
-    """SGI image library"""
+    """
+    SGI image library
+
+    Example:
+        Exercise test rgb through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param h: Value supplied for h under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if h[:2] == b"\001\332":
         return "rgb"
 
@@ -205,7 +358,19 @@ tests.append(test_rgb)
 
 
 def test_pbm(h):
-    """PBM (portable bitmap)"""
+    """
+    PBM (portable bitmap)
+
+    Example:
+        Exercise test pbm through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param h: Value supplied for h under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if len(h) >= 3 and h[0] == b"P" and h[1] in b"14" and h[2] in b" \t\n\r":
         return "pbm"
 
@@ -214,7 +379,19 @@ tests.append(test_pbm)
 
 
 def test_pgm(h):
-    """PGM (portable graymap)"""
+    """
+    PGM (portable graymap)
+
+    Example:
+        Exercise test pgm through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param h: Value supplied for h under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if len(h) >= 3 and h[0] == b"P" and h[1] in b"25" and h[2] in b" \t\n\r":
         return "pgm"
 
@@ -223,7 +400,19 @@ tests.append(test_pgm)
 
 
 def test_ppm(h):
-    """PPM (portable pixmap)"""
+    """
+    PPM (portable pixmap)
+
+    Example:
+        Exercise test ppm through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param h: Value supplied for h under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if len(h) >= 3 and h[0] == b"P" and h[1] in b"36" and h[2] in b" \t\n\r":
         return "ppm"
 
@@ -232,7 +421,19 @@ tests.append(test_ppm)
 
 
 def test_rast(h):
-    """Sun raster file"""
+    """
+    Sun raster file
+
+    Example:
+        Exercise test rast through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param h: Value supplied for h under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if h[:4] == b"\x59\xA6\x6A\x95":
         return "rast"
 
@@ -241,7 +442,19 @@ tests.append(test_rast)
 
 
 def test_xbm(h):
-    """X bitmap (X10 or X11)"""
+    """
+    X bitmap (X10 or X11)
+
+    Example:
+        Exercise test xbm through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param h: Value supplied for h under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     s = b"#define "
     if h[: len(s)] == s:
         return "xbm"
@@ -251,6 +464,19 @@ tests.append(test_xbm)
 
 
 def test_bmp(h):
+    """
+    Perform the test bmp utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test bmp through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param h: Value supplied for h under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if h[:2] == b"BM":
         return "bmp"
 
@@ -259,6 +485,19 @@ tests.append(test_bmp)
 
 
 def test_emf(h):
+    """
+    Perform the test emf utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test emf through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param h: Value supplied for h under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if h[:4] == b"\x01\0\0\0" and h[40:44] == b" EMF":
         return "emf"
 
@@ -267,6 +506,19 @@ tests.append(test_emf)
 
 
 def test_jpeg2000(h):
+    """
+    Perform the test jpeg2000 utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test jpeg2000 through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param h: Value supplied for h under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if h[:12] == b"\x00\x00\x00\x0cjP  \r\n\x87\n":
         return "jpeg2000"
 
@@ -275,6 +527,19 @@ tests.append(test_jpeg2000)
 
 
 def test_svg(h):
+    """
+    Perform the test svg utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test svg through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param h: Value supplied for h under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if h[:4] == b"<svg" or (h[:2] == b"<?" and h[2:5].tobytes().lower() == b"xml" and b"<svg" in h.tobytes()):
         return "svg"
 

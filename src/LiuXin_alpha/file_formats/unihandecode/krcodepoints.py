@@ -1,8 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Unicode code point dictionary.
-Based on Unicode.org Unihan database.
+Define Korean Unicode transliteration mappings.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise krcodepoints through a consuming regression::
+
+        python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
 """
 from __future__ import annotations
 

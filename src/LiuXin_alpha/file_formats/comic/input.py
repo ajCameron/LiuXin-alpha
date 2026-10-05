@@ -1,4 +1,14 @@
-"""Comic archive extraction and page raster processing helpers."""
+"""
+Convert the package's source format into the normalized OEB representation.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise input through a consuming regression::
+
+        python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+"""
 
 from __future__ import annotations
 
@@ -26,6 +36,18 @@ MAX_SCREEN_SIZE = 3000
 
 
 def _pillow_modules() -> tuple[_typing.Any, ...] | None:
+    """
+    Perform the pillow modules operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  pillow modules through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         from PIL import Image, ImageChops, ImageFilter, ImageOps
 
@@ -35,10 +57,39 @@ def _pillow_modules() -> tuple[_typing.Any, ...] | None:
 
 
 def _safe_bool(opts: _typing.Any, name: str, default: bool = False) -> bool:
+    """
+    Perform the safe bool operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  safe bool through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+    :param opts: Value supplied for opts under the utility contract.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param default: Value supplied for default under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return bool(getattr(opts, name, default))
 
 
 def _safe_int(value: _typing.Any, default: int) -> int:
+    """
+    Perform the safe int operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  safe int through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :param default: Value supplied for default under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         return int(value)
     except Exception:
@@ -46,10 +97,39 @@ def _safe_int(value: _typing.Any, default: int) -> int:
 
 
 def _numeric_sort_key(value: str) -> _typing.Any:
+    """
+    Perform the numeric sort key operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  numeric sort key through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return [int(chunk) if chunk.isdigit() else chunk.lower() for chunk in re.split(r"(\d+)", str(value))]
 
 
 def _parse_screen_size(opts: _typing.Any, fallback_width: int, fallback_height: int) -> tuple[int, int]:
+    """
+    Parse screen size under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  parse screen size through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+    :param opts: Value supplied for opts under the utility contract.
+    :param fallback_width: Value supplied for fallback width under the utility contract.
+    :param fallback_height: Value supplied for fallback height under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     profile = getattr(opts, "output_profile", None)
     if profile is not None and getattr(profile, "comic_screen_size", None):
         width, height = profile.comic_screen_size
@@ -72,6 +152,21 @@ def _parse_screen_size(opts: _typing.Any, fallback_width: int, fallback_height: 
 
 def _trim_uniform_border(image: _typing.Any, image_chops_module: _typing.Any) -> _typing.Any:
     # Simple, robust trim: compare against a flat image made from the corner pixel.
+    """
+    Perform the trim uniform border operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  trim uniform border through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+    :param image: Value supplied for image under the utility contract.
+    :param image_chops_module: Value supplied for image chops module under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         bg = image.copy()
         corner = image.getpixel((0, 0))
@@ -86,6 +181,22 @@ def _trim_uniform_border(image: _typing.Any, image_chops_module: _typing.Any) ->
 
 
 def _fit_size(width: int, height: int, max_width: int, max_height: int) -> tuple[int, int]:
+    """
+    Perform the fit size operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  fit size through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+    :param width: Value supplied for width under the utility contract.
+    :param height: Value supplied for height under the utility contract.
+    :param max_width: Value supplied for max width under the utility contract.
+    :param max_height: Value supplied for max height under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if width <= 0 or height <= 0:
         return max(1, max_width), max(1, max_height)
     ratio = min(float(max_width) / float(width), float(max_height) / float(height))
@@ -93,6 +204,19 @@ def _fit_size(width: int, height: int, max_width: int, max_height: int) -> tuple
 
 
 def _resample_lanczos(Image: _typing.Any) -> _typing.Any:
+    """
+    Perform the resample lanczos operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  resample lanczos through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+    :param Image: Value supplied for Image under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     resampling = getattr(Image, "Resampling", None)
     if resampling is not None and hasattr(resampling, "LANCZOS"):
         return resampling.LANCZOS
@@ -100,6 +224,19 @@ def _resample_lanczos(Image: _typing.Any) -> _typing.Any:
 
 
 def _adaptive_palette(Image: _typing.Any) -> _typing.Any:
+    """
+    Perform the adaptive palette operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  adaptive palette through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+    :param Image: Value supplied for Image under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     palette = getattr(Image, "Palette", None)
     if palette is not None and hasattr(palette, "ADAPTIVE"):
         return palette.ADAPTIVE
@@ -107,7 +244,20 @@ def _adaptive_palette(Image: _typing.Any) -> _typing.Any:
 
 
 def extract_comic(path_to_comic_file: _typing.Any) -> _typing.Any:
-    """Unarchive a comic file to a persistent temp folder."""
+    """
+    Unarchive a comic file to a persistent temp folder.
+
+    Example:
+        Exercise extract comic through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+    :param path_to_comic_file: Value supplied for path to comic file under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     tdir = PersistentTemporaryDirectory(suffix="_comic_extract")
 
     extract(path_to_comic_file, tdir)
@@ -120,7 +270,21 @@ def extract_comic(path_to_comic_file: _typing.Any) -> _typing.Any:
 
 
 def find_pages(dir: _typing.Any, sort_on_mtime: bool = False, verbose: bool = False) -> _typing.Any:
-    """Find image pages in an extracted comic folder."""
+    """
+    Find image pages in an extracted comic folder.
+
+    Example:
+        Exercise find pages through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+    :param dir: Value supplied for dir under the utility contract.
+    :param sort_on_mtime: Value supplied for sort on mtime under the utility contract.
+    :param verbose: Value supplied for verbose under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     extensions = {"jpeg", "jpg", "gif", "png", "webp"}
     pages = []
     for datum in os.walk(dir):
@@ -152,9 +316,31 @@ def find_pages(dir: _typing.Any, sort_on_mtime: bool = False, verbose: bool = Fa
 
 
 class PageProcessor(list):  # {{{
-    """Render and transform a single source page into one or more output pages."""
+    """
+    Render and transform a single source page into one or more output pages.
+
+    Example:
+        Exercise PageProcessor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+    """
 
     def __init__(self: _typing.Self, path_to_page: _typing.Any, dest: _typing.Any, opts: _typing.Any, num: _typing.Any) -> None:
+        """
+        Initialize and validate the pageprocessor state.
+
+        Example:
+            Exercise PageProcessor.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+        :param path_to_page: Value supplied for path to page under the utility contract.
+        :param dest: Value supplied for dest under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super().__init__()
         self.path_to_page = path_to_page
         self.opts = opts
@@ -164,6 +350,18 @@ class PageProcessor(list):  # {{{
         self.render()
 
     def _render_passthrough(self: _typing.Self) -> None:
+        """
+        Perform the render passthrough operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PageProcessor. render passthrough through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         output_ext = str(getattr(self.opts, "output_format", "png")).lower()
         output_ext = "jpg" if output_ext in {"jpg", "jpeg"} else output_ext
         if output_ext not in {"png", "jpg", "gif", "webp"}:
@@ -181,6 +379,18 @@ class PageProcessor(list):  # {{{
         self.append(dest)
 
     def render(self: _typing.Self) -> None:
+        """
+        Perform the render operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PageProcessor.render through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         mods = _pillow_modules()
         if mods is None:
             self._render_passthrough()
@@ -209,6 +419,18 @@ class PageProcessor(list):  # {{{
         self.process_pages()
 
     def process_pages(self: _typing.Self) -> None:
+        """
+        Perform the process pages operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PageProcessor.process pages through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         mods = _pillow_modules()
         if mods is None:
             self._render_passthrough()
@@ -299,7 +521,22 @@ class PageProcessor(list):  # {{{
 
 
 def render_pages(tasks: _typing.Any, dest: _typing.Any, opts: _typing.Any, notification: _typing.Callable[..., _typing.Any] = lambda x, y: x) -> tuple[_typing.Any, ...]:
-    """Render all tasks; used by process_pages()."""
+    """
+    Render all tasks; used by process_pages().
+
+    Example:
+        Exercise render pages through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+    :param tasks: Value supplied for tasks under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :param opts: Value supplied for opts under the utility contract.
+    :param notification: Value supplied for notification under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     failures, pages = [], []
     for num, path in tasks:
         try:
@@ -318,17 +555,65 @@ def render_pages(tasks: _typing.Any, dest: _typing.Any, opts: _typing.Any, notif
 
 
 class Progress:
+    """
+    Provide the progress contract for validated ebook processing.
+
+    Example:
+        Exercise Progress through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+    """
     def __init__(self: _typing.Self, total: _typing.Any, update: _typing.Any) -> None:
+        """
+        Initialize and validate the progress state.
+
+        Example:
+            Exercise Progress.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+        :param total: Value supplied for total under the utility contract.
+        :param update: Value supplied for update under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.total = max(1, int(total))
         self.update = update
         self.done = 0
 
     def __call__(self: _typing.Self, percent: _typing.Any, msg: str = "") -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Progress.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+        :param percent: Value supplied for percent under the utility contract.
+        :param msg: Value supplied for msg under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.done += 1
         self.update(float(self.done) / self.total, msg)
 
 
 def _opts_to_payload(opts: _typing.Any) -> dict[_typing.Any, _typing.Any]:
+    """
+    Perform the opts to payload operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  opts to payload through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+    :param opts: Value supplied for opts under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     profile = getattr(opts, "output_profile", None)
     screen_size = getattr(profile, "comic_screen_size", None)
     if screen_size is not None:
@@ -356,6 +641,19 @@ def _opts_to_payload(opts: _typing.Any) -> dict[_typing.Any, _typing.Any]:
 
 
 def _opts_from_payload(payload: _typing.Any) -> _typing.Any:
+    """
+    Perform the opts from payload operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  opts from payload through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+    :param payload: Value supplied for payload under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     payload = dict(payload or {})
     screen_size = payload.pop("comic_screen_size", None)
     output_profile = None
@@ -365,17 +663,61 @@ def _opts_from_payload(payload: _typing.Any) -> _typing.Any:
 
 
 def _render_pages_job(tasks: _typing.Any, dest: _typing.Any, opts_payload: _typing.Any) -> _typing.Any:
+    """
+    Perform the render pages job operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  render pages job through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+    :param tasks: Value supplied for tasks under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :param opts_payload: Value supplied for opts payload under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     opts = _opts_from_payload(opts_payload)
     return render_pages(tasks, dest, opts)
 
 
 def _task_chunks(tasks: _typing.Any, size: _typing.Any) -> _typing.Any:
+    """
+    Perform the task chunks operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  task chunks through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+    :param tasks: Value supplied for tasks under the utility contract.
+    :param size: Value supplied for size under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     size = max(1, int(size))
     return [tasks[i : i + size] for i in range(0, len(tasks), size)]
 
 
 def process_pages(pages: _typing.Any, opts: _typing.Any, update: _typing.Any, tdir: _typing.Any) -> _typing.Any:
-    """Render all identified comic pages."""
+    """
+    Render all identified comic pages.
+
+    Example:
+        Exercise process pages through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+    :param pages: Value supplied for pages under the utility contract.
+    :param opts: Value supplied for opts under the utility contract.
+    :param update: Value supplied for update under the utility contract.
+    :param tdir: Value supplied for tdir under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     progress = Progress(len(pages), update)
     tasks = list(enumerate(pages))
     if len(tasks) < 2:

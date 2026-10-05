@@ -4,6 +4,17 @@
 # Taken from http://www.zwahlendesign.ch/en/node/20
 # openoffice_icons/openoffice_icons_linux/openoffice11.png
 # License: Freeware
+"""
+Generate and manage ODF package thumbnail images.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise thumbnail through a consuming regression::
+
+        python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -421,6 +432,18 @@ N38FAAAAAElFTkSuQmCC\
 
 
 def thumbnail() -> _typing.Any:
+    """
+    Perform the thumbnail operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise thumbnail through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     icon = base64.decodestring(iconstr)
     return icon
 

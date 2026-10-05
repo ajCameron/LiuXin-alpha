@@ -1075,11 +1075,31 @@ class LRUCache(object):  # {{{
 class Search(object):
     """
     Represents a search of the database.
+
+    Example:
+        Exercise Search through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_search_core.py
     """
 
     MAX_CACHE_UPDATE = 50
 
     def __init__(self, db, opt_name, all_search_locations=()):
+        """
+        Initialize and validate the Search state.
+
+        Example:
+            Exercise Search.init through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_search_core.py
+
+
+        :param db: Value supplied for db under the catalog contract.
+        :param opt_name: Value supplied for opt name under the catalog contract.
+        :param all_search_locations: Value supplied for all search locations under the
+            catalog contract.
+        :return: None; the function records state or raises through its assertions.
+        """
         self.all_search_locations = all_search_locations
         self.date_search = DateSearch()
         self.num_search = NumericSearch()
@@ -1090,24 +1110,84 @@ class Search(object):
         self.parse_cache = LRUCache(limit=100)
 
     def get_saved_searches(self):
+        """
+        Return or iterate get saved searches from the normalized catalog state.
+
+        Example:
+            Exercise Search.get saved searches through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_search_core.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return self.saved_searches
 
     def change_locations(self, newlocs):
+        """
+        Perform the catalog change locations operation under explicit validation and ordering rules.
+
+        Example:
+            Exercise Search.change locations through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_search_core.py
+
+
+        :param newlocs: Value supplied for newlocs under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         if frozenset(newlocs) != frozenset(self.all_search_locations):
             self.clear_caches()
             self.parse_cache.clear()
         self.all_search_locations = newlocs
 
     def update_or_clear(self, dbcache, book_ids=None):
+        """
+        Perform the catalog update or clear operation under explicit validation and ordering rules.
+
+        Example:
+            Exercise Search.update or clear through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_search_core.py
+
+
+        :param dbcache: Value supplied for dbcache under the catalog contract.
+        :param book_ids: Catalog record identities included in the operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         if book_ids and (len(book_ids) * len(self.cache)) <= self.MAX_CACHE_UPDATE:
             self.update_caches(dbcache, book_ids)
         else:
             self.clear_caches()
 
     def clear_caches(self):
+        """
+        Perform the catalog clear caches operation under explicit validation and ordering rules.
+
+        Example:
+            Exercise Search.clear caches through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_search_core.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.cache.clear()
 
     def update_caches(self, dbcache, book_ids):
+        """
+        Perform the catalog update caches operation under explicit validation and ordering rules.
+
+        Example:
+            Exercise Search.update caches through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_search_core.py
+
+
+        :param dbcache: Value supplied for dbcache under the catalog contract.
+        :param book_ids: Catalog record identities included in the operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         sqp = self.create_parser(dbcache)
         try:
             return self._update_caches(sqp, book_ids)
@@ -1115,11 +1195,36 @@ class Search(object):
             sqp.dbcache = sqp.lookup_saved_search = None
 
     def discard_books(self, book_ids):
+        """
+        Perform the catalog discard books operation under explicit validation and ordering rules.
+
+        Example:
+            Exercise Search.discard books through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_search_core.py
+
+
+        :param book_ids: Catalog record identities included in the operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         book_ids = set(book_ids)
         for query, result in self.cache:
             result.difference_update(book_ids)
 
     def _update_caches(self, sqp, book_ids):
+        """
+        Perform the catalog update caches operation under explicit validation and ordering rules.
+
+        Example:
+            Exercise Search.update caches through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_search_core.py
+
+
+        :param sqp: Value supplied for sqp under the catalog contract.
+        :param book_ids: Catalog record identities included in the operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         book_ids = sqp.all_book_ids = set(book_ids)
         remove = set()
         for query, result in tuple(self.cache):
@@ -1136,6 +1241,19 @@ class Search(object):
             self.cache.pop(query)
 
     def create_parser(self, dbcache, virtual_fields=None):
+        """
+        Perform the catalog create parser operation under explicit validation and ordering rules.
+
+        Example:
+            Exercise Search.create parser through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_search_core.py
+
+
+        :param dbcache: Value supplied for dbcache under the catalog contract.
+        :param virtual_fields: Value supplied for virtual fields under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return Parser(
             dbcache,
             set(),
@@ -1154,8 +1272,21 @@ class Search(object):
 
     def __call__(self, dbcache, query, search_restriction, virtual_fields=None, book_ids=None):
         """
-        Return the set of ids of all records that match the specified
-        query and restriction
+        Return the set of ids of all records that match the specified query and restriction
+
+        Example:
+            Exercise Search.call through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_search_core.py
+
+
+        :param dbcache: Value supplied for dbcache under the catalog contract.
+        :param query: Parsed or textual catalog query to evaluate.
+        :param search_restriction: Value supplied for search restriction under the catalog
+            contract.
+        :param virtual_fields: Value supplied for virtual fields under the catalog contract.
+        :param book_ids: Catalog record identities included in the operation.
+        :return: The deterministic value, row, identity or collection described above.
         """
         # We construct a new parser instance per search as the parse is not
         # thread safe.
@@ -1167,14 +1298,21 @@ class Search(object):
 
     def _do_search(self, sqp, query, search_restriction, dbcache, book_ids=None):
         """
-        Do the search, caching the results. Results are cached only if the search is on the full library and no virtual
-         field is searched on
-        :param sqp:
-        :param query:
-        :param search_restriction:
-        :param dbcache:
-        :param book_ids:
-        :return:
+        Do the search, caching the results. Results are cached only if the search is on the full library and no virtual field is searched on
+
+        Example:
+            Exercise Search.do search through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_search_core.py
+
+
+        :param sqp: Value supplied for sqp under the catalog contract.
+        :param query: Parsed or textual catalog query to evaluate.
+        :param search_restriction: Value supplied for search restriction under the catalog
+            contract.
+        :param dbcache: Value supplied for dbcache under the catalog contract.
+        :param book_ids: Catalog record identities included in the operation.
+        :return: The deterministic value, row, identity or collection described above.
         """
         if isinstance(search_restriction, bytes):
             search_restriction = search_restriction.decode("utf-8")
@@ -1223,7 +1361,14 @@ class Search(object):
         """
         Receives a location_dict - populates the all field (creating it if it isn't set)
 
-        :return:
+        Example:
+            Exercise Search.populate all locations through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_search_core.py
+
+
+        :param locations_dict: Value supplied for locations dict under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
         if u'all' in locations_dict:
             del locations_dict[u'all']

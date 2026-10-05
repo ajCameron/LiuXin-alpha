@@ -1,4 +1,14 @@
-"""Contract tests for the source-checkout ICU fallback."""
+"""
+Provide test icu fallback utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test icu fallback through a consuming regression::
+
+        python -m pytest -q tests/utils/text/test_icu_fallback.py
+"""
 
 from __future__ import annotations
 
@@ -7,6 +17,18 @@ from LiuXin_alpha.utils.text import icu_fallback
 
 
 def test_fallback_case_normalization_and_character_helpers() -> None:
+    """
+    Perform the test fallback case normalization and character helpers utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test fallback case normalization and character helpers through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_icu_fallback.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     assert icu_fallback._text(None) == ""
     assert icu_fallback._text(b"\xff") == "\ufffd"
     assert icu_fallback.set_default_encoding("utf-8") is None
@@ -26,6 +48,18 @@ def test_fallback_case_normalization_and_character_helpers() -> None:
 
 
 def test_fallback_collator_matches_compiled_call_conventions() -> None:
+    """
+    Perform the test fallback collator matches compiled call conventions utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test fallback collator matches compiled call conventions through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_icu_fallback.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     collator = icu_fallback.Collator("en")
     collator.strength = icu_fallback.UCOL_PRIMARY
 
@@ -50,6 +84,18 @@ def test_fallback_collator_matches_compiled_call_conventions() -> None:
 
 
 def test_public_icu_wrapper_works_without_the_compiled_extension() -> None:
+    """
+    Perform the test public icu wrapper works without the compiled extension utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test public icu wrapper works without the compiled extension through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_icu_fallback.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     assert icu.primary_contains("needle", "Hay NEEDLE stack")
     assert icu.primary_find("cafe", "A CAFÉ table") == 2
     assert icu.primary_startswith("cafe", "CAFÉ table")

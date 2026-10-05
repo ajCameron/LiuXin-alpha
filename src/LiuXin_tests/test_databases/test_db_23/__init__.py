@@ -1,3 +1,14 @@
+"""
+Expose the supported test db 23 compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+"""
 from __future__ import print_function
 
 from LiuXin_tests.test_databases.test_db_22 import TestDB22Builer
@@ -8,13 +19,26 @@ from utils.lx_libraries.liuxin_random import LiuXinBadPseudoRandomGenerator
 class TestDB23Builer(TestDB22Builer):
     """
     Preforms build for test db 21 - which has a table almost identical to series - but with a different name.
+
+    Example:
+        Exercise TestDB23Builer through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
     """
 
     def populate_custom_columns(self, scratch_db):
         """
         Gives a user the change to populate the custom columns when they have been created.
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB23Builer.populate custom columns through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self._populate_custom_column_1(scratch_db)
         self._populate_custom_column_2(scratch_db)
@@ -34,8 +58,16 @@ class TestDB23Builer(TestDB22Builer):
     def _populate_custom_column_1(self, scratch_db):
         """
         Populate the first custom column - a one to many - probably - of text type in the titles table.
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB23Builer. populate custom column 1 through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Custom column 1
         lx_random = LiuXinBadPseudoRandomGenerator(36435626)
@@ -64,8 +96,16 @@ class TestDB23Builer(TestDB22Builer):
     def _populate_custom_column_2(self, scratch_db):
         """
         Populate a ratings, non-multiple custom column
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB23Builer. populate custom column 2 through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # cc 2 is a rating table linked to books - so populate the ratings table and then link all the books to it
         # - maybe once?
@@ -111,7 +151,16 @@ class TestDB23Builer(TestDB22Builer):
     def _populate_custom_column_3(self, scratch_db):
         """
         Populate an int, non-multiple custom column.
-        :return:
+
+        Example:
+            Exercise TestDB23Builer. populate custom column 3 through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(57892357)
 
@@ -132,7 +181,16 @@ class TestDB23Builer(TestDB22Builer):
     def _populate_custom_column_4(self, scratch_db):
         """
         Populate an int, non-multiple custom column.
-        :return:
+
+        Example:
+            Exercise TestDB23Builer. populate custom column 4 through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Custom column 4
         lx_random = LiuXinBadPseudoRandomGenerator(36435626)
@@ -162,7 +220,16 @@ class TestDB23Builer(TestDB22Builer):
     def _populate_custom_column_5(self, scratch_db):
         """
         Populate an int, non-multiple custom column.
-        :return:
+
+        Example:
+            Exercise TestDB23Builer. populate custom column 5 through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(57892357)
 
@@ -185,8 +252,16 @@ class TestDB23Builer(TestDB22Builer):
     def _populate_custom_column_6(self, scratch_db):
         """
         Populate a ratings, non-multiple custom column
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB23Builer. populate custom column 6 through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(5789235709857)
 
@@ -222,7 +297,16 @@ class TestDB23Builer(TestDB22Builer):
     def _populate_custom_column_8(self, scratch_db):
         """
         Populate a float based custom column.
-        :return:
+
+        Example:
+            Exercise TestDB23Builer. populate custom column 8 through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(578923570985754674764)
 
@@ -256,7 +340,16 @@ class TestDB23Builer(TestDB22Builer):
     def _populate_custom_column_9(self, scratch_db):
         """
         Populate an int, non-multiple custom column.
-        :return:
+
+        Example:
+            Exercise TestDB23Builer. populate custom column 9 through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(57892357)
 
@@ -277,7 +370,16 @@ class TestDB23Builer(TestDB22Builer):
     def _populate_custom_column_10(self, scratch_db):
         """
         Populate an int, non-multiple custom column.
-        :return:
+
+        Example:
+            Exercise TestDB23Builer. populate custom column 10 through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(57892357)
 
@@ -308,7 +410,16 @@ class TestDB23Builer(TestDB22Builer):
     def _populate_custom_column_11(self, scratch_db):
         """
         Populate an int, non-multiple custom column.
-        :return:
+
+        Example:
+            Exercise TestDB23Builer. populate custom column 11 through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(57892357)
 
@@ -329,7 +440,16 @@ class TestDB23Builer(TestDB22Builer):
     def _populate_custom_column_12(self, scratch_db):
         """
         Populate a float based custom column.
-        :return:
+
+        Example:
+            Exercise TestDB23Builer. populate custom column 12 through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # cc 8 is a non-multiple float based table. So either give every book a float or don't
         lx_random = LiuXinBadPseudoRandomGenerator(578923570985754674764)
@@ -362,7 +482,16 @@ class TestDB23Builer(TestDB22Builer):
     def _populate_custom_column_13(self, scratch_db):
         """
         Populate an int, non-multiple custom column.
-        :return:
+
+        Example:
+            Exercise TestDB23Builer. populate custom column 13 through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(57892357)
 
@@ -383,7 +512,16 @@ class TestDB23Builer(TestDB22Builer):
     def _populate_custom_column_14(self, scratch_db):
         """
         Populate a float based custom column.
-        :return:
+
+        Example:
+            Exercise TestDB23Builer. populate custom column 14 through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(578923570985754674764)
 
@@ -417,7 +555,16 @@ class TestDB23Builer(TestDB22Builer):
     def _populate_custom_column_15(self, scratch_db):
         """
         Populate an int, non-multiple custom column.
-        :return:
+
+        Example:
+            Exercise TestDB23Builer. populate custom column 15 through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(57892357)
 
@@ -438,7 +585,16 @@ class TestDB23Builer(TestDB22Builer):
     def _populate_custom_column_16(self, scratch_db):
         """
         Populate a float based custom column.
-        :return:
+
+        Example:
+            Exercise TestDB23Builer. populate custom column 16 through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(578923570985754674764)
 
@@ -474,7 +630,16 @@ class TestDB23Builer(TestDB22Builer):
     def _populate_custom_column_18(self, scratch_db):
         """
         Populate a float based custom column.
-        :return:
+
+        Example:
+            Exercise TestDB23Builer. populate custom column 18 through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(578923570985754674764)
 
@@ -508,7 +673,16 @@ class TestDB23Builer(TestDB22Builer):
     def _populate_custom_column_19(self, scratch_db):
         """
         Populate an int, non-multiple custom column.
-        :return:
+
+        Example:
+            Exercise TestDB23Builer. populate custom column 19 through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(57892357)
 
@@ -529,7 +703,16 @@ class TestDB23Builer(TestDB22Builer):
     def _populate_custom_column_20(self, scratch_db):
         """
         Populate an int, non-multiple custom column.
-        :return:
+
+        Example:
+            Exercise TestDB23Builer. populate custom column 20 through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(57892357)
 
@@ -550,7 +733,16 @@ class TestDB23Builer(TestDB22Builer):
     def _populate_custom_column_21(self, scratch_db):
         """
         Populate an int, non-multiple custom column.
-        :return:
+
+        Example:
+            Exercise TestDB23Builer. populate custom column 21 through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(5789232)
 
@@ -571,7 +763,16 @@ class TestDB23Builer(TestDB22Builer):
     def _populate_custom_column_22(self, scratch_db):
         """
         Populate an int, non-multiple custom column.
-        :return:
+
+        Example:
+            Exercise TestDB23Builer. populate custom column 22 through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(57892110)
 
@@ -598,12 +799,22 @@ def build_test_db(
     test_asset_version=None,
 ):
     """
-    Construct the test database specified by this module.
-    In this case a blank database is constructed and filled with data - before being copied into the test_databases
-    folder.
-    :param dst_file_path: The file to write the database to after it's been built.
-    :param dump: HERE IGNORED
-    :return:
+    Construct the test database specified by this module. In this case a blank database is constructed and filled with data - before being copied into the test_databases folder.
+
+    Example:
+        Exercise build test db through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+    :param dst_file_path: Value supplied for dst file path under the utility contract.
+    :param dump: Value supplied for dump under the utility contract.
+    :param plugin_name: Value supplied for plugin name under the utility contract.
+    :param new_db_uuid: Value supplied for new db uuid under the utility contract.
+    :param test_asset_version: Value supplied for test asset version under the utility
+        contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     test_db_builder = TestDB23Builer(
         dst_file_path=dst_file_path,

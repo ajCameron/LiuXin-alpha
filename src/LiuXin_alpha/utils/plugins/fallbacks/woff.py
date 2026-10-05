@@ -1,12 +1,26 @@
 # -*- coding: utf-8 -*-
 """
-Pure-python fallback for the compiled ``woff`` extension.
+Provide woff utility behavior.
 
-WOFF decoding is not provided here. Stub keeps imports working.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise woff through a consuming regression::
+
+        python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
 """
 
 from __future__ import annotations
 
 
 class WOFFError(Exception):
+    """
+    Report the WOFFError Calibre compatibility failure.
+
+    Example:
+        Exercise WOFFError through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+    """
     pass

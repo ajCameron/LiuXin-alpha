@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
-"""Require type checkers to accept valid internal calls and reject known mistakes.
+"""
+Validate internal static-type contracts.
 
-The fixture is checked as source and never executed. Expected diagnostics are
-matched by file, line, and rule, so an unrelated checker failure cannot make a
-negative example pass. Unmarked examples must remain free of diagnostics.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise check internal type contracts through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
 """
 
 from __future__ import annotations
@@ -24,7 +29,14 @@ _EXPECTED_ERROR = re.compile(r"# expect-error: ([\w-]+) ([\w-]+)$")
 
 @dataclass(frozen=True)
 class Diagnostic:
-    """One checker diagnostic with a stable source location and rule name."""
+    """
+    One checker diagnostic with a stable source location and rule name.
+
+    Example:
+        Exercise Diagnostic through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+    """
 
     path: Path
     line: int
@@ -33,10 +45,19 @@ class Diagnostic:
 
 
 def _expected_errors(source: str, checker: str) -> dict[int, str]:
-    """Read exact-line expectations; a dash leaves that checker unmarked here.
+    """
+    Read exact-line expectations; a dash leaves that checker unmarked here.
 
-    Checkers can locate the same multiline call error on different lines.
-    Separate markers preserve exact matching without allowing a line range.
+    Example:
+        Exercise  expected errors through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param source: Value supplied for source under the utility contract.
+    :param checker: Value supplied for checker under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     expected = {}
@@ -56,7 +77,21 @@ def _diagnostic_failures(
     diagnostics: Iterable[Diagnostic],
     fixture: Path,
 ) -> list[str]:
-    """Reject missing expected errors and diagnostics on otherwise valid code."""
+    """
+    Reject missing expected errors and diagnostics on otherwise valid code.
+
+    Example:
+        Exercise  diagnostic failures through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param expected: Value supplied for expected under the utility contract.
+    :param diagnostics: Value supplied for diagnostics under the utility contract.
+    :param fixture: Value supplied for fixture under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     fixture = fixture.resolve()
     wanted = {(fixture, line, code) for line, code in expected.items()}
@@ -76,7 +111,20 @@ def _diagnostic_failures(
 
 
 def _parse_diagnostics(checker: str, output: str) -> tuple[Diagnostic, ...]:
-    """Normalize the supported checkers' JSON error and warning formats."""
+    """
+    Normalize the supported checkers' JSON error and warning formats.
+
+    Example:
+        Exercise  parse diagnostics through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param checker: Value supplied for checker under the utility contract.
+    :param output: Value supplied for output under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     if checker == "basedpyright":
         rows = json.loads(output)["generalDiagnostics"]
@@ -105,7 +153,19 @@ def _parse_diagnostics(checker: str, output: str) -> tuple[Diagnostic, ...]:
 
 
 def _checker_command(checker: str) -> list[str]:
-    """Keep mypy's configured source targets active alongside the fixture."""
+    """
+    Keep mypy's configured source targets active alongside the fixture.
+
+    Example:
+        Exercise  checker command through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param checker: Value supplied for checker under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     executable = REPO_ROOT / ".venv" / "bin" / checker
     if not executable.is_file():
@@ -121,7 +181,19 @@ def _checker_command(checker: str) -> list[str]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Check the positive examples and every annotated negative example."""
+    """
+    Check the positive examples and every annotated negative example.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--checker", choices=("basedpyright", "mypy"), required=True)

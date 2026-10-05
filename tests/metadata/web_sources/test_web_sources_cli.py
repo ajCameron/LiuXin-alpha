@@ -1,3 +1,14 @@
+"""
+Verify web-source command-line serialization and stream behavior.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test web sources cli through its owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_cli.py
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -8,12 +19,37 @@ from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
 
 def test_web_sources_cli_import_smoke() -> None:
+    """
+    Verify web sources cli import smoke.
+
+    Example:
+        Exercise test web sources cli import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_cli.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.cli as cli
 
     assert cli is not None
 
 
 def test_web_sources_cli_no_results_exits(monkeypatch, capsys) -> None:
+    """
+    Verify web sources cli no results exits.
+
+    Example:
+        Exercise test web sources cli no results exits through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_cli.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :param capsys: Pytest fixture capturing standard output and error streams.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.cli as cli
 
     monkeypatch.setattr(cli, "identify", lambda *args, **kwargs: [])
@@ -27,6 +63,21 @@ def test_web_sources_cli_no_results_exits(monkeypatch, capsys) -> None:
 
 
 def test_web_sources_cli_text_output_and_cover(monkeypatch, tmp_path: Path, capsys) -> None:
+    """
+    Verify web sources cli text output and cover.
+
+    Example:
+        Exercise test web sources cli text output and cover through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_cli.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param capsys: Pytest fixture capturing standard output and error streams.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.cli as cli
 
     mi = calibreMetaInformation("CLI Test Title", ["CLI Author"])
@@ -58,6 +109,20 @@ def test_web_sources_cli_text_output_and_cover(monkeypatch, tmp_path: Path, caps
 
 
 def test_web_sources_cli_opf_output(monkeypatch, capsys) -> None:
+    """
+    Verify web sources cli opf output.
+
+    Example:
+        Exercise test web sources cli opf output through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_cli.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :param capsys: Pytest fixture capturing standard output and error streams.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.cli as cli
 
     mi = calibreMetaInformation("OPF Title", ["Author"])
@@ -72,6 +137,17 @@ def test_web_sources_cli_opf_output(monkeypatch, capsys) -> None:
 
 
 def test_web_sources_cli_invalid_identifier_rejected() -> None:
+    """
+    Verify web sources cli invalid identifier rejected.
+
+    Example:
+        Exercise test web sources cli invalid identifier rejected through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_cli.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.cli as cli
 
     with pytest.raises(SystemExit, match="Not a valid identifier"):

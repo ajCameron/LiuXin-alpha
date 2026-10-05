@@ -1,3 +1,14 @@
+"""
+Provide test jobs manager utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test jobs manager through a consuming regression::
+
+        python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+"""
 from __future__ import annotations
 
 import time
@@ -11,6 +22,18 @@ from LiuXin_alpha.utils.jobs.manager import InMemoryJobManager
 
 
 def test_in_memory_job_manager_submit_wait_and_result() -> None:
+    """
+    Perform the test in memory job manager submit wait and result utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test in memory job manager submit wait and result through a consuming regression::
+
+            python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     manager = InMemoryJobManager(max_workers=2, default_backend="serial")
     try:
         req = JobRequest(module_name="math", function_name="sqrt", args=(49,))
@@ -27,6 +50,18 @@ def test_in_memory_job_manager_submit_wait_and_result() -> None:
 
 
 def test_in_memory_job_manager_cancel_pending_job() -> None:
+    """
+    Perform the test in memory job manager cancel pending job utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test in memory job manager cancel pending job through a consuming regression::
+
+            python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     manager = InMemoryJobManager(max_workers=1, default_backend="serial")
     try:
         sleep_source = """
@@ -56,6 +91,18 @@ def run(seconds):
 
 
 def test_in_memory_job_manager_cancel_running_job_process_backend() -> None:
+    """
+    Perform the test in memory job manager cancel running job process backend utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test in memory job manager cancel running job process backend through a consuming regression::
+
+            python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     manager = InMemoryJobManager(max_workers=1, default_backend="process")
     try:
         sleep_source = """
@@ -88,6 +135,18 @@ def run(seconds):
 
 
 def test_in_memory_job_manager_marks_timeout() -> None:
+    """
+    Perform the test in memory job manager marks timeout utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test in memory job manager marks timeout through a consuming regression::
+
+            python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     manager = InMemoryJobManager(max_workers=1, default_backend="process")
     try:
         source = """
@@ -111,6 +170,18 @@ def wait_for_a_bit():
 
 
 def test_in_memory_job_manager_preallocates_log_path_for_running_jobs() -> None:
+    """
+    Perform the test in memory job manager preallocates log path for running jobs utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test in memory job manager preallocates log path for running jobs through a consuming regression::
+
+            python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     manager = InMemoryJobManager(max_workers=1, default_backend="process")
     try:
         source = """
@@ -141,12 +212,36 @@ def run():
 
 
 def test_submit_job_uses_default_manager() -> None:
+    """
+    Perform the test submit job uses default manager utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test submit job uses default manager through a consuming regression::
+
+            python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     job_id = submit_job(JobRequest(module_name="math", function_name="sqrt", args=(64,)), backend="serial", no_output=True)
     assert isinstance(job_id, str)
     assert job_id
 
 
 def test_job_retry_creates_a_linked_run_without_rewriting_history() -> None:
+    """
+    Perform the test job retry creates a linked run without rewriting history utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test job retry creates a linked run without rewriting history through a consuming regression::
+
+            python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     manager = InMemoryJobManager(max_workers=1, default_backend="serial")
     try:
         original_id = manager.submit(

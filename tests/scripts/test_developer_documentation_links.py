@@ -1,4 +1,14 @@
-"""Keep developer navigation portable and reviewed local destinations real."""
+"""
+Provide test developer documentation links utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test developer documentation links through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_developer_documentation_links.py
+"""
 
 from __future__ import annotations
 
@@ -23,6 +33,19 @@ REVIEWED_GUIDES = (
 
 
 def _destinations(markdown: str) -> list[str]:
+    """
+    Perform the destinations operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  destinations through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_developer_documentation_links.py
+
+
+    :param markdown: Value supplied for markdown under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     destinations = []
     parser = MarkdownIt("commonmark")
     # Audit even file URLs that a renderer would suppress; never render this input.
@@ -36,6 +59,19 @@ def _destinations(markdown: str) -> list[str]:
 
 
 def _is_absolute_file_link(destination: str) -> bool:
+    """
+    Perform the is absolute file link operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  is absolute file link through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_developer_documentation_links.py
+
+
+    :param destination: Value supplied for destination under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     decoded = unquote(destination)
     return (
         decoded.startswith(("/", "\\"))
@@ -45,6 +81,19 @@ def _is_absolute_file_link(destination: str) -> bool:
 
 
 def _local_targets(document: Path) -> list[Path]:
+    """
+    Perform the local targets operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  local targets through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_developer_documentation_links.py
+
+
+    :param document: Value supplied for document under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     targets = []
     for destination in _destinations(document.read_text()):
         assert not _is_absolute_file_link(destination), (document, destination)
@@ -57,6 +106,18 @@ def _local_targets(document: Path) -> list[Path]:
 
 
 def test_developer_documentation_has_no_absolute_file_links() -> None:
+    """
+    Perform the test developer documentation has no absolute file links operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test developer documentation has no absolute file links through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_developer_documentation_links.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     violations = []
     for document in [REPO_ROOT / "README.md", *sorted(DOC_ROOT.rglob("*.md"))]:
         violations.extend(
@@ -69,6 +130,19 @@ def test_developer_documentation_has_no_absolute_file_links() -> None:
 
 @pytest.mark.parametrize("document", REVIEWED_GUIDES, ids=lambda path: path.name)
 def test_reviewed_guide_destinations_exist(document: Path) -> None:
+    """
+    Perform the test reviewed guide destinations exist operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test reviewed guide destinations exist through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_developer_documentation_links.py
+
+
+    :param document: Value supplied for document under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     targets = _local_targets(document)
     assert targets, f"No navigation links found in {document}"
     assert all(target.exists() for target in targets), [
@@ -77,6 +151,18 @@ def test_reviewed_guide_destinations_exist(document: Path) -> None:
 
 
 def test_root_readme_exposes_the_developer_index_and_key_owners() -> None:
+    """
+    Perform the test root readme exposes the developer index and key owners operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test root readme exposes the developer index and key owners through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_developer_documentation_links.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     assert DOC_ROOT / "README.md" in _local_targets(REPO_ROOT / "README.md")
     targets = set(_local_targets(DOC_ROOT / "README.md"))
     required = {
@@ -109,6 +195,19 @@ def test_root_readme_exposes_the_developer_index_and_key_owners() -> None:
 def test_portability_check_rejects_unix_windows_and_file_uri_destinations(
     destination: str,
 ) -> None:
+    """
+    Perform the test portability check rejects unix windows and file uri destinations operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test portability check rejects unix windows and file uri destinations through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_developer_documentation_links.py
+
+
+    :param destination: Value supplied for destination under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     assert _is_absolute_file_link(destination)
     links = _destinations(f"[example](<{destination}>)")
     assert len(links) == 1
@@ -127,10 +226,35 @@ def test_portability_check_rejects_unix_windows_and_file_uri_destinations(
 def test_portability_check_accepts_relative_and_external_links(
     destination: str,
 ) -> None:
+    """
+    Perform the test portability check accepts relative and external links operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test portability check accepts relative and external links through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_developer_documentation_links.py
+
+
+    :param destination: Value supplied for destination under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     assert not _is_absolute_file_link(destination)
 
 
 def test_markdown_parser_handles_reference_links_spaces_and_ignores_code() -> None:
+    """
+    Perform the test markdown parser handles reference links spaces and ignores code operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test markdown parser handles reference links spaces and ignores code through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_developer_documentation_links.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     markdown = (
         "[guide](<a guide.md>) [reference][ref] ![diagram](diagram.png)\n\n"
         "[ref]: ../README.md\n\n"

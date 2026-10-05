@@ -1,3 +1,14 @@
+"""
+Provide test site ebook mapper script utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test site ebook mapper script through a consuming regression::
+
+        python -m pytest -q tests/utils/test_site_ebook_mapper_script.py
+"""
 from __future__ import annotations
 
 import importlib.util
@@ -7,6 +18,18 @@ from pathlib import Path
 
 
 def _load_mapper():
+    """
+    Perform the load mapper utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  load mapper through a consuming regression::
+
+            python -m pytest -q tests/utils/test_site_ebook_mapper_script.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     script_path = Path(__file__).resolve().parents[2] / "scripts" / "site_ebook_mapper.py"
     spec = importlib.util.spec_from_file_location("site_ebook_mapper", script_path)
     assert spec is not None
@@ -18,7 +41,36 @@ def _load_mapper():
 
 
 def _fake_fetcher(module, mapping: dict[str, dict[str, object]]):
+    """
+    Perform the fake fetcher utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  fake fetcher through a consuming regression::
+
+            python -m pytest -q tests/utils/test_site_ebook_mapper_script.py
+
+
+    :param module: Value supplied for module under the utility contract.
+    :param mapping: Value supplied for mapping under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     def _fetch(url: str, *, timeout_s: float, user_agent: str):
+        """
+        Perform the fetch utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  fake fetcher. fetch through a consuming regression::
+
+                python -m pytest -q tests/utils/test_site_ebook_mapper_script.py
+
+
+        :param url: Value supplied for url under the utility contract.
+        :param timeout_s: Value supplied for timeout s under the utility contract.
+        :param user_agent: Value supplied for user agent under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         del timeout_s
         assert user_agent
         payload = mapping[url]
@@ -33,6 +85,19 @@ def _fake_fetcher(module, mapping: dict[str, dict[str, object]]):
 
 
 def test_mapper_discovers_full_urls_and_exports_jsonl(tmp_path: Path) -> None:
+    """
+    Perform the test mapper discovers full urls and exports jsonl utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test mapper discovers full urls and exports jsonl through a consuming regression::
+
+            python -m pytest -q tests/utils/test_site_ebook_mapper_script.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     mapper = _load_mapper()
     state_db = tmp_path / "map.sqlite3"
     export_path = tmp_path / "ebooks.jsonl"
@@ -89,6 +154,19 @@ def test_mapper_discovers_full_urls_and_exports_jsonl(tmp_path: Path) -> None:
 
 
 def test_mapper_resumes_across_multiple_runs(tmp_path: Path) -> None:
+    """
+    Perform the test mapper resumes across multiple runs utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test mapper resumes across multiple runs through a consuming regression::
+
+            python -m pytest -q tests/utils/test_site_ebook_mapper_script.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     mapper = _load_mapper()
     state_db = tmp_path / "resume.sqlite3"
     root_url = "https://example.test/root/"
@@ -131,6 +209,19 @@ def test_mapper_resumes_across_multiple_runs(tmp_path: Path) -> None:
 
 
 def test_mapper_requeues_in_progress_pages_after_crash(tmp_path: Path) -> None:
+    """
+    Perform the test mapper requeues in progress pages after crash utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test mapper requeues in progress pages after crash through a consuming regression::
+
+            python -m pytest -q tests/utils/test_site_ebook_mapper_script.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     mapper = _load_mapper()
     state_db = tmp_path / "crash.sqlite3"
     root_url = "https://example.test/root/"

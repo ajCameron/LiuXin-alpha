@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Reject import cycles inside LiuXin's protected modern dependency seams."""
+"""
+Enforce protected-module dependency direction.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise check modern import cycles through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+"""
 
 from __future__ import annotations
 
@@ -63,7 +73,14 @@ PROTECTED_PREFIXES = (
 
 
 class ImportKind(StrEnum):
-    """Execution context of an explicit import, not a runtime cycle verdict."""
+    """
+    Execution context of an explicit import, not a runtime cycle verdict.
+
+    Example:
+        Exercise ImportKind through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+    """
 
     IMPORT_TIME = "import-time"
     DEFERRED = "deferred"
@@ -72,7 +89,14 @@ class ImportKind(StrEnum):
 
 @dataclass(frozen=True, order=True)
 class ImportEdge:
-    """An explicit dependency candidate with its source line and context."""
+    """
+    An explicit dependency candidate with its source line and context.
+
+    Example:
+        Exercise ImportEdge through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+    """
 
     source: str
     target: str
@@ -81,10 +105,39 @@ class ImportEdge:
 
 
 def _within(name: str, prefixes: Iterable[str]) -> bool:
+    """
+    Perform the within operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  within through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return any(name == prefix or name.startswith(prefix + ".") for prefix in prefixes)
 
 
 def _module_name(source_root: Path, path: Path) -> str:
+    """
+    Perform the module name operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  module name through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param source_root: Value supplied for source root under the utility contract.
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     relative = path.relative_to(source_root)
     parts = list(relative.with_suffix("").parts)
     if parts[-1] == "__init__":
@@ -93,6 +146,21 @@ def _module_name(source_root: Path, path: Path) -> str:
 
 
 def _resolve_from(module_name: str, is_package: bool, node: ast.ImportFrom) -> str:
+    """
+    Perform the resolve from operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  resolve from through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param module_name: Value supplied for module name under the utility contract.
+    :param is_package: Value supplied for is package under the utility contract.
+    :param node: Value supplied for node under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if node.level == 0:
         return str(node.module or "")
     package_parts = (
@@ -106,9 +174,33 @@ def _resolve_from(module_name: str, is_package: bool, node: ast.ImportFrom) -> s
 
 
 class _ImportCollector(ast.NodeVisitor):
+    """
+    Provide the importcollector contract for validated ebook processing.
+
+    Example:
+        Exercise  ImportCollector through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+    """
+
     def __init__(
         self, name: str, is_package: bool, tree: ast.AST, modules: Mapping[str, Path]
     ) -> None:
+        """
+        Initialize and validate the importcollector state.
+
+        Example:
+            Exercise  ImportCollector.  init   through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param is_package: Value supplied for is package under the utility contract.
+        :param tree: Value supplied for tree under the utility contract.
+        :param modules: Value supplied for modules under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.name = name
         self.is_package = is_package
         self.modules = modules
@@ -137,6 +229,19 @@ class _ImportCollector(ast.NodeVisitor):
                 )
 
     def _guard(self, node: ast.expr) -> bool | None:
+        """
+        Perform the guard operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  ImportCollector. guard through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if isinstance(node, ast.Name) and node.id in self.guard_names:
             return True
         if (
@@ -152,6 +257,20 @@ class _ImportCollector(ast.NodeVisitor):
         return None
 
     def _visit_body(self, body: Iterable[ast.stmt], kind: ImportKind) -> None:
+        """
+        Perform the visit body operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  ImportCollector. visit body through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :param body: Value supplied for body under the utility contract.
+        :param kind: Value supplied for kind under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         previous = self.kind
         self.kind = ImportKind.TYPE_ONLY if previous == ImportKind.TYPE_ONLY else kind
         for child in body:
@@ -159,6 +278,19 @@ class _ImportCollector(ast.NodeVisitor):
         self.kind = previous
 
     def visit_If(self, node: ast.If) -> None:
+        """
+        Perform the visit If operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  ImportCollector.visit If through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         guard = self._guard(node.test)
         self._visit_body(
             node.body, ImportKind.TYPE_ONLY if guard is True else self.kind
@@ -168,20 +300,86 @@ class _ImportCollector(ast.NodeVisitor):
         )
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        """
+        Perform the visit FunctionDef operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  ImportCollector.visit FunctionDef through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._visit_body(node.body, ImportKind.DEFERRED)
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        """
+        Perform the visit AsyncFunctionDef operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  ImportCollector.visit AsyncFunctionDef through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._visit_body(node.body, ImportKind.DEFERRED)
 
     def _add(self, target: str, line: int) -> None:
+        """
+        Perform the add operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  ImportCollector. add through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :param target: Value supplied for target under the utility contract.
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if target and target != self.name:
             self.edges.add(ImportEdge(self.name, target, line, self.kind))
 
     def visit_Import(self, node: ast.Import) -> None:
+        """
+        Perform the visit Import operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  ImportCollector.visit Import through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for alias in node.names:
             self._add(alias.name, node.lineno)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+        """
+        Perform the visit ImportFrom operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  ImportCollector.visit ImportFrom through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         base = _resolve_from(self.name, self.is_package, node)
         self._add(base, node.lineno)
         for alias in node.names:
@@ -193,7 +391,14 @@ class _ImportCollector(ast.NodeVisitor):
 
 @dataclass(frozen=True)
 class ImportInventory:
-    """Protected source modules and all their explicit dependency candidates."""
+    """
+    Protected source modules and all their explicit dependency candidates.
+
+    Example:
+        Exercise ImportInventory through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+    """
 
     modules: Mapping[str, Path]
     edges: tuple[ImportEdge, ...]
@@ -201,7 +406,19 @@ class ImportInventory:
     def graph(
         self, kinds: Iterable[ImportKind] = tuple(ImportKind)
     ) -> dict[str, set[str]]:
-        """Project selected contexts onto known protected modules."""
+        """
+        Project selected contexts onto known protected modules.
+
+        Example:
+            Exercise ImportInventory.graph through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :param kinds: Value supplied for kinds under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         included = frozenset(kinds)
         graph: dict[str, set[str]] = {name: set() for name in self.modules}
         for edge in self.edges:
@@ -215,11 +432,20 @@ def collect_imports(
     *,
     protected_prefixes: Iterable[str] = PROTECTED_PREFIXES,
 ) -> ImportInventory:
-    """Classify explicit imports, including both branches and deferred bodies.
+    """
+    Classify explicit imports, including both branches and deferred bodies.
 
-    Dynamic imports and implicit parent-package initialization are not modeled.
-    TYPE_CHECKING recognition covers direct/negated names and typing aliases;
-    unfamiliar conditions remain conservatively runtime dependencies.
+    Example:
+        Exercise collect imports through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param source_root: Value supplied for source root under the utility contract.
+    :param protected_prefixes: Value supplied for protected prefixes under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     prefixes = tuple(protected_prefixes)
     all_modules = {
@@ -245,12 +471,38 @@ def build_graph(
     *,
     protected_prefixes: Iterable[str] = PROTECTED_PREFIXES,
 ) -> dict[str, set[str]]:
-    """Build the combined graph; type-only and deferred imports remain protected."""
+    """
+    Build the combined graph; type-only and deferred imports remain protected.
+
+    Example:
+        Exercise build graph through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param source_root: Value supplied for source root under the utility contract.
+    :param protected_prefixes: Value supplied for protected prefixes under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return collect_imports(source_root, protected_prefixes=protected_prefixes).graph()
 
 
 def _forbidden_terminal_dependency(edge: ImportEdge) -> str | None:
-    """Keep terminal composition above its reusable implementations and contracts."""
+    """
+    Keep terminal composition above its reusable implementations and contracts.
+
+    Example:
+        Exercise  forbidden terminal dependency through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param edge: Value supplied for edge under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if _within(edge.source, TERMINAL_COMPONENT_ROOTS) and edge.target in {
         f"{TERMINAL_PREFIX}.browser",
         f"{TERMINAL_PREFIX}.windowed_ui",
@@ -283,7 +535,19 @@ def _forbidden_terminal_dependency(edge: ImportEdge) -> str | None:
 
 
 def forbidden_dependency(edge: ImportEdge) -> str | None:
-    """Reject backward ownership even when it does not close a cycle."""
+    """
+    Reject backward ownership even when it does not close a cycle.
+
+    Example:
+        Exercise forbidden dependency through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param edge: Value supplied for edge under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     terminal_error = _forbidden_terminal_dependency(edge)
     if terminal_error is not None:
         return terminal_error
@@ -323,6 +587,15 @@ def forbidden_dependency(edge: ImportEdge) -> str | None:
 
 @dataclass
 class _ComponentSearch:
+    """
+    Provide the componentsearch contract for validated ebook processing.
+
+    Example:
+        Exercise  ComponentSearch through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+    """
+
     graph: Mapping[str, set[str]]
     index: int = 0
     indices: dict[str, int] = field(default_factory=dict)
@@ -332,6 +605,19 @@ class _ComponentSearch:
     components: list[tuple[str, ...]] = field(default_factory=list)
 
     def visit(self, node: str) -> None:
+        """
+        Perform the visit operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  ComponentSearch.visit through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.indices[node] = self.index
         self.lowlinks[node] = self.index
         self.index += 1
@@ -359,7 +645,19 @@ class _ComponentSearch:
 def strongly_connected_components(
     graph: Mapping[str, set[str]],
 ) -> tuple[tuple[str, ...], ...]:
-    """Return multi-module strongly connected components in stable order."""
+    """
+    Return multi-module strongly connected components in stable order.
+
+    Example:
+        Exercise strongly connected components through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param graph: Value supplied for graph under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     search = _ComponentSearch(graph)
     for node in sorted(graph):
@@ -369,7 +667,19 @@ def strongly_connected_components(
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Enforce the combined graph and explain the contexts of failing edges."""
+    """
+    Enforce the combined graph and explain the contexts of failing edges.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--source-root",

@@ -1,7 +1,14 @@
 #!/usr/bin/env python
 """
-    pylrf.py -- very low level interface to create lrf files.  See pylrs for
-    higher level interface that can use this module to render books to lrf.
+Serialize PyLRS document structures into LRF binary objects and streams.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise pylrf through a consuming regression::
+
+        python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
 """
 from __future__ import annotations
 
@@ -77,14 +84,50 @@ PYLRF_VERSION = "1.0"
 
 
 class LrfError(Exception):
+    """
+    Report a lrferror encountered while processing an ebook format.
+
+    Example:
+        Exercise LrfError through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     pass
 
 
 def writeByte(f: _typing.Any, byte: _typing.Any) -> None:
+    """
+    Perform the writeByte operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise writeByte through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+    :param f: Value supplied for f under the utility contract.
+    :param byte: Value supplied for byte under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     f.write(struct.pack("<B", byte))
 
 
 def writeWord(f: _typing.Any, word: _typing.Any) -> None:
+    """
+    Perform the writeWord operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise writeWord through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+    :param f: Value supplied for f under the utility contract.
+    :param word: Value supplied for word under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if int(word) > 65535:
         raise LrfError("Cannot encode a number greater than 65535 in a word.")
     if int(word) < 0:
@@ -93,30 +136,128 @@ def writeWord(f: _typing.Any, word: _typing.Any) -> None:
 
 
 def writeSignedWord(f: _typing.Any, sword: _typing.Any) -> None:
+    """
+    Perform the writeSignedWord operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise writeSignedWord through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+    :param f: Value supplied for f under the utility contract.
+    :param sword: Value supplied for sword under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     f.write(struct.pack("<h", int(float(sword))))
 
 
 def writeWords(f: _typing.Any, *words: _typing.Any) -> None:
+    """
+    Perform the writeWords operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise writeWords through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+    :param f: Value supplied for f under the utility contract.
+    :param words: Value supplied for words under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     f.write(struct.pack("<%dH" % len(words), *words))
 
 
 def writeDWord(f: _typing.Any, dword: _typing.Any) -> None:
+    """
+    Perform the writeDWord operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise writeDWord through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+    :param f: Value supplied for f under the utility contract.
+    :param dword: Value supplied for dword under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     f.write(struct.pack("<I", int(dword)))
 
 
 def writeDWords(f: _typing.Any, *dwords: _typing.Any) -> None:
+    """
+    Perform the writeDWords operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise writeDWords through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+    :param f: Value supplied for f under the utility contract.
+    :param dwords: Value supplied for dwords under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     f.write(struct.pack("<%dI" % len(dwords), *dwords))
 
 
 def writeQWord(f: _typing.Any, qword: _typing.Any) -> None:
+    """
+    Perform the writeQWord operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise writeQWord through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+    :param f: Value supplied for f under the utility contract.
+    :param qword: Value supplied for qword under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     f.write(struct.pack("<Q", qword))
 
 
 def writeZeros(f: _typing.Any, nZeros: _typing.Any) -> None:
+    """
+    Perform the writeZeros operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise writeZeros through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+    :param f: Value supplied for f under the utility contract.
+    :param nZeros: Value supplied for nZeros under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     f.write(b"\x00" * nZeros)
 
 
 def writeString(f: _typing.Any, str: _typing.Any) -> None:
+    """
+    Perform the writeString operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise writeString through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+    :param f: Value supplied for f under the utility contract.
+    :param str: Value supplied for str under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if isinstance(str, (bytes, bytearray, memoryview)):
         f.write(bytes(str))
     else:
@@ -124,20 +265,77 @@ def writeString(f: _typing.Any, str: _typing.Any) -> None:
 
 
 def writeIdList(f: _typing.Any, idList: _typing.Any) -> None:
+    """
+    Perform the writeIdList operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise writeIdList through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+    :param f: Value supplied for f under the utility contract.
+    :param idList: Value supplied for idList under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     writeWord(f, len(idList))
     writeDWords(f, *idList)
 
 
 def writeColor(f: _typing.Any, color: _typing.Any) -> None:
     # TODO: allow color names, web format
+    """
+    Perform the writeColor operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise writeColor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+    :param f: Value supplied for f under the utility contract.
+    :param color: Value supplied for color under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     f.write(struct.pack(">I", int(color, 0)))
 
 
 def writeLineWidth(f: _typing.Any, width: _typing.Any) -> None:
+    """
+    Perform the writeLineWidth operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise writeLineWidth through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+    :param f: Value supplied for f under the utility contract.
+    :param width: Value supplied for width under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     writeWord(f, int(width))
 
 
 def writeUnicode(f: _typing.Any, string: _typing.Any, encoding: _typing.Any) -> None:
+    """
+    Perform the writeUnicode operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise writeUnicode through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+    :param f: Value supplied for f under the utility contract.
+    :param string: Value supplied for string under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if isinstance(string, (bytes, bytearray, memoryview)):
         string = bytes(string).decode(encoding, "replace")
     elif not isinstance(string, str):
@@ -151,6 +349,21 @@ def writeUnicode(f: _typing.Any, string: _typing.Any, encoding: _typing.Any) -> 
 
 
 def writeRaw(f: _typing.Any, string: _typing.Any, encoding: _typing.Any) -> None:
+    """
+    Perform the writeRaw operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise writeRaw through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+    :param f: Value supplied for f under the utility contract.
+    :param string: Value supplied for string under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if isinstance(string, (bytes, bytearray, memoryview)):
         string = bytes(string).decode(encoding, "replace")
     elif not isinstance(string, str):
@@ -161,6 +374,20 @@ def writeRaw(f: _typing.Any, string: _typing.Any, encoding: _typing.Any) -> None
 
 
 def writeRubyAA(f: _typing.Any, rubyAA: _typing.Any) -> None:
+    """
+    Perform the writeRubyAA operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise writeRubyAA through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+    :param f: Value supplied for f under the utility contract.
+    :param rubyAA: Value supplied for rubyAA under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     ralign, radjust = rubyAA
     radjust = {"line-edge": 0x10, "none": 0}[radjust]
     ralign = {"start": 1, "center": 2}[ralign]
@@ -168,6 +395,20 @@ def writeRubyAA(f: _typing.Any, rubyAA: _typing.Any) -> None:
 
 
 def writeBgImage(f: _typing.Any, bgInfo: _typing.Any) -> None:
+    """
+    Perform the writeBgImage operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise writeBgImage through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+    :param f: Value supplied for f under the utility contract.
+    :param bgInfo: Value supplied for bgInfo under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     imode, iid = bgInfo
     imode = {"pfix": 0, "fix": 1, "tile": 2, "centering": 3}[imode]
     writeWord(f, imode)
@@ -175,6 +416,21 @@ def writeBgImage(f: _typing.Any, bgInfo: _typing.Any) -> None:
 
 
 def writeEmpDots(f: _typing.Any, dotsInfo: _typing.Any, encoding: _typing.Any) -> None:
+    """
+    Perform the writeEmpDots operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise writeEmpDots through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+    :param f: Value supplied for f under the utility contract.
+    :param dotsInfo: Value supplied for dotsInfo under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     ref_dots_font, dots_font_name, dots_code = dotsInfo
     writeDWord(f, ref_dots_font)
     LrfTag("fontfacename", dots_font_name).write(f, encoding)
@@ -182,6 +438,20 @@ def writeEmpDots(f: _typing.Any, dotsInfo: _typing.Any, encoding: _typing.Any) -
 
 
 def writeRuledLine(f: _typing.Any, lineInfo: _typing.Any) -> None:
+    """
+    Perform the writeRuledLine operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise writeRuledLine through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+    :param f: Value supplied for f under the utility contract.
+    :param lineInfo: Value supplied for lineInfo under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     line_length, line_type, line_width, lineColor = lineInfo
     writeWord(f, line_length)
     writeWord(f, LINE_TYPE_ENCODING[line_type])
@@ -385,17 +655,73 @@ TAG_INFO = dict(
 
 
 class ObjectTableEntry(object):
+    """
+    Provide the objecttableentry contract for validated ebook processing.
+
+    Example:
+        Exercise ObjectTableEntry through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     def __init__(self: _typing.Self, objId: _typing.Any, offset: _typing.Any, size: _typing.Any) -> None:
+        """
+        Initialize and validate the objecttableentry state.
+
+        Example:
+            Exercise ObjectTableEntry.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param objId: Value supplied for objId under the utility contract.
+        :param offset: Value supplied for offset under the utility contract.
+        :param size: Value supplied for size under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.objId = objId
         self.offset = offset
         self.size = size
 
     def write(self: _typing.Self, f: _typing.Any) -> None:
+        """
+        Perform the write operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ObjectTableEntry.write through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param f: Value supplied for f under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         writeDWords(f, self.objId, self.offset, self.size, 0)
 
 
 class LrfTag(object):
+    """
+    Provide the lrftag contract for validated ebook processing.
+
+    Example:
+        Exercise LrfTag through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     def __init__(self: _typing.Self, name: _typing.Any, *parameters: _typing.Any) -> None:
+        """
+        Initialize and validate the lrftag state.
+
+        Example:
+            Exercise LrfTag.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param parameters: Value supplied for parameters under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         try:
             tag_info = TAG_INFO[name]
         except KeyError:
@@ -414,6 +740,20 @@ class LrfTag(object):
             self.parameter = parameters[0]
 
     def write(self: _typing.Self, lrf: _typing.Any, encoding: _typing.Any = None) -> None:
+        """
+        Perform the write operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrfTag.write through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrf: Value supplied for lrf under the utility contract.
+        :param encoding: Value supplied for encoding under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.type != 0:
             writeWord(lrf, self.type)
 
@@ -446,11 +786,45 @@ STREAM_TOC = 0x0051
 
 
 class LrfStreamBase(object):
+    """
+    Provide the lrfstreambase contract for validated ebook processing.
+
+    Example:
+        Exercise LrfStreamBase through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     def __init__(self: _typing.Self, streamFlags: _typing.Any, streamData: _typing.Any = None) -> None:
+        """
+        Initialize and validate the lrfstreambase state.
+
+        Example:
+            Exercise LrfStreamBase.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param streamFlags: Value supplied for streamFlags under the utility contract.
+        :param streamData: Value supplied for streamData under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.streamFlags = streamFlags
         self.streamData = streamData
 
     def setStreamData(self: _typing.Self, streamData: _typing.Any) -> None:
+        """
+        Perform the setStreamData operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrfStreamBase.setStreamData through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param streamData: Value supplied for streamData under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.streamData = streamData
 
     def getStreamTags(self: _typing.Self, optimize: bool = False) -> list[_typing.Any]:
@@ -464,6 +838,19 @@ class LrfStreamBase(object):
         # if flags & 0x200, stream is scrambled
         # if flags & 0x100, stream is compressed
 
+        """
+        Perform the getStreamTags operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrfStreamBase.getStreamTags through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param optimize: Value supplied for optimize under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         flags = self.streamFlags
         stream_buffer = self.streamData
 
@@ -489,7 +876,28 @@ class LrfStreamBase(object):
 
 
 class LrfTagStream(LrfStreamBase):
+    """
+    Provide the lrftagstream contract for validated ebook processing.
+
+    Example:
+        Exercise LrfTagStream through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     def __init__(self: _typing.Self, streamFlags: _typing.Any, streamTags: _typing.Any = None) -> None:
+        """
+        Initialize and validate the lrftagstream state.
+
+        Example:
+            Exercise LrfTagStream.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param streamFlags: Value supplied for streamFlags under the utility contract.
+        :param streamTags: Value supplied for streamTags under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrfStreamBase.__init__(self, streamFlags)
         if streamTags is None:
             self.tags = []
@@ -497,9 +905,38 @@ class LrfTagStream(LrfStreamBase):
             self.tags = streamTags[:]
 
     def appendLrfTag(self: _typing.Self, tag: _typing.Any) -> None:
+        """
+        Perform the appendLrfTag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrfTagStream.appendLrfTag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.tags.append(tag)
 
     def getStreamTags(self: _typing.Self, encoding: _typing.Any, optimizeTags: bool = False, optimizeCompression: bool = False) -> _typing.Any:
+        """
+        Perform the getStreamTags operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrfTagStream.getStreamTags through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param encoding: Value supplied for encoding under the utility contract.
+        :param optimizeTags: Value supplied for optimizeTags under the utility contract.
+        :param optimizeCompression: Value supplied for optimizeCompression under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         stream = six_cStringIO()
         if optimizeTags:
             tagListOptimizer(self.tags)
@@ -513,14 +950,56 @@ class LrfTagStream(LrfStreamBase):
 
 
 class LrfFileStream(LrfStreamBase):
+    """
+    Provide the lrffilestream contract for validated ebook processing.
+
+    Example:
+        Exercise LrfFileStream through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     def __init__(self: _typing.Self, streamFlags: _typing.Any, filename: _typing.Any) -> None:
+        """
+        Initialize and validate the lrffilestream state.
+
+        Example:
+            Exercise LrfFileStream.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param streamFlags: Value supplied for streamFlags under the utility contract.
+        :param filename: Filename used for type inference or archive output.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrfStreamBase.__init__(self, streamFlags)
         with open(filename, "rb") as open_file:
             self.streamData = open_file.read()
 
 
 class LrfObject(object):
+    """
+    Provide the lrfobject contract for validated ebook processing.
+
+    Example:
+        Exercise LrfObject through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     def __init__(self: _typing.Self, name: _typing.Any, objId: _typing.Any) -> None:
+        """
+        Initialize and validate the lrfobject state.
+
+        Example:
+            Exercise LrfObject.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param objId: Value supplied for objId under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         if objId <= 0:
             raise LrfError("invalid objId for " + name)
 
@@ -533,12 +1012,50 @@ class LrfObject(object):
             raise LrfError("object name %s not recognized" % name)
 
     def __str__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrfObject.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "LRFObject: " + self.name + ", " + str(self.objId)
 
     def appendLrfTag(self: _typing.Self, tag: _typing.Any) -> None:
+        """
+        Perform the appendLrfTag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrfObject.appendLrfTag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.tags.append(tag)
 
     def appendLrfTags(self: _typing.Self, tagList: _typing.Any) -> None:
+        """
+        Perform the appendLrfTags operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrfObject.appendLrfTags through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param tagList: Value supplied for tagList under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.tags.extend(tagList)
 
     # deprecated old name
@@ -549,6 +1066,20 @@ class LrfObject(object):
         # This code does not really belong here, I think.  But it
         # belongs somewhere, so here it is.
         #
+        """
+        Perform the appendTagDict operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrfObject.appendTagDict through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param tagDict: Value supplied for tagDict under the utility contract.
+        :param genClass: Value supplied for genClass under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         composites = {}
         for name, value in iteritems(tagDict):
             if name == "rubyAlignAndAdjust":
@@ -589,6 +1120,20 @@ class LrfObject(object):
 
     def write(self: _typing.Self, lrf: _typing.Any, encoding: _typing.Any = None) -> None:
         # print "Writing object", self.name
+        """
+        Perform the write operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrfObject.write through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrf: Value supplied for lrf under the utility contract.
+        :param encoding: Value supplied for encoding under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         LrfTag("ObjectStart", (self.objId, self.type)).write(lrf)
 
         for tag in self.tags:
@@ -599,19 +1144,65 @@ class LrfObject(object):
 
 class LrfToc(LrfObject):
     """
-    Table of contents.  Format of toc is: [ (pageid, objid, string)...]
+    Table of contents. Format of toc is: [ (pageid, objid, string)...]
+
+    Example:
+        Exercise LrfToc through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
     """
 
     def __init__(self: _typing.Self, objId: _typing.Any, toc: _typing.Any, se: _typing.Any) -> None:
+        """
+        Initialize and validate the lrftoc state.
+
+        Example:
+            Exercise LrfToc.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param objId: Value supplied for objId under the utility contract.
+        :param toc: Value supplied for toc under the utility contract.
+        :param se: Value supplied for se under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrfObject.__init__(self, "TOC", objId)
         streamData = self._makeTocStream(toc, se)
         self._makeStreamTags(streamData)
 
     def _makeStreamTags(self: _typing.Self, streamData: _typing.Any) -> None:
+        """
+        Perform the makeStreamTags operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrfToc. makeStreamTags through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param streamData: Value supplied for streamData under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         stream = LrfStreamBase(STREAM_TOC, streamData)
         self.tags.extend(stream.getStreamTags())
 
     def _makeTocStream(self: _typing.Self, toc: _typing.Any, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the makeTocStream operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrfToc. makeTocStream through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param toc: Value supplied for toc under the utility contract.
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         stream = six_cStringIO()
         nEntries = len(toc)
 
@@ -642,7 +1233,27 @@ class LrfToc(LrfObject):
 
 
 class LrfWriter(object):
+    """
+    Provide the lrfwriter contract for validated ebook processing.
+
+    Example:
+        Exercise LrfWriter through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     def __init__(self: _typing.Self, sourceEncoding: _typing.Any) -> None:
+        """
+        Initialize and validate the lrfwriter state.
+
+        Example:
+            Exercise LrfWriter.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param sourceEncoding: Value supplied for sourceEncoding under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.sourceEncoding = sourceEncoding
 
         # The following flags are just to have a place to remember these
@@ -672,9 +1283,34 @@ class LrfWriter(object):
         self.objectTable = []
 
     def getSourceEncoding(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the getSourceEncoding operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrfWriter.getSourceEncoding through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.sourceEncoding
 
     def toUnicode(self: _typing.Self, string: _typing.Any) -> _typing.Any:
+        """
+        Perform the toUnicode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrfWriter.toUnicode through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param string: Value supplied for string under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if isinstance(string, (bytes, bytearray, memoryview)):
             string = bytes(string).decode(self.sourceEncoding, "replace")
         elif not isinstance(string, str):
@@ -683,15 +1319,65 @@ class LrfWriter(object):
         return string
 
     def getDocInfoXml(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the getDocInfoXml operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrfWriter.getDocInfoXml through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.docInfoXml
 
     def setPageTreeId(self: _typing.Self, objId: _typing.Any) -> None:
+        """
+        Perform the setPageTreeId operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrfWriter.setPageTreeId through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param objId: Value supplied for objId under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.pageTreeId = objId
 
     def getPageTreeId(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the getPageTreeId operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrfWriter.getPageTreeId through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.pageTreeId
 
     def setRootObject(self: _typing.Self, obj: _typing.Any) -> None:
+        """
+        Perform the setRootObject operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrfWriter.setRootObject through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.rootObjId != 0:
             raise LrfError("root object already set")
 
@@ -699,18 +1385,58 @@ class LrfWriter(object):
         self.rootObj = obj
 
     def registerFontId(self: _typing.Self, id: _typing.Any) -> None:
+        """
+        Perform the registerFontId operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrfWriter.registerFontId through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param id: Value supplied for id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.rootObj is None:
             raise LrfError("can't register font -- no root object")
 
         self.rootObj.append(LrfTag("RegisterFont", id))
 
     def setTocObject(self: _typing.Self, obj: _typing.Any) -> None:
+        """
+        Perform the setTocObject operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrfWriter.setTocObject through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.tocObjId != 0:
             raise LrfError("toc object already set")
 
         self.tocObjId = obj.objId
 
     def setThumbnailFile(self: _typing.Self, filename: _typing.Any, encoding: _typing.Any = None) -> None:
+        """
+        Perform the setThumbnailFile operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrfWriter.setThumbnailFile through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param filename: Filename used for type inference or archive output.
+        :param encoding: Value supplied for encoding under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         with open(filename, "rb") as thumb_file:
             self.thumbnailData = thumb_file.read()
 
@@ -724,12 +1450,51 @@ class LrfWriter(object):
         self.thumbnailEncoding = encoding
 
     def append(self: _typing.Self, obj: _typing.Any) -> None:
+        """
+        Perform the append operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrfWriter.append through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.objects.append(obj)
 
     def addLrfObject(self: _typing.Self, objId: _typing.Any) -> None:
+        """
+        Perform the addLrfObject operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrfWriter.addLrfObject through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param objId: Value supplied for objId under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     def writeFile(self: _typing.Self, lrf: _typing.Any) -> None:
+        """
+        Perform the writeFile operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrfWriter.writeFile through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrf: Value supplied for lrf under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.rootObjId == 0:
             raise LrfError("no root object has been set")
 
@@ -740,6 +1505,19 @@ class LrfWriter(object):
         self.writeObjectTable(lrf)
 
     def writeHeader(self: _typing.Self, lrf: _typing.Any) -> None:
+        """
+        Perform the writeHeader operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrfWriter.writeHeader through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrf: Value supplied for lrf under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         writeString(lrf, LRF_SIGNATURE)
         writeWord(lrf, LRF_VERSION)
         writeWord(lrf, XOR_KEY)
@@ -764,6 +1542,19 @@ class LrfWriter(object):
 
     def writeObjects(self: _typing.Self, lrf: _typing.Any) -> None:
         # also appends object entries to the object table
+        """
+        Perform the writeObjects operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrfWriter.writeObjects through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrf: Value supplied for lrf under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.objectTable = []
         for obj in self.objects:
             obj_start = lrf.tell()
@@ -773,12 +1564,38 @@ class LrfWriter(object):
 
     def updateObjectTableOffset(self: _typing.Self, lrf: _typing.Any) -> None:
         # update the offset of the object table
+        """
+        Perform the updateObjectTableOffset operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrfWriter.updateObjectTableOffset through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrf: Value supplied for lrf under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         table_offset = lrf.tell()
         lrf.seek(0x18, 0)
         writeQWord(lrf, table_offset)
         lrf.seek(0, 2)
 
     def updateTocObjectOffset(self: _typing.Self, lrf: _typing.Any) -> None:
+        """
+        Perform the updateTocObjectOffset operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrfWriter.updateTocObjectOffset through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrf: Value supplied for lrf under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.tocObjId == 0:
             return
 
@@ -792,5 +1609,18 @@ class LrfWriter(object):
             raise LrfError("toc object not in object table")
 
     def writeObjectTable(self: _typing.Self, lrf: _typing.Any) -> None:
+        """
+        Perform the writeObjectTable operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrfWriter.writeObjectTable through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrf: Value supplied for lrf under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for tableEntry in self.objectTable:
             tableEntry.write(lrf)

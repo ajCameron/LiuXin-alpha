@@ -1,3 +1,14 @@
+"""
+Build deterministic EPUB fixtures and test doubles.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise file format epub through a consuming regression::
+
+        python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+"""
 from __future__ import annotations
 
 import binascii
@@ -25,6 +36,14 @@ EPUB_IMAGE_MEMBER = "OPS/images/深/cover_世界.png"
 
 @dataclass(frozen=True)
 class EPUBFixture:
+    """
+    Carry the deterministic EPUBFixture inputs and expected values used by format tests.
+
+    Example:
+        Exercise EPUBFixture through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+    """
     path: Path
     opf_path: str
     chapter_members: tuple[str, ...]
@@ -33,31 +52,144 @@ class EPUBFixture:
 
 
 class NullLog:
+    """
+    Record or discard NullLog messages without requiring the production logging stack.
+
+    Example:
+        Exercise NullLog through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+    """
     def __init__(self) -> None:
+        """
+        Initialize and validate the NullLog test-support state.
+
+        Example:
+            Exercise NullLog.  init   through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+        :return: None; completion is expressed through state changes or assertions.
+        """
         self.messages: list[str] = []
 
     def __call__(self, message: str = "", *args) -> None:
+        """
+        Execute the configured fixture builder or test double operation.
+
+        Example:
+            Exercise NullLog.  call   through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+        :param message: Diagnostic message recorded or discarded by the test logger.
+        :param args: Positional arguments forwarded to the bounded test double.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         self.messages.append(message % args if args else message)
 
     def debug(self, message: str = "", *args) -> None:
+        """
+        Record or discard a debug message for assertions without external logging.
+
+        Example:
+            Exercise NullLog.debug through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+        :param message: Diagnostic message recorded or discarded by the test logger.
+        :param args: Positional arguments forwarded to the bounded test double.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         self(message, *args)
 
     def info(self, message: str = "", *args) -> None:
+        """
+        Record or discard a info message for assertions without external logging.
+
+        Example:
+            Exercise NullLog.info through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+        :param message: Diagnostic message recorded or discarded by the test logger.
+        :param args: Positional arguments forwarded to the bounded test double.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         self(message, *args)
 
     def warning(self, message: str = "", *args) -> None:
+        """
+        Record or discard a warning message for assertions without external logging.
+
+        Example:
+            Exercise NullLog.warning through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+        :param message: Diagnostic message recorded or discarded by the test logger.
+        :param args: Positional arguments forwarded to the bounded test double.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         self(message, *args)
 
     warn = warning
 
     def exception(self, message: str = "", *args) -> None:
+        """
+        Record or discard a exception message for assertions without external logging.
+
+        Example:
+            Exercise NullLog.exception through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+        :param message: Diagnostic message recorded or discarded by the test logger.
+        :param args: Positional arguments forwarded to the bounded test double.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         self(message, *args)
 
 
 def png_bytes(width: int = 16, height: int = 16, rgb: tuple[int, int, int] = (70, 130, 170)) -> bytes:
+    """
+    Return deterministic PNG bytes for the requested dimensions and colour.
+
+    Example:
+        Exercise png bytes through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param width: Image width in pixels.
+    :param height: Image height in pixels.
+    :param rgb: RGB colour embedded in the generated image.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     signature = b"\x89PNG\r\n\x1a\n"
 
     def chunk(tag: bytes, payload: bytes) -> bytes:
+        """
+        Return the encoded binary chunk required by the fixture container.
+
+        Example:
+            Exercise png bytes.chunk through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+        :param tag: Value supplied for tag under the deterministic fixture contract.
+        :param payload: Binary or structured payload encoded into the fixture.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         return (
             struct.pack(">I", len(payload))
             + tag
@@ -72,6 +204,22 @@ def png_bytes(width: int = 16, height: int = 16, rgb: tuple[int, int, int] = (70
 
 
 def _opf_href(opf_path: str, member_name: str) -> str:
+    """
+    Perform the opf href step with deterministic fixture inputs.
+
+    Example:
+        Exercise  opf href through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param opf_path: Value supplied for opf path under the deterministic fixture
+        contract.
+    :param member_name: Value supplied for member name under the deterministic fixture
+        contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     base = posixpath.dirname(opf_path)
     if not base:
         return member_name
@@ -80,6 +228,19 @@ def _opf_href(opf_path: str, member_name: str) -> str:
 
 
 def _xml_text(text: str) -> str:
+    """
+    Perform the xml text step with deterministic fixture inputs.
+
+    Example:
+        Exercise  xml text through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param text: Text encoded, parsed or embedded in the fixture.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     return escape(text, {'"': "&quot;"})
 
 
@@ -91,6 +252,26 @@ def build_unicode_epub(
     include_image: bool = True,
     extra_assets: Mapping[str, tuple[str, bytes]] | None = None,
 ) -> EPUBFixture:
+    """
+    Build unicode epub for deterministic fixture consumers.
+
+    Example:
+        Exercise build unicode epub through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param path: Filesystem path read, written or validated by the fixture operation.
+    :param lines: Value supplied for lines under the deterministic fixture contract.
+    :param opf_path: Value supplied for opf path under the deterministic fixture
+        contract.
+    :param include_image: Value supplied for include image under the deterministic
+        fixture contract.
+    :param extra_assets: Value supplied for extra assets under the deterministic fixture
+        contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     body_lines = tuple(lines or MULTISCRIPT_TEXT.splitlines())
     extra_assets = dict(extra_assets or {})
     opf_base = posixpath.dirname(opf_path)
@@ -242,16 +423,56 @@ def build_unicode_epub(
 
 
 def zip_members(path: Path) -> tuple[str, ...]:
+    """
+    Return the normalized members stored in the generated archive fixture.
+
+    Example:
+        Exercise zip members through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param path: Filesystem path read, written or validated by the fixture operation.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     with zipfile.ZipFile(path, "r") as zf:
         return tuple(info.filename for info in zf.infolist())
 
 
 def read_epub_member(path: Path, member: str) -> bytes:
+    """
+    Read epub member under the fixture contract.
+
+    Example:
+        Exercise read epub member through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param path: Filesystem path read, written or validated by the fixture operation.
+    :param member: Archive or container member addressed by the operation.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     with zipfile.ZipFile(path, "r") as zf:
         return zf.read(member)
 
 
 def read_container_opf_path(path: Path) -> str:
+    """
+    Read container opf path under the fixture contract.
+
+    Example:
+        Exercise read container opf path through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param path: Filesystem path read, written or validated by the fixture operation.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     root = ET.fromstring(read_epub_member(path, "META-INF/container.xml"))
     for node in root.iter():
         if node.tag.rsplit("}", 1)[-1] != "rootfile":
@@ -272,6 +493,24 @@ def rewrite_epub_zip(
     add: Mapping[str, bytes] | None = None,
     add_compression: int = zipfile.ZIP_STORED,
 ) -> None:
+    """
+    Perform the rewrite epub zip step with deterministic fixture inputs.
+
+    Example:
+        Exercise rewrite epub zip through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param src: Source path or value copied into the fixture.
+    :param dst: Destination path or object receiving generated fixture data.
+    :param remove: Value supplied for remove under the deterministic fixture contract.
+    :param replace: Value supplied for replace under the deterministic fixture contract.
+    :param add: Value supplied for add under the deterministic fixture contract.
+    :param add_compression: Value supplied for add compression under the deterministic
+        fixture contract.
+    :return: None; fixture state or the supplied destination is updated in place.
+    """
     replacements = dict(replace or {})
     additions = dict(add or {})
     removed = set(remove)

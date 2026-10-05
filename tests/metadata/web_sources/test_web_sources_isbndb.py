@@ -1,3 +1,14 @@
+"""
+Verify ISBNDB configured JSON/XML parsing and failures.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test web sources isbndb through its owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+"""
 from __future__ import annotations
 
 import json
@@ -6,45 +17,200 @@ from threading import Event
 
 
 class _Response:
+    """
+    Provide the Response test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise Response through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+    """
     def __init__(self, payload: bytes) -> None:
+        """
+        Initialize the Response test double.
+
+        Example:
+            Exercise Response.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :param payload: Value supplied for payload in the focused test operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self.payload = payload
 
     def read(self) -> bytes:
+        """
+        Perform the read test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Response.read through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return self.payload
 
 
 class _Browser:
+    """
+    Provide the Browser test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise Browser through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+    """
     def __init__(self, payload: bytes) -> None:
+        """
+        Initialize the Browser test double.
+
+        Example:
+            Exercise Browser.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :param payload: Value supplied for payload in the focused test operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self.payload = payload
         self.addheaders = []
         self.requests = []
 
     def open_novisit(self, url, timeout=30):
+        """
+        Perform the open novisit test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Browser.open novisit through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :param url: Value supplied for url in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.requests.append((url, timeout, tuple(self.addheaders)))
         return _Response(self.payload)
 
 
 class _Log:
+    """
+    Provide the Log test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise Log through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+    """
     def __init__(self) -> None:
+        """
+        Initialize the Log test double.
+
+        Example:
+            Exercise Log.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :return: None; the function records state or raises through its assertions.
+        """
         self.events = []
 
     def __call__(self, *parts):
+        """
+        Perform the call test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.call through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("call", parts))
 
     def info(self, *parts):
+        """
+        Perform the info test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.info through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("info", parts))
 
     def warning(self, *parts):
+        """
+        Perform the warning test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.warning through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("warning", parts))
 
     def error(self, *parts):
+        """
+        Perform the error test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.error through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("error", parts))
 
     def exception(self, *parts):
+        """
+        Perform the exception test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.exception through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("exception", parts))
 
 
 def _sample_v2_book(isbn13: str = "9780306406157") -> dict:
+    """
+    Perform the sample v2 book test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise sample v2 book through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :param isbn13: Value supplied for isbn13 in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return {
         "title": "The Great Gatsby",
         "title_long": "The Great Gatsby (Annotated Edition)",
@@ -59,6 +225,17 @@ def _sample_v2_book(isbn13: str = "9780306406157") -> dict:
 
 
 def _sample_legacy_xml() -> str:
+    """
+    Perform the sample legacy xml test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise sample legacy xml through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return """<?xml version="1.0" encoding="utf-8"?>
 <ISBNdb>
   <BookList total_results="1" page_size="10" shown_results="1">
@@ -76,6 +253,19 @@ def _sample_legacy_xml() -> str:
 
 
 def _record(title: str, isbn: str = "9780306406157") -> dict:
+    """
+    Perform the record test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise record through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :param title: Value supplied for title in the focused test operation.
+    :param isbn: Value supplied for isbn in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return {
         "title": title,
         "authors": ["Author"],
@@ -85,16 +275,59 @@ def _record(title: str, isbn: str = "9780306406157") -> dict:
 
 
 def test_web_sources_isbndb_import_smoke() -> None:
+    """
+    Verify web sources isbndb import smoke.
+
+    Example:
+        Exercise test web sources isbndb import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.isbndb as isbndb
 
     assert isbndb is not None
 
 
 def test_isbndb_helper_normalization_edges(monkeypatch) -> None:
+    """
+    Verify isbndb helper normalization edges.
+
+    Example:
+        Exercise test isbndb helper normalization edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.isbndb as isbndb
 
     class BadString:
+        """
+        Provide the BadString test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test isbndb helper normalization edges.BadString through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+        """
         def __str__(self):
+            """
+            Perform the str test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test isbndb helper normalization edges.BadString.str through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             raise RuntimeError("broken")
 
     assert isbndb._as_text(b"caf\xc3\xa9") == "café"
@@ -128,6 +361,17 @@ def test_isbndb_helper_normalization_edges(monkeypatch) -> None:
 
 
 def test_isbndb_legacy_xml_parser_edges() -> None:
+    """
+    Verify isbndb legacy xml parser edges.
+
+    Example:
+        Exercise test isbndb legacy xml parser edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.isbndb import _parse_legacy_xml_books
 
     assert _parse_legacy_xml_books("") == []
@@ -163,6 +407,19 @@ def test_isbndb_legacy_xml_parser_edges() -> None:
 
 
 def test_isbndb_api_key_headers_retry_and_open_helpers(monkeypatch) -> None:
+    """
+    Verify isbndb api key headers retry and open helpers.
+
+    Example:
+        Exercise test isbndb api key headers retry and open helpers through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.isbndb import ISBNDB
 
     plugin = ISBNDB()
@@ -208,6 +465,19 @@ def test_isbndb_api_key_headers_retry_and_open_helpers(monkeypatch) -> None:
 
 
 def test_isbndb_create_query_prefers_isbn_then_search(monkeypatch) -> None:
+    """
+    Verify isbndb create query prefers isbn then search.
+
+    Example:
+        Exercise test isbndb create query prefers isbn then search through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.isbndb import ISBNDB
 
     plugin = ISBNDB()
@@ -228,6 +498,19 @@ def test_isbndb_create_query_prefers_isbn_then_search(monkeypatch) -> None:
 
 
 def test_isbndb_create_query_requires_key(monkeypatch) -> None:
+    """
+    Verify isbndb create query requires key.
+
+    Example:
+        Exercise test isbndb create query requires key through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.isbndb import ISBNDB
 
     plugin = ISBNDB()
@@ -237,6 +520,17 @@ def test_isbndb_create_query_requires_key(monkeypatch) -> None:
 
 
 def test_isbndb_records_from_json_payload_shapes() -> None:
+    """
+    Verify isbndb records from json payload shapes.
+
+    Example:
+        Exercise test isbndb records from json payload shapes through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.isbndb import ISBNDB
 
     plugin = ISBNDB()
@@ -257,6 +551,17 @@ def test_isbndb_records_from_json_payload_shapes() -> None:
 
 
 def test_isbndb_metadata_from_record_parses_fields() -> None:
+    """
+    Verify isbndb metadata from record parses fields.
+
+    Example:
+        Exercise test isbndb metadata from record parses fields through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.isbndb import ISBNDB
 
     plugin = ISBNDB()
@@ -271,6 +576,17 @@ def test_isbndb_metadata_from_record_parses_fields() -> None:
 
 
 def test_isbndb_metadata_from_record_fallbacks_and_rejections() -> None:
+    """
+    Verify isbndb metadata from record fallbacks and rejections.
+
+    Example:
+        Exercise test isbndb metadata from record fallbacks and rejections through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.isbndb import ISBNDB
 
     plugin = ISBNDB()
@@ -303,6 +619,17 @@ def test_isbndb_metadata_from_record_fallbacks_and_rejections() -> None:
 
 
 def test_isbndb_legacy_xml_payload_is_parsed() -> None:
+    """
+    Verify isbndb legacy xml payload remains parsed.
+
+    Example:
+        Exercise test isbndb legacy xml payload is parsed through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.isbndb import ISBNDB
 
     plugin = ISBNDB()
@@ -315,6 +642,17 @@ def test_isbndb_legacy_xml_payload_is_parsed() -> None:
 
 
 def test_isbndb_metadata_from_payload_modes_and_filtered_records() -> None:
+    """
+    Verify isbndb metadata from payload modes and filtered records.
+
+    Example:
+        Exercise test isbndb metadata from payload modes and filtered records through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.isbndb import ISBNDB
 
     plugin = ISBNDB()
@@ -329,6 +667,19 @@ def test_isbndb_metadata_from_payload_modes_and_filtered_records() -> None:
 
 
 def test_isbndb_query_once_uses_headers_and_empty_payload(monkeypatch) -> None:
+    """
+    Verify isbndb query once uses headers and empty payload.
+
+    Example:
+        Exercise test isbndb query once uses headers and empty payload through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.isbndb import ISBNDB
 
     plugin = ISBNDB()
@@ -336,6 +687,18 @@ def test_isbndb_query_once_uses_headers_and_empty_payload(monkeypatch) -> None:
     calls = []
 
     def _fake_open(**kwargs):
+        """
+        Perform the fake open test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test isbndb query once uses headers and empty payload.fake open through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :param kwargs: Keyword values forwarded by the test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         calls.append(kwargs)
         return ""
 
@@ -349,6 +712,19 @@ def test_isbndb_query_once_uses_headers_and_empty_payload(monkeypatch) -> None:
 
 
 def test_isbndb_identify_uses_v2_payload(monkeypatch) -> None:
+    """
+    Verify isbndb identify uses v2 payload.
+
+    Example:
+        Exercise test isbndb identify uses v2 payload through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.isbndb import ISBNDB
 
     plugin = ISBNDB()
@@ -373,12 +749,36 @@ def test_isbndb_identify_uses_v2_payload(monkeypatch) -> None:
 
 
 def test_isbndb_identify_configuration_abort_and_insufficient_query(monkeypatch) -> None:
+    """
+    Verify isbndb identify configuration abort and insufficient query.
+
+    Example:
+        Exercise test isbndb identify configuration abort and insufficient query through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.isbndb import ISBNDB
 
     plugin = ISBNDB()
     called = False
 
     def _configured():
+        """
+        Perform the configured test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test isbndb identify configuration abort and insufficient query.configured through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         nonlocal called
         called = True
         return True
@@ -400,6 +800,19 @@ def test_isbndb_identify_configuration_abort_and_insufficient_query(monkeypatch)
 
 
 def test_isbndb_identify_skips_failed_queries_and_dedupes(monkeypatch) -> None:
+    """
+    Verify isbndb identify skips failed queries and dedupes.
+
+    Example:
+        Exercise test isbndb identify skips failed queries and dedupes through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.isbndb import ISBNDB
 
     plugin = ISBNDB()
@@ -414,6 +827,22 @@ def test_isbndb_identify_skips_failed_queries_and_dedupes(monkeypatch) -> None:
     )
 
     def _query_once(log, abort, query_mode, query_url, timeout):
+        """
+        Perform the query once test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test isbndb identify skips failed queries and dedupes.query once through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param query_mode: Value supplied for query mode in the focused test operation.
+        :param query_url: Value supplied for query url in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del log, abort, query_mode, timeout
         if "fail" in query_url:
             raise RuntimeError("network")
@@ -430,6 +859,19 @@ def test_isbndb_identify_skips_failed_queries_and_dedupes(monkeypatch) -> None:
 
 
 def test_isbndb_identify_aborts_during_query_loops(monkeypatch) -> None:
+    """
+    Verify isbndb identify aborts during query loops.
+
+    Example:
+        Exercise test isbndb identify aborts during query loops through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.isbndb import ISBNDB
 
     plugin = ISBNDB()
@@ -446,6 +888,22 @@ def test_isbndb_identify_aborts_during_query_loops(monkeypatch) -> None:
     calls = []
 
     def _query_once(log, abort, query_mode, query_url, timeout):
+        """
+        Perform the query once test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test isbndb identify aborts during query loops.query once through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param query_mode: Value supplied for query mode in the focused test operation.
+        :param query_url: Value supplied for query url in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del log, query_mode, timeout
         calls.append(query_url)
         abort.set()
@@ -457,6 +915,19 @@ def test_isbndb_identify_aborts_during_query_loops(monkeypatch) -> None:
 
 
 def test_isbndb_identify_falls_back_to_title_author(monkeypatch) -> None:
+    """
+    Verify isbndb identify falls back to title author.
+
+    Example:
+        Exercise test isbndb identify falls back to title author through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.isbndb import ISBNDB
 
     plugin = ISBNDB()
@@ -465,12 +936,43 @@ def test_isbndb_identify_falls_back_to_title_author(monkeypatch) -> None:
     calls = []
 
     def _create_query(title=None, authors=None, identifiers=None):
+        """
+        Perform the create query test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test isbndb identify falls back to title author.create query through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :param title: Value supplied for title in the focused test operation.
+        :param authors: Value supplied for authors in the focused test operation.
+        :param identifiers: Value supplied for identifiers in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         calls.append((title, tuple(authors or []), dict(identifiers or {})))
         if identifiers and identifiers.get("isbn"):
             return [("v2_book", "https://example.invalid/empty")]
         return [("v2_search", "https://example.invalid/search")]
 
     def _open_text(log, abort, url, timeout, context, headers=None):
+        """
+        Perform the open text test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test isbndb identify falls back to title author.open text through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param url: Value supplied for url in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :param context: Value supplied for context in the focused test operation.
+        :param headers: Value supplied for headers in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del log, abort, timeout, context, headers
         if "empty" in url:
             return json.dumps({"books": []})
@@ -494,6 +996,19 @@ def test_isbndb_identify_falls_back_to_title_author(monkeypatch) -> None:
 
 
 def test_isbndb_identify_fallback_skips_exceptions_and_stops_on_result(monkeypatch) -> None:
+    """
+    Verify isbndb identify fallback skips exceptions and stops on result.
+
+    Example:
+        Exercise test isbndb identify fallback skips exceptions and stops on result through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.isbndb import ISBNDB
 
     plugin = ISBNDB()
@@ -501,6 +1016,20 @@ def test_isbndb_identify_fallback_skips_exceptions_and_stops_on_result(monkeypat
     calls = []
 
     def _create_query(title=None, authors=None, identifiers=None):
+        """
+        Perform the create query test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test isbndb identify fallback skips exceptions and stops on result.create query through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :param title: Value supplied for title in the focused test operation.
+        :param authors: Value supplied for authors in the focused test operation.
+        :param identifiers: Value supplied for identifiers in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         calls.append(dict(identifiers or {}))
         if identifiers:
             return [("v2_book", "https://example.invalid/empty")]
@@ -510,6 +1039,22 @@ def test_isbndb_identify_fallback_skips_exceptions_and_stops_on_result(monkeypat
         ]
 
     def _query_once(log, abort, query_mode, query_url, timeout):
+        """
+        Perform the query once test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test isbndb identify fallback skips exceptions and stops on result.query once through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param query_mode: Value supplied for query mode in the focused test operation.
+        :param query_url: Value supplied for query url in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del log, abort, query_mode, timeout
         if query_url.endswith("/fail"):
             raise RuntimeError("network")
@@ -528,6 +1073,19 @@ def test_isbndb_identify_fallback_skips_exceptions_and_stops_on_result(monkeypat
 
 
 def test_isbndb_identify_not_configured_is_noop(monkeypatch) -> None:
+    """
+    Verify isbndb identify not configured remains noop.
+
+    Example:
+        Exercise test isbndb identify not configured is noop through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.isbndb import ISBNDB
 
     plugin = ISBNDB()
@@ -546,6 +1104,17 @@ def test_isbndb_identify_not_configured_is_noop(monkeypatch) -> None:
 
 
 def test_isbndb_import_web_source_module() -> None:
+    """
+    Verify isbndb import web source module.
+
+    Example:
+        Exercise test isbndb import web source module through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources import import_web_source_module
 
     mod = import_web_source_module("isbndb")

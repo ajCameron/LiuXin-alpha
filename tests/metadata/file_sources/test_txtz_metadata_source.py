@@ -1,3 +1,14 @@
+"""
+Verify TXTZ archive metadata and cover selection.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test txtz metadata source through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+"""
 from __future__ import annotations
 
 import io
@@ -11,6 +22,18 @@ from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
 
 def _values(raw):
+    """
+    Perform the values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise values through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, Mapping):
@@ -24,11 +47,35 @@ def _values(raw):
 
 
 def _first(raw):
+    """
+    Perform the first test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise first through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     vals = _values(raw)
     return vals[0] if vals else None
 
 
 def _snapshot(md) -> dict:
+    """
+    Perform the snapshot test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise snapshot through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :param md: Value supplied for md in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return {
         "title": _first(getattr(md, "title", None)),
         "authors": sorted(_values(getattr(md, "authors", None))),
@@ -37,6 +84,18 @@ def _snapshot(md) -> dict:
 
 
 def _cover_tuple(raw):
+    """
+    Perform the cover tuple test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise cover tuple through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if isinstance(raw, tuple) and len(raw) == 2:
         return raw
     if isinstance(raw, Mapping):
@@ -49,18 +108,55 @@ def _cover_tuple(raw):
 
 
 def _build_txtz(path: Path, members: dict[str, bytes]) -> None:
+    """
+    Perform the build txtz test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise build txtz through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :param path: Value supplied for path in the focused test operation.
+    :param members: Value supplied for members in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     with zipfile.ZipFile(path, "w") as zf:
         for name, payload in members.items():
             zf.writestr(name, payload)
 
 
 def test_txtz_module_import_smoke() -> None:
+    """
+    Verify txtz module import smoke.
+
+    Example:
+        Exercise test txtz module import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.txtz as txtz_md
 
     assert txtz_md is not None
 
 
 def test_txtz_reader_plugin_is_available_and_preserves_stream_position(md_test_fixture) -> None:
+    """
+    Verify txtz reader plugin remains available and preserves stream position.
+
+    Example:
+        Exercise test txtz reader plugin is available and preserves stream position through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
 
     fixture = md_test_fixture(file_ext="txtz", file_num=1, verify_hash=True)
@@ -82,6 +178,19 @@ def test_txtz_reader_plugin_is_available_and_preserves_stream_position(md_test_f
 
 
 def test_txtz_get_metadata_fixture_legacy_expectations(md_test_fixture) -> None:
+    """
+    Verify txtz get metadata fixture legacy expectations.
+
+    Example:
+        Exercise test txtz get metadata fixture legacy expectations through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.txtz import get_metadata
 
     fixture = md_test_fixture(file_ext="txtz", file_num=1, verify_hash=True)
@@ -92,6 +201,18 @@ def test_txtz_get_metadata_fixture_legacy_expectations(md_test_fixture) -> None:
 
 
 def test_txtz_falls_back_to_embedded_txt_when_opf_missing(tmp_path: Path) -> None:
+    """
+    Verify txtz falls back to embedded txt when opf missing.
+
+    Example:
+        Exercise test txtz falls back to embedded txt when opf missing through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.txtz import get_metadata
 
     txt_payload = "Fallback Title\n\n\nby Fallback Author\nBody line.\n".encode("utf-8")
@@ -109,6 +230,18 @@ def test_txtz_falls_back_to_embedded_txt_when_opf_missing(tmp_path: Path) -> Non
 
 
 def test_txtz_falls_back_to_gutenberg_header_when_opf_missing(tmp_path: Path) -> None:
+    """
+    Verify txtz falls back to gutenberg header when opf missing.
+
+    Example:
+        Exercise test txtz falls back to gutenberg header when opf missing through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.txtz import get_metadata
 
     txt_payload = (
@@ -124,6 +257,18 @@ def test_txtz_falls_back_to_gutenberg_header_when_opf_missing(tmp_path: Path) ->
 
 
 def test_txtz_cover_fallback_when_opf_missing(tmp_path: Path) -> None:
+    """
+    Verify txtz cover fallback when opf missing.
+
+    Example:
+        Exercise test txtz cover fallback when opf missing through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.txtz import get_metadata
 
     cover = b"\xff\xd8\xff\xe0fake-jpeg"
@@ -145,6 +290,18 @@ def test_txtz_cover_fallback_when_opf_missing(tmp_path: Path) -> None:
 
 
 def test_txtz_set_metadata_roundtrip_uses_extz_writer(tmp_path: Path) -> None:
+    """
+    Verify txtz set metadata roundtrip uses extz writer.
+
+    Example:
+        Exercise test txtz set metadata roundtrip uses extz writer through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.txtz import get_metadata, set_metadata
 
     opf = (
@@ -167,6 +324,18 @@ def test_txtz_set_metadata_roundtrip_uses_extz_writer(tmp_path: Path) -> None:
 
 
 def test_txtz_set_metadata_roundtrip_unicode_torture(tmp_path: Path) -> None:
+    """
+    Verify txtz set metadata roundtrip unicode torture.
+
+    Example:
+        Exercise test txtz set metadata roundtrip unicode torture through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.txtz import get_metadata, set_metadata
 
     opf = (
@@ -196,6 +365,17 @@ def test_txtz_set_metadata_roundtrip_unicode_torture(tmp_path: Path) -> None:
 
 
 def test_txtz_set_metadata_invalid_zip_raises() -> None:
+    """
+    Verify txtz set metadata invalid zip raises.
+
+    Example:
+        Exercise test txtz set metadata invalid zip raises through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.txtz import set_metadata
 
     with pytest.raises(Exception):
@@ -203,6 +383,17 @@ def test_txtz_set_metadata_invalid_zip_raises() -> None:
 
 
 def test_txtz_invalid_payload_raises_by_default_and_can_opt_into_fallback() -> None:
+    """
+    Verify txtz invalid payload raises by default and can opt into fallback.
+
+    Example:
+        Exercise test txtz invalid payload raises by default and can opt into fallback through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.extz import ExtzFormatError
     from LiuXin_alpha.metadata.file_sources.txtz import get_metadata
 
@@ -215,6 +406,19 @@ def test_txtz_invalid_payload_raises_by_default_and_can_opt_into_fallback() -> N
 
 
 def test_txtz_md_fixture_smoke_and_deterministic(md_test_fixture) -> None:
+    """
+    Verify txtz md fixture smoke and deterministic.
+
+    Example:
+        Exercise test txtz md fixture smoke and deterministic through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.txtz import get_metadata
 
     fixture = md_test_fixture(file_ext="txtz", file_num=1, verify_hash=True)

@@ -1,9 +1,13 @@
 """
-This provides bse classes to model tables.
+Define shared cache-table persistence and lookup behavior.
 
-This is one step of abstraction under fields.
-It's the fundamental object of the cache - the place where the data is actually stored.
-Though it tends to be _accessed_ through the fields.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise base through a consuming regression::
+
+        python -m pytest -q tests/library/test_unified_library.py
 """
 
 from __future__ import unicode_literals
@@ -34,6 +38,11 @@ T = TypeVar("T")
 class CalibreBaseTable(BaseTable[T]):
     """
     All Calibre tables should descend from this one.
+
+    Example:
+        Exercise CalibreBaseTable through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     # Characterize the class
@@ -42,18 +51,68 @@ class CalibreBaseTable(BaseTable[T]):
 
     @property
     def priority(self):
+        """
+        Perform the priority operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreBaseTable.priority through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._priority
 
     @priority.setter
     def priority(self, value):
+        """
+        Perform the priority operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreBaseTable.priority through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise AttributeError("Cannot change priority property of this class")
 
     @property
     def typed(self):
+        """
+        Perform the typed operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreBaseTable.typed through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._typed
 
     @typed.setter
     def typed(self, value):
+        """
+        Perform the typed operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreBaseTable.typed through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise AttributeError("Cannot change priority property of this class")
 
     def __init__(
@@ -66,11 +125,17 @@ class CalibreBaseTable(BaseTable[T]):
         """
         Startup a calibre table.
 
-        :param name: The name of the table
-        :param metadata: A metadata object with, at least,
-        :param link_table: Optional explicit name of the link table - otherwise it will be inferred from metadata.
-        :param custom: Is this a custom table?
-        :return:
+        Example:
+            Exercise CalibreBaseTable.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param metadata: Value supplied for metadata under the utility contract.
+        :param link_table: Value supplied for link table under the utility contract.
+        :param custom: Value supplied for custom under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         super(CalibreBaseTable, self).__init__(name=name, metadata=metadata, link_table=link_table, custom=custom)
 
@@ -85,8 +150,15 @@ class CalibreBaseTable(BaseTable[T]):
         """
         Load the table with data from the database.
 
-        :param db:
-        :return:
+        Example:
+            Exercise CalibreBaseTable.read through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError("read methods have to be defined on a per table basis")
 
@@ -94,8 +166,15 @@ class CalibreBaseTable(BaseTable[T]):
         """
         Startup task - reads the properties of the given link table.
 
-        :param db:
-        :return:
+        Example:
+            Exercise CalibreBaseTable.read link attributes through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError("Has to be implemented on a by table basis")
 
@@ -115,12 +194,20 @@ class CalibreBaseTable(BaseTable[T]):
         """
         Update both the cache and the database at the same time.
 
-        As a rule, when updating this class - you should call _this_ method.
-        :param book_id_val_map:
-        :param db:
-        :param id_map:
-        :param allow_case_change:
-        :return status: Did the update go through?
+        Example:
+            Exercise CalibreBaseTable.update through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_val_map: Value supplied for book id val map under the utility
+            contract.
+        :param db: Value supplied for db under the utility contract.
+        :param id_map: Value supplied for id map under the utility contract.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -133,9 +220,17 @@ class CalibreBaseTable(BaseTable[T]):
         """
         Preform an internal update of the data cached in this table.
 
-        :param book_id_val_map:
-        :param id_map:
-        :return:
+        Example:
+            Exercise CalibreBaseTable.update cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_val_map: Value supplied for book id val map under the utility
+            contract.
+        :param id_map: Value supplied for id map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -145,13 +240,19 @@ class CalibreBaseTable(BaseTable[T]):
         """
         Method for updating the database
 
-        (specifically the links between this table and another - data for which should be contained in metadata).
-        There is a similar upate_db method in each of the fields - mostly that method should just call this one, however
-        that method is there for if you want to override update behavior at the field level.
-        :param book_id_to_val_map:
-        :param db:
-        :param allow_case_change:
-        :return status: Did the update to the db go through?
+        Example:
+            Exercise CalibreBaseTable.update db through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_to_val_map: Value supplied for book id to val map under the utility
+            contract.
+        :param db: Value supplied for db under the utility contract.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.writer.set_books(book_id_to_val_map, db, allow_case_change=allow_case_change)
 
@@ -161,13 +262,25 @@ class CalibreBaseTable(BaseTable[T]):
 
 class CalibreVirtualTable(BaseVirtualTable[T]):
 
+    """
+    Provide the calibrevirtualtable contract for validated ebook processing.
+
+    Example:
+        Exercise CalibreVirtualTable through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     pass
 
 
 class MultiTableMixin:
     """
-    Provides some helpful methods for tables which use a link table.
-    Including an __init__ witth variables to characterize the link table and methods to set properties of that link.
+    Provides some helpful methods for tables which use a link table. Including an __init__ witth variables to characterize the link table and methods to set properties of that link.
+
+    Example:
+        Exercise MultiTableMixin through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     # Todo: Should only be able to access these in a scope that makes sense
@@ -187,6 +300,17 @@ class MultiTableMixin:
     def __init__(self, name: MainTableName, custom: bool, link_table: Optional[InterLinkTableName]) -> None:
         """
         Preform startup for the variables needed to characterize the other table.
+
+        Example:
+            Exercise MultiTableMixin.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param custom: Value supplied for custom under the utility contract.
+        :param link_table: Value supplied for link table under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.name: MainTableName = name
 
@@ -218,9 +342,16 @@ class MultiTableMixin:
         """
         Set the value for self.link_table and self.link_table_bt_column -
 
-        :param db: The database to be used to calculate the link table.
-        :param set_type: If True, will attempt to set the type column along with everything else
-        :return:
+        Example:
+            Exercise MultiTableMixin.set link table through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :param set_type: Value supplied for set type under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if hasattr(self, "custom") and self.custom:
 

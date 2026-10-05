@@ -1,3 +1,14 @@
+"""
+Expose the supported test db 1 compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+"""
 import os
 
 from LiuXin_tests.test_databases import TestDatabaseBuilder
@@ -14,11 +25,22 @@ def build_test_db(
     test_asset_version=None,
 ):
     """
-    Construct the test database specified by this module.
-    In this case an augmented base data set with slightly riched metadata.
-    :param dst_file_path: The file to write the database to after it's been built.
-    :param dump: HERE IGNORED
-    :return:
+    Construct the test database specified by this module. In this case an augmented base data set with slightly riched metadata.
+
+    Example:
+        Exercise build test db through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+    :param dst_file_path: Value supplied for dst file path under the utility contract.
+    :param dump: Value supplied for dump under the utility contract.
+    :param plugin_name: Value supplied for plugin name under the utility contract.
+    :param new_db_uuid: Value supplied for new db uuid under the utility contract.
+    :param test_asset_version: Value supplied for test asset version under the utility
+        contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     test_db_builder = TestDatabaseBuilder(
         dst_file_path=dst_file_path,

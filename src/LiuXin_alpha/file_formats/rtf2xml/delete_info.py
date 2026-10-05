@@ -10,6 +10,17 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+"""
+Remove non-content RTF information groups from token streams.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise delete info through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -22,7 +33,14 @@ from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
 
 
 class DeleteInfo:
-    """Delete unnecessary destination groups"""
+    """
+    Delete unnecessary destination groups
+
+    Example:
+        Exercise DeleteInfo through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+    """
 
     def __init__(
         self: _typing.Self,
@@ -31,6 +49,21 @@ class DeleteInfo:
         copy: _typing.Any = None,
         run_level: int = 1,
     ) -> None:
+        """
+        Initialize and validate the deleteinfo state.
+
+        Example:
+            Exercise DeleteInfo.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param copy: Value supplied for copy under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.__file = in_file
         self.__bug_handler = bug_handler
         self.__copy = copy
@@ -47,6 +80,15 @@ class DeleteInfo:
     def __initiate_allow(self: _typing.Self) -> None:
         """
         Initiate a list of destination groups which should be printed out.
+
+        Example:
+            Exercise DeleteInfo.  initiate allow through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__allowable = (
             "cw<ss<char-style",
@@ -79,8 +121,19 @@ class DeleteInfo:
         }
 
     def __default_func(self: _typing.Self, line: _typing.Any) -> bool:
-        """Handle lines when in no special state. Look for an asterisk to
-        begin a special state. Otherwise, print out line."""
+        """
+        Handle lines when in no special state. Look for an asterisk to begin a special state. Otherwise, print out line.
+
+        Example:
+            Exercise DeleteInfo.  default func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         # cw<ml<asterisk__<nu<true
         if self.__token_info == "cw<ml<asterisk__":
             self.__state = "after_asterisk"
@@ -99,8 +152,19 @@ class DeleteInfo:
             return True
 
     def __delete_func(self: _typing.Self, line: _typing.Any) -> bool:
-        """Handle lines when in delete state. Don't print out lines
-        unless the state has ended."""
+        """
+        Handle lines when in delete state. Don't print out lines unless the state has ended.
+
+        Example:
+            Exercise DeleteInfo.  delete func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.__delete_count == self.__cb_count:
             self.__state = "default"
             if self.__write_cb:
@@ -110,14 +174,17 @@ class DeleteInfo:
 
     def __asterisk_func(self: _typing.Self, line: _typing.Any) -> bool:
         """
-        Determine whether to delete info in group
-        Note on self.__cb flag.
-        If you find that you are in a delete group, and the previous
-        token in not an open bracket (self.__ob = 0), that means
-        that the delete group is nested inside another acceptable
-        destination group. In this case, you have already written
-        the open bracket, so you will need to write the closed one
-        as well.
+        Determine whether to delete info in group Note on self.__cb flag. If you find that you are in a delete group, and the previous token in not an open bracket (self.__ob = 0), that means that the delete group is nested inside another acceptable destination group. In this case, you have already written the open bracket, so you will need to write the closed one as well.
+
+        Example:
+            Exercise DeleteInfo.  asterisk func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Test for {\*}, in which case don't enter
         # delete state
@@ -173,14 +240,32 @@ class DeleteInfo:
     def __found_list_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         print out control words in this group
+
+        Example:
+            Exercise DeleteInfo.  found list func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__state = "list"
 
     def __list_func(self: _typing.Self, line: _typing.Any) -> bool:
         """
-        Check to see if the group has ended.
-        Return True for all control words.
-        Return False otherwise.
+        Check to see if the group has ended. Return True for all control words. Return False otherwise.
+
+        Example:
+            Exercise DeleteInfo.  list func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if self.__delete_count == self.__cb_count and self.__token_info == "cb<nu<clos-brack":
             self.__state = "default"
@@ -194,8 +279,18 @@ class DeleteInfo:
             return False
 
     def delete_info(self: _typing.Self) -> _typing.Any:
-        """Main method for handling other methods. Read one line at
-        a time, and determine whether to print the line based on the state."""
+        """
+        Main method for handling other methods. Read one line at a time, and determine whether to print the line based on the state.
+
+        Example:
+            Exercise DeleteInfo.delete info through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         with open_for_read(self.__file) as read_obj:
             with open_for_write(self.__write_to) as self.__write_obj:
                 for line in read_obj:

@@ -1,3 +1,14 @@
+"""
+Discover and normalize EPUB page-list navigation targets.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise pages through a consuming regression::
+
+        python -m pytest -q tests/file_formats/epub/test_epub_modernized.py
+"""
 from __future__ import with_statement
 from __future__ import annotations
 
@@ -24,6 +35,19 @@ ROMAN_RE = re.compile(r"^[ivxlcdm]+$", re.IGNORECASE)
 
 
 def filter_name(name: _typing.Any) -> _typing.Any:
+    """
+    Perform the filter name operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise filter name through a consuming regression::
+
+            python -m pytest -q tests/file_formats/epub/test_epub_modernized.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     name = name.strip()
     name = PAGE_RE.sub("", name)
     for word in name.split():
@@ -34,12 +58,38 @@ def filter_name(name: _typing.Any) -> _typing.Any:
 
 
 def build_name_for(expr: _typing.Any) -> _typing.Any:
+    """
+    Perform the build name for operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise build name for through a consuming regression::
+
+            python -m pytest -q tests/file_formats/epub/test_epub_modernized.py
+
+
+    :param expr: Value supplied for expr under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not expr:
         counter = count(1)
         return lambda elem: str(next(counter))
     selector = etree.XPath(expr, namespaces=NSMAP)
 
     def name_for(elem: _typing.Any) -> _typing.Any:
+        """
+        Perform the name for operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise build name for.name for through a consuming regression::
+
+                python -m pytest -q tests/file_formats/epub/test_epub_modernized.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         results = selector(elem)
         if not results:
             return ""
@@ -56,6 +106,20 @@ def build_name_for(expr: _typing.Any) -> _typing.Any:
 
 
 def add_page_map(opfpath: _typing.Any, opts: _typing.Any) -> None:
+    """
+    Perform the add page map operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise add page map through a consuming regression::
+
+            python -m pytest -q tests/file_formats/epub/test_epub_modernized.py
+
+
+    :param opfpath: Value supplied for opfpath under the utility contract.
+    :param opts: Value supplied for opts under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     try:
         from LiuXin_alpha.file_formats.oeb.reader import OEBReader
         from LiuXin_alpha.file_formats.oeb.writer import OEBWriter

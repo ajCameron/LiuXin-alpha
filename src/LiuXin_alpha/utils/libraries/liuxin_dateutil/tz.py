@@ -1,3 +1,14 @@
+"""
+Resolve local, UTC, fixed-offset and zone-file timezone implementations.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise tz through a consuming regression::
+
+        python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+"""
 from __future__ import print_function
 
 # Todo: Not entirely sure this is needed - dateutil from pypi seems to do the same
@@ -51,13 +62,35 @@ except (ImportError, OSError):
 
 
 def tzname_in_python2(myfunc):
-    """Change unicode output into bytestrings in Python 2
+    """
+    Change unicode output into bytestrings in Python 2
 
-    tzname() API changed in Python 3. It used to return bytes, but was changed
-    to unicode strings
+    Example:
+        Exercise tzname in python2 through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param myfunc: Value supplied for myfunc under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     def inner_func(*args, **kwargs):
+        """
+        Perform the inner func utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzname in python2.inner func through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if PY3:
             return myfunc(*args, **kwargs)
         else:
@@ -74,48 +107,231 @@ else:
 
 
 class tzutc(datetime.tzinfo):
+    """
+    Provide the tzutc utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise tzutc through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+    """
     def utcoffset(self, dt):
+        """
+        Perform the utcoffset utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzutc.utcoffset through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt: Date or datetime value parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return ZERO
 
     def dst(self, dt):
+        """
+        Perform the dst utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzutc.dst through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt: Date or datetime value parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return ZERO
 
     def tzname(self, dt):
+        """
+        Perform the tzname utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzutc.tzname through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt: Date or datetime value parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "UTC"
 
     def __eq__(self, other):
+        """
+        Perform the eq utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzutc.  eq   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return isinstance(other, tzutc) or (isinstance(other, tzoffset) and other._offset == ZERO)
 
     def __ne__(self, other):
+        """
+        Perform the ne utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzutc.  ne   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return not self.__eq__(other)
 
     def __repr__(self):
+        """
+        Perform the repr utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzutc.  repr   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "%s()" % self.__class__.__name__
 
     __reduce__ = object.__reduce__
 
 
 class tzoffset(datetime.tzinfo):
+    """
+    Provide the tzoffset utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise tzoffset through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+    """
     def __init__(self, name, offset):
+        """
+        Initialize and validate the tzoffset state.
+
+        Example:
+            Exercise tzoffset.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param offset: Value supplied for offset under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self._name = name
         self._offset = datetime.timedelta(seconds=offset)
 
     def utcoffset(self, dt):
+        """
+        Perform the utcoffset utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzoffset.utcoffset through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt: Date or datetime value parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._offset
 
     def dst(self, dt):
+        """
+        Perform the dst utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzoffset.dst through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt: Date or datetime value parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return ZERO
 
     def tzname(self, dt):
+        """
+        Perform the tzname utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzoffset.tzname through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt: Date or datetime value parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._name
 
     def __eq__(self, other):
+        """
+        Perform the eq utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzoffset.  eq   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return isinstance(other, tzoffset) and self._offset == other._offset
 
     def __ne__(self, other):
+        """
+        Perform the ne utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzoffset.  ne   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return not self.__eq__(other)
 
     def __repr__(self):
+        """
+        Perform the repr utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzoffset.  repr   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "%s(%s, %s)" % (
             self.__class__.__name__,
             repr(self._name),
@@ -127,6 +343,14 @@ class tzoffset(datetime.tzinfo):
 
 class tzlocal(datetime.tzinfo):
 
+    """
+    Provide the tzlocal utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise tzlocal through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+    """
     _std_offset = datetime.timedelta(seconds=-time.timezone)
     if time.daylight:
         _dst_offset = datetime.timedelta(seconds=-time.altzone)
@@ -134,18 +358,57 @@ class tzlocal(datetime.tzinfo):
         _dst_offset = _std_offset
 
     def utcoffset(self, dt):
+        """
+        Perform the utcoffset utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzlocal.utcoffset through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt: Date or datetime value parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self._isdst(dt):
             return self._dst_offset
         else:
             return self._std_offset
 
     def dst(self, dt):
+        """
+        Perform the dst utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzlocal.dst through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt: Date or datetime value parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self._isdst(dt):
             return self._dst_offset - self._std_offset
         else:
             return ZERO
 
     def tzname(self, dt):
+        """
+        Perform the tzname utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzlocal.tzname through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt: Date or datetime value parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return time.tzname[self._isdst(dt)]
 
     def _isdst(self, dt):
@@ -173,32 +436,114 @@ class tzlocal(datetime.tzinfo):
         #
         # Here is a more stable implementation:
         #
+        """
+        Perform the isdst utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzlocal. isdst through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt: Date or datetime value parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         timestamp = (dt.toordinal() - EPOCHORDINAL) * 86400 + dt.hour * 3600 + dt.minute * 60 + dt.second
         return time.localtime(timestamp + time.timezone).tm_isdst
 
     def __eq__(self, other):
+        """
+        Perform the eq utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzlocal.  eq   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not isinstance(other, tzlocal):
             return False
         return self._std_offset == other._std_offset and self._dst_offset == other._dst_offset
         return True
 
     def __ne__(self, other):
+        """
+        Perform the ne utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzlocal.  ne   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return not self.__eq__(other)
 
     def __repr__(self):
+        """
+        Perform the repr utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzlocal.  repr   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "%s()" % self.__class__.__name__
 
     __reduce__ = object.__reduce__
 
 
 class _ttinfo(object):
+    """
+    Provide the ttinfo utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise  ttinfo through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+    """
     __slots__ = ["offset", "delta", "isdst", "abbr", "isstd", "isgmt"]
 
     def __init__(self):
+        """
+        Initialize and validate the ttinfo state.
+
+        Example:
+            Exercise  ttinfo.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         for attr in self.__slots__:
             setattr(self, attr, None)
 
     def __repr__(self):
+        """
+        Perform the repr utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  ttinfo.  repr   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         l = []
         for attr in self.__slots__:
             value = getattr(self, attr)
@@ -207,6 +552,19 @@ class _ttinfo(object):
         return "%s(%s)" % (self.__class__.__name__, ", ".join(l))
 
     def __eq__(self, other):
+        """
+        Perform the eq utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  ttinfo.  eq   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not isinstance(other, _ttinfo):
             return False
         return (
@@ -219,15 +577,53 @@ class _ttinfo(object):
         )
 
     def __ne__(self, other):
+        """
+        Perform the ne utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  ttinfo.  ne   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return not self.__eq__(other)
 
     def __getstate__(self):
+        """
+        Perform the getstate utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  ttinfo.  getstate   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         state = {}
         for name in self.__slots__:
             state[name] = getattr(self, name, None)
         return state
 
     def __setstate__(self, state):
+        """
+        Perform the setstate utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  ttinfo.  setstate   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param state: Value supplied for state under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for name in self.__slots__:
             if name in state:
                 setattr(self, name, state[name])
@@ -238,7 +634,28 @@ class tzfile(datetime.tzinfo):
     # http://www.twinsun.com/tz/tz-link.htm
     # ftp://elsie.nci.nih.gov/pub/tz*.tar.gz
 
+    """
+    Provide the tzfile utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise tzfile through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+    """
     def __init__(self, fileobj, filename=None):
+        """
+        Initialize and validate the tzfile state.
+
+        Example:
+            Exercise tzfile.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param fileobj: Value supplied for fileobj under the utility contract.
+        :param filename: Filename used for type inference or archive output.
+        :return: None; validated state is stored on the receiving object.
+        """
         file_opened_here = False
         if isinstance(fileobj, string_types):
             self._filename = fileobj
@@ -438,6 +855,20 @@ class tzfile(datetime.tzinfo):
         self._trans_list = tuple(self._trans_list)
 
     def _find_ttinfo(self, dt, laststd=0):
+        """
+        Find ttinfo under the documented compatibility and safety rules.
+
+        Example:
+            Exercise tzfile. find ttinfo through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt: Date or datetime value parsed, normalized or rendered.
+        :param laststd: Value supplied for laststd under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         timestamp = (dt.toordinal() - EPOCHORDINAL) * 86400 + dt.hour * 3600 + dt.minute * 60 + dt.second
         idx = 0
         for trans in self._trans_list:
@@ -460,11 +891,37 @@ class tzfile(datetime.tzinfo):
             return self._trans_idx[idx - 1]
 
     def utcoffset(self, dt):
+        """
+        Perform the utcoffset utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzfile.utcoffset through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt: Date or datetime value parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not self._ttinfo_std:
             return ZERO
         return self._find_ttinfo(dt).delta
 
     def dst(self, dt):
+        """
+        Perform the dst utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzfile.dst through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt: Date or datetime value parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not self._ttinfo_dst:
             return ZERO
         tti = self._find_ttinfo(dt)
@@ -484,11 +941,37 @@ class tzfile(datetime.tzinfo):
         # way to implement this.
 
     def tzname(self, dt):
+        """
+        Perform the tzname utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzfile.tzname through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt: Date or datetime value parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not self._ttinfo_std:
             return None
         return self._find_ttinfo(dt).abbr
 
     def __eq__(self, other):
+        """
+        Perform the eq utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzfile.  eq   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not isinstance(other, tzfile):
             return False
         return (
@@ -498,18 +981,63 @@ class tzfile(datetime.tzinfo):
         )
 
     def __ne__(self, other):
+        """
+        Perform the ne utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzfile.  ne   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return not self.__eq__(other)
 
     def __repr__(self):
+        """
+        Perform the repr utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzfile.  repr   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "%s(%s)" % (self.__class__.__name__, repr(self._filename))
 
     def __reduce__(self):
+        """
+        Perform the reduce utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzfile.  reduce   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not os.path.isfile(self._filename):
             raise ValueError("Unpickable %s class" % self.__class__.__name__)
         return (self.__class__, (self._filename,))
 
 
 class tzrange(datetime.tzinfo):
+    """
+    Provide the tzrange utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise tzrange through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+    """
     def __init__(
         self,
         stdabbr,
@@ -519,6 +1047,23 @@ class tzrange(datetime.tzinfo):
         start=None,
         end=None,
     ):
+        """
+        Initialize and validate the tzrange state.
+
+        Example:
+            Exercise tzrange.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param stdabbr: Value supplied for stdabbr under the utility contract.
+        :param stdoffset: Value supplied for stdoffset under the utility contract.
+        :param dstabbr: Value supplied for dstabbr under the utility contract.
+        :param dstoffset: Value supplied for dstoffset under the utility contract.
+        :param start: Value supplied for start under the utility contract.
+        :param end: Value supplied for end under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         global relativedelta
         if not relativedelta:
             from dateutil import relativedelta
@@ -544,24 +1089,76 @@ class tzrange(datetime.tzinfo):
             self._end_delta = end
 
     def utcoffset(self, dt):
+        """
+        Perform the utcoffset utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzrange.utcoffset through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt: Date or datetime value parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self._isdst(dt):
             return self._dst_offset
         else:
             return self._std_offset
 
     def dst(self, dt):
+        """
+        Perform the dst utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzrange.dst through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt: Date or datetime value parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self._isdst(dt):
             return self._dst_offset - self._std_offset
         else:
             return ZERO
 
     def tzname(self, dt):
+        """
+        Perform the tzname utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzrange.tzname through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt: Date or datetime value parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self._isdst(dt):
             return self._dst_abbr
         else:
             return self._std_abbr
 
     def _isdst(self, dt):
+        """
+        Perform the isdst utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzrange. isdst through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt: Date or datetime value parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not self._start_delta:
             return False
         year = datetime.datetime(dt.year, 1, 1)
@@ -575,6 +1172,19 @@ class tzrange(datetime.tzinfo):
 
     def __eq__(self, other):
 
+        """
+        Perform the eq utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzrange.  eq   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not isinstance(other, tzrange):
             return False
         return (
@@ -587,16 +1197,61 @@ class tzrange(datetime.tzinfo):
         )
 
     def __ne__(self, other):
+        """
+        Perform the ne utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzrange.  ne   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return not self.__eq__(other)
 
     def __repr__(self):
+        """
+        Perform the repr utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzrange.  repr   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "%s(...)" % self.__class__.__name__
 
     __reduce__ = object.__reduce__
 
 
 class tzstr(tzrange):
+    """
+    Provide the tzstr utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise tzstr through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+    """
     def __init__(self, s):
+        """
+        Initialize and validate the tzstr state.
+
+        Example:
+            Exercise tzstr.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param s: Value supplied for s under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         global parser
         if not parser:
             from dateutil import parser
@@ -634,6 +1289,20 @@ class tzstr(tzrange):
                 self._end_delta = self._delta(res.end, isend=1)
 
     def _delta(self, x, isend=0):
+        """
+        Perform the delta utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzstr. delta through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param x: Value supplied for x under the utility contract.
+        :param isend: Value supplied for isend under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         kwargs = {}
         if x.month is not None:
             kwargs["month"] = x.month
@@ -674,11 +1343,47 @@ class tzstr(tzrange):
         return relativedelta.relativedelta(**kwargs)
 
     def __repr__(self):
+        """
+        Perform the repr utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzstr.  repr   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "%s(%s)" % (self.__class__.__name__, repr(self._s))
 
 
 class _tzicalvtzcomp:
+    """
+    Provide the tzicalvtzcomp utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise  tzicalvtzcomp through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+    """
     def __init__(self, tzoffsetfrom, tzoffsetto, isdst, tzname=None, rrule=None):
+        """
+        Initialize and validate the tzicalvtzcomp state.
+
+        Example:
+            Exercise  tzicalvtzcomp.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param tzoffsetfrom: Value supplied for tzoffsetfrom under the utility contract.
+        :param tzoffsetto: Value supplied for tzoffsetto under the utility contract.
+        :param isdst: Value supplied for isdst under the utility contract.
+        :param tzname: Value supplied for tzname under the utility contract.
+        :param rrule: Value supplied for rrule under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.tzoffsetfrom = datetime.timedelta(seconds=tzoffsetfrom)
         self.tzoffsetto = datetime.timedelta(seconds=tzoffsetto)
         self.tzoffsetdiff = self.tzoffsetto - self.tzoffsetfrom
@@ -688,13 +1393,47 @@ class _tzicalvtzcomp:
 
 
 class _tzicalvtz(datetime.tzinfo):
+    """
+    Provide the tzicalvtz utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise  tzicalvtz through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+    """
     def __init__(self, tzid, comps=[]):
+        """
+        Initialize and validate the tzicalvtz state.
+
+        Example:
+            Exercise  tzicalvtz.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param tzid: Value supplied for tzid under the utility contract.
+        :param comps: Value supplied for comps under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self._tzid = tzid
         self._comps = comps
         self._cachedate = []
         self._cachecomp = []
 
     def _find_comp(self, dt):
+        """
+        Find comp under the documented compatibility and safety rules.
+
+        Example:
+            Exercise  tzicalvtz. find comp through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt: Date or datetime value parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if len(self._comps) == 1:
             return self._comps[0]
         dt = dt.replace(tzinfo=None)
@@ -732,9 +1471,35 @@ class _tzicalvtz(datetime.tzinfo):
         return lastcomp
 
     def utcoffset(self, dt):
+        """
+        Perform the utcoffset utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  tzicalvtz.utcoffset through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt: Date or datetime value parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._find_comp(dt).tzoffsetto
 
     def dst(self, dt):
+        """
+        Perform the dst utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  tzicalvtz.dst through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt: Date or datetime value parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         comp = self._find_comp(dt)
         if comp.isdst:
             return comp.tzoffsetdiff
@@ -742,16 +1507,61 @@ class _tzicalvtz(datetime.tzinfo):
             return ZERO
 
     def tzname(self, dt):
+        """
+        Perform the tzname utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  tzicalvtz.tzname through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt: Date or datetime value parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._find_comp(dt).tzname
 
     def __repr__(self):
+        """
+        Perform the repr utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  tzicalvtz.  repr   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "<tzicalvtz %s>" % repr(self._tzid)
 
     __reduce__ = object.__reduce__
 
 
 class tzical:
+    """
+    Provide the tzical utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise tzical through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+    """
     def __init__(self, fileobj):
+        """
+        Initialize and validate the tzical state.
+
+        Example:
+            Exercise tzical.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param fileobj: Value supplied for fileobj under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         global rrule
         if not rrule:
             from dateutil import rrule
@@ -770,9 +1580,34 @@ class tzical:
         self._parse_rfc(fileobj.read())
 
     def keys(self):
+        """
+        Perform the keys utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzical.keys through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._vtz.keys()
 
     def get(self, tzid=None):
+        """
+        Perform the get utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzical.get through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param tzid: Value supplied for tzid under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if tzid is None:
             keys = self._vtz.keys()
             if len(keys) == 0:
@@ -783,6 +1618,19 @@ class tzical:
         return self._vtz.get(tzid)
 
     def _parse_offset(self, s):
+        """
+        Parse offset under the documented compatibility and safety rules.
+
+        Example:
+            Exercise tzical. parse offset through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param s: Value supplied for s under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         s = s.strip()
         if not s:
             raise ValueError("empty offset")
@@ -799,6 +1647,19 @@ class tzical:
             raise ValueError("invalid offset: " + s)
 
     def _parse_rfc(self, s):
+        """
+        Parse rfc under the documented compatibility and safety rules.
+
+        Example:
+            Exercise tzical. parse rfc through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param s: Value supplied for s under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         lines = s.splitlines()
         if not lines:
             raise ValueError("empty string")
@@ -922,6 +1783,18 @@ class tzical:
                 invtz = True
 
     def __repr__(self):
+        """
+        Perform the repr utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzical.  repr   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "%s(%s)" % (self.__class__.__name__, repr(self._s))
 
 
@@ -934,6 +1807,19 @@ else:
 
 
 def gettz(name=None):
+    """
+    Perform the gettz utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise gettz through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     tz = None
     if not name:
         try:

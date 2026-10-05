@@ -1,3 +1,14 @@
+"""
+Verify OverDrive identifiers, search/detail parsing, retries and covers.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test web sources overdrive through its owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+"""
 from __future__ import annotations
 
 import queue
@@ -10,26 +21,116 @@ from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
 
 class _Log:
+    """
+    Provide the Log test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise Log through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+    """
     def __init__(self) -> None:
+        """
+        Initialize the Log test double.
+
+        Example:
+            Exercise Log.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+        :return: None; the function records state or raises through its assertions.
+        """
         self.events = []
 
     def __call__(self, *parts):
+        """
+        Perform the call test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.call through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("call", parts))
 
     def info(self, *parts):
+        """
+        Perform the info test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.info through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("info", parts))
 
     def warning(self, *parts):
+        """
+        Perform the warning test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.warning through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("warning", parts))
 
     def error(self, *parts):
+        """
+        Perform the error test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.error through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("error", parts))
 
     def exception(self, *parts):
+        """
+        Perform the exception test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.exception through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("exception", parts))
 
 
 def _sample_search_html() -> str:
+    """
+    Perform the sample search html test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise sample search html through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return """
     <html>
       <body>
@@ -42,6 +143,18 @@ def _sample_search_html() -> str:
 
 
 def _sample_detail_html(media_id: str = "1234567") -> str:
+    """
+    Perform the sample detail html test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise sample detail html through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :param media_id: Value supplied for media id in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return f"""
     <html>
       <head>
@@ -70,12 +183,34 @@ def _sample_detail_html(media_id: str = "1234567") -> str:
 
 
 def test_web_sources_overdrive_import_smoke() -> None:
+    """
+    Verify web sources overdrive import smoke.
+
+    Example:
+        Exercise test web sources overdrive import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.overdrive as overdrive
 
     assert overdrive is not None
 
 
 def test_overdrive_get_book_url_and_id_from_url() -> None:
+    """
+    Verify overdrive get book url and id from url.
+
+    Example:
+        Exercise test overdrive get book url and id from url through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.overdrive import OverDrive
 
     plugin = OverDrive()
@@ -88,12 +223,34 @@ def test_overdrive_get_book_url_and_id_from_url() -> None:
 
 
 def test_overdrive_extract_ids_from_search_html() -> None:
+    """
+    Verify overdrive extract ids from search html.
+
+    Example:
+        Exercise test overdrive extract ids from search html through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.overdrive import _extract_overdrive_ids_from_search_html
 
     assert _extract_overdrive_ids_from_search_html(_sample_search_html()) == ["1234567", "89ABCDEF"]
 
 
 def test_overdrive_metadata_from_detail_html_parses_fields() -> None:
+    """
+    Verify overdrive metadata from detail html parses fields.
+
+    Example:
+        Exercise test overdrive metadata from detail html parses fields through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.overdrive import OverDrive
 
     plugin = OverDrive()
@@ -112,6 +269,19 @@ def test_overdrive_metadata_from_detail_html_parses_fields() -> None:
 
 
 def test_overdrive_identify_by_id(monkeypatch) -> None:
+    """
+    Verify overdrive identify by id.
+
+    Example:
+        Exercise test overdrive identify by id through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.overdrive import OverDrive
 
     plugin = OverDrive()
@@ -129,11 +299,40 @@ def test_overdrive_identify_by_id(monkeypatch) -> None:
 
 
 def test_overdrive_identify_search_then_details(monkeypatch) -> None:
+    """
+    Verify overdrive identify search then details.
+
+    Example:
+        Exercise test overdrive identify search then details through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.overdrive import OverDrive
 
     plugin = OverDrive()
 
     def _open(log, abort, url, timeout, context):
+        """
+        Perform the open test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test overdrive identify search then details.open through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param url: Value supplied for url in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :param context: Value supplied for context in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del log, abort, timeout
         if "search" in context.lower():
             return _sample_search_html()
@@ -156,6 +355,17 @@ def test_overdrive_identify_search_then_details(monkeypatch) -> None:
 
 
 def test_overdrive_download_cover_uses_cache() -> None:
+    """
+    Verify overdrive download cover uses cache.
+
+    Example:
+        Exercise test overdrive download cover uses cache through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.overdrive import OverDrive
 
     plugin = OverDrive()
@@ -176,23 +386,106 @@ def test_overdrive_download_cover_uses_cache() -> None:
 
 
 def test_overdrive_open_bytes_with_backoff_retries_transient(monkeypatch) -> None:
+    """
+    Verify overdrive open bytes with backoff retries transient.
+
+    Example:
+        Exercise test overdrive open bytes with backoff retries transient through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.overdrive import OverDrive
 
     class _Transient(Exception):
+        """
+        Provide the Transient test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test overdrive open bytes with backoff retries transient.Transient through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+        """
         @staticmethod
         def getcode():
+            """
+            Perform the getcode test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test overdrive open bytes with backoff retries transient.Transient.getcode through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return 503
 
     class _Resp:
+        """
+        Provide the Resp test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test overdrive open bytes with backoff retries transient.Resp through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+        """
         @staticmethod
         def read():
+            """
+            Perform the read test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test overdrive open bytes with backoff retries transient.Resp.read through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return b"ok"
 
     class _Browser:
+        """
+        Provide the Browser test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test overdrive open bytes with backoff retries transient.Browser through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+        """
         def __init__(self):
+            """
+            Initialize the Browser test double.
+
+            Example:
+                Exercise test overdrive open bytes with backoff retries transient.Browser.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+            :return: None; the function records state or raises through its assertions.
+            """
             self.calls = 0
 
         def open_novisit(self, url, timeout=30):
+            """
+            Perform the open novisit test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test overdrive open bytes with backoff retries transient.Browser.open novisit through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+            :param url: Value supplied for url in the focused test operation.
+            :param timeout: Value supplied for timeout in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             del url, timeout
             self.calls += 1
             if self.calls < 3:
@@ -220,6 +513,17 @@ def test_overdrive_open_bytes_with_backoff_retries_transient(monkeypatch) -> Non
 
 
 def test_overdrive_import_web_source_module() -> None:
+    """
+    Verify overdrive import web source module.
+
+    Example:
+        Exercise test overdrive import web source module through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources import import_web_source_module
 
     mod = import_web_source_module("overdrive")
@@ -227,10 +531,40 @@ def test_overdrive_import_web_source_module() -> None:
 
 
 def test_overdrive_low_level_helpers_handle_odd_inputs() -> None:
+    """
+    Verify overdrive low level helpers handle odd inputs.
+
+    Example:
+        Exercise test overdrive low level helpers handle odd inputs through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.overdrive as overdrive
 
     class BadText:
+        """
+        Provide the BadText test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test overdrive low level helpers handle odd inputs.BadText through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+        """
         def __str__(self):
+            """
+            Perform the str test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test overdrive low level helpers handle odd inputs.BadText.str through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             raise RuntimeError("cannot stringify")
 
     assert overdrive._as_text(b"Caf\xc3\xa9") == "Caf\u00e9"
@@ -268,6 +602,17 @@ def test_overdrive_low_level_helpers_handle_odd_inputs() -> None:
 
 
 def test_overdrive_url_query_cache_and_search_edge_paths() -> None:
+    """
+    Verify overdrive url query cache and search edge paths.
+
+    Example:
+        Exercise test overdrive url query cache and search edge paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.overdrive import OverDrive, _extract_overdrive_ids_from_search_html
 
     plugin = OverDrive()
@@ -291,6 +636,17 @@ def test_overdrive_url_query_cache_and_search_edge_paths() -> None:
 
 
 def test_overdrive_metadata_parser_uses_fallbacks_and_defaults() -> None:
+    """
+    Verify overdrive metadata parser uses fallbacks and defaults.
+
+    Example:
+        Exercise test overdrive metadata parser uses fallbacks and defaults through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.overdrive import OverDrive
 
     plugin = OverDrive()
@@ -356,6 +712,17 @@ def test_overdrive_metadata_parser_uses_fallbacks_and_defaults() -> None:
 
 
 def test_overdrive_metadata_parser_ignores_invalid_optional_fields() -> None:
+    """
+    Verify overdrive metadata parser ignores invalid optional fields.
+
+    Example:
+        Exercise test overdrive metadata parser ignores invalid optional fields through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.overdrive import OverDrive
 
     plugin = OverDrive()
@@ -384,6 +751,17 @@ def test_overdrive_metadata_parser_ignores_invalid_optional_fields() -> None:
 
 
 def test_overdrive_identify_retry_skip_and_abort_paths() -> None:
+    """
+    Verify overdrive identify retry skip and abort paths.
+
+    Example:
+        Exercise test overdrive identify retry skip and abort paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.overdrive import OverDrive
 
     plugin = OverDrive()
@@ -391,6 +769,22 @@ def test_overdrive_identify_retry_skip_and_abort_paths() -> None:
     calls = []
 
     def fake_open(log, abort, url, timeout, context):
+        """
+        Perform the fake open test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test overdrive identify retry skip and abort paths.fake open through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param url: Value supplied for url in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :param context: Value supplied for context in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del log, abort, timeout
         calls.append((context, url))
         if context == "OverDrive search":
@@ -436,6 +830,17 @@ def test_overdrive_identify_retry_skip_and_abort_paths() -> None:
 
 
 def test_overdrive_download_cover_discovers_from_identify_and_handles_failures() -> None:
+    """
+    Verify overdrive download cover discovers from identify and handles failures.
+
+    Example:
+        Exercise test overdrive download cover discovers from identify and handles failures through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.overdrive import OverDrive
 
     plugin = OverDrive()
@@ -443,6 +848,24 @@ def test_overdrive_download_cover_discovers_from_identify_and_handles_failures()
     out = queue.Queue()
 
     def fake_identify(log, rq, abort, title=None, authors=None, identifiers=None, timeout=30):
+        """
+        Perform the fake identify test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test overdrive download cover discovers from identify and handles failures.fake identify through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param rq: Value supplied for rq in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param title: Value supplied for title in the focused test operation.
+        :param authors: Value supplied for authors in the focused test operation.
+        :param identifiers: Value supplied for identifiers in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del log, abort, title, authors, identifiers, timeout
         mi = calibreMetaInformation("Cover Book", ["Author"])
         mi.set_identifier("overdrive", "1234567")
@@ -475,6 +898,18 @@ def test_overdrive_download_cover_discovers_from_identify_and_handles_failures()
     assert out.empty()
 
     def raise_download(**kwargs):
+        """
+        Perform the raise download test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test overdrive download cover discovers from identify and handles failures.raise download through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+        :param kwargs: Keyword values forwarded by the test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise OSError("download failed")
 
     plugin._open_bytes_with_backoff = raise_download
@@ -484,6 +919,17 @@ def test_overdrive_download_cover_discovers_from_identify_and_handles_failures()
 
 
 def test_overdrive_open_text_decodes_and_abort_backoff_returns_empty() -> None:
+    """
+    Verify overdrive open text decodes and abort backoff returns empty.
+
+    Example:
+        Exercise test overdrive open text decodes and abort backoff returns empty through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.overdrive import OverDrive
 
     plugin = OverDrive()

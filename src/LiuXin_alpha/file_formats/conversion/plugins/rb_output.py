@@ -1,4 +1,15 @@
 # -*- coding: utf-8 -*-
+"""
+Convert RB content from the normalized ebook conversion pipeline.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise rb output through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -15,6 +26,14 @@ __docformat__ = "restructuredtext en"
 
 class RBOutput(OutputFormatPlugin):
 
+    """
+    Provide the rboutput contract for validated ebook processing.
+
+    Example:
+        Exercise RBOutput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     name = "RB Output"
     author = "John Schember"
     file_type = "rb"
@@ -29,6 +48,23 @@ class RBOutput(OutputFormatPlugin):
     }
 
     def convert(self: _typing.Self, oeb_book: _typing.Any, output_path: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
+        """
+        Convert the supplied source into the stage's normalized output representation.
+
+        Example:
+            Exercise RBOutput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param output_path: Value supplied for output path under the utility contract.
+        :param input_plugin: Value supplied for input plugin under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.file_formats.rb.writer import RBWriter
 
         close = False

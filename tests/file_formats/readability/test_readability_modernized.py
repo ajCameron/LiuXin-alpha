@@ -1,3 +1,14 @@
+"""
+Provide test readability modernized utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test readability modernized through a consuming regression::
+
+        python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+"""
 from __future__ import annotations
 
 import importlib
@@ -9,29 +20,138 @@ import pytest
 
 
 class _Log:
+    """
+    Provide the log contract for validated ebook processing.
+
+    Example:
+        Exercise  Log through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+    """
     def __init__(self) -> None:
+        """
+        Initialize and validate the log state.
+
+        Example:
+            Exercise  Log.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.messages: list[tuple[str, str]] = []
 
     def debug(self, *parts) -> None:
+        """
+        Perform the debug operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.debug through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.messages.append(("debug", " ".join(str(x) for x in parts)))
 
     def info(self, *parts) -> None:
+        """
+        Perform the info operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.info through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.messages.append(("info", " ".join(str(x) for x in parts)))
 
     def warning(self, *parts) -> None:
+        """
+        Perform the warning operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.warning through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.messages.append(("warning", " ".join(str(x) for x in parts)))
 
     def warn(self, *parts) -> None:
+        """
+        Perform the warn operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.warn through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.warning(*parts)
 
     def error(self, *parts) -> None:
+        """
+        Perform the error operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.error through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.messages.append(("error", " ".join(str(x) for x in parts)))
 
     def exception(self, *parts) -> None:
+        """
+        Perform the exception operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.exception through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.messages.append(("exception", " ".join(str(x) for x in parts)))
 
 
 def _sample_article_html() -> bytes:
+    """
+    Perform the sample article html operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  sample article html through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     body = (
         "<html><head><title>Noise | Real Story Title Here</title></head>"
         "<body>"
@@ -48,6 +168,18 @@ def _sample_article_html() -> bytes:
 
 
 def test_readability_modules_import_smoke() -> None:
+    """
+    Perform the test readability modules import smoke operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test readability modules import smoke through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     modules = (
         "LiuXin_alpha.file_formats.readability",
         "LiuXin_alpha.file_formats.readability.cleaners",
@@ -60,6 +192,18 @@ def test_readability_modules_import_smoke() -> None:
 
 
 def test_clean_attributes_strips_style_and_event_handlers() -> None:
+    """
+    Perform the test clean attributes strips style and event handlers operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test clean attributes strips style and event handlers through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     cleaners = importlib.import_module("LiuXin_alpha.file_formats.readability.cleaners")
 
     raw = '<p style="color:red" width="99" onclick="boom()">ok</p>'
@@ -71,6 +215,18 @@ def test_clean_attributes_strips_style_and_event_handlers() -> None:
 
 
 def test_fallback_cleaner_removes_scripts_links_styles_and_comments() -> None:
+    """
+    Perform the test fallback cleaner removes scripts links styles and comments operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test fallback cleaner removes scripts links styles and comments through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     cleaners = importlib.import_module("LiuXin_alpha.file_formats.readability.cleaners")
     cleaner = cleaners._FallbackCleaner()
     doc = document_fromstring(
@@ -86,6 +242,18 @@ def test_fallback_cleaner_removes_scripts_links_styles_and_comments() -> None:
 
 
 def test_htmls_title_shortening_and_entity_normalization() -> None:
+    """
+    Perform the test htmls title shortening and entity normalization operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test htmls title shortening and entity normalization through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     htmls = importlib.import_module("LiuXin_alpha.file_formats.readability.htmls")
     doc = htmls.build_doc(
         b"<html><head><title>Example &mdash; Long Story Title Here</title></head>"
@@ -96,6 +264,19 @@ def test_htmls_title_shortening_and_entity_normalization() -> None:
 
 
 def test_htmls_shorten_title_without_cssselect(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Perform the test htmls shorten title without cssselect operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test htmls shorten title without cssselect through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     htmls = importlib.import_module("LiuXin_alpha.file_formats.readability.htmls")
     doc = htmls.build_doc(
         b"<html><head><title>Prefix | A Meaningful Long Title For Story</title></head>"
@@ -106,6 +287,18 @@ def test_htmls_shorten_title_without_cssselect(monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_htmls_get_body_removes_script_style_link() -> None:
+    """
+    Perform the test htmls get body removes script style link operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test htmls get body removes script style link through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     htmls = importlib.import_module("LiuXin_alpha.file_formats.readability.htmls")
     doc = htmls.build_doc(
         b"<html><head><style>.x{}</style><link rel='x' href='x'/></head>"
@@ -119,11 +312,35 @@ def test_htmls_get_body_removes_script_style_link() -> None:
 
 
 def test_js_re_replacement_order() -> None:
+    """
+    Perform the test js re replacement order operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test js re replacement order through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     htmls = importlib.import_module("LiuXin_alpha.file_formats.readability.htmls")
     assert htmls.js_re("abc123", r"\d+", 0, "NUM") == "abcNUM"
 
 
 def test_document_title_short_title_and_content_smoke() -> None:
+    """
+    Perform the test document title short title and content smoke operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test document title short title and content smoke through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     readability = importlib.import_module("LiuXin_alpha.file_formats.readability.readability")
     doc = readability.Document(_sample_article_html(), _Log())
     assert doc.title() == "Noise | Real Story Title Here"
@@ -134,6 +351,18 @@ def test_document_title_short_title_and_content_smoke() -> None:
 
 
 def test_document_summary_extracts_main_content_and_strips_noise() -> None:
+    """
+    Perform the test document summary extracts main content and strips noise operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test document summary extracts main content and strips noise through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     readability = importlib.import_module("LiuXin_alpha.file_formats.readability.readability")
     summary = readability.Document(_sample_article_html(), _Log()).summary()
     assert "Real Story Title Here" in summary
@@ -142,6 +371,18 @@ def test_document_summary_extracts_main_content_and_strips_noise() -> None:
 
 
 def test_document_keep_elements_preserves_selected_node() -> None:
+    """
+    Perform the test document keep elements preserves selected node operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test document keep elements preserves selected node through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     readability = importlib.import_module("LiuXin_alpha.file_formats.readability.readability")
     html = (
         "<html><head><title>T</title></head><body>"
@@ -155,6 +396,18 @@ def test_document_keep_elements_preserves_selected_node() -> None:
 
 
 def test_document_summary_handles_invalid_utf8_bytes() -> None:
+    """
+    Perform the test document summary handles invalid utf8 bytes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test document summary handles invalid utf8 bytes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     readability = importlib.import_module("LiuXin_alpha.file_formats.readability.readability")
     broken = (
         b"<html><head><title>Bad\xffTitle</title></head><body>"
@@ -167,6 +420,18 @@ def test_document_summary_handles_invalid_utf8_bytes() -> None:
 
 
 def test_document_summary_is_deterministic_for_same_input() -> None:
+    """
+    Perform the test document summary is deterministic for same input operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test document summary is deterministic for same input through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     readability = importlib.import_module("LiuXin_alpha.file_formats.readability.readability")
     raw = _sample_article_html()
     first = readability.Document(raw, _Log()).summary()
@@ -175,9 +440,36 @@ def test_document_summary_is_deterministic_for_same_input() -> None:
 
 
 def test_document_summary_wraps_parse_failures_as_unparseable(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Perform the test document summary wraps parse failures as unparseable operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test document summary wraps parse failures as unparseable through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     readability = importlib.import_module("LiuXin_alpha.file_formats.readability.readability")
 
     def _boom(self, _input):
+        """
+        Perform the boom operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test document summary wraps parse failures as unparseable. boom through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+        :param self: Value supplied for self under the utility contract.
+        :param _input: Value supplied for input under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise ValueError("explode")
 
     monkeypatch.setattr(readability.Document, "_parse", _boom)
@@ -186,6 +478,19 @@ def test_document_summary_wraps_parse_failures_as_unparseable(monkeypatch: pytes
 
 
 def test_readability_debug_save_to_file(tmp_path) -> None:
+    """
+    Perform the test readability debug save to file operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test readability debug save to file through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     debug = importlib.import_module("LiuXin_alpha.file_formats.readability.debug")
     out = tmp_path / "debug.html"
     debug.save_to_file("<p>hello</p>", str(out))

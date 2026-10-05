@@ -1,6 +1,14 @@
 
 """
-Tools for determining the OS we're currently running on.
+Report normalized platform and operating-system capabilities.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise which os through a consuming regression::
+
+        python -m pytest -q tests/utils/test_which_os.py
 """
 
 

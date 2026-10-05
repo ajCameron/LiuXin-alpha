@@ -1,3 +1,14 @@
+"""
+Trim unsupported retained RTF conversion options.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise options trem through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -6,35 +17,28 @@ import sys
 
 class ParseOptions:
     """
-    Requires:
-       system_string --The string from the command line
-       options_dict -- a dictionary with the key equal to the opition, and
-       a list describing that option. (See below)
-    Returns:
-        A tuple. The first item in the tuple is a dictionary containing
-        the arguments for each options. The second is a list of the
-        arguments.
-        If invalid options are passed to the module, 0,0 is returned.
-    Examples:
-        Your script has the option '--indents', and '--output=file'.
-        You want to give short option names as well:
-            --i and -o=file
-        Use this:
-            options_dict = {'output':   [1, 'o'],
-                            'indents':  [0, 'i']
-                            }
-            options_obj = ParseOptions(
-                                            system_string = sys.argv,
-                                            options_dict = options_dict
-                    )
-            options, arguments = options_obj.parse_options()
-            print options
-            print arguments
-        The result will be:
-            {indents:None, output:'/home/paul/file'}, ['/home/paul/input']
+    Requires: system_string --The string from the command line options_dict -- a dictionary with the key equal to the opition, and a list describing that option. (See below) Returns: A tuple. The first item in the tuple is a dictionary containing the arguments for each options. The second is a list of the arguments. If invalid options are passed to the module, 0,0 is returned. Examples: Your script has the option '--indents', and '--output=file'. You want to give short option names as well: --i and -o=file Use this: options_dict = {'output': [1, 'o'], 'indents': [0, 'i'] } options_obj = ParseOptions( system_string = sys.argv, options_dict = options_dict ) options, arguments = options_obj.parse_options() print options print arguments The result will be: {indents:None, output:'/home/paul/file'}, ['/home/paul/input']
+
+    Example:
+        Exercise ParseOptions through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
     """
 
     def __init__(self: _typing.Self, system_string: _typing.Any, options_dict: _typing.Any) -> None:
+        """
+        Initialize and validate the parseoptions state.
+
+        Example:
+            Exercise ParseOptions.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param system_string: Value supplied for system string under the utility contract.
+        :param options_dict: Value supplied for options dict under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.__system_string = system_string[1:]
         long_list = self.__make_long_list_func(options_dict)
         # # print long_list
@@ -50,10 +54,17 @@ class ParseOptions:
 
     def __make_long_list_func(self: _typing.Self, options_dict: _typing.Any) -> _typing.Any:
         """
-        Required:
-            options_dict -- the dictionary mapping options to a list
-        Returns:
-            a list of legal options
+        Required: options_dict -- the dictionary mapping options to a list Returns: a list of legal options
+
+        Example:
+            Exercise ParseOptions.  make long list func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param options_dict: Value supplied for options dict under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         legal_list = []
         keys = options_dict.keys()
@@ -64,10 +75,17 @@ class ParseOptions:
 
     def __make_short_list_func(self: _typing.Self, options_dict: _typing.Any) -> _typing.Any:
         """
-        Required:
-            options_dict --the dictionary mapping options to a list
-        Returns:
-            a list of legal short options
+        Required: options_dict --the dictionary mapping options to a list Returns: a list of legal short options
+
+        Example:
+            Exercise ParseOptions.  make short list func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param options_dict: Value supplied for options dict under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         legal_list = []
         keys = options_dict.keys()
@@ -81,12 +99,17 @@ class ParseOptions:
 
     def __make_short_long_dict_func(self: _typing.Self, options_dict: _typing.Any) -> _typing.Any:
         """
-        Required:
-            options_dict --the dictionary mapping options to a list
-        Returns:
-            a dictionary with keys of short options and values of long options
-        Logic:
-            read through the options dictionary and pair short options with long options
+        Required: options_dict --the dictionary mapping options to a list Returns: a dictionary with keys of short options and values of long options Logic: read through the options dictionary and pair short options with long options
+
+        Example:
+            Exercise ParseOptions.  make short long dict func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param options_dict: Value supplied for options dict under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         short_long_dict = {}
         keys = options_dict.keys()
@@ -102,10 +125,17 @@ class ParseOptions:
 
     def __make_options_with_arg_list(self: _typing.Self, options_dict: _typing.Any) -> _typing.Any:
         """
-        Required:
-            options_dict --the dictionary mapping options to a list
-        Returns:
-            a list of options that take arguments.
+        Required: options_dict --the dictionary mapping options to a list Returns: a list of options that take arguments.
+
+        Example:
+            Exercise ParseOptions.  make options with arg list through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param options_dict: Value supplied for options dict under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         opt_with_arg = []
         keys = options_dict.keys()
@@ -120,12 +150,16 @@ class ParseOptions:
 
     def __sub_short_with_long(self: _typing.Self) -> _typing.Any:
         """
-        Required:
-            nothing
-        Returns:
-            a new system string
-        Logic:
-            iterate through the system string and replace short options with long options
+        Required: nothing Returns: a new system string Logic: iterate through the system string and replace short options with long options
+
+        Example:
+            Exercise ParseOptions.  sub short with long through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         new_string = []
         sub_list = self.__short_long_dict.keys()
@@ -137,14 +171,16 @@ class ParseOptions:
 
     def __pair_arg_with_option(self: _typing.Self) -> _typing.Any:
         """
-        Required:
-            nothing
-        Returns
-            nothing (changes value of self.__system_string)
-        Logic:
-            iterate through the system string, and match arguments with options:
-                old_list = ['--foo', 'bar']
-                new_list = ['--foo=bar'
+        Required: nothing Returns nothing (changes value of self.__system_string) Logic: iterate through the system string, and match arguments with options: old_list = ['--foo', 'bar'] new_list = ['--foo=bar'
+
+        Example:
+            Exercise ParseOptions.  pair arg with option through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         opt_len = len(self.__system_string)
         new_system_string = []
@@ -188,15 +224,16 @@ class ParseOptions:
 
     def __get_just_options(self: _typing.Self) -> tuple[_typing.Any, ...]:
         """
-        Requires:
-            nothing
-        Returns:
-            list of options
-        Logic:
-            Iterate through the self.__system string, looking for the last
-            option. The options are everything in the system string before the
-            last option.
-            Check to see that the options contain no arguments.
+        Requires: nothing Returns: list of options Logic: Iterate through the self.__system string, looking for the last option. The options are everything in the system string before the last option. Check to see that the options contain no arguments.
+
+        Example:
+            Exercise ParseOptions.  get just options through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         highest = 0
         counter = 0
@@ -221,13 +258,16 @@ class ParseOptions:
 
     def __is_legal_option_func(self: _typing.Self) -> None:
         """
-        Requires:
-            nothing
-        Returns:
-            nothing
-        Logic:
-            Check each value in the newly creatd options list to see if it
-            matches what the user describes as a legal option.
+        Requires: nothing Returns: nothing Logic: Check each value in the newly creatd options list to see if it matches what the user describes as a legal option.
+
+        Example:
+            Exercise ParseOptions.  is legal option func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         illegal_options = []
         for arg in self.__system_string:
@@ -243,6 +283,19 @@ class ParseOptions:
                 sys.stderr.write("%s\n" % not_legal)
 
     def __make_options_dict(self: _typing.Self, options: _typing.Any) -> _typing.Any:
+        """
+        Perform the make options dict operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ParseOptions.  make options dict through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param options: Value supplied for options under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         options_dict = {}
         for item in options:
             if "=" in item:
@@ -258,6 +311,18 @@ class ParseOptions:
         return options_dict
 
     def parse_options(self: _typing.Self) -> tuple[_typing.Any, ...]:
+        """
+        Parse options under the format's safety and compatibility rules.
+
+        Example:
+            Exercise ParseOptions.parse options through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.__system_string = self.__sub_short_with_long()
         # # print 'subbed list is  %s' % self.__system_string
         self.__system_string = self.__pair_arg_with_option()

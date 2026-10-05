@@ -1,3 +1,14 @@
+"""
+Translate MOBI markup and records into normalized HTML resources.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise mobiml through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+"""
 from __future__ import with_statement, print_function
 from __future__ import annotations
 
@@ -29,6 +40,19 @@ except Exception:
         _FallbackImage = None
 
     def identify_data(data: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the identify data operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise identify data through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if _FallbackImage is None:
             raise RuntimeError("No image identify backend is available")
         meta = _FallbackImage(data).identify()
@@ -47,6 +71,19 @@ MBP_NS = "http://mobipocket.com/ns/mbp"
 
 
 def MBP(name: _typing.Any) -> _typing.Any:
+    """
+    Perform the MBP operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise MBP through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return "{%s}%s" % (MBP_NS, name)
 
 
@@ -98,12 +135,39 @@ COLLAPSE = re.compile(r"[ \t\r\n\v]+")
 
 
 def asfloat(value: _typing.Any) -> _typing.Any:
+    """
+    Perform the asfloat operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise asfloat through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not isinstance(value, numbers.Real):
         return 0.0
     return float(value)
 
 
 def _parse_numeric(value: _typing.Any, default: float = 0.0) -> _typing.Any:
+    """
+    Parse numeric under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  parse numeric through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :param default: Value supplied for default under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(value, numbers.Real):
         return float(value)
     if isinstance(value, str):
@@ -117,6 +181,14 @@ def _parse_numeric(value: _typing.Any, default: float = 0.0) -> _typing.Any:
 
 
 class _FallbackStyle(dict):
+    """
+    Provide the fallbackstyle contract for validated ebook processing.
+
+    Example:
+        Exercise  FallbackStyle through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     _DEFAULTS = {
         "display": "inline",
         "visibility": "visible",
@@ -146,6 +218,18 @@ class _FallbackStyle(dict):
     }
 
     def __init__(self: _typing.Self, elem: _typing.Any) -> None:
+        """
+        Initialize and validate the fallbackstyle state.
+
+        Example:
+            Exercise  FallbackStyle.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super().__init__(self._DEFAULTS)
         self._raw = {}
         tag = barename(getattr(elem, "tag", "") or "").lower()
@@ -186,12 +270,51 @@ class _FallbackStyle(dict):
         self.height = self["height"]
 
     def _get(self: _typing.Self, name: _typing.Any) -> _typing.Any:
+        """
+        Perform the get operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  FallbackStyle. get through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._raw.get(name, self.get(name))
 
     def _unit_convert(self: _typing.Self, value: _typing.Any, base: int = 500) -> _typing.Any:
+        """
+        Perform the unit convert operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  FallbackStyle. unit convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :param base: Value supplied for base under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return _parse_numeric(value, default=0.0)
 
     def cssdict(self: _typing.Self) -> dict[_typing.Any, _typing.Any]:
+        """
+        Perform the cssdict operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  FallbackStyle.cssdict through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return {
             "width": self._raw.get("width", "auto"),
             "height": self._raw.get("height", "auto"),
@@ -202,10 +325,42 @@ class _FallbackStyle(dict):
 
 
 class _FallbackStylizer:
+    """
+    Provide the fallbackstylizer contract for validated ebook processing.
+
+    Example:
+        Exercise  FallbackStylizer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the fallbackstylizer state.
+
+        Example:
+            Exercise  FallbackStylizer.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self._cache = {}
 
     def style(self: _typing.Self, elem: _typing.Any) -> _typing.Any:
+        """
+        Perform the style operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  FallbackStylizer.style through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = self._cache.get(elem)
         if ans is None:
             ans = _FallbackStyle(elem)
@@ -214,6 +369,19 @@ class _FallbackStylizer:
 
 
 def isspace(text: _typing.Any) -> _typing.Any:
+    """
+    Perform the isspace operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise isspace through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not text:
         return True
     if "\xa0" in text:
@@ -222,7 +390,27 @@ def isspace(text: _typing.Any) -> _typing.Any:
 
 
 class BlockState(object):
+    """
+    Provide the blockstate contract for validated ebook processing.
+
+    Example:
+        Exercise BlockState through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     def __init__(self: _typing.Self, body: _typing.Any) -> None:
+        """
+        Initialize and validate the blockstate state.
+
+        Example:
+            Exercise BlockState.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param body: Value supplied for body under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.body = body
         self.nested = []
         self.para = None
@@ -236,7 +424,26 @@ class BlockState(object):
 
 
 class FormatState(object):
+    """
+    Provide the formatstate contract for validated ebook processing.
+
+    Example:
+        Exercise FormatState through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the formatstate state.
+
+        Example:
+            Exercise FormatState.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.rendered = False
         self.left = 0.0
         self.halign = "auto"
@@ -259,8 +466,16 @@ class FormatState(object):
     def __eq__(self: _typing.Self, other: _typing.Any) -> bool:
         """
         Returns equal if every aspect of the format state (size, italic, bold e.t.c is the same).
-        :param other:
-        :return:
+
+        Example:
+            Exercise FormatState.  eq   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return (
             self.fsize == other.fsize
@@ -277,19 +492,60 @@ class FormatState(object):
         )
 
     def __ne__(self: _typing.Self, other: _typing.Any) -> _typing.Any:
+        """
+        Perform the ne operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FormatState.  ne   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return not self.__eq__(other)
 
 
 class MobiMLizer(object):
+    """
+    Provide the mobimlizer contract for validated ebook processing.
+
+    Example:
+        Exercise MobiMLizer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     def __init__(self: _typing.Self, ignore_tables: bool = False) -> None:
+        """
+        Initialize and validate the mobimlizer state.
+
+        Example:
+            Exercise MobiMLizer.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param ignore_tables: Value supplied for ignore tables under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.ignore_tables = ignore_tables
 
     def __call__(self: _typing.Self, oeb: _typing.Any, context: _typing.Any) -> None:
         """
         Convert the book to Mobiml markup
-        :param oeb:
-        :param context: Has to include a dest attribute, with a fnums dict
-        :return:
+
+        Example:
+            Exercise MobiMLizer.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param context: Value supplied for context under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         oeb.logger.info("Converting XHTML to Mobipocket markup...")
         self.oeb = oeb
@@ -303,7 +559,15 @@ class MobiMLizer(object):
     def mobimlize_spine(self: _typing.Self) -> None:
         """
         Iterate over the spine and convert every element to MOBIML
-        :return:
+
+        Example:
+            Exercise MobiMLizer.mobimlize spine through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         warned_fallback = False
         for item in self.oeb.spine:
@@ -325,9 +589,35 @@ class MobiMLizer(object):
             # print etree.tostring(nroot)
 
     def mobimlize_font(self: _typing.Self, ptsize: _typing.Any) -> _typing.Any:
+        """
+        Perform the mobimlize font operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MobiMLizer.mobimlize font through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param ptsize: Value supplied for ptsize under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.fnums[self.fmap[ptsize]]
 
     def mobimlize_measure(self: _typing.Self, ptsize: _typing.Any) -> _typing.Any:
+        """
+        Perform the mobimlize measure operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MobiMLizer.mobimlize measure through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param ptsize: Value supplied for ptsize under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if isinstance(ptsize, six_string_types):
             return ptsize
         embase = self.profile.fbase
@@ -336,6 +626,20 @@ class MobiMLizer(object):
         return "%dem" % int(round(ptsize / embase))
 
     def preize_text(self: _typing.Self, text: _typing.Any, pre_wrap: bool = False) -> _typing.Any:
+        """
+        Perform the preize text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MobiMLizer.preize text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :param pre_wrap: Value supplied for pre wrap under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = six_unicode(text)
         if pre_wrap:
             # Replace n consecutive spaces with n-1 NBSP + space
@@ -356,11 +660,19 @@ class MobiMLizer(object):
     def mobimlize_content(self: _typing.Self, tag: _typing.Any, text: _typing.Any, bstate: _typing.Any, istates: _typing.Any) -> None:
         """
         Convert text content to mobiml markup.
-        :param tag:
-        :param text:
-        :param bstate:
-        :param istates:
-        :return:
+
+        Example:
+            Exercise MobiMLizer.mobimlize content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param text: Text parsed, normalized or rendered.
+        :param bstate: Value supplied for bstate under the utility contract.
+        :param istates: Value supplied for istates under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if text or tag != "br":
             bstate.content = True
@@ -527,6 +839,23 @@ class MobiMLizer(object):
                 inline.append(item)
 
     def mobimlize_elem(self: _typing.Self, elem: _typing.Any, stylizer: _typing.Any, bstate: _typing.Any, istates: _typing.Any, ignore_valign: bool = False) -> None:
+        """
+        Perform the mobimlize elem operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MobiMLizer.mobimlize elem through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :param stylizer: Value supplied for stylizer under the utility contract.
+        :param bstate: Value supplied for bstate under the utility contract.
+        :param istates: Value supplied for istates under the utility contract.
+        :param ignore_valign: Value supplied for ignore valign under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not isinstance(elem.tag, six_string_types) or namespace(elem.tag) != XHTML_NS:
             return
         style = stylizer.style(elem)

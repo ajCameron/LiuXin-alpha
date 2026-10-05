@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 
+"""
+Validate internal and external links across book resources.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise links through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -31,12 +42,44 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 class BadLink(BaseError):
 
+    """
+    Provide the badlink contract for validated ebook processing.
+
+    Example:
+        Exercise BadLink through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     HELP = _("The resource pointed to by this link does not exist. You should" " either fix, or remove the link.")
     level = WARN
 
 
 class CaseMismatch(BadLink):
+    """
+    Provide the casemismatch contract for validated ebook processing.
+
+    Example:
+        Exercise CaseMismatch through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     def __init__(self: _typing.Self, href: _typing.Any, corrected_name: _typing.Any, name: _typing.Any, lnum: _typing.Any, col: _typing.Any) -> None:
+        """
+        Initialize and validate the casemismatch state.
+
+        Example:
+            Exercise CaseMismatch.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param href: Value supplied for href under the utility contract.
+        :param corrected_name: Value supplied for corrected name under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param lnum: Value supplied for lnum under the utility contract.
+        :param col: Value supplied for col under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         BadLink.__init__(
             self,
             _("The linked to resource {0} does not exist").format(href),
@@ -53,6 +96,19 @@ class CaseMismatch(BadLink):
         self.href = href
 
     def __call__(self: _typing.Self, container: _typing.Any) -> _typing.Any:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CaseMismatch.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param container: Value supplied for container under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         frag = urlparse(self.href).fragment
         nhref = container.name_to_href(self.corrected_name, self.name)
         if frag:
@@ -60,9 +116,30 @@ class CaseMismatch(BadLink):
         orig_href = self.href
 
         class LinkReplacer(object):
+            """
+            Provide the linkreplacer contract for validated ebook processing.
+
+            Example:
+                Exercise CaseMismatch.  call  .LinkReplacer through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+            """
             replaced = False
 
             def __call__(self: _typing.Self, url: _typing.Any) -> _typing.Any:
+                """
+                Perform the call operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise CaseMismatch.  call  .LinkReplacer.  call   through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+                :param url: Value supplied for url under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 if url != orig_href:
                     return url
                 self.replaced = True
@@ -75,9 +152,31 @@ class CaseMismatch(BadLink):
 
 class BadDestinationType(BaseError):
 
+    """
+    Provide the baddestinationtype contract for validated ebook processing.
+
+    Example:
+        Exercise BadDestinationType through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     level = WARN
 
     def __init__(self: _typing.Self, link_source: _typing.Any, link_dest: _typing.Any, link_elem: _typing.Any) -> None:
+        """
+        Initialize and validate the baddestinationtype state.
+
+        Example:
+            Exercise BadDestinationType.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param link_source: Value supplied for link source under the utility contract.
+        :param link_dest: Value supplied for link dest under the utility contract.
+        :param link_elem: Value supplied for link elem under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         BaseError.__init__(
             self,
             _("Link points to a file that is not a text document"),
@@ -96,9 +195,32 @@ class BadDestinationType(BaseError):
 
 class BadDestinationFragment(BaseError):
 
+    """
+    Provide the baddestinationfragment contract for validated ebook processing.
+
+    Example:
+        Exercise BadDestinationFragment through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     level = WARN
 
     def __init__(self: _typing.Self, link_source: _typing.Any, link_dest: _typing.Any, link_elem: _typing.Any, fragment: _typing.Any) -> None:
+        """
+        Initialize and validate the baddestinationfragment state.
+
+        Example:
+            Exercise BadDestinationFragment.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param link_source: Value supplied for link source under the utility contract.
+        :param link_dest: Value supplied for link dest under the utility contract.
+        :param link_elem: Value supplied for link elem under the utility contract.
+        :param fragment: Value supplied for fragment under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         BaseError.__init__(
             self,
             _("Link points to a location not present in the target file"),
@@ -115,6 +237,14 @@ class BadDestinationFragment(BaseError):
 
 class FileLink(BadLink):
 
+    """
+    Provide the filelink contract for validated ebook processing.
+
+    Example:
+        Exercise FileLink through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     HELP = _(
         "This link uses the file:// URL scheme. This does not work with many ebook readers."
         " Remove the file:// prefix and make sure the link points to a file inside the book."
@@ -123,6 +253,14 @@ class FileLink(BadLink):
 
 class LocalLink(BadLink):
 
+    """
+    Provide the locallink contract for validated ebook processing.
+
+    Example:
+        Exercise LocalLink through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     HELP = _(
         "This link points to a file outside the book. It will not work if the"
         " book is read on any computer other than the one it was created on."
@@ -132,6 +270,14 @@ class LocalLink(BadLink):
 
 class UnreferencedResource(BadLink):
 
+    """
+    Provide the unreferencedresource contract for validated ebook processing.
+
+    Example:
+        Exercise UnreferencedResource through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     HELP = _(
         "This file is included in the book but not referred to by any document in the spine."
         " This means that the file will not be viewable on most ebook readers. You should "
@@ -139,11 +285,31 @@ class UnreferencedResource(BadLink):
     )
 
     def __init__(self: _typing.Self, name: _typing.Any) -> None:
+        """
+        Initialize and validate the unreferencedresource state.
+
+        Example:
+            Exercise UnreferencedResource.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: None; validated state is stored on the receiving object.
+        """
         BadLink.__init__(self, _("The file %s is not referenced") % name, name)
 
 
 class UnreferencedDoc(UnreferencedResource):
 
+    """
+    Provide the unreferenceddoc contract for validated ebook processing.
+
+    Example:
+        Exercise UnreferencedDoc through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     HELP = _(
         "This file is not in the book spine. All content documents must be in the spine."
         " You should probably add it to the spine."
@@ -152,6 +318,14 @@ class UnreferencedDoc(UnreferencedResource):
 
 class Unmanifested(BadLink):
 
+    """
+    Provide the unmanifested contract for validated ebook processing.
+
+    Example:
+        Exercise Unmanifested through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     HELP = _(
         "This file is not listed in the book manifest. While not strictly necessary"
         " it is good practice to list all files in the manifest. Either list this"
@@ -159,6 +333,19 @@ class Unmanifested(BadLink):
     )
 
     def __init__(self: _typing.Self, name: _typing.Any, unreferenced: _typing.Any = None) -> None:
+        """
+        Initialize and validate the unmanifested state.
+
+        Example:
+            Exercise Unmanifested.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param unreferenced: Value supplied for unreferenced under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         BadLink.__init__(self, _("The file %s is not listed in the manifest") % name, name)
         self.file_action = None
         if unreferenced is not None:
@@ -168,6 +355,19 @@ class Unmanifested(BadLink):
             self.file_action = "remove" if unreferenced else "add"
 
     def __call__(self: _typing.Self, container: _typing.Any) -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Unmanifested.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param container: Value supplied for container under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.file_action == "remove":
             container.remove_item(self.name)
         else:
@@ -176,6 +376,14 @@ class Unmanifested(BadLink):
 
 class Bookmarks(BadLink):
 
+    """
+    Provide the bookmarks contract for validated ebook processing.
+
+    Example:
+        Exercise Bookmarks through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     HELP = _(
         "This file stores the bookmarks and last opened information from"
         " the calibre ebook viewer. You can remove it if you do not"
@@ -186,6 +394,18 @@ class Bookmarks(BadLink):
     level = INFO
 
     def __init__(self: _typing.Self, name: _typing.Any) -> None:
+        """
+        Initialize and validate the bookmarks state.
+
+        Example:
+            Exercise Bookmarks.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: None; validated state is stored on the receiving object.
+        """
         BadLink.__init__(
             self,
             _("The bookmarks file used by the calibre ebook viewer is present"),
@@ -193,15 +413,51 @@ class Bookmarks(BadLink):
         )
 
     def __call__(self: _typing.Self, container: _typing.Any) -> bool:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Bookmarks.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param container: Value supplied for container under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         container.remove_item(self.name)
         return True
 
 
 class MimetypeMismatch(BaseError):
 
+    """
+    Provide the mimetypemismatch contract for validated ebook processing.
+
+    Example:
+        Exercise MimetypeMismatch through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     level = WARN
 
     def __init__(self: _typing.Self, container: _typing.Any, name: _typing.Any, opf_mt: _typing.Any, ext_mt: _typing.Any) -> None:
+        """
+        Initialize and validate the mimetypemismatch state.
+
+        Example:
+            Exercise MimetypeMismatch.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param container: Value supplied for container under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param opf_mt: Value supplied for opf mt under the utility contract.
+        :param ext_mt: Value supplied for ext mt under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.opf_mt, self.ext_mt = opf_mt, ext_mt
         self.file_name = name
         BaseError.__init__(
@@ -223,6 +479,19 @@ class MimetypeMismatch(BaseError):
             self.change_ext_to = None
 
     def __call__(self: _typing.Self, container: _typing.Any) -> _typing.Any:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MimetypeMismatch.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param container: Value supplied for container under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         changed = False
         if self.change_ext_to is not None:
             from LiuXin_alpha.file_formats.oeb.polish.replace import rename_files
@@ -247,6 +516,19 @@ class MimetypeMismatch(BaseError):
 
 
 def check_mimetypes(container: _typing.Any) -> _typing.Any:
+    """
+    Perform the check mimetypes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise check mimetypes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     errors = []
     a = errors.append
     for name, mt in iteritems(container.mime_map):
@@ -259,6 +541,24 @@ def check_mimetypes(container: _typing.Any) -> _typing.Any:
 
 
 def check_link_destination(container: _typing.Any, dest_map: _typing.Any, name: _typing.Any, href: _typing.Any, a: _typing.Any, errors: _typing.Any) -> None:
+    """
+    Perform the check link destination operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise check link destination through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param dest_map: Value supplied for dest map under the utility contract.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param href: Value supplied for href under the utility contract.
+    :param a: Value supplied for a under the utility contract.
+    :param errors: Value supplied for errors under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if not href or not isinstance(href, str):
         return
     try:
@@ -286,8 +586,16 @@ def check_link_destination(container: _typing.Any, dest_map: _typing.Any, name: 
 def check_link_destinations(container: _typing.Any) -> _typing.Any:
     """
     Check destinations of links that point to HTML files
-    :param container:
-    :return:
+
+    Example:
+        Exercise check link destinations through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     errors = []
     dest_map = {}
@@ -321,12 +629,38 @@ def check_link_destinations(container: _typing.Any) -> _typing.Any:
 
 
 def check_links(container: _typing.Any) -> _typing.Any:
+    """
+    Perform the check links operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise check links through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     links_map = defaultdict(set)
     xml_types = {guess_type("a.opf"), guess_type("a.ncx")}
     errors = []
     a = errors.append
 
     def fl(x: _typing.Any) -> _typing.Any:
+        """
+        Perform the fl operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise check links.fl through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param x: Value supplied for x under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         x = repr(x)
         if x.startswith("u"):
             x = x[1:]

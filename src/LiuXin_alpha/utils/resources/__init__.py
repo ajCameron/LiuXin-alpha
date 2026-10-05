@@ -1,7 +1,17 @@
 #!/usr/bin/env python2
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
-"""Resolve package-owned Calibre resources and operator overlays."""
+"""
+Expose the supported resources compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/utils/resources/test_resources.py
+"""
 
 
 import os
@@ -16,9 +26,15 @@ def resource_to_path(target_path: str) -> str:
     """
     Get the resource path for the given named resource.
 
-    Currently, a shim.
-    :param target_path:
-    :return:
+    Example:
+        Exercise resource to path through a consuming regression::
+
+            python -m pytest -q tests/utils/resources/test_resources.py
+
+
+    :param target_path: Value supplied for target path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return str(P(target_path))
 
@@ -27,8 +43,15 @@ def resource_to_resource(target_path: str) -> bytes:
     """
     Get the given resource as bytes.
 
-    :param target_path:
-    :return:
+    Example:
+        Exercise resource to resource through a consuming regression::
+
+            python -m pytest -q tests/utils/resources/test_resources.py
+
+
+    :param target_path: Value supplied for target path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return get_path(target_path, data=True)
 
@@ -36,10 +59,23 @@ def resource_to_resource(target_path: str) -> bytes:
 class PathResolver:
     """
     Resolve the path to the requested resource.
+
+    Example:
+        Exercise PathResolver through a consuming regression::
+
+            python -m pytest -q tests/utils/resources/test_resources.py
     """
     def __init__(self) -> None:
         """
         Startup the resolver.
+
+        Example:
+            Exercise PathResolver.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/resources/test_resources.py
+
+
+        :return: None; validated state is stored on the receiving object.
         """
         from LiuXin_alpha.constants.paths import (
             LiuXin_calibre_resources_folder,
@@ -53,6 +89,20 @@ class PathResolver:
         self.cache = {}
 
         def suitable(path):
+            """
+            Perform the suitable utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise PathResolver.  init  .suitable through a consuming regression::
+
+                    python -m pytest -q tests/utils/resources/test_resources.py
+
+
+            :param path: Filesystem path read, written, normalized or validated by the
+                operation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             try:
                 return os.path.exists(path) and os.path.isdir(path) and os.listdir(path)
             except OSError:
@@ -93,6 +143,22 @@ class PathResolver:
             self.user_path = user_path
 
     def __call__(self, path, allow_user_override=True):
+        """
+        Perform the call utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise PathResolver.  call   through a consuming regression::
+
+                python -m pytest -q tests/utils/resources/test_resources.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param allow_user_override: Value supplied for allow user override under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         path = path.replace(os.sep, "/")
         key = (path, allow_user_override)
         ans = self.cache.get(key, None)
@@ -119,10 +185,20 @@ _resolver = PathResolver()
 def get_path(path, data=False, allow_user_override=True):
     """
     get a path to a resource in the calibre_prefs folder.
-    :param path: The path to the resource
-    :param data: Return the data as a string or return the path to the data
-    :param allow_user_override:
-    :return:
+
+    Example:
+        Exercise get path through a consuming regression::
+
+            python -m pytest -q tests/utils/resources/test_resources.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param data: Value supplied for data under the utility contract.
+    :param allow_user_override: Value supplied for allow user override under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     fpath = _resolver(path, allow_user_override=allow_user_override)
     if data:
@@ -132,12 +208,43 @@ def get_path(path, data=False, allow_user_override=True):
 
 
 def get_image_path(path, data=False, allow_user_override=True):
+    """
+    Return image path under the documented compatibility and safety rules.
+
+    Example:
+        Exercise get image path through a consuming regression::
+
+            python -m pytest -q tests/utils/resources/test_resources.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param data: Value supplied for data under the utility contract.
+    :param allow_user_override: Value supplied for allow user override under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not path:
         return get_path("images", allow_user_override=allow_user_override)
     return get_path("images/" + path, data=data, allow_user_override=allow_user_override)
 
 
 def js_name_to_path(name, ext=".coffee"):
+    """
+    Perform the js name to path utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise js name to path through a consuming regression::
+
+            python -m pytest -q tests/utils/resources/test_resources.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param ext: Value supplied for ext under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     path = ("/".join(name.split("."))) + ext
     d = os.path.dirname
     base = d(d(os.path.abspath(__file__)))
@@ -145,6 +252,19 @@ def js_name_to_path(name, ext=".coffee"):
 
 
 def _compile_coffeescript(name):
+    """
+    Perform the compile coffeescript utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  compile coffeescript through a consuming regression::
+
+            python -m pytest -q tests/utils/resources/test_resources.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.utils.serve_coffee import compile_coffeescript
 
     src = js_name_to_path(name)
@@ -158,6 +278,20 @@ def _compile_coffeescript(name):
 
 
 def compiled_coffeescript(name, dynamic=False):
+    """
+    Perform the compiled coffeescript utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise compiled coffeescript through a consuming regression::
+
+            python -m pytest -q tests/utils/resources/test_resources.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param dynamic: Value supplied for dynamic under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     import zipfile
 
     zipf = get_path("compiled_coffeescript.zip", allow_user_override=False)

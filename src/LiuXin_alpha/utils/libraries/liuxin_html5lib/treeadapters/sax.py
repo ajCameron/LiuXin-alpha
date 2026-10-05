@@ -1,3 +1,14 @@
+"""
+Adapt HTML5 tree-walker events into SAX content-handler calls.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise sax through a consuming regression::
+
+        python -m pytest -q tests/file_formats/html/test_html_modernized.py
+"""
 from __future__ import absolute_import, division, unicode_literals
 
 from xml.sax.xmlreader import AttributesNSImpl
@@ -14,7 +25,20 @@ for prefix, localName, namespace in adjustForeignAttributes.values():
 
 
 def to_sax(walker, handler):
-    """Call SAX-like content handler based on treewalker walker"""
+    """
+    Call SAX-like content handler based on treewalker walker
+
+    Example:
+        Exercise to sax through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param walker: Value supplied for walker under the utility contract.
+    :param handler: Value supplied for handler under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     handler.startDocument()
     for prefix, namespace in prefix_mapping.items():
         handler.startPrefixMapping(prefix, namespace)

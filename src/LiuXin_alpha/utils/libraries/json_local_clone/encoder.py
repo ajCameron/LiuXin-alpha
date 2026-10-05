@@ -1,4 +1,13 @@
-"""Implementation of JSONEncoder
+"""
+Encode Python values through the bundled local JSON implementation.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise encoder through a consuming regression::
+
+        python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
 """
 import re
 
@@ -35,10 +44,33 @@ del i
 INFINITY = float('inf')
 
 def py_encode_basestring(s):
-    """Return a JSON representation of a Python string
+    """
+    Return a JSON representation of a Python string
 
+    Example:
+        Exercise py encode basestring through a consuming regression::
+
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     def replace(match):
+        """
+        Perform the replace utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise py encode basestring.replace through a consuming regression::
+
+                python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+        :param match: Value supplied for match under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return ESCAPE_DCT[match.group(0)]
     return '"' + ESCAPE.sub(replace, s) + '"'
 
@@ -47,10 +79,33 @@ encode_basestring = (c_encode_basestring or py_encode_basestring)
 
 
 def py_encode_basestring_ascii(s):
-    """Return an ASCII-only JSON representation of a Python string
+    """
+    Return an ASCII-only JSON representation of a Python string
 
+    Example:
+        Exercise py encode basestring ascii through a consuming regression::
+
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     def replace(match):
+        """
+        Perform the replace utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise py encode basestring ascii.replace through a consuming regression::
+
+                python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+        :param match: Value supplied for match under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         s = match.group(0)
         try:
             return ESCAPE_DCT[s]
@@ -72,77 +127,37 @@ encode_basestring_ascii = (
     c_encode_basestring_ascii or py_encode_basestring_ascii)
 
 class JSONEncoder(object):
-    """Extensible JSON <https://json.org> encoder for Python data structures.
+    """
+    Extensible JSON <https://json.org> encoder for Python data structures.
 
-    Supports the following objects and types by default:
+    Example:
+        Exercise JSONEncoder through a consuming regression::
 
-    +-------------------+---------------+
-    | Python            | JSON          |
-    +===================+===============+
-    | dict              | object        |
-    +-------------------+---------------+
-    | list, tuple       | array         |
-    +-------------------+---------------+
-    | str               | string        |
-    +-------------------+---------------+
-    | int, float        | number        |
-    +-------------------+---------------+
-    | True              | true          |
-    +-------------------+---------------+
-    | False             | false         |
-    +-------------------+---------------+
-    | None              | null          |
-    +-------------------+---------------+
-
-    To extend this to recognize other objects, subclass and implement a
-    ``.default()`` method with another method that returns a serializable
-    object for ``o`` if possible, otherwise it should call the superclass
-    implementation (to raise ``TypeError``).
-
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
     """
     item_separator = ', '
     key_separator = ': '
     def __init__(self, *, skipkeys=False, ensure_ascii=True,
             check_circular=True, allow_nan=True, sort_keys=False,
             indent=None, separators=None, default=None):
-        """Constructor for JSONEncoder, with sensible defaults.
+        """
+        Constructor for JSONEncoder, with sensible defaults.
 
-        If skipkeys is false, then it is a TypeError to attempt
-        encoding of keys that are not str, int, float, bool or None.
-        If skipkeys is True, such items are simply skipped.
+        Example:
+            Exercise JSONEncoder.  init   through a consuming regression::
 
-        If ensure_ascii is true, the output is guaranteed to be str
-        objects with all incoming non-ASCII characters escaped.  If
-        ensure_ascii is false, the output can contain non-ASCII characters.
+                python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
 
-        If check_circular is true, then lists, dicts, and custom encoded
-        objects will be checked for circular references during encoding to
-        prevent an infinite recursion (which would cause an RecursionError).
-        Otherwise, no such check takes place.
 
-        If allow_nan is true, then NaN, Infinity, and -Infinity will be
-        encoded as such.  This behavior is not JSON specification compliant,
-        but is consistent with most JavaScript based encoders and decoders.
-        Otherwise, it will be a ValueError to encode such floats.
-
-        If sort_keys is true, then the output of dictionaries will be
-        sorted by key; this is useful for regression tests to ensure
-        that JSON serializations can be compared on a day-to-day basis.
-
-        If indent is a non-negative integer, then JSON array
-        elements and object members will be pretty-printed with that
-        indent level.  An indent level of 0 will only insert newlines.
-        None is the most compact representation.
-
-        If specified, separators should be an (item_separator, key_separator)
-        tuple.  The default is (', ', ': ') if *indent* is ``None`` and
-        (',', ': ') otherwise.  To get the most compact JSON representation,
-        you should specify (',', ':') to eliminate whitespace.
-
-        If specified, default is a function that gets called for objects
-        that can't otherwise be serialized.  It should return a JSON encodable
-        version of the object or raise a ``TypeError``.
-
+        :param skipkeys: Value supplied for skipkeys under the utility contract.
+        :param ensure_ascii: Value supplied for ensure ascii under the utility contract.
+        :param check_circular: Value supplied for check circular under the utility contract.
+        :param allow_nan: Value supplied for allow nan under the utility contract.
+        :param sort_keys: Value supplied for sort keys under the utility contract.
+        :param indent: Value supplied for indent under the utility contract.
+        :param separators: Value supplied for separators under the utility contract.
+        :param default: Value supplied for default under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
 
         self.skipkeys = skipkeys
@@ -159,34 +174,35 @@ class JSONEncoder(object):
             self.default = default
 
     def default(self, o):
-        """Implement this method in a subclass such that it returns
-        a serializable object for ``o``, or calls the base implementation
-        (to raise a ``TypeError``).
+        """
+        Implement this method in a subclass such that it returns a serializable object for ``o``, or calls the base implementation (to raise a ``TypeError``).
 
-        For example, to support arbitrary iterators, you could
-        implement default like this::
+        Example:
+            Exercise JSONEncoder.default through a consuming regression::
 
-            def default(self, o):
-                try:
-                    iterable = iter(o)
-                except TypeError:
-                    pass
-                else:
-                    return list(iterable)
-                # Let the base class default method raise the TypeError
-                return super().default(o)
+                python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
 
+
+        :param o: Value supplied for o under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise TypeError(f'Object of type {o.__class__.__name__} '
                         f'is not JSON serializable')
 
     def encode(self, o):
-        """Return a JSON string representation of a Python data structure.
+        """
+        Return a JSON string representation of a Python data structure.
 
-        >>> from json.encoder import JSONEncoder
-        >>> JSONEncoder().encode({"foo": ["bar", "baz"]})
-        '{"foo": ["bar", "baz"]}'
+        Example:
+            Exercise JSONEncoder.encode through a consuming regression::
 
+                python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+        :param o: Value supplied for o under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # This is for extremely simple cases and benchmarks.
         if isinstance(o, str):
@@ -203,14 +219,19 @@ class JSONEncoder(object):
         return ''.join(chunks)
 
     def iterencode(self, o, _one_shot=False):
-        """Encode the given object and yield each string
-        representation as available.
+        """
+        Encode the given object and yield each string representation as available.
 
-        For example::
+        Example:
+            Exercise JSONEncoder.iterencode through a consuming regression::
 
-            for chunk in JSONEncoder().iterencode(bigobject):
-                mysocket.write(chunk)
+                python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
 
+
+        :param o: Value supplied for o under the utility contract.
+        :param _one_shot: Value supplied for one shot under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if self.check_circular:
             markers = {}
@@ -227,6 +248,23 @@ class JSONEncoder(object):
             # and/or platform-specific, so do tests which don't depend on the
             # internals.
 
+            """
+            Perform the floatstr utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise JSONEncoder.iterencode.floatstr through a consuming regression::
+
+                    python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+            :param o: Value supplied for o under the utility contract.
+            :param allow_nan: Value supplied for allow nan under the utility contract.
+            :param _repr: Value supplied for repr under the utility contract.
+            :param _inf: Value supplied for inf under the utility contract.
+            :param _neginf: Value supplied for neginf under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if o != o:
                 text = 'NaN'
             elif o == _inf:
@@ -275,7 +313,53 @@ def _make_iterencode(markers, _default, _encoder, _indent, _floatstr,
         _intstr=int.__repr__,
     ):
 
+    """
+    Perform the make iterencode utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  make iterencode through a consuming regression::
+
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+    :param markers: Value supplied for markers under the utility contract.
+    :param _default: Value supplied for default under the utility contract.
+    :param _encoder: Value supplied for encoder under the utility contract.
+    :param _indent: Value supplied for indent under the utility contract.
+    :param _floatstr: Value supplied for floatstr under the utility contract.
+    :param _key_separator: Value supplied for key separator under the utility contract.
+    :param _item_separator: Value supplied for item separator under the utility
+        contract.
+    :param _sort_keys: Value supplied for sort keys under the utility contract.
+    :param _skipkeys: Value supplied for skipkeys under the utility contract.
+    :param _one_shot: Value supplied for one shot under the utility contract.
+    :param ValueError: Value supplied for ValueError under the utility contract.
+    :param dict: Value supplied for dict under the utility contract.
+    :param float: Value supplied for float under the utility contract.
+    :param id: Value supplied for id under the utility contract.
+    :param int: Value supplied for int under the utility contract.
+    :param isinstance: Value supplied for isinstance under the utility contract.
+    :param list: Value supplied for list under the utility contract.
+    :param str: Value supplied for str under the utility contract.
+    :param tuple: Value supplied for tuple under the utility contract.
+    :param _intstr: Value supplied for intstr under the utility contract.
+    :return: An iterator yielding the normalized values described above.
+    """
     def _iterencode_list(lst, _current_indent_level):
+        """
+        Perform the iterencode list utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  make iterencode. iterencode list through a consuming regression::
+
+                python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+        :param lst: Value supplied for lst under the utility contract.
+        :param _current_indent_level: Value supplied for current indent level under the
+            utility contract.
+        :return: An iterator yielding the normalized values described above.
+        """
         if not lst:
             yield '[]'
             return
@@ -335,6 +419,20 @@ def _make_iterencode(markers, _default, _encoder, _indent, _floatstr,
             del markers[markerid]
 
     def _iterencode_dict(dct, _current_indent_level):
+        """
+        Perform the iterencode dict utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  make iterencode. iterencode dict through a consuming regression::
+
+                python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+        :param dct: Value supplied for dct under the utility contract.
+        :param _current_indent_level: Value supplied for current indent level under the
+            utility contract.
+        :return: An iterator yielding the normalized values described above.
+        """
         if not dct:
             yield '{}'
             return
@@ -422,6 +520,20 @@ def _make_iterencode(markers, _default, _encoder, _indent, _floatstr,
             del markers[markerid]
 
     def _iterencode(o, _current_indent_level):
+        """
+        Perform the iterencode utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  make iterencode. iterencode through a consuming regression::
+
+                python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+        :param o: Value supplied for o under the utility contract.
+        :param _current_indent_level: Value supplied for current indent level under the
+            utility contract.
+        :return: An iterator yielding the normalized values described above.
+        """
         if isinstance(o, str):
             yield _encoder(o)
         elif o is None:

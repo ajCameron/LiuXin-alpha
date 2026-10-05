@@ -10,6 +10,17 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+"""
+Write normalized RTF-to-XML tokens and diagnostics.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise output through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -23,17 +34,29 @@ from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
 class Output:
     """
     Output file
+
+    Example:
+        Exercise Output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
     """
 
     def __init__(self: _typing.Self, file: _typing.Any, orig_file: _typing.Any, output_dir: _typing.Any = None, out_file: _typing.Any = None, no_ask: bool = True) -> None:
         """
-        Required:
-            'file' -- xml file ready to output
-            orig_file -- original rtf file
-        Optional:
-            output_file -- the file to output to
-        Returns:
-            nothing
+        Required: 'file' -- xml file ready to output orig_file -- original rtf file Optional: output_file -- the file to output to Returns: nothing
+
+        Example:
+            Exercise Output.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param file: Value supplied for file under the utility contract.
+        :param orig_file: Value supplied for orig file under the utility contract.
+        :param output_dir: Value supplied for output dir under the utility contract.
+        :param out_file: Value supplied for out file under the utility contract.
+        :param no_ask: Value supplied for no ask under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.__file = file
         self.__orig_file = orig_file
@@ -43,13 +66,16 @@ class Output:
 
     def output(self: _typing.Self) -> None:
         """
-        Required:
-            nothing
-        Returns:
-            nothing
-        Logic:
-            output the line to the screen if no output file given. Otherwise, output to
-            the file.
+        Required: nothing Returns: nothing Logic: output the line to the screen if no output file given. Otherwise, output to the file.
+
+        Example:
+            Exercise Output.output through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__output_dir:
             self.__output_to_dir_func()
@@ -61,13 +87,16 @@ class Output:
 
     def __output_to_dir_func(self: _typing.Self) -> None:
         """
-        Requires:
-            nothing
-        Returns:
-            nothing
-        Logic:
-            Create a file within the output directory.
-            Read one file at a time. Output line to the newly-created file.
+        Requires: nothing Returns: nothing Logic: Create a file within the output directory. Read one file at a time. Output line to the newly-created file.
+
+        Example:
+            Exercise Output.  output to dir func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         base_name = os.path.basename(self.__orig_file)
         base_name, ext = os.path.splitext(base_name)
@@ -91,12 +120,16 @@ class Output:
 
     def __output_to_file_func(self: _typing.Self) -> None:
         """
-        Required:
-            nothing
-        Returns:
-            nothing
-        Logic:
-            read one line at a time. Output to standard
+        Required: nothing Returns: nothing Logic: read one line at a time. Output to standard
+
+        Example:
+            Exercise Output.  output to file func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         with open_for_read(self.__file) as read_obj:
             with open_for_write(self.__out_file) as write_obj:
@@ -105,12 +138,16 @@ class Output:
 
     def __output_to_standard_func(self: _typing.Self) -> None:
         """
-        Required:
-            nothing
-        Returns:
-            nothing
-        Logic:
-            read one line at a time. Output to standard
+        Required: nothing Returns: nothing Logic: read one line at a time. Output to standard
+
+        Example:
+            Exercise Output.  output to standard func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         with open_for_read(self.__file) as read_obj:
             for line in read_obj:

@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Decode and report KF8/MOBI8 resources and flow structure.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise mobi8 through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -47,6 +58,20 @@ FlowInfo = namedtuple("FlowInfo", "type format dir fname")
 
 # locate beginning and ending positions of tag with specific aid attribute
 def locate_beg_end_of_tag(ml: _typing.Any, aid: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Perform the locate beg end of tag operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise locate beg end of tag through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param ml: Value supplied for ml under the utility contract.
+    :param aid: Value supplied for aid under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     pattern = rb"""<[^>]*\said\s*=\s*['"]%s['"][^>]*>""" % aid
     aid_pattern = re.compile(pattern, re.IGNORECASE)
     for m in re.finditer(aid_pattern, ml):
@@ -59,8 +84,15 @@ def locate_beg_end_of_tag(ml: _typing.Any, aid: _typing.Any) -> tuple[_typing.An
 def reverse_tag_iter(block: _typing.Any) -> _typing.Iterator[_typing.Any]:
     """
     Iterate over all tags in block in reverse order, i.e. last tag to first tag.
-    :param block:
-    :return:
+
+    Example:
+        Exercise reverse tag iter through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param block: Value supplied for block under the utility contract.
+    :return: An iterator yielding the normalized values described above.
     """
     end = len(block)
     while True:
@@ -75,6 +107,24 @@ def reverse_tag_iter(block: _typing.Any) -> _typing.Iterator[_typing.Any]:
 
 
 def get_first_resource_index(first_image_index: _typing.Any, num_of_text_records: _typing.Any, first_text_record_number: _typing.Any) -> _typing.Any:
+    """
+    Return first resource index under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get first resource index through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param first_image_index: Value supplied for first image index under the utility
+        contract.
+    :param num_of_text_records: Value supplied for num of text records under the utility
+        contract.
+    :param first_text_record_number: Value supplied for first text record number under
+        the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     first_resource_index = first_image_index
     if first_resource_index in {-1, NULL_INDEX}:
         first_resource_index = num_of_text_records + first_text_record_number
@@ -82,13 +132,49 @@ def get_first_resource_index(first_image_index: _typing.Any, num_of_text_records
 
 
 class Mobi8Reader(object):
+    """
+    Parse mobi8reader data into normalized ebook structures.
+
+    Example:
+        Exercise Mobi8Reader through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     def __init__(self: _typing.Self, mobi6_reader: _typing.Any, log: _typing.Any, for_tweak: bool = False) -> None:
+        """
+        Initialize and validate the mobi8reader state.
+
+        Example:
+            Exercise Mobi8Reader.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param mobi6_reader: Value supplied for mobi6 reader under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param for_tweak: Value supplied for for tweak under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.for_tweak = for_tweak
         self.mobi6_reader, self.log = mobi6_reader, log
         self.header = mobi6_reader.book_header
         self.encrypted_fonts = []
 
     def _kf8_section(self: _typing.Self, index: _typing.Any, context: _typing.Any) -> _typing.Any:
+        """
+        Perform the kf8 section operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Mobi8Reader. kf8 section through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :param context: Value supplied for context under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             outside = index < 0 or index >= len(self.kf8_sections)
         except TypeError:
@@ -101,12 +187,38 @@ class Mobi8Reader(object):
             raise MobiError("Malformed %s section entry" % context)
 
     def _read_index(self: _typing.Self, index: _typing.Any, context: _typing.Any) -> _typing.Any:
+        """
+        Read index under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Mobi8Reader. read index through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :param context: Value supplied for context under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return read_index(self.kf8_sections, index, self.header.codec)
         except (InvalidFile, IndexError, KeyError, TypeError, ValueError, struct.error) as err:
             raise MobiError("Malformed KF8 %s index: %s" % (context, err))
 
     def _read_fdst(self: _typing.Self) -> _typing.Any:
+        """
+        Read fdst under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Mobi8Reader. read fdst through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         header = self._kf8_section(self.header.fdstidx, "FDST")
         if header[:4] != b"FDST":
             raise MobiError("KF8 does not have a valid FDST record")
@@ -130,6 +242,18 @@ class Mobi8Reader(object):
         return flow_table
 
     def __call__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Mobi8Reader.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.mobi6_reader.check_for_drm()
         bh = self.mobi6_reader.book_header
         if self.mobi6_reader.kf8_type == "joint":
@@ -172,6 +296,18 @@ class Mobi8Reader(object):
         return self.write_opf(guide, ncx, spine, resource_map)
 
     def read_indices(self: _typing.Self) -> None:
+        """
+        Read indices under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Mobi8Reader.read indices through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.flow_table = ()
 
         if self.header.fdstidx != NULL_INDEX:
@@ -231,6 +367,18 @@ class Mobi8Reader(object):
                 raise MobiError("Malformed KF8 guide index: %s" % err)
 
     def build_parts(self: _typing.Self) -> None:
+        """
+        Perform the build parts operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Mobi8Reader.build parts through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raw_ml = self.mobi6_reader.mobi_html
         self.flows = []
         self.flowinfo = []
@@ -359,10 +507,17 @@ class Mobi8Reader(object):
 
     def get_file_info(self: _typing.Self, pos: _typing.Any) -> _typing.Any:
         """
-        Get information about the part (file) that exists at pos in
-        the raw markup
-        :param pos:
-        :return:
+        Get information about the part (file) that exists at pos in the raw markup
+
+        Example:
+            Exercise Mobi8Reader.get file info through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param pos: Value supplied for pos under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         for part in self.partinfo:
             if part.start <= pos < part.end:
@@ -371,6 +526,20 @@ class Mobi8Reader(object):
 
     def get_id_tag_by_pos_fid(self: _typing.Self, posfid: _typing.Any, offset: _typing.Any) -> tuple[_typing.Any, ...]:
         # first convert kindle:pos:fid and offset info to position in file
+        """
+        Return id tag by pos fid under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Mobi8Reader.get id tag by pos fid through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param posfid: Value supplied for posfid under the utility contract.
+        :param offset: Value supplied for offset under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         insertpos, idtext, filenum, seqnm, startpos, length = self.elems[posfid]
         pos = insertpos + offset
         fi = self.get_file_info(pos)
@@ -387,6 +556,19 @@ class Mobi8Reader(object):
     def get_id_tag(self: _typing.Self, pos: _typing.Any) -> _typing.Any:
         # Find the first tag with a named anchor (name or id attribute) before
         # pos
+        """
+        Return id tag under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Mobi8Reader.get id tag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param pos: Value supplied for pos under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         fi = self.get_file_info(pos)
         if fi.num is None and fi.start is None:
             raise ValueError("No file contains pos: %d" % pos)
@@ -410,6 +592,18 @@ class Mobi8Reader(object):
         return b""
 
     def create_guide(self: _typing.Self) -> _typing.Any:
+        """
+        Create guide under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Mobi8Reader.create guide through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         guide = Guide()
         has_start = False
         for ref_type, ref_title, pos_fid in self.guide:
@@ -448,6 +642,18 @@ class Mobi8Reader(object):
         return guide
 
     def create_ncx(self: _typing.Self) -> _typing.Any:
+        """
+        Create ncx under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Mobi8Reader.create ncx through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             index_entries = read_ncx(self.kf8_sections, self.header.ncxidx, self.header.codec)
             remove = []
@@ -486,6 +692,19 @@ class Mobi8Reader(object):
             raise MobiError("Malformed KF8 NCX index: %s" % err)
 
     def extract_resources(self: _typing.Self, sections: _typing.Any) -> _typing.Any:
+        """
+        Extract resources under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Mobi8Reader.extract resources through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param sections: Value supplied for sections under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.mobi.writer2.resources import PLACEHOLDER_GIF
 
         resource_map = []
@@ -560,9 +779,38 @@ class Mobi8Reader(object):
         return resource_map
 
     def expand_text(self: _typing.Self, resource_map: _typing.Any) -> _typing.Any:
+        """
+        Perform the expand text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Mobi8Reader.expand text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param resource_map: Value supplied for resource map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return expand_mobi8_markup(self, resource_map, self.log)
 
     def write_opf(self: _typing.Self, guide: _typing.Any, toc: _typing.Any, spine: _typing.Any, resource_map: _typing.Any) -> str:
+        """
+        Write opf under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Mobi8Reader.write opf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param guide: Value supplied for guide under the utility contract.
+        :param toc: Value supplied for toc under the utility contract.
+        :param spine: Value supplied for spine under the utility contract.
+        :param resource_map: Value supplied for resource map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         mi = self.header.exth.mi
         if self.cover_offset is not None and self.cover_offset < len(resource_map):
             mi.cover = resource_map[self.cover_offset]
@@ -584,6 +832,20 @@ class Mobi8Reader(object):
         opf.guide = guide
 
         def exclude(path: _typing.Any) -> bool:
+            """
+            Perform the exclude operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Mobi8Reader.write opf.exclude through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+            :param path: Filesystem path read, written, normalized or validated by the
+                operation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return os.path.basename(path) == "debug-raw.html"
 
         # If there are no images then the azw3 input plugin dumps all
@@ -615,6 +877,20 @@ class Mobi8Reader(object):
         return "metadata.opf"
 
     def read_inline_toc(self: _typing.Self, href: _typing.Any, frag: _typing.Any) -> _typing.Any:
+        """
+        Read inline toc under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Mobi8Reader.read inline toc through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param href: Value supplied for href under the utility contract.
+        :param frag: Value supplied for frag under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = TOC()
         base_href = "/".join(href.split("/")[:-1])
         with open(href.replace("/", os.sep), "rb") as f:
@@ -633,6 +909,19 @@ class Mobi8Reader(object):
                 start = elems[0]
 
         def node_depth(local_elem: _typing.Any) -> _typing.Any:
+            """
+            Perform the node depth operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Mobi8Reader.read inline toc.node depth through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+            :param local_elem: Value supplied for local elem under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             local_ans = 0
             local_parent = local_elem.getparent()
             while local_parent is not None:

@@ -1,6 +1,14 @@
 
 """
-Properties for test database 1.
+Provide test db 1 properties utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test db 1 properties through a consuming regression::
+
+        python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
 """
 
 
@@ -14,6 +22,11 @@ from tests.support.test_databases.test_db_properties.common_db_properties import
 class TestDB1Properties(CommonDBProperties):
     """
     Properties for test db 1 - which are also inherited by a lot of other tables.
+
+    Example:
+        Exercise TestDB1Properties through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
     """
 
     from LiuXin_tests.test_setup.constants import test_asset_version

@@ -1,3 +1,14 @@
+"""
+Provide test core boundary enforcement utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test core boundary enforcement through a consuming regression::
+
+        python -m pytest -q tests/surfaces/test_core_boundary_enforcement.py
+"""
 from __future__ import annotations
 
 import ast
@@ -29,10 +40,34 @@ INTENTIONAL_INFRASTRUCTURE_EXCEPTIONS = {
 
 
 def _surface_modules() -> list[Path]:
+    """
+    Perform the surface modules operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  surface modules through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_core_boundary_enforcement.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return sorted(SURFACES_ROOT.rglob("*.py"))
 
 
 def test_application_surfaces_do_not_import_owned_subsystems() -> None:
+    """
+    Perform the test application surfaces do not import owned subsystems operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test application surfaces do not import owned subsystems through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_core_boundary_enforcement.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     violations: list[str] = []
     for path in _surface_modules():
         relative = path.relative_to(SURFACES_ROOT).as_posix()
@@ -66,6 +101,18 @@ def test_application_surfaces_do_not_import_owned_subsystems() -> None:
 
 
 def test_application_surfaces_do_not_use_generic_core_invoke() -> None:
+    """
+    Perform the test application surfaces do not use generic core invoke operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test application surfaces do not use generic core invoke through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_core_boundary_enforcement.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     violations: list[str] = []
     for path in _surface_modules():
         relative = path.relative_to(SURFACES_ROOT).as_posix()
@@ -89,6 +136,18 @@ def test_application_surfaces_do_not_use_generic_core_invoke() -> None:
 
 
 def test_surface_runner_automation_accepts_local_or_rpc_core() -> None:
+    """
+    Perform the test surface runner automation accepts local or rpc core operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test surface runner automation accepts local or rpc core through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_core_boundary_enforcement.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     runners = (
         "run_web_readonly.py",
         "run_web_calibre_readonly.py",

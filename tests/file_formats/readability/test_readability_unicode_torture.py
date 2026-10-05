@@ -1,3 +1,14 @@
+"""
+Provide test readability unicode torture utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test readability unicode torture through a consuming regression::
+
+        python -m pytest -q tests/file_formats/readability/test_readability_unicode_torture.py
+"""
 from __future__ import annotations
 
 import importlib
@@ -7,22 +18,108 @@ import pytest
 
 
 class _Log:
+    """
+    Provide the log contract for validated ebook processing.
+
+    Example:
+        Exercise  Log through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_unicode_torture.py
+    """
     def debug(self, *parts) -> None:
+        """
+        Perform the debug operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.debug through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_unicode_torture.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     def info(self, *parts) -> None:
+        """
+        Perform the info operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.info through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_unicode_torture.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     def warning(self, *parts) -> None:
+        """
+        Perform the warning operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.warning through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_unicode_torture.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     def warn(self, *parts) -> None:
+        """
+        Perform the warn operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.warn through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_unicode_torture.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     def error(self, *parts) -> None:
+        """
+        Perform the error operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.error through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_unicode_torture.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     def exception(self, *parts) -> None:
+        """
+        Perform the exception operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.exception through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_unicode_torture.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
 
@@ -41,6 +138,19 @@ UNICODE_CASES = [
 
 
 def _make_html(payload: str) -> bytes:
+    """
+    Perform the make html operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  make html through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_unicode_torture.py
+
+
+    :param payload: Value supplied for payload under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return (
         "<html><head><title>Unicode Stress | Extraction Target</title></head>"
         "<body>"
@@ -57,6 +167,19 @@ def _make_html(payload: str) -> bytes:
 
 @pytest.mark.parametrize("payload", UNICODE_CASES)
 def test_unicode_torture_summary_preserves_content(payload: str) -> None:
+    """
+    Perform the test unicode torture summary preserves content operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test unicode torture summary preserves content through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_unicode_torture.py
+
+
+    :param payload: Value supplied for payload under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     readability = importlib.import_module("LiuXin_alpha.file_formats.readability.readability")
     summary = readability.Document(_make_html(payload), _Log()).summary()
     assert "Extraction Target" in summary
@@ -66,6 +189,18 @@ def test_unicode_torture_summary_preserves_content(payload: str) -> None:
 
 
 def test_unicode_torture_short_title() -> None:
+    """
+    Perform the test unicode torture short title operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test unicode torture short title through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_unicode_torture.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     readability = importlib.import_module("LiuXin_alpha.file_formats.readability.readability")
     raw = (
         "<html><head><title>Κατηγορία | عنوان طويل مع Unicode 😀</title></head>"
@@ -76,6 +211,18 @@ def test_unicode_torture_short_title() -> None:
 
 
 def test_deterministic_fuzz_readability_summary_stability() -> None:
+    """
+    Perform the test deterministic fuzz readability summary stability operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test deterministic fuzz readability summary stability through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_unicode_torture.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     readability = importlib.import_module("LiuXin_alpha.file_formats.readability.readability")
     rng = random.Random(20260303)
     pool = list("abcXYZ0123 ,.;:!?-_/") + [
@@ -103,6 +250,18 @@ def test_deterministic_fuzz_readability_summary_stability() -> None:
 
 
 def test_broken_and_inconsistent_encodings_do_not_crash() -> None:
+    """
+    Perform the test broken and inconsistent encodings do not crash operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test broken and inconsistent encodings do not crash through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_unicode_torture.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     readability = importlib.import_module("LiuXin_alpha.file_formats.readability.readability")
     cp1251_payload = "Тестовая строка, с запятыми, и длиной для scoring.".encode("cp1251")
     raw = (

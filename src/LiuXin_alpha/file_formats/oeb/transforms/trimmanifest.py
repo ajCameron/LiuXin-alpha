@@ -1,3 +1,14 @@
+"""
+Remove unused resources from the OEB manifest.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise trimmanifest through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+"""
 from __future__ import with_statement
 from __future__ import annotations
 
@@ -19,22 +30,61 @@ __copyright__ = "2008, Marshall T. Vandegrift <llasram@gmail.com>"
 class ManifestTrimmer(object):
     """
     Remove unused files from the manifest.
+
+    Example:
+        Exercise ManifestTrimmer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     @classmethod
     def config(cls: type[_typing.Self], cfg: _typing.Any) -> _typing.Any:
+        """
+        Perform the config operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ManifestTrimmer.config through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param cfg: Value supplied for cfg under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return cfg
 
     @classmethod
     def generate(cls: type[_typing.Self], opts: _typing.Any) -> _typing.Any:
+        """
+        Perform the generate operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ManifestTrimmer.generate through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param opts: Value supplied for opts under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return cls()
 
     def __call__(self: _typing.Self, oeb: _typing.Any, context: _typing.Any) -> None:
         """
         Check that every file mentioned in the manifest is being used somewhere. If it isn't then remove it.
-        :param oeb:
-        :param context:
-        :return:
+
+        Example:
+            Exercise ManifestTrimmer.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param context: Value supplied for context under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         try:
             import cssutils

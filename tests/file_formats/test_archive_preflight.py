@@ -1,3 +1,14 @@
+"""
+Provide test archive preflight utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test archive preflight through a consuming regression::
+
+        python -m pytest -q tests/file_formats/test_archive_preflight.py
+"""
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -12,6 +23,21 @@ from LiuXin_alpha.file_formats.archive_preflight import (
 
 
 def info(filename, file_size=128, compress_size=64):
+    """
+    Perform the info operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise info through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_archive_preflight.py
+
+
+    :param filename: Filename used for type inference or archive output.
+    :param file_size: Value supplied for file size under the utility contract.
+    :param compress_size: Value supplied for compress size under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return SimpleNamespace(
         filename=filename,
         file_size=file_size,
@@ -20,6 +46,18 @@ def info(filename, file_size=128, compress_size=64):
 
 
 def test_zip_member_preflight_returns_normalized_name_map() -> None:
+    """
+    Perform the test zip member preflight returns normalized name map operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test zip member preflight returns normalized name map through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_archive_preflight.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     assert validate_zip_member_infos(
         (
             info("OPS/Text/chapter.xhtml"),
@@ -46,12 +84,45 @@ def test_zip_member_preflight_returns_normalized_name_map() -> None:
     ),
 )
 def test_zip_member_preflight_rejects_unsafe_paths(filename: str) -> None:
+    """
+    Perform the test zip member preflight rejects unsafe paths operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test zip member preflight rejects unsafe paths through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_archive_preflight.py
+
+
+    :param filename: Filename used for type inference or archive output.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     with pytest.raises(ArchivePreflightError, match="unsafe path"):
         normalized_zip_member_name(filename, member_label="fixture archive")
 
 
 def test_zip_member_preflight_uses_requested_error_type() -> None:
+    """
+    Perform the test zip member preflight uses requested error type operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test zip member preflight uses requested error type through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_archive_preflight.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     class FixtureError(ValueError):
+        """
+        Report a fixtureerror encountered while processing an ebook format.
+
+        Example:
+            Exercise test zip member preflight uses requested error type.FixtureError through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_archive_preflight.py
+        """
         pass
 
     with pytest.raises(FixtureError, match="fixture file has too many archive members"):
@@ -65,6 +136,18 @@ def test_zip_member_preflight_uses_requested_error_type() -> None:
 
 
 def test_zip_member_preflight_can_preserve_skip_unsafe_policy() -> None:
+    """
+    Perform the test zip member preflight can preserve skip unsafe policy operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test zip member preflight can preserve skip unsafe policy through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_archive_preflight.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     names = validate_zip_member_infos(
         (
             info("Pictures/valid.png"),
@@ -79,6 +162,18 @@ def test_zip_member_preflight_can_preserve_skip_unsafe_policy() -> None:
 
 
 def test_zip_member_preflight_still_budgets_skipped_unsafe_paths() -> None:
+    """
+    Perform the test zip member preflight still budgets skipped unsafe paths operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test zip member preflight still budgets skipped unsafe paths through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_archive_preflight.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     with pytest.raises(ArchivePreflightError, match="member is too large"):
         validate_zip_member_infos(
             (info("../escape.bin", file_size=2048, compress_size=64),),
@@ -99,6 +194,20 @@ def test_zip_member_preflight_still_budgets_skipped_unsafe_paths() -> None:
     ),
 )
 def test_zip_member_preflight_rejects_archive_budget_shapes(attrs: dict[str, int], match: str) -> None:
+    """
+    Perform the test zip member preflight rejects archive budget shapes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test zip member preflight rejects archive budget shapes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_archive_preflight.py
+
+
+    :param attrs: Value supplied for attrs under the utility contract.
+    :param match: Value supplied for match under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     kwargs = {
         "max_member_uncompressed_size": 1024,
         "max_total_uncompressed_size": 1024 * 1024,

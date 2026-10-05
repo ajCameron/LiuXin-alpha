@@ -1,14 +1,57 @@
+"""
+Provide inject meta charset utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise inject meta charset through a consuming regression::
+
+        python -m pytest -q tests/file_formats/html/test_html_modernized.py
+"""
 from __future__ import absolute_import, division, unicode_literals
 
 from LiuXin_alpha.utils.libraries.liuxin_html5lib.filters import _base
 
 
 class Filter(_base.Filter):
+    """
+    Provide the Filter utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise Filter through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
     def __init__(self, source, encoding):
+        """
+        Initialize and validate the Filter state.
+
+        Example:
+            Exercise Filter.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param source: Value supplied for source under the utility contract.
+        :param encoding: Value supplied for encoding under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         _base.Filter.__init__(self, source)
         self.encoding = encoding
 
     def __iter__(self):
+        """
+        Expose iter behavior for the compatibility container.
+
+        Example:
+            Exercise Filter.  iter   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         state = "pre_head"
         meta_found = self.encoding is None
         pending = []

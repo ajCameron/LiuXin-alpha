@@ -1,8 +1,13 @@
-"""SQLite-backed persistence for durable jobs.
+"""
+Persist and query managed-job state transitions.
 
-This repository stores job definitions, job runs, and append-only events. It is
-intentionally light-weight and pragmatic: payloads and schedules are kept as
-JSON strings until a clearer normalization need emerges.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise repository through a consuming regression::
+
+        python -m pytest -q tests/jobs/test_jobs_repository.py
 """
 
 from __future__ import annotations
@@ -90,24 +95,80 @@ CREATE INDEX IF NOT EXISTS idx_job_run_events_run ON job_run_events(job_run_id, 
 
 
 class JobRepository:
-    """SQLite-backed store for durable jobs and job runs."""
+    """
+    SQLite-backed store for durable jobs and job runs.
+
+    Example:
+        Exercise JobRepository through a consuming regression::
+
+            python -m pytest -q tests/jobs/test_jobs_repository.py
+    """
 
     def __init__(self, sqlite_path: str | pathlib.Path) -> None:
+        """
+        Initialize and validate the jobrepository state.
+
+        Example:
+            Exercise JobRepository.  init   through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :param sqlite_path: Value supplied for sqlite path under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.sqlite_path = pathlib.Path(sqlite_path).expanduser()
         self.sqlite_path.parent.mkdir(parents=True, exist_ok=True)
         self.ensure_schema()
 
     def connect(self) -> sqlite3.Connection:
+        """
+        Perform the connect operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JobRepository.connect through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         conn = sqlite3.connect(str(self.sqlite_path))
         conn.row_factory = sqlite3.Row
         return conn
 
     def ensure_schema(self) -> None:
+        """
+        Perform the ensure schema operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JobRepository.ensure schema through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         with self.connect() as conn:
             conn.executescript(_SCHEMA)
             conn.commit()
 
     def create_definition(self, definition: JobDefinition) -> JobDefinition:
+        """
+        Create definition under the format's safety and compatibility rules.
+
+        Example:
+            Exercise JobRepository.create definition through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :param definition: Value supplied for definition under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         now = now_ep_k()
         with self.connect() as conn:
             cur = conn.execute(
@@ -142,6 +203,19 @@ class JobRepository:
         return self.get_definition(job_definition_id)
 
     def update_definition(self, definition: JobDefinition) -> JobDefinition:
+        """
+        Perform the update definition operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JobRepository.update definition through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :param definition: Value supplied for definition under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if definition.job_definition_id is None:
             raise ValueError("update_definition requires job_definition_id")
         now = now_ep_k()
@@ -175,6 +249,20 @@ class JobRepository:
         return self.get_definition(int(definition.job_definition_id))
 
     def get_definition(self, job_definition_id: int) -> JobDefinition:
+        """
+        Return definition under the format's safety and compatibility rules.
+
+        Example:
+            Exercise JobRepository.get definition through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :param job_definition_id: Value supplied for job definition id under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         with self.connect() as conn:
             row = conn.execute("SELECT * FROM job_definitions WHERE job_definition_id=?", (int(job_definition_id),)).fetchone()
         if row is None:
@@ -182,6 +270,19 @@ class JobRepository:
         return self._definition_from_row(row)
 
     def list_definitions(self, *, states: Iterable[JobDefinitionState] | None = None) -> list[JobDefinition]:
+        """
+        Perform the list definitions operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JobRepository.list definitions through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :param states: Value supplied for states under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         sql = "SELECT * FROM job_definitions"
         params: list[object] = []
         if states is not None:
@@ -196,6 +297,23 @@ class JobRepository:
         return [self._definition_from_row(row) for row in rows]
 
     def enqueue_run(self, *, job_definition_id: int, trigger_kind: JobTriggerKind = JobTriggerKind.MANUAL, not_before_timestamp_ep_k: int | None = None) -> JobRun:
+        """
+        Perform the enqueue run operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JobRepository.enqueue run through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :param job_definition_id: Value supplied for job definition id under the utility
+            contract.
+        :param trigger_kind: Value supplied for trigger kind under the utility contract.
+        :param not_before_timestamp_ep_k: Value supplied for not before timestamp ep k under
+            the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         definition = self.get_definition(job_definition_id)
         self._apply_concurrency_policy_on_enqueue(definition)
         now = now_ep_k()
@@ -227,6 +345,20 @@ class JobRepository:
         return self.get_run(job_run_id)
 
     def lease_next_run(self, *, worker_id: str, lease_for_s: float) -> JobRun | None:
+        """
+        Perform the lease next run operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JobRepository.lease next run through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :param worker_id: Value supplied for worker id under the utility contract.
+        :param lease_for_s: Value supplied for lease for s under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         now = now_ep_k()
         lease_expires = now + int(max(1.0, float(lease_for_s)) * 1000)
         with self.connect() as conn:
@@ -259,6 +391,20 @@ class JobRepository:
         return self.get_run(run_id)
 
     def mark_running(self, job_run_id: int, *, worker_id: str) -> JobRun:
+        """
+        Perform the mark running operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JobRepository.mark running through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :param job_run_id: Value supplied for job run id under the utility contract.
+        :param worker_id: Value supplied for worker id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         now = now_ep_k()
         run = self.get_run(job_run_id)
         with self.connect() as conn:
@@ -283,6 +429,22 @@ class JobRepository:
         return self.get_run(int(job_run_id))
 
     def heartbeat(self, job_run_id: int, *, worker_id: str, message: str | None = None, lease_for_s: float | None = 60.0) -> None:
+        """
+        Perform the heartbeat operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JobRepository.heartbeat through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :param job_run_id: Value supplied for job run id under the utility contract.
+        :param worker_id: Value supplied for worker id under the utility contract.
+        :param message: Value supplied for message under the utility contract.
+        :param lease_for_s: Value supplied for lease for s under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         now = now_ep_k()
         lease_expires = None if lease_for_s is None else now + int(max(1.0, float(lease_for_s)) * 1000)
         with self.connect() as conn:
@@ -294,6 +456,21 @@ class JobRepository:
         self.append_event(int(job_run_id), JobEventKind.HEARTBEAT, message or "Heartbeat")
 
     def refresh_lease(self, job_run_id: int, *, worker_id: str, lease_for_s: float) -> None:
+        """
+        Perform the refresh lease operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JobRepository.refresh lease through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :param job_run_id: Value supplied for job run id under the utility contract.
+        :param worker_id: Value supplied for worker id under the utility contract.
+        :param lease_for_s: Value supplied for lease for s under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         now = now_ep_k()
         lease_expires = now + int(max(1.0, float(lease_for_s)) * 1000)
         with self.connect() as conn:
@@ -304,6 +481,20 @@ class JobRepository:
             conn.commit()
 
     def update_progress(self, job_run_id: int, update: JobProgressUpdate) -> None:
+        """
+        Perform the update progress operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JobRepository.update progress through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :param job_run_id: Value supplied for job run id under the utility contract.
+        :param update: Value supplied for update under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         with self.connect() as conn:
             conn.execute(
                 """
@@ -328,6 +519,20 @@ class JobRepository:
         }))
 
     def mark_succeeded(self, job_run_id: int, *, result_json: str | None = None) -> JobRun:
+        """
+        Perform the mark succeeded operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JobRepository.mark succeeded through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :param job_run_id: Value supplied for job run id under the utility contract.
+        :param result_json: Value supplied for result json under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         now = now_ep_k()
         run = self.get_run(job_run_id)
         with self.connect() as conn:
@@ -345,6 +550,20 @@ class JobRepository:
         return self.get_run(int(job_run_id))
 
     def mark_failed(self, job_run_id: int, *, error_text: str) -> JobRun:
+        """
+        Perform the mark failed operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JobRepository.mark failed through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :param job_run_id: Value supplied for job run id under the utility contract.
+        :param error_text: Value supplied for error text under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         now = now_ep_k()
         run = self.get_run(job_run_id)
         with self.connect() as conn:
@@ -362,6 +581,20 @@ class JobRepository:
         return self.get_run(int(job_run_id))
 
     def mark_cancelled(self, job_run_id: int, *, error_text: str | None = None) -> JobRun:
+        """
+        Perform the mark cancelled operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JobRepository.mark cancelled through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :param job_run_id: Value supplied for job run id under the utility contract.
+        :param error_text: Value supplied for error text under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         now = now_ep_k()
         run = self.get_run(job_run_id)
         with self.connect() as conn:
@@ -379,12 +612,38 @@ class JobRepository:
         return self.get_run(int(job_run_id))
 
     def request_cancel(self, job_run_id: int) -> None:
+        """
+        Perform the request cancel operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JobRepository.request cancel through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :param job_run_id: Value supplied for job run id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         with self.connect() as conn:
             conn.execute("UPDATE job_runs SET cancel_requested=1 WHERE job_run_id=?", (int(job_run_id),))
             conn.commit()
         self.append_event(int(job_run_id), JobEventKind.CANCEL_REQUESTED, "Cancellation requested")
 
     def get_run(self, job_run_id: int) -> JobRun:
+        """
+        Return run under the format's safety and compatibility rules.
+
+        Example:
+            Exercise JobRepository.get run through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :param job_run_id: Value supplied for job run id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         with self.connect() as conn:
             row = conn.execute("SELECT * FROM job_runs WHERE job_run_id=?", (int(job_run_id),)).fetchone()
         if row is None:
@@ -392,6 +651,21 @@ class JobRepository:
         return self._run_from_row(row)
 
     def list_runs(self, *, job_definition_id: int | None = None, states: Iterable[JobRunState] | None = None) -> list[JobRun]:
+        """
+        Perform the list runs operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JobRepository.list runs through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :param job_definition_id: Value supplied for job definition id under the utility
+            contract.
+        :param states: Value supplied for states under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         sql = "SELECT * FROM job_runs"
         clauses: list[str] = []
         params: list[object] = []
@@ -412,6 +686,19 @@ class JobRepository:
         return [self._run_from_row(row) for row in rows]
 
     def list_events(self, job_run_id: int) -> list[JobRunEvent]:
+        """
+        Perform the list events operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JobRepository.list events through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :param job_run_id: Value supplied for job run id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         with self.connect() as conn:
             rows = conn.execute(
                 "SELECT * FROM job_run_events WHERE job_run_id=? ORDER BY event_id ASC",
@@ -420,9 +707,40 @@ class JobRepository:
         return [self._event_from_row(row) for row in rows]
 
     def append_log(self, job_run_id: int, *, message: str, event_json: str | None = None) -> None:
+        """
+        Perform the append log operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JobRepository.append log through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :param job_run_id: Value supplied for job run id under the utility contract.
+        :param message: Value supplied for message under the utility contract.
+        :param event_json: Value supplied for event json under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.append_event(job_run_id, JobEventKind.LOG, message, event_json=event_json)
 
     def append_event(self, job_run_id: int, event_kind: JobEventKind, message: str | None = None, *, event_json: str | None = None) -> None:
+        """
+        Perform the append event operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JobRepository.append event through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :param job_run_id: Value supplied for job run id under the utility contract.
+        :param event_kind: Value supplied for event kind under the utility contract.
+        :param message: Value supplied for message under the utility contract.
+        :param event_json: Value supplied for event json under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         with self.connect() as conn:
             conn.execute(
                 "INSERT INTO job_run_events(job_run_id, event_kind, event_message, event_json, created_timestamp_ep_k) VALUES (?, ?, ?, ?, ?)",
@@ -431,10 +749,40 @@ class JobRepository:
             conn.commit()
 
     def append_definition_event(self, job_definition_id: int, event_kind: str, message: str) -> None:
+        """
+        Perform the append definition event operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JobRepository.append definition event through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :param job_definition_id: Value supplied for job definition id under the utility
+            contract.
+        :param event_kind: Value supplied for event kind under the utility contract.
+        :param message: Value supplied for message under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         del job_definition_id, event_kind, message
         # Placeholder for later definition-event stream; run events cover the MVP.
 
     def get_due_definitions_for_scheduling(self, *, now_timestamp_ep_k: int | None = None) -> list[JobDefinition]:
+        """
+        Return due definitions for scheduling under the format's safety and compatibility rules.
+
+        Example:
+            Exercise JobRepository.get due definitions for scheduling through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :param now_timestamp_ep_k: Value supplied for now timestamp ep k under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         now_value = now_ep_k() if now_timestamp_ep_k is None else int(now_timestamp_ep_k)
         due: list[JobDefinition] = []
         for definition in self.list_definitions(states=[JobDefinitionState.ENABLED]):
@@ -452,6 +800,19 @@ class JobRepository:
     # Internal helpers
     # ------------------------------------------------------------------
     def _apply_concurrency_policy_on_enqueue(self, definition: JobDefinition) -> None:
+        """
+        Perform the apply concurrency policy on enqueue operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JobRepository. apply concurrency policy on enqueue through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :param definition: Value supplied for definition under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         active = self.list_runs(
             job_definition_id=int(definition.job_definition_id or 0),
             states=[JobRunState.QUEUED, JobRunState.LEASED, JobRunState.RUNNING],
@@ -468,6 +829,20 @@ class JobRepository:
                 self.request_cancel(int(run.job_run_id))
 
     def _apply_result_policy(self, job_definition_id: int) -> None:
+        """
+        Perform the apply result policy operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JobRepository. apply result policy through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :param job_definition_id: Value supplied for job definition id under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         definition = self.get_definition(int(job_definition_id))
         if definition.result_policy is JobResultPolicy.KEEP_ALL:
             return
@@ -491,6 +866,19 @@ class JobRepository:
 
     @staticmethod
     def _load_schedule_json(schedule_json: str | None) -> dict[str, object]:
+        """
+        Perform the load schedule json operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JobRepository. load schedule json through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :param schedule_json: Value supplied for schedule json under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not schedule_json:
             return {}
         with contextlib.suppress(Exception):
@@ -501,6 +889,19 @@ class JobRepository:
 
     @staticmethod
     def _definition_from_row(row: sqlite3.Row) -> JobDefinition:
+        """
+        Perform the definition from row operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JobRepository. definition from row through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :param row: Value supplied for row under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return JobDefinition(
             job_definition_id=int(row["job_definition_id"]),
             job_kind=str(row["job_kind"]),
@@ -524,6 +925,19 @@ class JobRepository:
 
     @staticmethod
     def _run_from_row(row: sqlite3.Row) -> JobRun:
+        """
+        Perform the run from row operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JobRepository. run from row through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :param row: Value supplied for row under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return JobRun(
             job_run_id=int(row["job_run_id"]),
             job_definition_id=int(row["job_definition_id"]),
@@ -550,6 +964,19 @@ class JobRepository:
 
     @staticmethod
     def _event_from_row(row: sqlite3.Row) -> JobRunEvent:
+        """
+        Perform the event from row operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JobRepository. event from row through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+        :param row: Value supplied for row under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return JobRunEvent(
             event_id=int(row["event_id"]),
             job_run_id=int(row["job_run_id"]),

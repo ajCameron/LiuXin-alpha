@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Convert LRF content into the normalized ebook conversion pipeline.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise lrf input through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+"""
 from __future__ import with_statement
 from __future__ import annotations
 
@@ -24,6 +35,14 @@ __docformat__ = "restructuredtext en"
 
 class LRFInput(InputFormatPlugin):
 
+    """
+    Convert lrfinput sources into the normalized OEB pipeline model.
+
+    Example:
+        Exercise LRFInput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     name = "LRF Input"
     author = "Kovid Goyal"
     description = "Convert LRF files to HTML"
@@ -32,12 +51,21 @@ class LRFInput(InputFormatPlugin):
     def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
         """
         Convert an lrf file to an OEB.
-        :param stream:
-        :param options:
-        :param file_ext:
-        :param log:
-        :param accelerators:
-        :return:
+
+        Example:
+            Exercise LRFInput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param options: Value supplied for options under the utility contract.
+        :param file_ext: Value supplied for file ext under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param accelerators: Value supplied for accelerators under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         from LiuXin_alpha.utils.libraries.liuxin_etree import etree
         from LiuXin_alpha.file_formats.lrf.input import (

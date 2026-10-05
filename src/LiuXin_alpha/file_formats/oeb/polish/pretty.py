@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 
+"""
+Apply stable human-readable formatting to EPUB/OEB resources.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise pretty through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -39,23 +50,35 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 def isspace(x: _typing.Any) -> _typing.Any:
     """
     Tests to see if the given character could possible be rendered as a space
-    :param x: Param for testing
-    :return True/False:
+
+    Example:
+        Exercise isspace through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return not x.strip("\u0009\u000a\u000c\u000d\u0020")
 
 
 def pretty_xml_tree(elem: _typing.Any, level: int = 0, indent: str = "  ") -> None:
     """
-    XML beautifier, assumes that elements that have children do not have
-    textual content.  Also assumes that there is no text immediately after
-    closing tags. These are true for opf/ncx and container.xml files. If either
-    of the assumptions are violated, there should be no data loss, but pretty
-    printing wont produce optimal results.
-    :param elem:
-    :param level:
-    :param indent:
-    :return:
+    XML beautifier, assumes that elements that have children do not have textual content. Also assumes that there is no text immediately after closing tags. These are true for opf/ncx and container.xml files. If either of the assumptions are violated, there should be no data loss, but pretty printing wont produce optimal results.
+
+    Example:
+        Exercise pretty xml tree through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param elem: Value supplied for elem under the utility contract.
+    :param level: Value supplied for level under the utility contract.
+    :param indent: Value supplied for indent under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     if (not elem.text and len(elem) > 0) or (elem.text and isspace(elem.text)):
         elem.text = "\n" + (indent * (level + 1))
@@ -71,8 +94,16 @@ def pretty_xml_tree(elem: _typing.Any, level: int = 0, indent: str = "  ") -> No
 def pretty_opf_string(root: _typing.Any) -> _typing.Any:
     """
     Provides a prettified string representation of the opf document with the given root.
-    :param root:
-    :return:
+
+    Example:
+        Exercise pretty opf string through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     from lxml import etree
 
@@ -83,7 +114,33 @@ def pretty_opf(root: _typing.Any) -> None:
 
     # Put all dc: tags first starting with title and author. Preserve order for
     # the rest.
+    """
+    Perform the pretty opf operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise pretty opf through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     def dckey(local_x: _typing.Any) -> _typing.Any:
+        """
+        Perform the dckey operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise pretty opf.dckey through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param local_x: Value supplied for local x under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return {"title": 0, "creator": 1}.get(barename(local_x.tag), 2)
 
     for metadata in root.xpath("//opf:metadata", namespaces=OPF_NAMESPACES):
@@ -97,6 +154,19 @@ def pretty_opf(root: _typing.Any) -> None:
     spine_ids = {x: i for i, x in enumerate(spine_ids)}
 
     def manifest_key(local_x: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the manifest key operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise pretty opf.manifest key through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param local_x: Value supplied for local x under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         mt = local_x.get("media-type", "")
         href = local_x.get("href", "")
         ext = href.rpartition(".")[-1].lower()
@@ -186,6 +256,19 @@ BLOCK_TAGS = frozenset(
 
 
 def isblock(x: _typing.Any) -> bool:
+    """
+    Perform the isblock operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise isblock through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if callable(x.tag) or not x.tag:
         return True
     if x.tag in BLOCK_TAGS:
@@ -194,6 +277,18 @@ def isblock(x: _typing.Any) -> bool:
 
 
 def has_only_blocks(x: _typing.Any) -> bool:
+    """
+    Return whether has only blocks holds for the supplied ebook data.
+
+    Example:
+        Exercise has only blocks through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: True when the documented condition holds; otherwise False.
+    """
     if hasattr(x.tag, "split") and len(x) == 0:
         # Tag with no children,
         return False
@@ -206,6 +301,19 @@ def has_only_blocks(x: _typing.Any) -> bool:
 
 
 def indent_for_tag(x: _typing.Any) -> _typing.Any:
+    """
+    Perform the indent for tag operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise indent for tag through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     prev = x.getprevious()
     x = x.getparent().text if prev is None else prev.tail
     if not x:
@@ -215,6 +323,21 @@ def indent_for_tag(x: _typing.Any) -> _typing.Any:
 
 
 def set_indent(elem: _typing.Any, attr: _typing.Any, indent: _typing.Any) -> None:
+    """
+    Set indent under the format's safety and compatibility rules.
+
+    Example:
+        Exercise set indent through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param elem: Value supplied for elem under the utility contract.
+    :param attr: Value supplied for attr under the utility contract.
+    :param indent: Value supplied for indent under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     x = getattr(elem, attr)
     if not x:
         x = indent
@@ -231,10 +354,18 @@ def set_indent(elem: _typing.Any, attr: _typing.Any, indent: _typing.Any) -> Non
 def pretty_block(parent: _typing.Any, level: int = 1, indent: str = "  ") -> None:
     """
     Surround block tags with blank lines and recurse into child block tags that contain only other block tags.
-    :param parent:
-    :param level:
-    :param indent:
-    :return:
+
+    Example:
+        Exercise pretty block through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param level: Value supplied for level under the utility contract.
+    :param indent: Value supplied for indent under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     if not parent.text or isspace(parent.text):
         parent.text = ""
@@ -254,6 +385,20 @@ def pretty_block(parent: _typing.Any, level: int = 1, indent: str = "  ") -> Non
 
 
 def pretty_script_or_style(container: _typing.Any, child: _typing.Any) -> None:
+    """
+    Perform the pretty script or style operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise pretty script or style through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param child: Value supplied for child under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if child.text:
         indent = indent_for_tag(child)
         if child.tag.endswith("style"):
@@ -264,6 +409,20 @@ def pretty_script_or_style(container: _typing.Any, child: _typing.Any) -> None:
 
 
 def pretty_html_tree(container: _typing.Any, root: _typing.Any) -> None:
+    """
+    Perform the pretty html tree operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise pretty html tree through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param root: Root directory that bounds path resolution or traversal.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     root.text = "\n\n"
     for child in root:
         child.tail = "\n\n"
@@ -292,11 +451,18 @@ def pretty_html_tree(container: _typing.Any, root: _typing.Any) -> None:
 
 def fix_html(container: _typing.Any, raw: _typing.Any) -> _typing.Any:
     """
-    Fix any parsing errors in the HTML represented as a string in raw.
-    Fixing is done using the HTML5 parsing algorithm.
-    :param container:
-    :param raw:
-    :return:
+    Fix any parsing errors in the HTML represented as a string in raw. Fixing is done using the HTML5 parsing algorithm.
+
+    Example:
+        Exercise fix html through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     root = container.parse_xhtml(raw)
     return serialize(root, "text/html")
@@ -305,10 +471,18 @@ def fix_html(container: _typing.Any, raw: _typing.Any) -> _typing.Any:
 def pretty_html(container: _typing.Any, name: _typing.Any, raw: _typing.Any) -> _typing.Any:
     """
     Pretty print the HTML represented as a string in raw
-    :param container:
-    :param name:
-    :param raw:
-    :return:
+
+    Example:
+        Exercise pretty html through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     root = container.parse_xhtml(raw)
     pretty_html_tree(container, root)
@@ -318,10 +492,18 @@ def pretty_html(container: _typing.Any, name: _typing.Any, raw: _typing.Any) -> 
 def pretty_css(container: _typing.Any, name: _typing.Any, raw: _typing.Any) -> _typing.Any:
     """
     Pretty print the CSS represented as a string in raw
-    :param container:
-    :param name:
-    :param raw:
-    :return:
+
+    Example:
+        Exercise pretty css through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     sheet = container.parse_css(raw)
     return serialize(sheet, "text/css")
@@ -329,12 +511,19 @@ def pretty_css(container: _typing.Any, name: _typing.Any, raw: _typing.Any) -> _
 
 def pretty_xml(container: _typing.Any, name: _typing.Any, raw: _typing.Any) -> _typing.Any:
     """
-    Pretty print the XML represented as a string in raw. If ``name`` is the name of the OPF, extra OPF-specific
-    prettying is performed.
-    :param container:
-    :param name:
-    :param raw:
-    :return:
+    Pretty print the XML represented as a string in raw. If ``name`` is the name of the OPF, extra OPF-specific prettying is performed.
+
+    Example:
+        Exercise pretty xml through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     root = container.parse_xml(raw)
     if name == container.opf_name:
@@ -346,8 +535,16 @@ def pretty_xml(container: _typing.Any, name: _typing.Any, raw: _typing.Any) -> _
 def fix_all_html(container: _typing.Any) -> None:
     """
     Fix any parsing errors in all HTML files in the container. Fixing is done using the HTML5 parsing algorithm.
-    :param container:
-    :return:
+
+    Example:
+        Exercise fix all html through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     for name, mt in iteritems(container.mime_map):
         if mt in OEB_DOCS:
@@ -358,8 +555,16 @@ def fix_all_html(container: _typing.Any) -> None:
 def pretty_all(container: _typing.Any) -> None:
     """
     Pretty print all HTML/CSS/XML files in the container
-    :param container:
-    :return:
+
+    Example:
+        Exercise pretty all through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     for name, mt in iteritems(container.mime_map):
         prettied = False

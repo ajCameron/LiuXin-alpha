@@ -1,5 +1,16 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
+"""
+Provide shared XML, measurement and property helpers for DOCX generation.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise utils through a consuming regression::
+
+        python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -29,15 +40,54 @@ except ImportError:
     _RGB_RE = re.compile(r"^rgba?\((.*?)\)$", re.IGNORECASE)
 
     def _clamp_channel(x: _typing.Any) -> _typing.Any:
+        """
+        Perform the clamp channel operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  clamp channel through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param x: Value supplied for x under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return max(0, min(255, int(x)))
 
     def _parse_component(raw: _typing.Any) -> _typing.Any:
+        """
+        Parse component under the format's safety and compatibility rules.
+
+        Example:
+            Exercise  parse component through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         raw = raw.strip()
         if raw.endswith("%"):
             return _clamp_channel(round(float(raw[:-1]) * 255.0 / 100.0))
         return _clamp_channel(float(raw))
 
     def _parse_alpha(raw: _typing.Any) -> _typing.Any:
+        """
+        Parse alpha under the format's safety and compatibility rules.
+
+        Example:
+            Exercise  parse alpha through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         raw = raw.strip()
         if raw.endswith("%"):
             return max(0.0, min(1.0, float(raw[:-1]) / 100.0))
@@ -47,6 +97,19 @@ except ImportError:
         return max(0.0, min(1.0, val))
 
     def parse_color_string(value: _typing.Any) -> _typing.Any:
+        """
+        Parse color string under the format's safety and compatibility rules.
+
+        Example:
+            Exercise parse color string through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if value is None:
             return None
         raw = str(value).strip().lower()
@@ -82,6 +145,19 @@ except ImportError:
 
 
 def int_or_zero(raw: _typing.Any) -> _typing.Any:
+    """
+    Perform the int or zero operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise int or zero through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         return int(raw)
     except (ValueError, TypeError, AttributeError):
@@ -90,6 +166,19 @@ def int_or_zero(raw: _typing.Any) -> _typing.Any:
 
 # convert_color() {{{
 def convert_color(value: _typing.Any) -> _typing.Any:
+    """
+    Convert color under the format's safety and compatibility rules.
+
+    Example:
+        Exercise convert color through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not value:
         return
     if value.lower() == "currentcolor":
@@ -107,10 +196,42 @@ def convert_color(value: _typing.Any) -> _typing.Any:
 
 
 def test_convert_color() -> None:
+    """
+    Perform the test convert color operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test convert color through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     import unittest
 
     class TestColors(unittest.TestCase):
+        """
+        Provide the testcolors contract for validated ebook processing.
+
+        Example:
+            Exercise test convert color.TestColors through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+        """
         def test_color_conversion(self: _typing.Self) -> None:
+            """
+            Perform the test color conversion operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test convert color.TestColors.test color conversion through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             ae = self.assertEqual
             cc = convert_color
             ae(None, cc(None))

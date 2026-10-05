@@ -10,6 +10,17 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+"""
+Parse RTF color tables and annotate color references.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise colors through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -23,18 +34,28 @@ from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
 class Colors:
     """
     Change lines with color info from color numbers to the actual color names.
+
+    Example:
+        Exercise Colors through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
     """
 
     def __init__(self: _typing.Self, in_file: _typing.Any, bug_handler: _typing.Any, copy: _typing.Any = None, run_level: int = 1) -> None:
         """
-        Required:
-            'file'--file to parse
-        Optional:
-            'copy'-- whether to make a copy of result for debugging
-            'temp_dir' --where to output temporary results (default is
-            directory from which the script is run.)
-        Returns:
-            nothing
+        Required: 'file'--file to parse Optional: 'copy'-- whether to make a copy of result for debugging 'temp_dir' --where to output temporary results (default is directory from which the script is run.) Returns: nothing
+
+        Example:
+            Exercise Colors.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param copy: Value supplied for copy under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.__file = in_file
         self.__copy = copy
@@ -46,6 +67,15 @@ class Colors:
     def __initiate_values(self: _typing.Self) -> None:
         """
         Initiate all values.
+
+        Example:
+            Exercise Colors.  initiate values through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__color_dict = {}
         self.__state = "before_color_table"
@@ -65,14 +95,17 @@ class Colors:
 
     def __before_color_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line
-        Returns:
-            nothing
-        Logic:
-            Check to see if the line marks the beginning of the color table.
-            If so, change states.
-            Always print out the line.
+        Requires: line Returns: nothing Logic: Check to see if the line marks the beginning of the color table. If so, change states. Always print out the line.
+
+        Example:
+            Exercise Colors.  before color func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # mi<mk<clrtbl-beg
         if self.__token_info == "mi<mk<clrtbl-beg":
@@ -81,28 +114,34 @@ class Colors:
 
     def __default_color_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line
-        Returns:
-            nothing
-        Logic:
-            get the hex number from the line and add it to the color string.
+        Requires: line Returns: nothing Logic: get the hex number from the line and add it to the color string.
+
+        Example:
+            Exercise Colors.  default color func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         hex_num = line[-3:-1]
         self.__color_string += hex_num
 
     def __blue_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line
-        Returns:
-            nothing
-        Logic:
-            Get the hex number from the line and add it to the color string.
-            Add a key -> value pair to the color dictionary, with the number
-            as the key, and the hex number as the value. Write an empty tag
-            with the hex number and number as attributes. Add one to the color
-            number. Reset the color string to '#'
+        Requires: line Returns: nothing Logic: Get the hex number from the line and add it to the color string. Add a key -> value pair to the color dictionary, with the number as the key, and the hex number as the value. Write an empty tag with the hex number and number as attributes. Add one to the color number. Reset the color string to '#'
+
+        Example:
+            Exercise Colors.  blue func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         hex_num = line[-3:-1]
         self.__color_string += hex_num
@@ -115,15 +154,17 @@ class Colors:
 
     def __in_color_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line
-        Returns:
-            nothing
-        Logic:
-            Check if the end of the color table has been reached. If so,
-            change the state to after the color table.
-            Otherwise, get a function by passing the self.__token_info to the
-            state dictionary.
+        Requires: line Returns: nothing Logic: Check if the end of the color table has been reached. If so, change the state to after the color table. Otherwise, get a function by passing the self.__token_info to the state dictionary.
+
+        Example:
+            Exercise Colors.  in color func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # mi<mk<clrtbl-beg
         # cw<ci<red_______<nu<00
@@ -139,12 +180,17 @@ class Colors:
 
     def __after_color_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Check the to see if it contains color info. If it does, extract the
-        number and look up the hex value in the color dictionary. If the color
-        dictionary has no key for the number, print out an error message.
-        Otherwise, print out the line.
-        Added Oct 10, 2003
-        If the number is 0, that indicates no color
+        Check the to see if it contains color info. If it does, extract the number and look up the hex value in the color dictionary. If the color dictionary has no key for the number, print out an error message. Otherwise, print out the line. Added Oct 10, 2003 If the number is 0, that indicates no color
+
+        Example:
+            Exercise Colors.  after color func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # cw<ci<font-color<nu<2
         if self.__token_info == "cw<ci<font-color":
@@ -184,6 +230,19 @@ class Colors:
         # cw<bd<bor-par-to<nu<bdr-hair__|bdr-li-wid:0.50|bdr-sp-wid:1.00|bdr-color_:2
 
     def __sub_from_line_color(self: _typing.Self, match_obj: _typing.Any) -> _typing.Any:
+        """
+        Perform the sub from line color operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Colors.  sub from line color through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param match_obj: Value supplied for match obj under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         num = match_obj.group(1)
         try:
             num = int(num)
@@ -197,6 +256,19 @@ class Colors:
         return "bdr-color_:%s" % hex_num
 
     def __figure_num(self: _typing.Self, num: _typing.Any) -> _typing.Any:
+        """
+        Perform the figure num operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Colors.  figure num through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param num: Value supplied for num under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if num == 0:
             hex_num = "false"
         else:
@@ -211,23 +283,31 @@ class Colors:
     def __do_nothing_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Bad RTF will have text in the color table
+
+        Example:
+            Exercise Colors.  do nothing func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
     def convert_colors(self: _typing.Self) -> None:
         """
-        Requires:
-            nothing
-        Returns:
-            nothing (changes the original file)
-        Logic:
-            Read one line in at a time. Determine what action to take based on
-            the state. If the state is before the color table, look for the
-            beginning of the color table.
-            If the state is in the color table, create the color dictionary
-            and print out the tags.
-            If the state if after the color table, look for lines with color
-            info, and substitute the number with the hex number.
+        Requires: nothing Returns: nothing (changes the original file) Logic: Read one line in at a time. Determine what action to take based on the state. If the state is before the color table, look for the beginning of the color table. If the state is in the color table, create the color dictionary and print out the tags. If the state if after the color table, look for lines with color info, and substitute the number with the hex number.
+
+        Example:
+            Exercise Colors.convert colors through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__initiate_values()
         with open_for_read(self.__file) as read_obj:

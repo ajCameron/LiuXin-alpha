@@ -1,5 +1,16 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
+"""
+Render DOCX package structures into inspectable diagnostic output.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise dump through a consuming regression::
+
+        python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -19,6 +30,20 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 def pretty_all_xml_in_dir(path: _typing.Any) -> None:
+    """
+    Perform the pretty all xml in dir operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise pretty all xml in dir through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for f in walk(path):
         if f.endswith(".xml") or f.endswith(".rels"):
             with open(f, "r+b") as stream:
@@ -38,6 +63,21 @@ def pretty_all_xml_in_dir(path: _typing.Any) -> None:
 
 
 def do_dump(path: _typing.Any, dest: _typing.Any) -> None:
+    """
+    Perform the do dump operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise do dump through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param dest: Value supplied for dest under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if os.path.exists(dest):
         shutil.rmtree(dest)
     with ZipFile(path) as zf:
@@ -47,6 +87,20 @@ def do_dump(path: _typing.Any, dest: _typing.Any) -> None:
 
 def dump(path: _typing.Any) -> None:
 
+    """
+    Perform the dump operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise dump through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     dest = os.path.splitext(os.path.basename(path))[0]
     dest += "-dumped"
     do_dump(path, dest)

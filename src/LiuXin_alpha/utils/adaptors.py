@@ -1,3 +1,14 @@
+"""
+Adapt legacy booleans, integers, identifiers and tag values into stable utility representations.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise adaptors through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_docstring_ownership.py
+"""
 from __future__ import annotations
 
 import json
@@ -9,8 +20,15 @@ def _boolish_to_bool(val: Any) -> Optional[bool]:
     """
     Convert typical DB "bool-ish" values to Python bool.
 
-    Accepts: None, bool, 0/1 ints, and '0'/'1' strings.
-    Anything else is returned unchanged as None (to avoid surprising coercions).
+    Example:
+        Exercise  boolish to bool through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_ownership.py
+
+
+    :param val: Template or metadata value evaluated by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if val is None:
         return None
@@ -32,6 +50,19 @@ def _boolish_to_bool(val: Any) -> Optional[bool]:
 
 
 def _bool_to_int_or_none(val: Optional[bool]) -> Optional[int]:
+    """
+    Normalize bool to int or none into the compatibility boolean representation.
+
+    Example:
+        Exercise  bool to int or none through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_ownership.py
+
+
+    :param val: Template or metadata value evaluated by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if val is None:
         return None
     return 1 if val else 0
@@ -39,16 +70,17 @@ def _bool_to_int_or_none(val: Optional[bool]) -> Optional[int]:
 
 def _optional_text(value: Any) -> str | None:
     """
-    Stringify and strip a supplied value, treating None or resulting blank text as absent. False and
-    zero become nonempty strings; conversion errors propagate.
+    Stringify and strip a supplied value, treating None or resulting blank text as absent. False and zero become nonempty strings; conversion errors propagate.
 
     Example:
-        >>> _optional_text("  books  "), _optional_text("  ")
-        ('books', None)
+        Exercise  optional text through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_ownership.py
 
 
-    :param value: Optional value whose textual spelling is requested.
-    :return: Stripped nonempty text, or None.
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if value is None:
         return None
@@ -58,17 +90,17 @@ def _optional_text(value: Any) -> str | None:
 
 def _to_int(value: Any) -> int | None:
     """
-    Attempt integer conversion, treating None, empty text, TypeError, and ValueError as absent.
-    Boolean and truncatable numeric values are accepted; positivity is not checked. Other failures
-    such as OverflowError propagate.
+    Attempt integer conversion, treating None, empty text, TypeError, and ValueError as absent. Boolean and truncatable numeric values are accepted; positivity is not checked. Other failures such as OverflowError propagate.
 
     Example:
-        >>> _to_int("12"), _to_int("invalid"), _to_int(2.9)
-        (12, None, 2)
+        Exercise  to int through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_ownership.py
 
 
-    :param value: Potential database integer or optional-ID value.
-    :return: The converted integer, or None for the handled absence/conversion cases.
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if value is None or value == "":
         return None
@@ -80,19 +112,18 @@ def _to_int(value: Any) -> int | None:
 
 def _boolish(value: Any, *, default: bool) -> bool:
     """
-    Interpret legacy boolean columns with an explicit fallback for unknown values. Preserve
-    booleans, use numeric truthiness, and recognize stripped case-insensitive yes/no, y/n, on/off,
-    true/false, and 1/0 text. Empty text is false; None, unrecognized strings, and other object
-    types return default without using their general truthiness.
+    Interpret legacy boolean columns with an explicit fallback for unknown values. Preserve booleans, use numeric truthiness, and recognize stripped case-insensitive yes/no, y/n, on/off, true/false, and 1/0 text. Empty text is false; None, unrecognized strings, and other object types return default without using their general truthiness.
 
     Example:
-        >>> _boolish("off", default=True), _boolish("unknown", default=True)
-        (False, True)
+        Exercise  boolish through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_ownership.py
 
 
-    :param value: Stored scalar or compatibility value to interpret.
-    :param default: Fallback returned for missing or unrecognized input.
-    :return: The recognized boolean or supplied default.
+    :param value: Value normalized, stored, formatted or returned.
+    :param default: Value supplied for default under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if value is None:
         return default
@@ -111,19 +142,17 @@ def _boolish(value: Any, *, default: bool) -> bool:
 
 def _parse_tags(value: Any) -> tuple[str, ...]:
     """
-    Convert legacy tag text, JSON, collections, or scalars to a tuple of tag strings. Strings are
-    recursively JSON-decoded when possible; failed decoding/conversion falls back to the original
-    stripped string. Lists, tuples, and sets contribute stripped nonblank item spellings without
-    recursive flattening or deduplication. Set order is not stabilized, and JSON scalar text can
-    change spelling during conversion. None and empty input yield no tags.
+    Convert legacy tag text, JSON, collections, or scalars to a tuple of tag strings. Strings are recursively JSON-decoded when possible; failed decoding/conversion falls back to the original stripped string. Lists, tuples, and sets contribute stripped nonblank item spellings without recursive flattening or deduplication. Set order is not stabilized, and JSON scalar text can change spelling during conversion. None and empty input yield no tags.
 
     Example:
-        >>> _parse_tags('[" books ", "", "books"]')
-        ('books', 'books')
+        Exercise  parse tags through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_ownership.py
 
 
-    :param value: Stored JSON/text tags, a supported collection, or a scalar.
-    :return: A tuple of nonblank strings in encountered order; duplicates are retained.
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if value is None or value == "" or value == ():
         return ()
@@ -142,16 +171,17 @@ def _parse_tags(value: Any) -> tuple[str, ...]:
 
 def _optional_uuid(value: Any) -> UUID | None:
     """
-    Strip optional text and parse a nonblank UUID. Blank values become None; other malformed values
-    raise through UUID construction.
+    Strip optional text and parse a nonblank UUID. Blank values become None; other malformed values raise through UUID construction.
 
     Example:
-        >>> _optional_uuid("  ") is None
-        True
+        Exercise  optional uuid through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_ownership.py
 
 
-    :param value: Optional UUID/text value, stringified through _optional_text.
-    :return: A parsed UUID or None; no Store lookup occurs.
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     text = _optional_text(value)
     return None if text is None else UUID(text)

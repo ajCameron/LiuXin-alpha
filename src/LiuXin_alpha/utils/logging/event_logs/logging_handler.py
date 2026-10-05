@@ -1,4 +1,14 @@
-"""Standard-library logging bridge for LiuXin structured event logs."""
+"""
+Bridge standard logging records into LiuXin event-log sinks.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise logging handler through a consuming regression::
+
+        python -m pytest -q tests/utils/logging/test_compat_logger.py
+"""
 
 from __future__ import annotations
 
@@ -16,7 +26,20 @@ from LiuXin_alpha.utils.logging.api import EventLogAPI
 
 
 def json_safe(value: object, *, depth: int = 0) -> object:
-    """Bound arbitrary logging context without losing useful diagnostics."""
+    """
+    Bound arbitrary logging context without losing useful diagnostics.
+
+    Example:
+        Exercise json safe through a consuming regression::
+
+            python -m pytest -q tests/utils/logging/test_compat_logger.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :param depth: Value supplied for depth under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     if value is None or isinstance(value, (bool, int, float, str)):
         return value
@@ -64,6 +87,20 @@ def json_safe(value: object, *, depth: int = 0) -> object:
 
 
 def _bounded_repr(value: object, *, max_length: int = 2_000) -> str:
+    """
+    Perform the bounded repr utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  bounded repr through a consuming regression::
+
+            python -m pytest -q tests/utils/logging/test_compat_logger.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :param max_length: Value supplied for max length under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         rendered = repr(value)
     except Exception as error:  # pragma: no cover - defensive logging boundary
@@ -75,12 +112,13 @@ def _bounded_repr(value: object, *, max_length: int = 2_000) -> str:
 
 @final
 class EventLogHandler(logging.Handler):
-    """Write Python log records into a LiuXin :class:`EventLogAPI`.
+    """
+    Write Python log records into a LiuXin :class:`EventLogAPI`.
 
-    Records emitted by LiuXin workflows may provide ``liuxin_event`` and
-    ``liuxin_context`` in ``extra``. Compatibility logger ``vars`` and
-    exception fields are retained as well. Tracebacks are rendered into the
-    JSONL context so they survive a detached terminal or process supervisor.
+    Example:
+        Exercise EventLogHandler through a consuming regression::
+
+            python -m pytest -q tests/utils/logging/test_compat_logger.py
     """
 
     def __init__(
@@ -90,12 +128,40 @@ class EventLogHandler(logging.Handler):
         level: int = logging.NOTSET,
         close_event_log: bool = False,
     ) -> None:
+        """
+        Initialize and validate the EventLogHandler state.
+
+        Example:
+            Exercise EventLogHandler.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/logging/test_compat_logger.py
+
+
+        :param event_log: Value supplied for event log under the utility contract.
+        :param level: Value supplied for level under the utility contract.
+        :param close_event_log: Value supplied for close event log under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super().__init__(level)
         self.event_log = event_log
         self.close_event_log = bool(close_event_log)
 
     @override
     def emit(self, record: logging.LogRecord) -> None:
+        """
+        Perform the emit utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise EventLogHandler.emit through a consuming regression::
+
+                python -m pytest -q tests/utils/logging/test_compat_logger.py
+
+
+        :param record: Value supplied for record under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         try:
             context: dict[str, object] = {
                 "logger": record.name,
@@ -137,10 +203,34 @@ class EventLogHandler(logging.Handler):
 
     @override
     def flush(self) -> None:
+        """
+        Forward the flush operation while preserving adapter ownership rules.
+
+        Example:
+            Exercise EventLogHandler.flush through a consuming regression::
+
+                python -m pytest -q tests/utils/logging/test_compat_logger.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.event_log.flush()
 
     @override
     def close(self) -> None:
+        """
+        Forward the close operation while preserving adapter ownership rules.
+
+        Example:
+            Exercise EventLogHandler.close through a consuming regression::
+
+                python -m pytest -q tests/utils/logging/test_compat_logger.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         try:
             self.flush()
             if self.close_event_log:

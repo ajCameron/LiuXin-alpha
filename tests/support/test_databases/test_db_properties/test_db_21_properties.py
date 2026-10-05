@@ -1,3 +1,14 @@
+"""
+Declare expected capabilities and contents for test db 21 properties.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise test db 21 properties through a consuming regression::
+
+        python -m pytest -q tests/support/test_databases/test_db_properties/test_db_21_properties.py
+"""
 from .common_db_properties import (
     CommonDBProperties,
 )
@@ -5,6 +16,14 @@ from .common_db_properties import (
 
 class TestDB21Properties(CommonDBProperties):
 
+    """
+    Declare the expected schema, content and feature properties for TestDB21Properties.
+
+    Example:
+        Exercise TestDB21Properties through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_db_properties/test_db_21_properties.py
+    """
     alpha_focus_row_counts = {
         "database_version": 1,
         "works": 30,

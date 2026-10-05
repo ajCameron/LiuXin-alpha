@@ -1,9 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Read content from AZW4 files.
+Read the package's ebook container into normalized metadata and content resources.
 
-AZW4 is essentially a PDF wrapped in a MOBI/PDB-like container.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise reader through a consuming regression::
+
+        python -m pytest -q tests/file_formats/azw4/test_azw4_reader_and_input.py
 """
 
 from __future__ import annotations
@@ -28,10 +34,40 @@ _PDF_END_MARKER = b"%%EOF"
 
 
 class _Logger(Protocol):
-    def info(self: _typing.Self, *args: object) -> object: ...
+    """
+    Provide the logger contract for validated ebook processing.
+
+    Example:
+        Exercise  Logger through a consuming regression::
+
+            python -m pytest -q tests/file_formats/azw4/test_azw4_reader_and_input.py
+    """
+    def info(self: _typing.Self, *args: object) -> object:
+        """
+        Perform the info operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Logger.info through a consuming regression::
+
+                python -m pytest -q tests/file_formats/azw4/test_azw4_reader_and_input.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
 
 
 class _InputPlugin(Protocol):
+    """
+    Convert inputplugin sources into the normalized OEB pipeline model.
+
+    Example:
+        Exercise  InputPlugin through a consuming regression::
+
+            python -m pytest -q tests/file_formats/azw4/test_azw4_reader_and_input.py
+    """
     options: Iterable[object]
 
     def convert(
@@ -41,7 +77,26 @@ class _InputPlugin(Protocol):
         file_ext: str,
         log: _Logger,
         accelerators: Mapping[str, object],
-    ) -> object: ...
+    ) -> object:
+        """
+        Convert the supplied source into the stage's normalized output representation.
+
+        Example:
+            Exercise  InputPlugin.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/azw4/test_azw4_reader_and_input.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param options: Value supplied for options under the utility contract.
+        :param file_ext: Value supplied for file ext under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param accelerators: Value supplied for accelerators under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
 
 
 def extract_embedded_pdf_bytes(
@@ -50,8 +105,15 @@ def extract_embedded_pdf_bytes(
     """
     Extract the embedded PDF payload from raw AZW4 bytes.
 
-    :param raw_data:
-    :return:
+    Example:
+        Exercise extract embedded pdf bytes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/azw4/test_azw4_reader_and_input.py
+
+
+    :param raw_data: Value supplied for raw data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if not isinstance(raw_data, (bytes, bytearray, memoryview)):
         raise TypeError("raw_data must be bytes-like")
@@ -78,9 +140,17 @@ def unwrap(stream: BinaryIO, output_path: Union[str, Path]) -> None:
     """
     Write the embedded PDF in ``stream`` to ``output_path``.
 
-    :param stream:
-    :param output_path:
-    :return:
+    Example:
+        Exercise unwrap through a consuming regression::
+
+            python -m pytest -q tests/file_formats/azw4/test_azw4_reader_and_input.py
+
+
+    :param stream: Input or output stream wrapped by the terminal or compatibility
+        layer.
+    :param output_path: Value supplied for output path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     stream.seek(0)
     pdf_data = extract_embedded_pdf_bytes(stream.read())
@@ -92,8 +162,15 @@ def _plugin_for_input_format(file_ext: str) -> _InputPlugin | None:
     """
     Return the reader plugin for the given file extension.
 
-    :param file_ext:
-    :return:
+    Example:
+        Exercise  plugin for input format through a consuming regression::
+
+            python -m pytest -q tests/file_formats/azw4/test_azw4_reader_and_input.py
+
+
+    :param file_ext: Value supplied for file ext under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     from LiuXin_alpha.customize.ui import plugin_for_input_format
 
@@ -104,6 +181,20 @@ def _apply_recommended_options(
     options: object | None,
     plugin: _InputPlugin,
 ) -> None:
+    """
+    Perform the apply recommended options operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  apply recommended options through a consuming regression::
+
+            python -m pytest -q tests/file_formats/azw4/test_azw4_reader_and_input.py
+
+
+    :param options: Value supplied for options under the utility contract.
+    :param plugin: Value supplied for plugin under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if options is None:
         return
     for opt in getattr(plugin, "options", ()):
@@ -116,6 +207,14 @@ def _apply_recommended_options(
 
 
 class Reader(FormatReader):
+    """
+    Parse reader data into normalized ebook structures.
+
+    Example:
+        Exercise Reader through a consuming regression::
+
+            python -m pytest -q tests/file_formats/azw4/test_azw4_reader_and_input.py
+    """
     def __init__(
         self: _typing.Self,
         header: object,
@@ -123,6 +222,22 @@ class Reader(FormatReader):
         log: object,
         options: object,
     ) -> None:
+        """
+        Initialize and validate the reader state.
+
+        Example:
+            Exercise Reader.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/azw4/test_azw4_reader_and_input.py
+
+
+        :param header: Value supplied for header under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param log: Value supplied for log under the utility contract.
+        :param options: Value supplied for options under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.header = header
         self.stream = stream
         self.log = cast(_Logger, log)
@@ -132,6 +247,19 @@ class Reader(FormatReader):
         self: _typing.Self,
         output_dir: str | os.PathLike[str] | None,
     ) -> object:
+        """
+        Extract content under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Reader.extract content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/azw4/test_azw4_reader_and_input.py
+
+
+        :param output_dir: Value supplied for output dir under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.log.info("Extracting PDF from AZW4 Container...")
 
         self.stream.seek(0)

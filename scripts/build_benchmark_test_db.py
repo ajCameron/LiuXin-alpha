@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Build the reproducible SQLite fixture used by benchmark scripts."""
+"""
+Build benchmark fixture databases.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise build benchmark test db through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+"""
 
 from __future__ import annotations
 
@@ -32,6 +42,18 @@ BENCHMARK_DB_NAMES = (
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parse args under the format's safety and compatibility rules.
+
+    Example:
+        Exercise parse args through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = argparse.ArgumentParser(
         description="Build a deterministic benchmark test DB for LiuXin-alpha."
     )
@@ -80,12 +102,39 @@ def parse_args() -> argparse.Namespace:
 
 
 def _count(conn: sqlite3.Connection, table: str) -> int:
+    """
+    Perform the count operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  count through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param conn: SQLite connection used for schema or metadata queries.
+    :param table: Value supplied for table under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     row = conn.execute(f"SELECT COUNT(*) FROM {table};").fetchone()
     assert row is not None
     return int(row[0])
 
 
 def _print_summary(db_path: Path) -> None:
+    """
+    Perform the print summary operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  print summary through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param db_path: Value supplied for db path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     conn = sqlite3.connect(str(db_path))
     try:
         print(f"db_path={db_path}")
@@ -98,6 +147,18 @@ def _print_summary(db_path: Path) -> None:
 
 
 def main() -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     args = parse_args()
 
     output_raw = str(args.output or "").strip()

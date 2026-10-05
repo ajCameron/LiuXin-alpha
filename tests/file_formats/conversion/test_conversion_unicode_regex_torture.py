@@ -1,3 +1,14 @@
+"""
+Provide test conversion unicode regex torture utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test conversion unicode regex torture through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/test_conversion_unicode_regex_torture.py
+"""
 from __future__ import annotations
 
 import ast
@@ -29,29 +40,127 @@ UNICODE_SENTENCES = [
 
 
 class _Log:
+    """
+    Provide the log contract for validated ebook processing.
+
+    Example:
+        Exercise  Log through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_unicode_regex_torture.py
+    """
     def debug(self, *_args) -> None:
+        """
+        Perform the debug operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.debug through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_unicode_regex_torture.py
+
+
+        :param _args: Value supplied for args under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     def warn(self, *_args) -> None:
+        """
+        Perform the warn operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.warn through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_unicode_regex_torture.py
+
+
+        :param _args: Value supplied for args under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     def warning(self, *_args) -> None:
+        """
+        Perform the warning operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.warning through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_unicode_regex_torture.py
+
+
+        :param _args: Value supplied for args under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     def exception(self, *_args) -> None:
+        """
+        Perform the exception operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.exception through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_unicode_regex_torture.py
+
+
+        :param _args: Value supplied for args under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     def __call__(self, *_args) -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_unicode_regex_torture.py
+
+
+        :param _args: Value supplied for args under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
 
 def _install_html2text_stub(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Perform the install html2text stub operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  install html2text stub through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_unicode_regex_torture.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     fake = types.ModuleType("LiuXin_alpha.utils.html2text")
     fake.html2text = lambda text: text
     monkeypatch.setitem(sys.modules, "LiuXin_alpha.utils.html2text", fake)
 
 
 def _make_opts() -> SimpleNamespace:
+    """
+    Perform the make opts operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  make opts through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_unicode_regex_torture.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return SimpleNamespace(
         debug_pipeline=None,
         unwrap_lines=True,
@@ -69,6 +178,19 @@ def _make_opts() -> SimpleNamespace:
 
 
 def _build_torture_html(multiplier: int = 8) -> str:
+    """
+    Perform the build torture html operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  build torture html through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_unicode_regex_torture.py
+
+
+    :param multiplier: Value supplied for multiplier under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parts = [
         "<p>CHAPTER 1</p>",
         "<p>A Beginning</p>",
@@ -81,6 +203,20 @@ def _build_torture_html(multiplier: int = 8) -> str:
 
 
 def _build_torture_txt_lines(line_sep: str, stop: str) -> str:
+    """
+    Perform the build torture txt lines operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  build torture txt lines through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_unicode_regex_torture.py
+
+
+    :param line_sep: Value supplied for line sep under the utility contract.
+    :param stop: Value supplied for stop under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     chunks = [
         f"alpha beta gamma delta epsilon zeta eta theta {stop}",
         f"Καλημέρα κόσμε δοκιμή {stop}",
@@ -93,6 +229,19 @@ def _build_torture_txt_lines(line_sep: str, stop: str) -> str:
 
 
 def _eval_const_string(node: ast.AST) -> str | None:
+    """
+    Perform the eval const string operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  eval const string through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_unicode_regex_torture.py
+
+
+    :param node: Value supplied for node under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return node.value
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
@@ -104,6 +253,20 @@ def _eval_const_string(node: ast.AST) -> str | None:
 
 
 def _collect_static_regex_patterns(path: Path) -> set[str]:
+    """
+    Perform the collect static regex patterns operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  collect static regex patterns through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_unicode_regex_torture.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=SyntaxWarning, message="invalid escape sequence.*")
         tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -123,6 +286,19 @@ def _collect_static_regex_patterns(path: Path) -> set[str]:
 
 
 def test_regex_modules_do_not_emit_invalid_escape_syntax_warnings(project_root: Path) -> None:
+    """
+    Perform the test regex modules do not emit invalid escape syntax warnings operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test regex modules do not emit invalid escape syntax warnings through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_unicode_regex_torture.py
+
+
+    :param project_root: Value supplied for project root under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     targets = (
         project_root / "src/LiuXin_alpha/file_formats/conversion/utils.py",
         project_root / "src/LiuXin_alpha/file_formats/txt/processor.py",
@@ -146,6 +322,21 @@ def test_static_regex_literals_compile_under_unicode_stress(
     min_expected: int,
     project_root: Path,
 ) -> None:
+    """
+    Perform the test static regex literals compile under unicode stress operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test static regex literals compile under unicode stress through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_unicode_regex_torture.py
+
+
+    :param relative_path: Value supplied for relative path under the utility contract.
+    :param min_expected: Value supplied for min expected under the utility contract.
+    :param project_root: Value supplied for project root under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     patterns = _collect_static_regex_patterns(project_root / relative_path)
     assert len(patterns) >= min_expected
     corpus = " ".join(UNICODE_SENTENCES)
@@ -155,6 +346,19 @@ def test_static_regex_literals_compile_under_unicode_stress(
 
 
 def test_conversion_regex_runtime_torture_exercises_dynamic_patterns(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Perform the test conversion regex runtime torture exercises dynamic patterns operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test conversion regex runtime torture exercises dynamic patterns through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_unicode_regex_torture.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     import LiuXin_alpha.file_formats.conversion.utils as conv_utils
 
     _install_html2text_stub(monkeypatch)
@@ -164,6 +368,20 @@ def test_conversion_regex_runtime_torture_exercises_dynamic_patterns(monkeypatch
     original_compile = conv_utils.re.compile
 
     def recording_compile(pattern, flags=0):
+        """
+        Perform the recording compile operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test conversion regex runtime torture exercises dynamic patterns.recording compile through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_unicode_regex_torture.py
+
+
+        :param pattern: Value supplied for pattern under the utility contract.
+        :param flags: Value supplied for flags under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         seen_patterns.append(str(pattern))
         return original_compile(pattern, flags)
 
@@ -188,6 +406,19 @@ def test_conversion_regex_runtime_torture_exercises_dynamic_patterns(monkeypatch
 
 
 def test_conversion_regex_pipeline_is_deterministic_and_preserves_unicode(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Perform the test conversion regex pipeline is deterministic and preserves unicode operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test conversion regex pipeline is deterministic and preserves unicode through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_unicode_regex_torture.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     import LiuXin_alpha.file_formats.conversion.utils as conv_utils
 
     _install_html2text_stub(monkeypatch)
@@ -206,6 +437,21 @@ def test_conversion_regex_pipeline_is_deterministic_and_preserves_unicode(monkey
 @pytest.mark.parametrize("line_sep", ["\n", "\r\n", "\r"])
 @pytest.mark.parametrize("stop", [".", "!", "?", "…", "。", "؟"])
 def test_punctuation_unwrap_unicode_matrix(fmt: str, line_sep: str, stop: str) -> None:
+    """
+    Perform the test punctuation unwrap unicode matrix operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test punctuation unwrap unicode matrix through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_unicode_regex_torture.py
+
+
+    :param fmt: Date, number or template format specification.
+    :param line_sep: Value supplied for line sep under the utility contract.
+    :param stop: Value supplied for stop under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     import LiuXin_alpha.file_formats.conversion.utils as conv_utils
 
     processor = conv_utils.HeuristicProcessor(extra_opts=_make_opts(), log=_Log())

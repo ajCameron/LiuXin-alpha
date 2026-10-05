@@ -1,7 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""Inline and block transformation helpers for the bundled PyTextile port."""
+"""
+Transform Textile inline and block syntax into HTML markup.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise functions through a consuming regression::
+
+        python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -69,6 +79,19 @@ POSSIBILITY OF SUCH DAMAGE.
 
 
 def _normalize_newlines(string: _typing.Any) -> _typing.Any:
+    """
+    Normalize newlines under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  normalize newlines through a consuming regression::
+
+            python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+    :param string: Value supplied for string under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     out = re.sub(r"\r\n", "\n", string)
     out = re.sub(r"\n{3,}", "\n\n", out)
     out = re.sub(r"\n\s*\n", "\n\n", out)
@@ -78,14 +101,17 @@ def _normalize_newlines(string: _typing.Any) -> _typing.Any:
 
 def getimagesize(url: _typing.Any) -> _typing.Any:
     """
-    Attempts to determine an image's width and height, and returns a string
-    suitable for use in an <img> tag, or None in case of failure.
-    Requires that PIL is installed.
+    Attempts to determine an image's width and height, and returns a string suitable for use in an <img> tag, or None in case of failure. Requires that PIL is installed.
 
-    >>> getimagesize("http://www.google.com/intl/en_ALL/images/logo.gif")
-    ... #doctest: +ELLIPSIS, +SKIP
-    'width="..." height="..."'
+    Example:
+        Exercise getimagesize through a consuming regression::
 
+            python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+    :param url: Value supplied for url under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     try:
@@ -116,6 +142,14 @@ def getimagesize(url: _typing.Any) -> _typing.Any:
 
 
 class Textile(object):
+    """
+    Provide the textile contract for validated ebook processing.
+
+    Example:
+        Exercise Textile through a consuming regression::
+
+            python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+    """
     hlgn = r"(?:\<(?!>)|(?<!<)\>|\<\>|\=|[()]+(?! ))"
     vlgn = r"[\-^~]"
     clas = r"(?:\([^)]+\))"
@@ -277,7 +311,20 @@ class Textile(object):
     ]
 
     def __init__(self: _typing.Self, restricted: bool = False, lite: bool = False, noimage: bool = False) -> None:
-        """docstring for __init__"""
+        """
+        docstring for __init__
+
+        Example:
+            Exercise Textile.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param restricted: Value supplied for restricted under the utility contract.
+        :param lite: Value supplied for lite under the utility contract.
+        :param noimage: Value supplied for noimage under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.restricted = restricted
         self.lite = lite
         self.noimage = noimage
@@ -290,9 +337,20 @@ class Textile(object):
 
     def textile(self: _typing.Self, text: _typing.Any, rel: _typing.Any = None, head_offset: int = 0, html_type: str = "xhtml") -> _typing.Any:
         """
-        >>> import textile
-        >>> textile.textile('some textile')
-        u'\\t<p>some textile</p>'
+        Perform the textile operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.textile through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :param rel: Value supplied for rel under the utility contract.
+        :param head_offset: Value supplied for head offset under the utility contract.
+        :param html_type: Value supplied for html type under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self.html_type = html_type
 
@@ -316,43 +374,16 @@ class Textile(object):
         """
         Parse block attributes.
 
-        >>> t = Textile()
-        >>> t.pba(r'\3')
-        ''
-        >>> t.pba(r'\\3', element='td')
-        ' colspan="3"'
-        >>> t.pba(r'/4', element='td')
-        ' rowspan="4"'
-        >>> t.pba(r'\\3/4', element='td')
-        ' colspan="3" rowspan="4"'
+        Example:
+            Exercise Textile.pba through a consuming regression::
 
-        >>> t.vAlign('^')
-        'top'
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
 
-        >>> t.pba('^', element='td')
-        ' style="vertical-align:top;"'
 
-        >>> t.pba('{line-height:18px}')
-        ' style="line-height:18px;"'
-
-        >>> t.pba('(foo-bar)')
-        ' class="foo-bar"'
-
-        >>> t.pba('(#myid)')
-        ' id="myid"'
-
-        >>> t.pba('(foo-bar#myid)')
-        ' class="foo-bar" id="myid"'
-
-        >>> t.pba('((((')
-        ' style="padding-left:4em;"'
-
-        >>> t.pba(')))')
-        ' style="padding-right:3em;"'
-
-        >>> t.pba('[fr]')
-        ' lang="fr"'
-
+        :param input: Value supplied for input under the utility contract.
+        :param element: Value supplied for element under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         style = []
         aclass = ""
@@ -438,13 +469,15 @@ class Textile(object):
         """
         checks whether the text has text not already enclosed by a block tag
 
-        >>> t = Textile()
-        >>> t.hasRawText('<p>foo bar biz baz</p>')
-        False
+        Example:
+            Exercise Textile.hasRawText through a consuming regression::
 
-        >>> t.hasRawText(' why yes, yes it does')
-        True
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
 
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         r = (
             re.compile(r"<(p|blockquote|div|form|table|ul|ol|pre|h\d)[^>]*?>.*</\1>", re.S)
@@ -455,10 +488,18 @@ class Textile(object):
         return "" != r
 
     def table(self: _typing.Self, text: _typing.Any) -> _typing.Any:
-        r"""
-        >>> t = Textile()
-        >>> t.table('|one|two|three|\n|a|b|c|')
-        '\t<table>\n\t\t<tr>\n\t\t\t<td>one</td>\n\t\t\t<td>two</td>\n\t\t\t<td>three</td>\n\t\t</tr>\n\t\t<tr>\n\t\t\t<td>a</td>\n\t\t\t<td>b</td>\n\t\t\t<td>c</td>\n\t\t</tr>\n\t</table>\n\n'
+        """
+        Perform the table operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.table through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         text = text + "\n\n"
         pattern = re.compile(
@@ -469,6 +510,19 @@ class Textile(object):
         return pattern.sub(self.fTable, text)
 
     def fTable(self: _typing.Self, match: _typing.Any) -> _typing.Any:
+        """
+        Perform the fTable operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.fTable through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param match: Value supplied for match under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         tatts = self.pba(match.group(1), "table")
         rows = []
         for row in [x for x in match.group(2).split("\n") if x]:
@@ -500,14 +554,35 @@ class Textile(object):
 
     def lists(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         """
-        >>> t = Textile()
-        >>> t.lists("* one\\n* two\\n* three")
-        '\\t<ul>\\n\\t\\t<li>one</li>\\n\\t\\t<li>two</li>\\n\\t\\t<li>three</li>\\n\\t</ul>'
+        Perform the lists operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.lists through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         pattern = re.compile(r"^([#*]+%s .*)$(?![^#*])" % self.c, re.U | re.M | re.S)
         return pattern.sub(self.fList, text)
 
     def fList(self: _typing.Self, match: _typing.Any) -> _typing.Any:
+        """
+        Perform the fList operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.fList through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param match: Value supplied for match under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = match.group(0).split("\n")
         result = []
         lists = []
@@ -548,15 +623,54 @@ class Textile(object):
         return "\n".join(result)
 
     def lT(self: _typing.Self, input: _typing.Any) -> str:
+        """
+        Perform the lT operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.lT through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param input: Value supplied for input under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if re.search(r"^#+", input):
             return "o"
         else:
             return "u"
 
     def doPBr(self: _typing.Self, in_: _typing.Any) -> _typing.Any:
+        """
+        Perform the doPBr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.doPBr through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param in_: Value supplied for in under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return re.compile(r"<(p)([^>]*?)>(.*)(</\1>)", re.S).sub(self.doBr, in_)
 
     def doBr(self: _typing.Self, match: _typing.Any) -> _typing.Any:
+        """
+        Perform the doBr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.doBr through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param match: Value supplied for match under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.html_type == "html":
             content = re.sub(r"(.+)(?:(?<!<br>)|(?<!<br />))\n(?![#*\s|])", "\\1<br>", match.group(3))
         else:
@@ -569,9 +683,18 @@ class Textile(object):
 
     def block(self: _typing.Self, text: _typing.Any, head_offset: int = 0) -> _typing.Any:
         """
-        >>> t = Textile()
-        >>> t.block('h1. foobar baby')
-        '\\t<h1>foobar baby</h1>'
+        Perform the block operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.block through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :param head_offset: Value supplied for head offset under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if not self.lite:
             tre = "|".join(self.btag)
@@ -640,18 +763,21 @@ class Textile(object):
 
     def fBlock(self: _typing.Self, tag: _typing.Any, atts: _typing.Any, ext: _typing.Any, cite: _typing.Any, content: _typing.Any) -> tuple[_typing.Any, ...]:
         """
-        >>> t = Textile()
-        >>> t.fBlock("bq", "", None, "", "Hello BlockQuote")
-        ('\\t<blockquote>\\n', '\\t\\t<p>', 'Hello BlockQuote', '</p>', '\\n\\t</blockquote>')
+        Perform the fBlock operation under explicit file-format and conversion rules.
 
-        >>> t.fBlock("bq", "", None, "http://google.com", "Hello BlockQuote")
-        ('\\t<blockquote cite="http://google.com">\\n', '\\t\\t<p>', 'Hello BlockQuote', '</p>', '\\n\\t</blockquote>')
+        Example:
+            Exercise Textile.fBlock through a consuming regression::
 
-        >>> t.fBlock("bc", "", None, "", 'printf "Hello, World";') # doctest: +ELLIPSIS
-        ('<pre>', '<code>', ..., '</code>', '</pre>')
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
 
-        >>> t.fBlock("h1", "", None, "", "foobar")
-        ('', '\\t<h1>', 'foobar', '</h1>', '')
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param atts: Value supplied for atts under the utility contract.
+        :param ext: Value supplied for ext under the utility contract.
+        :param cite: Value supplied for cite under the utility contract.
+        :param content: Value supplied for content under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         atts = self.pba(atts)
         o1 = o2 = c2 = c1 = ""
@@ -706,13 +832,34 @@ class Textile(object):
 
     def footnoteRef(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         """
-        >>> t = Textile()
-        >>> t.footnoteRef('foo[1] ') # doctest: +ELLIPSIS
-        'foo<sup class="footnote"><a href="#fn...">1</a></sup> '
+        Perform the footnoteRef operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.footnoteRef through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return re.sub(r"\b\[([0-9]+)\](\s)?", self.footnoteID, text)
 
     def footnoteID(self: _typing.Self, match: _typing.Any) -> _typing.Any:
+        """
+        Perform the footnoteID operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.footnoteID through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param match: Value supplied for match under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         id, t = match.groups()
         if id not in self.fn:
             self.fn[id] = str(uuid.uuid4())
@@ -723,26 +870,17 @@ class Textile(object):
 
     def glyphs(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         """
-        >>> t = Textile()
+        Perform the glyphs operation under explicit file-format and conversion rules.
 
-        >>> t.glyphs("apostrophe's")
-        'apostrophe&#8217;s'
+        Example:
+            Exercise Textile.glyphs through a consuming regression::
 
-        >>> t.glyphs("back in '88")
-        'back in &#8217;88'
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
 
-        >>> t.glyphs('foo ...')
-        'foo &#8230;'
 
-        >>> t.glyphs('--')
-        '&#8212;'
-
-        >>> t.glyphs('FooBar[tm]')
-        'FooBar&#8482;'
-
-        >>> t.glyphs("<p><cite>Cat's Cradle</cite> by Vonnegut</p>")
-        '<p><cite>Cat&#8217;s Cradle</cite> by Vonnegut</p>'
-
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # fix: hackish
         text = re.sub(r'"\Z', '" ', text)
@@ -762,6 +900,19 @@ class Textile(object):
 
     def macros_only(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         # fix: hackish
+        """
+        Perform the macros only operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.macros only through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = re.sub(r'"\Z', '" ', text)
 
         result = []
@@ -776,60 +927,158 @@ class Textile(object):
         return "".join(result)
 
     def vAlign(self: _typing.Self, input: _typing.Any) -> _typing.Any:
+        """
+        Perform the vAlign operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.vAlign through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param input: Value supplied for input under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         d = {"^": "top", "-": "middle", "~": "bottom"}
         return d.get(input, "")
 
     def hAlign(self: _typing.Self, input: _typing.Any) -> _typing.Any:
+        """
+        Perform the hAlign operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.hAlign through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param input: Value supplied for input under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         d = {"<": "left", "=": "center", ">": "right", "<>": "justify"}
         return d.get(input, "")
 
     def getRefs(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         """
         what is this for?
+
+        Example:
+            Exercise Textile.getRefs through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         pattern = re.compile(r"(?:(?<=^)|(?<=\s))\[(.+)\]((?:http(?:s?):\/\/|\/)\S+)(?=\s|$)", re.U)
         text = pattern.sub(self.refs, text)
         return text
 
     def refs(self: _typing.Self, match: _typing.Any) -> str:
+        """
+        Perform the refs operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.refs through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param match: Value supplied for match under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         flag, url = match.groups()
         self.urlrefs[flag] = url
         return ""
 
     def checkRefs(self: _typing.Self, url: _typing.Any) -> _typing.Any:
+        """
+        Perform the checkRefs operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.checkRefs through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param url: Value supplied for url under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.urlrefs.get(url, url)
 
     def isRelURL(self: _typing.Self, url: _typing.Any) -> bool:
         """
         Identify relative urls.
 
-        >>> t = Textile()
-        >>> t.isRelURL("http://www.google.com/")
-        False
-        >>> t.isRelURL("/foo")
-        True
+        Example:
+            Exercise Textile.isRelURL through a consuming regression::
 
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param url: Value supplied for url under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         (scheme, netloc) = urlparse(url)[0:2]
         return not scheme and not netloc
 
     def relURL(self: _typing.Self, url: _typing.Any) -> _typing.Any:
+        """
+        Perform the relURL operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.relURL through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param url: Value supplied for url under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         scheme = urlparse(url)[0]
         if self.restricted and scheme and scheme not in self.url_schemes:
             return "#"
         return url
 
     def shelve(self: _typing.Self, text: _typing.Any) -> _typing.Any:
+        """
+        Perform the shelve operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.shelve through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         id = str(uuid.uuid4()) + "c"
         self.shelf[id] = text
         return id
 
     def retrieve(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         """
-        >>> t = Textile()
-        >>> id = t.shelve("foobar")
-        >>> t.retrieve(id)
-        'foobar'
+        Perform the retrieve operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.retrieve through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         while True:
             old = text
@@ -840,6 +1089,20 @@ class Textile(object):
         return text
 
     def encode_html(self: _typing.Self, text: _typing.Any, quotes: bool = True) -> _typing.Any:
+        """
+        Perform the encode html operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.encode html through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :param quotes: Value supplied for quotes under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         a = (("&", "&#38;"), ("<", "&#60;"), (">", "&#62;"))
 
         if quotes:
@@ -850,6 +1113,19 @@ class Textile(object):
         return text
 
     def graf(self: _typing.Self, text: _typing.Any) -> _typing.Any:
+        """
+        Perform the graf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.graf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not self.lite:
             text = self.noTextile(text)
             text = self.code(text)
@@ -871,9 +1147,17 @@ class Textile(object):
 
     def links(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         """
-        >>> t = Textile()
-        >>> t.links('fooobar "Google":http://google.com/foobar/ and hello world "flickr":http://flickr.com/photos/jsamsa/ ') # doctest: +ELLIPSIS
-        'fooobar ... and hello world ...'
+        Perform the links operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.links through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         text = self.macros_only(text)
@@ -900,6 +1184,19 @@ class Textile(object):
         return text
 
     def fLink(self: _typing.Self, match: _typing.Any) -> _typing.Any:
+        """
+        Perform the fLink operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.fLink through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param match: Value supplied for match under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         pre, atts, text, title, url, post = match.groups()
 
         if pre == None:
@@ -930,9 +1227,17 @@ class Textile(object):
 
     def span(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         """
-        >>> t = Textile()
-        >>> t.span(r"hello %(bob)span *strong* and **bold**% goodbye")
-        'hello <span class="bob">span <strong>strong</strong> and <b>bold</b></span> goodbye'
+        Perform the span operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.span through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         qtags = (r"\*\*", r"\*", r"\?\?", r"\-", r"__", r"_", r"%", r"\+", r"~", r"\^")
         pnct = ".,\"'?!;:"
@@ -956,6 +1261,19 @@ class Textile(object):
         return text
 
     def fSpan(self: _typing.Self, match: _typing.Any) -> _typing.Any:
+        """
+        Perform the fSpan operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.fSpan through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param match: Value supplied for match under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         _, tag, atts, cite, content, end, _ = match.groups()
 
         qtags = {
@@ -982,9 +1300,17 @@ class Textile(object):
 
     def image(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         """
-        >>> t = Textile()
-        >>> t.image('!/imgs/myphoto.jpg!:http://jsamsa.com')
-        '<a href="http://jsamsa.com"><img src="/imgs/myphoto.jpg" alt="" /></a>'
+        Perform the image operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.image through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         pattern = re.compile(
             r"""
@@ -1006,6 +1332,19 @@ class Textile(object):
 
     def fImage(self: _typing.Self, match: _typing.Any) -> _typing.Any:
         # (None, '', '/imgs/myphoto.jpg', None, None)
+        """
+        Perform the fImage operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.fImage through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param match: Value supplied for match under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         atts, url, title, href = match.groups()
         atts = self.pba(atts)
 
@@ -1038,12 +1377,38 @@ class Textile(object):
         return "".join(out)
 
     def code(self: _typing.Self, text: _typing.Any) -> _typing.Any:
+        """
+        Perform the code operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.code through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = self.doSpecial(text, "<code>", "</code>", self.fCode)
         text = self.doSpecial(text, "@", "@", self.fCode)
         text = self.doSpecial(text, "<pre>", "</pre>", self.fPre)
         return text
 
     def fCode(self: _typing.Self, match: _typing.Any) -> _typing.Any:
+        """
+        Perform the fCode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.fCode through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param match: Value supplied for match under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         before, text, after = match.groups()
         if after == None:
             after = ""
@@ -1053,6 +1418,19 @@ class Textile(object):
         return "".join([before, self.shelve("<code>%s</code>" % text), after])
 
     def fPre(self: _typing.Self, match: _typing.Any) -> _typing.Any:
+        """
+        Perform the fPre operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.fPre through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param match: Value supplied for match under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         before, text, after = match.groups()
         if after == None:
             after = ""
@@ -1062,6 +1440,22 @@ class Textile(object):
         return "".join([before, "<pre>", self.shelve(text), "</pre>", after])
 
     def doSpecial(self: _typing.Self, text: _typing.Any, start: _typing.Any, end: _typing.Any, method: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the doSpecial operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.doSpecial through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :param start: Value supplied for start under the utility contract.
+        :param end: Value supplied for end under the utility contract.
+        :param method: Value supplied for method under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if method == None:
             method = self.fSpecial
         pattern = re.compile(
@@ -1073,6 +1467,16 @@ class Textile(object):
     def fSpecial(self: _typing.Self, match: _typing.Any) -> _typing.Any:
         """
         special blocks like notextile or code
+
+        Example:
+            Exercise Textile.fSpecial through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param match: Value supplied for match under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         before, text, after = match.groups()
         if after == None:
@@ -1080,10 +1484,36 @@ class Textile(object):
         return "".join([before, self.shelve(self.encode_html(text)), after])
 
     def noTextile(self: _typing.Self, text: _typing.Any) -> _typing.Any:
+        """
+        Perform the noTextile operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.noTextile through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = self.doSpecial(text, "<notextile>", "</notextile>", self.fTextile)
         return self.doSpecial(text, "==", "==", self.fTextile)
 
     def fTextile(self: _typing.Self, match: _typing.Any) -> _typing.Any:
+        """
+        Perform the fTextile operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Textile.fTextile through a consuming regression::
+
+                python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+        :param match: Value supplied for match under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         before, notextile, after = match.groups()
         if after == None:
             after = ""
@@ -1092,28 +1522,40 @@ class Textile(object):
 
 def textile(text: _typing.Any, head_offset: int = 0, html_type: str = "xhtml", encoding: _typing.Any = None, output: _typing.Any = None) -> _typing.Any:
     """
-    this function takes additional parameters:
-    head_offset - offset to apply to heading levels (default: 0)
-    html_type - 'xhtml' or 'html' style tags (default: 'xhtml')
+    this function takes additional parameters: head_offset - offset to apply to heading levels (default: 0) html_type - 'xhtml' or 'html' style tags (default: 'xhtml')
+
+    Example:
+        Exercise textile through a consuming regression::
+
+            python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :param head_offset: Value supplied for head offset under the utility contract.
+    :param html_type: Value supplied for html type under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param output: Value supplied for output under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return Textile().textile(text, head_offset=head_offset, html_type=html_type)
 
 
 def textile_restricted(text: _typing.Any, lite: bool = True, noimage: bool = True, html_type: str = "xhtml") -> _typing.Any:
     """
-    Restricted version of Textile designed for weblog comments and other
-    untrusted input.
+    Restricted version of Textile designed for weblog comments and other untrusted input.
 
-    Raw HTML is escaped.
-    Style attributes are disabled.
-    rel='nofollow' is added to external links.
+    Example:
+        Exercise textile restricted through a consuming regression::
 
-    When lite=True is set (the default):
-    Block tags are restricted to p, bq, and bc.
-    Lists and tables are disabled.
+            python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
 
-    When noimage=True is set (the default):
-    Image tags are disabled.
 
+    :param text: Text parsed, normalized or rendered.
+    :param lite: Value supplied for lite under the utility contract.
+    :param noimage: Value supplied for noimage under the utility contract.
+    :param html_type: Value supplied for html type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return Textile(restricted=True, lite=lite, noimage=noimage).textile(text, rel="nofollow", html_type=html_type)

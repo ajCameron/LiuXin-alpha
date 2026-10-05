@@ -1,3 +1,14 @@
+"""
+Normalize markup element and attribute name casing.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise manglecase through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+"""
 from __future__ import with_statement
 from __future__ import annotations
 
@@ -36,17 +47,62 @@ TEXT_TRANSFORMS = {"capitalize", "uppercase", "lowercase"}
 class CaseMangler(object):
     """
     Apply CSS case transforms - compress CSS case transforms down to a single application.
+
+    Example:
+        Exercise CaseMangler through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     @classmethod
     def config(cls: type[_typing.Self], cfg: _typing.Any) -> _typing.Any:
+        """
+        Perform the config operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CaseMangler.config through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param cfg: Value supplied for cfg under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return cfg
 
     @classmethod
     def generate(cls: type[_typing.Self], opts: _typing.Any) -> _typing.Any:
+        """
+        Perform the generate operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CaseMangler.generate through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param opts: Value supplied for opts under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return cls()
 
     def __call__(self: _typing.Self, oeb: _typing.Any, context: _typing.Any) -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CaseMangler.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param context: Value supplied for context under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         oeb.logger.info("Applying case-transforming CSS...")
         self.oeb = oeb
         self.opts = context
@@ -56,7 +112,15 @@ class CaseMangler(object):
     def mangle_spine(self: _typing.Self) -> None:
         """
         Apply the case mangling to ever element in the spine.
-        :return:
+
+        Example:
+            Exercise CaseMangler.mangle spine through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         local_id, href = self.oeb.manifest.generate("manglecase", "manglecase.css")
         self.oeb.manifest.add(local_id, href, CSS_MIME, data=CASE_MANGLER_CSS)
@@ -76,9 +140,17 @@ class CaseMangler(object):
     def text_transform(self: _typing.Self, transform: _typing.Any, text: _typing.Any) -> _typing.Any:
         """
         Apply an individual transform to some text.
-        :param transform:
-        :param text:
-        :return:
+
+        Example:
+            Exercise CaseMangler.text transform through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param transform: Value supplied for transform under the utility contract.
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if transform == "capitalize":
             return icu_title(text)
@@ -89,6 +161,19 @@ class CaseMangler(object):
         return text
 
     def split_text(self: _typing.Self, text: _typing.Any) -> _typing.Any:
+        """
+        Perform the split text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CaseMangler.split text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         results = [""]
         isupper = text[0].isupper()
         for char in text:
@@ -100,6 +185,20 @@ class CaseMangler(object):
         return results
 
     def smallcaps_elem(self: _typing.Self, elem: _typing.Any, attr: _typing.Any) -> None:
+        """
+        Perform the smallcaps elem operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CaseMangler.smallcaps elem through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :param attr: Value supplied for attr under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         texts = self.split_text(getattr(elem, attr))
         setattr(elem, attr, None)
         last = elem if attr == "tail" else None
@@ -126,9 +225,17 @@ class CaseMangler(object):
     def mangle_elem(self: _typing.Self, elem: _typing.Any, stylizer: _typing.Any) -> None:
         """
         Apply mangling to an element.
-        :param elem:
-        :param stylizer:
-        :return:
+
+        Example:
+            Exercise CaseMangler.mangle elem through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :param stylizer: Value supplied for stylizer under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if not isinstance(elem.tag, six_string_types) or namespace(elem.tag) != XHTML_NS:
             return

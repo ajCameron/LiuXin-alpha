@@ -1,6 +1,17 @@
 
 
 
+"""
+Read and update library-level metadata.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise library metadata through a consuming regression::
+
+        python -m pytest -q tests/library/test_unified_library.py
+"""
 from __future__ import with_statement, unicode_literals
 
 import datetime
@@ -30,6 +41,19 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 
 def _epoch_ms(value):
+    """
+    Perform the epoch ms operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  epoch ms through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if value is None:
         return None
     if isinstance(value, int):
@@ -41,6 +65,19 @@ def _epoch_ms(value):
 
 
 def _iso_date(value):
+    """
+    Perform the iso date operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  iso date through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if value is None:
         return None
     if isinstance(value, datetime.datetime):
@@ -51,6 +88,19 @@ def _iso_date(value):
 
 
 def _year(value):
+    """
+    Perform the year operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  year through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(value, (datetime.date, datetime.datetime)):
         return value.year
     if value is not None:
@@ -61,6 +111,19 @@ def _year(value):
 
 
 def _split_break_joined(value):
+    """
+    Perform the split break joined operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  split break joined through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if value is None:
         return ()
     if isinstance(value, (list, tuple)):
@@ -69,6 +132,19 @@ def _split_break_joined(value):
 
 
 def _guess_format_detail(*values):
+    """
+    Perform the guess format detail operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  guess format detail through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param values: Value supplied for values under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     extensions = {
         extension.lstrip(".").lower()
         for value in values
@@ -79,6 +155,19 @@ def _guess_format_detail(*values):
 
 
 def _guess_carrier_type(format_detail):
+    """
+    Perform the guess carrier type operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  guess carrier type through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param format_detail: Value supplied for format detail under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if format_detail is None:
         return None
     value = format_detail.lower()
@@ -98,15 +187,26 @@ class Metadata:
     """
     Class to add the capability to work with metadata objects to the library.
 
-    Provides read/write to and from metadata objects.
+    Example:
+        Exercise Metadata through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def __init__(self, database, library, override_fsm=None):
         """
         Startup the database class.
-        :param database:
-        :param library:
-        :param override_fsm:
+
+        Example:
+            Exercise Metadata.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param database: Value supplied for database under the utility contract.
+        :param library: Value supplied for library under the utility contract.
+        :param override_fsm: Value supplied for override fsm under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.db = database
         self.lib = library
@@ -127,10 +227,17 @@ class Metadata:
     # Todo: Merge with the function in the metadata object itself
     def from_book(self, book_id):
         """
-        Take an id of a book on the database - reads all the metadata about that book and returns it in a metadata
-        object.
-        :param book_id:
-        :return:
+        Take an id of a book on the database - reads all the metadata about that book and returns it in a metadata object.
+
+        Example:
+            Exercise Metadata.from book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         md_reader = MetadataFromBookRow(self.lib, book_id)
         md = md_reader.run()
@@ -147,26 +254,37 @@ class Metadata:
     def to_book(self, md, force_book_id=None, preserve_uuid=None):
         """
         Takes a prepared set of metadata - returns a book row.
-        :param md:
-        :param force_book_id: If an int then the returned title and book row are guaranteed to have this id.
-                              If the row doesn't exist then it'll be created. If the row does exist it'll be
-                              overwritten.
-        :param preserve_uuid:
-        :return:
+
+        Example:
+            Exercise Metadata.to book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param md: Value supplied for md under the utility contract.
+        :param force_book_id: Value supplied for force book id under the utility contract.
+        :param preserve_uuid: Value supplied for preserve uuid under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         title_row, book_row = self.to_title(md, force_book_id=force_book_id, preserve_uuid=preserve_uuid)
         return book_row
 
     def to_title(self, md, force_book_id=None, preserve_uuid=None):
         """
-        Adds the title represented by a metadata object to the table.
-        The title is assumed not to exist - it will simply be created.
-        :param md: The metadata object
-        :param force_book_id: If an int then the returned title and book row are guaranteed to have this id.
-                              If the row doesn't exist then it'll be created. If the row does exist it'll be
-                              overwritten.
-        :param preserve_uuid: If not None, then this value will be set as the books UUID.
-        :return:
+        Adds the title represented by a metadata object to the table. The title is assumed not to exist - it will simply be created.
+
+        Example:
+            Exercise Metadata.to title through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param md: Value supplied for md under the utility contract.
+        :param force_book_id: Value supplied for force book id under the utility contract.
+        :param preserve_uuid: Value supplied for preserve uuid under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Todo: check application id - if it doesn't match, then discard all the ids
         # Todo: Most of these metadata standardization methods should be moved over into the metadata finalize method
@@ -187,19 +305,29 @@ class Metadata:
 
 class MetadataFromBookRow(object):
     """
-    Read all the metadata associated with an entry on the books table.
-    Return it as a metadata object.
+    Read all the metadata associated with an entry on the books table. Return it as a metadata object.
+
+    Example:
+        Exercise MetadataFromBookRow through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def __init__(self, library, book_id, cover_form="path", file_form="path"):
         """
         Setup the class - set the global behavior for the read methods.
-        :param library: The library object to read the data from
-        :param book_id: The id of the book to read the metadata from
-        :param cover_form: What form the cover data be included in
-        :type cover_form: str - choices are 'path', 'scratch_path', 'raw_data'
-        :param file_form: What form the file data should be included in
-        :type file_form: str - choices are 'path', 'scratch_path', 'raw_data'
+
+        Example:
+            Exercise MetadataFromBookRow.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param library: Value supplied for library under the utility contract.
+        :param book_id: Value supplied for book id under the utility contract.
+        :param cover_form: Value supplied for cover form under the utility contract.
+        :param file_form: Value supplied for file form under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.lib = library
         self.db = library.catalog
@@ -227,7 +355,15 @@ class MetadataFromBookRow(object):
     def run(self):
         """
         Read data out of the database and load it into a metadata object.
-        :return:
+
+        Example:
+            Exercise MetadataFromBookRow.run through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self.read_creators()
         self.read_covers()
@@ -251,7 +387,15 @@ class MetadataFromBookRow(object):
     def read_creators(self):
         """
         Add creators to the metadata object.
-        :return:
+
+        Example:
+            Exercise MetadataFromBookRow.read creators through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Construct the creators dict, then write it out to the metadata object
         book_creators_dict = self.lib.get_creators_dict(title_row=self.title_row, row_ids=True)
@@ -259,9 +403,16 @@ class MetadataFromBookRow(object):
 
     def read_covers(self):
         """
-        Load all the covers associated with the book.
-        Note the id of the cover on the database if requested.
-        :return:
+        Load all the covers associated with the book. Note the id of the cover on the database if requested.
+
+        Example:
+            Exercise MetadataFromBookRow.read covers through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         title_cover_rows = self.db.get_interlinked_rows(primary_row=self.book_row, secondary_table="covers")
         for cover_row in title_cover_rows:
@@ -275,9 +426,16 @@ class MetadataFromBookRow(object):
 
     def read_files(self):
         """
-        Load all the files associated with the book.
-        Note the id of the file on the database (if requested).
-        :return:
+        Load all the files associated with the book. Note the id of the file on the database (if requested).
+
+        Example:
+            Exercise MetadataFromBookRow.read files through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         title_file_rows = self.db.get_interlinked_rows(primary_row=self.book_row, secondary_table="files")
         for file_row in title_file_rows:
@@ -292,7 +450,15 @@ class MetadataFromBookRow(object):
     def read_genres(self):
         """
         Record the genres associated with the given title.
-        :return:
+
+        Example:
+            Exercise MetadataFromBookRow.read genres through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         genre_rows = self.db.get_interlinked_rows(primary_row=self.title_row, secondary_table="genres")
         genre_rows.reverse()
@@ -305,7 +471,15 @@ class MetadataFromBookRow(object):
     def read_identifiers(self):
         """
         Record the identifiers associated with a given title.
-        :return:
+
+        Example:
+            Exercise MetadataFromBookRow.read identifiers through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         md = self.rtn_md
 
@@ -341,9 +515,16 @@ class MetadataFromBookRow(object):
 
     def read_notes(self):
         """
-        Load everything off the notes table.
-        At the moment the notes table includes comments and synopsis - these will be loaded in a separate table.
-        :return:
+        Load everything off the notes table. At the moment the notes table includes comments and synopsis - these will be loaded in a separate table.
+
+        Example:
+            Exercise MetadataFromBookRow.read notes through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         md = self.rtn_md
         book_title_row = self.title_row
@@ -358,7 +539,15 @@ class MetadataFromBookRow(object):
     def read_comments(self):
         """
         Read the comments off the notes table and add it.
-        :return:
+
+        Example:
+            Exercise MetadataFromBookRow.read comments through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         comment_rows = self.db.get_interlinked_rows(
             primary_row=self.title_row, secondary_table="notes", type_filter="comment"
@@ -371,7 +560,15 @@ class MetadataFromBookRow(object):
     def read_synopsis(self):
         """
         Read the synopsis off the notes table and add them.
-        :return:
+
+        Example:
+            Exercise MetadataFromBookRow.read synopsis through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         synopsis_rows = self.db.get_interlinked_rows(
             primary_row=self.title_row, secondary_table="notes", type_filter="synopses"
@@ -384,7 +581,15 @@ class MetadataFromBookRow(object):
     def read_publishers(self):
         """
         Add publishers to the return md object.
-        :return:
+
+        Example:
+            Exercise MetadataFromBookRow.read publishers through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         title_publisher_rows = self.db.get_interlinked_rows(primary_row=self.title_row, secondary_table="publishers")
         publishers = OrderedDict()
@@ -394,11 +599,16 @@ class MetadataFromBookRow(object):
 
     def read_series(self):
         """
-        Add the series related fields to the metadata object - this includes the series and the series_index
-        OrderedDicts.
-        The series field is keyed with the name of the series and valued with it's id. The series index field is keyed
-        with the name of the series and valued with the index of the current title in that series.
-        :return title_series_rows: The series the title is in - needed later when recording the title series tags.
+        Add the series related fields to the metadata object - this includes the series and the series_index OrderedDicts. The series field is keyed with the name of the series and valued with it's id. The series index field is keyed with the name of the series and valued with the index of the current title in that series.
+
+        Example:
+            Exercise MetadataFromBookRow.read series through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Make appropriate containers for the series and series_index data - fill them with data and then load them into
         # the metadata object
@@ -422,7 +632,17 @@ class MetadataFromBookRow(object):
     def read_tags(self, title_series_rows):
         """
         Transfer all the tags - for the moment ignoring if they're title, series or creator tags.
-        :return:
+
+        Example:
+            Exercise MetadataFromBookRow.read tags through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param title_series_rows: Value supplied for title series rows under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Transfer all the tags - for the moment ignoring if they're title, series, or creator tags
         md_tags = OrderedDict()
@@ -450,7 +670,15 @@ class MetadataFromBookRow(object):
     def read_title_data(self):
         """
         Add the data from the title row.
-        :return:
+
+        Example:
+            Exercise MetadataFromBookRow.read title data through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         md = self.rtn_md
         title_row = self.title_row
@@ -470,9 +698,16 @@ class MetadataFromBookRow(object):
 
     def read_language(self):
         """
-        Read data for the language field (the primary language of the work) from the languages table and add it to the
-        metadata object.
-        :return:
+        Read data for the language field (the primary language of the work) from the languages table and add it to the metadata object.
+
+        Example:
+            Exercise MetadataFromBookRow.read language through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lang_rows = self.db.get_interlinked_rows(
             primary_row=self.title_row,
@@ -486,7 +721,15 @@ class MetadataFromBookRow(object):
     def read_languages(self):
         """
         Read data for the languages field (the languages contained or mentioned in the work).
-        :return:
+
+        Example:
+            Exercise MetadataFromBookRow.read languages through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lang_rows = self.db.get_interlinked_rows(
             primary_row=self.title_row,
@@ -503,7 +746,15 @@ class MetadataFromBookRow(object):
     def read_languages_available(self):
         """
         Read data for the languages_available field - the languages that the work is currently available in.
-        :return:
+
+        Example:
+            Exercise MetadataFromBookRow.read languages available through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lang_rows = self.db.get_interlinked_rows(
             primary_row=self.title_row,
@@ -522,7 +773,15 @@ class MetadataFromBookRow(object):
     def read_ratings(self):
         """
         Read values from the ratings table and add them to the metadata object.
-        :return:
+
+        Example:
+            Exercise MetadataFromBookRow.read ratings through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         rating_link_rows = self.db.get_interlink_rows(primary_row=self.title_row, secondary_table="ratings")
 
@@ -539,7 +798,15 @@ class MetadataFromBookRow(object):
     def read_subjects(self):
         """
         Read values from the subjects table and add them to the metadata object.
-        :return:
+
+        Example:
+            Exercise MetadataFromBookRow.read subjects through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         title_series_rows = self.db.get_interlinked_rows(primary_row=self.title_row, secondary_table="subjects")
         title_series_rows.reverse()
@@ -553,17 +820,28 @@ class MetadataFromBookRow(object):
 
 class MeatdataToBookRow(object):
     """
-    Adder to add a metadata object to the table - conveniently encapsulated as a class.
-    Some of the objects needed to add metadata to the database - such as the working title row - are common between all
-    methods - passing them by keyword is laborious - so using a class.
+    Adder to add a metadata object to the table - conveniently encapsulated as a class. Some of the objects needed to add metadata to the database - such as the working title row - are common between all methods - passing them by keyword is laborious - so using a class.
+
+    Example:
+        Exercise MeatdataToBookRow through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     # Todo: Check that the application_id matches - if it doesn't then ignore all the ids given in the metadata object
     def __init__(self, md, library):
         """
         Setup the class - set the global behavior for the add methods.
-        :param md: md object to add to the database
-        :param db: THe database to add the metadata to
+
+        Example:
+            Exercise MeatdataToBookRow.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param md: Value supplied for md under the utility contract.
+        :param library: Value supplied for library under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.md = md
         self.library = library
@@ -595,9 +873,17 @@ class MeatdataToBookRow(object):
     def run(self, force_book_id=None, preserve_uuid=None):
         """
         Add the metadata object to the database.
-        :param force_book_id: If provided then this will be used instead of an automatically generated book row
-        :param preserve_uuid: If not None, then this value will be set as the books uuid
-        :return:
+
+        Example:
+            Exercise MeatdataToBookRow.run through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param force_book_id: Value supplied for force book id under the utility contract.
+        :param preserve_uuid: Value supplied for preserve uuid under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Add the title - this needs to be done first as the majority of things will link to it
         title_row = self.make_title_row(self.md, force_book_id=force_book_id)
@@ -650,15 +936,18 @@ class MeatdataToBookRow(object):
         return title_row, book_row
 
     def __break_connections(self, title_row):
-        """Clear replaceable Work metadata through normalized contracts.
+        """
+        Clear replaceable Work metadata through normalized contracts.
 
-        The newly created WEMI path remains attached. Reusable linked values
-        are retained as historical rows, while their relationships and owned
-        identifiers are removed from the Work before replacement metadata is
-        applied.
+        Example:
+            Exercise MeatdataToBookRow.  break connections through a consuming regression::
 
-        :param title_row: Compatibility title projection for the Work.
-        :return: None.
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param title_row: Value supplied for title row under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
 
         work_id = self._work_id(title_row)
@@ -679,9 +968,17 @@ class MeatdataToBookRow(object):
     def make_title_row(self, md, force_book_id=None):
         """
         Read all the title row related metadata out of the md object - add it to a title row and return the row.
-        :param md:
-        :param force_book_id:
-        :return:
+
+        Example:
+            Exercise MeatdataToBookRow.make title row through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param md: Value supplied for md under the utility contract.
+        :param force_book_id: Value supplied for force book id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         title = md.title
         if not md.is_null("title_sort"):
@@ -824,11 +1121,17 @@ class MeatdataToBookRow(object):
 
     def add_creators(self, title_row):
         """
-        Add creators to the title row.
-        Each type of creator has an ordered_dict keyed with the name of the creators and valued with their id on the
-        database, or None if they have not yet been added to the database.
-        If a row_id is present (and the database id matches) then it is used and the actual name is ignored.
-        :return:
+        Add creators to the title row. Each type of creator has an ordered_dict keyed with the name of the creators and valued with their id on the database, or None if they have not yet been added to the database. If a row_id is present (and the database id matches) then it is used and the actual name is ignored.
+
+        Example:
+            Exercise MeatdataToBookRow.add creators through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param title_row: Value supplied for title row under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         creators_dict = self.md.get_creators_dump()
 
@@ -840,10 +1143,17 @@ class MeatdataToBookRow(object):
 
     def add_identifiers(self, title_row):
         """
-        Process the identifiers - add the internal and external identifiers - no checks are applied to make sure
-        that identifiers clash - that should have been done earlier, if it was going to be done at all
-        Also the identifiers should have been standardized when they where added to the metadata object
-        :return:
+        Process the identifiers - add the internal and external identifiers - no checks are applied to make sure that identifiers clash - that should have been done earlier, if it was going to be done at all Also the identifiers should have been standardized when they where added to the metadata object
+
+        Example:
+            Exercise MeatdataToBookRow.add identifiers through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param title_row: Value supplied for title row under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         md = self.md
 
@@ -876,8 +1186,16 @@ class MeatdataToBookRow(object):
     def add_comments(self, title_row):
         """
         Pulling any comments out and adding them as notes.
-        :param title_row:
-        :return:
+
+        Example:
+            Exercise MeatdataToBookRow.add comments through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param title_row: Value supplied for title row under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         comments = self.md.comments
         comments = [c for c in comments if c is not None and c.strip()]
@@ -891,8 +1209,16 @@ class MeatdataToBookRow(object):
     def add_notes(self, title_row):
         """
         Store the notes on the notes table as actual notes.
-        :param title_row:
-        :return:
+
+        Example:
+            Exercise MeatdataToBookRow.add notes through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param title_row: Value supplied for title row under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         notes = self.md.notes
         notes = [n for n in notes if n is not None and n.strip()]
@@ -907,8 +1233,16 @@ class MeatdataToBookRow(object):
     def add_covers(self, book_row):
         """
         Read title cover data and add it to the database.
-        :param book_row:
-        :return:
+
+        Example:
+            Exercise MeatdataToBookRow.add covers through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_row: Value supplied for book row under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         covers_data = self.md.cover_data
         self.__ensure_title_covers(covers_data=covers_data, book_row=book_row, cache_first=True)
@@ -916,19 +1250,33 @@ class MeatdataToBookRow(object):
     def add_files(self, book_row):
         """
         Add the files from the metadata object to the given book row.
-        :param book_row:
-        :return:
+
+        Example:
+            Exercise MeatdataToBookRow.add files through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_row: Value supplied for book row under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         file_data = self.md.files
         self.__ensure_title_files(file_data, book_row)
 
     def add_genres(self, title_row):
         """
-        Load the genres.
-        Genre and subject seems to be something that people often confuse - but it should have been sorted out in the
-        metadata stage.
-        :param title_row:
-        :return:
+        Load the genres. Genre and subject seems to be something that people often confuse - but it should have been sorted out in the metadata stage.
+
+        Example:
+            Exercise MeatdataToBookRow.add genres through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param title_row: Value supplied for title row under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Todo: Add a standardized genres table -  in fact, ship with a genres table
         md_genres = self.md.genre
@@ -940,7 +1288,16 @@ class MeatdataToBookRow(object):
     def add_language(self, title_row):
         """
         The language field describes the primary language of the work
-        :return:
+
+        Example:
+            Exercise MeatdataToBookRow.add language through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param title_row: Value supplied for title row under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         language = self.md.language
         if language:
@@ -950,8 +1307,16 @@ class MeatdataToBookRow(object):
     def add_languages(self, title_row):
         """
         The languages field demotes the languages included in the work.
-        :param title_row:
-        :return:
+
+        Example:
+            Exercise MeatdataToBookRow.add languages through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param title_row: Value supplied for title row under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         languages = self.md.languages
         if languages:
@@ -960,8 +1325,16 @@ class MeatdataToBookRow(object):
     def add_languages_available(self, title_row):
         """
         The languages_available field - the language options included in the work
-        :param title_row:
-        :return:
+
+        Example:
+            Exercise MeatdataToBookRow.add languages available through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param title_row: Value supplied for title row under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         langs_available = self.md.languages_available
         if langs_available:
@@ -970,10 +1343,17 @@ class MeatdataToBookRow(object):
 
     def add_ratings(self, title_row):
         """
-        Process the ratings - these should come in the form of a dictionary keyed with the rating type and valued
-        with the rating value.
-        :param title_row:
-        :return:
+        Process the ratings - these should come in the form of a dictionary keyed with the rating type and valued with the rating value.
+
+        Example:
+            Exercise MeatdataToBookRow.add ratings through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param title_row: Value supplied for title row under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         ratings = self.md.ratings
         links = []
@@ -990,8 +1370,16 @@ class MeatdataToBookRow(object):
     def add_series(self, title_row):
         """
         Link the title to any given series in the order that they appear in the OrderedDict
-        :param title_row:
-        :return:
+
+        Example:
+            Exercise MeatdataToBookRow.add series through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param title_row: Value supplied for title row under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         series = self.md.series
         series_index = self.md.series_index
@@ -1004,10 +1392,17 @@ class MeatdataToBookRow(object):
 
     def add_synopsis(self, title_row):
         """
-        Add the synopses to the title row.
-        Synopsis will be added in the form of notes of synopsis type.
-        :param title_row:
-        :return:
+        Add the synopses to the title row. Synopsis will be added in the form of notes of synopsis type.
+
+        Example:
+            Exercise MeatdataToBookRow.add synopsis through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param title_row: Value supplied for title row under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         synopses = self.md.synopses
         self.__ensure_note_rows(title_row=title_row, notes=synopses, note_type="synopsis")
@@ -1015,8 +1410,16 @@ class MeatdataToBookRow(object):
     def add_tags(self, title_row):
         """
         Ensure appropriate tag rows and associate them with the title
-        :param title_row:
-        :return:
+
+        Example:
+            Exercise MeatdataToBookRow.add tags through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param title_row: Value supplied for title row under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.app_id_match:
             tags_vals = [(t, v) for t, v in self.md.tags.items()]
@@ -1052,8 +1455,16 @@ class MeatdataToBookRow(object):
     def add_publishers(self, title_row):
         """
         Ensure appropriate publisher rows and associate them with the title
-        :param title_row:
-        :return:
+
+        Example:
+            Exercise MeatdataToBookRow.add publishers through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param title_row: Value supplied for title row under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Handle the publishers themselves
         publishers = OrderedDict()
@@ -1065,8 +1476,16 @@ class MeatdataToBookRow(object):
     def add_subjects(self, title_row):
         """
         Describe the subjects of a work.
-        :param title_row:
-        :return:
+
+        Example:
+            Exercise MeatdataToBookRow.add subjects through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param title_row: Value supplied for title row under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         subjects = self.md.subject
         unique_subjects_ids, subject_rows = self.__ensure_subject_rows(subjects=subjects, standardize=True)
@@ -1089,13 +1508,18 @@ class MeatdataToBookRow(object):
 
     def get_row_from_value(self, row_id, table):
         """
-        A number of variables in metadata are stored in the form of OrderedDicts - keyed with the name of the object and
-        (optionally) valued with either the id or the row of that object in the database.
-        This processes that value and returns the row correspond to it.
-        If the class variable app_id_match is not set to True then this method will always return None.
-        :param row_id:
-        :param table:
-        :return:
+        A number of variables in metadata are stored in the form of OrderedDicts - keyed with the name of the object and (optionally) valued with either the id or the row of that object in the database. This processes that value and returns the row correspond to it. If the class variable app_id_match is not set to True then this method will always return None.
+
+        Example:
+            Exercise MeatdataToBookRow.get row from value through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param row_id: Value supplied for row id under the utility contract.
+        :param table: Value supplied for table under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if not self.app_id_match:
             return None
@@ -1119,6 +1543,19 @@ class MeatdataToBookRow(object):
 
     @staticmethod
     def _work_id(title_row):
+        """
+        Perform the work id operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MeatdataToBookRow. work id through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param title_row: Value supplied for title row under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for key in ("work_id", "title_id"):
             try:
                 value = title_row[key]
@@ -1130,10 +1567,21 @@ class MeatdataToBookRow(object):
 
     def __add_one_creator_role(self, creators_dict, creator_role, creator_rows_dict, title_row):
         """
-        Add one creator type to a title.
-        It's assumed that, by this point, the metadata has been cleaned and all the creators present are going to be
-        added to the database.
-        :return:
+        Add one creator type to a title. It's assumed that, by this point, the metadata has been cleaned and all the creators present are going to be added to the database.
+
+        Example:
+            Exercise MeatdataToBookRow.  add one creator role through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param creators_dict: Value supplied for creators dict under the utility contract.
+        :param creator_role: Value supplied for creator role under the utility contract.
+        :param creator_rows_dict: Value supplied for creator rows dict under the utility
+            contract.
+        :param title_row: Value supplied for title row under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         role_ordered_dict = creators_dict[creator_role]
 
@@ -1172,15 +1620,23 @@ class MeatdataToBookRow(object):
         standardize=True,
     ):
         """
-        Generate the creator_priority_list from a role_ordered_dict - this is a list of tuples - first element being the
-        creator row and the second element being the priority with which that row should be linked to the title row.
-        :param title_row: The title row that the creators will be eventually linked to
-        :param creator_role: The role that the creator is playing in the creation of the work
-        :param role_ordered_dict: An OrderedDict keyed with the name of the author and valued with the row id
-                                  corresponding to that creator
-        :param creator_rows_dict:
-        :param standardize: Use standardize when ensure the new creator rows
-        :return:
+        Generate the creator_priority_list from a role_ordered_dict - this is a list of tuples - first element being the creator row and the second element being the priority with which that row should be linked to the title row.
+
+        Example:
+            Exercise MeatdataToBookRow.  generate creator list through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param title_row: Value supplied for title row under the utility contract.
+        :param creator_role: Value supplied for creator role under the utility contract.
+        :param role_ordered_dict: Value supplied for role ordered dict under the utility
+            contract.
+        :param creator_rows_dict: Value supplied for creator rows dict under the utility
+            contract.
+        :param standardize: Value supplied for standardize under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         unique_creator_ids = set()
         creator_priority_rows = []
@@ -1213,12 +1669,19 @@ class MeatdataToBookRow(object):
     def __interlink_creators_rows_with_title(self, creator_priority_rows, title_row, creator_role):
         """
         Associated a number of creators in an iterable with a title_row
-        :param creator_priority_rows: A list of tuples - first entry being the creator row and the second entry being
-                                      the priority that should be used when associating them with the title row
-        :param title_row:
-        :type title_row: LiuXin Row object
-        :param creator_role: The link will be created with this role
-        :return:
+
+        Example:
+            Exercise MeatdataToBookRow.  interlink creators rows with title through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param creator_priority_rows: Value supplied for creator priority rows under the
+            utility contract.
+        :param title_row: Value supplied for title row under the utility contract.
+        :param creator_role: Value supplied for creator role under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         for priority, creator_row in enumerate(creator_priority_rows):
 
@@ -1247,6 +1710,19 @@ class MeatdataToBookRow(object):
 
     @staticmethod
     def _agent_id(agent_row):
+        """
+        Perform the agent id operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MeatdataToBookRow. agent id through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param agent_row: Value supplied for agent row under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for key in ("agent_id", "creator_id", "publisher_id"):
             try:
                 value = agent_row[key]
@@ -1260,10 +1736,18 @@ class MeatdataToBookRow(object):
     def __apply_identifiers_set(self, title_row, id_type, id_set):
         """
         Apply all the identifiers in a given set to the given title.
-        :param title_row: The title to add the identifiers to
-        :param ids_set: The ids to try and apply to the title
-        :return (bad_ids, good_ids): a tuple of sets - the bad ids are the ones that cannot be applied, for whatever
-                                     reason - the good_ids are the ones that can be.
+
+        Example:
+            Exercise MeatdataToBookRow.  apply identifiers set through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param title_row: Value supplied for title row under the utility contract.
+        :param id_type: Value supplied for id type under the utility contract.
+        :param id_set: Value supplied for id set under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         for id_val in id_set:
             try:
@@ -1283,16 +1767,19 @@ class MeatdataToBookRow(object):
 
     def __ensure_title_covers(self, covers_data, book_row, cache_first=True):
         """
-        Link a given selection of covers to the given book row.
-        Covers will be linked in the same order as the covers_data OrderedDict.
-        :param covers_data: An OrderedDict keyed with the cover tuple and valued with the id of that cover on the
-                            database - if any.
-                            NOTE: Not currently supported. All covers will just be added to the database.
-        :type covers_data: OrderedDict
-        :param book_row:
-        :param cache_first: If True then the first cover in the covers_data OrderedDict will be added to the covers
-                            cache.
-        :return cover_locs: A list of the locations of all the covers added to the system.
+        Link a given selection of covers to the given book row. Covers will be linked in the same order as the covers_data OrderedDict.
+
+        Example:
+            Exercise MeatdataToBookRow.  ensure title covers through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param covers_data: Value supplied for covers data under the utility contract.
+        :param book_row: Value supplied for book row under the utility contract.
+        :param cache_first: Value supplied for cache first under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         cover_tuples = covers_data.keys()
         cover_values = covers_data.values()
@@ -1356,13 +1843,18 @@ class MeatdataToBookRow(object):
     # Todo: Actually implement fingerprinting. That too would be nice.
     def __ensure_title_files(self, files, book_row):
         """
-        Link the given files to the book row.
-        Files are stored in an OrderedDict - in the order that they should appear on the database.
-        :param files: An OrderedDict keyed with a file tuple and valued with the id of that file on the database - if
-                      any.
-                      NOTE - Not currently supported - all files will just be added to the database.
-        :type files: OrderedDict
-        :return file_locs: An iterable of the locations of the files - in the order that they should appear.
+        Link the given files to the book row. Files are stored in an OrderedDict - in the order that they should appear on the database.
+
+        Example:
+            Exercise MeatdataToBookRow.  ensure title files through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param files: Value supplied for files under the utility contract.
+        :param book_row: Value supplied for book row under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         file_tuples = files.keys()
         if not file_tuples:
@@ -1379,18 +1871,18 @@ class MeatdataToBookRow(object):
     def __link_genres_to_title(self, title_row, genre_names, genres):
         """
         Link a list of series names to a title row.
-        :param title_row: The title to link all the series to
-        :param genre_names: The names of the series to link to - in the order that they should be linked to. Should be
-                             a subset of the series keys, ordered the way that you want them to appear linked to the
-                             title.
-        :param genres: Keyed with the names of the series and valued with either a pointer to the row representing the
-                       series (in the form of an id or a row). If None then tries to ensure the series and linked to the
-                       new series.
-        :type genres: OrderedDict
-        :param series_index: Keyed with the name of the series (as it appears in :param series:) and valued with the
-                             index that the series should have.
-        :type series_index: OrderedDict
-        :return:
+
+        Example:
+            Exercise MeatdataToBookRow.  link genres to title through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param title_row: Value supplied for title row under the utility contract.
+        :param genre_names: Value supplied for genre names under the utility contract.
+        :param genres: Value supplied for genres under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         try:
             genre_rows = self.__ensure_genres_rows(genre_names, genres)
@@ -1411,11 +1903,19 @@ class MeatdataToBookRow(object):
 
     def __ensure_genres_rows(self, genre_names, genres, standardize=True):
         """
-        Ensure that a given set of genre rows exists - also ensure that there is a 1-1 correspondence between the
-        given genre names and the genre rows.
-        :param genre_names:
-        :param genres:
-        :return:
+        Ensure that a given set of genre rows exists - also ensure that there is a 1-1 correspondence between the given genre names and the genre rows.
+
+        Example:
+            Exercise MeatdataToBookRow.  ensure genres rows through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param genre_names: Value supplied for genre names under the utility contract.
+        :param genres: Value supplied for genres under the utility contract.
+        :param standardize: Value supplied for standardize under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         genre_rows = []
         genre_ids = set()
@@ -1442,9 +1942,17 @@ class MeatdataToBookRow(object):
     def __ensure_primary_language(self, title_row, lang_str):
         """
         Ensure that the primary language of a work is set.
-        :param title_row:
-        :param lang_str:
-        :return:
+
+        Example:
+            Exercise MeatdataToBookRow.  ensure primary language through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param title_row: Value supplied for title row under the utility contract.
+        :param lang_str: Value supplied for lang str under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Retrieve the language row and link it to the title row
         language_match = self.catalog.languages.exact(lang_str)
@@ -1458,9 +1966,18 @@ class MeatdataToBookRow(object):
     def __ensure_languages(self, title_row, lang_strs, lang_type="contained_in"):
         """
         Note that the following languages are contained in the work - looked up from their language strings.
-        :param title_row:
-        :param lang_strs:
-        :return:
+
+        Example:
+            Exercise MeatdataToBookRow.  ensure languages through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param title_row: Value supplied for title row under the utility contract.
+        :param lang_strs: Value supplied for lang strs under the utility contract.
+        :param lang_type: Value supplied for lang type under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lang_strs = list(lang_strs)
         lang_strs.reverse()
@@ -1482,18 +1999,19 @@ class MeatdataToBookRow(object):
     def __link_series_to_title(self, title_row, series_names, series, series_index):
         """
         Link a list of series names to a title row.
-        :param title_row: The title to link all the series to
-        :param series_names: The names of the series to link to - in the order that they should be linked to. Should be
-                             a subset of the series keys, ordered the way that you want them to appear linked to the
-                             title.
-        :param series: Keyed with the names of the series and valued with either a pointer to the row representing the
-                       series (in the form of an id or a row). If None then tries to ensure the series and linked to the
-                       new series.
-        :type series: OrderedDict
-        :param series_index: Keyed with the name of the series (as it appears in :param series:) and valued with the
-                             index that the series should have.
-        :type series_index: OrderedDict
-        :return:
+
+        Example:
+            Exercise MeatdataToBookRow.  link series to title through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param title_row: Value supplied for title row under the utility contract.
+        :param series_names: Value supplied for series names under the utility contract.
+        :param series: Value supplied for series under the utility contract.
+        :param series_index: Value supplied for series index under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         series_names = list(series_names)
         series_names.reverse()
@@ -1535,13 +2053,20 @@ class MeatdataToBookRow(object):
 
     def __ensure_series_rows(self, title_row, series_names, series, standardize=True):
         """
-        Ensure that a given set of series rows exists - also ensure that there is a 1-1 correspondence between the
-        given series names and the series rows.
-        :param title_row:
-        :param series_names:
-        :param series:
-        :param series_index:
-        :return:
+        Ensure that a given set of series rows exists - also ensure that there is a 1-1 correspondence between the given series names and the series rows.
+
+        Example:
+            Exercise MeatdataToBookRow.  ensure series rows through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param title_row: Value supplied for title row under the utility contract.
+        :param series_names: Value supplied for series names under the utility contract.
+        :param series: Value supplied for series under the utility contract.
+        :param standardize: Value supplied for standardize under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         series_rows = []
         series_ids = set()
@@ -1569,12 +2094,18 @@ class MeatdataToBookRow(object):
     def __ensure_note_rows(self, title_row, notes, note_type="note"):
         """
         Ensure the synopsis rows - linked to the notes table under type synopsis.
-        :param title_row:
-        :param notes: Keyed with the note value, and valued with either the row, row_id, or None corresponding to the
-                      row of that note on the database.
-        :type notes: OrderedDict
-        :param note_type:
-        :return:
+
+        Example:
+            Exercise MeatdataToBookRow.  ensure note rows through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param title_row: Value supplied for title row under the utility contract.
+        :param notes: Value supplied for notes under the utility contract.
+        :param note_type: Value supplied for note type under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         note_strings = list(notes.keys())
         note_strings.reverse()
@@ -1597,10 +2128,17 @@ class MeatdataToBookRow(object):
     def __ensure_title_publishers(self, publishers, title_row):
         """
         Ensure the publishers linked to the given title row.
-        :param publishers: The publishers ordered dict from the metadata object
-        :param title_row: The title row to link all the publishers to
-        :param publisher_type: The type of publisher (options are "imprint" or "publisher")
-        :return:
+
+        Example:
+            Exercise MeatdataToBookRow.  ensure title publishers through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param publishers: Value supplied for publishers under the utility contract.
+        :param title_row: Value supplied for title row under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         for priority, pub_name in enumerate(publishers):
 
@@ -1623,8 +2161,17 @@ class MeatdataToBookRow(object):
     def __ensure_subject_rows(self, subjects, standardize=True):
         """
         Takes a subject OrderedDict object and tries to ensure every entry in it has a corresponding series.
-        :param subjects:
-        :return:
+
+        Example:
+            Exercise MeatdataToBookRow.  ensure subject rows through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param subjects: Value supplied for subjects under the utility contract.
+        :param standardize: Value supplied for standardize under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         unique_subject_ids = set()
         subject_rows = []
@@ -1649,12 +2196,18 @@ class MeatdataToBookRow(object):
 
     def __interlink_subject_rows(self, title_row, subject_rows):
         """
-        Interlink all the given rows to the title row.
-        Rows are assumed to be in the order that they should be interlinked in (thus the last row in the list will end
-        up with the highest priority, because it will be linked last).
-        :param title_row: The title row to link all the series to
-        :param subject_rows: The rows to link to the title row.
-        :return:
+        Interlink all the given rows to the title row. Rows are assumed to be in the order that they should be interlinked in (thus the last row in the list will end up with the highest priority, because it will be linked last).
+
+        Example:
+            Exercise MeatdataToBookRow.  interlink subject rows through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param title_row: Value supplied for title row under the utility contract.
+        :param subject_rows: Value supplied for subject rows under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if subject_rows:
             self._work_link_writers["subject"].write(

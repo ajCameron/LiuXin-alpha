@@ -1,3 +1,14 @@
+"""
+Verify Rocket eBook binary metadata parsing.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test rb metadata source through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_rb_metadata_source.py
+"""
 from __future__ import annotations
 
 import io
@@ -9,6 +20,18 @@ import pytest
 
 
 def _values(raw):
+    """
+    Perform the values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise values through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_rb_metadata_source.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, Mapping):
@@ -22,11 +45,35 @@ def _values(raw):
 
 
 def _first(raw):
+    """
+    Perform the first test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise first through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_rb_metadata_source.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     vals = _values(raw)
     return vals[0] if vals else None
 
 
 def _snapshot(md) -> dict:
+    """
+    Perform the snapshot test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise snapshot through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_rb_metadata_source.py
+
+
+    :param md: Value supplied for md in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     identifiers = {}
     try:
         identifiers = {str(k): sorted(str(v) for v in vals) for k, vals in (md.get_identifiers() or {}).items()}
@@ -40,6 +87,18 @@ def _snapshot(md) -> dict:
 
 
 def _build_rb_bytes(entries: list[tuple[str, int, bytes]]) -> bytes:
+    """
+    Perform the build rb bytes test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise build rb bytes through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_rb_metadata_source.py
+
+
+    :param entries: Value supplied for entries in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     from LiuXin_alpha.file_formats.rb import HEADER
 
     toc_offset = 0x128
@@ -71,12 +130,34 @@ def _build_rb_bytes(entries: list[tuple[str, int, bytes]]) -> bytes:
 
 
 def test_rb_metadata_module_import_smoke() -> None:
+    """
+    Verify rb metadata module import smoke.
+
+    Example:
+        Exercise test rb metadata module import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_rb_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.rb as rb_md
 
     assert rb_md is not None
 
 
 def test_rb_reader_plugin_is_available_and_preserves_stream_position() -> None:
+    """
+    Verify rb reader plugin remains available and preserves stream position.
+
+    Example:
+        Exercise test rb reader plugin is available and preserves stream position through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_rb_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
 
     info_payload = b"TYPE=2\nTITLE=Plugin Title\nAUTHOR=Alice & Bob\n"
@@ -96,6 +177,17 @@ def test_rb_reader_plugin_is_available_and_preserves_stream_position() -> None:
 
 
 def test_rb_get_metadata_reads_utf8_unicode_torture() -> None:
+    """
+    Verify rb get metadata reads utf8 unicode torture.
+
+    Example:
+        Exercise test rb get metadata reads utf8 unicode torture through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_rb_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.rb import get_metadata
 
     info_payload = (
@@ -111,6 +203,17 @@ def test_rb_get_metadata_reads_utf8_unicode_torture() -> None:
 
 
 def test_rb_get_metadata_cp1252_fallback_decode() -> None:
+    """
+    Verify rb get metadata cp1252 fallback decode.
+
+    Example:
+        Exercise test rb get metadata cp1252 fallback decode through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_rb_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.rb import get_metadata
 
     info_payload = b"TYPE=2\nTITLE=Caf\xe9 na\xefve\nAUTHOR=Jos\xe9 & Ana\xefs\n"
@@ -122,6 +225,18 @@ def test_rb_get_metadata_cp1252_fallback_decode() -> None:
 
 
 def test_rb_get_metadata_pathlike_input(tmp_path: Path) -> None:
+    """
+    Verify rb get metadata pathlike input.
+
+    Example:
+        Exercise test rb get metadata pathlike input through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_rb_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.rb import get_metadata
 
     info_payload = b"TYPE=2\nTITLE=Path Title\nAUTHOR=Path Author\n"
@@ -135,6 +250,17 @@ def test_rb_get_metadata_pathlike_input(tmp_path: Path) -> None:
 
 
 def test_rb_invalid_header_raises_by_default_and_can_opt_into_fallback() -> None:
+    """
+    Verify rb invalid header raises by default and can opt into fallback.
+
+    Example:
+        Exercise test rb invalid header raises by default and can opt into fallback through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_rb_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.rb import RbFormatError, get_metadata
 
     stream = io.BytesIO(b"not-a-valid-rb")
@@ -149,6 +275,17 @@ def test_rb_invalid_header_raises_by_default_and_can_opt_into_fallback() -> None
 
 
 def test_rb_truncated_payload_raises_by_default_and_can_opt_into_fallback() -> None:
+    """
+    Verify rb truncated payload raises by default and can opt into fallback.
+
+    Example:
+        Exercise test rb truncated payload raises by default and can opt into fallback through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_rb_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.rb import RbFormatError, get_metadata
 
     truncated = b"\xb0\x0c\xb0\x0c\x02\x00NUVO\x00\x00\x00\x00" + b"\x00" * 12
@@ -164,6 +301,19 @@ def test_rb_truncated_payload_raises_by_default_and_can_opt_into_fallback() -> N
 
 
 def test_rb_md_fixture_smoke_and_deterministic(md_test_fixture) -> None:
+    """
+    Verify rb md fixture smoke and deterministic.
+
+    Example:
+        Exercise test rb md fixture smoke and deterministic through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_rb_metadata_source.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.rb import get_metadata
 
     fixture = md_test_fixture(file_ext="rb", file_num=1, verify_hash=True)

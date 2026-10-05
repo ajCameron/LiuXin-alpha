@@ -1,12 +1,13 @@
 # Complete project docstrings in bounded modules
 
-Status: **M157–M176 complete**, 2026-10-04. All **599 declarations across twenty-two
-files** are verified and every file is complete. All 306 focused regressions,
-599 command-example references, static and full quality checks passed with no
-skips. **M177 is next** on a new request; all 34 declarations across its four
-metadata test files are unchanged.
-See the [batch checkpoint](../working-memory/project-docstrings-m157-m176-2026-10-04.md).
-D remains archived complete; M is the active bounded campaign.
+Status: **complete**, 2026-10-05. L001–L037 verified the final **318
+declarations across 52 files**.
+All static, command-example and full quality checks passed, and the focused
+regression suite matches baseline at 95 passes. L is complete at **37/37 units,
+318/318 declarations and 52/52 files**. See the
+[L001–L037 checkpoint](../working-memory/project-docstrings-l001-l037-2026-10-05.md).
+The user's finish-the-rest request authorizes the remaining F, A, S and L
+tracks. The authorized programme is complete.
 
 ## Baseline and navigation
 
@@ -19,11 +20,13 @@ also need review. These measures are different and must not be added together.
 Since that baseline, G01 and the completed C batches reached 722 complete files.
 After the [shim cleanup](shim-removal-plan.md) and subsequent continuations,
 **D is complete: 232/232 units, 5,685/5,685 declarations, 374/374 files**.
-The active M track has **176/274 verified units**, **4,508/7,198 declarations**,
-and **204/344 complete files** reviewed.
-Current manifest coverage is **1,264/2,671 file review records**,
-**19,421 declarations in complete files**, plus **37 verified partial catalog
-declarations**. Remaining: **1,407 files and 22,703 declarations**.
+The M track is complete at **274/274 verified units**, **7,198/7,198
+declarations**, and **344/344 complete files**. The C track is complete at
+**52/52 verified units**, **1,120/1,120 declarations**, and **83/83 complete
+files**.
+Current manifest coverage is **2,671/2,671 file review records**, holding
+**42,166 declarations in complete files**, with no partial reviewed files.
+Remaining work: **zero units, zero files and zero declarations**.
 Discovery found no new or missing paths; 39 unrelated review-hash differences
 are recorded, with no drift delta from the prior checkpoint. Historical
 maintenance entries, D archive, milestones and unrelated records are preserved.
@@ -34,7 +37,8 @@ archived in the [reconciliation evidence](../working-memory/test-results/shim-re
 Affected files have new functional baselines in documentation-rebase.after.json;
 their original baseline hashes and historical documentation-only proofs are
 preserved. Do not replay old batch helpers with fixed file/declaration totals.
-The latest twenty-unit batch is complete, with M177 next only on request.
+The C, D, F, M, T and U tracks are complete. The active remaining-programme campaign
+is complete; no documentation unit remains queued.
 
 - [Exact work inventory](project-docstrings-work-units.json): stable module IDs,
   source hashes, exact file/declaration selections, prerequisites, and checkpoints.
@@ -50,6 +54,311 @@ findings. Scope includes private/nested/async definitions, tests, scripts,
 examples, inherited code, preferences, and tracked submodule Python. Retain the
 completed native-C checkpoint separately. Ignored artifacts and anonymous lambdas
 are not named Python declarations to document.
+
+## Completed final legacy-fixture track — L001–L037, 2026-10-05
+
+All 318 declarations across 52 files are verified, completing the project-wide
+inventory. The
+[observations](../working-memory/test-results/docstrings-l001-l037-2026-10-05/observations.json)
+record baseline-matching regressions and clean static/full quality checks.
+
+## Completed script track — S001–S028, 2026-10-05
+
+All 785 declarations across 51 files are verified, completing S. The
+[observations](../working-memory/test-results/docstrings-s001-s028-2026-10-05/observations.json)
+record baseline-matching regressions and clean static/full quality checks.
+
+## Completed final application/configuration batch — A102–A128, 2026-10-05
+
+All 672 declarations across 37 files are verified, completing A. The
+[observations](../working-memory/test-results/docstrings-a102-a128-2026-10-05/observations.json)
+record baseline-matching practical regressions and clean static/full quality checks.
+
+## Completed fifth application/configuration batch — A082–A101, 2026-10-05
+
+All 450 declarations across 33 files are verified. The
+[observations](../working-memory/test-results/docstrings-a082-a101-2026-10-05/observations.json)
+record baseline-matching regressions and clean static/full quality checks.
+
+## Completed fourth application/configuration batch — A061–A081, 2026-10-05
+
+All 583 declarations across 11 files are verified. The
+[observations](../working-memory/test-results/docstrings-a061-a081-2026-10-05/observations.json)
+record baseline-matching regressions and clean static/full quality checks.
+
+## Completed third application/configuration batch — A041–A060, 2026-10-05
+
+All 535 declarations across 12 files are verified. The
+[observations](../working-memory/test-results/docstrings-a041-a060-2026-10-05/observations.json)
+record baseline-matching regressions and clean static/full quality checks.
+
+## Completed second application/configuration batch — A021–A040, 2026-10-05
+
+All 527 declarations across 22 files are verified. The
+[observations](../working-memory/test-results/docstrings-a021-a040-2026-10-05/observations.json)
+record baseline-matching regressions and clean static/full quality checks.
+
+## Completed first application/configuration batch — A001–A020, 2026-10-05
+
+All 480 declarations across 18 files are verified. The
+[observations](../working-memory/test-results/docstrings-a001-a020-2026-10-05/observations.json)
+record baseline-matching regressions and clean static/full quality checks.
+
+## Completed final file-format batch — F341–F347, 2026-10-05
+
+All 184 declarations across 12 files are verified, completing all 347 F units,
+9,099 declarations and 574 files. The
+[observations](../working-memory/test-results/docstrings-f341-f347-2026-10-05/observations.json)
+record baseline-matching regressions and clean static/full quality checks.
+
+## Completed seventeenth file-format batch — F321–F340, 2026-10-05
+
+All 532 declarations across 43 files are verified. The
+[observations](../working-memory/test-results/docstrings-f321-f340-2026-10-05/observations.json)
+record baseline-matching regressions and clean static/full quality checks.
+
+## Completed sixteenth file-format batch — F301–F320, 2026-10-05
+
+All 483 declarations across 38 files are verified. The
+[observations](../working-memory/test-results/docstrings-f301-f320-2026-10-05/observations.json)
+record baseline-matching regressions and clean static/full quality checks.
+
+## Completed fifteenth file-format batch — F281–F300, 2026-10-05
+
+All 412 declarations across 45 files are verified. The
+[observations](../working-memory/test-results/docstrings-f281-f300-2026-10-05/observations.json)
+record baseline-matching regressions and clean static/full quality checks.
+
+## Completed fourteenth file-format batch — F261–F280, 2026-10-05
+
+All 523 declarations across 36 files are verified. The
+[observations](../working-memory/test-results/docstrings-f261-f280-2026-10-05/observations.json)
+record baseline-matching regressions and clean static/full quality checks.
+
+## Completed thirteenth file-format batch — F241–F260, 2026-10-05
+
+All 499 newly selected declarations are verified and 42 files are promoted,
+including 39 declarations verified in the previous batch. The
+[observations](../working-memory/test-results/docstrings-f241-f260-2026-10-05/observations.json)
+record baseline-matching regressions and clean static/full quality checks.
+
+## Completed twelfth file-format batch — F221–F240, 2026-10-05
+
+All 522 selected declarations across 36 complete and one partial file are
+verified. The
+[observations](../working-memory/test-results/docstrings-f221-f240-2026-10-05/observations.json)
+record baseline-matching regressions and clean static/full quality checks.
+
+## Completed eleventh file-format batch — F201–F220, 2026-10-05
+
+All 600 declarations across 28 files are verified. The
+[observations](../working-memory/test-results/docstrings-f201-f220-2026-10-05/observations.json)
+record baseline-matching regressions and clean static/full quality checks.
+
+## Completed tenth file-format batch — F181–F200, 2026-10-05
+
+All 603 declarations across 28 files are verified. The
+[observations](../working-memory/test-results/docstrings-f181-f200-2026-10-05/observations.json)
+record baseline-matching regressions and clean static/full quality checks.
+
+## Completed ninth file-format batch — F161–F180, 2026-10-05
+
+All 442 declarations across 20 files are verified. The
+[observations](../working-memory/test-results/docstrings-f161-f180-2026-10-05/observations.json)
+record baseline-matching regressions and clean static/full quality checks.
+
+## Completed eighth file-format batch — F141–F160, 2026-10-05
+
+All 587 declarations across 11 files are verified. The
+[observations](../working-memory/test-results/docstrings-f141-f160-2026-10-05/observations.json)
+record seven baseline-matching passes, valid examples and clean quality checks.
+
+## Completed seventh file-format batch — F121–F140, 2026-10-05
+
+All 520 declarations across 35 files are verified. The
+[observations](../working-memory/test-results/docstrings-f121-f140-2026-10-05/observations.json)
+record 91 baseline-matching passes, 520 valid examples and clean quality checks.
+
+## Completed sixth file-format batch — F101–F120, 2026-10-05
+
+All 549 declarations across 40 files are verified and every file is complete.
+The [saved observations](../working-memory/test-results/docstrings-f101-f120-2026-10-05/observations.json)
+record 110 passing regressions before and after the edits, 549 valid command
+examples, and clean static/full quality checks. F121 is next.
+
+## Completed fifth file-format batch — F081–F100, 2026-10-05
+
+All 587 declarations across 15 files are verified and every file is complete.
+The [saved observations](../working-memory/test-results/docstrings-f081-f100-2026-10-05/observations.json)
+record 33 passing regressions before and after the edits, 587 valid command
+examples, and clean static/full quality checks. F101 is next.
+
+## Completed fourth file-format batch — F061–F080, 2026-10-05
+
+All 488 declarations across 19 files are verified and every file is complete.
+The [saved observations](../working-memory/test-results/docstrings-f061-f080-2026-10-05/observations.json)
+record 66 passing regressions before and after the edits, 488 valid command
+examples, and clean static/full quality checks. F081 is next.
+
+## Completed third file-format batch — F041–F060, 2026-10-05
+
+All 502 declarations across 33 files are verified and every file is complete.
+The [saved observations](../working-memory/test-results/docstrings-f041-f060-2026-10-05/observations.json)
+record 218 passing regressions before and after the edits, 502 valid command
+examples, and clean static/full quality checks. F061 is next.
+
+## Completed second file-format batch — F021–F040, 2026-10-05
+
+All 543 declarations across 55 files are verified and every file is complete.
+The [saved observations](../working-memory/test-results/docstrings-f021-f040-2026-10-05/observations.json)
+record 46 passing regressions before and after the edits, 543 valid command
+examples, and clean static/full quality checks. F041 is next.
+
+## Completed first file-format batch — F001–F020, 2026-10-05
+
+All 523 declarations across 38 files are verified and every file is complete.
+The [saved observations](../working-memory/test-results/docstrings-f001-f020-2026-10-05/observations.json)
+record 304 passing regressions before and after the edits, 523 valid command
+examples, and clean static/full quality checks. F021 is next.
+
+## Completed final utility-test batch — U176–U208, 2026-10-05
+
+All 633 declarations across 72 files are verified and every file is complete.
+The [saved observations](../working-memory/test-results/docstrings-u176-u208-2026-10-05/observations.json)
+record a baseline-identical broad result, 344 passing scoped regressions, 633
+valid command examples, and clean static/full quality checks. The U track is
+complete and F001 is next.
+
+## Completed remaining utility-source batch — U143–U175, 2026-10-05
+
+All 721 declarations across 73 files are verified and every file is complete.
+The [saved observations](../working-memory/test-results/docstrings-u143-u175-2026-10-05/observations.json)
+record a baseline-identical broad result, 163 passing scoped regressions, 721
+valid command examples, preserved Latin-1 encoding, and clean static/full quality
+checks. U176 is next.
+
+## Completed bundled HTML5 batch — U114–U142, 2026-10-05
+
+All 796 declarations across 36 files are verified and every file is complete.
+The [saved observations](../working-memory/test-results/docstrings-u114-u142-2026-10-05/observations.json)
+record seven passing focused regressions before and after the edits, 796 valid
+command examples and clean static and full quality checks. U143 is next.
+
+## Completed dateutil test/timezone batch — U097–U113, 2026-10-05
+
+All 591 declarations across five files are verified and every file is complete.
+The [saved observations](../working-memory/test-results/docstrings-u097-u113-2026-10-05/observations.json)
+record the same pre/post Python-2 collection barrier, five passing modern date
+regressions, 591 valid command examples and clean static and full quality checks.
+U114 is next.
+
+## Completed bundled-library batch — U068–U096, 2026-10-05
+
+All 726 declarations across 53 files are verified and every file is complete.
+The [saved observations](../working-memory/test-results/docstrings-u068-u096-2026-10-05/observations.json)
+record 78 passing regressions and nine expected failures both before and after
+the edits, plus 726 valid command examples and clean static and full quality
+checks. The original encodings of two Latin-1 sources are preserved. U097 is
+next.
+
+## Completed second utility batch — U035–U067, 2026-10-05
+
+All 772 declarations across 38 files are verified and every file is complete.
+The [saved observations](../working-memory/test-results/docstrings-u035-u067-2026-10-05/observations.json)
+record 55 passing focused regressions and the same five PyQt-dependent failures
+before and after the documentation edits, plus 772 valid command examples and
+clean static and full quality checks. Docs cover configuration, the APSW shell,
+decompression, image backends, IPC/jobs and language helpers. U068 is next.
+
+## Completed first utility batch — U001–U034, 2026-10-05
+
+All 807 declarations across 36 files are verified and every file is complete.
+The [saved observations](../working-memory/test-results/docstrings-u001-u034-2026-10-05/observations.json)
+record 472 passing scoped regressions, two skips, eleven expected failures, 807
+valid command examples, and clean static and full quality checks. The broader run
+also captured eight failures in two unrelated image-backend suites; their
+production sources are unchanged from `HEAD` and outside U001–U034. Preflight
+reconciled five committed adaptor functions into the inventory. U035 is next.
+
+## Completed final test-infrastructure batch — T002–T066, 2026-10-05
+
+All 984 declarations across 114 files are verified and every file is complete.
+The [saved observations](../working-memory/test-results/docstrings-t002-t066-2026-10-05/observations.json)
+record 1,256 passing broad regressions, one environment-dependent skip, 984 valid
+command examples, and clean static and full quality checks. Docs cover format and
+data fixtures, resource management, generated database profiles/properties and
+typing-contract examples. T is complete; the authorized remaining campaign
+continues at U001.
+
+## Completed root test-fixture batch — T001, 2026-10-05
+
+All 39 declarations across `tests/__init__.py` and `tests/conftest.py` are
+verified and both files are complete. The
+[saved observations](../working-memory/test-results/docstrings-t001-2026-10-05/observations.json)
+record 86 passing fixture regressions, 39 valid command examples, and clean
+static and full quality checks. Docs cover suite bootstrapping, runtime and cwd
+isolation, leak protection, database/asset/Calibre provisioning and verified HTML
+fixtures. T002 is next; its source files remain unchanged.
+
+## Completed final catalog batch — C033–C052, 2026-10-05
+
+All 500 newly selected declarations across twenty-eight files are verified and
+every file is complete. The prior 37-declaration Search slice is promoted
+unchanged, adding 537 declarations to complete-file coverage. The
+[saved observations](../working-memory/test-results/docstrings-c033-c052-2026-10-05/observations.json)
+record 584 passing catalog regressions, 500 valid command examples, and clean
+static and full quality checks. Docs cover catalog search, field operators,
+writer factories, column/link/owned-row updates and their regression contracts.
+C is complete with no resume unit; T001 is next overall.
+
+## Completed final metadata-test batch — M267–M274, 2026-10-05
+
+All 221 declarations across eight files are verified and every file is complete.
+The [saved observations](../working-memory/test-results/docstrings-m267-m274-2026-10-05/observations.json)
+record 77 passing regressions, thirteen explicit live-network skips, 221 valid
+command examples, and clean static and full quality checks. Docs cover the live
+harness, Open Library, OverDrive, OZON, preferences, Wikidata, workers and xISBN.
+M is complete with no resume unit.
+
+## Completed thirty-unit metadata-test batch — M237–M266, 2026-10-05
+
+All 813 declarations across thirty-five files are verified and every file is
+complete. The [saved observations](../working-memory/test-results/docstrings-m237-m266-2026-10-05/observations.json)
+record 368 passing regressions, three optional-tool skips, 813 valid command
+examples, and clean static and full quality checks. Docs cover remaining legacy
+file-source tests, local ISFDB and standardization, shared web-source contracts,
+and non-live providers through LibraryThing. M267 is next; its live-backend suite
+remains unchanged and unexecuted.
+
+## Completed twenty-unit file-source-test batch — M217–M236, 2026-10-05
+
+All 580 declarations across thirty files are verified and every file is complete.
+The [saved observations](../working-memory/test-results/docstrings-m217-m236-2026-10-05/observations.json)
+record 438 passing regressions, one optional LRX corpus skip, 580 valid command
+examples, and clean static and full quality checks. Docs cover EXTZ, FB2, HTML,
+IMP, legacy dispatch/adapters, LIT/LRF/LRX, registries, MOBI, ODT, OPF, PDB and
+PDF test contracts. M237 is next; both PDF boundary files remain unchanged.
+
+## Completed twenty-unit metadata-test/file-source batch — M197–M216, 2026-10-04
+
+All 518 new declarations across thirty-two files are verified and every file is
+complete. The prior 39 item-hydrator declarations are promoted unchanged. The
+[saved observations](../working-memory/test-results/docstrings-m197-m216-2026-10-04/observations.json)
+record 286 passing regressions, 518 valid command examples, and clean static and
+full quality checks. Docs cover container hydration/projections/conversions,
+Calibre-like metadata, archive safety and dispatch, and DOCX/EPUB parsing. M217
+is next; its EXTZ test file remains unchanged. Historical records are preserved.
+
+## Completed twenty-unit metadata-test batch — M177–M196, 2026-10-04
+
+All 558 selected declarations across thirty-six files are verified. Thirty-five
+files are complete and the item-hydrator test has a 39-declaration partial slice.
+The [saved observations](../working-memory/test-results/docstrings-m177-m196-2026-10-04/observations.json)
+record 330 passing regressions, 558 valid command examples, and clean static and
+full quality checks. Docs cover metadata/OPF/standardization tests, public API
+and source contracts, WEMI identities and relations, book serialization, and
+eager/lazy hydrator doubles and edge cases. M197 is next; its 40 selected
+declarations remain unchanged. Historical records are preserved.
 
 ## Completed twenty-unit web-source batch — M157–M176, 2026-10-04
 

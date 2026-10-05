@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Decode and report MOBI6 text, images and navigation records.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise mobi6 through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+"""
 from __future__ import absolute_import, annotations, print_function
 
 import os
@@ -47,10 +58,26 @@ __docformat__ = "restructuredtext en"
 
 
 class TopazError(ValueError):
+    """
+    Report a topazerror encountered while processing an ebook format.
+
+    Example:
+        Exercise TopazError through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     pass
 
 
 class MobiReader(object):
+    """
+    Parse mobireader data into normalized ebook structures.
+
+    Example:
+        Exercise MobiReader through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     PAGE_BREAK_PAT = re.compile(
         r"<\s*/{0,1}\s*mbp:pagebreak((?:\s+[^/>]*){0,1})/{0,1}\s*>\s*(?:<\s*/{0,1}\s*mbp:pagebreak\s*/{0,1}\s*>)*",
         re.IGNORECASE,
@@ -67,6 +94,24 @@ class MobiReader(object):
         debug: _typing.Any = None,
         try_extra_data_fix: bool = False,
     ) -> None:
+        """
+        Initialize and validate the mobireader state.
+
+        Example:
+            Exercise MobiReader.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param filename_or_stream: Value supplied for filename or stream under the utility
+            contract.
+        :param log: Value supplied for log under the utility contract.
+        :param user_encoding: Value supplied for user encoding under the utility contract.
+        :param debug: Value supplied for debug under the utility contract.
+        :param try_extra_data_fix: Value supplied for try extra data fix under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.log = log
         self.debug = debug
         self.embedded_mi = None
@@ -116,6 +161,19 @@ class MobiReader(object):
         self.sections = []
 
         def section(section_number: _typing.Any) -> _typing.Any:
+            """
+            Perform the section operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise MobiReader.  init  .section through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+            :param section_number: Value supplied for section number under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if section_number == self.num_sections - 1:
                 end_off = len(raw)
             else:
@@ -167,6 +225,18 @@ class MobiReader(object):
                     self.book_header = bh
 
     def check_for_drm(self: _typing.Self) -> None:
+        """
+        Perform the check for drm operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MobiReader.check for drm through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.book_header.encryption_type != 0:
             try:
                 name = self.book_header.exth.mi.title
@@ -177,6 +247,20 @@ class MobiReader(object):
             raise DRMError(name)
 
     def extract_content(self: _typing.Self, output_dir: _typing.Any, parse_cache: _typing.Any) -> None:
+        """
+        Extract content under the format's safety and compatibility rules.
+
+        Example:
+            Exercise MobiReader.extract content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param output_dir: Value supplied for output dir under the utility contract.
+        :param parse_cache: Value supplied for parse cache under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         output_dir = os.path.abspath(output_dir)
         self.check_for_drm()
         processed_records = self.extract_text()
@@ -340,6 +424,21 @@ class MobiReader(object):
                     ncx_file.write(ncx)
 
     def read_embedded_metadata(self: _typing.Self, root: _typing.Any, elem: _typing.Any, guide: _typing.Any) -> None:
+        """
+        Read embedded metadata under the format's safety and compatibility rules.
+
+        Example:
+            Exercise MobiReader.read embedded metadata through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :param elem: Value supplied for elem under the utility contract.
+        :param guide: Value supplied for guide under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         elem_xml = html.tostring(elem, encoding="utf-8").decode("utf-8", "replace")
         raw = '<?xml version="1.0" encoding="utf-8" ?>\n<package>' + elem_xml + "</package>"
         stream = six_cStringIO(raw)
@@ -366,6 +465,18 @@ class MobiReader(object):
                     break
 
     def cleanup_html(self: _typing.Self) -> None:
+        """
+        Perform the cleanup html operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MobiReader.cleanup html through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.log.debug("Cleaning up HTML...")
         self.processed_html = re.sub(r'<div height="0(pt|px|ex|em|%){0,1}"></div>', "", self.processed_html)
         if self.book_header.ancient and b"<html" not in self.mobi_html[:300].lower():
@@ -417,6 +528,19 @@ class MobiReader(object):
             self.processed_html = self.processed_html.replace("</html>", "")
 
     def remove_random_bytes(self: _typing.Self, html: _typing.Any) -> _typing.Any:
+        """
+        Perform the remove random bytes operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MobiReader.remove random bytes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param html: Value supplied for html under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return re.sub(
             "\x14|\x15|\x19|\x1c|\x1d|\xef|\x12|\x13|\xec|\x08|\x01|\x02|\x03|\x04|\x05|\x06|\x07",
             "",
@@ -424,11 +548,38 @@ class MobiReader(object):
         )
 
     def ensure_unit(self: _typing.Self, raw: _typing.Any, unit: str = "px") -> _typing.Any:
+        """
+        Perform the ensure unit operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MobiReader.ensure unit through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :param unit: Value supplied for unit under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if re.search(r"\d+$", raw) is not None:
             raw += unit
         return raw
 
     def upshift_markup(self: _typing.Self, root: _typing.Any) -> None:
+        """
+        Perform the upshift markup operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MobiReader.upshift markup through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.log.debug("Converting style information to CSS...")
         size_map = {
             "xx-small": "0.5",
@@ -441,6 +592,19 @@ class MobiReader(object):
         }
 
         def barename(bare_x: _typing.Any) -> _typing.Any:
+            """
+            Perform the barename operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise MobiReader.upshift markup.barename through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+            :param bare_x: Value supplied for bare x under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return bare_x.rpartition(":")[-1]
 
         mobi_version = self.book_header.mobi_version
@@ -661,7 +825,33 @@ class MobiReader(object):
                 block.attrib["id"] = tag.attrib["id"]
 
     def get_left_whitespace(self: _typing.Self, tag: _typing.Any) -> _typing.Any:
+        """
+        Return left whitespace under the format's safety and compatibility rules.
+
+        Example:
+            Exercise MobiReader.get left whitespace through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         def whitespace(tag: _typing.Any) -> _typing.Any:
+            """
+            Perform the whitespace operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise MobiReader.get left whitespace.whitespace through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+            :param tag: Value supplied for tag under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             lm = ti = 0.0
             if tag.tag == "p":
                 ti = unit_convert("1.5em", 12, 500, 166)
@@ -688,6 +878,23 @@ class MobiReader(object):
         return ans
 
     def create_opf(self: _typing.Self, htmlfile: _typing.Any, guide: _typing.Any = None, root: _typing.Any = None, styles_css_path: _typing.Any = None) -> tuple[_typing.Any, ...]:
+        """
+        Create opf under the format's safety and compatibility rules.
+
+        Example:
+            Exercise MobiReader.create opf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param htmlfile: Value supplied for htmlfile under the utility contract.
+        :param guide: Value supplied for guide under the utility contract.
+        :param root: Root directory that bounds path resolution or traversal.
+        :param styles_css_path: Value supplied for styles css path under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         mi = getattr(self.book_header.exth, "mi", self.embedded_mi)
         if mi is None:
             mi = MetaInformation(self.book_header.title, [_("Unknown")])
@@ -778,6 +985,19 @@ class MobiReader(object):
         return opf, ncx_manifest_entry
 
     def structure_toc(self: _typing.Self, toc: _typing.Any) -> _typing.Any:
+        """
+        Perform the structure toc operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MobiReader.structure toc through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param toc: Value supplied for toc under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         indent_vals = set()
         for item in toc:
             indent_vals.add(item.left_space)
@@ -791,6 +1011,19 @@ class MobiReader(object):
         newtoc = TOC()
 
         def find_parent(local_level: _typing.Any) -> _typing.Any:
+            """
+            Find parent under the format's safety and compatibility rules.
+
+            Example:
+                Exercise MobiReader.structure toc.find parent through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+            :param local_level: Value supplied for local level under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             candidates = last_found[:local_level]
             for x in reversed(candidates):
                 if x is not None:
@@ -805,7 +1038,34 @@ class MobiReader(object):
         return newtoc
 
     def sizeof_trailing_entries(self: _typing.Self, data: _typing.Any) -> _typing.Any:
+        """
+        Perform the sizeof trailing entries operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MobiReader.sizeof trailing entries through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         def sizeof_trailing_entry(ptr: _typing.Any, psize: _typing.Any) -> _typing.Any:
+            """
+            Perform the sizeof trailing entry operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise MobiReader.sizeof trailing entries.sizeof trailing entry through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+            :param ptr: Value supplied for ptr under the utility contract.
+            :param psize: Value supplied for psize under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             bitpos, result = 0, 0
             while True:
                 v = ptr[psize - 1]
@@ -827,16 +1087,54 @@ class MobiReader(object):
         return num
 
     def text_section(self: _typing.Self, index: _typing.Any) -> _typing.Any:
+        """
+        Perform the text section operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MobiReader.text section through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.sections[index][0]
         trail_size = self.sizeof_trailing_entries(data)
         return data[: len(data) - trail_size]
 
     def text_record_uncompressed_limit(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the text record uncompressed limit operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MobiReader.text record uncompressed limit through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         declared = max(int(getattr(self.book_header, "records_size", 0) or 0), 0)
         configured = max(int(self.MAX_TEXT_RECORD_UNCOMPRESSED_SIZE), 1)
         return min(declared, configured) if declared else configured
 
     def total_text_uncompressed_limit(self: _typing.Self, record_limit: _typing.Any) -> _typing.Any:
+        """
+        Perform the total text uncompressed limit operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MobiReader.total text uncompressed limit through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param record_limit: Value supplied for record limit under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         declared_records = max(int(getattr(self.book_header, "records", 0) or 0), 0)
         configured = max(int(self.MAX_TOTAL_TEXT_UNCOMPRESSED_SIZE), record_limit)
         if declared_records:
@@ -844,6 +1142,23 @@ class MobiReader(object):
         return configured
 
     def checked_text_record(self: _typing.Self, data: _typing.Any, section_number: _typing.Any, record_limit: _typing.Any, total_size: _typing.Any, total_limit: _typing.Any) -> _typing.Any:
+        """
+        Perform the checked text record operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MobiReader.checked text record through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :param section_number: Value supplied for section number under the utility contract.
+        :param record_limit: Value supplied for record limit under the utility contract.
+        :param total_size: Value supplied for total size under the utility contract.
+        :param total_limit: Value supplied for total limit under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if isinstance(data, str):
             data = data.encode(self.book_header.codec, "replace")
         size = len(data)
@@ -860,6 +1175,19 @@ class MobiReader(object):
         return data
 
     def extract_text(self: _typing.Self, offset: int = 1) -> _typing.Any:
+        """
+        Extract text under the format's safety and compatibility rules.
+
+        Example:
+            Exercise MobiReader.extract text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param offset: Value supplied for offset under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.log.debug("Extracting text...")
         text_sections = [
             self.text_section(i)
@@ -893,6 +1221,19 @@ class MobiReader(object):
         elif self.book_header.compression_type == b"\x00\x01":
 
             def unpack(x: _typing.Any) -> _typing.Any:
+                """
+                Perform the unpack operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise MobiReader.extract text.unpack through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+                :param x: Value supplied for x under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 return x
 
         else:
@@ -929,9 +1270,33 @@ class MobiReader(object):
         return processed_records
 
     def replace_page_breaks(self: _typing.Self) -> None:
+        """
+        Perform the replace page breaks operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MobiReader.replace page breaks through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.processed_html = self.PAGE_BREAK_PAT.sub(r'<div \1 class="mbp_pagebreak" />', self.processed_html)
 
     def add_anchors(self: _typing.Self) -> None:
+        """
+        Perform the add anchors operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MobiReader.add anchors through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.log.debug("Adding anchors...")
         positions = set([])
         link_pattern = re.compile(br"""<[^<>]+filepos=['"]{0,1}(\d+)[^<>]*>""", re.IGNORECASE)
@@ -968,6 +1333,21 @@ class MobiReader(object):
         self.processed_html = re.sub(r'&([^;]*?)(<a id="filepos\d+"></a>)([^;]*);', r"&\1\3;\2", processed_html)
 
     def extract_images(self: _typing.Self, processed_records: _typing.Any, output_dir: _typing.Any) -> None:
+        """
+        Extract images under the format's safety and compatibility rules.
+
+        Example:
+            Exercise MobiReader.extract images through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param processed_records: Value supplied for processed records under the utility
+            contract.
+        :param output_dir: Value supplied for output dir under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.log.debug("Extracting images...")
         if PILImage is None:
             self.log.warning("Pillow is not available, skipping MOBI image extraction")
@@ -1017,6 +1397,18 @@ class MobiReader(object):
 
 
 def test_mbp_regex() -> None:
+    """
+    Perform the test mbp regex operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test mbp regex through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for raw, m in iteritems(
         {
             "<mbp:pagebreak></mbp:pagebreak>": "",

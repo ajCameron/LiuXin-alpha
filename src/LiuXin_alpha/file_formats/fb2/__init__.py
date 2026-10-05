@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Expose the supported fb2 compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/file_formats/fb2/test_fb2_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -17,8 +28,16 @@ Base64Input: TypeAlias = str | bytes | bytearray | memoryview
 def base64_decode(raw: Base64Input) -> bytes:
     """
     Preform a base 64 decode of a raw string.
-    :param raw:
-    :return:
+
+    Example:
+        Exercise base64 decode through a consuming regression::
+
+            python -m pytest -q tests/file_formats/fb2/test_fb2_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     from io import BytesIO
     from base64 import b64decode

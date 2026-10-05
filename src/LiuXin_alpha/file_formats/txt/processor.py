@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Read content from txt file.
+Select and run plain-text markup processors and heuristics.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise processor through a consuming regression::
+
+        python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
 """
 from __future__ import annotations
 
@@ -35,9 +43,17 @@ HTML_TEMPLATE = (
 
 def clean_txt(txt: _typing.Any) -> _typing.Any:
     """
-    Run transformations on the text to put it into
-    consistent state.
-    :param txt:
+    Run transformations on the text to put it into consistent state.
+
+    Example:
+        Exercise clean txt through a consuming regression::
+
+            python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+    :param txt: Value supplied for txt under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if isinstance(txt, bytes):
         txt = txt.decode("utf-8", "replace")
@@ -64,16 +80,19 @@ def clean_txt(txt: _typing.Any) -> _typing.Any:
 
 def split_txt(txt: _typing.Any, epub_split_size_kb: int = 0) -> _typing.Any:
     """
-    Ensure there are split points for converting
-    to EPUB. A misdetected paragraph type can
-    result in the entire document being one giant
-    paragraph. In this case the EPUB parser will not
-    be able to determine where to split the file
-    to accomidate the EPUB file size limitation
-    and will fail.
-    :param txt:
-    :param epub_split_size_kb:
-    :return:
+    Ensure there are split points for converting to EPUB. A misdetected paragraph type can result in the entire document being one giant paragraph. In this case the EPUB parser will not be able to determine where to split the file to accomidate the EPUB file size limitation and will fail.
+
+    Example:
+        Exercise split txt through a consuming regression::
+
+            python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+    :param txt: Value supplied for txt under the utility contract.
+    :param epub_split_size_kb: Value supplied for epub split size kb under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     # Takes care if there is no point to split
     if epub_split_size_kb > 0:
@@ -100,14 +119,20 @@ def split_txt(txt: _typing.Any, epub_split_size_kb: int = 0) -> _typing.Any:
 
 def convert_basic(txt: _typing.Any, title: str = "", epub_split_size_kb: int = 0) -> _typing.Any:
     """
-    Converts plain text to html by putting all paragraphs in <p> tags. It condense and retains blank lines when
-    necessary.
+    Converts plain text to html by putting all paragraphs in <p> tags. It condense and retains blank lines when necessary.
 
-    Requires paragraphs to be in single line format.
-    :param txt:
-    :param title:
-    :param epub_split_size_kb:
-    :return:
+    Example:
+        Exercise convert basic through a consuming regression::
+
+            python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+    :param txt: Value supplied for txt under the utility contract.
+    :param title: Value supplied for title under the utility contract.
+    :param epub_split_size_kb: Value supplied for epub split size kb under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     txt = clean_txt(txt)
     txt = split_txt(txt, epub_split_size_kb)
@@ -128,6 +153,21 @@ def convert_basic(txt: _typing.Any, title: str = "", epub_split_size_kb: int = 0
 
 
 def convert_markdown(txt: _typing.Any, title: str = "", extensions: tuple[_typing.Any, ...] = ("footnotes", "tables", "toc")) -> _typing.Any:
+    """
+    Convert markdown under the format's safety and compatibility rules.
+
+    Example:
+        Exercise convert markdown through a consuming regression::
+
+            python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+    :param txt: Value supplied for txt under the utility contract.
+    :param title: Value supplied for title under the utility contract.
+    :param extensions: Value supplied for extensions under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.txt_input import MD_EXTENSIONS
     from LiuXin_alpha.file_formats.markdown import Markdown
 
@@ -137,6 +177,20 @@ def convert_markdown(txt: _typing.Any, title: str = "", extensions: tuple[_typin
 
 
 def convert_textile(txt: _typing.Any, title: str = "") -> _typing.Any:
+    """
+    Convert textile under the format's safety and compatibility rules.
+
+    Example:
+        Exercise convert textile through a consuming regression::
+
+            python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+    :param txt: Value supplied for txt under the utility contract.
+    :param title: Value supplied for title under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         from LiuXin_alpha.file_formats.textile.functions import textile
     except Exception:
@@ -151,17 +205,56 @@ def convert_textile(txt: _typing.Any, title: str = "") -> _typing.Any:
 
 
 def normalize_line_endings(txt: _typing.Any) -> _typing.Any:
+    """
+    Normalize line endings under the format's safety and compatibility rules.
+
+    Example:
+        Exercise normalize line endings through a consuming regression::
+
+            python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+    :param txt: Value supplied for txt under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     txt = txt.replace("\r\n", "\n")
     txt = txt.replace("\r", "\n")
     return txt
 
 
 def separate_paragraphs_single_line(txt: _typing.Any) -> _typing.Any:
+    """
+    Perform the separate paragraphs single line operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise separate paragraphs single line through a consuming regression::
+
+            python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+    :param txt: Value supplied for txt under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     txt = txt.replace("\n", "\n\n")
     return txt
 
 
 def separate_paragraphs_print_formatted(txt: _typing.Any) -> _typing.Any:
+    """
+    Perform the separate paragraphs print formatted operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise separate paragraphs print formatted through a consuming regression::
+
+            python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+    :param txt: Value supplied for txt under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     txt = re.sub(
         r"(?miu)^(?P<indent>\t+|[ ]{2,})(?=.)",
         lambda mo: "\n%s" % mo.group("indent"),
@@ -171,7 +264,33 @@ def separate_paragraphs_print_formatted(txt: _typing.Any) -> _typing.Any:
 
 
 def separate_hard_scene_breaks(txt: _typing.Any) -> _typing.Any:
+    """
+    Perform the separate hard scene breaks operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise separate hard scene breaks through a consuming regression::
+
+            python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+    :param txt: Value supplied for txt under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     def sep_break(line: _typing.Any) -> _typing.Any:
+        """
+        Perform the sep break operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise separate hard scene breaks.sep break through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if len(line.strip()) > 0:
             return "\n%s\n" % line
         else:
@@ -182,6 +301,19 @@ def separate_hard_scene_breaks(txt: _typing.Any) -> _typing.Any:
 
 
 def block_to_single_line(txt: _typing.Any) -> _typing.Any:
+    """
+    Perform the block to single line operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise block to single line through a consuming regression::
+
+            python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+    :param txt: Value supplied for txt under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     txt = re.sub(r"(?<=.)\n(?=.)", " ", txt)
     return txt
 
@@ -189,8 +321,16 @@ def block_to_single_line(txt: _typing.Any) -> _typing.Any:
 def preserve_spaces(txt: _typing.Any) -> _typing.Any:
     """
     Replaces spaces multiple spaces with &nbsp; entities.
-    :param txt:
-    :return:
+
+    Example:
+        Exercise preserve spaces through a consuming regression::
+
+            python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+    :param txt: Value supplied for txt under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     txt = re.sub(
         r"(?P<space>[ ]{2,})",
@@ -204,14 +344,40 @@ def preserve_spaces(txt: _typing.Any) -> _typing.Any:
 def remove_indents(txt: _typing.Any) -> _typing.Any:
     """
     Remove whitespace at the beginning of each line.
-    :param txt:
-    :return:
+
+    Example:
+        Exercise remove indents through a consuming regression::
+
+            python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+    :param txt: Value supplied for txt under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     txt = re.sub(r"(?miu)^\s+", "", txt)
     return txt
 
 
 def opf_writer(path: _typing.Any, opf_name: _typing.Any, manifest: _typing.Any, spine: _typing.Any, mi: _typing.Any) -> None:
+    """
+    Perform the opf writer operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise opf writer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param opf_name: Value supplied for opf name under the utility contract.
+    :param manifest: Value supplied for manifest under the utility contract.
+    :param spine: Value supplied for spine under the utility contract.
+    :param mi: Metadata object exposed to the template function.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     opf = OPFCreator(path, mi)
     opf.create_manifest(manifest)
     opf.create_spine(spine)
@@ -221,10 +387,18 @@ def opf_writer(path: _typing.Any, opf_name: _typing.Any, manifest: _typing.Any, 
 
 def split_string_separator(txt: _typing.Any, size: _typing.Any) -> _typing.Any:
     """
-    Splits the text by putting \n\n at the point size.
-    :param txt:
-    :param size:
-    :return:
+    Splits the text by putting
+
+    Example:
+        Exercise split string separator through a consuming regression::
+
+            python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+    :param txt: Value supplied for txt under the utility contract.
+    :param size: Value supplied for size under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if len(txt) > size:
         txt = "".join(
@@ -240,15 +414,15 @@ def detect_paragraph_type(txt: _typing.Any) -> str:
     """
     Tries to determine the paragraph type of the document.
 
-    block: Paragraphs are separated by a blank line.
-    single: Each line is a paragraph.
-    print: Each paragraph starts with a 2+ spaces or a tab
-           and ends when a new paragraph is reached.
-    unformatted: most lines have hard line breaks, few/no blank lines or indents
+    Example:
+        Exercise detect paragraph type through a consuming regression::
 
-    returns block, single, print, unformatted
-    :param txt:
-    :return:
+            python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+    :param txt: Value supplied for txt under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     txt = txt.replace("\r\n", "\n")
     txt = txt.replace("\r", "\n")
@@ -288,12 +462,15 @@ def detect_formatting_type(txt: _typing.Any) -> str:
     """
     Tries to determine the formatting of the document.
 
-    markdown: Markdown formatting is used.
-    textile: Textile formatting is used.
-    heuristic: When none of the above formatting types are
-               detected heuristic is returned.
-    :param txt:
-    :return:
+    Example:
+        Exercise detect formatting type through a consuming regression::
+
+            python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+    :param txt: Value supplied for txt under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     # Keep a count of the number of format specific object
     # that are found in the text.

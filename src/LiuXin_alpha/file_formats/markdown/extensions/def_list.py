@@ -1,3 +1,14 @@
+"""
+Implement Markdown definition-list block parsing.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise def list through a consuming regression::
+
+        python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+"""
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import annotations
@@ -32,16 +43,51 @@ import re
 
 
 class DefListProcessor(BlockProcessor):
-    """Process Definition Lists."""
+    """
+    Process Definition Lists.
+
+    Example:
+        Exercise DefListProcessor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     RE = re.compile(r"(^|\n)[ ]{0,3}:[ ]{1,3}(.*?)(\n|$)")
     NO_INDENT_RE = re.compile(r"^[ ]{0,3}[^ :]")
 
     def test(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> _typing.Any:
+        """
+        Perform the test operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DefListProcessor.test through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param block: Value supplied for block under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return bool(self.RE.search(block))
 
     def run(self: _typing.Self, parent: _typing.Any, blocks: _typing.Any) -> bool:
 
+        """
+        Execute the configured conversion stage and return its primary result.
+
+        Example:
+            Exercise DefListProcessor.run through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param blocks: Value supplied for blocks under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         raw_block = blocks.pop(0)
         m = self.RE.search(raw_block)
         terms = [l.strip() for l in raw_block[: m.start()].split("\n") if l.strip()]
@@ -94,25 +140,78 @@ class DefListProcessor(BlockProcessor):
 
 
 class DefListIndentProcessor(ListIndentProcessor):
-    """Process indented children of definition list items."""
+    """
+    Process indented children of definition list items.
+
+    Example:
+        Exercise DefListIndentProcessor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     ITEM_TYPES = ["dd"]
     LIST_TYPES = ["dl"]
 
     def create_item(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> None:
-        """Create a new dd and parse the block with it as the parent."""
+        """
+        Create a new dd and parse the block with it as the parent.
+
+        Example:
+            Exercise DefListIndentProcessor.create item through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param block: Value supplied for block under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         dd = etree.SubElement(parent, "dd")
         self.parser.parseBlocks(dd, [block])
 
 
 class DefListExtension(Extension):
-    """Add definition lists to Markdown."""
+    """
+    Add definition lists to Markdown.
+
+    Example:
+        Exercise DefListExtension through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     def extendMarkdown(self: _typing.Self, md: _typing.Any, md_globals: _typing.Any) -> None:
-        """Add an instance of DefListProcessor to BlockParser."""
+        """
+        Add an instance of DefListProcessor to BlockParser.
+
+        Example:
+            Exercise DefListExtension.extendMarkdown through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param md: Value supplied for md under the utility contract.
+        :param md_globals: Value supplied for md globals under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         md.parser.blockprocessors.add("defindent", DefListIndentProcessor(md.parser), ">indent")
         md.parser.blockprocessors.add("deflist", DefListProcessor(md.parser), ">ulist")
 
 
 def makeExtension(configs: _typing.Any = None) -> _typing.Any:
+    """
+    Perform the makeExtension operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise makeExtension through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param configs: Value supplied for configs under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return DefListExtension(configs=configs)

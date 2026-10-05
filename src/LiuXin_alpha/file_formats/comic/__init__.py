@@ -1,6 +1,16 @@
 #!/usr/bin/env python
 
-"""Comic archive helpers."""
+"""
+Expose the supported comic compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+"""
 from __future__ import annotations
 
 from .input import extract_comic, find_pages, process_pages

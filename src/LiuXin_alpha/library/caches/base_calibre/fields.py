@@ -1,24 +1,13 @@
 """
-Defining terms (inherited from calibre)
+Model cached library fields and their value mappings.
 
-Naming motivation from calibre seems
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
- - a column is a simple column in a table
- - a table is a collection of columns
- - a field is a collection of data in a form people might actually want - which may be from many tables
- - a view is a collection of fields and other data - a "view" into the database.
+Example:
+    Exercise fields through a consuming regression::
 
-Originally, in calibre, intended to be fields viewed in the GUI, they have been generalised.
-LiuXin allows you - with the right interface - to browse any of the base tables.
-E.g. the "tags" field - which contains information from the "tags" table.
-E.g. the "titles" field of the "tags" table - which might contain each title the tag is linked to.
-
-Thus, there are a few pieces of information important to any field.
- - which table the field is "of" or "in"
- - which other table the field is "viewing"
-
-Depending on how you implement the cache, "fields" might be an abstraction.
-However, to keep the cache interface the same, you will have to implement something which offers the same API.
+        python -m pytest -q tests/library/test_unified_library.py
 """
 
 from __future__ import unicode_literals, division, absolute_import, print_function
@@ -65,10 +54,16 @@ def bool_sort_key(
     """
     Returns a sort key suitable for use with tristate bools.
 
-    calibre allows "bools" to be True, False or None.
-    This can confuse sorting - so use this function to generate a sort key for them.
-    :param bools_are_tristate:
-    :return:
+    Example:
+        Exercise bool sort key through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param bools_are_tristate: Value supplied for bools are tristate under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return (
         (lambda x: {True: 1, False: 2, None: 3}.get(x, 3))
@@ -81,8 +76,15 @@ def identity(x: D) -> D:
     """
     Just returns itself.
 
-    :param x:
-    :return x:
+    Example:
+        Exercise identity through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return x
 
@@ -93,20 +95,38 @@ IDENTITY = identity
 class InvalidLinkTable(Exception):
     """
     Raised when trying to link two tables which are not linkable.
+
+    Example:
+        Exercise InvalidLinkTable through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def __init__(self, name) -> None:
+        """
+        Initialize and validate the invalidlinktable state.
+
+        Example:
+            Exercise InvalidLinkTable.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: None; validated state is stored on the receiving object.
+        """
         Exception.__init__(self, name)
         self.field_name = name
 
 
 class CalibreBaseField(BaseField[T]):
     """
-    Basis for a representation of a field on the database.
-    Usually organized via the book.
+    Basis for a representation of a field on the database. Usually organized via the book.
 
-    Cached information from the database is stored in the table object.
-    The field provides convenient access methods to it.
+    Example:
+        Exercise CalibreBaseField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def __init__(
@@ -122,15 +142,22 @@ class CalibreBaseField(BaseField[T]):
         """
         Startup the field.
 
-        :param name: Name of the field
-        :param table: The table the field is in
-        :param bools_are_tristate: If True then bools are permitted to take three values - True, False and None
-        :param link_attributes: The names of the additional attributes that the link has (e.g. "index")
-        :param main_table: It is helpful to be able to generically refer to the tables being linked.
-                           While "main" and "auxiliary" are not hard and fast they should be taken as a guide (and
-                           if one of the two is a title or book, that should probably always been main.
-        :param auxiliary_table:
-        :return:
+        Example:
+            Exercise CalibreBaseField.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param table: Value supplied for table under the utility contract.
+        :param bools_are_tristate: Value supplied for bools are tristate under the utility
+            contract.
+        :param link_attributes: Value supplied for link attributes under the utility
+            contract.
+        :param main_table: Value supplied for main table under the utility contract.
+        :param auxiliary_table: Value supplied for auxiliary table under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
         """
         super().__init__(
             name=name,
@@ -243,8 +270,15 @@ class CalibreBaseField(BaseField[T]):
         """
         Preform a read of data from the database into the attribute fields contained within this field.
 
-        :param db:
-        :return:
+        Example:
+            Exercise CalibreBaseField.read attribute tables through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         for attr_field_name in self.link_attr_fields:
             self.link_attr_fields[attr_field_name].table.read(db)
@@ -257,17 +291,25 @@ class CalibreBaseOneToOneField(CalibreBaseField[T]):
     """
     A 1-1 mapping must exist between a table and the one represented by this field.
 
-    E.g. "books" to "book_uuid".
-    E.g. "titles" to "title_sort".
-    E.g. "tags" to "tag" (the tags table value).
+    Example:
+        Exercise CalibreBaseOneToOneField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def ids_for_book(self, book_id: SrcTableID) -> tuple[DstTableID, ...]:
         """
         In the case of a 1-1 table the item id is the same as the book - as it's stored in the same row of the db.
 
-        :param book_id: Tuple of
-        :return:
+        Example:
+            Exercise CalibreBaseOneToOneField.ids for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if self.book_in_cache(book_id):
             return tuple(
@@ -282,8 +324,15 @@ class CalibreBaseOneToOneField(CalibreBaseField[T]):
         """
         In the case of a 1-1 table the item id is the same as the book - as it's stored in the same row of the db.
 
-        :param item_id:
-        :return:
+        Example:
+            Exercise CalibreBaseOneToOneField.books for through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if self.item_in_cache(item_id):
             return {
@@ -296,9 +345,15 @@ class CalibreBaseOneToOneField(CalibreBaseField[T]):
         """
         Checks that the given book is in the cache - returns True iff the book exists in the cache and False otherwise.
 
-        Depends strongly on the storage backend - so not implemented here.
-        :param book_id:
-        :return in_cache:
+        Example:
+            Exercise CalibreBaseOneToOneField.book in cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -306,9 +361,15 @@ class CalibreBaseOneToOneField(CalibreBaseField[T]):
         """
         Checks that the given item is in the cache - returns True iff the item is in the cache and False otherwise.
 
-        Depends strongly on the storage backend - so not implemented here.
-        :param item_id:
-        :return in_cache:
+        Example:
+            Exercise CalibreBaseOneToOneField.item in cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -316,14 +377,26 @@ class CalibreBaseOneToOneField(CalibreBaseField[T]):
 class BaseOneToManyField(CalibreBaseOneToOneField):
     """
     For a Many-to-Many or One-to-Many table that has to pretend to be a 1-1 table.
+
+    Example:
+        Exercise BaseOneToManyField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def ids_for_book(self, book_id: SrcTableID) -> set[DstTableID]:
         """
         The table is pretending to be 1-1 - so this method does not make sense.
 
-        :param book_id:
-        :return:
+        Example:
+            Exercise BaseOneToManyField.ids for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -331,8 +404,15 @@ class BaseOneToManyField(CalibreBaseOneToOneField):
         """
         The table is pretending to be 1-1 - so this method does not make sense.
 
-        :param item_id:
-        :return:
+        Example:
+            Exercise BaseOneToManyField.books for through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -340,6 +420,11 @@ class BaseOneToManyField(CalibreBaseOneToOneField):
 class BaseCompositeField(CalibreBaseOneToOneField):
     """
     A composite field is composed of a composite of metadata from other fields.
+
+    Example:
+        Exercise BaseCompositeField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     is_composite: bool = True
@@ -349,10 +434,17 @@ class BaseCompositeField(CalibreBaseOneToOneField):
         """
         Construct a composite field - a field composed of multiple other pieces of data.
 
-        The formatter which does the work of following the template is stored over in metadata as mi.formatter
-        :param name: Name of the composite field
-        :param table: Table
-        :param bools_are_tristate:
+        Example:
+            Exercise BaseCompositeField.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param table: Value supplied for table under the utility contract.
+        :param bools_are_tristate: Value supplied for bools are tristate under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
         """
         CalibreBaseOneToOneField.__init__(self, name, table, bools_are_tristate)
 
@@ -393,8 +485,15 @@ class BaseCompositeField(CalibreBaseOneToOneField):
         """
         Split the multiple entries into a tuple and sort them using `sort_key`.
 
-        :param val:
-        :return sort_key:
+        Example:
+            Exercise BaseCompositeField.multiple sort key through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         val = (sort_key(x.strip()) for x in (val or "").split(self.splitter))
         return tuple(sorted(val))
@@ -403,8 +502,15 @@ class BaseCompositeField(CalibreBaseOneToOneField):
         """
         Produces a sort key from a numerical value.
 
-        :param val:
-        :return:
+        Example:
+            Exercise BaseCompositeField.number sort key through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         try:
             p = 1
@@ -420,8 +526,15 @@ class BaseCompositeField(CalibreBaseOneToOneField):
         """
         Produce a sort key from a date value
 
-        :param val:
-        :return:
+        Example:
+            Exercise BaseCompositeField.date sort key through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         try:
             val = self._filter_date(parse_date(val))
@@ -433,8 +546,15 @@ class BaseCompositeField(CalibreBaseOneToOneField):
         """
         Produce a sort key from any value.
 
-        :param val:
-        :return:
+        Example:
+            Exercise BaseCompositeField.bool sort key through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self._bool_sort_key(force_to_bool(val))
 
@@ -442,8 +562,15 @@ class BaseCompositeField(CalibreBaseOneToOneField):
         """
         Clear the internal caches stored in the field.
 
-        :param book_ids: Clear caches for only these book ids
-        :return status: Did the cache clear successfully?
+        Example:
+            Exercise BaseCompositeField.clear caches through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -451,9 +578,16 @@ class BaseCompositeField(CalibreBaseOneToOneField):
         """
         Return a value using the composite cache.
 
-        :param book_id: Id for the book to get the value for
-        :param get_metadata: Function to produce the composite metadata result
-        :return:
+        Example:
+            Exercise BaseCompositeField.get value with cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -461,9 +595,16 @@ class BaseCompositeField(CalibreBaseOneToOneField):
         """
         Return sort keys for all books.
 
-        :param get_metadata:
-        :param lang_map:
-        :return:
+        Example:
+            Exercise BaseCompositeField.sort keys for books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param lang_map: Value supplied for lang map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -473,10 +614,17 @@ class BaseCompositeField(CalibreBaseOneToOneField):
         """
         Iter all searchable values.
 
-        :param get_metadata:
-        :param candidates:
-        :param default_value:
-        :return:
+        Example:
+            Exercise BaseCompositeField.iter searchable values through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param candidates: Value supplied for candidates under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -491,12 +639,20 @@ class BaseCompositeField(CalibreBaseOneToOneField):
         """
         Return the categories for the current composite field.
 
-        :param tag_class:
-        :param book_rating_map:
-        :param book_ids:
-        :param is_multiple:
-        :param get_metadata:
-        :return:
+        Example:
+            Exercise BaseCompositeField.get composite categories through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param tag_class: Value supplied for tag class under the utility contract.
+        :param book_rating_map: Value supplied for book rating map under the utility
+            contract.
+        :param book_ids: Book identities included in the batched read operation.
+        :param is_multiple: Value supplied for is multiple under the utility contract.
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -506,11 +662,17 @@ class BaseCompositeField(CalibreBaseOneToOneField):
         """
         Iterate through all values - generating the custom values and checking to see if books match those.
 
-        This can be an extremely expensive operation.
-        :param value: Value to search for
-        :param get_metadata: Function to get the metadata
-        :param book_ids: Restrict to searching in these books (used for virtual libraries)
-        :return:
+        Example:
+            Exercise BaseCompositeField.get books for val through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param book_ids: Book identities included in the batched read operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -518,11 +680,19 @@ class BaseCompositeField(CalibreBaseOneToOneField):
         """
         Preform an update of the database - should return the data needed to preform an update of the cache.
 
-        :param book_id_to_val_map: Keyed with the item id and valued with the new item value
-                                   Composite fields depend on other fields - and so direct update is blocked.
-        :param db:
-        :param allow_case_change:
-        :return status: Did the update go through?
+        Example:
+            Exercise BaseCompositeField.update db through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_to_val_map: Value supplied for book id to val map under the utility
+            contract.
+        :param db: Value supplied for db under the utility contract.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError("Composite field fields cannot be directly updated")
 
@@ -531,15 +701,28 @@ class BaseCompositeField(CalibreBaseOneToOneField):
 class BaseOnDeviceField(CalibreBaseOneToOneField[bool]):
     """
     Base for the OnDevice field.
+
+    Example:
+        Exercise BaseOnDeviceField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def __init__(self, name: str, table=None, bools_are_tristate: bool = False) -> None:
         """
         Generate the OnDeviceField - will be mostly empty.
 
-        :param name:
-        :param table:
-        :param bools_are_tristate:
+        Example:
+            Exercise BaseOnDeviceField.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param table: Value supplied for table under the utility contract.
+        :param bools_are_tristate: Value supplied for bools are tristate under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.name = name
         self.book_on_device_func = None
@@ -565,7 +748,14 @@ class BaseOnDeviceField(CalibreBaseOneToOneField[bool]):
         """
         Return the "metadata" which defines this table.
 
-        :return:
+        Example:
+            Exercise BaseOnDeviceField.metadata through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self._metadata
 
@@ -574,9 +764,15 @@ class BaseOnDeviceField(CalibreBaseOneToOneField[bool]):
         """
         Refuse to set the metadata for this field.
 
-        It doesn't make sense to - as this is an internal field.
-        :param value:
-        :return:
+        Example:
+            Exercise BaseOnDeviceField.metadata through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError(f"Cannot set metadata as {value=}")
 
@@ -584,8 +780,15 @@ class BaseOnDeviceField(CalibreBaseOneToOneField[bool]):
         """
         Clear the internal field cache.
 
-        :param book_ids: The ids to remove cached
-        :return status: Did the cache clear for the given book ids?
+        Example:
+            Exercise BaseOnDeviceField.clear caches through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -593,8 +796,15 @@ class BaseOnDeviceField(CalibreBaseOneToOneField[bool]):
         """
         Has the book currently been loaded to the currently connected device?
 
-        :param book_id: Has the given book been loaded onto the connected device?
-        :return status: Is the book on the connected device?
+        Example:
+            Exercise BaseOnDeviceField.book on device through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -602,8 +812,15 @@ class BaseOnDeviceField(CalibreBaseOneToOneField[bool]):
         """
         Sets the function used to check to see if the given book is on the device.
 
-        :param func:
-        :return:
+        Example:
+            Exercise BaseOnDeviceField.set book on device func through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param func: Value supplied for func under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.book_on_device_func = func
 
@@ -611,13 +828,32 @@ class BaseOnDeviceField(CalibreBaseOneToOneField[bool]):
         """
         Where is the book currently stored?
 
-        :param book_id: The id of the book to check for load
-        :param default_value: Doesn't really make sense in this context
-        :return book_on_device: Has the book been loaded onto the device?
+        Example:
+            Exercise BaseOnDeviceField.for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
     def __iter__(self):
+        """
+        Perform the iter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BaseOnDeviceField.  iter   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return iter(())
 
     def sort_keys_for_books(
@@ -626,9 +862,16 @@ class BaseOnDeviceField(CalibreBaseOneToOneField[bool]):
         """
         Returns a sort key for the book - used to order the entries on the table.
 
-        :param get_metadata:
-        :param lang_map:
-        :return:
+        Example:
+            Exercise BaseOnDeviceField.sort keys for books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param lang_map: Value supplied for lang map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.for_book
 
@@ -638,28 +881,47 @@ class BaseOnDeviceField(CalibreBaseOneToOneField[bool]):
         """
         Iterate over the values which _can_ be searched for.
 
-        :param get_metadata:
-        :param candidates: Restrict to the given book ids - useful for virtual libraries.
-        :param default_value:
-        :return searchable_values: An iterator of tuples
-                                   - first element being the values
-                                   - second element being a set of book_ids which would be returned by searching for
-                                     that value
+        Example:
+            Exercise BaseOnDeviceField.iter searchable values through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param candidates: Value supplied for candidates under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
 
 class CalibreBaseManyToOneField(CalibreBaseField[T]):
 
+    """
+    Provide the calibrebasemanytoonefield contract for validated ebook processing.
+
+    Example:
+        Exercise CalibreBaseManyToOneField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     is_many: bool = True
 
     def for_book(self, book_id: SrcTableID, default_value: Optional[T] = None) -> T:
         """
         Get the field value for a given book_id.
 
-        :param book_id:
-        :param default_value:
-        :return:
+        Example:
+            Exercise CalibreBaseManyToOneField.for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -667,10 +929,15 @@ class CalibreBaseManyToOneField(CalibreBaseField[T]):
         """
         Return the target ids which the book is linked to.
 
-        If there is no value set the return will be None
-        If there is a value set for the book then it'll be returned as a tuple of length one.
-        :param book_id:
-        :return:
+        Example:
+            Exercise CalibreBaseManyToOneField.ids for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -678,8 +945,15 @@ class CalibreBaseManyToOneField(CalibreBaseField[T]):
         """
         Takes the id of the item linked to the book and returns all the books linked to it.
 
-        :param item_id:
-        :return:
+        Example:
+            Exercise CalibreBaseManyToOneField.books for through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -687,7 +961,14 @@ class CalibreBaseManyToOneField(CalibreBaseField[T]):
         """
         Returns an iterable of all the ids available in the target table.
 
-        :return:
+        Example:
+            Exercise CalibreBaseManyToOneField.  iter   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -697,9 +978,16 @@ class CalibreBaseManyToOneField(CalibreBaseField[T]):
         """
         Produces a sort key function - a function which takes a book_id and produces a sort key.
 
-        :param get_metadata:
-        :param lang_map:
-        :return:
+        Example:
+            Exercise CalibreBaseManyToOneField.sort keys for books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param lang_map: Value supplied for lang map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -709,12 +997,17 @@ class CalibreBaseManyToOneField(CalibreBaseField[T]):
         """
         Iterate over values from the target table that can be searched.
 
-        The iterable is a tuple - the first entry being the searchable value and the second entry being all the book ids
-        associated with that value.
-        :param get_metadata:
-        :param candidates: A list of book ids to restrict the search to - used for virtual tables
-        :param default_value:
-        :return:
+        Example:
+            Exercise CalibreBaseManyToOneField.iter searchable values through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param candidates: Value supplied for candidates under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -723,8 +1016,14 @@ class CalibreBaseManyToOneField(CalibreBaseField[T]):
         """
         Keyed with the book id and valued with the value for that book.
 
-        Contains all book values - so will be computationally expensive.
-        :return:
+        Example:
+            Exercise CalibreBaseManyToOneField.book value map through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -732,6 +1031,11 @@ class CalibreBaseManyToOneField(CalibreBaseField[T]):
 class CalibreBaseManyToManyField(CalibreBaseField[T]):
     """
     Basis for the Many-to-many fields - fields where many books can be assigned to many items (e.g. tags).
+
+    Example:
+        Exercise CalibreBaseManyToManyField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     # Todo: Should not be able to change these
@@ -744,9 +1048,17 @@ class CalibreBaseManyToManyField(CalibreBaseField[T]):
         """
         Starts up the many-to-many table.
 
-        :param name:
-        :param table:
-        :param bools_are_tristate:
+        Example:
+            Exercise CalibreBaseManyToManyField.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param table: Value supplied for table under the utility contract.
+        :param bools_are_tristate: Value supplied for bools are tristate under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
         """
         CalibreBaseField.__init__(self, name=name, table=table, bools_are_tristate=bools_are_tristate)
 
@@ -754,9 +1066,16 @@ class CalibreBaseManyToManyField(CalibreBaseField[T]):
         """
         Return the values for given book. Will return values as a tuple by default.
 
-        :param book_id: The id of the book to return values for
-        :param default_value: If the book is linked to no entries in the other table, return thris defaudlt valsue.
-        :return:
+        Example:
+            Exercise CalibreBaseManyToManyField.for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -764,8 +1083,15 @@ class CalibreBaseManyToManyField(CalibreBaseField[T]):
         """
         Return the ids linked to a given book.
 
-        :param book_id:
-        :return:
+        Example:
+            Exercise CalibreBaseManyToManyField.ids for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -773,8 +1099,15 @@ class CalibreBaseManyToManyField(CalibreBaseField[T]):
         """
         Return the book ids linked to the given item_id
 
-        :param item_id:
-        :return book_ids:
+        Example:
+            Exercise CalibreBaseManyToManyField.books for through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -782,7 +1115,14 @@ class CalibreBaseManyToManyField(CalibreBaseField[T]):
         """
         Iterate through all the ids on the field for the book.
 
-        :return:
+        Example:
+            Exercise CalibreBaseManyToManyField.  iter   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -790,9 +1130,16 @@ class CalibreBaseManyToManyField(CalibreBaseField[T]):
         """
         Returns a tuple of the sort keys used to order the books
 
-        :param get_metadata:
-        :param lang_map:
-        :return:
+        Example:
+            Exercise CalibreBaseManyToManyField.sort keys for books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param lang_map: Value supplied for lang map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -802,22 +1149,33 @@ class CalibreBaseManyToManyField(CalibreBaseField[T]):
         """
         Iterate through values which are valid search targets for the table.
 
-        :param get_metadata:
-        :param candidates:
-        :param default_value:
-        :return:
+        Example:
+            Exercise CalibreBaseManyToManyField.iter searchable values through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param candidates: Value supplied for candidates under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
     def iter_counts(self, candidates: Iterator[SrcTableID]) -> tuple[tuple[int, set[SrcTableID]]]:
         """
-        Generator which yields the counts - the number of tags a book has and a set of book ids all of which have that
-        number of tags.
+        Generator which yields the counts - the number of tags a book has and a set of book ids all of which have that number of tags.
 
-        Why does this exist?
-        Not _entirely_ sure.
-        :param candidates:
-        :return:
+        Example:
+            Exercise CalibreBaseManyToManyField.iter counts through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param candidates: Value supplied for candidates under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -825,8 +1183,15 @@ class CalibreBaseManyToManyField(CalibreBaseField[T]):
         """
         Generator which yields all the dst table ids and the number of books they're linked to.
 
-        :param item_ids:
-        :return:
+        Example:
+            Exercise CalibreBaseManyToManyField.iter usage counts through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_ids: Value supplied for item ids under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -835,7 +1200,14 @@ class CalibreBaseManyToManyField(CalibreBaseField[T]):
         """
         Keyed with the id of the book and valued with the values connected to that book.
 
-        :return:
+        Example:
+            Exercise CalibreBaseManyToManyField.book value map through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -843,17 +1215,27 @@ class CalibreBaseManyToManyField(CalibreBaseField[T]):
 class BaseIdentifiersField(CalibreBaseManyToManyField[T]):
     """
     Basis for the identifiers table.
+
+    Example:
+        Exercise BaseIdentifiersField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def for_book(self, book_id: SrcTableID, default_value: Optional[T] = None) -> Optional[T]:
         """
         Return the identifiers for a given book id.
 
-        If we're a calibre compatible table, this will be just the highest priority identifiers.
-        If we're not, then it'll be an identifier dict.
-        :param book_id:
-        :param default_value:
-        :return:
+        Example:
+            Exercise BaseIdentifiersField.for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -863,10 +1245,16 @@ class BaseIdentifiersField(CalibreBaseManyToManyField[T]):
         """
         Sort by identifier keys - not sure if this is a particularly useful thing to do - in this case.
 
-        However, it's often needed for interfaces.
-        :param get_metadata:
-        :param lang_map:
-        :return:
+        Example:
+            Exercise BaseIdentifiersField.sort keys for books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param lang_map: Value supplied for lang map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -876,10 +1264,17 @@ class BaseIdentifiersField(CalibreBaseManyToManyField[T]):
         """
         Iter through searchable identifiers.
 
-        :param get_metadata:
-        :param candidates: Iterable of book ids
-        :param default_value:
-        :return:
+        Example:
+            Exercise BaseIdentifiersField.iter searchable values through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param candidates: Value supplied for candidates under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -893,11 +1288,19 @@ class BaseIdentifiersField(CalibreBaseManyToManyField[T]):
         """
         Return the category classes for the field.
 
-        :param tag_class:
-        :param book_rating_map: Keyed with the book ids and valued with, presumably, a float
-        :param lang_map:
-        :param book_ids: Restrict the categories search to the following book ids.
-        :return:
+        Example:
+            Exercise BaseIdentifiersField.get categories through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param tag_class: Value supplied for tag class under the utility contract.
+        :param book_rating_map: Value supplied for book rating map under the utility
+            contract.
+        :param lang_map: Value supplied for lang map under the utility contract.
+        :param book_ids: Book identities included in the batched read operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -905,15 +1308,26 @@ class BaseIdentifiersField(CalibreBaseManyToManyField[T]):
 class BaseAuthorsField(CalibreBaseManyToManyField[str]):
     """
     Basis for the authors field - in fact, for arbitrary creators.
+
+    Example:
+        Exercise BaseAuthorsField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def author_data(self, author_id: DstTableID) -> CreatorDataDict:
         """
         Provides all available author data for a given author id.
 
-        :param author_id: Id from the creator table.
-        :return: A dictionary keyed with the type of data and valued with the value for that.
-                 Keys - "name", "sort" and "link".
+        Example:
+            Exercise BaseAuthorsField.author data through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param author_id: Value supplied for author id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -921,10 +1335,17 @@ class BaseAuthorsField(CalibreBaseManyToManyField[str]):
         """
         Return the author sort field for the given item_id.
 
-        :param item_id: The id of the creator to retrieve the sort value for
-        :param book_ids: Not used in this case
-        :param lang_map: Not used in this case
-        :return:
+        Example:
+            Exercise BaseAuthorsField.category sort value through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :param book_ids: Book identities included in the batched read operation.
+        :param lang_map: Value supplied for lang map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -932,10 +1353,15 @@ class BaseAuthorsField(CalibreBaseManyToManyField[str]):
         """
         Returns the author sort value for the specific book from the database.
 
-        This is a value set on a book by book basis.
-        Default value is automatically generated from the sort strigs of all the creators (authors) of the book.
-        :param book_id:
-        :return:
+        Example:
+            Exercise BaseAuthorsField.db author sort for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -943,8 +1369,15 @@ class BaseAuthorsField(CalibreBaseManyToManyField[str]):
         """
         Build and return the author sort of the book - the joined author sort for all the authrors.
 
-        :param book_id:
-        :return:
+        Example:
+            Exercise BaseAuthorsField.author sort for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -954,17 +1387,26 @@ class BaseFormatsField(CalibreBaseManyToManyField[T]):
     """
     Basis for the formats field - provides a convenient front end for information stored in the formats table.
 
-    Two pieces of information need to be conveyed with the format identifier - the format itself and it's priority in
-    the title.
-    Thus formats appear as something like EPUB_1.
+    Example:
+        Exercise BaseFormatsField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def for_book(self, book_id: SrcTableID, default_value: Optional[T] = None) -> Optional[T]:
         """
         Returns all the formats for the given book id.
-        :param book_id:
-        :param default_value:
-        :return:
+
+        Example:
+            Exercise BaseFormatsField.for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -972,9 +1414,16 @@ class BaseFormatsField(CalibreBaseManyToManyField[T]):
         """
         Returns the file name for the given format.
 
-        :param book_id:
-        :param fmt:
-        :return:
+        Example:
+            Exercise BaseFormatsField.format fname through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -983,11 +1432,16 @@ class BaseFormatsField(CalibreBaseManyToManyField[T]):
         """
         Return the Location of a given format (stands for format file loc).
 
-        If you pass in a SpecificFormat it will return the location of that format.
-        If you pass in a GenericFormat it will return the location of the highest priority format.
-        :param book_id:
-        :param fmt:
-        :return:
+        Example:
+            Exercise BaseFormatsField.format floc through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -995,11 +1449,15 @@ class BaseFormatsField(CalibreBaseManyToManyField[T]):
         """
         Does the given format exist for the given book id?
 
-        If you pass in a SpecificFormat it will check for that format.
-        If you pass in a GenericFormat it will return True if there are any files of that format in the book.
-        :param book_id:
-        :param fmt:
-        :return:
+        Example:
+            Exercise BaseFormatsField.has format through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: True when the documented condition holds; otherwise False.
         """
         raise NotImplementedError
 
@@ -1007,9 +1465,15 @@ class BaseFormatsField(CalibreBaseManyToManyField[T]):
         """
         Check to see if the given book has the given format.
 
-        :param book_id:
-        :param priority_fmt:
-        :return:
+        Example:
+            Exercise BaseFormatsField.has priority fmt through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param priority_fmt: Value supplied for priority fmt under the utility contract.
+        :return: True when the documented condition holds; otherwise False.
         """
         raise NotImplementedError
 
@@ -1017,10 +1481,17 @@ class BaseFormatsField(CalibreBaseManyToManyField[T]):
         """
         Add a format to a book.
 
-        FMT should include the priority of that FMT in the book (e.g. not EPUB, but EPUB_1).
-        Note - If you want to add an ORIGINAL_FMT - call this function with the full FMT string, including priority.
-        This function will reject any FMT which is not a priority fmt - that is to say something of the form EPUB_1
-        :return status: Was the format successfully added?
+        Example:
+            Exercise BaseFormatsField.add format through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param fmt_loc: Value supplied for fmt loc under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1028,11 +1499,16 @@ class BaseFormatsField(CalibreBaseManyToManyField[T]):
         """
         Remove a fmt from the cache.
 
-        If you pass in a SpecificFormat then that, and only that, format will be removed.
-        If you pass in a GenericFormat, then
-        :param book_id:
-        :param fmt:
-        :return status: Was the format successfully removed?
+        Example:
+            Exercise BaseFormatsField.remove fmt through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1040,9 +1516,16 @@ class BaseFormatsField(CalibreBaseManyToManyField[T]):
         """
         Reload all the information from a book from the database - the ultimate source of truth of the system.
 
-        :param db:
-        :param book_id:
-        :return status: Did the reload from the database go through?
+        Example:
+            Exercise BaseFormatsField.reload book from db through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1060,13 +1543,17 @@ class BaseFormatsField(CalibreBaseManyToManyField[T]):
         """
         Searchable values should be the available formats for each of the given books.
 
-        Yields an iterator which produces tuples.
-        Element 1 - The GenericFormat (e.g. "EPUB")
-        Element 2 - The set of book ids which have that GenericFormat
-        :param get_metadata: Function to produce metadata for each book
-        :param candidates: The book ids to search in (used in virtual libraries)
-        :param default_value: The value to return if there's no value for the book
-        :return:
+        Example:
+            Exercise BaseFormatsField.iter searchable values through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param candidates: Value supplied for candidates under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1074,11 +1561,19 @@ class BaseFormatsField(CalibreBaseManyToManyField[T]):
         """
         Does not make sense in this context - so not implemented.
 
-        :param tag_class:
-        :param book_rating_map:
-        :param lang_map:
-        :param book_ids:
-        :return:
+        Example:
+            Exercise BaseFormatsField.get categories through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param tag_class: Value supplied for tag class under the utility contract.
+        :param book_rating_map: Value supplied for book rating map under the utility
+            contract.
+        :param lang_map: Value supplied for lang map under the utility contract.
+        :param book_ids: Book identities included in the batched read operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
 
         raise NotImplementedError
@@ -1088,19 +1583,26 @@ class BaseCoverField(CalibreBaseManyToManyField):
     """
     Provides a front end to the information stored in the Covers table.
 
-    The cover field deals solely with whether the book HAS a cover.
-    This field stores more detailed information about the multiple covers available to the book - including the location
-    of the cover and which cover is primary for each book.
+    Example:
+        Exercise BaseCoverField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def cover_id(self, book_id: SrcTableID, default_value: None = None) -> CoverID:
         """
         Returns the id of the cover which is primary for the book.
 
-        Returns None if there are no covers linked to the book.
-        :param book_id: The id of the book to get the primary cover for.
-        :param default_value:
-        :return cover_id:
+        Example:
+            Exercise BaseCoverField.cover id through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1108,9 +1610,16 @@ class BaseCoverField(CalibreBaseManyToManyField):
         """
         Returns the loc of the cover that is primary for that book.
 
-        :param book_id:
-        :param default_value:
-        :return:
+        Example:
+            Exercise BaseCoverField.cover loc through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1118,6 +1627,11 @@ class BaseCoverField(CalibreBaseManyToManyField):
 class BaseSeriesField(CalibreBaseManyToOneField[T]):
     """
     Used for storing series field information.
+
+    Example:
+        Exercise BaseSeriesField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def sort_keys_for_books(
@@ -1126,9 +1640,16 @@ class BaseSeriesField(CalibreBaseManyToOneField[T]):
         """
         Produces a function which takes the id of the given book and produces a string sort key for that book.
 
-        :param get_metadata:
-        :param lang_map:
-        :return:
+        Example:
+            Exercise BaseSeriesField.sort keys for books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param lang_map: Value supplied for lang map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1136,25 +1657,46 @@ class BaseSeriesField(CalibreBaseManyToOneField[T]):
         """
         Returns the sort value for the given target value in the other table.
 
-        :param item_id:
-        :param book_ids:
-        :param lang_map:
-        :return:
+        Example:
+            Exercise BaseSeriesField.category sort value through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :param book_ids: Book identities included in the batched read operation.
+        :param lang_map: Value supplied for lang map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
 
 class BaseTagsField(CalibreBaseManyToManyField):
+    """
+    Provide the basetagsfield contract for validated ebook processing.
+
+    Example:
+        Exercise BaseTagsField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     def get_news_category(
         self, tag_class: BaseTagClass, book_ids: Optional[Iterable[SrcTableID]] = None
     ) -> Iterable[BaseTagClass]:
         """
         Categories are used in the display - specify a tag and it'll generate a list of tag classes.
 
-        This contains all the books with the news tag AND the new tag provided.
-        :param tag_class:
-        :param book_ids:
-        :return:
+        Example:
+            Exercise BaseTagsField.get news category through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param tag_class: Value supplied for tag class under the utility contract.
+        :param book_ids: Book identities included in the batched read operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1163,9 +1705,10 @@ class BaseLinkAttributeField(Generic[T]):
     """
     Base field for a link attribute - stores additional data to further characterize the link between the two tables.
 
-    This field is a generic field - with the generic being the datatype of the extra value.
+    Example:
+        Exercise BaseLinkAttributeField through a consuming regression::
 
-    E.g. the "series" field also has "series_number" or "series_position" attributes.
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def __init__(
@@ -1179,12 +1722,24 @@ class BaseLinkAttributeField(Generic[T]):
     ) -> None:
         """
         Set the basic properties of the field and the link.
-        :param name:
-        :param link_table_name:
-        :param link_field: The field object representing the link between the main and auxiliary fields.
-        :param link_attribute_table: Table which does the actual work of storing the link data.
-        :param main_table_name: The name of the main table
-        :param auxiliary_table_name: The name of the auxiliary table
+
+        Example:
+            Exercise BaseLinkAttributeField.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param link_table_name: Value supplied for link table name under the utility
+            contract.
+        :param link_field: Value supplied for link field under the utility contract.
+        :param link_attribute_table: Value supplied for link attribute table under the
+            utility contract.
+        :param main_table_name: Value supplied for main table name under the utility
+            contract.
+        :param auxiliary_table_name: Value supplied for auxiliary table name under the
+            utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.name = name
         self.link_table_name = link_table_name
@@ -1199,14 +1754,26 @@ class BaseLinkAttributeField(Generic[T]):
 class BaseOneToOneField(BaseField):
     """
     A 1-1 mapping must exist between books and these fields. (E.g. Books to languages in calibre).
+
+    Example:
+        Exercise BaseOneToOneField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def ids_for_book(self, book_id: SrcTableID) -> tuple[DstTableID]:
         """
         In the case of a 1-1 table the id of the item can be same as the book - it's stored in the same row of the db.
 
-        :param book_id: Tuple of
-        :return:
+        Example:
+            Exercise BaseOneToOneField.ids for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if self.book_in_cache(book_id):
             return tuple(
@@ -1221,8 +1788,15 @@ class BaseOneToOneField(BaseField):
         """
         For a 1-1 table the id of the item can be same as the book - if it's stored in the same row of the db.
 
-        :param item_id:
-        :return:
+        Example:
+            Exercise BaseOneToOneField.books for through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if self.item_in_cache(item_id):
             return {
@@ -1235,9 +1809,15 @@ class BaseOneToOneField(BaseField):
         """
         Checks that the given book is in the cache - returns True if the book exists in the cache, False otherwise.
 
-        Depends strongly on the storage backend - so not implemented here.
-        :param book_id:
-        :return book_in_cache:
+        Example:
+            Exercise BaseOneToOneField.book in cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1245,9 +1825,15 @@ class BaseOneToOneField(BaseField):
         """
         Checks that the given item is in the cache - returns True if the item exists in the cache and False otherwise.
 
-        Depends strongly on the storage backend - so not implemented here.
-        :param item_id:
-        :return:
+        Example:
+            Exercise BaseOneToOneField.item in cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1255,16 +1841,30 @@ class BaseOneToOneField(BaseField):
 class BaseManyToOneField(BaseField[T]):
 
     # Todo: Protect this from change
+    """
+    Provide the basemanytoonefield contract for validated ebook processing.
+
+    Example:
+        Exercise BaseManyToOneField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     is_many: bool = True
 
     def for_book(self, book_id: SrcTableID, default_value: Optional[T] = None) -> Optional[T]:
         """
         Get the field value for a given book_id.
 
-        The field is ManyToOne - so many books are assigned to a single value.
-        :param book_id:
-        :param default_value:
-        :return:
+        Example:
+            Exercise BaseManyToOneField.for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1272,11 +1872,15 @@ class BaseManyToOneField(BaseField[T]):
         """
         Return the ids which the book is linked to.
 
-        This is a ManyToOne field so there should be, at most, one.
-        If there is no value set the return will be None.
-        If there is a value set for the book then it'll be returned as a tuple of length one.
-        :param book_id:
-        :return:
+        Example:
+            Exercise BaseManyToOneField.ids for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1284,10 +1888,15 @@ class BaseManyToOneField(BaseField[T]):
         """
         Takes the id of the item linked to the book and returns all the books linked to it.
 
-        This is a ManyToOne field - so there could be any number of ids linked to it.
-        This will be in the form of an iterable of IDs for the other table.
-        :param item_id:
-        :return:
+        Example:
+            Exercise BaseManyToOneField.books for through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1295,7 +1904,14 @@ class BaseManyToOneField(BaseField[T]):
         """
         Returns an iterable of all the ids available in the target table.
 
-        :return:
+        Example:
+            Exercise BaseManyToOneField.  iter   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1305,9 +1921,16 @@ class BaseManyToOneField(BaseField[T]):
         """
         Produces the sort key function - takes the id of a book and produces a sort key for that book for this table.
 
-        :param get_metadata:
-        :param lang_map:
-        :return:
+        Example:
+            Exercise BaseManyToOneField.sort keys for books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param lang_map: Value supplied for lang map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1317,12 +1940,17 @@ class BaseManyToOneField(BaseField[T]):
         """
         Iterate over values from the target table that can be searched.
 
-        The iterable is a tuple - the first entry being the searchable value and the second entry being all the book ids
-        associated with that value.
-        :param get_metadata: Function to get the metadata for the book
-        :param candidates: Collection of book ids - values will be generated for these
-        :param default_value: Override default value for when no value is set.
-        :return:
+        Example:
+            Exercise BaseManyToOneField.iter searchable values through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param candidates: Value supplied for candidates under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1331,8 +1959,14 @@ class BaseManyToOneField(BaseField[T]):
         """
         Keyed with the book id and valued with the value for that book.
 
-        Contains all book values - so will be computationally expensive.
-        :return:
+        Example:
+            Exercise BaseManyToOneField.book value map through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1341,7 +1975,10 @@ class BaseManyToManyField(BaseField[T]):
     """
     Basis for the Many-to-many fields - fields where many books can be assigned to many items.
 
-    E.g. "tags" - many tags are linked to many books and visa-versa
+    Example:
+        Exercise BaseManyToManyField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     # Todo: Should not be able to change these
@@ -1350,11 +1987,19 @@ class BaseManyToManyField(BaseField[T]):
 
     def __init__(self, name: str, table, bools_are_tristate: bool) -> None:
         """
+        Initialize and validate the basemanytomanyfield state.
+
+        Example:
+            Exercise BaseManyToManyField.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
 
 
-        :param name:
-        :param table:
-        :param bools_are_tristate:
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param table: Value supplied for table under the utility contract.
+        :param bools_are_tristate: Value supplied for bools are tristate under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
         """
         BaseField.__init__(self, name=name, table=table, bools_are_tristate=bools_are_tristate)
 
@@ -1362,9 +2007,16 @@ class BaseManyToManyField(BaseField[T]):
         """
         Return the values for given book. Will return values as a tuple by default.
 
-        :param book_id: The id of the book to return values for
-        :param default_value: If the book is linked to no entries in the other table, return thris defaudlt valsue.
-        :return:
+        Example:
+            Exercise BaseManyToManyField.for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1372,8 +2024,15 @@ class BaseManyToManyField(BaseField[T]):
         """
         Return the ids linked to a given book.
 
-        :param book_id:
-        :return:
+        Example:
+            Exercise BaseManyToManyField.ids for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1381,8 +2040,15 @@ class BaseManyToManyField(BaseField[T]):
         """
         Return the book ids linked to the given item_id
 
-        :param item_id:
-        :return:
+        Example:
+            Exercise BaseManyToManyField.books for through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1390,8 +2056,14 @@ class BaseManyToManyField(BaseField[T]):
         """
         Iterate through the ids of all the books which have values for this table.
 
-        Note - in the case where you can set values as None, this might requie some fiddling.
-        :return:
+        Example:
+            Exercise BaseManyToManyField.  iter   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1401,9 +2073,16 @@ class BaseManyToManyField(BaseField[T]):
         """
         Returns a function used to generate a sort key for the given book.
 
-        :param get_metadata:
-        :param lang_map:
-        :return:
+        Example:
+            Exercise BaseManyToManyField.sort keys for books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param lang_map: Value supplied for lang map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1413,10 +2092,17 @@ class BaseManyToManyField(BaseField[T]):
         """
         Iterate through values which are valid search targets for the table.
 
-        :param get_metadata:
-        :param candidates:
-        :param default_value:
-        :return:
+        Example:
+            Exercise BaseManyToManyField.iter searchable values through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param candidates: Value supplied for candidates under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1424,10 +2110,15 @@ class BaseManyToManyField(BaseField[T]):
         """
         Iter through usage counts for all the tags.
 
-        Returns a series of tuples - the first element being the value of the table and the second element being the
-        usage count for that element.
-        :param candidates:
-        :return:
+        Example:
+            Exercise BaseManyToManyField.iter counts through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param candidates: Value supplied for candidates under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1436,6 +2127,13 @@ class BaseManyToManyField(BaseField[T]):
         """
         Keyed with the id of the book and valued with the values connected to that book
 
-        :return:
+        Example:
+            Exercise BaseManyToManyField.book value map through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError

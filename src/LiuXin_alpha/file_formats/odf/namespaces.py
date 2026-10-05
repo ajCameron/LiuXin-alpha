@@ -17,6 +17,17 @@
 #
 # Contributor(s):
 #
+"""
+Define ODF namespace URIs and qualified-name helpers.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise namespaces through a consuming regression::
+
+        python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+"""
 from __future__ import annotations
 TOOLSVERSION = "ODFPY/0.9.4dev"
 

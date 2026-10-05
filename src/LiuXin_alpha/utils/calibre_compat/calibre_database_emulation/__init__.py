@@ -1,6 +1,14 @@
 
 """
-API for the calibre_emulation module.
+Expose the supported calibre database emulation compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_db.py
 """
 
 

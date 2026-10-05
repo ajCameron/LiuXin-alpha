@@ -1,3 +1,14 @@
+"""
+Exercise MOBI headers, sections, encodings and malformed-record edge cases.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test mobi edge cases through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_mobi_edge_cases.py
+"""
 from __future__ import annotations
 
 import io
@@ -14,6 +25,18 @@ from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
 
 def _values(raw):
+    """
+    Perform the values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise values through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_edge_cases.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, dict):
@@ -27,50 +50,172 @@ def _values(raw):
 
 
 class _NoSeekTell:
+    """
+    Provide the NoSeekTell test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise NoSeekTell through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_edge_cases.py
+    """
     pass
 
 
 class _TellBrokenStream(io.BytesIO):
+    """
+    Provide the TellBrokenStream test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise TellBrokenStream through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_edge_cases.py
+    """
     name = "tell-broken.mobi"
 
     def tell(self):
+        """
+        Perform the tell test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise TellBrokenStream.tell through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_mobi_edge_cases.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise OSError("tell unavailable")
 
 
 class _RestoreBrokenStream(io.BytesIO):
+    """
+    Provide the RestoreBrokenStream test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise RestoreBrokenStream through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_edge_cases.py
+    """
     name = "restore-broken.mobi"
 
     def seek(self, pos, whence=0):
+        """
+        Perform the seek test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise RestoreBrokenStream.seek through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_mobi_edge_cases.py
+
+
+        :param pos: Value supplied for pos in the focused test operation.
+        :param whence: Value supplied for whence in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         if getattr(self, "_break_restore", False) and pos != 0:
             raise OSError("restore unavailable")
         return super().seek(pos, whence)
 
 
 class _HeaderWithCoverOffset:
+    """
+    Provide the HeaderWithCoverOffset test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise HeaderWithCoverOffset through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_edge_cases.py
+    """
     def __init__(self):
+        """
+        Initialize the HeaderWithCoverOffset test double.
+
+        Example:
+            Exercise HeaderWithCoverOffset.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_mobi_edge_cases.py
+
+
+        :return: None; the function records state or raises through its assertions.
+        """
         self.exth = SimpleNamespace(cover_offset=2)
         self.first_image_index = 5
         self.calls = []
 
     def section_data(self, index):
+        """
+        Perform the section data test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise HeaderWithCoverOffset.section data through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_mobi_edge_cases.py
+
+
+        :param index: Value supplied for index in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.calls.append(index)
         return b"cover-offset"
 
 
 class _HeaderWithoutCoverOffset:
+    """
+    Provide the HeaderWithoutCoverOffset test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise HeaderWithoutCoverOffset through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_edge_cases.py
+    """
     first_image_index = 7
     exth = SimpleNamespace()
 
     def __init__(self, raises=False):
+        """
+        Initialize the HeaderWithoutCoverOffset test double.
+
+        Example:
+            Exercise HeaderWithoutCoverOffset.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_mobi_edge_cases.py
+
+
+        :param raises: Value supplied for raises in the focused test operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self.raises = raises
 
     def section_data(self, index):
+        """
+        Perform the section data test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise HeaderWithoutCoverOffset.section data through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_mobi_edge_cases.py
+
+
+        :param index: Value supplied for index in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         if self.raises:
             raise RuntimeError("missing section")
         return f"section-{index}".encode()
 
 
 def _metadata_for_update():
+    """
+    Perform the metadata for update test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise metadata for update through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_edge_cases.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     mi = calibreMetaInformation("Unicode MOBI — café — 世界 😀", ["Alice Δ", "李白"])
     mi.publisher = "Publisher Ω"
     mi.comments = "Visible comments <div class=\"user_annotations\">drop me</div>"
@@ -86,6 +231,17 @@ def _metadata_for_update():
 
 
 def _fake_updater():
+    """
+    Perform the fake updater test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise fake updater through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_edge_cases.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     updater = object.__new__(mobi.MetadataUpdater)
     updater.type = b"BOOKMOBI"
     updater.codec = "utf-8"
@@ -98,9 +254,33 @@ def _fake_updater():
     updater.calls = []
 
     def create_exth(*, exth=None, new_title=None):
+        """
+        Create exth for a focused assertion.
+
+        Example:
+            Exercise fake updater.create exth through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_mobi_edge_cases.py
+
+
+        :param exth: Value supplied for exth in the focused test operation.
+        :param new_title: Value supplied for new title in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         updater.calls.append(("create_exth", exth, new_title))
 
     def fetch_exth_fields():
+        """
+        Perform the fetch exth fields test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise fake updater.fetch exth fields through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_mobi_edge_cases.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         updater.calls.append(("fetchEXTHFields",))
 
     updater.create_exth = create_exth
@@ -109,6 +289,18 @@ def _fake_updater():
 
 
 def _exth_records(exth_blob: bytes) -> dict[int, list[bytes]]:
+    """
+    Perform the exth records test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise exth records through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_edge_cases.py
+
+
+    :param exth_blob: Value supplied for exth blob in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     assert exth_blob.startswith(b"EXTH")
     count = unpack(">I", exth_blob[8:12])[0]
     pos = 12
@@ -122,10 +314,33 @@ def _exth_records(exth_blob: bytes) -> dict[int, list[bytes]]:
 
 
 def _has_forbidden_payload_byte(payload: bytes) -> bool:
+    """
+    Perform the has forbidden payload byte test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise has forbidden payload byte through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_edge_cases.py
+
+
+    :param payload: Value supplied for payload in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return any(byte < 0x20 and byte not in {0x09, 0x0A, 0x0D} for byte in payload)
 
 
 def test_mobi_stream_slicer_get_set_update_and_error_edges() -> None:
+    """
+    Verify mobi stream slicer get set update and error edges.
+
+    Example:
+        Exercise test mobi stream slicer get set update and error edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     stream = io.BytesIO(bytearray(b"0123456789abcdef"))
     slicer = mobi.StreamSlicer(stream, start=2, stop=12)
     assert len(slicer) == 10
@@ -155,6 +370,19 @@ def test_mobi_stream_slicer_get_set_update_and_error_edges() -> None:
 
 
 def test_mobi_helpers_for_images_sizes_covers_and_get_metadata_edges(monkeypatch) -> None:
+    """
+    Verify mobi helpers for images sizes covers and get metadata edges.
+
+    Example:
+        Exercise test mobi helpers for images sizes covers and get metadata edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     assert not mobi.is_image(None)
     assert mobi.is_image(b"\x89PNG\r\n\x1a\n" + b"\0" * 64)
     assert mobi._stream_size(_NoSeekTell(), fallback=123) == 123
@@ -184,12 +412,37 @@ def test_mobi_helpers_for_images_sizes_covers_and_get_metadata_edges(monkeypatch
 
 
 def test_mobi_topaz_failure_paths_raise_by_default_and_can_opt_into_fallback(monkeypatch) -> None:
+    """
+    Verify mobi topaz failure paths raise by default and can opt into fallback.
+
+    Example:
+        Exercise test mobi topaz failure paths raise by default and can opt into fallback through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     events = []
     monkeypatch.setattr(mobi.default_log, "log_exception", lambda *args, **_kwargs: events.append(args))
 
     fake_topaz = types.ModuleType("LiuXin_alpha.metadata.file_sources.topaz")
 
     def explode_topaz(_stream):
+        """
+        Perform the explode topaz test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test mobi topaz failure paths raise by default and can opt into fallback.explode topaz through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_mobi_edge_cases.py
+
+
+        :param _stream: Value supplied for stream in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise RuntimeError("topaz exploded")
 
     fake_topaz.get_metadata = explode_topaz
@@ -209,6 +462,19 @@ def test_mobi_topaz_failure_paths_raise_by_default_and_can_opt_into_fallback(mon
 
 
 def test_mobi_metadata_updater_update_writes_broad_exth_records(monkeypatch) -> None:
+    """
+    Verify mobi metadata updater update writes broad exth records.
+
+    Example:
+        Exercise test mobi metadata updater update writes broad exth records through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     updater = _fake_updater()
     mi = _metadata_for_update()
 
@@ -238,6 +504,17 @@ def test_mobi_metadata_updater_update_writes_broad_exth_records(monkeypatch) -> 
 
 
 def test_mobi_metadata_updater_sanitizes_hostile_text_without_mutating_input() -> None:
+    """
+    Verify mobi metadata updater sanitizes hostile text without mutating input.
+
+    Example:
+        Exercise test mobi metadata updater sanitizes hostile text without mutating input through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     updater = _fake_updater()
     title = "MOBI\x00Title\ud800 😀"
     authors = ["Alice\x01 One", "Bob\udfff Two"]
@@ -283,6 +560,19 @@ def test_mobi_metadata_updater_sanitizes_hostile_text_without_mutating_input() -
 
 
 def test_mobi_metadata_updater_update_author_sort_pdoc_timestamp_and_cover_paths(monkeypatch) -> None:
+    """
+    Verify mobi metadata updater update author sort pdoc timestamp and cover paths.
+
+    Example:
+        Exercise test mobi metadata updater update author sort pdoc timestamp and cover paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.file_formats.conversion.config as conversion_config
 
     monkeypatch.setattr(
@@ -326,6 +616,17 @@ def test_mobi_metadata_updater_update_author_sort_pdoc_timestamp_and_cover_paths
 
 
 def test_mobi_metadata_updater_update_timestamp_fallbacks_and_errors() -> None:
+    """
+    Verify mobi metadata updater update timestamp fallbacks and errors.
+
+    Example:
+        Exercise test mobi metadata updater update timestamp fallbacks and errors through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     updater = _fake_updater()
     mi = calibreMetaInformation("Timestamp Title", ["Timestamp Author"])
     mi.publisher = None
@@ -361,6 +662,18 @@ def test_mobi_metadata_updater_update_timestamp_fallbacks_and_errors() -> None:
 
 
 def test_mobi_metadata_updater_low_level_binary_helpers(capsys) -> None:
+    """
+    Verify mobi metadata updater low level binary helpers.
+
+    Example:
+        Exercise test mobi metadata updater low level binary helpers through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_edge_cases.py
+
+
+    :param capsys: Pytest fixture capturing standard output and error streams.
+    :return: None; the function records state or raises through its assertions.
+    """
     updater = object.__new__(mobi.MetadataUpdater)
     record0 = bytearray(512)
     record0[0xA8:0xAC] = pack(">I", 200)

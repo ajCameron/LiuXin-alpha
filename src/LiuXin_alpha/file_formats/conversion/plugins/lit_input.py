@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Convert LIT content into the normalized ebook conversion pipeline.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise lit input through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+"""
 from __future__ import annotations, with_statement
 
 import typing as _typing
@@ -14,6 +25,14 @@ __docformat__ = "restructuredtext en"
 
 class LITInput(InputFormatPlugin):
 
+    """
+    Convert litinput sources into the normalized OEB pipeline model.
+
+    Example:
+        Exercise LITInput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     name = "LIT Input"
     author = "Marshall T. Vandegrift"
     description = "Convert LIT files to HTML"
@@ -21,6 +40,24 @@ class LITInput(InputFormatPlugin):
 
     def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
 
+        """
+        Convert the supplied source into the stage's normalized output representation.
+
+        Example:
+            Exercise LITInput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param options: Value supplied for options under the utility contract.
+        :param file_ext: Value supplied for file ext under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param accelerators: Value supplied for accelerators under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.conversion.plumber import create_oebbook
         from LiuXin_alpha.file_formats.lit.reader import LitReader
 
@@ -29,6 +66,21 @@ class LITInput(InputFormatPlugin):
 
     def postprocess_book(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
 
+        """
+        Perform the postprocess book operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LITInput.postprocess book through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.file_formats.oeb.base import XHTML, XHTML_NS, XPath
 
         for item in oeb.spine:

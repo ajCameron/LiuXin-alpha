@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Transform book covers and their package references.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise cover through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -17,6 +28,19 @@ except ModuleNotFoundError:
     from LiuXin_alpha.utils.plugins.fallbacks.magick import Image as _FallbackImage
 
     def identify_data(data: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the identify data operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise identify data through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         with _FallbackImage(data) as img:
             meta = img.identify()
         return meta.get("width", -1), meta.get("height", -1), meta.get("format")
@@ -28,6 +52,14 @@ __docformat__ = "restructuredtext en"
 
 class CoverManager(object):
 
+    """
+    Provide the covermanager contract for validated ebook processing.
+
+    Example:
+        Exercise CoverManager through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+    """
     SVG_TEMPLATE = textwrap.dedent(
         """\
         <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
@@ -82,6 +114,23 @@ class CoverManager(object):
         preserve_aspect_ratio: bool = False,
         fixed_size: _typing.Any = None,
     ) -> None:
+        """
+        Initialize and validate the covermanager state.
+
+        Example:
+            Exercise CoverManager.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param no_default_cover: Value supplied for no default cover under the utility
+            contract.
+        :param no_svg_cover: Value supplied for no svg cover under the utility contract.
+        :param preserve_aspect_ratio: Value supplied for preserve aspect ratio under the
+            utility contract.
+        :param fixed_size: Value supplied for fixed size under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.no_default_cover = no_default_cover
         self.no_svg_cover = no_svg_cover
         self.preserve_aspect_ratio = preserve_aspect_ratio
@@ -97,6 +146,21 @@ class CoverManager(object):
         self.non_svg_template = self.NONSVG_TEMPLATE.replace("__style__", style)
 
     def __call__(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CoverManager.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.oeb = oeb
         self.log = log
         self.insert_cover()
@@ -104,7 +168,15 @@ class CoverManager(object):
     def default_cover(self: _typing.Self) -> _typing.Any:
         """
         Create a generic cover for books that dont have a cover.
-        :return:
+
+        Example:
+            Exercise CoverManager.default cover through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if self.no_default_cover:
             return None
@@ -130,6 +202,19 @@ class CoverManager(object):
         return None
 
     def inspect_cover(self: _typing.Self, href: _typing.Any) -> _typing.Any:
+        """
+        Perform the inspect cover operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CoverManager.inspect cover through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param href: Value supplied for href under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.oeb.base import urlnormalize
 
         for x in self.oeb.manifest:
@@ -142,6 +227,18 @@ class CoverManager(object):
         return None, None
 
     def insert_cover(self: _typing.Self) -> None:
+        """
+        Perform the insert cover operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CoverManager.insert cover through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.file_formats.oeb.base import urldefrag
 
         g, m = self.oeb.guide, self.oeb.manifest

@@ -1,4 +1,14 @@
-"""Behavioral contracts for catalog field metadata containers."""
+"""
+Verify test field metadata contracts behavior against the public catalog contracts.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test field metadata contracts through its owning regression module::
+
+        python -m pytest -q tests/catalog/test_field_metadata_contracts.py
+"""
 
 from __future__ import annotations
 
@@ -20,6 +30,18 @@ MetadataFactory = Callable[[], FieldMetadata | CalibreFieldMetadata]
 
 @pytest.fixture(params=(FieldMetadata, CalibreFieldMetadata), ids=("liuxin", "calibre"))
 def metadata(request: pytest.FixtureRequest) -> FieldMetadata | CalibreFieldMetadata:
+    """
+    Perform the metadata test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise metadata through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_metadata_contracts.py
+
+
+    :param request: Value supplied for request under the catalog contract.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     factory: MetadataFactory = request.param
     return factory()
 
@@ -38,6 +60,28 @@ def _add_custom_field(
     in_table: str = "books",
     name: str | None = None,
 ) -> None:
+    """
+    Perform the add custom field test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise add custom field through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_metadata_contracts.py
+
+
+    :param metadata: Value supplied for metadata under the catalog contract.
+    :param label: Value supplied for label under the catalog contract.
+    :param datatype: Value supplied for datatype under the catalog contract.
+    :param colnum: Value supplied for colnum under the catalog contract.
+    :param display: Value supplied for display under the catalog contract.
+    :param is_category: Value supplied for is category under the catalog contract.
+    :param is_csp: Value supplied for is csp under the catalog contract.
+    :param is_editable: Value supplied for is editable under the catalog contract.
+    :param is_multiple: Value supplied for is multiple under the catalog contract.
+    :param in_table: Value supplied for in table under the catalog contract.
+    :param name: Value supplied for name under the catalog contract.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     metadata.add_custom_field(
         label=label,
         table=f"custom_column_{colnum}",
@@ -57,6 +101,18 @@ def _add_custom_field(
 def test_mapping_surface_tracks_the_live_metadata_mapping(
     metadata: FieldMetadata | CalibreFieldMetadata,
 ) -> None:
+    """
+    Verify mapping surface tracks the live metadata mapping.
+
+    Example:
+        Exercise test mapping surface tracks the live metadata mapping through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_metadata_contracts.py
+
+
+    :param metadata: Value supplied for metadata under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     keys = list(metadata.keys())
 
     assert list(metadata) == keys
@@ -86,6 +142,18 @@ def test_mapping_surface_tracks_the_live_metadata_mapping(
 def test_field_classification_and_metadata_views(
     metadata: FieldMetadata | CalibreFieldMetadata,
 ) -> None:
+    """
+    Verify field classification and metadata views.
+
+    Example:
+        Exercise test field classification and metadata views through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_metadata_contracts.py
+
+
+    :param metadata: Value supplied for metadata under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     _add_custom_field(metadata, label="plain", colnum=1)
     _add_custom_field(metadata, label="computed", datatype="composite", colnum=2)
     _add_custom_field(metadata, label="saga", datatype="series", colnum=3)
@@ -127,6 +195,18 @@ def test_field_classification_and_metadata_views(
 def test_key_and_label_resolution_prefers_the_requested_namespace(
     metadata: FieldMetadata | CalibreFieldMetadata,
 ) -> None:
+    """
+    Verify key and label resolution prefers the requested namespace.
+
+    Example:
+        Exercise test key and label resolution prefers the requested namespace through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_metadata_contracts.py
+
+
+    :param metadata: Value supplied for metadata under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     _add_custom_field(metadata, label="title", colnum=1)
     _add_custom_field(metadata, label="mood", colnum=2)
     metadata.add_user_category("@Shelf", "Shelf")
@@ -153,6 +233,18 @@ def test_key_and_label_resolution_prefers_the_requested_namespace(
 def test_custom_fields_reject_invalid_or_conflicting_definitions(
     metadata: FieldMetadata | CalibreFieldMetadata,
 ) -> None:
+    """
+    Verify custom fields reject invalid or conflicting definitions.
+
+    Example:
+        Exercise test custom fields reject invalid or conflicting definitions through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_metadata_contracts.py
+
+
+    :param metadata: Value supplied for metadata under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     with pytest.raises(ValueError, match="Unknown datatype"):
         _add_custom_field(metadata, label="invalid", datatype="not-a-type")
 
@@ -168,6 +260,18 @@ def test_custom_fields_reject_invalid_or_conflicting_definitions(
 def test_custom_field_refresh_is_idempotent_and_builds_series_companions(
     metadata: FieldMetadata | CalibreFieldMetadata,
 ) -> None:
+    """
+    Verify custom field refresh remains idempotent and builds series companions.
+
+    Example:
+        Exercise test custom field refresh is idempotent and builds series companions through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_metadata_contracts.py
+
+
+    :param metadata: Value supplied for metadata under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     _add_custom_field(metadata, label="mood", colnum=1)
     original = metadata["#mood"]
 
@@ -218,6 +322,18 @@ def test_custom_field_refresh_is_idempotent_and_builds_series_companions(
 def test_new_custom_series_creates_a_searchable_index_field(
     metadata: FieldMetadata | CalibreFieldMetadata,
 ) -> None:
+    """
+    Verify new custom series creates a searchable index field.
+
+    Example:
+        Exercise test new custom series creates a searchable index field through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_metadata_contracts.py
+
+
+    :param metadata: Value supplied for metadata under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     _add_custom_field(
         metadata,
         label="cycle",
@@ -236,6 +352,18 @@ def test_new_custom_series_creates_a_searchable_index_field(
 def test_record_indexes_resolve_builtin_and_custom_name_collisions(
     metadata: FieldMetadata | CalibreFieldMetadata,
 ) -> None:
+    """
+    Verify record indexes resolve builtin and custom name collisions.
+
+    Example:
+        Exercise test record indexes resolve builtin and custom name collisions through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_metadata_contracts.py
+
+
+    :param metadata: Value supplied for metadata under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     _add_custom_field(metadata, label="title", colnum=1)
     _add_custom_field(metadata, label="mood", colnum=2)
     _add_custom_field(metadata, label="cycle", datatype="series", colnum=3)
@@ -256,6 +384,18 @@ def test_record_indexes_resolve_builtin_and_custom_name_collisions(
 def test_dynamic_categories_register_aliases_and_can_be_removed(
     metadata: FieldMetadata | CalibreFieldMetadata,
 ) -> None:
+    """
+    Verify dynamic categories register aliases and can be removed.
+
+    Example:
+        Exercise test dynamic categories register aliases and can be removed through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_metadata_contracts.py
+
+
+    :param metadata: Value supplied for metadata under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata.add_user_category("@Shelf", "Shelf")
     metadata.add_search_category("saved-searches", "Saved searches")
 
@@ -289,6 +429,19 @@ def test_grouped_search_terms_replace_old_groups_and_keep_builtin_terms(
     metadata: FieldMetadata | CalibreFieldMetadata,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Verify grouped search terms replace old groups and keep builtin terms.
+
+    Example:
+        Exercise test grouped search terms replace old groups and keep builtin terms through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_metadata_contracts.py
+
+
+    :param metadata: Value supplied for metadata under the catalog contract.
+    :param capsys: Value supplied for capsys under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata.add_grouped_search_terms(
         {
             "people": ["authors", "publisher"],
@@ -313,6 +466,18 @@ def test_grouped_search_terms_replace_old_groups_and_keep_builtin_terms(
 def test_search_term_listing_and_searchable_fields_include_custom_fields(
     metadata: FieldMetadata | CalibreFieldMetadata,
 ) -> None:
+    """
+    Verify search term listing and searchable fields include custom fields.
+
+    Example:
+        Exercise test search term listing and searchable fields include custom fields through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_metadata_contracts.py
+
+
+    :param metadata: Value supplied for metadata under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     _add_custom_field(metadata, label="mood", colnum=1)
 
     terms = metadata.get_search_terms()
@@ -328,6 +493,17 @@ def test_search_term_listing_and_searchable_fields_include_custom_fields(
 
 
 def test_calibre_field_map_sets_builtin_and_custom_record_indexes() -> None:
+    """
+    Verify calibre field map sets builtin and custom record indexes.
+
+    Example:
+        Exercise test calibre field map sets builtin and custom record indexes through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_metadata_contracts.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = CalibreFieldMetadata()
     _add_custom_field(metadata, label="mood", colnum=1)
 
@@ -342,9 +518,33 @@ def test_invalid_builtin_datatypes_fail_during_initialization(
     monkeypatch: pytest.MonkeyPatch,
     factory: MetadataFactory,
 ) -> None:
+    """
+    Verify invalid builtin datatypes fail during initialization.
+
+    Example:
+        Exercise test invalid builtin datatypes fail during initialization through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_metadata_contracts.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the catalog contract.
+    :param factory: Value supplied for factory under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     original = field_metadata_module._builtin_field_metadata
 
     def invalid_builtin_metadata() -> list[tuple[str, dict[str, Any]]]:
+        """
+        Perform the invalid builtin metadata test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test invalid builtin datatypes fail during initialization.invalid builtin metadata through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_field_metadata_contracts.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         fields = original()
         fields[0][1]["datatype"] = "invalid"
         return fields
@@ -374,10 +574,34 @@ def test_calibre_table_names_translate_to_liuxin_names(
     calibre_name: str,
     liuxin_name: str,
 ) -> None:
+    """
+    Verify calibre table names translate to liuxin names.
+
+    Example:
+        Exercise test calibre table names translate to liuxin names through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_metadata_contracts.py
+
+
+    :param calibre_name: Value supplied for calibre name under the catalog contract.
+    :param liuxin_name: Value supplied for liuxin name under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     assert calibre_name_to_liuxin_name(calibre_name) == liuxin_name
 
 
 def test_legacy_calibre_builtin_metadata_declaration_remains_well_formed() -> None:
+    """
+    Verify legacy calibre builtin metadata declaration remains well formed.
+
+    Example:
+        Exercise test legacy calibre builtin metadata declaration remains well formed through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_metadata_contracts.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     fields = field_metadata_module._calibre_builtin_field_metadata()
 
     assert fields

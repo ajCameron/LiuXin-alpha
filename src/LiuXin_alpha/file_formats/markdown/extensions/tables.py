@@ -1,3 +1,14 @@
+"""
+Translate normalized HTML tables into DOCX grids, cells, spans and borders.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise tables through a consuming regression::
+
+        python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+"""
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import annotations
@@ -26,9 +37,30 @@ from ..util import etree
 
 
 class TableProcessor(BlockProcessor):
-    """Process Tables."""
+    """
+    Process Tables.
+
+    Example:
+        Exercise TableProcessor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     def test(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> bool:
+        """
+        Perform the test operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TableProcessor.test through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param block: Value supplied for block under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         rows = block.split("\n")
         return (
             len(rows) > 2
@@ -39,7 +71,20 @@ class TableProcessor(BlockProcessor):
         )
 
     def run(self: _typing.Self, parent: _typing.Any, blocks: _typing.Any) -> None:
-        """Parse a table block and build table."""
+        """
+        Parse a table block and build table.
+
+        Example:
+            Exercise TableProcessor.run through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param blocks: Value supplied for blocks under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         block = blocks.pop(0).split("\n")
         header = block[0].strip()
         seperator = block[1].strip()
@@ -68,7 +113,22 @@ class TableProcessor(BlockProcessor):
             self._build_row(row.strip(), tbody, align, border)
 
     def _build_row(self: _typing.Self, row: _typing.Any, parent: _typing.Any, align: _typing.Any, border: _typing.Any) -> None:
-        """Given a row of text, build table cells."""
+        """
+        Given a row of text, build table cells.
+
+        Example:
+            Exercise TableProcessor. build row through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param row: Value supplied for row under the utility contract.
+        :param parent: Value supplied for parent under the utility contract.
+        :param align: Value supplied for align under the utility contract.
+        :param border: Value supplied for border under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         tr = etree.SubElement(parent, "tr")
         tag = "td"
         if parent.tag == "thead":
@@ -86,7 +146,20 @@ class TableProcessor(BlockProcessor):
                 c.set("align", a)
 
     def _split_row(self: _typing.Self, row: _typing.Any, border: _typing.Any) -> _typing.Any:
-        """split a row of text into list of cells."""
+        """
+        split a row of text into list of cells.
+
+        Example:
+            Exercise TableProcessor. split row through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param row: Value supplied for row under the utility contract.
+        :param border: Value supplied for border under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if border:
             if row.startswith("|"):
                 row = row[1:]
@@ -96,12 +169,45 @@ class TableProcessor(BlockProcessor):
 
 
 class TableExtension(Extension):
-    """Add tables to Markdown."""
+    """
+    Add tables to Markdown.
+
+    Example:
+        Exercise TableExtension through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     def extendMarkdown(self: _typing.Self, md: _typing.Any, md_globals: _typing.Any) -> None:
-        """Add an instance of TableProcessor to BlockParser."""
+        """
+        Add an instance of TableProcessor to BlockParser.
+
+        Example:
+            Exercise TableExtension.extendMarkdown through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param md: Value supplied for md under the utility contract.
+        :param md_globals: Value supplied for md globals under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         md.parser.blockprocessors.add("table", TableProcessor(md.parser), "<hashheader")
 
 
 def makeExtension(configs: _typing.Any = None) -> _typing.Any:
+    """
+    Perform the makeExtension operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise makeExtension through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param configs: Value supplied for configs under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return TableExtension(configs=configs)

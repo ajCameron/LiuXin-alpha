@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 
+"""
+Discover and embed fonts required by OEB content.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise embed fonts through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -45,6 +56,14 @@ except ModuleNotFoundError:
     font_scanner = None
 
     class NoFonts(Exception):
+        """
+        Provide the nofonts contract for validated ebook processing.
+
+        Example:
+            Exercise NoFonts through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+        """
         pass
 
 
@@ -53,6 +72,20 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 def used_font(style: _typing.Any, embedded_fonts: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Perform the used font operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise used font through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param style: Value supplied for style under the utility contract.
+    :param embedded_fonts: Value supplied for embedded fonts under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ff = [
         six_unicode(f)
         for f in style.get("font-family", [])
@@ -122,9 +155,29 @@ class EmbedFonts(object):
 
     """
     Embed all referenced fonts, if found on system. Must be called after CSS flattening.
+
+    Example:
+        Exercise EmbedFonts through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     def __call__(self: _typing.Self, oeb: _typing.Any, log: _typing.Any, opts: _typing.Any) -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise EmbedFonts.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not _HAS_CSSUTILS:
             raise ModuleNotFoundError("cssutils is required for font embedding transforms")
         if not _HAS_FONT_SUBSET:
@@ -153,7 +206,15 @@ class EmbedFonts(object):
     def find_embedded_fonts(self: _typing.Self) -> None:
         """
         Find all @font-face rules and extract the relevant info from them.
-        :return:
+
+        Example:
+            Exercise EmbedFonts.find embedded fonts through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.embedded_fonts = []
         for item in self.oeb.manifest:
@@ -163,10 +224,16 @@ class EmbedFonts(object):
 
     def find_style_rules(self: _typing.Self) -> None:
         """
-        Extract all font related style information from all stylesheets into a
-        dict mapping classes to font properties specified by that class. All
-        the heavy lifting has already been done by the CSS flattening code.
-        :return:
+        Extract all font related style information from all stylesheets into a dict mapping classes to font properties specified by that class. All the heavy lifting has already been done by the CSS flattening code.
+
+        Example:
+            Exercise EmbedFonts.find style rules through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         rules = defaultdict(dict)
         for item in self.oeb.manifest:
@@ -189,6 +256,18 @@ class EmbedFonts(object):
         self.style_rules = dict(rules)
 
     def get_page_sheet(self: _typing.Self) -> _typing.Any:
+        """
+        Return page sheet under the format's safety and compatibility rules.
+
+        Example:
+            Exercise EmbedFonts.get page sheet through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.page_sheet is None:
             manifest = self.oeb.manifest
             id_, href = manifest.generate("page_css", "page_styles.css")
@@ -203,6 +282,20 @@ class EmbedFonts(object):
         return self.page_sheet
 
     def process_item(self: _typing.Self, item: _typing.Any, sheets: _typing.Any) -> None:
+        """
+        Perform the process item operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise EmbedFonts.process item through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :param sheets: Value supplied for sheets under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         ff_rules = []
         self.current_item = item
         self.page_sheet = None
@@ -222,6 +315,22 @@ class EmbedFonts(object):
             self.find_usage_in(body, base, ff_rules)
 
     def find_usage_in(self: _typing.Self, elem: _typing.Any, inherited_style: _typing.Any, ff_rules: _typing.Any) -> None:
+        """
+        Find usage in under the format's safety and compatibility rules.
+
+        Example:
+            Exercise EmbedFonts.find usage in through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :param inherited_style: Value supplied for inherited style under the utility
+            contract.
+        :param ff_rules: Value supplied for ff rules under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         style = elem_style(self.style_rules, elem.get("class", "") or "", inherited_style)
         for child in elem:
             self.find_usage_in(child, style, ff_rules)
@@ -248,6 +357,19 @@ class EmbedFonts(object):
                 page_sheet.data.insertRule(rule, len(page_sheet.data.cssRules))
 
     def embed_font(self: _typing.Self, style: _typing.Any) -> _typing.Any:
+        """
+        Perform the embed font operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise EmbedFonts.embed font through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param style: Value supplied for style under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ff = [
             six_unicode(f)
             for f in style.get("font-family", [])

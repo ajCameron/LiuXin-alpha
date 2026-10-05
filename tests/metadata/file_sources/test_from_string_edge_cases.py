@@ -1,3 +1,14 @@
+"""
+Exercise filename/string metadata inference across malformed and ambiguous inputs.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test from string edge cases through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_from_string_edge_cases.py
+"""
 from __future__ import annotations
 
 import re
@@ -9,6 +20,18 @@ from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
 
 
 def _values(raw):
+    """
+    Perform the values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise values through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_edge_cases.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, dict):
@@ -22,21 +45,83 @@ def _values(raw):
 
 
 def _first(raw):
+    """
+    Perform the first test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise first through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_edge_cases.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     vals = _values(raw)
     return vals[0] if vals else None
 
 
 class _BadIterable:
+    """
+    Provide the BadIterable test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise BadIterable through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_edge_cases.py
+    """
     def __iter__(self) -> Iterator[str]:
+        """
+        Perform the iter test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise BadIterable.iter through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_from_string_edge_cases.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise RuntimeError("cannot iterate")
 
 
 class _SeriesCarrier:
+    """
+    Provide the SeriesCarrier test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise SeriesCarrier through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_edge_cases.py
+    """
     def __init__(self, series) -> None:
+        """
+        Initialize the SeriesCarrier test double.
+
+        Example:
+            Exercise SeriesCarrier.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_from_string_edge_cases.py
+
+
+        :param series: Value supplied for series in the focused test operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self.series = series
 
 
 def test_from_string_unicode_torture_filename_with_regex_group_aliases() -> None:
+    """
+    Verify from string unicode torture filename with regex group aliases.
+
+    Example:
+        Exercise test from string unicode torture filename with regex group aliases through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.from_string import get_metadata
 
     pattern = re.compile(
@@ -67,6 +152,17 @@ def test_from_string_unicode_torture_filename_with_regex_group_aliases() -> None
 
 
 def test_from_string_bytes_invalid_utf8_and_fullwidth_separators_fail_soft() -> None:
+    """
+    Verify from string bytes invalid utf8 and fullwidth separators fail soft.
+
+    Example:
+        Exercise test from string bytes invalid utf8 and fullwidth separators fail soft through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.from_string import get_metadata
 
     raw = "タイトル＿副題 by 作者\xff名 (tags: ＳＦ;歴史) (published:2020)".encode("utf-8", "surrogatepass")
@@ -78,6 +174,19 @@ def test_from_string_bytes_invalid_utf8_and_fullwidth_separators_fail_soft() -> 
 
 
 def test_from_string_helper_edges_cover_scores_and_null_paths(monkeypatch) -> None:
+    """
+    Verify from string helper edges cover scores and null paths.
+
+    Example:
+        Exercise test from string helper edges cover scores and null paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.from_string as fs
 
     assert fs._coerce_text(None) == ""
@@ -115,6 +224,17 @@ def test_from_string_helper_edges_cover_scores_and_null_paths(monkeypatch) -> No
 
 
 def test_from_string_regex_application_and_series_index_edges() -> None:
+    """
+    Verify from string regex application and series index edges.
+
+    Example:
+        Exercise test from string regex application and series index edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.from_string as fs
 
     md = MetaData()
@@ -145,6 +265,17 @@ def test_from_string_regex_application_and_series_index_edges() -> None:
 
 
 def test_from_string_private_parser_helpers_torture_tokens() -> None:
+    """
+    Verify from string private parser helpers torture tokens.
+
+    Example:
+        Exercise test from string private parser helpers torture tokens through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.from_string as fs
 
     assert fs._parse_date_value(None) is None
@@ -190,6 +321,17 @@ def test_from_string_private_parser_helpers_torture_tokens() -> None:
 
 
 def test_from_string_public_isbn_and_date_edges() -> None:
+    """
+    Verify from string public isbn and date edges.
+
+    Example:
+        Exercise test from string public isbn and date edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.from_string import (
         drop_isbn_from_string,
         get_isbn_from_string,

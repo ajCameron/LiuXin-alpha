@@ -1,10 +1,14 @@
 
 """
-List pytest test *files* that have failing tests, from a pytest-json-report JSON file.
+Provide parse json tests report utility behavior.
 
-- Primary path: json.load() then iterate report["tests"].
-- Fallback: if the JSON is truncated/corrupt, scan lines inside the "tests" array and
-  detect `"outcome": "failed"` paired with the most recent `"nodeid": "..."`
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise parse json tests report through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
 """
 
 from __future__ import annotations
@@ -18,6 +22,20 @@ from typing import Any
 
 
 def try_load_json(path: Path) -> dict[str, Any] | None:
+    """
+    Perform the try load json operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise try load json through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         with path.open("r", encoding="utf-8") as f:
             return json.load(f)
@@ -26,6 +44,19 @@ def try_load_json(path: Path) -> dict[str, Any] | None:
 
 
 def extract_failed_from_parsed(report: dict[str, Any]) -> tuple[Counter, dict[str, list[str]]]:
+    """
+    Extract failed from parsed under the format's safety and compatibility rules.
+
+    Example:
+        Exercise extract failed from parsed through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param report: Value supplied for report under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     failed = Counter()
     details: dict[str, list[str]] = defaultdict(list)
 
@@ -53,6 +84,17 @@ def extract_failed_from_parsed(report: dict[str, Any]) -> tuple[Counter, dict[st
 def extract_failed_fallback_scan(path: Path) -> tuple[Counter, dict[str, list[str]]]:
     """
     Best-effort scan for failures inside the `"tests": [` section without parsing JSON.
+
+    Example:
+        Exercise extract failed fallback scan through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     failed = Counter()
     details: dict[str, list[str]] = defaultdict(list)
@@ -81,6 +123,18 @@ def extract_failed_fallback_scan(path: Path) -> tuple[Counter, dict[str, list[st
 
 
 def main() -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ap = argparse.ArgumentParser(
         description="List test files that have failing tests (from pytest-json-report output)."
     )

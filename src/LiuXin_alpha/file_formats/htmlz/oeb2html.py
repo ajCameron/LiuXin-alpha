@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
 
+"""
+Serialize normalized OEB content and resources into an HTMLZ archive.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise oeb2html through a consuming regression::
+
+        python -m pytest -q tests/file_formats/htmlz/test_htmlz_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -57,21 +68,46 @@ SELF_CLOSING_TAGS = {
 
 class OEB2HTML(object):
     """
-    Base class. All subclasses should implement dump_text to actually transform
-    content. Also, callers should use oeb2html to get the transformed html.
-    links and images can be retrieved after calling oeb2html to get the mapping
-    of OEB links and images to the new names used in the html returned by oeb2html.
-    Images will always be referenced as if they are in an images directory.
+    Base class. All subclasses should implement dump_text to actually transform content. Also, callers should use oeb2html to get the transformed html. links and images can be retrieved after calling oeb2html to get the mapping of OEB links and images to the new names used in the html returned by oeb2html. Images will always be referenced as if they are in an images directory.
 
-    Use get_css to get the CSS classes for the OEB document as a string.
+    Example:
+        Exercise OEB2HTML through a consuming regression::
+
+            python -m pytest -q tests/file_formats/htmlz/test_htmlz_modernized.py
     """
 
     def __init__(self: _typing.Self, log: _typing.Any = None) -> None:
+        """
+        Initialize and validate the oeb2html state.
+
+        Example:
+            Exercise OEB2HTML.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/htmlz/test_htmlz_modernized.py
+
+
+        :param log: Value supplied for log under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.log = default_log if log is None else log
         self.links = {}
         self.images = {}
 
     def oeb2html(self: _typing.Self, oeb_book: _typing.Any, opts: _typing.Any) -> _typing.Any:
+        """
+        Perform the oeb2html operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEB2HTML.oeb2html through a consuming regression::
+
+                python -m pytest -q tests/file_formats/htmlz/test_htmlz_modernized.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.log.info("Converting OEB book to HTML...")
         self.opts = opts
         self.links = {}
@@ -82,6 +118,19 @@ class OEB2HTML(object):
         return self.mlize_spine(oeb_book)
 
     def mlize_spine(self: _typing.Self, oeb_book: _typing.Any) -> _typing.Any:
+        """
+        Perform the mlize spine operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEB2HTML.mlize spine through a consuming regression::
+
+                python -m pytest -q tests/file_formats/htmlz/test_htmlz_modernized.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         output = ['<html><head><meta http-equiv="Content-Type" content="text/html;charset=utf-8" /></head><body>']
         for item in oeb_book.spine:
             self.log.debug("Converting %s to HTML..." % item.href)
@@ -94,9 +143,38 @@ class OEB2HTML(object):
         return "".join(output)
 
     def dump_text(self: _typing.Self, elem: _typing.Any, stylizer: _typing.Any, page: _typing.Any) -> None:
+        """
+        Perform the dump text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEB2HTML.dump text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/htmlz/test_htmlz_modernized.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :param stylizer: Value supplied for stylizer under the utility contract.
+        :param page: Value supplied for page under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise NotImplementedError
 
     def get_link_id(self: _typing.Self, href: _typing.Any, id: str = "") -> _typing.Any:
+        """
+        Return link id under the format's safety and compatibility rules.
+
+        Example:
+            Exercise OEB2HTML.get link id through a consuming regression::
+
+                python -m pytest -q tests/file_formats/htmlz/test_htmlz_modernized.py
+
+
+        :param href: Value supplied for href under the utility contract.
+        :param id: Value supplied for id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if id:
             href += "#%s" % id
         if href not in self.links:
@@ -104,6 +182,19 @@ class OEB2HTML(object):
         return self.links[href]
 
     def map_resources(self: _typing.Self, oeb_book: _typing.Any) -> None:
+        """
+        Perform the map resources operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEB2HTML.map resources through a consuming regression::
+
+                python -m pytest -q tests/file_formats/htmlz/test_htmlz_modernized.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         link_attrs_fallback = {
             "href",
             "src",
@@ -146,6 +237,20 @@ class OEB2HTML(object):
                                 self.get_link_id(href, attr_id)
 
     def rewrite_link(self: _typing.Self, url: _typing.Any, page: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the rewrite link operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEB2HTML.rewrite link through a consuming regression::
+
+                python -m pytest -q tests/file_formats/htmlz/test_htmlz_modernized.py
+
+
+        :param url: Value supplied for url under the utility contract.
+        :param page: Value supplied for page under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not page:
             return url
         abs_url = page.abshref(urlnormalize(url))
@@ -156,6 +261,20 @@ class OEB2HTML(object):
         return url
 
     def rewrite_ids(self: _typing.Self, root: _typing.Any, page: _typing.Any) -> None:
+        """
+        Perform the rewrite ids operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEB2HTML.rewrite ids through a consuming regression::
+
+                python -m pytest -q tests/file_formats/htmlz/test_htmlz_modernized.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :param page: Value supplied for page under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for el in root.iter():
             try:
                 tag = el.tag
@@ -168,6 +287,19 @@ class OEB2HTML(object):
                 el.attrib["id"] = self.get_link_id(page.href, el.attrib["id"])[1:]
 
     def get_css(self: _typing.Self, oeb_book: _typing.Any) -> _typing.Any:
+        """
+        Return css under the format's safety and compatibility rules.
+
+        Example:
+            Exercise OEB2HTML.get css through a consuming regression::
+
+                python -m pytest -q tests/file_formats/htmlz/test_htmlz_modernized.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         css_parts = []
         for item in oeb_book.manifest:
             if item.media_type == "text/css":
@@ -178,6 +310,19 @@ class OEB2HTML(object):
         return "\n\n".join(x for x in css_parts if x)
 
     def prepare_string_for_html(self: _typing.Self, raw: _typing.Any) -> _typing.Any:
+        """
+        Perform the prepare string for html operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEB2HTML.prepare string for html through a consuming regression::
+
+                python -m pytest -q tests/file_formats/htmlz/test_htmlz_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         raw = prepare_string_for_xml(raw)
         raw = raw.replace("\u00ad", "&shy;")
         raw = raw.replace("\u2014", "&mdash;")
@@ -189,15 +334,28 @@ class OEB2HTML(object):
 class OEB2HTMLNoCSSizer(OEB2HTML):
     """
     This will remap a small number of CSS styles to equivalent HTML tags.
+
+    Example:
+        Exercise OEB2HTMLNoCSSizer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/htmlz/test_htmlz_modernized.py
     """
 
     def dump_text(self: _typing.Self, elem: _typing.Any, stylizer: _typing.Any, page: _typing.Any) -> _typing.Any:
         """
+        Perform the dump text operation under explicit file-format and conversion rules.
 
-        :param elem: The element in the etree that we are working on.
-        :param stylizer: The style information attached to the element.
-        :param page:
-        :return:
+        Example:
+            Exercise OEB2HTMLNoCSSizer.dump text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/htmlz/test_htmlz_modernized.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :param stylizer: Value supplied for stylizer under the utility contract.
+        :param page: Value supplied for page under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         # We can only processes tags. If there isn't a tag return any text.
@@ -278,15 +436,28 @@ class OEB2HTMLNoCSSizer(OEB2HTML):
 class OEB2HTMLInlineCSSizer(OEB2HTML):
     """
     Turns external CSS classes into inline style attributes.
+
+    Example:
+        Exercise OEB2HTMLInlineCSSizer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/htmlz/test_htmlz_modernized.py
     """
 
     def dump_text(self: _typing.Self, elem: _typing.Any, stylizer: _typing.Any, page: _typing.Any) -> _typing.Any:
         """
+        Perform the dump text operation under explicit file-format and conversion rules.
 
-        :param elem: The element in the etree that we are working on.
-        :param stylizer: The style information attached to the element.
-        :param page:
-        :return:
+        Example:
+            Exercise OEB2HTMLInlineCSSizer.dump text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/htmlz/test_htmlz_modernized.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :param stylizer: Value supplied for stylizer under the utility contract.
+        :param page: Value supplied for page under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # We can only processes tags. If there isn't a tag return any text.
         if not isinstance(elem.tag, six_string_types) or namespace(elem.tag) != XHTML_NS:
@@ -360,12 +531,28 @@ class OEB2HTMLInlineCSSizer(OEB2HTML):
 
 class OEB2HTMLClassCSSizer(OEB2HTML):
     """
-    Use CSS classes. css_style option can specify whether to use
-    inline classes (style tag in the head) or reference an external
-    CSS file called style.css.
+    Use CSS classes. css_style option can specify whether to use inline classes (style tag in the head) or reference an external CSS file called style.css.
+
+    Example:
+        Exercise OEB2HTMLClassCSSizer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/htmlz/test_htmlz_modernized.py
     """
 
     def mlize_spine(self: _typing.Self, oeb_book: _typing.Any) -> _typing.Any:
+        """
+        Perform the mlize spine operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEB2HTMLClassCSSizer.mlize spine through a consuming regression::
+
+                python -m pytest -q tests/file_formats/htmlz/test_htmlz_modernized.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         output = []
         for item in oeb_book.spine:
             self.log.debug("Converting %s to HTML..." % item.href)
@@ -389,11 +576,19 @@ class OEB2HTMLClassCSSizer(OEB2HTML):
 
     def dump_text(self: _typing.Self, elem: _typing.Any, stylizer: _typing.Any, page: _typing.Any) -> _typing.Any:
         """
+        Perform the dump text operation under explicit file-format and conversion rules.
 
-        :param elem: The element in the etree that we are working on.
-        :param stylizer: The style information attached to the element.
-        :param page:
-        :return:
+        Example:
+            Exercise OEB2HTMLClassCSSizer.dump text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/htmlz/test_htmlz_modernized.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :param stylizer: Value supplied for stylizer under the utility contract.
+        :param page: Value supplied for page under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         # We can only processes tags. If there isn't a tag return any text.
@@ -451,6 +646,21 @@ class OEB2HTMLClassCSSizer(OEB2HTML):
 
 
 def oeb2html_no_css(oeb_book: _typing.Any, log: _typing.Any, opts: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Perform the oeb2html no css operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise oeb2html no css through a consuming regression::
+
+            python -m pytest -q tests/file_formats/htmlz/test_htmlz_modernized.py
+
+
+    :param oeb_book: Value supplied for oeb book under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :param opts: Value supplied for opts under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     local_izer = OEB2HTMLNoCSSizer(log)
     local_html = local_izer.oeb2html(oeb_book, opts)
     images = local_izer.images
@@ -458,6 +668,21 @@ def oeb2html_no_css(oeb_book: _typing.Any, log: _typing.Any, opts: _typing.Any) 
 
 
 def oeb2html_inline_css(oeb_book: _typing.Any, log: _typing.Any, opts: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Perform the oeb2html inline css operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise oeb2html inline css through a consuming regression::
+
+            python -m pytest -q tests/file_formats/htmlz/test_htmlz_modernized.py
+
+
+    :param oeb_book: Value supplied for oeb book under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :param opts: Value supplied for opts under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     local_izer = OEB2HTMLInlineCSSizer(log)
     local_html = local_izer.oeb2html(oeb_book, opts)
     images = local_izer.images
@@ -465,6 +690,21 @@ def oeb2html_inline_css(oeb_book: _typing.Any, log: _typing.Any, opts: _typing.A
 
 
 def oeb2html_class_css(oeb_book: _typing.Any, log: _typing.Any, opts: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Perform the oeb2html class css operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise oeb2html class css through a consuming regression::
+
+            python -m pytest -q tests/file_formats/htmlz/test_htmlz_modernized.py
+
+
+    :param oeb_book: Value supplied for oeb book under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :param opts: Value supplied for opts under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     local_izer = OEB2HTMLClassCSSizer(log)
     setattr(opts, "htmlz_class_style", "inline")
     local_html = local_izer.oeb2html(oeb_book, opts)

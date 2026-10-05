@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
 
+"""
+Expose the supported pdb compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -9,6 +20,14 @@ __docformat__ = "restructuredtext en"
 
 
 class PDBError(Exception):
+    """
+    Report a pdberror encountered while processing an ebook format.
+
+    Example:
+        Exercise PDBError through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+    """
     pass
 
 
@@ -16,6 +35,18 @@ FORMAT_READERS = None
 
 
 def _import_readers() -> None:
+    """
+    Perform the import readers operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  import readers through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     global FORMAT_READERS
     from LiuXin_alpha.file_formats.pdb.ereader.reader import Reader as Ereader_Reader
     from LiuXin_alpha.file_formats.pdb.palmdoc.reader import Reader as Palmdoc_Reader
@@ -41,6 +72,18 @@ FORMAT_WRITERS = None
 
 
 def _import_writers() -> None:
+    """
+    Perform the import writers operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  import writers through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     global FORMAT_WRITERS
     from LiuXin_alpha.file_formats.pdb.palmdoc.writer import Writer as Palmdoc_Writer
     from LiuXin_alpha.file_formats.pdb.ztxt.writer import Writer as ZTXT_Writer
@@ -90,8 +133,16 @@ IDENTITY_TO_NAME = {
 def get_reader(identity: _typing.Any) -> _typing.Any:
     """
     Returns None if no reader is found for the identity.
-    :param identity:
-    :return:
+
+    Example:
+        Exercise get reader through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+    :param identity: Value supplied for identity under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     global FORMAT_READERS
     if FORMAT_READERS is None:
@@ -102,8 +153,16 @@ def get_reader(identity: _typing.Any) -> _typing.Any:
 def get_writer(extension: _typing.Any) -> _typing.Any:
     """
     Returns None if no writer is found for extension.
-    :param extension:
-    :return:
+
+    Example:
+        Exercise get writer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+    :param extension: Value supplied for extension under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     global FORMAT_WRITERS
     if FORMAT_WRITERS is None:

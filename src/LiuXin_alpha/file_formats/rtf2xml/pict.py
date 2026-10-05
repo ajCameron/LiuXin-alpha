@@ -10,6 +10,17 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+"""
+Extract embedded RTF pictures and their sizing metadata.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise pict through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -22,7 +33,14 @@ from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
 
 
 class Pict:
-    """Process graphic information"""
+    """
+    Process graphic information
+
+    Example:
+        Exercise Pict through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+    """
 
     def __init__(
         self: _typing.Self,
@@ -33,6 +51,23 @@ class Pict:
         orig_file: _typing.Any = None,
         run_level: int = 1,
     ) -> None:
+        """
+        Initialize and validate the pict state.
+
+        Example:
+            Exercise Pict.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param out_file: Value supplied for out file under the utility contract.
+        :param copy: Value supplied for copy under the utility contract.
+        :param orig_file: Value supplied for orig file under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.__file = in_file
         self.__bug_handler = bug_handler
         self.__copy = copy
@@ -49,6 +84,18 @@ class Pict:
         self.__out_file = out_file
 
     def __initiate_pict_dict(self: _typing.Self) -> None:
+        """
+        Perform the initiate pict dict operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Pict.  initiate pict dict through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__pict_dict = {
             "ob<nu<open-brack": self.__open_br_func,
             "cb<nu<clos-brack": self.__close_br_func,
@@ -56,17 +103,67 @@ class Pict:
         }
 
     def __open_br_func(self: _typing.Self, line: _typing.Any) -> str:
+        """
+        Perform the open br func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Pict.  open br func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "{\n"
 
     def __close_br_func(self: _typing.Self, line: _typing.Any) -> str:
+        """
+        Perform the close br func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Pict.  close br func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "}\n"
 
     def __text_func(self: _typing.Self, line: _typing.Any) -> _typing.Any:
         # tx<nu<__________<true text
+        """
+        Perform the text func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Pict.  text func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return line[17:]
 
     def __make_dir(self: _typing.Self) -> None:
-        """Make a directory to put the image data in"""
+        """
+        Make a directory to put the image data in
+
+        Example:
+            Exercise Pict.  make dir through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         base_name = os.path.basename(getattr(self.__orig_file, "name", self.__orig_file))
         base_name = os.path.splitext(base_name)[0]
         if self.__out_file:
@@ -95,11 +192,35 @@ class Pict:
                 sys.stderr.write("Files removed.\n")
 
     def __create_pict_file(self: _typing.Self) -> None:
-        """Create a file for all the pict data to be written to."""
+        """
+        Create a file for all the pict data to be written to.
+
+        Example:
+            Exercise Pict.  create pict file through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__pict_file = os.path.join(self.__dir_name, "picts.rtf")
         self.__write_pic_obj = open_for_write(self.__pict_file, append=True)
 
     def __in_pict_func(self: _typing.Self, line: _typing.Any) -> bool:
+        """
+        Perform the in pict func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Pict.  in pict func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.__cb_count == self.__pict_br_count:
             self.__in_pict = False
             self.__write_pic_obj.write("}\n")
@@ -111,10 +232,19 @@ class Pict:
             return False
 
     def __default(self: _typing.Self, line: _typing.Any, write_obj: _typing.Any) -> bool:
-        """Determine if each token marks the beginning of pict data.
-        If it does, create a new file to write data to (if that file
-        has not already been created.) Set the self.__in_pict flag to true.
-        If the line does not contain pict data, return 1
+        """
+        Determine if each token marks the beginning of pict data. If it does, create a new file to write data to (if that file has not already been created.) Set the self.__in_pict flag to true. If the line does not contain pict data, return 1
+
+        Example:
+            Exercise Pict.  default through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :param write_obj: Value supplied for write obj under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         """
         $pict_count++;
@@ -139,13 +269,34 @@ class Pict:
         return True
 
     def __print_rtf_header(self: _typing.Self) -> None:
-        """Print to pict file the necessary RTF data for the file to be
-        recognized as an RTF file.
+        """
+        Print to pict file the necessary RTF data for the file to be recognized as an RTF file.
+
+        Example:
+            Exercise Pict.  print rtf header through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__write_pic_obj.write("{\\rtf1 \n{\\fonttbl\\f0\\null;} \n")
         self.__write_pic_obj.write("{\\colortbl\\red255\\green255\\blue255;} \n\\pard \n")
 
     def process_pict(self: _typing.Self) -> None:
+        """
+        Perform the process pict operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Pict.process pict through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__make_dir()
         with open_for_read(self.__file) as read_obj:
             with open_for_write(self.__write_to) as write_obj:

@@ -1,5 +1,15 @@
 
-"""Legacy byte/text coercion, URL, entity, and case-normalization helpers."""
+"""
+Expose the supported text compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/utils/text/test_text_core.py
+"""
 
 from typing import Optional, Union
 from copy import deepcopy
@@ -10,12 +20,35 @@ from LiuXin_alpha.constants import preferred_encoding
 
 
 def isbytestring(obj : Union[bytes, str]) -> bool:
+    """
+    Perform the isbytestring utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise isbytestring through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :param obj: Value supplied for obj under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return isinstance(obj, (str, bytes))
 
 
 def url_slash_cleaner(url: str) -> str:
     """
     Removes redundant /'s from urls.
+
+    Example:
+        Exercise url slash cleaner through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :param url: Value supplied for url under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return re.sub(r"(?<!:)/{2,}", "/", url)
 
@@ -23,6 +56,20 @@ def url_slash_cleaner(url: str) -> str:
 
 def as_unicode(obj, enc: Optional[None] = None):
 
+    """
+    Perform the as unicode utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise as unicode through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :param obj: Value supplied for obj under the utility contract.
+    :param enc: Value supplied for enc under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.constants import force_unicode
     from LiuXin_alpha.utils.libraries.calibre_polyglot.builtins import native_string_type
 
@@ -43,7 +90,20 @@ def as_unicode(obj, enc: Optional[None] = None):
 
 
 def human_readable(size, sep=" "):
-    """Convert a size in bytes into a human-readable form."""
+    """
+    Convert a size in bytes into a human-readable form.
+
+    Example:
+        Exercise human readable through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :param size: Value supplied for size under the utility contract.
+    :param sep: Delimiter used to split or join list values.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     divisor, suffix = 1, "B"
     for i, candidate in enumerate(("B", "KB", "MB", "GB", "TB", "PB", "EB")):
         if size < (1 << ((i + 1) * 10)):
@@ -61,10 +121,16 @@ def remove_bracketed_text(src, brackets: Optional[dict[str, str]] = None) -> str
     """
     Remove bracketed text from a given string.
 
-    :param src:
-    :param brackets: Optional dict keyed with the left bracket, valued with the right.
-                     Defaults to {"(": ")", "[": "]", "{": "}"}
-    :return:
+    Example:
+        Exercise remove bracketed text through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :param src: Value supplied for src under the utility contract.
+    :param brackets: Value supplied for brackets under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     brackets = brackets if brackets is not None else {"(": ")", "[": "]", "{": "}"}
 
@@ -87,6 +153,19 @@ def remove_bracketed_text(src, brackets: Optional[dict[str, str]] = None) -> str
 
 
 def my_unichr(num):
+    """
+    Perform the my unichr utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise my unichr through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :param num: Value supplied for num under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.utils.text.icu import safe_chr
     try:
         return safe_chr(num)
@@ -96,20 +175,37 @@ def my_unichr(num):
 
 def entity_to_unicode(match, exceptions=[], encoding="cp1252", result_exceptions={}):
     """
-    :param match: A match object such that '&'+match.group(1)';' is the entity.
+    Perform the entity to unicode utility operation under explicit compatibility rules.
 
-    :param exceptions: A list of entities to not convert (Each entry is the name of the entity, e.g. 'apos' or '#1234'
+    Example:
+        Exercise entity to unicode through a consuming regression::
 
-    :param encoding: The encoding to use to decode numeric entities between 128 and 256.
-    If None, the Unicode UCS encoding is used. A common encoding is cp1252.
+            python -m pytest -q tests/utils/text/test_text_core.py
 
-    :param result_exceptions: A mapping of characters to entities. If the result
-    is in result_exceptions, result_exception[result] is returned instead.
-    Convenient way to specify exception for things like < or > that can be
-    specified by various actual entities.
+
+    :param match: Value supplied for match under the utility contract.
+    :param exceptions: Value supplied for exceptions under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param result_exceptions: Value supplied for result exceptions under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     def check(ch):
+        """
+        Perform the check utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise entity to unicode.check through a consuming regression::
+
+                python -m pytest -q tests/utils/text/test_text_core.py
+
+
+        :param ch: Value supplied for ch under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return result_exceptions.get(ch, ch)
 
     ent = match.group(1)
@@ -155,12 +251,19 @@ BRACKETS = ("<>", "{}", "()", "[]")
 
 def drop_bracketed_text(target_string, parenthesis_types=None):
     """
-    Drops any text surrounded by parenthesis of the given types. If None is supplied defaults to
-    (u'<>', u'{}', u'()', u'[]').
-    Takes a parenthesis list of the form (u'[first_parenthesis_1][second_parenthesis_1]', ... ).
-    This will also normalize whitespace to single spaces.
-    :param target_string:
-    :return stripped_string:
+    Drops any text surrounded by parenthesis of the given types. If None is supplied defaults to (u'<>', u'{}', u'()', u'[]'). Takes a parenthesis list of the form (u'[first_parenthesis_1][second_parenthesis_1]', ... ). This will also normalize whitespace to single spaces.
+
+    Example:
+        Exercise drop bracketed text through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :param target_string: Value supplied for target string under the utility contract.
+    :param parenthesis_types: Value supplied for parenthesis types under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     from LiuXin_alpha.constants import VERBOSE_DEBUG

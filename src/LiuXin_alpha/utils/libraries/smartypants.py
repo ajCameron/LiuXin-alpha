@@ -1,6 +1,17 @@
 #!/usr/bin/python
 # vim:fileencoding=utf-8
 
+"""
+Transform straight punctuation into typographic punctuation under selectable policies.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise smartypants through a consuming regression::
+
+        python -m pytest -q tests/file_formats/html/test_html_modernized.py
+"""
 __author__ = "Chad Miller <smartypantspy@chad.org>, Kovid Goyal <kovid at kovidgoyal.net>"
 __description__ = "Smart-quotes, smart-ellipses, and smart-dashes for weblog entries in pyblosxom"
 
@@ -386,11 +397,37 @@ self_closing_regex = re.compile(r"/\s*>$")
 
 
 def verify_installation(request):
+    """
+    Perform the verify installation utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise verify installation through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param request: Value supplied for request under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return 1
     # assert the plugin is functional
 
 
 def cb_story(args):
+    """
+    Perform the cb story utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise cb story through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param args: Positional values forwarded to the compatibility implementation.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     global default_smartypants_attr
 
     try:
@@ -424,6 +461,20 @@ def cb_story(args):
 
 
 def smartyPants(text, attr=default_smartypants_attr):
+    """
+    Perform the smartyPants utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise smartyPants through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :param attr: Value supplied for attr under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     convert_quot = False  # should we translate &quot; entities into normal quotes?
 
     # Parse attributes:
@@ -581,12 +632,17 @@ def smartyPants(text, attr=default_smartypants_attr):
 
 def educateQuotes(str):
     """
-    Parameter:  String.
+    Parameter: String.
 
-    Returns:    The string, with "educated" curly quote HTML entities.
+    Example:
+        Exercise educateQuotes through a consuming regression::
 
-    Example input:  "Isn't this fun?"
-    Example output: &#8220;Isn&#8217;t this fun?&#8221;
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param str: Value supplied for str under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     punct_class = r"""[!"#\$\%'()*+,-.\/:;<=>?\@\[\\\]\^_`{|}~]"""
@@ -733,11 +789,17 @@ def educateQuotes(str):
 
 def educateBackticks(str):
     """
-    Parameter:  String.
-    Returns:    The string, with ``backticks'' -style double quotes
-                translated into HTML curly quote entities.
-    Example input:  ``Isn't this fun?''
-    Example output: &#8220;Isn't this fun?&#8221;
+    Parameter: String. Returns: The string, with ``backticks'' -style double quotes translated into HTML curly quote entities. Example input: ``Isn't this fun?'' Example output: &#8220;Isn't this fun?&#8221;
+
+    Example:
+        Exercise educateBackticks through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param str: Value supplied for str under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     str = re.sub(r"""``""", r"""&#8220;""", str)
@@ -747,12 +809,17 @@ def educateBackticks(str):
 
 def educateSingleBackticks(str):
     """
-    Parameter:  String.
-    Returns:    The string, with `backticks' -style single quotes
-                translated into HTML curly quote entities.
+    Parameter: String. Returns: The string, with `backticks' -style single quotes translated into HTML curly quote entities.
 
-    Example input:  `Isn't this fun?'
-    Example output: &#8216;Isn&#8217;t this fun?&#8217;
+    Example:
+        Exercise educateSingleBackticks through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param str: Value supplied for str under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     str = re.sub(r"""`""", r"""&#8216;""", str)
@@ -762,10 +829,17 @@ def educateSingleBackticks(str):
 
 def educateDashes(str):
     """
-    Parameter:  String.
+    Parameter: String.
 
-    Returns:    The string, with each instance of "--" translated to
-                an em-dash HTML entity.
+    Example:
+        Exercise educateDashes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param str: Value supplied for str under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     str = re.sub(r"""---""", r"""&#8211;""", str)  # en  (yes, backwards)
@@ -775,11 +849,17 @@ def educateDashes(str):
 
 def educateDashesOldSchool(str):
     """
-    Parameter:  String.
+    Parameter: String.
 
-    Returns:    The string, with each instance of "--" translated to
-                an en-dash HTML entity, and each "---" translated to
-                an em-dash HTML entity.
+    Example:
+        Exercise educateDashesOldSchool through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param str: Value supplied for str under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     str = re.sub(r"""---""", r"""&#8212;""", str)  # em (yes, backwards)
@@ -789,18 +869,17 @@ def educateDashesOldSchool(str):
 
 def educateDashesOldSchoolInverted(str):
     """
-    Parameter:  String.
+    Parameter: String.
 
-    Returns:    The string, with each instance of "--" translated to
-                an em-dash HTML entity, and each "---" translated to
-                an en-dash HTML entity. Two reasons why: First, unlike the
-                en- and em-dash syntax supported by
-                EducateDashesOldSchool(), it's compatible with existing
-                entries written before SmartyPants 1.1, back when "--" was
-                only used for em-dashes.  Second, em-dashes are more
-                common than en-dashes, and so it sort of makes sense that
-                the shortcut should be shorter to type. (Thanks to Aaron
-                Swartz for the idea.)
+    Example:
+        Exercise educateDashesOldSchoolInverted through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param str: Value supplied for str under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     str = re.sub(r"""---""", r"""&#8211;""", str)  # em
     str = re.sub(r"""--""", r"""&#8212;""", str)  # en
@@ -809,12 +888,17 @@ def educateDashesOldSchoolInverted(str):
 
 def educateEllipses(str):
     """
-    Parameter:  String.
-    Returns:    The string, with each instance of "..." translated to
-                an ellipsis HTML entity.
+    Parameter: String. Returns: The string, with each instance of "..." translated to an ellipsis HTML entity.
 
-    Example input:  Huh...?
-    Example output: Huh&#8230;?
+    Example:
+        Exercise educateEllipses through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param str: Value supplied for str under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     str = re.sub(r"""../../../LiuXin_tests/utils""", r"""&#8230;""", str)
@@ -824,12 +908,17 @@ def educateEllipses(str):
 
 def stupefyEntities(str):
     """
-    Parameter:  String.
-    Returns:    The string, with each SmartyPants HTML entity translated to
-                its ASCII counterpart.
+    Parameter: String. Returns: The string, with each SmartyPants HTML entity translated to its ASCII counterpart.
 
-    Example input:  &#8220;Hello &#8212; world.&#8221;
-    Example output: "Hello -- world."
+    Example:
+        Exercise stupefyEntities through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param str: Value supplied for str under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     str = re.sub(r"""&#8211;""", r"""-""", str)  # en-dash
@@ -847,20 +936,18 @@ def stupefyEntities(str):
 
 
 def processEscapes(str):
-    r"""
-    Parameter:  String.
-    Returns:    The string, with after processing the following backslash
-                escape sequences. This is useful if you want to force a "dumb"
-                quote or other character to appear.
+    """
+    Parameter: String. Returns: The string, with after processing the following backslash escape sequences. This is useful if you want to force a "dumb" quote or other character to appear.
 
-                Escape  Value
-                ------  -----
-                \\      &#92;
-                \"      &#34;
-                \'      &#39;
-                \.      &#46;
-                \-      &#45;
-                \`      &#96;
+    Example:
+        Exercise processEscapes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param str: Value supplied for str under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     str = re.sub(r"""\\\\""", r"""&#92;""", str)
     str = re.sub(r'''\\"''', r"""&#34;""", str)
@@ -874,16 +961,17 @@ def processEscapes(str):
 
 def _tokenize(str):
     """
-    Parameter:  String containing HTML markup.
-    Returns:    Reference to an array of the tokens comprising the input
-                string. Each token is either a tag (possibly with nested,
-                tags contained therein, such as <a href="<MTFoo>">, or a
-                run of text between tags. Each element of the array is a
-                two-element array; the first is either 'tag' or 'text';
-                the second is the actual value.
+    Parameter: String containing HTML markup. Returns: Reference to an array of the tokens comprising the input string. Each token is either a tag (possibly with nested, tags contained therein, such as <a href="<MTFoo>">, or a run of text between tags. Each element of the array is a two-element array; the first is either 'tag' or 'text'; the second is the actual value.
 
-    Based on the _tokenize() subroutine from Brad Choate's MTRegex plugin.
-        <http://www.bradchoate.com/past/mtregex.php>
+    Example:
+        Exercise  tokenize through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param str: Value supplied for str under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     tokens = []
@@ -914,6 +1002,18 @@ def _tokenize(str):
 
 
 def run_tests():
+    """
+    Perform the run tests utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise run tests through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     import unittest
 
     sp = smartyPants
@@ -921,7 +1021,27 @@ def run_tests():
     class TestSmartypantsAllAttributes(unittest.TestCase):
         # the default attribute is "1", which means "all".
 
+        """
+        Provide the TestSmartypantsAllAttributes utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise run tests.TestSmartypantsAllAttributes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         def test_dates(self):
+            """
+            Perform the test dates utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise run tests.TestSmartypantsAllAttributes.test dates through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.assertEqual(sp("one two '60s"), "one two &#8217;60s")
             self.assertEqual(sp("1440-80's"), "1440-80&#8217;s")
             self.assertEqual(sp("1440-'80s"), "1440-&#8217;80s")
@@ -932,11 +1052,35 @@ def run_tests():
             self.assertEqual(sp("'60s"), "&#8217;60s")
 
         def test_measurements(self):
+            """
+            Perform the test measurements utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise run tests.TestSmartypantsAllAttributes.test measurements through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             ae = self.assertEqual
             ae(sp("one two 1.1'2.2\""), "one two 1.1&#8242;2.2&#8243;")
             ae(sp("1' 2\""), "1&#8242; 2&#8243;")
 
         def test_skip_tags(self):
+            """
+            Perform the test skip tags utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise run tests.TestSmartypantsAllAttributes.test skip tags through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.assertEqual(
                 sp(
                     """<script type="text/javascript">\n<!--\nvar href = "http://www.google.com";\nvar linktext = "google";\ndocument.write('<a href="' + href + '">' + linktext + "</a>");\n//-->\n</script>"""
@@ -953,10 +1097,34 @@ def run_tests():
             self.assertEqual(sp("""<script/><p>It's ok</p>"""), """<script/><p>It&#8217;s ok</p>""")
 
         def test_ordinal_numbers(self):
+            """
+            Perform the test ordinal numbers utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise run tests.TestSmartypantsAllAttributes.test ordinal numbers through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.assertEqual(sp("21st century"), "21st century")  # no effect.
             self.assertEqual(sp("3rd"), "3rd")  # no effect.
 
         def test_educated_quotes(self):
+            """
+            Perform the test educated quotes utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise run tests.TestSmartypantsAllAttributes.test educated quotes through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.assertEqual(sp('''"Isn't this fun?"'''), """&#8220;Isn&#8217;t this fun?&#8221;""")
 
     tests = unittest.defaultTestLoader.loadTestsFromTestCase(TestSmartypantsAllAttributes)

@@ -1,3 +1,14 @@
+"""
+Provide test mobi malformed hostile utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test mobi malformed hostile through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_malformed_hostile.py
+"""
 from __future__ import annotations
 
 from struct import pack
@@ -23,6 +34,21 @@ from tests.support.file_format_mobi import (
 
 
 def _set_record0_field(payload: bytes, offset: int, value: int) -> bytes:
+    """
+    Perform the set record0 field operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  set record0 field through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_malformed_hostile.py
+
+
+    :param payload: Value supplied for payload under the utility contract.
+    :param offset: Value supplied for offset under the utility contract.
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     mutated = bytearray(payload)
     record0_offset = palmdb_record_offsets(payload)[0]
     mutated[record0_offset + offset : record0_offset + offset + 4] = pack(">I", value)
@@ -30,6 +56,20 @@ def _set_record0_field(payload: bytes, offset: int, value: int) -> bytes:
 
 
 def _set_record_count(payload: bytes, count: int) -> bytes:
+    """
+    Perform the set record count operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  set record count through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_malformed_hostile.py
+
+
+    :param payload: Value supplied for payload under the utility contract.
+    :param count: Value supplied for count under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     mutated = bytearray(payload)
     mutated[76:78] = pack(">H", count)
     return bytes(mutated)
@@ -44,11 +84,36 @@ def _set_record_count(payload: bytes, count: int) -> bytes:
     ],
 )
 def test_mobi_reader_rejects_truncated_palmdb_header_as_mobi_error(payload: bytes) -> None:
+    """
+    Perform the test mobi reader rejects truncated palmdb header as mobi error operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test mobi reader rejects truncated palmdb header as mobi error through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_malformed_hostile.py
+
+
+    :param payload: Value supplied for payload under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     with pytest.raises(MobiError):
         MobiReader(mobi_stream(payload), MobiLog())
 
 
 def test_metadata_header_rejects_short_record_count_as_mobi_error() -> None:
+    """
+    Perform the test metadata header rejects short record count as mobi error operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test metadata header rejects short record count as mobi error through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_malformed_hostile.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     payload = b"\0" * 60 + b"BOOKMOBI" + b"\0" * 8
 
     with pytest.raises(MobiError):
@@ -56,6 +121,18 @@ def test_metadata_header_rejects_short_record_count_as_mobi_error() -> None:
 
 
 def test_mobi_reader_rejects_short_record_table_as_mobi_error() -> None:
+    """
+    Perform the test mobi reader rejects short record table as mobi error operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test mobi reader rejects short record table as mobi error through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_malformed_hostile.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     payload = build_minimal_mobi()
     declared_three_records = _set_record_count(payload, 3)
     short_table = truncate_mobi_payload(declared_three_records, 78 + (2 * 8) + 2)
@@ -66,6 +143,19 @@ def test_mobi_reader_rejects_short_record_table_as_mobi_error() -> None:
 
 @pytest.mark.parametrize("mutator", ["duplicate", "reversed", "out_of_file"])
 def test_mobi_reader_rejects_invalid_record_offsets_as_mobi_error(mutator: str) -> None:
+    """
+    Perform the test mobi reader rejects invalid record offsets as mobi error operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test mobi reader rejects invalid record offsets as mobi error through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_malformed_hostile.py
+
+
+    :param mutator: Value supplied for mutator under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     payload = build_minimal_mobi(title="Offset Attack", authors=["Offset Author"])
     offsets = palmdb_record_offsets(payload)
 
@@ -81,6 +171,18 @@ def test_mobi_reader_rejects_invalid_record_offsets_as_mobi_error(mutator: str) 
 
 
 def test_mobi_reader_rejects_short_record0_as_mobi_error() -> None:
+    """
+    Perform the test mobi reader rejects short record0 as mobi error operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test mobi reader rejects short record0 as mobi error through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_malformed_hostile.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     payload = build_palmdb([b"\0" * 20, b"<html><body>body</body></html>"])
 
     with pytest.raises(MobiError):
@@ -88,6 +190,18 @@ def test_mobi_reader_rejects_short_record0_as_mobi_error() -> None:
 
 
 def test_mobi_reader_rejects_impossible_mobi_header_length_as_mobi_error() -> None:
+    """
+    Perform the test mobi reader rejects impossible mobi header length as mobi error operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test mobi reader rejects impossible mobi header length as mobi error through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_malformed_hostile.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     payload = build_minimal_mobi(title="Bad Header Length")
     hostile = _set_record0_field(payload, 0x14, 0xFFFF)
 
@@ -96,6 +210,18 @@ def test_mobi_reader_rejects_impossible_mobi_header_length_as_mobi_error() -> No
 
 
 def test_mobi_reader_rejects_out_of_range_title_offset_as_mobi_error() -> None:
+    """
+    Perform the test mobi reader rejects out of range title offset as mobi error operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test mobi reader rejects out of range title offset as mobi error through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_malformed_hostile.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     payload = build_minimal_mobi(title="Bad Title Offset")
     hostile = _set_record0_field(payload, 0x54, len(payload) + 4096)
 
@@ -113,11 +239,36 @@ def test_mobi_reader_rejects_out_of_range_title_offset_as_mobi_error() -> None:
     ],
 )
 def test_exth_header_rejects_malformed_blocks_as_mobi_error(exth: bytes) -> None:
+    """
+    Perform the test exth header rejects malformed blocks as mobi error operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test exth header rejects malformed blocks as mobi error through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_malformed_hostile.py
+
+
+    :param exth: Value supplied for exth under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     with pytest.raises(MobiError):
         EXTHHeader(exth, "utf-8", "fallback")
 
 
 def test_metadata_header_rejects_out_of_range_section_access_as_mobi_error() -> None:
+    """
+    Perform the test metadata header rejects out of range section access as mobi error operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test metadata header rejects out of range section access as mobi error through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_malformed_hostile.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     header = MetadataHeader(mobi_stream(build_minimal_mobi()), MobiLog())
 
     with pytest.raises(MobiError):
@@ -125,6 +276,18 @@ def test_metadata_header_rejects_out_of_range_section_access_as_mobi_error() -> 
 
 
 def test_mobi_reader_rejects_malformed_exth_in_record0_as_mobi_error() -> None:
+    """
+    Perform the test mobi reader rejects malformed exth in record0 as mobi error operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test mobi reader rejects malformed exth in record0 as mobi error through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_malformed_hostile.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     record0 = build_mobi_record0(
         title="Bad EXTH",
         authors=["Bad Author"],

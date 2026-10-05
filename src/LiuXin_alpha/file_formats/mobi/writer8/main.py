@@ -1,5 +1,16 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
+"""
+Coordinate MOBI/KF8 writer stages and final container assembly.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise main through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -19,6 +30,14 @@ except Exception:
     cssutils = None
 
     class CSSRule:
+        """
+        Provide the cssrule contract for validated ebook processing.
+
+        Example:
+            Exercise CSSRule through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+        """
         IMPORT_RULE = object()
 from lxml import etree
 
@@ -71,7 +90,29 @@ to_ref = partial(to_base, base=32, min_num_digits=4)
 
 
 class KF8Writer(object):
+    """
+    Provide the kf8writer contract for validated ebook processing.
+
+    Example:
+        Exercise KF8Writer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+    """
     def __init__(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any, resources: _typing.Any) -> None:
+        """
+        Initialize and validate the kf8writer state.
+
+        Example:
+            Exercise KF8Writer.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param resources: Value supplied for resources under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         if cssutils is None:
             raise RuntimeError("cssutils is required for MOBI/KF8 generation")
         self.oeb, self.opts, self.log = oeb, opts, oeb.log
@@ -108,7 +149,15 @@ class KF8Writer(object):
     def dup_data(self: _typing.Self) -> None:
         """
         Duplicate data so that any changes we make to markup/CSS only affect KF8 output and not MOBI 6 output
-        :return:
+
+        Example:
+            Exercise KF8Writer.dup data through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self._data_cache = {}
         # Suppress cssutils logging output as it is duplicated anyway earlier
@@ -124,9 +173,34 @@ class KF8Writer(object):
                 self._data_cache[item.href] = cssutils.parseString(item.data.cssText, validate=False)
 
     def data(self: _typing.Self, item: _typing.Any) -> _typing.Any:
+        """
+        Perform the data operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise KF8Writer.data through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._data_cache.get(item.href, item.data)
 
     def cleanup_markup(self: _typing.Self) -> None:
+        """
+        Perform the cleanup markup operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise KF8Writer.cleanup markup through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for item in self.oeb.spine:
             root = self.data(item)
 
@@ -137,14 +211,33 @@ class KF8Writer(object):
 
     def replace_resource_links(self: _typing.Self) -> None:
         """
-        Replace links to resources (raster images/fonts) with pointers to
-        the MOBI record containing the resource. The pointers are of the form:
-        kindle:embed:XXXX?mime=image/* The ?mime= is apparently optional and
-        not used for fonts.
-        :return:
+        Replace links to resources (raster images/fonts) with pointers to the MOBI record containing the resource. The pointers are of the form: kindle:embed:XXXX?mime=image/* The ?mime= is apparently optional and not used for fonts.
+
+        Example:
+            Exercise KF8Writer.replace resource links through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         def pointer(local_item: _typing.Any, local_oref: _typing.Any) -> _typing.Any:
+            """
+            Perform the pointer operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise KF8Writer.replace resource links.pointer through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+            :param local_item: Value supplied for local item under the utility contract.
+            :param local_oref: Value supplied for local oref under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             ref = urlnormalize(local_item.abshref(local_oref))
             idx = self.resources.item_map.get(ref, None)
             if idx is not None:
@@ -185,6 +278,18 @@ class KF8Writer(object):
                 cssutils.replaceUrls(sheet, replacer, ignoreImportRules=True)
 
     def extract_css_into_flows(self: _typing.Self) -> None:
+        """
+        Extract css into flows under the format's safety and compatibility rules.
+
+        Example:
+            Exercise KF8Writer.extract css into flows through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         inlines = defaultdict(list)  # Ensure identical <style>s not repeated
         sheets = {}
 
@@ -197,6 +302,19 @@ class KF8Writer(object):
                 self.flows.append(sheet)
 
         def fix_import_rules(local_sheet: _typing.Any) -> _typing.Any:
+            """
+            Perform the fix import rules operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise KF8Writer.extract css into flows.fix import rules through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+            :param local_sheet: Value supplied for local sheet under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             changed = False
             for rule in local_sheet.cssRules.rulesOfType(CSSRule.IMPORT_RULE):
                 if rule.href:
@@ -252,6 +370,18 @@ class KF8Writer(object):
                 self.flows[i] = force_unicode(sheet.cssText, "utf-8")
 
     def extract_svg_into_flows(self: _typing.Self) -> None:
+        """
+        Extract svg into flows under the format's safety and compatibility rules.
+
+        Example:
+            Exercise KF8Writer.extract svg into flows through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         images = {}
 
         for item in self.oeb.manifest:
@@ -281,6 +411,18 @@ class KF8Writer(object):
                     img.set("src", "kindle:flow:%s?mime=image/svg+xml" % to_ref(idx))
 
     def replace_internal_links_with_placeholders(self: _typing.Self) -> None:
+        """
+        Perform the replace internal links with placeholders operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise KF8Writer.replace internal links with placeholders through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.link_map = {}
         count = 0
         hrefs = {item.href for item in self.oeb.spine}
@@ -302,6 +444,18 @@ class KF8Writer(object):
                     a.set("href", placeholder)
 
     def insert_aid_attributes(self: _typing.Self) -> None:
+        """
+        Perform the insert aid attributes operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise KF8Writer.insert aid attributes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.id_map = {}
         for i, item in enumerate(self.oeb.spine):
             root = self.data(item)
@@ -327,6 +481,18 @@ class KF8Writer(object):
                     j += 1
 
     def chunk_it_up(self: _typing.Self) -> None:
+        """
+        Perform the chunk it up operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise KF8Writer.chunk it up through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         placeholder_map = {}
         for placeholder, x in iteritems(self.link_map):
             href, frag = x
@@ -342,6 +508,18 @@ class KF8Writer(object):
         self.flows[0] = chunker.text
 
     def create_text_records(self: _typing.Self) -> None:
+        """
+        Create text records under the format's safety and compatibility rules.
+
+        Example:
+            Exercise KF8Writer.create text records through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.flows = [x.encode("utf-8") if isinstance(x, str) else x for x in self.flows]
         text = b"".join(self.flows)
         self.text_length = len(text)
@@ -374,6 +552,18 @@ class KF8Writer(object):
             self.first_non_text_record_idx += 1
 
     def create_fdst_records(self: _typing.Self) -> None:
+        """
+        Create fdst records under the format's safety and compatibility rules.
+
+        Example:
+            Exercise KF8Writer.create fdst records through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         FDST = namedtuple("Flow", "start end")
         entries = []
         self.fdst_table = []
@@ -386,6 +576,18 @@ class KF8Writer(object):
         self.fdst_count = len(self.fdst_table)
 
     def create_indices(self: _typing.Self) -> None:
+        """
+        Create indices under the format's safety and compatibility rules.
+
+        Example:
+            Exercise KF8Writer.create indices through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.skel_records = SkelIndex(self.skel_table)()
         self.chunk_records = ChunkIndex(self.chunk_table)()
         self.ncx_records = []
@@ -467,6 +669,19 @@ class KF8Writer(object):
 
         # Write the lengths
         def get_next_start(local_entry: _typing.Any) -> _typing.Any:
+            """
+            Return next start under the format's safety and compatibility rules.
+
+            Example:
+                Exercise KF8Writer.create indices.get next start through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+            :param local_entry: Value supplied for local entry under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             enders = [
                 e["offset"]
                 for e in entries
@@ -484,6 +699,18 @@ class KF8Writer(object):
         self.ncx_records = idx_type(entries)()
 
     def create_guide(self: _typing.Self) -> None:
+        """
+        Create guide under the format's safety and compatibility rules.
+
+        Example:
+            Exercise KF8Writer.create guide through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.start_offset = None
         self.guide_table = []
         self.guide_records = []
@@ -506,5 +733,21 @@ class KF8Writer(object):
 
 
 def create_kf8_book(oeb: _typing.Any, opts: _typing.Any, resources: _typing.Any, for_joint: bool = False) -> _typing.Any:
+    """
+    Create kf8 book under the format's safety and compatibility rules.
+
+    Example:
+        Exercise create kf8 book through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+    :param oeb: Value supplied for oeb under the utility contract.
+    :param opts: Value supplied for opts under the utility contract.
+    :param resources: Value supplied for resources under the utility contract.
+    :param for_joint: Value supplied for for joint under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     writer = KF8Writer(oeb, opts, resources)
     return KF8Book(writer, for_joint=for_joint)

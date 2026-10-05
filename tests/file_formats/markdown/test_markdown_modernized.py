@@ -1,3 +1,14 @@
+"""
+Provide test markdown modernized utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test markdown modernized through a consuming regression::
+
+        python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+"""
 from __future__ import annotations
 
 import importlib
@@ -8,6 +19,18 @@ import pytest
 
 
 def test_markdown_modules_import_smoke() -> None:
+    """
+    Perform the test markdown modules import smoke operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test markdown modules import smoke through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     pkg = importlib.import_module("LiuXin_alpha.file_formats.markdown")
     importlib.import_module("LiuXin_alpha.file_formats.markdown.__main__")
 
@@ -24,12 +47,36 @@ def test_markdown_modules_import_smoke() -> None:
 
 
 def test_markdown_convert_none_is_empty() -> None:
+    """
+    Perform the test markdown convert none is empty operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test markdown convert none is empty through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.markdown import Markdown
 
     assert Markdown().convert(None) == ""
 
 
 def test_markdown_unicode_torture_with_extensions() -> None:
+    """
+    Perform the test markdown unicode torture with extensions operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test markdown unicode torture with extensions through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats import markdown
 
     source = (
@@ -50,6 +97,18 @@ def test_markdown_unicode_torture_with_extensions() -> None:
 
 
 def test_markdown_from_file_replaces_invalid_utf8_sequences() -> None:
+    """
+    Perform the test markdown from file replaces invalid utf8 sequences operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test markdown from file replaces invalid utf8 sequences through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.markdown import markdownFromFile
 
     bad_utf8 = b"# Titl\xffe\n\nBody: caf\xc3\xa9 and bad \xe2(\xa1"
@@ -64,6 +123,19 @@ def test_markdown_from_file_replaces_invalid_utf8_sequences() -> None:
 
 
 def test_markdown_cli_run_dispatches_to_markdown_from_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Perform the test markdown cli run dispatches to markdown from file operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test markdown cli run dispatches to markdown from file through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     main_mod = importlib.import_module("LiuXin_alpha.file_formats.markdown.__main__")
 
     options = {

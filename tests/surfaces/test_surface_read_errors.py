@@ -1,4 +1,14 @@
-"""Application adapters must distinguish read failures from normal HTTP misses."""
+"""
+Provide test surface read errors utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test surface read errors through a consuming regression::
+
+        python -m pytest -q tests/surfaces/test_surface_read_errors.py
+"""
 
 from io import BytesIO, StringIO
 from unittest.mock import Mock, create_autospec
@@ -18,6 +28,20 @@ from LiuXin_alpha.surfaces.web_readonly.app import ReadOnlyWebApplication
 
 
 def _app(application_type=ApiReadOnlyApplication):
+    """
+    Perform the app operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  app through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_surface_read_errors.py
+
+
+    :param application_type: Value supplied for application type under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     client = create_autospec(CoreClientAPI, instance=True, spec_set=True)
     application = application_type(client)
     model = create_autospec(CoreSurfaceModel, instance=True, spec_set=True)
@@ -39,6 +63,20 @@ def _app(application_type=ApiReadOnlyApplication):
 
 
 def _environ(path: str):
+    """
+    Perform the environ operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  environ through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_surface_read_errors.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     environ = {}
     setup_testing_defaults(environ)
     environ["PATH_INFO"], _, environ["QUERY_STRING"] = path.partition("?")
@@ -60,6 +98,21 @@ def _environ(path: str):
     ),
 )
 def test_detail_routes_do_not_translate_failed_lookups_into_404(path, failure) -> None:
+    """
+    Perform the test detail routes do not translate failed lookups into 404 operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test detail routes do not translate failed lookups into 404 through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_surface_read_errors.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param failure: Value supplied for failure under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     application = _app()
     error = failure("read failed")
     application.model.row.side_effect = error
@@ -79,6 +132,20 @@ def test_detail_routes_do_not_translate_failed_lookups_into_404(path, failure) -
     ),
 )
 def test_detail_routes_keep_404_for_missing_records(path) -> None:
+    """
+    Perform the test detail routes keep 404 for missing records operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test detail routes keep 404 for missing records through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_surface_read_errors.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     response = _app().handle_request(_environ(path))
     assert response.status == "404 Not Found"
 
@@ -94,6 +161,21 @@ def test_detail_routes_keep_404_for_missing_records(path) -> None:
     ],
 )
 def test_malformed_ids_keep_the_existing_response_contract(path, status) -> None:
+    """
+    Perform the test malformed ids keep the existing response contract operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test malformed ids keep the existing response contract through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_surface_read_errors.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param status: Value supplied for status under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     application = _app()
     response = application.handle_request(_environ(path))
     assert response.status == status
@@ -104,6 +186,20 @@ def test_malformed_ids_keep_the_existing_response_contract(path, status) -> None
     "application_type", (OpdsReadOnlyApplication, CalibreReadOnlyWebApplication)
 )
 def test_opds_relationship_failures_are_not_silently_omitted(application_type) -> None:
+    """
+    Perform the test opds relationship failures are not silently omitted operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test opds relationship failures are not silently omitted through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_surface_read_errors.py
+
+
+    :param application_type: Value supplied for application type under the utility
+        contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     application = _app(application_type)
     error = CoreHandlerError("relations failed")
     application.model.related.side_effect = error
@@ -113,6 +209,18 @@ def test_opds_relationship_failures_are_not_silently_omitted(application_type) -
 
 
 def test_author_route_selection_does_not_hide_lookup_failures() -> None:
+    """
+    Perform the test author route selection does not hide lookup failures operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test author route selection does not hide lookup failures through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_surface_read_errors.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     application = _app()
     error = ValueError("corrupt row")
     application.model.row.side_effect = error
@@ -125,6 +233,18 @@ def test_author_route_selection_does_not_hide_lookup_failures() -> None:
 
 
 def test_relationship_schema_failures_reach_the_caller() -> None:
+    """
+    Perform the test relationship schema failures reach the caller operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test relationship schema failures reach the caller through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_surface_read_errors.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     application = _app(ReadOnlyWebApplication)
     error = OSError("schema unavailable")
     application.model.related_tables.side_effect = error
@@ -138,6 +258,19 @@ def test_relationship_schema_failures_reach_the_caller() -> None:
 def test_file_capability_queries_do_not_turn_failures_into_unavailability(
     method,
 ) -> None:
+    """
+    Perform the test file capability queries do not turn failures into unavailability operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test file capability queries do not turn failures into unavailability through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_surface_read_errors.py
+
+
+    :param method: Value supplied for method under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     application = _app(ReadOnlyWebApplication)
     error = RemoteProxyError("resolution failed")
     application.model.acquisition_resolve.side_effect = error
@@ -148,6 +281,19 @@ def test_file_capability_queries_do_not_turn_failures_into_unavailability(
 
 @pytest.mark.parametrize("method", ("_resolve_storage_file", "_resolve_file_target"))
 def test_explicitly_unavailable_files_are_not_query_failures(method) -> None:
+    """
+    Perform the test explicitly unavailable files are not query failures operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test explicitly unavailable files are not query failures through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_surface_read_errors.py
+
+
+    :param method: Value supplied for method under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     application = _app(ReadOnlyWebApplication)
     application.model.acquisition_resolve.return_value = {
         "readable": False,
@@ -173,6 +319,23 @@ def test_explicitly_unavailable_files_are_not_query_failures(method) -> None:
 def test_wsgi_server_reports_failure_without_exposing_private_error_text(
     application_type, path, failing_method
 ) -> None:
+    """
+    Perform the test wsgi server reports failure without exposing private error text operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test wsgi server reports failure without exposing private error text through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_surface_read_errors.py
+
+
+    :param application_type: Value supplied for application type under the utility
+        contract.
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param failing_method: Value supplied for failing method under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     application = _app(application_type)
     detail = "private-database-detail-for-test"
     getattr(application.model, failing_method).side_effect = OSError(detail)
@@ -189,6 +352,18 @@ def test_wsgi_server_reports_failure_without_exposing_private_error_text(
 
 
 def test_complete_empty_collection_is_still_a_success() -> None:
+    """
+    Perform the test complete empty collection is still a success operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test complete empty collection is still a success through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_surface_read_errors.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     application = _app()
     response = application.handle_request(_environ("/api/works"))
     assert response.status == "200 OK"
@@ -199,6 +374,19 @@ def test_complete_empty_collection_is_still_a_success() -> None:
 def test_home_counts_show_explicit_query_unavailability_without_claiming_zero(
     failure,
 ) -> None:
+    """
+    Perform the test home counts show explicit query unavailability without claiming zero operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test home counts show explicit query unavailability without claiming zero through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_surface_read_errors.py
+
+
+    :param failure: Value supplied for failure under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     application = _app(ReadOnlyWebApplication)
     application.model.record_count.side_effect = failure(
         "cache cannot query this table",
@@ -215,6 +403,18 @@ def test_home_counts_show_explicit_query_unavailability_without_claiming_zero(
 def test_required_collection_does_not_turn_known_unavailability_into_empty_success() -> (
     None
 ):
+    """
+    Perform the test required collection does not turn known unavailability into empty success operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test required collection does not turn known unavailability into empty success through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_surface_read_errors.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     application = _app()
     error = CoreHandlerError("unsupported query", code="read_query_unavailable")
     application.model.query_rows.side_effect = error
@@ -224,6 +424,18 @@ def test_required_collection_does_not_turn_known_unavailability_into_empty_succe
 
 
 def test_category_presentation_errors_are_not_reported_as_missing_rows() -> None:
+    """
+    Perform the test category presentation errors are not reported as missing rows operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test category presentation errors are not reported as missing rows through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_surface_read_errors.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     application = _app()
     application.model.row.return_value = CoreRow("tags", 7, {"id": 7, "name": "snow"})
     application._entity_summary_payload = Mock(side_effect=KeyError("broken presenter"))

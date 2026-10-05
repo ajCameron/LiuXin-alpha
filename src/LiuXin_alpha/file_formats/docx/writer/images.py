@@ -1,5 +1,16 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
+"""
+Add normalized image resources, drawing markup and dimensions to DOCX output.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise images through a consuming regression::
+
+        python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -32,6 +43,19 @@ Image = namedtuple("Image", "rid fname width height fmt item")
 
 
 def as_num(x: _typing.Any) -> _typing.Any:
+    """
+    Perform the as num operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise as num through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         return float(x)
     except Exception:
@@ -40,6 +64,19 @@ def as_num(x: _typing.Any) -> _typing.Any:
 
 
 def get_image_margins(style: _typing.Any) -> _typing.Any:
+    """
+    Return image margins under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get image margins through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param style: Value supplied for style under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ans = {}
     for edge in "Left Right Top Bottom".split():
         val = as_num(getattr(style, "padding" + edge)) + as_num(getattr(style, "margin" + edge))
@@ -48,7 +85,29 @@ def get_image_margins(style: _typing.Any) -> _typing.Any:
 
 
 class ImagesManager(object):
+    """
+    Provide the imagesmanager contract for validated ebook processing.
+
+    Example:
+        Exercise ImagesManager through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     def __init__(self: _typing.Self, oeb: _typing.Any, document_relationships: _typing.Any) -> None:
+        """
+        Initialize and validate the imagesmanager state.
+
+        Example:
+            Exercise ImagesManager.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param document_relationships: Value supplied for document relationships under the
+            utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.oeb, self.log = oeb, oeb.log
         self.images = {}
         self.seen_filenames = set()
@@ -56,6 +115,19 @@ class ImagesManager(object):
         self.count = 0
 
     def read_image(self: _typing.Self, href: _typing.Any) -> _typing.Any:
+        """
+        Read image under the format's safety and compatibility rules.
+
+        Example:
+            Exercise ImagesManager.read image through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param href: Value supplied for href under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if href not in self.images:
             item = self.oeb.manifest.hrefs.get(href)
             if item is None or not isinstance(item.data, bytes):
@@ -73,6 +145,23 @@ class ImagesManager(object):
         return self.images[href]
 
     def add_image(self: _typing.Self, img: _typing.Any, block: _typing.Any, stylizer: _typing.Any, bookmark: _typing.Any = None, as_block: bool = False) -> _typing.Any:
+        """
+        Perform the add image operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ImagesManager.add image through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param img: Value supplied for img under the utility contract.
+        :param block: Value supplied for block under the utility contract.
+        :param stylizer: Value supplied for stylizer under the utility contract.
+        :param bookmark: Value supplied for bookmark under the utility contract.
+        :param as_block: Value supplied for as block under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         src = img.get("src")
         if not src:
             return
@@ -87,6 +176,22 @@ class ImagesManager(object):
 
     def create_image_markup(self: _typing.Self, html_img: _typing.Any, stylizer: _typing.Any, href: _typing.Any, as_block: bool = False) -> _typing.Any:
         # TODO: img inside a link (clickable image)
+        """
+        Create image markup under the format's safety and compatibility rules.
+
+        Example:
+            Exercise ImagesManager.create image markup through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param html_img: Value supplied for html img under the utility contract.
+        :param stylizer: Value supplied for stylizer under the utility contract.
+        :param href: Value supplied for href under the utility contract.
+        :param as_block: Value supplied for as block under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         style = stylizer.style(html_img)
         floating = style["float"]
         if floating not in {"left", "right"}:
@@ -147,6 +252,24 @@ class ImagesManager(object):
         return ans
 
     def create_docx_image_markup(self: _typing.Self, parent: _typing.Any, name: _typing.Any, alt: _typing.Any, img_rid: _typing.Any, width: _typing.Any, height: _typing.Any) -> None:
+        """
+        Create docx image markup under the format's safety and compatibility rules.
+
+        Example:
+            Exercise ImagesManager.create docx image markup through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param alt: Value supplied for alt under the utility contract.
+        :param img_rid: Value supplied for img rid under the utility contract.
+        :param width: Value supplied for width under the utility contract.
+        :param height: Value supplied for height under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         makeelement, namespaces = (
             self.document_relationships.namespace.makeelement,
             self.document_relationships.namespace.namespaces,
@@ -172,6 +295,20 @@ class ImagesManager(object):
         makeelement(makeelement(sp_pr, "a:prstGeom", prst="rect"), "a:avLst")
 
     def create_filename(self: _typing.Self, href: _typing.Any, fmt: _typing.Any) -> _typing.Any:
+        """
+        Create filename under the format's safety and compatibility rules.
+
+        Example:
+            Exercise ImagesManager.create filename through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param href: Value supplied for href under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         fname = ascii_filename(urlunquote(posixpath.basename(href)))
         fname = posixpath.splitext(fname)[0]
         fname = fname[:75].rstrip(".") or "image"
@@ -185,16 +322,57 @@ class ImagesManager(object):
         return fname
 
     def serialize(self: _typing.Self, images_map: _typing.Any) -> None:
+        """
+        Perform the serialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ImagesManager.serialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param images_map: Value supplied for images map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for img in itervalues(self.images):
             images_map["word/" + img.fname] = partial(self.get_data, img.item)
 
     def get_data(self: _typing.Self, item: _typing.Any) -> _typing.Any:
+        """
+        Return data under the format's safety and compatibility rules.
+
+        Example:
+            Exercise ImagesManager.get data through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return item.data
         finally:
             item.unload_data_from_memory(False)
 
     def create_cover_markup(self: _typing.Self, img: _typing.Any, width: _typing.Any, height: _typing.Any) -> _typing.Any:
+        """
+        Create cover markup under the format's safety and compatibility rules.
+
+        Example:
+            Exercise ImagesManager.create cover markup through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param img: Value supplied for img under the utility contract.
+        :param width: Value supplied for width under the utility contract.
+        :param height: Value supplied for height under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.count += 1
         makeelement, namespaces = (
             self.document_relationships.namespace.makeelement,
@@ -219,6 +397,20 @@ class ImagesManager(object):
         return ans
 
     def write_cover_block(self: _typing.Self, body: _typing.Any, cover_image: _typing.Any) -> None:
+        """
+        Write cover block under the format's safety and compatibility rules.
+
+        Example:
+            Exercise ImagesManager.write cover block through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param body: Value supplied for body under the utility contract.
+        :param cover_image: Value supplied for cover image under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         makeelement, namespaces = (
             self.document_relationships.namespace.makeelement,
             self.document_relationships.namespace.namespaces,

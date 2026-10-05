@@ -1,5 +1,12 @@
 """
-Metadata-to-link-update writer foundation for the catalog layer.
+Resolve and apply catalog link-table updates with cardinality checks.
+
+The module keeps validation, normalization and host mutation boundaries explicit.
+
+Example:
+    Exercise link writer through its owning regression module::
+
+        python -m pytest -q tests/catalog/test_link_writer.py
 """
 
 from __future__ import annotations
@@ -50,17 +57,10 @@ class CatalogLinkWriter[RawValueT, ValueT](
     """
     Translate metadata link intent and apply one normalized catalog update.
 
-    Concrete field writers implement :meth:`adapt` and
-    :meth:`resolve_destination`; they may override :meth:`validate`. Existing
-    integer ids and rich :class:`LinkValue` instructions already carry
-    database-facing information and therefore bypass those methods.
+    Example:
+        Exercise CatalogLinkWriter through its owning regression module::
 
-    The writer does not issue SQL, acquire locks, mutate caches, discover link
-    schemas, or remove unused destination rows. :class:`LinkUpdate` owns
-    structural normalization and :class:`CatalogAPI` owns application.
-
-    :param catalog: Catalog facade used to apply normalized link updates.
-    :param link_spec: Declared storage route and capabilities for the link.
+            python -m pytest -q tests/catalog/test_link_writer.py
     """
 
     def __init__(
@@ -71,11 +71,15 @@ class CatalogLinkWriter[RawValueT, ValueT](
         """
         Validate and store the link-writer configuration.
 
-        :param catalog: Catalog facade used to apply normalized link updates.
-        :param link_spec: Declared storage route and capabilities for the link.
-        :return: None.
-        :raises TypeError: If the link specification or catalog does not
-            provide the required interface.
+        Example:
+            Exercise CatalogLinkWriter.init through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_writer.py
+
+
+        :param catalog: Catalog host or facade supplying metadata and mutation services.
+        :param link_spec: Value supplied for link spec under the catalog contract.
+        :return: None; the function records state or raises through its assertions.
         """
 
         if not isinstance(link_spec, StorageLinkSpec):
@@ -91,7 +95,13 @@ class CatalogLinkWriter[RawValueT, ValueT](
         """
         Return the declared link storage route and capabilities.
 
-        :return: Configured link specification.
+        Example:
+            Exercise CatalogLinkWriter.link spec through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_writer.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         return self._link_spec
@@ -101,11 +111,14 @@ class CatalogLinkWriter[RawValueT, ValueT](
         """
         Resolve one adapted value to a destination-table id.
 
-        Matching and create-if-missing policy belong in the concrete field
-        writer or a resolver used by it, not in the base link workflow.
+        Example:
+            Exercise CatalogLinkWriter.resolve destination through its owning regression module::
 
-        :param value: Adapted and validated destination value.
-        :return: Resolved destination-table id.
+                python -m pytest -q tests/catalog/test_link_writer.py
+
+
+        :param value: Public or stored value to normalize, compare or write.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         raise NotImplementedError
@@ -114,8 +127,14 @@ class CatalogLinkWriter[RawValueT, ValueT](
         """
         Adapt, validate, and resolve one raw metadata value.
 
-        :param raw_value: Raw metadata value to process.
-        :return: Resolved destination-table id.
+        Example:
+            Exercise CatalogLinkWriter.destination id for through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_writer.py
+
+
+        :param raw_value: Value supplied for raw value under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         return self.resolve_destination(self.prepare_value(raw_value))
@@ -124,13 +143,13 @@ class CatalogLinkWriter[RawValueT, ValueT](
         """
         Read the optional allowed-type registry through the database wrapper.
 
-        Registry values are deliberately not cached by the writer. Type
-        registries are database data and may be extended while a writer
-        instance remains in use.
+        Example:
+            Exercise CatalogLinkWriter.live allowed link types through its owning regression module::
 
-        :return: Live allowed values, or ``None`` when no registry exists.
-        :raises TypeError: If the catalog cannot expose the registry declared
-            by the link specification.
+                python -m pytest -q tests/catalog/test_link_writer.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         if self.link_spec.allowed_types_table is None:
@@ -168,8 +187,14 @@ class CatalogLinkWriter[RawValueT, ValueT](
         """
         Format an allowed-type collection for a validation message.
 
-        :param allowed_types: Values to display.
-        :return: Deterministic human-readable value list.
+        Example:
+            Exercise CatalogLinkWriter.display allowed link types through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_writer.py
+
+
+        :param allowed_types: Value supplied for allowed types under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         if not allowed_types:
@@ -186,17 +211,17 @@ class CatalogLinkWriter[RawValueT, ValueT](
         """
         Validate one explicit link type against link capabilities and policy.
 
-        ``None`` is the valid SQL-null type and is not an enumerated value.
-        Every named type must satisfy both the specification tuple and a live
-        database registry when either restriction is present.
+        Example:
+            Exercise CatalogLinkWriter.validate link type value through its owning regression module::
 
-        :param link_type: Explicit type value to validate.
-        :param origin: Input location used in validation messages.
-        :param live_allowed_types: Values read from the optional registry.
-        :return: None.
-        :raises TypeError: If a named type is not a string.
-        :raises ValueError: If the link is untyped, the type is blank, or the
-            value is outside an allowed set.
+                python -m pytest -q tests/catalog/test_link_writer.py
+
+
+        :param link_type: Optional typed relation value carried by the link.
+        :param origin: Value supplied for origin under the catalog contract.
+        :param live_allowed_types: Value supplied for live allowed types under the catalog
+            contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         if not self.link_spec.typed:
@@ -242,14 +267,15 @@ class CatalogLinkWriter[RawValueT, ValueT](
         """
         Stabilize one compact input and collect its explicit link types.
 
-        Iterables are materialized here so validation never consumes a
-        one-shot input before :class:`LinkUpdate` normalizes it.
+        Example:
+            Exercise CatalogLinkWriter.materialise link type input through its owning regression module::
 
-        :param raw_links: Compact link value, iterable, or typed mapping.
-        :param origin: Input location used in validation messages.
-        :return: Stable compact input and pairs of explicit type value and its
-            input location.
-        :raises ValueError: If typed-map syntax is used for an untyped link.
+                python -m pytest -q tests/catalog/test_link_writer.py
+
+
+        :param raw_links: Value supplied for raw links under the catalog contract.
+        :param origin: Value supplied for origin under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         if isinstance(raw_links, Mapping):
@@ -307,11 +333,17 @@ class CatalogLinkWriter[RawValueT, ValueT](
         """
         Validate all caller-supplied link types before resolving destinations.
 
-        :param replacements: Authoritative replacement input.
-        :param additions: Incremental addition input.
-        :param deletions: Incremental deletion input.
-        :param link_type: Optional update-wide type scope.
-        :return: Stable replacement, addition, and deletion maps.
+        Example:
+            Exercise CatalogLinkWriter.validate link type inputs through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_writer.py
+
+
+        :param replacements: Value supplied for replacements under the catalog contract.
+        :param additions: Value supplied for additions under the catalog contract.
+        :param deletions: Value supplied for deletions under the catalog contract.
+        :param link_type: Optional typed relation value carried by the link.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         supplied_types: list[tuple[Any, str]] = []
@@ -374,14 +406,14 @@ class CatalogLinkWriter[RawValueT, ValueT](
         """
         Enforce cardinality constraints visible within one update request.
 
-        A one-to-one or many-to-one relation permits at most one destination
-        for each source. Reverse-side uniqueness for one-to-one and
-        one-to-many relations is enforced atomically by the database schema,
-        because an isolated update cannot determine all existing owners.
+        Example:
+            Exercise CatalogLinkWriter.validate cardinality through its owning regression module::
 
-        :param update: Normalized link update to validate.
-        :return: None.
-        :raises ValueError: If a singular source is assigned multiple targets.
+                python -m pytest -q tests/catalog/test_link_writer.py
+
+
+        :param update: Prepared catalog update to validate or apply.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         if self.link_spec.cardinality not in {
@@ -411,13 +443,17 @@ class CatalogLinkWriter[RawValueT, ValueT](
         """
         Build an immutable normalized update without applying its links.
 
-        :param replacements: Authoritative desired link values keyed by source
-            id.
-        :param additions: Link values to add, keyed by source id.
-        :param deletions: Link values to remove, keyed by source id.
-        :param link_type: Optional link-type scope. ``LINK_TYPE_UNSET`` leaves
-            the update unscoped.
-        :return: Immutable normalized link update.
+        Example:
+            Exercise CatalogLinkWriter.build update through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_writer.py
+
+
+        :param replacements: Value supplied for replacements under the catalog contract.
+        :param additions: Value supplied for additions under the catalog contract.
+        :param deletions: Value supplied for deletions under the catalog contract.
+        :param link_type: Optional typed relation value carried by the link.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         replacements, additions, deletions = self._validate_link_type_inputs(
@@ -448,17 +484,17 @@ class CatalogLinkWriter[RawValueT, ValueT](
         """
         Build one authoritative source-to-destination link update.
 
-        This is equivalent to ``build_update({src_id: dst_value})``. On a
-        plural link it replaces that source's complete link set with the one
-        supplied destination. Use :meth:`build_update` with ``additions`` for
-        a non-destructive incremental link.
+        Example:
+            Exercise CatalogLinkWriter.build one update through its owning regression module::
 
-        :param src_id: Source-table ID whose link set should change.
-        :param dst_value: One raw, resolved, rich, or clear link value.
-        :param link_type: Optional link-type scope.
-        :param kwargs: Unsupported additional update options.
-        :return: Immutable normalized link update.
-        :raises TypeError: If additional update options are supplied.
+                python -m pytest -q tests/catalog/test_link_writer.py
+
+
+        :param src_id: Value supplied for src id under the catalog contract.
+        :param dst_value: Value supplied for dst value under the catalog contract.
+        :param link_type: Optional typed relation value carried by the link.
+        :param kwargs: Value supplied for kwargs under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         if kwargs:
@@ -478,11 +514,14 @@ class CatalogLinkWriter[RawValueT, ValueT](
         """
         Apply one normalized link update through the catalog.
 
-        :param update: Immutable normalized link update.
-        :return: Complete written link rows keyed by source id.
-        :raises TypeError: If ``update`` is not a :class:`LinkUpdate`.
-        :raises ValueError: If the update targets a different link or violates
-            the configured cardinality.
+        Example:
+            Exercise CatalogLinkWriter.apply update through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_writer.py
+
+
+        :param update: Prepared catalog update to validate or apply.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         if not isinstance(update, LinkUpdate):

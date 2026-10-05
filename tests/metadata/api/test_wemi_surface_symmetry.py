@@ -1,3 +1,14 @@
+"""
+Verify public WEMI container surfaces remain symmetric across entity levels.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test wemi surface symmetry through its owning regression module::
+
+        python -m pytest -q tests/metadata/api/test_wemi_surface_symmetry.py
+"""
 from __future__ import annotations
 
 import importlib
@@ -74,6 +85,18 @@ LEVELS = [
 
 @pytest.mark.parametrize("entry", LEVELS, ids=[entry["level"] for entry in LEVELS])
 def test_core_wemi_surfaces_are_symmetrical(entry: dict[str, str]) -> None:
+    """
+    Verify core wemi surfaces remain symmetrical.
+
+    Example:
+        Exercise test core wemi surfaces are symmetrical through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_wemi_surface_symmetry.py
+
+
+    :param entry: Value supplied for entry in the focused test operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     wemi_api_root = importlib.import_module(
         "LiuXin_alpha.metadata.api.containers_api.wemi_containers_api"
     )
@@ -186,6 +209,18 @@ def test_core_wemi_surfaces_are_symmetrical(entry: dict[str, str]) -> None:
 
 @pytest.mark.parametrize("entry", LEVELS, ids=[entry["level"] for entry in LEVELS])
 def test_core_wemi_relation_contract_uses_relation_key_parameter(entry: dict[str, str]) -> None:
+    """
+    Verify core wemi relation contract uses relation key parameter.
+
+    Example:
+        Exercise test core wemi relation contract uses relation key parameter through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_wemi_surface_symmetry.py
+
+
+    :param entry: Value supplied for entry in the focused test operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     api_metadata_module = importlib.import_module(
         f"LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.{entry['api_metadata_module']}"
     )
@@ -240,6 +275,17 @@ def test_core_wemi_relation_contract_uses_relation_key_parameter(entry: dict[str
 
 
 def test_expression_flags_contract_uses_structured_tokens() -> None:
+    """
+    Verify expression flags contract uses structured tokens.
+
+    Example:
+        Exercise test expression flags contract uses structured tokens through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_wemi_surface_symmetry.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     api_module = importlib.import_module(
         "LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_identity_api"
     )
@@ -268,6 +314,17 @@ def test_expression_flags_contract_uses_structured_tokens() -> None:
 
 
 def test_manifestation_format_detail_contract_is_documented() -> None:
+    """
+    Verify manifestation format detail contract remains documented.
+
+    Example:
+        Exercise test manifestation format detail contract is documented through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_wemi_surface_symmetry.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     api_module = importlib.import_module(
         "LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.manifestation_containers.manifestation_identity_api"
     )

@@ -1,3 +1,14 @@
+"""
+Normalize source text before Markdown block parsing.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise preprocessors through a consuming regression::
+
+        python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+"""
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import annotations
@@ -18,7 +29,20 @@ import re
 
 
 def build_preprocessors(md_instance: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
-    """Build the default set of preprocessors used by Markdown."""
+    """
+    Build the default set of preprocessors used by Markdown.
+
+    Example:
+        Exercise build preprocessors through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param md_instance: Value supplied for md instance under the utility contract.
+    :param kwargs: Keyword values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     preprocessors = odict.OrderedDict()
     preprocessors["normalize_whitespace"] = NormalizeWhitespace(md_instance)
     if md_instance.safeMode != "escape":
@@ -31,28 +55,53 @@ class Preprocessor(util.Processor):
     """
     Preprocessors are run after the text is broken into lines.
 
-    Each preprocessor implements a "run" method that takes a pointer to a
-    list of lines of the document, modifies it as necessary and returns
-    either the same pointer or a pointer to a new list.
+    Example:
+        Exercise Preprocessor through a consuming regression::
 
-    Preprocessors must extend markdown.Preprocessor.
-
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
     """
 
     def run(self: _typing.Self, lines: _typing.Any) -> None:
         """
-        Each subclass of Preprocessor should override the `run` method, which
-        takes the document as a list of strings split by newlines and returns
-        the (possibly modified) list of lines.
+        Each subclass of Preprocessor should override the `run` method, which takes the document as a list of strings split by newlines and returns the (possibly modified) list of lines.
 
+        Example:
+            Exercise Preprocessor.run through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param lines: Value supplied for lines under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
 
 class NormalizeWhitespace(Preprocessor):
-    """Normalize whitespace for consistant parsing."""
+    """
+    Normalize whitespace for consistant parsing.
+
+    Example:
+        Exercise NormalizeWhitespace through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     def run(self: _typing.Self, lines: _typing.Any) -> _typing.Any:
+        """
+        Execute the configured conversion stage and return its primary result.
+
+        Example:
+            Exercise NormalizeWhitespace.run through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param lines: Value supplied for lines under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         source = "\n".join(lines)
         source = source.replace(util.STX, "").replace(util.ETX, "")
         source = source.replace("\r\n", "\n").replace("\r", "\n") + "\n\n"
@@ -62,7 +111,14 @@ class NormalizeWhitespace(Preprocessor):
 
 
 class HtmlBlockPreprocessor(Preprocessor):
-    """Remove html blocks from the text and store them for later retrieval."""
+    """
+    Remove html blocks from the text and store them for later retrieval.
+
+    Example:
+        Exercise HtmlBlockPreprocessor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     right_tag_patterns = ["</%s>", "%s>"]
     attrs_pattern = r"""
@@ -78,6 +134,19 @@ class HtmlBlockPreprocessor(Preprocessor):
     markdown_in_raw = False
 
     def _get_left_tag(self: _typing.Self, block: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the get left tag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HtmlBlockPreprocessor. get left tag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param block: Value supplied for block under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         m = self.left_tag_re.match(block)
         if m:
             tag = m.group("tag")
@@ -103,6 +172,22 @@ class HtmlBlockPreprocessor(Preprocessor):
             return tag, len(tag) + 2, {}
 
     def _recursive_tagfind(self: _typing.Self, ltag: _typing.Any, rtag: _typing.Any, start_index: _typing.Any, block: _typing.Any) -> _typing.Any:
+        """
+        Perform the recursive tagfind operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HtmlBlockPreprocessor. recursive tagfind through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param ltag: Value supplied for ltag under the utility contract.
+        :param rtag: Value supplied for rtag under the utility contract.
+        :param start_index: Value supplied for start index under the utility contract.
+        :param block: Value supplied for block under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         while 1:
             i = block.find(rtag, start_index)
             if i == -1:
@@ -121,6 +206,21 @@ class HtmlBlockPreprocessor(Preprocessor):
                 return -1
 
     def _get_right_tag(self: _typing.Self, left_tag: _typing.Any, left_index: _typing.Any, block: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the get right tag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HtmlBlockPreprocessor. get right tag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param left_tag: Value supplied for left tag under the utility contract.
+        :param left_index: Value supplied for left index under the utility contract.
+        :param block: Value supplied for block under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for p in self.right_tag_patterns:
             tag = p % left_tag
             i = self._recursive_tagfind("<%s" % left_tag, tag, left_index, block)
@@ -129,6 +229,20 @@ class HtmlBlockPreprocessor(Preprocessor):
         return block.rstrip()[-left_index:-1].lower(), len(block)
 
     def _equal_tags(self: _typing.Self, left_tag: _typing.Any, right_tag: _typing.Any) -> bool:
+        """
+        Perform the equal tags operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HtmlBlockPreprocessor. equal tags through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param left_tag: Value supplied for left tag under the utility contract.
+        :param right_tag: Value supplied for right tag under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if left_tag[0] in ["?", "@", "%"]:  # handle PHP, etc.
             return True
         if ("/" + left_tag) == right_tag:
@@ -141,9 +255,35 @@ class HtmlBlockPreprocessor(Preprocessor):
             return False
 
     def _is_oneliner(self: _typing.Self, tag: _typing.Any) -> bool:
+        """
+        Perform the is oneliner operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HtmlBlockPreprocessor. is oneliner through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return tag in ["hr", "hr/"]
 
     def run(self: _typing.Self, lines: _typing.Any) -> _typing.Any:
+        """
+        Execute the configured conversion stage and return its primary result.
+
+        Example:
+            Exercise HtmlBlockPreprocessor.run through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param lines: Value supplied for lines under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = "\n".join(lines)
         new_blocks = []
         text = text.rsplit("\n\n")
@@ -262,13 +402,33 @@ class HtmlBlockPreprocessor(Preprocessor):
 
 
 class ReferencePreprocessor(Preprocessor):
-    """Remove reference definitions from text and store for later use."""
+    """
+    Remove reference definitions from text and store for later use.
+
+    Example:
+        Exercise ReferencePreprocessor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     TITLE = r"[ ]*(\"(.*)\"|\'(.*)\'|\((.*)\))[ ]*"
     RE = re.compile(r"^[ ]{0,3}\[([^\]]*)\]:\s*([^ ]*)[ ]*(%s)?$" % TITLE, re.DOTALL)
     TITLE_RE = re.compile(r"^%s$" % TITLE)
 
     def run(self: _typing.Self, lines: _typing.Any) -> _typing.Any:
+        """
+        Execute the configured conversion stage and return its primary result.
+
+        Example:
+            Exercise ReferencePreprocessor.run through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param lines: Value supplied for lines under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         new_text = []
         while lines:
             line = lines.pop(0)

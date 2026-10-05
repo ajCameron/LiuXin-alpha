@@ -10,6 +10,17 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+"""
+Combine adjacent RTF border tokens into logical declarations.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise combine borders through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -21,7 +32,14 @@ from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
 
 
 class CombineBorders:
-    """Combine borders in RTF tokens to make later processing easier"""
+    """
+    Combine borders in RTF tokens to make later processing easier
+
+    Example:
+        Exercise CombineBorders through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+    """
 
     def __init__(
         self: _typing.Self,
@@ -30,6 +48,21 @@ class CombineBorders:
         copy: _typing.Any = None,
         run_level: int = 1,
     ) -> None:
+        """
+        Initialize and validate the combineborders state.
+
+        Example:
+            Exercise CombineBorders.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param copy: Value supplied for copy under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.__file = in_file
         self.__bug_handler = bug_handler
         self.__copy = copy
@@ -40,17 +73,57 @@ class CombineBorders:
 
     def found_bd(self: _typing.Self, line: _typing.Any) -> None:
         # cw<bd<bor-t-r-vi
+        """
+        Perform the found bd operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CombineBorders.found bd through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__state = "border"
         self.__bord_pos = line[6:16]
 
     def __default_func(self: _typing.Self, line: _typing.Any) -> _typing.Any:
         # cw<bd<bor-t-r-vi
+        """
+        Perform the default func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CombineBorders.  default func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.__first_five == "cw<bd":
             self.found_bd(line)
             return ""
         return line
 
     def end_border(self: _typing.Self, line: _typing.Any, write_obj: _typing.Any) -> None:
+        """
+        Perform the end border operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CombineBorders.end border through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :param write_obj: Value supplied for write obj under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         border_string = "|".join(self.__bord_att)
         self.__bord_att = []
         write_obj.write("cw<bd<{}<nu<{}\n".format(self.__bord_pos, border_string))
@@ -65,6 +138,19 @@ class CombineBorders:
         # cw<bt<bdr-hair__<nu<true
         # cw<bt<bdr-linew<nu<0.50
         # tx<__________<some text
+        """
+        Perform the add to border desc operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CombineBorders.add to border desc through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         border_desc = line[6:16]
         num = line[20:-1]
         if num == "true":
@@ -74,12 +160,38 @@ class CombineBorders:
         self.__bord_att.append(border_desc + num)
 
     def __border_func(self: _typing.Self, line: _typing.Any, write_obj: _typing.Any) -> None:
+        """
+        Perform the border func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CombineBorders.  border func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :param write_obj: Value supplied for write obj under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.__first_five != "cw<bt":
             self.end_border(line, write_obj)
         else:
             self.add_to_border_desc(line)
 
     def combine_borders(self: _typing.Self) -> None:
+        """
+        Perform the combine borders operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CombineBorders.combine borders through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         with open_for_read(self.__file) as read_obj:
             with open_for_write(self.__write_to) as write_obj:
                 for line in read_obj:

@@ -10,6 +10,17 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+"""
+Convert styled RTF headings into explicit section structure.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise headings to sections through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -20,7 +31,14 @@ from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
 
 
 class HeadingsToSections:
-    """ """
+    """
+    Provide the headingstosections contract for validated ebook processing.
+
+    Example:
+        Exercise HeadingsToSections through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+    """
 
     def __init__(
         self: _typing.Self,
@@ -30,14 +48,19 @@ class HeadingsToSections:
         run_level: int = 1,
     ) -> None:
         """
-        Required:
-            'file'
-        Optional:
-            'copy'-- whether to make a copy of result for debugging
-            'temp_dir' --where to output temporary results (default is
-            directory from which the script is run.)
-        Returns:
-            nothing
+        Required: 'file' Optional: 'copy'-- whether to make a copy of result for debugging 'temp_dir' --where to output temporary results (default is directory from which the script is run.) Returns: nothing
+
+        Example:
+            Exercise HeadingsToSections.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param copy: Value supplied for copy under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.__file = in_file
         self.__bug_handler = bug_handler
@@ -46,13 +69,16 @@ class HeadingsToSections:
 
     def __initiate_values(self: _typing.Self) -> None:
         """
-        Required:
-            Nothing
-        Return:
-            Nothing
-        Logic:
-            The self.__end_list is a list of tokens that will force a list to end.
-            Likewise, the self.__end_lines is a list of lines that forces a list to end.
+        Required: Nothing Return: Nothing Logic: The self.__end_list is a list of tokens that will force a list to end. Likewise, the self.__end_lines is a list of lines that forces a list to end.
+
+        Example:
+            Exercise HeadingsToSections.  initiate values through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__state = "default"
         self.__all_sections = []
@@ -95,17 +121,16 @@ class HeadingsToSections:
 
     def __close_lists(self: _typing.Self) -> None:
         """
-        Required:
-            Nothing
-        Return:
-            Nothing
-        Logic:
-            Reverse the list of dictionaries. Iterate through the list and
-            get the indent for each list. If the current indent is less than
-            or equal to the indent in the dictionary, close that level.
-            Keep track of how many levels you close. Reduce the list by that
-            many levels.
-            Reverse the list again.
+        Required: Nothing Return: Nothing Logic: Reverse the list of dictionaries. Iterate through the list and get the indent for each list. If the current indent is less than or equal to the indent in the dictionary, close that level. Keep track of how many levels you close. Reduce the list by that many levels. Reverse the list again.
+
+        Example:
+            Exercise HeadingsToSections.  close lists through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         current_indent = self.__left_indent
         self.__all_lists.reverse()
@@ -120,6 +145,19 @@ class HeadingsToSections:
         self.__all_lists.reverse()
 
     def __close_sections(self: _typing.Self, current_level: _typing.Any) -> None:
+        """
+        Perform the close sections operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeadingsToSections.  close sections through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param current_level: Value supplied for current level under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__all_sections.reverse()
         num_levels_closed = 0
         for level in self.__all_sections:
@@ -130,6 +168,20 @@ class HeadingsToSections:
         self.__all_sections.reverse()
 
     def __write_start_section(self: _typing.Self, current_level: _typing.Any, name: _typing.Any) -> None:
+        """
+        Perform the write start section operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeadingsToSections.  write start section through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param current_level: Value supplied for current level under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         section_num = ""
         for the_num in self.__section_num:
             section_num += "%s." % the_num
@@ -144,19 +196,34 @@ class HeadingsToSections:
         )
 
     def __write_end_section(self: _typing.Self) -> None:
+        """
+        Perform the write end section operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeadingsToSections.  write end section through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__write_obj.write("mi<mk<sect-close\n")
         self.__write_obj.write("mi<tg<close_____<section\n")
 
     def __default_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            self, line
-        Returns:
-            Nothing
-        Logic
-            Look for the start of a paragraph definition. If one is found, check if
-            it contains a list-id. If it does, start a list. Change the state to
-            in_pard.
+        Required: self, line Returns: Nothing Logic Look for the start of a paragraph definition. If one is found, check if it contains a list-id. If it does, start a list. Change the state to in_pard.
+
+        Example:
+            Exercise HeadingsToSections.  default func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "mi<mk<sect-start":
             self.__section_num[0] += 1
@@ -177,6 +244,19 @@ class HeadingsToSections:
         self.__write_obj.write(line)
 
     def __handle_heading(self: _typing.Self, name: _typing.Any) -> None:
+        """
+        Perform the handle heading operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeadingsToSections.  handle heading through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         num = self.__headings.index(name) + 1
         self.__close_sections(num)
         self.__all_sections.append(num)
@@ -189,11 +269,37 @@ class HeadingsToSections:
         self.__write_start_section(num, name)
 
     def __in_table_func(self: _typing.Self, line: _typing.Any) -> None:
+        """
+        Perform the in table func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeadingsToSections.  in table func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.__token_info == "mi<mk<table-end_":
             self.__state = "default"
         self.__write_obj.write(line)
 
     def __in_list_func(self: _typing.Self, line: _typing.Any) -> None:
+        """
+        Perform the in list func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeadingsToSections.  in list func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.__token_info == "mi<mk<list_close":
             self.__list_depth -= 1
         elif self.__token_info == "mi<mk<list_start":
@@ -203,15 +309,33 @@ class HeadingsToSections:
         self.__write_obj.write(line)
 
     def __after_body_func(self: _typing.Self, line: _typing.Any) -> None:
+        """
+        Perform the after body func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeadingsToSections.  after body func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__write_obj.write(line)
 
     def make_sections(self: _typing.Self) -> None:
         """
-        Required:
-            nothing
-        Returns:
-            original file will be changed
-        Logic:
+        Required: nothing Returns: original file will be changed Logic:
+
+        Example:
+            Exercise HeadingsToSections.make sections through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__initiate_values()
         read_obj = open_for_read(self.__file)

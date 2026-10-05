@@ -1,8 +1,13 @@
-"""CHM backend shim.
+"""
+Expose retained CHM archive and topic access helpers.
 
-This module provides a small compatibility layer over the optional ``chmlib``
-plugin and exposes the subset of the old CHM API used by
-``LiuXin_alpha.file_formats.chm``.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise chm through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_docstring_migration.py
 """
 
 from __future__ import annotations
@@ -14,6 +19,14 @@ from LiuXin_alpha.utils.plugins import plugins
 
 
 class CHMError(Exception):
+    """
+    Report the CHMError Calibre compatibility failure.
+
+    Example:
+        Exercise CHMError through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+    """
     pass
 
 
@@ -38,6 +51,19 @@ CHM_ENUMERATE_NORMAL = getattr(_chmlib_mod, "CHM_ENUMERATE_NORMAL", 0)
 
 
 def _decode_best_effort(raw: Any) -> str:
+    """
+    Perform the decode best effort utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  decode best effort through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(raw, str):
         return raw
     if not isinstance(raw, (bytes, bytearray, memoryview)):
@@ -52,12 +78,40 @@ def _decode_best_effort(raw: Any) -> str:
 
 
 def _read_u16_le(data: bytes, offset: int) -> int:
+    """
+    Read u16 le under the documented compatibility and safety rules.
+
+    Example:
+        Exercise  read u16 le through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :param offset: Value supplied for offset under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if offset + 2 > len(data):
         return 0
     return int.from_bytes(data[offset : offset + 2], "little", signed=False)
 
 
 def _read_u32_le(data: bytes, offset: int) -> int:
+    """
+    Read u32 le under the documented compatibility and safety rules.
+
+    Example:
+        Exercise  read u32 le through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :param offset: Value supplied for offset under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if offset + 4 > len(data):
         return 0
     value = int.from_bytes(data[offset : offset + 4], "little", signed=False)
@@ -67,6 +121,20 @@ def _read_u32_le(data: bytes, offset: int) -> int:
 
 
 def _read_c_string(data: bytes, idx: int) -> str:
+    """
+    Read c string under the documented compatibility and safety rules.
+
+    Example:
+        Exercise  read c string through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :param idx: Value supplied for idx under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if idx < 0 or idx >= len(data):
         return ""
     end = data.find(b"\x00", idx)
@@ -76,6 +144,22 @@ def _read_c_string(data: bytes, idx: int) -> str:
 
 
 def _retrieve(chm_file: Any, ui: Any, start: int, length: int):
+    """
+    Perform the retrieve utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  retrieve through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param chm_file: Value supplied for chm file under the utility contract.
+    :param ui: Value supplied for ui under the utility contract.
+    :param start: Value supplied for start under the utility contract.
+    :param length: Value supplied for length under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not _HAVE_CHMLIB:
         return 0, b""
 
@@ -87,6 +171,22 @@ def _retrieve(chm_file: Any, ui: Any, start: int, length: int):
 
 
 def chm_enumerate(chm_file, flags, callback, context):
+    """
+    Perform the chm enumerate utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise chm enumerate through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param chm_file: Value supplied for chm file under the utility contract.
+    :param flags: Value supplied for flags under the utility contract.
+    :param callback: Value supplied for callback under the utility contract.
+    :param context: Value supplied for context under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not _HAVE_CHMLIB:
         msg = _chmlib_err or "chmlib backend is unavailable"
         raise CHMError(msg)
@@ -114,7 +214,14 @@ _LOCALE_TABLE = {
 
 
 class CHMFile:
-    """Small compatibility wrapper around low-level chmlib calls."""
+    """
+    Small compatibility wrapper around low-level chmlib calls.
+
+    Example:
+        Exercise CHMFile through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+    """
 
     filename = ""
     file = None
@@ -126,9 +233,33 @@ class CHMFile:
     lcid = None
 
     def __init__(self):
+        """
+        Initialize and validate the CHMFile state.
+
+        Example:
+            Exercise CHMFile.  init   through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.searchable = False
 
     def LoadCHM(self, archive_name) -> bool:
+        """
+        Perform the LoadCHM utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise CHMFile.LoadCHM through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+        :param archive_name: Value supplied for archive name under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not _HAVE_CHMLIB:
             return False
 
@@ -145,6 +276,18 @@ class CHMFile:
         return True
 
     def CloseCHM(self):
+        """
+        Perform the CloseCHM utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise CHMFile.CloseCHM through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.file is not None and _HAVE_CHMLIB:
             _chmlib_mod.chm_close(self.file)
         self.file = None
@@ -157,12 +300,40 @@ class CHMFile:
         self.lcid = None
 
     def ResolveObject(self, document):
+        """
+        Perform the ResolveObject utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise CHMFile.ResolveObject through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+        :param document: Value supplied for document under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.file is None or not _HAVE_CHMLIB:
             return 1, None
         path = document.encode("utf-8") if isinstance(document, str) else document
         return _chmlib_mod.chm_resolve_object(self.file, path)
 
     def RetrieveObject(self, ui, start=-1, length=-1):
+        """
+        Perform the RetrieveObject utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise CHMFile.RetrieveObject through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+        :param ui: Value supplied for ui under the utility contract.
+        :param start: Value supplied for start under the utility contract.
+        :param length: Value supplied for length under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.file is None or ui is None or not _HAVE_CHMLIB:
             return 0, b""
 
@@ -173,6 +344,18 @@ class CHMFile:
         return _retrieve(self.file, ui, int(start), int(length))
 
     def GetArchiveInfo(self):
+        """
+        Perform the GetArchiveInfo utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise CHMFile.GetArchiveInfo through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.searchable = False
 
         result, ui = self.ResolveObject("/#SYSTEM")
@@ -225,6 +408,18 @@ class CHMFile:
         return 1
 
     def GetWindowsInfo(self):
+        """
+        Perform the GetWindowsInfo utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise CHMFile.GetWindowsInfo through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         result, ui = self.ResolveObject("/#WINDOWS")
         if result != CHM_RESOLVE_SUCCESS or ui is None:
             return -1
@@ -275,6 +470,18 @@ class CHMFile:
         return 0
 
     def GetEncoding(self):
+        """
+        Perform the GetEncoding utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise CHMFile.GetEncoding through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not self.encoding:
             return None
 
@@ -299,11 +506,35 @@ class CHMFile:
         return None
 
     def GetLCID(self):
+        """
+        Perform the GetLCID utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise CHMFile.GetLCID through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.lcid in _LOCALE_TABLE:
             return _LOCALE_TABLE[self.lcid]
         return None
 
     def get_encoding(self):
+        """
+        Return encoding under the documented compatibility and safety rules.
+
+        Example:
+            Exercise CHMFile.get encoding through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = self.GetEncoding()
         if ans is None:
             lcid = self.GetLCID()

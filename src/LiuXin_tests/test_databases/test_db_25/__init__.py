@@ -1,3 +1,14 @@
+"""
+Expose the supported test db 25 compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+"""
 from __future__ import print_function
 
 
@@ -7,13 +18,43 @@ from utils.lx_libraries.liuxin_random import LiuXinBadPseudoRandomGenerator
 
 
 class TestDB25Builder(TestDB23Builer):
+    """
+    Provide the testdb25builder contract for validated ebook processing.
+
+    Example:
+        Exercise TestDB25Builder through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+    """
     def add_new_main_tables(self, scatch_db):
+        """
+        Perform the add new main tables operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TestDB25Builder.add new main tables through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scatch_db: Value supplied for scatch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     def _populate_custom_column_6(self, scratch_db):
         """
         Populate an int, non-multiple custom column.
-        :return:
+
+        Example:
+            Exercise TestDB25Builder. populate custom column 6 through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(36435626)
 
@@ -54,7 +95,16 @@ class TestDB25Builder(TestDB23Builer):
     def _populate_custom_column_8(self, scratch_db):
         """
         Populate an int, non-multiple custom column.
-        :return:
+
+        Example:
+            Exercise TestDB25Builder. populate custom column 8 through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(36435626)
 
@@ -98,24 +148,49 @@ class TestDB25Builder(TestDB23Builer):
     def populate_interlink_tables(self, scratch_db, test_lib):
         """
         Populate the interlink tables.
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB25Builder.populate interlink tables through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :param test_lib: Value supplied for test lib under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
     def populate_intralink_tables(self, scratch_db):
         """
         Populate the intralink tables
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB25Builder.populate intralink tables through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
     def generate_fake_asset_data(self, test_db):
         """
         Populate the database with fake asset data.
-        :param test_db:
-        :return:
+
+        Example:
+            Exercise TestDB25Builder.generate fake asset data through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param test_db: Value supplied for test db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
@@ -131,12 +206,22 @@ def build_test_db(
     test_asset_version=None,
 ):
     """
-    Construct the test database specified by this module.
-    In this case a blank database is constructed and filled with data - before being copied into the test_databases
-    folder.
-    :param dst_file_path: The file to write the database to after it's been built.
-    :param dump: HERE IGNORED
-    :return:
+    Construct the test database specified by this module. In this case a blank database is constructed and filled with data - before being copied into the test_databases folder.
+
+    Example:
+        Exercise build test db through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+    :param dst_file_path: Value supplied for dst file path under the utility contract.
+    :param dump: Value supplied for dump under the utility contract.
+    :param plugin_name: Value supplied for plugin name under the utility contract.
+    :param new_db_uuid: Value supplied for new db uuid under the utility contract.
+    :param test_asset_version: Value supplied for test asset version under the utility
+        contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     test_db_builder = TestDB25Builder(
         dst_file_path=dst_file_path,

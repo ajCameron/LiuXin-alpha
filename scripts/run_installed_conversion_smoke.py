@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Exercise an installed LiuXin HTML-to-EPUB conversion and its resources."""
+"""
+Provide run installed conversion smoke utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise run installed conversion smoke through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+"""
 
 from __future__ import annotations
 
@@ -28,11 +38,32 @@ HTML_DOCUMENT = """<!doctype html>
 
 
 class InstalledConversionError(RuntimeError):
-    """Report a failed installed-resource or conversion contract."""
+    """
+    Report a failed installed-resource or conversion contract.
+
+    Example:
+        Exercise InstalledConversionError through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+    """
 
 
 def run_smoke(workspace: Path, expected_package_root: Path) -> dict[str, Any]:
-    """Create a small EPUB using only the installed package and its extras."""
+    """
+    Create a small EPUB using only the installed package and its extras.
+
+    Example:
+        Exercise run smoke through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param workspace: Value supplied for workspace under the utility contract.
+    :param expected_package_root: Value supplied for expected package root under the
+        utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     workspace.mkdir(parents=True, exist_ok=True)
     source = workspace / "installed-conversion.html"
@@ -91,6 +122,18 @@ def run_smoke(workspace: Path, expected_package_root: Path) -> dict[str, Any]:
 
 
 def _build_parser() -> argparse.ArgumentParser:
+    """
+    Perform the build parser operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  build parser through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = argparse.ArgumentParser(
         description="Run LiuXin's installed HTML-to-EPUB conversion smoke."
     )
@@ -100,7 +143,19 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run the installed conversion smoke and print its JSON receipt."""
+    """
+    Run the installed conversion smoke and print its JSON receipt.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     args = _build_parser().parse_args(argv)
     try:

@@ -1,3 +1,14 @@
+"""
+Walk PullDOM nodes through normalized HTML5 token events.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise pulldom through a consuming regression::
+
+        python -m pytest -q tests/file_formats/html/test_html_modernized.py
+"""
 from __future__ import absolute_import, division, unicode_literals
 
 from xml.dom.pulldom import (
@@ -13,7 +24,26 @@ from LiuXin_alpha.utils.libraries.liuxin_html5lib.constants import voidElements
 
 
 class TreeWalker(_base.TreeWalker):
+    """
+    Provide the TreeWalker utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise TreeWalker through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
     def __iter__(self):
+        """
+        Expose iter behavior for the compatibility container.
+
+        Example:
+            Exercise TreeWalker.  iter   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         ignore_until = None
         previous = None
         for event in self.tree:
@@ -32,6 +62,19 @@ class TreeWalker(_base.TreeWalker):
             raise ValueError("Illformed DOM event stream: void element without END_ELEMENT")
 
     def tokens(self, event, next):
+        """
+        Perform the tokens utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise TreeWalker.tokens through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param event: Value supplied for event under the utility contract.
+        :param next: Value supplied for next under the utility contract.
+        :return: An iterator yielding the normalized values described above.
+        """
         type, node = event
         if type == START_ELEMENT:
             name = node.nodeName

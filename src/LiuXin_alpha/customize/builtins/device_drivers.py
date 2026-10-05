@@ -1,3 +1,14 @@
+"""
+Register built-in device interface plugins.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise device drivers through a consuming regression::
+
+        python -m pytest -q tests/customize/test_customize_base.py
+"""
 from LiuXin_alpha.utils.logging import default_log
 
 # Order here is non-alphabetical to more closely match add order
@@ -566,6 +577,13 @@ def get_device_driver_plugins():
     """
     Return all the loaded device drivers.
 
-    :return:
+    Example:
+        Exercise get device driver plugins through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return plugins

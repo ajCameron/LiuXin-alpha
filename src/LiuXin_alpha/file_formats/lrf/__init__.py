@@ -1,6 +1,13 @@
 """
-This package contains logic to read and write LRF files.
-The LRF file format is documented at U{http://www.sven.de/librie/Librie/LrfFormat}.
+Expose the supported lrf compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
 """
 from __future__ import annotations
 
@@ -18,10 +25,26 @@ __docformat__ = "epytext"
 
 
 class LRFParseError(Exception):
+    """
+    Report a lrfparseerror encountered while processing an ebook format.
+
+    Example:
+        Exercise LRFParseError through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     pass
 
 
 class PRS500_PROFILE(object):
+    """
+    Provide the prs500 profile contract for validated ebook processing.
+
+    Example:
+        Exercise PRS500 PROFILE through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     screen_width = 600
     screen_height = 775
     dpi = 166
@@ -43,6 +66,20 @@ class PRS500_PROFILE(object):
 
 
 def _log_warn(logger: _typing.Any, message: _typing.Any) -> None:
+    """
+    Perform the log warn operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  log warn through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+    :param logger: Value supplied for logger under the utility contract.
+    :param message: Value supplied for message under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if hasattr(logger, "warning"):
         logger.warning(message)
     elif hasattr(logger, "warn"):
@@ -50,6 +87,20 @@ def _log_warn(logger: _typing.Any, message: _typing.Any) -> None:
 
 
 def find_custom_fonts(options: _typing.Any, logger: _typing.Any) -> _typing.Any:
+    """
+    Find custom fonts under the format's safety and compatibility rules.
+
+    Example:
+        Exercise find custom fonts through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+    :param options: Value supplied for options under the utility contract.
+    :param logger: Value supplied for logger under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         from LiuXin_alpha.utils.fonts.scanner import font_scanner
     except ModuleNotFoundError:
@@ -59,6 +110,19 @@ def find_custom_fonts(options: _typing.Any, logger: _typing.Any) -> _typing.Any:
     fonts = {"serif": None, "sans": None, "mono": None}
 
     def family(cmd: _typing.Any) -> _typing.Any:
+        """
+        Perform the family operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise find custom fonts.family through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param cmd: Value supplied for cmd under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return cmd.split(",")[-1].strip()
 
     if options.serif_family:
@@ -80,6 +144,24 @@ def find_custom_fonts(options: _typing.Any, logger: _typing.Any) -> _typing.Any:
 
 
 def Book(options: _typing.Any, logger: _typing.Any, font_delta: int = 0, header: _typing.Any = None, profile: _typing.Any = PRS500_PROFILE, **settings: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Perform the Book operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise Book through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+    :param options: Value supplied for options under the utility contract.
+    :param logger: Value supplied for logger under the utility contract.
+    :param font_delta: Value supplied for font delta under the utility contract.
+    :param header: Value supplied for header under the utility contract.
+    :param profile: Value supplied for profile under the utility contract.
+    :param settings: Value supplied for settings under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from uuid import uuid4
 
     ps = dict()

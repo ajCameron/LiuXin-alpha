@@ -1,3 +1,14 @@
+"""
+Verify PDB dispatch and shared metadata extraction.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test pdb metadata source through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_source.py
+"""
 from __future__ import annotations
 
 import importlib
@@ -12,6 +23,20 @@ from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
 
 def _build_pdb(identity: str, title: str, sections: list[bytes]) -> io.BytesIO:
+    """
+    Perform the build pdb test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise build pdb through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_source.py
+
+
+    :param identity: Value supplied for identity in the focused test operation.
+    :param title: Value supplied for title in the focused test operation.
+    :param sections: Value supplied for sections in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     stream = io.BytesIO()
     PdbHeaderBuilder(identity, title).build_header([len(s) for s in sections], stream)
     for section in sections:
@@ -28,9 +53,41 @@ def _ereader_header_record(
     image_data_offset: int = 0,
     compression: int = 10,
 ) -> bytes:
+    """
+    Perform the ereader header record test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise ereader header record through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_source.py
+
+
+    :param metadata_offset: Value supplied for metadata offset in the focused test
+        operation.
+    :param last_data_offset: Value supplied for last data offset in the focused test
+        operation.
+    :param image_count: Value supplied for image count in the focused test operation.
+    :param image_data_offset: Value supplied for image data offset in the focused test
+        operation.
+    :param compression: Value supplied for compression in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     header = bytearray(132)
 
     def put(offset: int, value: int) -> None:
+        """
+        Perform the put test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise ereader header record.put through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_source.py
+
+
+        :param offset: Value supplied for offset in the focused test operation.
+        :param value: Value stored, compared or projected by the operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         header[offset : offset + 2] = struct.pack(">H", value)
 
     put(0, compression)
@@ -44,6 +101,19 @@ def _ereader_header_record(
 
 
 def _make_plucker_record(rtype: int, payload: bytes) -> bytes:
+    """
+    Perform the make plucker record test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise make plucker record through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_source.py
+
+
+    :param rtype: Value supplied for rtype in the focused test operation.
+    :param payload: Value supplied for payload in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if len(payload) % 2:
         payload += b"\x00"
     length_words = (4 + len(payload)) // 2
@@ -51,6 +121,20 @@ def _make_plucker_record(rtype: int, payload: bytes) -> bytes:
 
 
 def _plucker_metadata_section(title: str, author: str, pubdate: int) -> bytes:
+    """
+    Perform the plucker metadata section test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise plucker metadata section through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_source.py
+
+
+    :param title: Value supplied for title in the focused test operation.
+    :param author: Value supplied for author in the focused test operation.
+    :param pubdate: Value supplied for pubdate in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     records = [
         _make_plucker_record(1, struct.pack(">H", 106)),  # utf-8
         _make_plucker_record(4, author.encode("utf-8") + b"\x00"),
@@ -63,6 +147,17 @@ def _plucker_metadata_section(title: str, author: str, pubdate: int) -> bytes:
 
 
 def test_pdb_metadata_modules_import_smoke() -> None:
+    """
+    Verify pdb metadata modules import smoke.
+
+    Example:
+        Exercise test pdb metadata modules import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     modules = (
         "LiuXin_alpha.metadata.file_sources.pdb",
         "LiuXin_alpha.metadata.file_sources.pdb.ereader",
@@ -74,6 +169,17 @@ def test_pdb_metadata_modules_import_smoke() -> None:
 
 
 def test_pdb_fallback_metadata_and_ident_roundtrip() -> None:
+    """
+    Verify pdb fallback metadata and ident roundtrip.
+
+    Example:
+        Exercise test pdb fallback metadata and ident roundtrip through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pdb import get_metadata, get_pheader_ident
 
     stream = _build_pdb("zTXTGPlm", "Header Title", [b"payload"])
@@ -85,6 +191,18 @@ def test_pdb_fallback_metadata_and_ident_roundtrip() -> None:
 
 
 def test_pdb_metadata_reader_accepts_pathlike(tmp_path: Path) -> None:
+    """
+    Verify pdb metadata reader accepts pathlike.
+
+    Example:
+        Exercise test pdb metadata reader accepts pathlike through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pdb import get_metadata
 
     stream = _build_pdb("zTXTGPlm", "Pathlike Title", [b"payload"])
@@ -97,6 +215,17 @@ def test_pdb_metadata_reader_accepts_pathlike(tmp_path: Path) -> None:
 
 
 def test_pdb_ereader_reads_metadata_and_cover() -> None:
+    """
+    Verify pdb ereader reads metadata and cover.
+
+    Example:
+        Exercise test pdb ereader reads metadata and cover through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pdb import get_metadata
 
     metadata_record = b"My eReader Title\x00Jane Doe\x00\x00Pub House\x009781234567890\x00"
@@ -114,6 +243,17 @@ def test_pdb_ereader_reads_metadata_and_cover() -> None:
 
 
 def test_pdb_set_metadata_updates_ereader_payload_and_wrapper_title() -> None:
+    """
+    Verify pdb set metadata updates ereader payload and wrapper title.
+
+    Example:
+        Exercise test pdb set metadata updates ereader payload and wrapper title through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pdb import get_metadata, set_metadata
 
     metadata_record = b"Old Title\x00Old Author\x00\x00Old Pub\x001111111111111\x00"
@@ -137,6 +277,17 @@ def test_pdb_set_metadata_updates_ereader_payload_and_wrapper_title() -> None:
 
 
 def test_pdb_set_metadata_sanitizes_hostile_ereader_text_without_field_shift() -> None:
+    """
+    Verify pdb set metadata sanitizes hostile ereader text without field shift.
+
+    Example:
+        Exercise test pdb set metadata sanitizes hostile ereader text without field shift through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pdb import get_metadata, set_metadata
 
     metadata_record = b"Old Title\x00Old Author\x00\x00Old Pub\x001111111111111\x00"
@@ -175,6 +326,17 @@ def test_pdb_set_metadata_sanitizes_hostile_ereader_text_without_field_shift() -
 
 
 def test_pdb_plucker_metadata_reader_extracts_fields() -> None:
+    """
+    Verify pdb plucker metadata reader extracts fields.
+
+    Example:
+        Exercise test pdb plucker metadata reader extracts fields through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pdb import get_metadata
 
     section = _plucker_metadata_section("Plucker 世界", "Alice,Bob", 1700000000)
@@ -187,6 +349,17 @@ def test_pdb_plucker_metadata_reader_extracts_fields() -> None:
 
 
 def test_pdb_haodoo_reader_falls_back_cleanly_on_bad_input() -> None:
+    """
+    Verify pdb haodoo reader falls back cleanly on bad input.
+
+    Example:
+        Exercise test pdb haodoo reader falls back cleanly on bad input through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pdb import get_metadata
 
     # Synthetic malformed section data should not crash the metadata path.
@@ -197,6 +370,17 @@ def test_pdb_haodoo_reader_falls_back_cleanly_on_bad_input() -> None:
 
 
 def test_legacy_top_level_plucker_module_forwards_to_pdb_plucker() -> None:
+    """
+    Verify legacy top level plucker module forwards to pdb plucker.
+
+    Example:
+        Exercise test legacy top level plucker module forwards to pdb plucker through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources import plucker as legacy_plucker
     from LiuXin_alpha.metadata.file_sources.pdb import plucker as pdb_plucker
 

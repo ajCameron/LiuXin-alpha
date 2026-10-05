@@ -1,3 +1,14 @@
+"""
+Expose the supported epub compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/file_formats/epub/test_epub_modernized.py
+"""
 from __future__ import with_statement
 from __future__ import annotations
 
@@ -15,6 +26,18 @@ __docformat__ = "restructuredtext en"
 
 
 def rules(stylesheets: _typing.Any) -> _typing.Iterator[_typing.Any]:
+    """
+    Perform the rules operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise rules through a consuming regression::
+
+            python -m pytest -q tests/file_formats/epub/test_epub_modernized.py
+
+
+    :param stylesheets: Value supplied for stylesheets under the utility contract.
+    :return: An iterator yielding the normalized values described above.
+    """
     for s in stylesheets:
         if hasattr(s, "cssText"):
             for r in s:
@@ -25,10 +48,19 @@ def rules(stylesheets: _typing.Any) -> _typing.Iterator[_typing.Any]:
 def initialize_container(path_to_container: _typing.Any, opf_name: str = "metadata.opf", extra_entries: _typing.Any = None) -> _typing.Any:
     """
     Create an empty EPUB document, with a default skeleton.
-    :param path_to_container: Path to the epub container
-    :param opf_name: The name of the opf file in the container
-    :param extra_entries: Anything else to be tacked onto the epub
-    :return:
+
+    Example:
+        Exercise initialize container through a consuming regression::
+
+            python -m pytest -q tests/file_formats/epub/test_epub_modernized.py
+
+
+    :param path_to_container: Value supplied for path to container under the utility
+        contract.
+    :param opf_name: Value supplied for opf name under the utility contract.
+    :param extra_entries: Value supplied for extra entries under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if extra_entries is None:
         extra_entries = []

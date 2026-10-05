@@ -1,4 +1,14 @@
-"""Shared fake schema/database helpers for storage-cache tests."""
+"""
+Provide deterministic database and driver doubles for storage-cache contract tests.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise storage cache test harness through a consuming regression::
+
+        python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+"""
 
 from __future__ import annotations
 
@@ -29,19 +39,63 @@ CACHE_PLUGIN_KWARGS: dict[str, dict[str, Any]] = {
 
 @dataclass
 class FakeResultRow:
+    """
+    Provide the FakeResultRow test double with a deliberately bounded compatibility surface.
+
+    Example:
+        Exercise FakeResultRow through a consuming regression::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+    """
     row_dict: dict[str, Any]
 
 
 class FakeDriverWrapper:
+    """
+    Provide the FakeDriverWrapper test double with a deliberately bounded compatibility surface.
+
+    Example:
+        Exercise FakeDriverWrapper through a consuming regression::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+    """
     def __init__(
         self,
         schema: StorageSchemaSpec,
         rows_by_table: dict[str, list[dict[str, Any]]],
     ) -> None:
+        """
+        Initialize and validate the FakeDriverWrapper test-support state.
+
+        Example:
+            Exercise FakeDriverWrapper.  init   through a consuming regression::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+        :param schema: Value supplied for schema under the deterministic fixture contract.
+        :param rows_by_table: Value supplied for rows by table under the deterministic
+            fixture contract.
+        :return: None; completion is expressed through state changes or assertions.
+        """
         self._schema = schema
         self._rows_by_table = rows_by_table
 
     def get_schema_spec(self, force_refresh: bool = False) -> StorageSchemaSpec:
+        """
+        Return schema spec under the fixture contract.
+
+        Example:
+            Exercise FakeDriverWrapper.get schema spec through a consuming regression::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+        :param force_refresh: Value supplied for force refresh under the deterministic
+            fixture contract.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         del force_refresh
         return self._schema
 
@@ -52,6 +106,24 @@ class FakeDriverWrapper:
         *,
         force_refresh: bool = False,
     ) -> StorageLinkSpec | None:
+        """
+        Return link spec under the fixture contract.
+
+        Example:
+            Exercise FakeDriverWrapper.get link spec through a consuming regression::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+        :param source_table: Value supplied for source table under the deterministic fixture
+            contract.
+        :param destination_table: Value supplied for destination table under the
+            deterministic fixture contract.
+        :param force_refresh: Value supplied for force refresh under the deterministic
+            fixture contract.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         del force_refresh
         return next(
             (
@@ -69,6 +141,22 @@ class FakeDriverWrapper:
         *,
         force_refresh: bool = False,
     ) -> tuple[str, ...] | None:
+        """
+        Return allowed link types under the fixture contract.
+
+        Example:
+            Exercise FakeDriverWrapper.get allowed link types through a consuming regression::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+        :param link_spec: Value supplied for link spec under the deterministic fixture
+            contract.
+        :param force_refresh: Value supplied for force refresh under the deterministic
+            fixture contract.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         del force_refresh
         table = link_spec.allowed_types_table
         if table is None:
@@ -89,18 +177,70 @@ class FakeDriverWrapper:
         )
 
     def get_table_spec(self, table: str) -> StorageTableSpec:
+        """
+        Return table spec under the fixture contract.
+
+        Example:
+            Exercise FakeDriverWrapper.get table spec through a consuming regression::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+        :param table: Database table addressed by the fixture operation.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         return self._schema.tables[table]
 
     def get_id_column(self, table: str) -> str:
+        """
+        Return id column under the fixture contract.
+
+        Example:
+            Exercise FakeDriverWrapper.get id column through a consuming regression::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+        :param table: Database table addressed by the fixture operation.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         id_column = self._schema.tables[table].id_column
         if id_column is None:
             raise KeyError(table)
         return id_column
 
     def get_allowed_tables_snapshot(self) -> set[str]:
+        """
+        Return allowed tables snapshot under the fixture contract.
+
+        Example:
+            Exercise FakeDriverWrapper.get allowed tables snapshot through a consuming regression::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         return set(self._schema.tables)
 
     def identify_table_from_row_dict(self, row_dict: dict[str, Any]) -> str:
+        """
+        Perform the identify table from row dict step with deterministic fixture inputs.
+
+        Example:
+            Exercise FakeDriverWrapper.identify table from row dict through a consuming regression::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+        :param row_dict: Value supplied for row dict under the deterministic fixture
+            contract.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         keys = set(row_dict)
         matches = [
             table_name
@@ -113,18 +253,58 @@ class FakeDriverWrapper:
         return matches[0]
 
     def check_for_intralink_table(self, table: str) -> bool:
+        """
+        Perform the check for intralink table step with deterministic fixture inputs.
+
+        Example:
+            Exercise FakeDriverWrapper.check for intralink table through a consuming regression::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+        :param table: Database table addressed by the fixture operation.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         return any(
             link.link_table == table and link.primary_table == link.secondary_table
             for link in self._schema.intralinks
         )
 
     def get_interlinked_tables(self, table: str) -> list[str]:
+        """
+        Return interlinked tables under the fixture contract.
+
+        Example:
+            Exercise FakeDriverWrapper.get interlinked tables through a consuming regression::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+        :param table: Database table addressed by the fixture operation.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         spec = self._schema.tables.get(table)
         if spec is None:
             return []
         return list(spec.linked_tables)
 
     def add_row(self, row_dict: dict[str, Any]) -> int:
+        """
+        Add row for deterministic fixture consumers.
+
+        Example:
+            Exercise FakeDriverWrapper.add row through a consuming regression::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+        :param row_dict: Value supplied for row dict under the deterministic fixture
+            contract.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         table = self.identify_table_from_row_dict(row_dict)
         id_column = self.get_id_column(table)
         next_id = max((int(row[id_column]) for row in self._rows_by_table[table]), default=0) + 1
@@ -134,6 +314,19 @@ class FakeDriverWrapper:
         return int(payload[id_column])
 
     def get_blank_row(self, table: str) -> dict[str, Any]:
+        """
+        Return blank row under the fixture contract.
+
+        Example:
+            Exercise FakeDriverWrapper.get blank row through a consuming regression::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+        :param table: Database table addressed by the fixture operation.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         spec = self.get_table_spec(table)
         id_column = self.get_id_column(table)
         next_id = max((int(row[id_column]) for row in self._rows_by_table[table]), default=0) + 1
@@ -143,6 +336,19 @@ class FakeDriverWrapper:
         return payload
 
     def update_row(self, row_dict: dict[str, Any]) -> None:
+        """
+        Perform the update row step with deterministic fixture inputs.
+
+        Example:
+            Exercise FakeDriverWrapper.update row through a consuming regression::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+        :param row_dict: Value supplied for row dict under the deterministic fixture
+            contract.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         table = self.identify_table_from_row_dict(row_dict)
         id_column = self.get_id_column(table)
         row_id = int(row_dict[id_column])
@@ -155,6 +361,21 @@ class FakeDriverWrapper:
         raise KeyError((table, row_id))
 
     def update_column(self, table: str, row_id: int, column: str, value: Any) -> None:
+        """
+        Perform the update column step with deterministic fixture inputs.
+
+        Example:
+            Exercise FakeDriverWrapper.update column through a consuming regression::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+        :param table: Database table addressed by the fixture operation.
+        :param row_id: Value supplied for row id under the deterministic fixture contract.
+        :param column: Column created, populated or inspected by the fixture operation.
+        :param value: Fixture value normalized, encoded, stored or returned.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         id_column = self.get_id_column(table)
         for row in self._rows_by_table[table]:
             if int(row[id_column]) == int(row_id):
@@ -163,6 +384,19 @@ class FakeDriverWrapper:
         raise KeyError((table, row_id))
 
     def delete_by_id(self, table: str, ids: set[int]) -> None:
+        """
+        Perform the delete by id step with deterministic fixture inputs.
+
+        Example:
+            Exercise FakeDriverWrapper.delete by id through a consuming regression::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+        :param table: Database table addressed by the fixture operation.
+        :param ids: Value supplied for ids under the deterministic fixture contract.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         id_column = self.get_id_column(table)
         deleted = {int(row_id) for row_id in ids}
         self._rows_by_table[table] = [
@@ -171,9 +405,28 @@ class FakeDriverWrapper:
 
 
 class FakeMacros:
-    """Small in-memory macro layer for cache/catalog integration tests."""
+    """
+    Small in-memory macro layer for cache/catalog integration tests.
+
+    Example:
+        Exercise FakeMacros through a consuming regression::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+    """
 
     def __init__(self, db: "FakeDB") -> None:
+        """
+        Initialize and validate the FakeMacros test-support state.
+
+        Example:
+            Exercise FakeMacros.  init   through a consuming regression::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+        :param db: Database connection, wrapper or fixture addressed by the operation.
+        :return: None; completion is expressed through state changes or assertions.
+        """
         self.db = db
 
     def ensure_table_value(
@@ -184,6 +437,23 @@ class FakeMacros:
         *,
         id_column: str | None = None,
     ) -> int:
+        """
+        Perform the ensure table value step with deterministic fixture inputs.
+
+        Example:
+            Exercise FakeMacros.ensure table value through a consuming regression::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+        :param table: Database table addressed by the fixture operation.
+        :param column: Column created, populated or inspected by the fixture operation.
+        :param value: Fixture value normalized, encoded, stored or returned.
+        :param id_column: Value supplied for id column under the deterministic fixture
+            contract.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         id_column = id_column or self.db.driver_wrapper.get_id_column(table)
         for row in self.db._rows_by_table[table]:
             if row.get(column) == value:
@@ -213,6 +483,23 @@ class FakeMacros:
         *,
         id_column: str | None = None,
     ) -> int | None:
+        """
+        Perform the find table value step with deterministic fixture inputs.
+
+        Example:
+            Exercise FakeMacros.find table value through a consuming regression::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+        :param table: Database table addressed by the fixture operation.
+        :param column: Column created, populated or inspected by the fixture operation.
+        :param value: Fixture value normalized, encoded, stored or returned.
+        :param id_column: Value supplied for id column under the deterministic fixture
+            contract.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         id_column = id_column or self.db.driver_wrapper.get_id_column(table)
         return next(
             (
@@ -229,6 +516,23 @@ class FakeMacros:
         row: dict[str, Any],
         link_type: Any,
     ) -> bool:
+        """
+        Perform the type matches step with deterministic fixture inputs.
+
+        Example:
+            Exercise FakeMacros. type matches through a consuming regression::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+        :param link_spec: Value supplied for link spec under the deterministic fixture
+            contract.
+        :param row: Row values inserted into or read from deterministic fixture state.
+        :param link_type: Value supplied for link type under the deterministic fixture
+            contract.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         if link_type is LINK_TYPE_UNSET:
             return True
         if link_spec.type_link_col is None:
@@ -240,6 +544,21 @@ class FakeMacros:
         link_spec: StorageLinkSpec,
         row: dict[str, Any],
     ) -> LinkRow:
+        """
+        Perform the link row step with deterministic fixture inputs.
+
+        Example:
+            Exercise FakeMacros. link row through a consuming regression::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+        :param link_spec: Value supplied for link spec under the deterministic fixture
+            contract.
+        :param row: Row values inserted into or read from deterministic fixture state.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         return LinkRow(
             primary_id=row[link_spec.primary_link_col],
             secondary_id=row[link_spec.secondary_link_col],
@@ -262,6 +581,24 @@ class FakeMacros:
         *,
         link_type: Any = LINK_TYPE_UNSET,
     ) -> dict[int, tuple[LinkRow, ...]]:
+        """
+        Return link rows bulk under the fixture contract.
+
+        Example:
+            Exercise FakeMacros.get link rows bulk through a consuming regression::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+        :param link_spec: Value supplied for link spec under the deterministic fixture
+            contract.
+        :param primary_ids: Value supplied for primary ids under the deterministic fixture
+            contract.
+        :param link_type: Value supplied for link type under the deterministic fixture
+            contract.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         requested = tuple(int(primary_id) for primary_id in primary_ids)
         grouped: dict[int, list[LinkRow]] = {
             primary_id: [] for primary_id in requested
@@ -285,6 +622,24 @@ class FakeMacros:
         *,
         link_type: Any = LINK_TYPE_UNSET,
     ) -> dict[int, tuple[LinkRow, ...]]:
+        """
+        Perform the replace links bulk step with deterministic fixture inputs.
+
+        Example:
+            Exercise FakeMacros.replace links bulk through a consuming regression::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+        :param link_spec: Value supplied for link spec under the deterministic fixture
+            contract.
+        :param replacements: Value supplied for replacements under the deterministic fixture
+            contract.
+        :param link_type: Value supplied for link type under the deterministic fixture
+            contract.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         link_rows = self.db._rows_by_table[link_spec.link_table]
         result: dict[int, tuple[LinkRow, ...]] = {}
         for supplied_primary_id, supplied_links in replacements.items():
@@ -333,6 +688,24 @@ class FakeMacros:
         value_column: str,
         replacements: Any,
     ) -> dict[int, tuple[LinkRow, ...]]:
+        """
+        Perform the replace owned one to one values bulk step with deterministic fixture inputs.
+
+        Example:
+            Exercise FakeMacros.replace owned one to one values bulk through a consuming regression::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+        :param link_spec: Value supplied for link spec under the deterministic fixture
+            contract.
+        :param value_column: Value supplied for value column under the deterministic fixture
+            contract.
+        :param replacements: Value supplied for replacements under the deterministic fixture
+            contract.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         link_rows = self.db._rows_by_table[link_spec.link_table]
         result: dict[int, tuple[LinkRow, ...]] = {}
         for supplied_primary_id, value in replacements.items():
@@ -394,21 +767,72 @@ class FakeMacros:
 
 
 class FakeDB:
+    """
+    Provide the FakeDB test double with a deliberately bounded compatibility surface.
+
+    Example:
+        Exercise FakeDB through a consuming regression::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+    """
     def __init__(
         self,
         schema: StorageSchemaSpec,
         rows_by_table: dict[str, list[dict[str, Any]]],
     ) -> None:
+        """
+        Initialize and validate the FakeDB test-support state.
+
+        Example:
+            Exercise FakeDB.  init   through a consuming regression::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+        :param schema: Value supplied for schema under the deterministic fixture contract.
+        :param rows_by_table: Value supplied for rows by table under the deterministic
+            fixture contract.
+        :return: None; completion is expressed through state changes or assertions.
+        """
         self.driver_wrapper = FakeDriverWrapper(schema, rows_by_table)
         self._rows_by_table = rows_by_table
         self.macros = FakeMacros(self)
         self.conn = None
 
     def get_all_rows(self, table: str, iterator_return: bool = False):
+        """
+        Return all rows under the fixture contract.
+
+        Example:
+            Exercise FakeDB.get all rows through a consuming regression::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+        :param table: Database table addressed by the fixture operation.
+        :param iterator_return: Value supplied for iterator return under the deterministic
+            fixture contract.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         del iterator_return
         return [FakeResultRow(dict(row)) for row in self._rows_by_table[table]]
 
     def get_row_from_id(self, table: str, row_id: int):
+        """
+        Return row from id under the fixture contract.
+
+        Example:
+            Exercise FakeDB.get row from id through a consuming regression::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+        :param table: Database table addressed by the fixture operation.
+        :param row_id: Value supplied for row id under the deterministic fixture contract.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         id_column = self.driver_wrapper.get_id_column(table)
         for row in self._rows_by_table[table]:
             if int(row[id_column]) == int(row_id):
@@ -416,6 +840,19 @@ class FakeDB:
         return None
 
     def get_column_headings(self, table: str) -> list[str]:
+        """
+        Return column headings under the fixture contract.
+
+        Example:
+            Exercise FakeDB.get column headings through a consuming regression::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+        :param table: Database table addressed by the fixture operation.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         return [column.name for column in self.driver_wrapper.get_table_spec(table).columns]
 
     def update_columns(
@@ -424,11 +861,42 @@ class FakeDB:
         field: str,
         table: str,
     ) -> None:
+        """
+        Perform the update columns step with deterministic fixture inputs.
+
+        Example:
+            Exercise FakeDB.update columns through a consuming regression::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+        :param values_map: Value supplied for values map under the deterministic fixture
+            contract.
+        :param field: Value supplied for field under the deterministic fixture contract.
+        :param table: Database table addressed by the fixture operation.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         for row_id, value in values_map.items():
             self.driver_wrapper.update_column(table, int(row_id), field, value)
 
 
 def make_column(name: str, ordinal: int, *, declared_type: str = "TEXT") -> StorageColumnSpec:
+    """
+    Create column for deterministic fixture consumers.
+
+    Example:
+        Exercise make column through a consuming regression::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+    :param name: Stable fixture, profile, member or field name.
+    :param ordinal: Value supplied for ordinal under the deterministic fixture contract.
+    :param declared_type: Value supplied for declared type under the deterministic
+        fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     return StorageColumnSpec(
         name=name,
         ordinal=ordinal,
@@ -446,6 +914,27 @@ def make_table(
     is_link_table: bool = False,
     linked_tables: tuple[str, ...] = (),
 ) -> StorageTableSpec:
+    """
+    Create table for deterministic fixture consumers.
+
+    Example:
+        Exercise make table through a consuming regression::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+    :param name: Stable fixture, profile, member or field name.
+    :param column_names: Value supplied for column names under the deterministic fixture
+        contract.
+    :param is_main_table: Value supplied for is main table under the deterministic
+        fixture contract.
+    :param is_link_table: Value supplied for is link table under the deterministic
+        fixture contract.
+    :param linked_tables: Value supplied for linked tables under the deterministic
+        fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     return StorageTableSpec(
         name=name,
         relation_kind=RelationKind.TABLE,
@@ -470,10 +959,41 @@ def make_fake_db(
     schema: StorageSchemaSpec,
     rows_by_table: dict[str, list[dict[str, Any]]],
 ) -> FakeDB:
+    """
+    Create fake db for deterministic fixture consumers.
+
+    Example:
+        Exercise make fake db through a consuming regression::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+    :param schema: Value supplied for schema under the deterministic fixture contract.
+    :param rows_by_table: Value supplied for rows by table under the deterministic
+        fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     return FakeDB(schema=schema, rows_by_table=rows_by_table)
 
 
 def create_loaded_test_cache(db: Any, cache_type: str, **kwargs: Any):
+    """
+    Create loaded test cache for deterministic fixture consumers.
+
+    Example:
+        Exercise create loaded test cache through a consuming regression::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+    :param db: Database connection, wrapper or fixture addressed by the operation.
+    :param cache_type: Value supplied for cache type under the deterministic fixture
+        contract.
+    :param kwargs: Keyword arguments forwarded to the bounded test double or builder.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     resolved_kwargs = dict(CACHE_PLUGIN_KWARGS.get(str(cache_type), {}))
     resolved_kwargs.update(kwargs)
     cache = create_storage_cache(db, cache_type, **resolved_kwargs)

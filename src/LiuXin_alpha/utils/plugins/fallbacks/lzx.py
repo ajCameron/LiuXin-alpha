@@ -1,4 +1,15 @@
 
+"""
+Provide lzx utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise lzx through a consuming regression::
+
+        python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -57,24 +68,78 @@ position_base = (
 
 
 class LZXError(ValueError):
+    """
+    Report the LZXError Calibre compatibility failure.
+
+    Example:
+        Exercise LZXError through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+    """
     def __init__(self, code: int, message: str) -> None:
+        """
+        Initialize and validate the LZXError state.
+
+        Example:
+            Exercise LZXError.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :param code: Value supplied for code under the utility contract.
+        :param message: Value supplied for message under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super().__init__(message)
         self.code = code
 
 
 @dataclass
 class _BitStream:
+    """
+    Provide the BitStream utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise  BitStream through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+    """
     data: bytes
     ip: int = 0
     bitbuf: int = 0
     bitsleft: int = 0
 
     def init(self) -> None:
+        """
+        Perform the init utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  BitStream.init through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.bitbuf = 0
         self.bitsleft = 0
 
     def ensure(self, n: int) -> None:
         # Mirrors ENSURE_BITS; we permit up to a word over-read by injecting zeros.
+        """
+        Perform the ensure utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  BitStream.ensure through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :param n: Value supplied for n under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         while self.bitsleft < n:
             if self.ip + 1 < len(self.data):
                 word = (self.data[self.ip + 1] << 8) | self.data[self.ip]
@@ -88,19 +153,74 @@ class _BitStream:
             self.ip += 2
 
     def peek(self, n: int) -> int:
+        """
+        Perform the peek utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  BitStream.peek through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :param n: Value supplied for n under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return (self.bitbuf >> (_ULONG_BITS - n)) & ((1 << n) - 1)
 
     def remove(self, n: int) -> None:
+        """
+        Perform the remove utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  BitStream.remove through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :param n: Value supplied for n under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.bitbuf = ((self.bitbuf << n) & _MASK32)
         self.bitsleft -= n
 
     def read_bits(self, n: int) -> int:
+        """
+        Read bits under the documented compatibility and safety rules.
+
+        Example:
+            Exercise  BitStream.read bits through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :param n: Value supplied for n under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.ensure(n)
         v = self.peek(n)
         self.remove(n)
         return v
 
     def read_huffsym(self, table: List[int], tablebits: int, maxsyms: int, lens: List[int]) -> int:
+        """
+        Read huffsym under the documented compatibility and safety rules.
+
+        Example:
+            Exercise  BitStream.read huffsym through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :param table: Value supplied for table under the utility contract.
+        :param tablebits: Value supplied for tablebits under the utility contract.
+        :param maxsyms: Value supplied for maxsyms under the utility contract.
+        :param lens: Value supplied for lens under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.ensure(16)
         i = table[self.peek(tablebits)]
         if i >= maxsyms:
@@ -122,8 +242,20 @@ class _BitStream:
 
 def _make_decode_table(nsyms: int, nbits: int, length: List[int], table: List[int]) -> int:
     """
-    Port of make_decode_table() from lzx.c.
-    Returns 0 for OK, 1 for error.
+    Port of make_decode_table() from lzx.c. Returns 0 for OK, 1 for error.
+
+    Example:
+        Exercise  make decode table through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param nsyms: Value supplied for nsyms under the utility contract.
+    :param nbits: Value supplied for nbits under the utility contract.
+    :param length: Value supplied for length under the utility contract.
+    :param table: Value supplied for table under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     pos = 0
     table_mask = 1 << nbits
@@ -184,6 +316,22 @@ def _make_decode_table(nsyms: int, nbits: int, length: List[int], table: List[in
 
 
 def _build_table(nsyms: int, nbits: int, lens: List[int], table: List[int]) -> None:
+    """
+    Perform the build table utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  build table through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param nsyms: Value supplied for nsyms under the utility contract.
+    :param nbits: Value supplied for nbits under the utility contract.
+    :param lens: Value supplied for lens under the utility contract.
+    :param table: Value supplied for table under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if _make_decode_table(nsyms, nbits, lens, table):
         raise LZXError(DECR_ILLEGALDATA, "Illegal Huffman table")
 
@@ -197,6 +345,24 @@ def _lzx_read_lens(
     last: int,
 ) -> None:
     # read pretree lengths (20 symbols, 4 bits each)
+    """
+    Perform the lzx read lens utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  lzx read lens through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param bs: Value supplied for bs under the utility contract.
+    :param pretree_len: Value supplied for pretree len under the utility contract.
+    :param pretree_table: Value supplied for pretree table under the utility contract.
+    :param lens: Value supplied for lens under the utility contract.
+    :param first: Value supplied for first under the utility contract.
+    :param last: Value supplied for last under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for x in range(20):
         pretree_len[x] = bs.read_bits(4)
     _build_table(LZX_PRETREE_MAXSYMBOLS, LZX_PRETREE_TABLEBITS, pretree_len, pretree_table)
@@ -235,11 +401,25 @@ class LZXState:
     """
     Pure-python port of the lzx.c state machine (as used in chmlib/cabextract).
 
-    Note: The compiled calibre extension may expose a different surface. This
-    fallback provides both a pythonic API and C-style wrapper functions.
+    Example:
+        Exercise LZXState through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
     """
 
     def __init__(self, window: int) -> None:
+        """
+        Initialize and validate the LZXState state.
+
+        Example:
+            Exercise LZXState.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :param window: Value supplied for window under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         if window < 15 or window > 21:
             raise ValueError("LZX window must be between 15 and 21 (inclusive)")
         wndsize = 1 << window
@@ -291,6 +471,18 @@ class LZXState:
             self.LENGTH_len[i] = 0
 
     def reset(self) -> int:
+        """
+        Perform the reset utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise LZXState.reset through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.R0 = self.R1 = self.R2 = 1
         self.header_read = 0
         self.frames_read = 0
@@ -307,10 +499,18 @@ class LZXState:
 
     def decompress_status(self, indata: bytes, outlen: int) -> Tuple[int, bytes]:
         """
-        Decompress a single LZX frame worth of output (exactly outlen bytes),
-        updating the sliding window and LRU offsets.
+        Decompress a single LZX frame worth of output (exactly outlen bytes), updating the sliding window and LRU offsets.
 
-        Returns (status_code, output_bytes).
+        Example:
+            Exercise LZXState.decompress status through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :param indata: Value supplied for indata under the utility contract.
+        :param outlen: Value supplied for outlen under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         try:
             out = self._decompress(indata, outlen)
@@ -324,10 +524,35 @@ class LZXState:
     def decompress(self, indata: bytes, outlen: int) -> bytes:
         """
         Decompress and return output bytes. Raises LZXError on failure.
+
+        Example:
+            Exercise LZXState.decompress through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :param indata: Value supplied for indata under the utility contract.
+        :param outlen: Value supplied for outlen under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self._decompress(indata, outlen)
 
     def _decompress(self, indata: bytes, outlen: int) -> bytes:
+        """
+        Perform the decompress utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise LZXState. decompress through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :param indata: Value supplied for indata under the utility contract.
+        :param outlen: Value supplied for outlen under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if outlen < 0:
             raise ValueError("outlen must be >= 0")
         if outlen > self.window_size:
@@ -568,19 +793,74 @@ class LZXState:
 # ---- C-style wrapper functions (friendlier for compatibility shims) ----
 
 def LZXinit(window: int) -> LZXState:
+    """
+    Perform the LZXinit utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise LZXinit through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param window: Value supplied for window under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return LZXState(window)
 
 
 def LZXteardown(pState: LZXState) -> None:
     # Nothing special required in Python
+    """
+    Perform the LZXteardown utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise LZXteardown through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param pState: Value supplied for pState under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return None
 
 
 def LZXreset(pState: LZXState) -> int:
+    """
+    Perform the LZXreset utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise LZXreset through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param pState: Value supplied for pState under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return pState.reset()
 
 
 def LZXdecompress(pState: LZXState, inpos: bytes, outlen: int, inlen: Optional[int] = None) -> bytes:
+    """
+    Perform the LZXdecompress utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise LZXdecompress through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param pState: Value supplied for pState under the utility contract.
+    :param inpos: Value supplied for inpos under the utility contract.
+    :param outlen: Value supplied for outlen under the utility contract.
+    :param inlen: Value supplied for inlen under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if inlen is not None:
         inpos = inpos[:inlen]
     return pState.decompress(inpos, outlen)

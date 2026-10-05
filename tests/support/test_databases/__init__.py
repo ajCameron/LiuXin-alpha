@@ -1,22 +1,13 @@
-"""Optional builder modules for test databases.
+"""
+Build deterministic test-database init data and relationships.
 
-If you add a module here named after a test database (for example
-`test_db_42.py`), the test database provisioner can import it and build the
-database on demand.
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
 
-Supported module contracts:
+Example:
+    Exercise   init   through a consuming regression::
 
-* def populate_bundle(bundle_dir: pathlib.Path) -> None
-    - Create the sqlite DB file and any sidecar resources inside bundle_dir.
-    - Preferred when you need more than a single DB file.
-
-* def build(db_path: pathlib.Path) -> None
-  def build_database(db_path: pathlib.Path) -> None
-  def build_test_database(db_path: pathlib.Path) -> None
-    - Create the sqlite DB file at db_path.
-
-The provisioner will prefer `<name>.test_db` but will also accept a single
-`*.test_db` file if you generate one with a different filename.
+        python -m pytest -q tests/databases/test_test_resources_manager.py
 """
 
 from __future__ import annotations, print_function
@@ -111,19 +102,25 @@ def load_data(
 ):
     """
     Reads data for the database out of a series of CSV files.
-    :param folder_path: Path to the folder containing all the csv files.
-                        Takes presidence over all other indicators as to the location of the folder (base_data and
-                        load_from - if this is present they are ignored
-    :param overwrite_db: True the the default database is overwritten
-                         False then the new database is created in a scratch folder and the data loaded into it there.
-                         Will consult :param override_scratch_folder: to see if there is a specific scratch folder that
-                         should be used.
-    :param base_data: Uses the data set which hasn't been filled in.
-    :param load_from: Specify an override subfolder in LiuXin.test.test_data to load the data from.
-                      This overrides base data.
-    :param override_scratch_folder: If not None then this scratch folder will be used instead of the automatically
-                                    generated folder to build the new database in
-    :return:
+
+    Example:
+        Exercise load data through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param folder_path: Value supplied for folder path under the deterministic fixture
+        contract.
+    :param overwrite_db: Value supplied for overwrite db under the deterministic fixture
+        contract.
+    :param base_data: Value supplied for base data under the deterministic fixture
+        contract.
+    :param load_from: Value supplied for load from under the deterministic fixture
+        contract.
+    :param override_scratch_folder: Value supplied for override scratch folder under the
+        deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
     """
     if folder_path is not None:
         if not os.path.exists(folder_path):
@@ -256,9 +253,18 @@ def load_data(
 def dump_data(folder_path=None, database=None):
     """
     Dumps the data from the database as a series of csv files in the specified folder.
-    :param folder_path: The place to dump the data.
-    :param database: The database to read while preforming the dump
-    :return:
+
+    Example:
+        Exercise dump data through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param folder_path: Value supplied for folder path under the deterministic fixture
+        contract.
+    :param database: Value supplied for database under the deterministic fixture
+        contract.
+    :return: None; fixture state or the supplied destination is updated in place.
     """
     if folder_path is not None:
         if not os.path.exists(folder_path):
@@ -301,9 +307,17 @@ def dump_data(folder_path=None, database=None):
 def purge_csv_files(folder_path=None, prompt=True):
     """
     Delete all csv files in the target folder.
-    :param folder_path:
-    :param prompt:
-    :return:
+
+    Example:
+        Exercise purge csv files through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param folder_path: Value supplied for folder path under the deterministic fixture
+        contract.
+    :param prompt: Value supplied for prompt under the deterministic fixture contract.
+    :return: None; fixture state or the supplied destination is updated in place.
     """
     if prompt:
         wrn_str = "All CSV files at the target location will be deleted.\n"
@@ -344,12 +358,21 @@ def extract_test_books(books_path, target_num=10, separate_files=False, extract_
     """
     Takes a path to the root of a tree - walks the tree and tries to extract ten of each type of ebook from it.
 
-    Tree could be a calibre library.
-    Needed because I was tired of manually mining rare book formats out a deeply nested file system.
-    :param books_path:
-    :param target_num: The minimum number of each type of book to be retrieved
-    :param separate_files: Should efforts be made to preserve the file structure?
-    :return:
+    Example:
+        Exercise extract test books through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param books_path: Value supplied for books path under the deterministic fixture
+        contract.
+    :param target_num: Value supplied for target num under the deterministic fixture
+        contract.
+    :param separate_files: Value supplied for separate files under the deterministic
+        fixture contract.
+    :param extract_file_groups: Value supplied for extract file groups under the
+        deterministic fixture contract.
+    :return: None; fixture state or the supplied destination is updated in place.
     """
     default_log.info("Making test books set - books_path: " + six_unicode(books_path))
 
@@ -412,10 +435,18 @@ def extract_test_books(books_path, target_num=10, separate_files=False, extract_
 
 def to_csv(target_string):
     """
-    Takes a string - renders it safe for saving in CSV form by replacing all the commas with something safe.
-    Should be run after all other pickling/serialization operations have been run.
-    :param target_string:
-    :return:
+    Takes a string - renders it safe for saving in CSV form by replacing all the commas with something safe. Should be run after all other pickling/serialization operations have been run.
+
+    Example:
+        Exercise to csv through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param target_string: Value supplied for target string under the deterministic
+        fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
     """
     target_string = six_unicode(target_string)
     return target_string.replace(",", "###")
@@ -423,10 +454,18 @@ def to_csv(target_string):
 
 def from_csv(target_string):
     """
-    Takes a string - renders it from the csv safe form into something that can be read in, by replacing the placeholder
-    for a comma with actual commas.
-    :param target_string:
-    :return:
+    Takes a string - renders it from the csv safe form into something that can be read in, by replacing the placeholder for a comma with actual commas.
+
+    Example:
+        Exercise from csv through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param target_string: Value supplied for target string under the deterministic
+        fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
     """
     target_string = six_unicode(target_string)
     return target_string.replace("###", ",")
@@ -436,9 +475,13 @@ def make_test_data():
     """
     Prepare a test data set from the test_db_0 and some methods from Library.
 
-    The base data was the data set I could be bothered to type out by hand - most of the rest of the data is made by
-    using the test add methods from the library test class to add new items to the database.
-    :return:
+    Example:
+        Exercise make test data through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :return: None; fixture state or the supplied destination is updated in place.
     """
     # Make sure that the database is empty
     from LiuXin_alpha.databases.database import Database
@@ -523,17 +566,20 @@ def make_test_data():
 # Todo: Currently overwrites the database in the default position - this needs to be corrected
 def make_test_database_backup(base_data=False, override_dst_name=None):
     """
-    Makes a test database - loads it with all the data - then copies it to a secure location.
-    Do not use if you're altering the pirmary table sql.
-    :param base_data: The test database is assembled in two stages. First a basic set of data is loaded out of the CSV
-                      files in LiuXin.test.library.test_data.test_db_0 - then additional methods are run on it using
-                      the library add methods (as manually typing out those additions to the CSV files seemed entirely
-                      too much like work. If True this generates a database using that base data. If False then
-                      generates a test database using the full data set.
-                      If True, the new database is stored in the LiuXin_data_folder, as test_database_base.db
-                      If False, the new database is stored in the LiuXin_data_folder as test_database.db
-    :param override_dst_name: If provided will override the output name from the default to the provided value
-    :return:
+    Makes a test database - loads it with all the data - then copies it to a secure location. Do not use if you're altering the pirmary table sql.
+
+    Example:
+        Exercise make test database backup through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param base_data: Value supplied for base data under the deterministic fixture
+        contract.
+    :param override_dst_name: Value supplied for override dst name under the
+        deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
     """
     puts(colored.green("About to create the test database"))
     live_database = load_data(base_data=base_data)
@@ -567,13 +613,16 @@ def make_test_database_backup(base_data=False, override_dst_name=None):
 
 def file_load_comprehensive_test_database_backup():
     """
-    Copies the test database from where it resides in the LiuXin_data_folder to the database path. The database at that
-    location, if any, is overwritten.
-    :param base: If True, then loads the base data set (the test database without books, and the addition of some
-                 creators and series). If False, then loads the complete test data set
-    :param scratch: Instead of replacing the main database copies the database into a scratch folder and returns the
-                    path to the database.
-    :return final_db_path: The path to the replaced database - where ever that may be
+    Copies the test database from where it resides in the LiuXin_data_folder to the database path. The database at that location, if any, is overwritten.
+
+    Example:
+        Exercise file load comprehensive test database backup through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
     """
     info_str = "About to copy the comprehensive test database to a scratch folder"
     puts(colored.green(info_str))
@@ -603,14 +652,20 @@ def file_load_comprehensive_test_database_backup():
 # Todo: This needs to be seriously reconsidered - or outright removed
 def file_load_test_database_backup(base=False, scratch=False, override_scratch_folder=None):
     """
-    Copies the test database from where it resides in the LiuXin_data_folder to the database path. The database at that
-    location, if any, is overwritten.
-    :param base: If True, then loads the base data set (the test database without books, and the addition of some
-                 creators and series). If False, then loads the complete test data set
-    :param scratch: Instead of replacing the main database copies the database into a scratch folder and returns the
-                    path to the database.
-    :param override_scratch_folder: If provided, then the new database will be generated in the given folder
-    :return final_db_path: The path to the replaced database - where ever that may be
+    Copies the test database from where it resides in the LiuXin_data_folder to the database path. The database at that location, if any, is overwritten.
+
+    Example:
+        Exercise file load test database backup through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param base: Value supplied for base under the deterministic fixture contract.
+    :param scratch: Value supplied for scratch under the deterministic fixture contract.
+    :param override_scratch_folder: Value supplied for override scratch folder under the
+        deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
     """
     info_str = "About to copy the {}test database to {}".format(
         "full " if not base else "base ",
@@ -647,11 +702,19 @@ def file_load_named_database(database_name="test_db_1.test_db", scratch=True, ov
     """
     Load the named database either into a scratch folder or replace the default database.
 
-    Return a path to wherever the database ended up.
-    :param database_name:
-    :param scratch:
-    :param override_scratch_folder: If given, then the scratch database will be generated in this folder.
-    :return:
+    Example:
+        Exercise file load named database through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param database_name: Value supplied for database name under the deterministic
+        fixture contract.
+    :param scratch: Value supplied for scratch under the deterministic fixture contract.
+    :param override_scratch_folder: Value supplied for override scratch folder under the
+        deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
     """
     import os
     import shutil
@@ -681,11 +744,17 @@ def file_load_named_database(database_name="test_db_1.test_db", scratch=True, ov
 
 def file_load_test_database_with_file_data(scratch=False):
     """
-    Copies the test database (with the test files data) from where it resides in the LiuXin_data_folder to the database
-    path. The database at that location, if any, is overwritten.
-    :param scratch: Instead of replacing the main database copies the database into a scratch folder and returns the
-                    path to the database.
-    :return final_db_path: Return a path to where ever the database file ended up
+    Copies the test database (with the test files data) from where it resides in the LiuXin_data_folder to the database path. The database at that location, if any, is overwritten.
+
+    Example:
+        Exercise file load test database with file data through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param scratch: Value supplied for scratch under the deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
     """
     info_str = "About to copy the test database with the file data"
     puts(colored.green(info_str))
@@ -729,9 +798,17 @@ def file_load_test_database_with_file_data(scratch=False):
 def test_add_title(test_library, test_db):
     """
     Test adding a title to the database.
-    :param test_library:
-    :param test_db:
-    :return:
+
+    Example:
+        Exercise test add title through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param test_library: Value supplied for test library under the deterministic fixture
+        contract.
+    :param test_db: Database fixture or builder being populated.
+    :return: None; completion is expressed through state changes or assertions.
     """
     t1_date = datetime.date(year=1987, month=10, day=1)
     title_row = test_library.add.title(
@@ -770,9 +847,17 @@ def test_add_title(test_library, test_db):
 def test_add_tag(test_library, test_db):
     """
     Testing adding a tag to the database.
-    :param test_library:
-    :param test_db:
-    :return:
+
+    Example:
+        Exercise test add tag through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param test_library: Value supplied for test library under the deterministic fixture
+        contract.
+    :param test_db: Database fixture or builder being populated.
+    :return: None; completion is expressed through state changes or assertions.
     """
     tag_row = test_library.add.tag("rational fiction")
     tag_row_2 = test_db.get_row_from_id(table="tags", row_id=tag_row["tag_id"])
@@ -789,9 +874,17 @@ def test_add_tag(test_library, test_db):
 def test_add_subject(test_library, test_db):
     """
     Testing adding a subject to the database.
-    :param test_library:
-    :param test_db:
-    :return:
+
+    Example:
+        Exercise test add subject through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param test_library: Value supplied for test library under the deterministic fixture
+        contract.
+    :param test_db: Database fixture or builder being populated.
+    :return: None; completion is expressed through state changes or assertions.
     """
     mh_sub = test_library.add.subject(subject="Military History")
     mh_sub_2 = test_db.get_row_from_id(table="subjects", row_id=mh_sub["subject_id"])
@@ -816,9 +909,17 @@ def test_add_subject(test_library, test_db):
 def test_add_series(test_library, test_db):
     """
     Test adding a series to the library.
-    :param test_library:
-    :param test_db:
-    :return:
+
+    Example:
+        Exercise test add series through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param test_library: Value supplied for test library under the deterministic fixture
+        contract.
+    :param test_db: Database fixture or builder being populated.
+    :return: None; completion is expressed through state changes or assertions.
     """
     gr_creator_row = test_library.add.creator(creator="Gene Roddenberry")
     series_note = test_library.add.note("Something, something optimistic utopia. Commies.")
@@ -851,9 +952,17 @@ def test_add_series(test_library, test_db):
 def test_publisher_add(test_library, test_db):
     """
     Tests the library.add.publisher method to make sure it actually adds a publisher to the publisher table.
-    :param test_library:
-    :param test_db:
-    :return:
+
+    Example:
+        Exercise test publisher add through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param test_library: Value supplied for test library under the deterministic fixture
+        contract.
+    :param test_db: Database fixture or builder being populated.
+    :return: None; completion is expressed through state changes or assertions.
     """
     pub_row = test_library.add.publisher(
         publisher="Baen Books",
@@ -920,9 +1029,17 @@ def test_publisher_add(test_library, test_db):
 def test_genre_add(test_library, test_db):
     """
     Test the capacity to add a genre.
-    :param test_library:
-    :param test_db:
-    :return:
+
+    Example:
+        Exercise test genre add through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param test_library: Value supplied for test library under the deterministic fixture
+        contract.
+    :param test_db: Database fixture or builder being populated.
+    :return: None; completion is expressed through state changes or assertions.
     """
     gr = test_library.add.genre(genre="Science Fiction")
     gr_2 = test_db.get_row_from_id(table="genres", row_id=gr["genre_id"])
@@ -985,8 +1102,17 @@ def test_genre_add(test_library, test_db):
 def test_creator_add(test_library, test_db):
     """
     Test adding stuff to a test_library.
-    :param test_library:
-    :return:
+
+    Example:
+        Exercise test creator add through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param test_library: Value supplied for test library under the deterministic fixture
+        contract.
+    :param test_db: Database fixture or builder being populated.
+    :return: None; completion is expressed through state changes or assertions.
     """
     herriot_birth_date = datetime.date(day=3, month=10, year=1916)
     herriot_death_date = datetime.date(day=23, month=2, year=1995)
@@ -1042,9 +1168,17 @@ def test_creator_add(test_library, test_db):
 def test_apply_note(test_library, test_db):
     """
     Test applying a note to a title in the library.
-    :param test_library:
-    :param test_db:
-    :return:
+
+    Example:
+        Exercise test apply note through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param test_library: Value supplied for test library under the deterministic fixture
+        contract.
+    :param test_db: Database fixture or builder being populated.
+    :return: None; completion is expressed through state changes or assertions.
     """
     title_row = test_db.get_row_from_id("titles", 1)
 
@@ -1081,9 +1215,17 @@ def test_apply_note(test_library, test_db):
 def test_apply_tags(test_library, test_db):
     """
     Test applying a tag to an resource.
-    :param test_library:
-    :param test_db:
-    :return:
+
+    Example:
+        Exercise test apply tags through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param test_library: Value supplied for test library under the deterministic fixture
+        contract.
+    :param test_db: Database fixture or builder being populated.
+    :return: None; completion is expressed through state changes or assertions.
     """
     # Test applying tags to a title
     title_row = test_db.get_row_from_id("titles", 1)
@@ -1493,9 +1635,17 @@ def test_apply_tags(test_library, test_db):
 def test_apply_publisher(test_library, test_db):
     """
     Test apply publishers to the titles in the given library.
-    :param test_library:
-    :param test_db:
-    :return:
+
+    Example:
+        Exercise test apply publisher through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param test_library: Value supplied for test library under the deterministic fixture
+        contract.
+    :param test_db: Database fixture or builder being populated.
+    :return: None; completion is expressed through state changes or assertions.
     """
     # Add some publishers to the publishers table
     pan_row = test_library.ensure.publisher("Pan")
@@ -1595,9 +1745,17 @@ def test_apply_publisher(test_library, test_db):
 def test_apply_synopsis(test_library, test_db):
     """
     Add synopsis to some of the other resources.
-    :param test_library:
-    :param test_db:
-    :return:
+
+    Example:
+        Exercise test apply synopsis through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param test_library: Value supplied for test library under the deterministic fixture
+        contract.
+    :param test_db: Database fixture or builder being populated.
+    :return: None; completion is expressed through state changes or assertions.
     """
     puts(colored.green("About to try applying a synopsis to a number of titles"))
 
@@ -1668,9 +1826,17 @@ def test_apply_synopsis(test_library, test_db):
 def test_add_language(test_library, test_db):
     """
     Test add a language to the database.
-    :param test_library:
-    :param test_db:
-    :return:
+
+    Example:
+        Exercise test add language through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param test_library: Value supplied for test library under the deterministic fixture
+        contract.
+    :param test_db: Database fixture or builder being populated.
+    :return: None; completion is expressed through state changes or assertions.
     """
     test_library.add.language(language_name="english", language_code="eng_test")
 
@@ -1696,9 +1862,17 @@ def test_add_language(test_library, test_db):
 def test_apply_language(test_library, test_db):
     """
     Test applying a language to a title
-    :param test_library:
-    :param test_db:
-    :return:
+
+    Example:
+        Exercise test apply language through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param test_library: Value supplied for test library under the deterministic fixture
+        contract.
+    :param test_db: Database fixture or builder being populated.
+    :return: None; completion is expressed through state changes or assertions.
     """
     puts(colored.green("About to apply English to all titles"))
     for title in test_db.get_all_rows(table="titles", iterator_return=True):
@@ -1724,9 +1898,18 @@ def test_apply_language(test_library, test_db):
 def create_all_books(test_library, test_db):
     """
     Create a book for every title on the database.
-    :param test_library:
-    :param test_db:
-    :return:
+
+    Example:
+        Exercise create all books through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param test_library: Value supplied for test library under the deterministic fixture
+        contract.
+    :param test_db: Database fixture or builder being populated.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
     """
     for title_row in test_db.get_all_rows("titles"):
         puts(colored.green("Creating book row for {}".format(title_row["title"])))
@@ -1748,19 +1931,34 @@ def generate_test_db(
     max_tags=10,
 ):
     """
-    Populates a database with a large amount of random data - useful for speed trials.
-    Method adapted from calibre - see test_db_4 for the LiuXin implementation of this - which provides for more detail
-    to controle generation of the database topology
-    :param library_path:
-    :param num_of_records:
-    :param num_of_authors:
-    :param num_of_tags:
-    :param tag_length:
-    :param author_length:
-    :param title_length:
-    :param max_authors:
-    :param max_tags:
-    :return:
+    Populates a database with a large amount of random data - useful for speed trials. Method adapted from calibre - see test_db_4 for the LiuXin implementation of this - which provides for more detail to controle generation of the database topology
+
+    Example:
+        Exercise generate test db through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param library_path: Value supplied for library path under the deterministic fixture
+        contract.
+    :param num_of_records: Value supplied for num of records under the deterministic
+        fixture contract.
+    :param num_of_authors: Value supplied for num of authors under the deterministic
+        fixture contract.
+    :param num_of_tags: Value supplied for num of tags under the deterministic fixture
+        contract.
+    :param tag_length: Value supplied for tag length under the deterministic fixture
+        contract.
+    :param author_length: Value supplied for author length under the deterministic
+        fixture contract.
+    :param title_length: Value supplied for title length under the deterministic fixture
+        contract.
+    :param max_authors: Value supplied for max authors under the deterministic fixture
+        contract.
+    :param max_tags: Value supplied for max tags under the deterministic fixture
+        contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
     """
     # Done here to isolate the random module where possible - for there is no guarantee on it that the actual numbers
     # produced are the same between version - unless your using random.random() with identicle seeding
@@ -1777,6 +1975,19 @@ def generate_test_db(
     letters = string.letters.decode(preferred_encoding)
 
     def randstr(length):
+        """
+        Perform the randstr step with deterministic fixture inputs.
+
+        Example:
+            Exercise generate test db.randstr through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param length: Value supplied for length under the deterministic fixture contract.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         return "".join(lx_random.choice(letters) for i in memory_range(length))
 
     all_tags = [randstr(tag_length) for j in memory_range(num_of_tags)]
@@ -1816,6 +2027,11 @@ def generate_test_db(
 class TestDatabaseBuilder(object):
     """
     Builder system for test databases.
+
+    Example:
+        Exercise TestDatabaseBuilder through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
     """
 
     def __init__(
@@ -1829,16 +2045,24 @@ class TestDatabaseBuilder(object):
     ):
         """
         Parameters to control the test database generation.
-        :param dst_file_path: The location that the database file will be copied to once build is complete
-        :param csv_folder_path: The csv files for the database will be loaded from here.
-                                If no folder path is provided will default to no data
-        :param dump: If True then the database will be dumped in csv format into the folder that it was generated from.
-        :param plugin_name: Name of the plugin to be generated
-        :param new_db_uuid: When setting the database metadata also set the uuid for the database.
-                            If "auto" - a name will be automatically generated and set.
-        :param test_asset_version: If provided - will write the current version of the test assets into the database.
-                                   If not provided, then will just be a uuid string.
-        :return:
+
+        Example:
+            Exercise TestDatabaseBuilder.  init   through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param dst_file_path: Destination file written with the generated database or asset.
+        :param csv_folder_path: Value supplied for csv folder path under the deterministic
+            fixture contract.
+        :param dump: Value supplied for dump under the deterministic fixture contract.
+        :param plugin_name: Value supplied for plugin name under the deterministic fixture
+            contract.
+        :param new_db_uuid: Value supplied for new db uuid under the deterministic fixture
+            contract.
+        :param test_asset_version: Value supplied for test asset version under the
+            deterministic fixture contract.
+        :return: None; completion is expressed through state changes or assertions.
         """
         self.dst_file_path = dst_file_path
         self.csv_folder_path = csv_folder_path
@@ -1860,13 +2084,17 @@ class TestDatabaseBuilder(object):
     # - UTILITIES
     def get_internal_rng(self, seed=None):
         """
-        Return an internal random number generator - which should be an instant of random.Random prepared so that it
-        always produces the same sequence when seeded with the same value.
-        From the python docs - there should always been a backwards compatible method for random such that you can
-        seed the generator and reliably get the same sequence of numbers back.
-        This method is to centralize that function in one place.
-        :param seed:
-        :return:
+        Return an internal random number generator - which should be an instant of random.Random prepared so that it always produces the same sequence when seeded with the same value. From the python docs - there should always been a backwards compatible method for random such that you can seed the generator and reliably get the same sequence of numbers back. This method is to centralize that function in one place.
+
+        Example:
+            Exercise TestDatabaseBuilder.get internal rng through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param seed: Stable seed controlling deterministic generated values.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
         """
         # See rational above for why the import is done here
         from utils.lx_libraries.liuxin_random import LiuXinBadPseudoRandomGenerator
@@ -1880,17 +2108,36 @@ class TestDatabaseBuilder(object):
     def get_randint(self, internal_rng, lower_bound, upper_bound):
         """
         Takes the current internal_rng and returns an integer between the lower_bound and the upperbound.
-        :param internal_rng:
-        :param lower_bound:
-        :param upper_bound:
-        :return:
+
+        Example:
+            Exercise TestDatabaseBuilder.get randint through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param internal_rng: Value supplied for internal rng under the deterministic fixture
+            contract.
+        :param lower_bound: Value supplied for lower bound under the deterministic fixture
+            contract.
+        :param upper_bound: Value supplied for upper bound under the deterministic fixture
+            contract.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
         """
         return internal_rng.randint(lower_bound, upper_bound)
 
     def get_plugin_name(self):
         """
         Return the name of the plugin currently being used to generate this test database.
-        :return:
+
+        Example:
+            Exercise TestDatabaseBuilder.get plugin name through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
         """
         return self.plugin_name
 
@@ -1898,7 +2145,15 @@ class TestDatabaseBuilder(object):
     def get_term_size():
         """
         Return the size of the currently active terminal.
-        :return:
+
+        Example:
+            Exercise TestDatabaseBuilder.get term size through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
         """
         return getTerminalSize()
 
@@ -1906,8 +2161,16 @@ class TestDatabaseBuilder(object):
     def okay_print(message_str):
         """
         Prints the given message to screen in green.
-        :param message_str:
-        :return:
+
+        Example:
+            Exercise TestDatabaseBuilder.okay print through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param message_str: Value supplied for message str under the deterministic fixture
+            contract.
+        :return: None; fixture state or the supplied destination is updated in place.
         """
         puts(colored.green(message_str))
 
@@ -1915,15 +2178,30 @@ class TestDatabaseBuilder(object):
     def warn_print(message_str):
         """
         Prints the given message to screen in green.
-        :param message_str:
-        :return:
+
+        Example:
+            Exercise TestDatabaseBuilder.warn print through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param message_str: Value supplied for message str under the deterministic fixture
+            contract.
+        :return: None; fixture state or the supplied destination is updated in place.
         """
         puts(colored.yellow(message_str))
 
     def print_banner(self):
         """
         Print a welcome banner to indicate the test database which is currently being generated.
-        :return:
+
+        Example:
+            Exercise TestDatabaseBuilder.print banner through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :return: None; fixture state or the supplied destination is updated in place.
         """
         term_width, term_height = self.get_term_size()
         info_str = [
@@ -1939,7 +2217,15 @@ class TestDatabaseBuilder(object):
     def get_scratch_folder(self):
         """
         Return a scratch folder confined to the build_ramdisk
-        :return:
+
+        Example:
+            Exercise TestDatabaseBuilder.get scratch folder through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
         """
         return self.build_scratch_folder_manager.get_scratch_folder()
 
@@ -1948,7 +2234,14 @@ class TestDatabaseBuilder(object):
     def run(self):
         """
         Execute build of the database.
-        :return:
+
+        Example:
+            Exercise TestDatabaseBuilder.run through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :return: None; fixture state or the supplied destination is updated in place.
         """
         # 1) Set the details of the build on the way in
         self.build_start_time = time.time()
@@ -1994,16 +2287,30 @@ class TestDatabaseBuilder(object):
     def detail_database_metadata(self, scratch_db):
         """
         Provides the building method a chance to make changes to the database metadata - changing the db uuid e.t.c
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDatabaseBuilder.detail database metadata through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param scratch_db: Scratch database receiving deterministic schema and rows.
+        :return: None; fixture state or the supplied destination is updated in place.
         """
         pass
 
     def write_timestamps(self, scratch_db):
         """
         Manually update the timestamps so that they are static between runs.
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDatabaseBuilder.write timestamps through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param scratch_db: Scratch database receiving deterministic schema and rows.
+        :return: None; fixture state or the supplied destination is updated in place.
         """
         for table in scratch_db.get_tables():
             self._write_one_table_timestamps(scratch_db=scratch_db, target_table=table)
@@ -2011,9 +2318,17 @@ class TestDatabaseBuilder(object):
     def _write_one_table_timestamps(self, scratch_db, target_table):
         """
         Write timestamps for one table into the database.
-        :param scratch_db:
-        :param target_table:
-        :return:
+
+        Example:
+            Exercise TestDatabaseBuilder. write one table timestamps through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param scratch_db: Scratch database receiving deterministic schema and rows.
+        :param target_table: Value supplied for target table under the deterministic fixture
+            contract.
+        :return: None; fixture state or the supplied destination is updated in place.
         """
         self.okay_print("Generating timestamps for {}".format(target_table))
 
@@ -2042,7 +2357,17 @@ class TestDatabaseBuilder(object):
         """
         Get the datestamped coilumns from the target table to update.
 
-        :return:
+        Example:
+            Exercise TestDatabaseBuilder. get datestamp columns through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param scratch_db: Scratch database receiving deterministic schema and rows.
+        :param target_table: Value supplied for target table under the deterministic fixture
+            contract.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
         """
         datestamp_cols_maps = {
             "books": ("book_created_datestamp", "book_datestamp"),
@@ -2092,6 +2417,15 @@ class TestDatabaseBuilder(object):
     def set_database_ids(self, scratch_db):
         """
         Write the new, consistent identifiers into the database - to note that this
+
+        Example:
+            Exercise TestDatabaseBuilder.set database ids through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param scratch_db: Scratch database receiving deterministic schema and rows.
+        :return: None; fixture state or the supplied destination is updated in place.
         """
         if self.new_db_uuid != "auto":
             scratch_db.uuid = self.new_db_uuid
@@ -2110,14 +2444,28 @@ class TestDatabaseBuilder(object):
     def cleanup(self):
         """
         Remove the build ramdisk - which should take care of most of the build files as well.
-        :return:
+
+        Example:
+            Exercise TestDatabaseBuilder.cleanup through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :return: None; fixture state or the supplied destination is updated in place.
         """
         unmount_ramdisk(self.build_ramdisk)
 
     def print_exit_banner(self):
         """
         Banner to print when the build has completed.
-        :return:
+
+        Example:
+            Exercise TestDatabaseBuilder.print exit banner through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :return: None; fixture state or the supplied destination is updated in place.
         """
         term_width, term_height = self.get_term_size()
         info_str = [
@@ -2134,7 +2482,15 @@ class TestDatabaseBuilder(object):
     def load_base_database(self):
         """
         Test databases have to be based on something - this provides that by loading the
-        :return scratch_db: The live database file for additional detailing and changes
+
+        Example:
+            Exercise TestDatabaseBuilder.load base database through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
         """
         if self.csv_folder_path is not None:
             scratch_db = load_data(
@@ -2153,28 +2509,48 @@ class TestDatabaseBuilder(object):
     @staticmethod
     def purge_tables(scratch_db):
         """
-        If you want to be sure that nop entries exist for a certain subset of the tables, then this method gives you a
-        chance to manually purge them before the main detail method is run.
-        :param scratch_db:
-        :return:
+        If you want to be sure that nop entries exist for a certain subset of the tables, then this method gives you a chance to manually purge them before the main detail method is run.
+
+        Example:
+            Exercise TestDatabaseBuilder.purge tables through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param scratch_db: Scratch database receiving deterministic schema and rows.
+        :return: None; fixture state or the supplied destination is updated in place.
         """
         pass
 
     @staticmethod
     def detail_databases(scratch_db):
         """
-        Preform the work of modifying the database - making the necessary changes to transform the base database into a
-        useful form for saving.
-        :param scratch_db:
-        :return:
+        Preform the work of modifying the database - making the necessary changes to transform the base database into a useful form for saving.
+
+        Example:
+            Exercise TestDatabaseBuilder.detail databases through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param scratch_db: Scratch database receiving deterministic schema and rows.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
         """
         return scratch_db
 
     def save_database(self, scratch_db):
         """
         Preform the task of actually saving the database into the scratch folder.
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDatabaseBuilder.save database through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param scratch_db: Scratch database receiving deterministic schema and rows.
+        :return: None; fixture state or the supplied destination is updated in place.
         """
         # Shutdown test database
         scratch_db_path = scratch_db.metadata["database_path"]

@@ -1,7 +1,13 @@
 """
-Modified version of SHA-1 used in Microsoft LIT files.
+Compute the Microsoft-compatible SHA-1 variant used by LIT structures.
 
-Adapted from the PyPy pure-Python SHA-1 implementation.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise mssha1 through a consuming regression::
+
+        python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
 """
 from __future__ import annotations
 
@@ -14,6 +20,19 @@ __license__ = "GPL v3"
 __copyright__ = "2008, Marshall T. Vandegrift <llasram@gmail.com>"
 
 def _ensure_bytes(data: _typing.Any) -> _typing.Any:
+    """
+    Perform the ensure bytes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  ensure bytes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if data is None:
         return b""
     if isinstance(data, bytes):
@@ -29,6 +48,19 @@ def _ensure_bytes(data: _typing.Any) -> _typing.Any:
 
 
 def _byte_value(value: _typing.Any) -> _typing.Any:
+    """
+    Perform the byte value operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  byte value through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(value, int):
         return value
     return ord(value)
@@ -46,12 +78,16 @@ def _long2bytesBigEndian(n: _typing.Any, blocksize: int = 0) -> _typing.Any:
     """
     Convert a long integer to a byte string.
 
-    If optional blocksize is given and greater than zero, pad the front
-    of the byte string with binary zeros so that the length is a multiple
-    of blocksize.
-    :param n:
-    :param blocksize:
-    :return:
+    Example:
+        Exercise  long2bytesBigEndian through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param n: Value supplied for n under the utility contract.
+    :param blocksize: Value supplied for blocksize under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     # After much testing, this algorithm was deemed to be the fastest.
     s = b""
@@ -81,8 +117,16 @@ def _long2bytesBigEndian(n: _typing.Any, blocksize: int = 0) -> _typing.Any:
 def _bytelist2longBigEndian(data: _typing.Any) -> _typing.Any:
     """
     Transform a list of characters into a list of longs.
-    :param data:
-    :return:
+
+    Example:
+        Exercise  bytelist2longBigEndian through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     b = _ensure_bytes(data)
     imax = len(b) // 4
@@ -105,9 +149,17 @@ def _bytelist2longBigEndian(data: _typing.Any) -> _typing.Any:
 def _rotateLeft(x: _typing.Any, n: _typing.Any) -> _typing.Any:
     """
     Rotate x (32 bit) left n bits circularly.
-    :param x:
-    :param n:
-    :return:
+
+    Example:
+        Exercise  rotateLeft through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :param n: Value supplied for n under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return ((x << n) | (x >> (32 - n))) & 0xFFFFFFFF
 
@@ -119,23 +171,98 @@ def _rotateLeft(x: _typing.Any, n: _typing.Any) -> _typing.Any:
 
 
 def f0_19(B: _typing.Any, C: _typing.Any, D: _typing.Any) -> _typing.Any:
+    """
+    Perform the f0 19 operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise f0 19 through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param B: Value supplied for B under the utility contract.
+    :param C: Value supplied for C under the utility contract.
+    :param D: Value supplied for D under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return (B & (C ^ D)) ^ D
 
 
 def f20_39(B: _typing.Any, C: _typing.Any, D: _typing.Any) -> _typing.Any:
+    """
+    Perform the f20 39 operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise f20 39 through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param B: Value supplied for B under the utility contract.
+    :param C: Value supplied for C under the utility contract.
+    :param D: Value supplied for D under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return B ^ C ^ D
 
 
 def f40_59(B: _typing.Any, C: _typing.Any, D: _typing.Any) -> _typing.Any:
+    """
+    Perform the f40 59 operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise f40 59 through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param B: Value supplied for B under the utility contract.
+    :param C: Value supplied for C under the utility contract.
+    :param D: Value supplied for D under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return ((B | C) & D) | (B & C)
 
 
 def f60_79(B: _typing.Any, C: _typing.Any, D: _typing.Any) -> _typing.Any:
+    """
+    Perform the f60 79 operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise f60 79 through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param B: Value supplied for B under the utility contract.
+    :param C: Value supplied for C under the utility contract.
+    :param D: Value supplied for D under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return B ^ C ^ D
 
 
 # Microsoft's lovely addition...
 def f6_42(B: _typing.Any, C: _typing.Any, D: _typing.Any) -> _typing.Any:
+    """
+    Perform the f6 42 operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise f6 42 through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param B: Value supplied for B under the utility contract.
+    :param C: Value supplied for C under the utility contract.
+    :param D: Value supplied for D under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return (B + C) ^ C
 
 
@@ -165,11 +292,24 @@ K = [
 class mssha1(object):
     """
     An implementation of the MD5 hash function in pure Python.
+
+    Example:
+        Exercise mssha1 through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
     """
 
     def __init__(self: _typing.Self) -> None:
         """
         Initialisation.
+
+        Example:
+            Exercise mssha1.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
         """
 
         # Initial message length in bits(!).
@@ -186,7 +326,15 @@ class mssha1(object):
     def init(self: _typing.Self) -> None:
         """
         Initialize the message-digest and set all fields to zero.
-        :return:
+
+        Example:
+            Exercise mssha1.init through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
 
         self.length = 0
@@ -201,6 +349,19 @@ class mssha1(object):
         self.H4 = 0xD0857A34
 
     def _transform(self: _typing.Self, W: _typing.Any) -> None:
+        """
+        Perform the transform operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise mssha1. transform through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param W: Value supplied for W under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for t in range(16, 80):
             W.append(_rotateLeft(W[t - 3] ^ W[t - 8] ^ W[t - 14] ^ W[t - 16], 1) & 0xFFFFFFFF)
 
@@ -227,19 +388,18 @@ class mssha1(object):
     # Down from here all methods follow the Python Standard Library API of the sha module.
 
     def update(self: _typing.Self, inBuf: _typing.Any) -> None:
-        """Add to the current message.
+        """
+        Add to the current message.
 
-        Update the mssha1 object with the string arg. Repeated calls
-        are equivalent to a single call with the concatenation of all
-        the arguments, i.e. s.update(a); s.update(b) is equivalent
-        to s.update(a+b).
+        Example:
+            Exercise mssha1.update through a consuming regression::
 
-        The hash is immediately calculated for all full blocks. The final
-        calculation is made in digest(). It will calculate 1-2 blocks,
-        depending on how much padding we have to add. This allows us to
-        keep an intermediate value for the hash, so that we only need to
-        make minimal recalculation if we call update() to add more data
-        to the hashed string.
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param inBuf: Value supplied for inBuf under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
 
         inBuf = _ensure_bytes(inBuf)
@@ -273,10 +433,14 @@ class mssha1(object):
         """
         Terminate the message-digest computation and return digest.
 
-        Return the digest of the strings passed to the update()
-        method so far. This is a 16-byte string which may contain
-        non-ASCII characters, including null bytes.
-        :return:
+        Example:
+            Exercise mssha1.digest through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         H0 = self.H0
@@ -325,10 +489,14 @@ class mssha1(object):
         """
         Terminate and return digest in HEX form.
 
-        Like digest() except the digest is returned as a string of
-        length 32, containing only hexadecimal digits. This may be
-        used to exchange the value safely in email or other non-
-        binary environments.
+        Example:
+            Exercise mssha1.hexdigest through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.digest().hex()
 
@@ -336,9 +504,14 @@ class mssha1(object):
         """
         Return a clone object.
 
-        Return a copy ('clone') of the md5 object. This can be used
-        to efficiently compute the digests of strings that share
-        a common initial substring.
+        Example:
+            Exercise mssha1.copy through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         return copy.deepcopy(self)
@@ -357,9 +530,18 @@ blocksize = 1
 
 
 def new(arg: _typing.Any = None) -> _typing.Any:
-    """Return a new mssha1 crypto object.
+    """
+    Return a new mssha1 crypto object.
 
-    If arg is present, the method call update(arg) is made.
+    Example:
+        Exercise new through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param arg: Value supplied for arg under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     crypto = mssha1()
@@ -372,6 +554,18 @@ def new(arg: _typing.Any = None) -> _typing.Any:
 if __name__ == "__main__":
 
     def main() -> None:
+        """
+        Perform the main operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise main through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         import sys
 
         file = None

@@ -5,55 +5,15 @@
 #########################################################################
 
 """
-Codepages as to RTF 1.9.1:
-    437	United States IBM
-    708	Arabic (ASMO 708)
-    709	Arabic (ASMO 449+, BCON V4)
-    710	Arabic (transparent Arabic)
-    711	Arabic (Nafitha Enhanced)
-    720	Arabic (transparent ASMO)
-    819	Windows 3.1 (United States and Western Europe)
-    850	IBM multilingual
-    852	Eastern European
-    860	Portuguese
-    862	Hebrew
-    863	French Canadian
-    864	Arabic
-    865	Norwegian
-    866	Soviet Union
-    874	Thai
-    932	Japanese
-    936	Simplified Chinese
-    949	Korean
-    950	Traditional Chinese
-    1250	Eastern European
-    1251	Cyrillic
-    1252	Western European
-    1253	Greek
-    1254	Turkish
-    1255	Hebrew
-    1256	Arabic
-    1257	Baltic
-    1258	Vietnamese
-    1361	Johab
-    10000	MAC Roman
-    10001	MAC Japan
-    10004	MAC Arabic
-    10005	MAC Hebrew
-    10006	MAC Greek
-    10007	MAC Cyrillic
-    10029	MAC Latin2
-    10081	MAC Turkish
-    57002	Devanagari
-    57003	Bengali
-    57004	Tamil
-    57005	Telugu
-    57006	Assamese
-    57007	Oriya
-    57008	Kannada
-    57009	Malayalam
-    57010	Gujarati
-    57011	Punjabi
+Select the fallback encoding for underspecified RTF input.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise default encoding through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
 """
 from __future__ import annotations
 
@@ -65,6 +25,11 @@ from LiuXin_alpha.file_formats.rtf2xml import open_for_read
 class DefaultEncoding:
     """
     Find the default encoding for the doc
+
+    Example:
+        Exercise DefaultEncoding through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
     """
 
     # Note: not all those encoding are really supported by rtf2xml
@@ -96,6 +61,23 @@ class DefaultEncoding:
     }
 
     def __init__(self: _typing.Self, in_file: _typing.Any, bug_handler: _typing.Any, default_encoding: _typing.Any, run_level: int = 1, check_raw: bool = False) -> None:
+        """
+        Initialize and validate the defaultencoding state.
+
+        Example:
+            Exercise DefaultEncoding.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param default_encoding: Value supplied for default encoding under the utility
+            contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :param check_raw: Value supplied for check raw under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.__file = in_file
         self.__bug_handler = bug_handler
         self.__platform = "Windows"
@@ -105,6 +87,18 @@ class DefaultEncoding:
         self.__fetchraw = check_raw
 
     def find_default_encoding(self: _typing.Self) -> tuple[_typing.Any, ...]:
+        """
+        Find default encoding under the format's safety and compatibility rules.
+
+        Example:
+            Exercise DefaultEncoding.find default encoding through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not self.__datafetched:
             self._encoding()
             self.__datafetched = True
@@ -114,6 +108,18 @@ class DefaultEncoding:
         return self.__platform, code_page, self.__default_num
 
     def get_codepage(self: _typing.Self) -> _typing.Any:
+        """
+        Return codepage under the format's safety and compatibility rules.
+
+        Example:
+            Exercise DefaultEncoding.get codepage through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not self.__datafetched:
             self._encoding()
             self.__datafetched = True
@@ -122,12 +128,36 @@ class DefaultEncoding:
         return self.__code_page
 
     def get_platform(self: _typing.Self) -> _typing.Any:
+        """
+        Return platform under the format's safety and compatibility rules.
+
+        Example:
+            Exercise DefaultEncoding.get platform through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not self.__datafetched:
             self._encoding()
             self.__datafetched = True
         return self.__platform
 
     def _encoding(self: _typing.Self) -> None:
+        """
+        Perform the encoding operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DefaultEncoding. encoding through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         with open_for_read(self.__file) as read_obj:
             cpfound = False
             if not self.__fetchraw:

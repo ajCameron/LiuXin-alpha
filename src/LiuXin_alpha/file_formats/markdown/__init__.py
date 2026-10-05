@@ -1,3 +1,14 @@
+"""
+Expose the supported markdown compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+"""
 from __future__ import unicode_literals, absolute_import
 from __future__ import annotations
 
@@ -55,7 +66,14 @@ logger = logging.getLogger("MARKDOWN")
 
 
 class Markdown(object):
-    """Convert Markdown to HTML."""
+    """
+    Convert Markdown to HTML.
+
+    Example:
+        Exercise Markdown through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     doc_tag = "div"  # Element used to wrap document - later removed
 
@@ -99,30 +117,15 @@ class Markdown(object):
         """
         Creates a new Markdown instance.
 
-        Keyword arguments:
+        Example:
+            Exercise Markdown.  init   through a consuming regression::
 
-        * extensions: A list of extensions.
-           If they are of type string, the module mdx_name.py will be loaded.
-           If they are a subclass of markdown.Extension, they will be used
-           as-is.
-        * extension_configs: Configuration settingis for extensions.
-        * output_format: Format of output. Supported formats are:
-            * "xhtml1": Outputs XHTML 1.x. Default.
-            * "xhtml5": Outputs XHTML style tags of HTML 5
-            * "xhtml": Outputs latest supported version of XHTML (currently XHTML 1.1).
-            * "html4": Outputs HTML 4
-            * "html5": Outputs HTML style tags of HTML 5
-            * "html": Outputs latest supported version of HTML (currently HTML 4).
-            Note that it is suggested that the more specific formats ("xhtml1"
-            and "html4") be used as "xhtml" or "html" may change in the future
-            if it makes sense at that time.
-        * safe_mode: Disallow raw html. One of "remove", "replace" or "escape".
-        * html_replacement_text: Text used when safe_mode is set to "replace".
-        * tab_length: Length of tabs in the source. Default: 4
-        * enable_attributes: Enable the conversion of attributes. Default: True
-        * smart_emphasis: Treat `_connected_words_` intelegently Default: True
-        * lazy_ol: Ignore number of first item of ordered lists. Default: True
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
 
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; validated state is stored on the receiving object.
         """
 
         # For backward compatibility, loop through old positional args
@@ -161,7 +164,18 @@ class Markdown(object):
         self.reset()
 
     def build_parser(self: _typing.Self) -> _typing.Any:
-        """Build the parser from the various parts."""
+        """
+        Build the parser from the various parts.
+
+        Example:
+            Exercise Markdown.build parser through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.preprocessors = build_preprocessors(self)
         self.parser = build_block_parser(self)
         self.inlinePatterns = build_inlinepatterns(self)
@@ -173,12 +187,16 @@ class Markdown(object):
         """
         Register extensions with this instance of Markdown.
 
-        Keyword arguments:
+        Example:
+            Exercise Markdown.registerExtensions through a consuming regression::
 
-        * extensions: A list of extensions, which can either
-           be strings or objects.  See the docstring on Markdown.
-        * configs: A dictionary mapping module names to config options.
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
 
+
+        :param extensions: Value supplied for extensions under the utility contract.
+        :param configs: Value supplied for configs under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         for ext in extensions:
             if isinstance(ext, util.string_type):
@@ -194,11 +212,19 @@ class Markdown(object):
         return self
 
     def build_extension(self: _typing.Self, ext_name: _typing.Any, configs: _typing.Any = None) -> _typing.Any:
-        """Build extension by name, then return the module.
+        """
+        Build extension by name, then return the module.
 
-        The extension name may contain arguments as part of the string in the
-        following format: "extname(key1=value1,key2=value2)"
+        Example:
+            Exercise Markdown.build extension through a consuming regression::
 
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param ext_name: Value supplied for ext name under the utility contract.
+        :param configs: Value supplied for configs under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         # Parse extensions config params (ignore the order)
@@ -242,13 +268,34 @@ class Markdown(object):
             raise
 
     def registerExtension(self: _typing.Self, extension: _typing.Any) -> _typing.Any:
-        """This gets called by the extension"""
+        """
+        This gets called by the extension
+
+        Example:
+            Exercise Markdown.registerExtension through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param extension: Value supplied for extension under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.registeredExtensions.append(extension)
         return self
 
     def reset(self: _typing.Self) -> _typing.Any:
         """
         Resets all state variables so that we can start with a new text.
+
+        Example:
+            Exercise Markdown.reset through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self.htmlStash.reset()
         self.references.clear()
@@ -260,7 +307,19 @@ class Markdown(object):
         return self
 
     def set_output_format(self: _typing.Self, format: _typing.Any) -> _typing.Any:
-        """Set the output format for the class instance."""
+        """
+        Set the output format for the class instance.
+
+        Example:
+            Exercise Markdown.set output format through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param format: Value supplied for format under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.output_format = format.lower()
         try:
             self.serializer = self.output_formats[self.output_format]
@@ -279,22 +338,15 @@ class Markdown(object):
         """
         Convert markdown to serialized XHTML or HTML.
 
-        Keyword arguments:
+        Example:
+            Exercise Markdown.convert through a consuming regression::
 
-        * source: Source text as a Unicode string.
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
 
-        Markdown processing takes place in five steps:
 
-        1. A bunch of "preprocessors" munge the input text.
-        2. BlockParser() parses the high-level structural elements of the
-           pre-processed text into an ElementTree.
-        3. A bunch of "treeprocessors" are run against the ElementTree. One
-           such treeprocessor runs InlinePatterns against the ElementTree,
-           detecting inline markup.
-        4. Some post-processors are run against the text after the ElementTree
-           has been serialized into text.
-        5. The output is written to a string.
-
+        :param source: Value supplied for source under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         # Fixup the source text
@@ -349,24 +401,20 @@ class Markdown(object):
         return output.strip()
 
     def convertFile(self: _typing.Self, input: _typing.Any = None, output: _typing.Any = None, encoding: _typing.Any = None) -> _typing.Any:
-        """Converts a markdown file and returns the HTML as a unicode string.
+        """
+        Converts a markdown file and returns the HTML as a unicode string.
 
-        Decodes the file using the provided encoding (defaults to utf-8),
-        passes the file content to markdown, and outputs the html to either
-        the provided stream or the file with provided name, using the same
-        encoding as the source file. The 'xmlcharrefreplace' error handler is
-        used when encoding the output.
+        Example:
+            Exercise Markdown.convertFile through a consuming regression::
 
-        **Note:** This is the only place that decoding and encoding of unicode
-        takes place in Python-Markdown.  (All other code is unicode-in /
-        unicode-out.)
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
 
-        Keyword arguments:
 
-        * input: File object or path. Reads from stdin if `None`.
-        * output: File object or path. Writes to stdout if `None`.
-        * encoding: Encoding of input and output files. Defaults to utf-8.
-
+        :param input: Value supplied for input under the utility contract.
+        :param output: Value supplied for output under the utility contract.
+        :param encoding: Value supplied for encoding under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         encoding = encoding or "utf-8"
@@ -423,37 +471,39 @@ markdownFromFile().
 
 
 def markdown(text: _typing.Any, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
-    """Convert a markdown string to HTML and return HTML as a unicode string.
+    """
+    Convert a markdown string to HTML and return HTML as a unicode string.
 
-    This is a shortcut function for `Markdown` class to cover the most
-    basic use case.  It initializes an instance of Markdown, loads the
-    necessary extensions and runs the parser on the given text.
+    Example:
+        Exercise markdown through a consuming regression::
 
-    Keyword arguments:
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
 
-    * text: Markdown formatted text as Unicode or ASCII string.
-    * Any arguments accepted by the Markdown class.
 
-    Returns: An HTML document as a string.
-
+    :param text: Text parsed, normalized or rendered.
+    :param args: Positional values forwarded to the compatibility implementation.
+    :param kwargs: Keyword values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     md = Markdown(*args, **kwargs)
     return md.convert(text)
 
 
 def markdownFromFile(*args: _typing.Any, **kwargs: _typing.Any) -> None:
-    """Read markdown code from a file and write it to a file or a stream.
+    """
+    Read markdown code from a file and write it to a file or a stream.
 
-    This is a shortcut function which initializes an instance of Markdown,
-    and calls the convertFile method rather than convert.
+    Example:
+        Exercise markdownFromFile through a consuming regression::
 
-    Keyword arguments:
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
 
-    * input: a file name or readable object.
-    * output: a file name or writable object.
-    * encoding: Encoding of input and output.
-    * Any arguments accepted by the Markdown class.
 
+    :param args: Positional values forwarded to the compatibility implementation.
+    :param kwargs: Keyword values forwarded to the compatibility implementation.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     # For backward compatibility loop through positional args
     pos = ["input", "output", "extensions", "encoding"]

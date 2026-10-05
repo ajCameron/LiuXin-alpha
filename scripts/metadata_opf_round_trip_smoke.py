@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Smoke-test DB -> metadata -> OPF -> metadata round trips."""
+"""
+Provide metadata opf round trip smoke utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise metadata opf round trip smoke through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+"""
 
 from __future__ import annotations
 
@@ -23,12 +33,36 @@ T = TypeVar("T")
 
 
 def _ensure_importable() -> None:
+    """
+    Perform the ensure importable operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  ensure importable through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for candidate in (str(REPO_ROOT), str(SRC_ROOT)):
         if candidate not in sys.path:
             sys.path.insert(0, candidate)
 
 
 def _ensure_quiet_calibre_config() -> None:
+    """
+    Perform the ensure quiet calibre config operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  ensure quiet calibre config through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     config_dir = Path(tempfile.gettempdir()) / "liuxin-calibre-config"
     config_dir.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("CALIBRE_CONFIG_DIRECTORY", str(config_dir))
@@ -40,7 +74,14 @@ _ensure_importable()
 
 @dataclass(frozen=True)
 class MetadataOPFRoundTripResult:
-    """Serializable comparison and diagnostics for one OPF round trip."""
+    """
+    Serializable comparison and diagnostics for one OPF round trip.
+
+    Example:
+        Exercise MetadataOPFRoundTripResult through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+    """
 
     item_id: int
     ok: bool
@@ -52,10 +93,35 @@ class MetadataOPFRoundTripResult:
     write_report: dict[str, Any] | None = None
 
     def to_mapping(self) -> dict[str, Any]:
+        """
+        Perform the to mapping operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MetadataOPFRoundTripResult.to mapping through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return asdict(self)
 
 
 def _existing_path(raw: str | os.PathLike[str] | None) -> Path | None:
+    """
+    Perform the existing path operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  existing path through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     text = str(raw or "").strip()
     if not text:
         return None
@@ -66,6 +132,19 @@ def _existing_path(raw: str | os.PathLike[str] | None) -> Path | None:
 
 
 def _candidate_data_roots(explicit: str | None) -> list[Path]:
+    """
+    Perform the candidate data roots operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  candidate data roots through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param explicit: Value supplied for explicit under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     raw_roots = [
         explicit,
         os.environ.get("LIUXIN_ALPHA_DATA_DIR"),
@@ -91,6 +170,20 @@ def _candidate_data_roots(explicit: str | None) -> list[Path]:
 
 
 def _bundle_candidates(data_root: Path, bundle_name: str) -> list[Path]:
+    """
+    Perform the bundle candidates operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  bundle candidates through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param data_root: Value supplied for data root under the utility contract.
+    :param bundle_name: Value supplied for bundle name under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     test_databases = data_root / "test_databases"
     candidates: list[Path] = []
     if bundle_name:
@@ -118,6 +211,21 @@ def resolve_database(
     data_root: str | None,
     bundle_name: str,
 ) -> Path:
+    """
+    Perform the resolve database operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise resolve database through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param database: Value supplied for database under the utility contract.
+    :param data_root: Value supplied for data root under the utility contract.
+    :param bundle_name: Value supplied for bundle name under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     explicit = _existing_path(database) or _existing_path(os.environ.get("LIUXIN_ISFDB_TEST_DB"))
     if explicit is not None:
         return explicit
@@ -146,6 +254,24 @@ def open_database(
     enable_maintenance: bool = False,
     repair_bootstrap_rows: bool = False,
 ) -> Any:
+    """
+    Perform the open database operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise open database through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param database_path: Value supplied for database path under the utility contract.
+    :param db_type: Value supplied for db type under the utility contract.
+    :param enable_maintenance: Value supplied for enable maintenance under the utility
+        contract.
+    :param repair_bootstrap_rows: Value supplied for repair bootstrap rows under the
+        utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.databases.database import Database
 
     return Database(
@@ -169,9 +295,19 @@ def prepare_write_back_database(
     """
     Resolve the database path to open for the smoke run.
 
-    OPF round-trip checks are read-oriented by default. When write-back is
-    requested, require either a scratch copy destination or an explicit opt-in
-    to writing the original file.
+    Example:
+        Exercise prepare write back database through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param database_path: Value supplied for database path under the utility contract.
+    :param write_back: Value supplied for write back under the utility contract.
+    :param scratch_db: Value supplied for scratch db under the utility contract.
+    :param allow_write_original: Value supplied for allow write original under the
+        utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if not write_back:
         return database_path
@@ -196,6 +332,22 @@ def prepare_write_back_database(
 
 
 def quiet_call(func: Callable[..., T], *args: object, quiet: bool = True, **kwargs: object) -> T:
+    """
+    Perform the quiet call operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise quiet call through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param func: Value supplied for func under the utility contract.
+    :param args: Positional values forwarded to the compatibility implementation.
+    :param quiet: Value supplied for quiet under the utility contract.
+    :param kwargs: Keyword values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not quiet:
         return func(*args, **kwargs)
     with open(os.devnull, "w", encoding="utf-8") as sink:
@@ -204,6 +356,22 @@ def quiet_call(func: Callable[..., T], *args: object, quiet: bool = True, **kwar
 
 
 def select_item_ids(db: Any, explicit_item_ids: Iterable[int], *, limit: int) -> tuple[int, ...]:
+    """
+    Perform the select item ids operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise select item ids through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :param explicit_item_ids: Value supplied for explicit item ids under the utility
+        contract.
+    :param limit: Value supplied for limit under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     explicit = tuple(int(item_id) for item_id in explicit_item_ids if int(item_id) > 0)
     if explicit:
         return explicit
@@ -239,6 +407,36 @@ def round_trip_item(
     write_back_add_tags: Iterable[str] = (),
     write_back_replace: bool = False,
 ) -> MetadataOPFRoundTripResult:
+    """
+    Perform the round trip item operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise round trip item through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :param item_id: Value supplied for item id under the utility contract.
+    :param source: Value supplied for source under the utility contract.
+    :param lazy: Value supplied for lazy under the utility contract.
+    :param strict: Value supplied for strict under the utility contract.
+    :param opf_dir: Value supplied for opf dir under the utility contract.
+    :param default_lang: Value supplied for default lang under the utility contract.
+    :param replace_metadata: Value supplied for replace metadata under the utility
+        contract.
+    :param quiet: Value supplied for quiet under the utility contract.
+    :param progress: Value supplied for progress under the utility contract.
+    :param write_back: Value supplied for write back under the utility contract.
+    :param write_back_fields: Value supplied for write back fields under the utility
+        contract.
+    :param write_back_add_tags: Value supplied for write back add tags under the utility
+        contract.
+    :param write_back_replace: Value supplied for write back replace under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     opf_path: Path | None = None
     write_report: dict[str, Any] | None = None
     started = time.monotonic()
@@ -333,6 +531,19 @@ def round_trip_item(
 
 
 def metadata_snapshot(metadata: Any) -> dict[str, Any]:
+    """
+    Perform the metadata snapshot operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise metadata snapshot through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param metadata: Value supplied for metadata under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return {
         "title": _scalar(_first_present(metadata, "title", "display_title", "canonical_title")),
         "authors": _values(_first_present(metadata, "authors")),
@@ -348,6 +559,21 @@ def compare_snapshots(
     *,
     strict: bool = False,
 ) -> list[str]:
+    """
+    Perform the compare snapshots operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise compare snapshots through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param before: Value supplied for before under the utility contract.
+    :param after: Value supplied for after under the utility contract.
+    :param strict: Value supplied for strict under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     errors: list[str] = []
     if before.get("title") and before.get("title") != after.get("title"):
         errors.append(
@@ -392,6 +618,37 @@ def run_smoke_on_database(
     write_back_add_tags: Iterable[str],
     write_back_replace: bool,
 ) -> list[MetadataOPFRoundTripResult]:
+    """
+    Perform the run smoke on database operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise run smoke on database through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :param item_ids: Value supplied for item ids under the utility contract.
+    :param limit: Value supplied for limit under the utility contract.
+    :param source: Value supplied for source under the utility contract.
+    :param lazy: Value supplied for lazy under the utility contract.
+    :param strict: Value supplied for strict under the utility contract.
+    :param opf_dir: Value supplied for opf dir under the utility contract.
+    :param default_lang: Value supplied for default lang under the utility contract.
+    :param replace_metadata: Value supplied for replace metadata under the utility
+        contract.
+    :param quiet: Value supplied for quiet under the utility contract.
+    :param progress: Value supplied for progress under the utility contract.
+    :param write_back: Value supplied for write back under the utility contract.
+    :param write_back_fields: Value supplied for write back fields under the utility
+        contract.
+    :param write_back_add_tags: Value supplied for write back add tags under the utility
+        contract.
+    :param write_back_replace: Value supplied for write back replace under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     _progress("Selecting item ids", enabled=progress)
     selected = select_item_ids(db, item_ids, limit=limit)
     _progress(
@@ -420,17 +677,57 @@ def run_smoke_on_database(
 
 
 def _metadata_facade() -> Any:
+    """
+    Perform the metadata facade operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  metadata facade through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha import metadata as metadata_facade
 
     return metadata_facade
 
 
 def _progress(message: str, *, enabled: bool) -> None:
+    """
+    Perform the progress operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  progress through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param message: Value supplied for message under the utility contract.
+    :param enabled: Value supplied for enabled under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if enabled:
         print(message, file=sys.stderr, flush=True)
 
 
 def _add_tags(metadata: Any, tags: Iterable[str]) -> None:
+    """
+    Perform the add tags operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  add tags through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param metadata: Value supplied for metadata under the utility contract.
+    :param tags: Value supplied for tags under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     requested = [str(tag).strip() for tag in tags if str(tag).strip()]
     if not requested:
         return
@@ -442,6 +739,20 @@ def _add_tags(metadata: Any, tags: Iterable[str]) -> None:
 
 
 def _row_id(row: Any, column: str) -> int | None:
+    """
+    Perform the row id operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  row id through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param row: Value supplied for row under the utility contract.
+    :param column: Value supplied for column under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     row_dict = getattr(row, "row_dict", None)
     value = row_dict.get(column) if isinstance(row_dict, Mapping) else None
     if value in (None, ""):
@@ -452,6 +763,20 @@ def _row_id(row: Any, column: str) -> int | None:
 
 
 def _first_present(obj: Any, *names: str) -> Any:
+    """
+    Perform the first present operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  first present through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param obj: Value supplied for obj under the utility contract.
+    :param names: Value supplied for names under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     for name in names:
         try:
             value = getattr(obj, name)
@@ -463,6 +788,19 @@ def _first_present(obj: Any, *names: str) -> Any:
 
 
 def _scalar(value: Any) -> str | None:
+    """
+    Perform the scalar operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scalar through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if value in (None, ""):
         return None
     if isinstance(value, Mapping):
@@ -478,6 +816,19 @@ def _scalar(value: Any) -> str | None:
 
 
 def _values(raw: Any) -> tuple[str, ...]:
+    """
+    Perform the values operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  values through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if raw in (None, ""):
         return ()
     if isinstance(raw, Mapping):
@@ -493,6 +844,19 @@ def _values(raw: Any) -> tuple[str, ...]:
 
 
 def _identifier_snapshot(metadata: Any) -> dict[str, tuple[str, ...]]:
+    """
+    Perform the identifier snapshot operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  identifier snapshot through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param metadata: Value supplied for metadata under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     getter = getattr(metadata, "get_identifiers", None)
     if not callable(getter):
         return {}
@@ -510,6 +874,18 @@ def _identifier_snapshot(metadata: Any) -> dict[str, tuple[str, ...]]:
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
+    """
+    Perform the build arg parser operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise build arg parser through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = argparse.ArgumentParser(
         description="Smoke-test DB -> metadata -> OPF -> metadata against a real LiuXin database."
     )
@@ -581,6 +957,20 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 
 def _report_mapping(results: list[MetadataOPFRoundTripResult], database_path: Path) -> dict[str, Any]:
+    """
+    Perform the report mapping operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  report mapping through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param results: Value supplied for results under the utility contract.
+    :param database_path: Value supplied for database path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return {
         "database": str(database_path),
         "ok": all(result.ok for result in results),
@@ -591,6 +981,19 @@ def _report_mapping(results: list[MetadataOPFRoundTripResult], database_path: Pa
 
 
 def _print_text_report(report: Mapping[str, Any]) -> None:
+    """
+    Perform the print text report operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  print text report through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param report: Value supplied for report under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     print("Database:", report["database"])
     print("Round trips:", report["count"], "Failures:", report["failures"])
     for result in report["results"]:
@@ -604,6 +1007,19 @@ def _print_text_report(report: Mapping[str, Any]) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     args = build_arg_parser().parse_args(argv)
     quiet = not bool(args.no_quiet)
     database_arg = args.database_option or args.database

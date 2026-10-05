@@ -1,14 +1,13 @@
 """
-Stage A3: streaming readers for existing Calibre libraries.
+Read normalized Calibre books, custom columns, formats, covers and relations in batches.
 
-This module builds on CalibreDB (Stage A2) to stream book payloads suitable
-for ingestion, without loading the entire library into RAM.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-Design goals:
-- Conservative reads (read-only connections)
-- Batch-friendly iteration
-- Best-effort filesystem reconciliation (formats + cover paths)
-- Custom column value extraction (including datatype="series" extra index)
+Example:
+    Exercise readers through a consuming regression::
+
+        python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
 """
 
 from __future__ import annotations
@@ -36,9 +35,16 @@ def _table_exists(conn: sqlite3.Connection, table_name: str) -> bool:
     """
     Check a table with the given name exists on the given connection.
 
-    :param conn:
-    :param table_name:
-    :return:
+    Example:
+        Exercise  table exists through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+    :param conn: SQLite connection used for schema or metadata queries.
+    :param table_name: Value supplied for table name under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     row = conn.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name=? LIMIT 1",
@@ -51,9 +57,16 @@ def _table_columns(conn: sqlite3.Connection, table_name: str) -> Tuple[str, ...]
     """
     Get the column headings for the given table.
 
-    :param conn:
-    :param table_name:
-    :return:
+    Example:
+        Exercise  table columns through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+    :param conn: SQLite connection used for schema or metadata queries.
+    :param table_name: Value supplied for table name under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     rows = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
     # pragma table_info: cid, name, type, notnull, dflt_value, pk
@@ -70,10 +83,17 @@ def _pick_column(cols: Sequence[str], *, candidates: Sequence[str], fallback: Op
     """
     Choose a column.
 
-    :param cols:
-    :param candidates:
-    :param fallback:
-    :return:
+    Example:
+        Exercise  pick column through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+    :param cols: Value supplied for cols under the utility contract.
+    :param candidates: Value supplied for candidates under the utility contract.
+    :param fallback: Value supplied for fallback under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     s = {c.lower(): c for c in cols}
     for cand in candidates:
@@ -93,10 +113,17 @@ def _row_get(row: Any, key: str, default: Any = None) -> Optional[Any]:
     """
     Best-effort mapping access for sqlite3.Row / dict-like objects.
 
-    :param row:
-    :param key:
-    :param default:
-    :return:
+    Example:
+        Exercise  row get through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+    :param row: Value supplied for row under the utility contract.
+    :param key: Metadata, identifier or local-variable key.
+    :param default: Value supplied for default under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if row is None:
         return default
@@ -121,10 +148,16 @@ def _iter_book_id_batches(
     """
     Iterate over batches of ids.
 
-    :param conn:
-    :param book_id_col:
-    :param batch_size:
-    :return:
+    Example:
+        Exercise  iter book id batches through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+    :param conn: SQLite connection used for schema or metadata queries.
+    :param book_id_col: Value supplied for book id col under the utility contract.
+    :param batch_size: Value supplied for batch size under the utility contract.
+    :return: An iterator yielding the normalized values described above.
     """
     last_id = 0
     while True:
@@ -143,8 +176,15 @@ def _qmarks(n: int) -> str:
     """
     Get a string of n question marks.
 
-    :param n:
-    :return:
+    Example:
+        Exercise  qmarks through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+    :param n: Value supplied for n under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return ",".join(["?"] * int(n))
 
@@ -153,8 +193,15 @@ def _as_rel_path(p: Any) -> str:
     """
     Path to a relative path.
 
-    :param p:
-    :return:
+    Example:
+        Exercise  as rel path through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+    :param p: Path-like value normalized or validated by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if p is None:
         return ""
@@ -165,12 +212,15 @@ def _split_rel_parts(p: Any) -> Tuple[str, ...]:
     """
     Split a Calibre-stored relative path into safe path parts.
 
-    Calibre typically stores paths like ``Author/Title (id)``. When ingesting
-    arbitrary libraries, however, we should defend against attempts to escape
-    the library root (e.g. via ``..``) or to smuggle absolute paths.
+    Example:
+        Exercise  split rel parts through a consuming regression::
 
-    :param p:
-    :return:
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+    :param p: Path-like value normalized or validated by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     s = _as_rel_path(p)
     # Normalize Windows-style separators that may appear in DBs created on Windows.
@@ -192,9 +242,16 @@ def _safe_join_under_root(library_root: Path, rel_path: Any) -> Path:
     """
     Resolve a relative path under root and ensure it stays inside root.
 
-    :param library_root: Root of the library
-    :param rel_path: Relative path to try and join to the library path.
-    :return:
+    Example:
+        Exercise  safe join under root through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+    :param library_root: Root directory of the Calibre library being inspected.
+    :param rel_path: Value supplied for rel path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     root = library_root.resolve()
     parts = _split_rel_parts(rel_path)
@@ -215,8 +272,15 @@ def _sanitize_filename(name: Any) -> str:
     """
     Return a basename-like filename (no path separators).
 
-    :param name:
-    :return:
+    Example:
+        Exercise  sanitize filename through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if name is None:
         return ""
@@ -231,11 +295,16 @@ def _ensure_path_under_root(library_root: Path, p: Path) -> Path:
     """
     Ensure an absolute path is within the library root.
 
-    This is used by file open helpers as a last line of defense.
+    Example:
+        Exercise  ensure path under root through a consuming regression::
 
-    :param library_root:
-    :param p:
-    :return:
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+    :param library_root: Root directory of the Calibre library being inspected.
+    :param p: Path-like value normalized or validated by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     root = library_root.resolve()
     rp = p.resolve()
@@ -250,9 +319,16 @@ def _resolve_book_dir(library_root: Path, books_path: Any) -> Path:
     """
     Resolve a book dir to an actual path.
 
-    :param library_root:
-    :param books_path:
-    :return:
+    Example:
+        Exercise  resolve book dir through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+    :param library_root: Root directory of the Calibre library being inspected.
+    :param books_path: Value supplied for books path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return _safe_join_under_root(library_root, books_path)
 
@@ -261,8 +337,15 @@ def _resolve_cover_path(book_dir: Path) -> Path:
     """
     Calibre convention: cover.jpg
 
-    :param book_dir:
-    :return:
+    Example:
+        Exercise  resolve cover path through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+    :param book_dir: Directory containing one Calibre book's formats and cover.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return book_dir / "cover.jpg"
 
@@ -271,10 +354,17 @@ def _resolve_format_path(book_dir: Path, *, base_name: str, fmt: str) -> Path:
     """
     Resolve a path to a format.
 
-    :param book_dir:
-    :param base_name:
-    :param fmt:
-    :return:
+    Example:
+        Exercise  resolve format path through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+    :param book_dir: Directory containing one Calibre book's formats and cover.
+    :param base_name: Value supplied for base name under the utility contract.
+    :param fmt: Date, number or template format specification.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     fmt_clean = (fmt or "").strip()
     ext = fmt_clean.lower()
@@ -315,8 +405,15 @@ def _list_book_files(book_dir: Path) -> Tuple[Path, ...]:
     """
     List immediate files in a Calibre book directory (non-recursive).
 
-    :param book_dir:
-    :return:
+    Example:
+        Exercise  list book files through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+    :param book_dir: Directory containing one Calibre book's formats and cover.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     try:
         return tuple(sorted((p for p in book_dir.iterdir() if p.is_file()), key=lambda x: x.name.lower()))
@@ -328,8 +425,15 @@ def _is_sidecar_file(p: Path) -> bool:
     """
     Checks to see if a file is a sidecar file.
 
-    :param p:
-    :return:
+    Example:
+        Exercise  is sidecar file through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+    :param p: Path-like value normalized or validated by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     n = p.name.lower()
     if n in _SIDECAR_FILENAMES:
@@ -345,8 +449,15 @@ def _files_by_ext(files: Sequence[Path]) -> Dict[str, List[Path]]:
     """
     Dict of files keyed by extension and valued with a list of those files.
 
-    :param files:
-    :return:
+    Example:
+        Exercise  files by ext through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+    :param files: Value supplied for files under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     out: Dict[str, List[Path]] = {}
     for p in files:
@@ -361,8 +472,15 @@ def _pick_newest(paths: Sequence[Path]) -> Optional[Path]:
     """
     Select the newest path out of a sequence of paths.
 
-    :param paths:
-    :return:
+    Example:
+        Exercise  pick newest through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+    :param paths: Value supplied for paths under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     best: Optional[Path] = None
     best_m = -1
@@ -381,12 +499,15 @@ def _dedupe_preserve_order(values: Sequence[Any]) -> List[Any]:
     """
     Deduplicate values while preserving order (best-effort).
 
-    Real Calibre schemas enforce uniqueness for most custom-column link tables,
-    but mangled DBs can contain duplicates. Deduping avoids surprising importer
-    behavior while keeping the output stable.
+    Example:
+        Exercise  dedupe preserve order through a consuming regression::
 
-    :param values:
-    :return:
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+    :param values: Value supplied for values under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     out: List[Any] = []
@@ -410,8 +531,15 @@ def _coerce_int(v: Any) -> Optional[int]:
     """
     Force a value to an int.
 
-    :param v:
-    :return:
+    Example:
+        Exercise  coerce int through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+    :param v: Value supplied for v under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if v is None:
         return None
@@ -428,8 +556,15 @@ def _coerce_float(v: Any) -> Optional[float]:
     """
     Force a value to a float.
 
-    :param v:
-    :return:
+    Example:
+        Exercise  coerce float through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+    :param v: Value supplied for v under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if v is None:
         return None
@@ -446,8 +581,15 @@ def _coerce_bool(v: Any) -> bool:
     """
     Force a value to a bool.
 
-    :param v:
-    :return:
+    Example:
+        Exercise  coerce bool through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+    :param v: Value supplied for v under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if v is None:
         return False
@@ -468,11 +610,15 @@ def _normalize_datetime(v: Any) -> Optional[str]:
     """
     Normalize a Calibre datetime-ish value to an ISO8601 string.
 
-    Calibre typically stores datetimes as TEXT in sqlite (often ISO-like), but
-    in the wild you may see numeric epochs or legacy string formats.
+    Example:
+        Exercise  normalize datetime through a consuming regression::
 
-    :param v:
-    :return:
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+    :param v: Value supplied for v under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     if v is None:
@@ -521,10 +667,17 @@ def _coerce_custom_item(datatype: str, val: Any, extra: Any) -> Any:
     """
     Coerce the custom value for an object.
 
-    :param datatype:
-    :param val:
-    :param extra:
-    :return:
+    Example:
+        Exercise  coerce custom item through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+    :param datatype: Value supplied for datatype under the utility contract.
+    :param val: Template or metadata value evaluated by the operation.
+    :param extra: Value supplied for extra under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     dt = (datatype or "").strip().lower()
     if dt == "series":
@@ -556,12 +709,16 @@ def _case_insensitive_resolve_dir(root: Path, rel_parts: Sequence[str]) -> Optio
     """
     Resolve a directory under root by casefolding each path component.
 
-    Useful when ingesting a library created on a case-insensitive filesystem
-    but imported onto a case-sensitive one.
+    Example:
+        Exercise  case insensitive resolve dir through a consuming regression::
 
-    :param root:
-    :param rel_parts:
-    :return:
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param rel_parts: Value supplied for rel parts under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     cur = Path(root)
     for part in rel_parts:
@@ -582,8 +739,15 @@ def _safe_getsize(p: Path) -> Optional[int]:
     """
     Safely get the size of an object.
 
-    :param p:
-    :return:
+    Example:
+        Exercise  safe getsize through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+    :param p: Path-like value normalized or validated by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     try:
         return int(p.stat().st_size)
@@ -595,9 +759,16 @@ def _ensure_under_root(library_root: Path, candidate: Path) -> Path:
     """
     Ensure an absolute candidate path is inside the library root.
 
-    :param library_root:
-    :param candidate:
-    :return:
+    Example:
+        Exercise  ensure under root through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+    :param library_root: Root directory of the Calibre library being inspected.
+    :param candidate: Value supplied for candidate under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     root = library_root.resolve()
     c = candidate.resolve()
@@ -610,7 +781,14 @@ def _ensure_under_root(library_root: Path, candidate: Path) -> Path:
 
 @dataclass(frozen=True, slots=True)
 class CalibreReader:
-    """High-level streaming reader for an existing Calibre library."""
+    """
+    High-level streaming reader for an existing Calibre library.
+
+    Example:
+        Exercise CalibreReader through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+    """
 
     db: CalibreDB
 
@@ -619,10 +797,17 @@ class CalibreReader:
         """
         Construct the reader from a library root.
 
-        :param library_root:
-        :param read_only:
-        :param timeout_ms:
-        :return:
+        Example:
+            Exercise CalibreReader.from root through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+        :param library_root: Root directory of the Calibre library being inspected.
+        :param read_only: Value supplied for read only under the utility contract.
+        :param timeout_ms: Value supplied for timeout ms under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return cls(db=CalibreDB.from_root(library_root, read_only=read_only, timeout_ms=timeout_ms))
 
@@ -631,8 +816,15 @@ class CalibreReader:
         """
         Convenience pass-through to :meth:`CalibreDB.schema_info`.
 
-        :param kwargs:
-        :return:
+        Example:
+            Exercise CalibreReader.schema info through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.db.schema_info(**kwargs)
 
@@ -640,9 +832,15 @@ class CalibreReader:
         """
         Return custom column definitions (best-effort by default).
 
-        Doing our best to pull as much info out the library as possible.
-        :param best_effort:
-        :return:
+        Example:
+            Exercise CalibreReader.custom columns through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+        :param best_effort: Value supplied for best effort under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         info = self.db.schema_info(
             include_custom_columns=True,
@@ -658,12 +856,16 @@ class CalibreReader:
         """
         Read custom values for a single book id.
 
-        This is a convenience wrapper around the internal batch reader used by
-        :meth:`iter_book_payloads`.
+        Example:
+            Exercise CalibreReader.read custom values through a consuming regression::
 
-        :param book_id:
-        :param best_effort:
-        :return:
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param best_effort: Value supplied for best effort under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         conn = self.db.connect()
@@ -698,10 +900,15 @@ class CalibreReader:
         """
         Open a cover file for streaming reads.
 
-        Guardrail: refuses to open paths outside the library root.
+        Example:
+            Exercise CalibreReader.open cover through a consuming regression::
 
-        :param cover_path:
-        :return:
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+        :param cover_path: Value supplied for cover path under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         root = Path(self.db.paths.library_root)
         safe = _ensure_path_under_root(root, Path(cover_path))
@@ -711,10 +918,15 @@ class CalibreReader:
         """
         Open a format file for streaming reads.
 
-        Guardrail: refuses to open paths outside the library root.
+        Example:
+            Exercise CalibreReader.open format through a consuming regression::
 
-        :param fmt:
-        :return:
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+        :param fmt: Date, number or template format specification.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         root = Path(self.db.paths.library_root)
         safe = _ensure_path_under_root(root, Path(fmt.file_path))
@@ -725,9 +937,15 @@ class CalibreReader:
         """
         Yield bytes from an already-open file handle.
 
-        :param fh:
-        :param chunk_size:
-        :return:
+        Example:
+            Exercise CalibreReader.iter file chunks through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+        :param fh: Value supplied for fh under the utility contract.
+        :param chunk_size: Value supplied for chunk size under the utility contract.
+        :return: An iterator yielding the normalized values described above.
         """
         while True:
             chunk = fh.read(int(chunk_size))
@@ -752,17 +970,28 @@ class CalibreReader:
         """
         Stream CalibreBookNormalized payloads for ingestion.
 
-        :param batch_size:
-        :param include_custom_values:
-        :param include_formats:
-        :param include_cover_path:
-        :param include_files:
-        :param include_covers:
-        :param filesystem_reconcile:
-        :param include_orphan_formats:
-        :param strict_paths:
-        :param best_effort:
-        :return:
+        Example:
+            Exercise CalibreReader.iter book payloads through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+        :param batch_size: Value supplied for batch size under the utility contract.
+        :param include_custom_values: Value supplied for include custom values under the
+            utility contract.
+        :param include_formats: Value supplied for include formats under the utility
+            contract.
+        :param include_cover_path: Value supplied for include cover path under the utility
+            contract.
+        :param include_files: Value supplied for include files under the utility contract.
+        :param include_covers: Value supplied for include covers under the utility contract.
+        :param filesystem_reconcile: Value supplied for filesystem reconcile under the
+            utility contract.
+        :param include_orphan_formats: Value supplied for include orphan formats under the
+            utility contract.
+        :param strict_paths: Value supplied for strict paths under the utility contract.
+        :param best_effort: Value supplied for best effort under the utility contract.
+        :return: An iterator yielding the normalized values described above.
         """
         # Back-compat aliases
         if include_files is not None:
@@ -1216,9 +1445,16 @@ class CalibreReader:
         """
         Read authors for a sequence of book ids.
 
-        :param conn:
-        :param book_ids:
-        :return:
+        Example:
+            Exercise CalibreReader. read authors for books through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+        :param conn: SQLite connection used for schema or metadata queries.
+        :param book_ids: Book identities included in the batched read operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         q = _qmarks(len(book_ids))
         rows = conn.execute(
@@ -1243,9 +1479,16 @@ class CalibreReader:
         """
         Read all the tags for a sequence of books.
 
-        :param conn:
-        :param book_ids:
-        :return:
+        Example:
+            Exercise CalibreReader. read tags for books through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+        :param conn: SQLite connection used for schema or metadata queries.
+        :param book_ids: Book identities included in the batched read operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         q = _qmarks(len(book_ids))
         rows = conn.execute(
@@ -1273,10 +1516,18 @@ class CalibreReader:
         """
         Read all the languages for a sequence of books.
 
-        :param conn:
-        :param book_ids:
-        :param languages_code_col:
-        :return:
+        Example:
+            Exercise CalibreReader. read languages for books through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+        :param conn: SQLite connection used for schema or metadata queries.
+        :param book_ids: Book identities included in the batched read operation.
+        :param languages_code_col: Value supplied for languages code col under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         q = _qmarks(len(book_ids))
         # books_languages_link columns: book, lang_code (FK -> languages.id)
@@ -1308,11 +1559,18 @@ class CalibreReader:
         """
         Read the identifiers for a sequence of books.
 
-        :param conn:
-        :param book_ids:
-        :param ident_type_col:
-        :param ident_val_col:
-        :return:
+        Example:
+            Exercise CalibreReader. read identifiers for books through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+        :param conn: SQLite connection used for schema or metadata queries.
+        :param book_ids: Book identities included in the batched read operation.
+        :param ident_type_col: Value supplied for ident type col under the utility contract.
+        :param ident_val_col: Value supplied for ident val col under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if not _table_exists(conn, "identifiers"):
             return {}
@@ -1346,11 +1604,19 @@ class CalibreReader:
         """
         Read all the series and indicies for the given sequence of books.
 
-        :param conn:
-        :param book_ids:
-        :param by_id:
-        :param series_index_col:
-        :return:
+        Example:
+            Exercise CalibreReader. read series for books through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+        :param conn: SQLite connection used for schema or metadata queries.
+        :param book_ids: Book identities included in the batched read operation.
+        :param by_id: Value supplied for by id under the utility contract.
+        :param series_index_col: Value supplied for series index col under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         q = _qmarks(len(book_ids))
         if not (_table_exists(conn, "books_series_link") and _table_exists(conn, "series")):
@@ -1389,10 +1655,18 @@ class CalibreReader:
         """
         Read all the comments for a given sequence of books.
 
-        :param conn:
-        :param book_ids:
-        :param comments_text_col:
-        :return:
+        Example:
+            Exercise CalibreReader. read comments for books through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+        :param conn: SQLite connection used for schema or metadata queries.
+        :param book_ids: Book identities included in the batched read operation.
+        :param comments_text_col: Value supplied for comments text col under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         q = _qmarks(len(book_ids))
         rows = conn.execute(
@@ -1424,16 +1698,24 @@ class CalibreReader:
         """
         Read all the formats for a given sequence of books.
 
-        :param conn:
-        :param book_ids:
-        :param by_id:
-        :param books_path_col:
-        :param library_root:
-        :param data_format_col:
-        :param data_name_col:
-        :param data_size_col:
-        :param strict_paths:
-        :return:
+        Example:
+            Exercise CalibreReader. read formats for books through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+        :param conn: SQLite connection used for schema or metadata queries.
+        :param book_ids: Book identities included in the batched read operation.
+        :param by_id: Value supplied for by id under the utility contract.
+        :param books_path_col: Value supplied for books path col under the utility contract.
+        :param library_root: Root directory of the Calibre library being inspected.
+        :param data_format_col: Value supplied for data format col under the utility
+            contract.
+        :param data_name_col: Value supplied for data name col under the utility contract.
+        :param data_size_col: Value supplied for data size col under the utility contract.
+        :param strict_paths: Value supplied for strict paths under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         q = _qmarks(len(book_ids))
         rows = conn.execute(
@@ -1488,10 +1770,17 @@ class CalibreReader:
         """
         Read the custom values for books.
 
-        :param conn:
-        :param book_ids:
-        :param custom_defs:
-        :return:
+        Example:
+            Exercise CalibreReader. read custom values for books through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+        :param conn: SQLite connection used for schema or metadata queries.
+        :param book_ids: Book identities included in the batched read operation.
+        :param custom_defs: Value supplied for custom defs under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         out: Dict[int, Dict[str, Any]] = {}
 

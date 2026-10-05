@@ -10,6 +10,17 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+"""
+Parse paragraph definitions and inherited RTF formatting.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise paragraph def through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -23,37 +34,12 @@ from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
 
 class ParagraphDef:
     """
-    =================
-    Purpose
-    =================
-    Write paragraph definition tags.
-    States:
-    1. before_1st_para_def.
-    Before any para_def token is found. This means all the text in the preamble.
-    Look for the token 'cw<pf<par-def___'. This will changet the state to collect_tokens.
-    2. collect_tokens.
-    Found a paragraph_def. Need to get all tokens.
-    Change with start of a paragrph ('mi<mk<para-start'). State then becomes
-    in_paragraphs
-    If another paragraph definition is found, the state does not change.
-    But the dictionary is reset.
-    3. in_paragraphs
-    State changes when 'mi<mk<para-end__', or end of paragraph is found.
-    State then becomes 'self.__state = 'after_para_end'
-    4. after_para_end
-    If 'mi<mk<para-start' (the start of a paragraph) or 'mi<mk<para-end__' (the end of a paragraph--must be empty paragraph?) are found:
-        state changes to 'in_paragraphs'
-    If 'cw<pf<par-def___' (paragraph_definition) is found:
-        state changes to collect_tokens
-    if 'mi<mk<body-close', 'mi<mk<par-in-fld',
-    'cw<tb<cell______','cw<tb<row-def___','cw<tb<row_______',
-    'mi<mk<sect-close',   'mi<mk<header-beg',  'mi<mk<header-end'
-    are found. (All these tokens mark the start of a bigger element. para_def must
-    be closed:
-        state changes to  'after_para_def'
-    5. after_para_def
-    'mi<mk<para-start'  changes state to in_paragraphs
-    if another paragraph_def is found, the state changes to collect_tokens.
+    ================= Purpose ================= Write paragraph definition tags. States: 1. before_1st_para_def. Before any para_def token is found. This means all the text in the preamble. Look for the token 'cw<pf<par-def___'. This will changet the state to collect_tokens. 2. collect_tokens. Found a paragraph_def. Need to get all tokens. Change with start of a paragrph ('mi<mk<para-start'). State then becomes in_paragraphs If another paragraph definition is found, the state does not change. But the dictionary is reset. 3. in_paragraphs State changes when 'mi<mk<para-end__', or end of paragraph is found. State then becomes 'self.__state = 'after_para_end' 4. after_para_end If 'mi<mk<para-start' (the start of a paragraph) or 'mi<mk<para-end__' (the end of a paragraph--must be empty paragraph?) are found: state changes to 'in_paragraphs' If 'cw<pf<par-def___' (paragraph_definition) is found: state changes to collect_tokens if 'mi<mk<body-close', 'mi<mk<par-in-fld', 'cw<tb<cell______','cw<tb<row-def___','cw<tb<row_______', 'mi<mk<sect-close', 'mi<mk<header-beg', 'mi<mk<header-end' are found. (All these tokens mark the start of a bigger element. para_def must be closed: state changes to 'after_para_def' 5. after_para_def 'mi<mk<para-start' changes state to in_paragraphs if another paragraph_def is found, the state changes to collect_tokens.
+
+    Example:
+        Exercise ParagraphDef through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
     """
 
     def __init__(
@@ -65,15 +51,20 @@ class ParagraphDef:
         run_level: int = 1,
     ) -> None:
         """
-        Required:
-            'file'--file to parse
-            'default_font' --document default font
-        Optional:
-            'copy'-- whether to make a copy of result for debugging
-            'temp_dir' --where to output temporary results (default is
-            directory from which the script is run.)
-        Returns:
-            nothing
+        Required: 'file'--file to parse 'default_font' --document default font Optional: 'copy'-- whether to make a copy of result for debugging 'temp_dir' --where to output temporary results (default is directory from which the script is run.) Returns: nothing
+
+        Example:
+            Exercise ParagraphDef.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param default_font: Value supplied for default font under the utility contract.
+        :param copy: Value supplied for copy under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.__file = in_file
         self.__bug_handler = bug_handler
@@ -85,6 +76,15 @@ class ParagraphDef:
     def __initiate_values(self: _typing.Self) -> None:
         """
         Initiate all values.
+
+        Example:
+            Exercise ParagraphDef.  initiate values through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Dictionary needed to convert shortened style names to readable names
         self.__token_dict = {
@@ -312,12 +312,17 @@ class ParagraphDef:
 
     def __before_1st_para_def_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line -- line to parse
-        Returns:
-            nothing
-        Logic:
-            Look for the beginning of a paragraph definition
+        Required: line -- line to parse Returns: nothing Logic: Look for the beginning of a paragraph definition
+
+        Example:
+            Exercise ParagraphDef.  before 1st para def func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # cw<pf<par-def___<nu<true
         if self.__token_info == "cw<pf<par-def___":
@@ -326,6 +331,18 @@ class ParagraphDef:
             self.__write_obj.write(line)
 
     def __found_para_def_func(self: _typing.Self) -> None:
+        """
+        Perform the found para def func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ParagraphDef.  found para def func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__state = "collect_tokens"
         # not exactly right--have to reset the dictionary--give it default
         # values
@@ -333,18 +350,17 @@ class ParagraphDef:
 
     def __collect_tokens_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line --line to parse
-        Returns:
-            nothing
-        Logic:
-            Check the collect_tokens_dict for either the beginning of a
-            paragraph or a new paragraph definition. Take the actions
-            according to the value in the dict.
-            Otherwise, check if the token is not a control word. If it is not,
-            change the state to after_para_def.
-            Otherwise, check if the token is a paragraph definition word; if
-            so, add it to the attributes and values dictionary.
+        Required: line --line to parse Returns: nothing Logic: Check the collect_tokens_dict for either the beginning of a paragraph or a new paragraph definition. Take the actions according to the value in the dict. Otherwise, check if the token is not a control word. If it is not, change the state to after_para_def. Otherwise, check if the token is a paragraph definition word; if so, add it to the attributes and values dictionary.
+
+        Example:
+            Exercise ParagraphDef.  collect tokens func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         action = self.__collect_tokens_dict.get(self.__token_info)
         if action:
@@ -364,13 +380,37 @@ class ParagraphDef:
                     self.__att_val_dict[token] = line[20:-1]
 
     def __tab_stop_func(self: _typing.Self, line: _typing.Any) -> None:
-        """ """
+        """
+        Perform the tab stop func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ParagraphDef.  tab stop func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__att_val_dict["tabs"] += "%s:" % self.__tab_type
         self.__att_val_dict["tabs"] += "%s;" % line[20:-1]
         self.__tab_type = "left"
 
     def __tab_type_func(self: _typing.Self, line: _typing.Any) -> None:
-        """ """
+        """
+        Perform the tab type func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ParagraphDef.  tab type func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         type = self.__tab_type_dict.get(self.__token_info)
         if type is not None:
             self.__tab_type = type
@@ -380,7 +420,19 @@ class ParagraphDef:
                 raise self.__bug_handler(msg)
 
     def __tab_leader_func(self: _typing.Self, line: _typing.Any) -> None:
-        """ """
+        """
+        Perform the tab leader func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ParagraphDef.  tab leader func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         leader = self.__tab_type_dict.get(self.__token_info)
         if leader is not None:
             self.__att_val_dict["tabs"] += "%s^" % leader
@@ -390,33 +442,53 @@ class ParagraphDef:
                 raise self.__bug_handler(msg)
 
     def __tab_bar_func(self: _typing.Self, line: _typing.Any) -> None:
-        """ """
+        """
+        Perform the tab bar func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ParagraphDef.  tab bar func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         # self.__att_val_dict['tabs-bar'] += '%s:' % line[20:-1]
         self.__att_val_dict["tabs"] += "bar:%s;" % (line[20:-1])
         self.__tab_type = "left"
 
     def __parse_border(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --line to parse
-        Returns:
-            nothing (updates dictionary)
-        Logic:
-            Uses the border_parse module to return a dictionary of attribute
-            value pairs for a border line.
+        Requires: line --line to parse Returns: nothing (updates dictionary) Logic: Uses the border_parse module to return a dictionary of attribute value pairs for a border line.
+
+        Example:
+            Exercise ParagraphDef.  parse border through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         border_dict = self.__border_obj.parse_border(line)
         self.__att_val_dict.update(border_dict)
 
     def __para_def_in_para_def_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --line to parse
-        Returns:
-            nothing
-        Logic:
-            I have found a \\pard while I am collecting tokens. I want to reset
-            the dectionary and do nothing else.
+        Perform the para def in para def func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ParagraphDef.  para def in para def func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Change this
         self.__state = "collect_tokens"
@@ -424,15 +496,17 @@ class ParagraphDef:
 
     def __end_para_def_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            Nothing
-        Returns:
-            Nothing
-        Logic:
-            The previous state was collect tokens, and I have found the start
-            of a paragraph. I want to output the definition tag; output the line
-            itself (telling me of the beginning of a paragraph);change the
-            state to 'in_paragraphs';
+        Requires: Nothing Returns: Nothing Logic: The previous state was collect tokens, and I have found the start of a paragraph. I want to output the definition tag; output the line itself (telling me of the beginning of a paragraph);change the state to 'in_paragraphs';
+
+        Example:
+            Exercise ParagraphDef.  end para def func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__write_para_def_beg()
         self.__write_obj.write(line)
@@ -440,16 +514,17 @@ class ParagraphDef:
 
     def __start_para_after_def_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            Nothing
-        Returns:
-            Nothing
-        Logic:
-            The state was is after_para_def. and I have found the start of a
-            paragraph. I want to output the definition tag; output the line
-            itself (telling me of the beginning of a paragraph);change the
-            state to 'in_paragraphs'.
-            (I now realize that this is absolutely identical to the function above!)
+        Requires: Nothing Returns: Nothing Logic: The state was is after_para_def. and I have found the start of a paragraph. I want to output the definition tag; output the line itself (telling me of the beginning of a paragraph);change the state to 'in_paragraphs'. (I now realize that this is absolutely identical to the function above!)
+
+        Example:
+            Exercise ParagraphDef.  start para after def func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__write_para_def_beg()
         self.__write_obj.write(line)
@@ -457,13 +532,17 @@ class ParagraphDef:
 
     def __after_para_def_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line -- line to parse
-        Returns:
-            nothing
-        Logic:
-            Check if the token info is the start of a paragraph. If so, call
-            on the function found in the value of the dictionary.
+        Requires: line -- line to parse Returns: nothing Logic: Check if the token info is the start of a paragraph. If so, call on the function found in the value of the dictionary.
+
+        Example:
+            Exercise ParagraphDef.  after para def func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         action = self.__after_para_def_dict.get(self.__token_info)
         if self.__token_info == "cw<pf<par-def___":
@@ -475,12 +554,17 @@ class ParagraphDef:
 
     def __in_paragraphs_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --current line
-        Returns:
-            nothing
-        Logic:
-            Look for the end of a paragraph, the start of a cell or row.
+        Requires: line --current line Returns: nothing Logic: Look for the end of a paragraph, the start of a cell or row.
+
+        Example:
+            Exercise ParagraphDef.  in paragraphs func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         action = self.__in_paragraphs_dict.get(self.__token_info)
         if action:
@@ -490,36 +574,34 @@ class ParagraphDef:
 
     def __found_para_end_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line -- line to print out
-        Returns:
-            Nothing
-        Logic:
-            State is in paragraphs. You have found the end of a paragraph. You
-            need to print out the line and change the state to after
-            paragraphs.
+        Requires: line -- line to print out Returns: Nothing Logic: State is in paragraphs. You have found the end of a paragraph. You need to print out the line and change the state to after paragraphs.
+
+        Example:
+            Exercise ParagraphDef.  found para end func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__state = "after_para_end"
         self.__write_obj.write(line)
 
     def __after_para_end_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line -- line to output
-        Returns:
-            nothing
-        Logic:
-            The state is after the end of a paragraph. You are collecting all
-            the lines in a string and waiting to see if you need to write
-            out the paragraph definition. If you find another paragraph
-            definition, then you write out the old paragraph dictionary and
-            print out the string. You change the state to collect tokens.
-            If you find any larger block elements, such as cell, row,
-            field-block, or section, you write out the paragraph definition and
-            then the text string.
-            If you find the beginning of a paragraph, then you don't need to
-            write out the paragraph definition. Write out the string, and
-            change the state to in paragraphs.
+        Requires: line -- line to output Returns: nothing Logic: The state is after the end of a paragraph. You are collecting all the lines in a string and waiting to see if you need to write out the paragraph definition. If you find another paragraph definition, then you write out the old paragraph dictionary and print out the string. You change the state to collect tokens. If you find any larger block elements, such as cell, row, field-block, or section, you write out the paragraph definition and then the text string. If you find the beginning of a paragraph, then you don't need to write out the paragraph definition. Write out the string, and change the state to in paragraphs.
+
+        Example:
+            Exercise ParagraphDef.  after para end func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__text_string += line
         action = self.__after_para_end_dict.get(self.__token_info)
@@ -528,15 +610,17 @@ class ParagraphDef:
 
     def __continue_block_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --line to print out
-        Returns:
-            Nothing
-        Logic:
-            The state is after the end of a paragraph. You have found the
-            start of a paragraph, so you don't need to print out the paragraph
-            definition. Print out the string, the line, and change the state
-            to in paragraphs.
+        Requires: line --line to print out Returns: Nothing Logic: The state is after the end of a paragraph. You have found the start of a paragraph, so you don't need to print out the paragraph definition. Print out the string, the line, and change the state to in paragraphs.
+
+        Example:
+            Exercise ParagraphDef.  continue block func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__state = "in_paragraphs"
         self.__write_obj.write(self.__text_string)
@@ -546,15 +630,17 @@ class ParagraphDef:
 
     def __new_para_def_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line -- line to output
-        Returns:
-            Nothing
-        Logic:
-            You have found a new paragraph definition at the end of a
-            paragraph. Output the end of the old paragraph definition. Output
-            the text string. Output the line. Change the state to collect
-            tokens. (And don't forget to set the text string to ''!)
+        Requires: line -- line to output Returns: Nothing Logic: You have found a new paragraph definition at the end of a paragraph. Output the end of the old paragraph definition. Output the text string. Output the line. Change the state to collect tokens. (And don't forget to set the text string to ''!)
+
+        Example:
+            Exercise ParagraphDef.  new para def func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__write_para_def_end_func()
         self.__found_para_def_func()
@@ -563,29 +649,33 @@ class ParagraphDef:
 
     def __stop_block_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --(shouldn't be here?)
-        Returns:
-            nothing
-        Logic:
-            The state is after a paragraph, and you have found a larger block
-            than paragraph-definition. You want to write the end tag of the
-            old definition and reset the text string (handled by other
-            methods).
+        Requires: line --(shouldn't be here?) Returns: nothing Logic: The state is after a paragraph, and you have found a larger block than paragraph-definition. You want to write the end tag of the old definition and reset the text string (handled by other methods).
+
+        Example:
+            Exercise ParagraphDef.  stop block func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__write_para_def_end_func()
         self.__state = "after_para_def"
 
     def __write_para_def_end_func(self: _typing.Self) -> None:
         """
-        Requires:
-            nothing
-        Returns:
-            nothing
-        Logic:
-            Print out the end of the pargraph definition tag, and the markers
-            that let me know when I have reached this tag. (These markers are
-            used for later parsing.)
+        Requires: nothing Returns: nothing Logic: Print out the end of the pargraph definition tag, and the markers that let me know when I have reached this tag. (These markers are used for later parsing.)
+
+        Example:
+            Exercise ParagraphDef.  write para def end func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__write_obj.write(self.__end2_marker)
         self.__write_obj.write("mi<tg<close_____<paragraph-definition\n")
@@ -600,12 +690,16 @@ class ParagraphDef:
 
     def __get_num_of_style(self: _typing.Self) -> None:
         """
-        Requires:
-            nothing
-        Returns:
-            nothing
-        Logic:
-            Get a unique value for each style.
+        Requires: nothing Returns: nothing Logic: Get a unique value for each style.
+
+        Example:
+            Exercise ParagraphDef.  get num of style through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         my_string = ""
         new_style = 0
@@ -628,6 +722,18 @@ class ParagraphDef:
             self.__write_body_styles()
 
     def __write_body_styles(self: _typing.Self) -> None:
+        """
+        Perform the write body styles operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ParagraphDef.  write body styles through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         style_string = ""
         style_string += "mi<tg<empty-att_<paragraph-style-in-body"
         style_string += "<name>%s" % self.__att_val_dict["name"]
@@ -646,14 +752,16 @@ class ParagraphDef:
 
     def __write_para_def_beg(self: _typing.Self) -> None:
         """
-        Requires:
-            nothing
-        Returns:
-            nothing
-        Logic:
-            Print out the beginning of the pargraph definition tag, and the markers
-            that let me know when I have reached this tag. (These markers are
-            used for later parsing.)
+        Requires: nothing Returns: nothing Logic: Print out the beginning of the pargraph definition tag, and the markers that let me know when I have reached this tag. (These markers are used for later parsing.)
+
+        Example:
+            Exercise ParagraphDef.  write para def beg through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__get_num_of_style()
         table = self.__att_val_dict.get("in-table")
@@ -702,19 +810,35 @@ class ParagraphDef:
             self.__write_obj.write("mi<mk<caps______<%s\n" % value)
 
     def __empty_table_element_func(self: _typing.Self, line: _typing.Any) -> None:
+        """
+        Perform the empty table element func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ParagraphDef.  empty table element func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__write_obj.write("mi<mk<in-table__\n")
         self.__write_obj.write(line)
         self.__state = "after_para_def"
 
     def __reset_dict(self: _typing.Self) -> None:
         """
-        Requires:
-            nothing
-        Returns:
-            nothing
-        Logic:
-            The dictionary containing values and attributes must be reset each
-            time a new paragraphs definition is found.
+        Requires: nothing Returns: nothing Logic: The dictionary containing values and attributes must be reset each time a new paragraphs definition is found.
+
+        Example:
+            Exercise ParagraphDef.  reset dict through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__att_val_dict.clear()
         self.__att_val_dict["name"] = "Normal"
@@ -729,13 +853,16 @@ class ParagraphDef:
 
     def make_paragraph_def(self: _typing.Self) -> _typing.Any:
         """
-        Requires:
-            nothing
-        Returns:
-            nothing (changes the original file)
-        Logic:
-            Read one line in at a time. Determine what action to take based on
-            the state.
+        Requires: nothing Returns: nothing (changes the original file) Logic: Read one line in at a time. Determine what action to take based on the state.
+
+        Example:
+            Exercise ParagraphDef.make paragraph def through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self.__initiate_values()
         read_obj = open_for_read(self.__file)

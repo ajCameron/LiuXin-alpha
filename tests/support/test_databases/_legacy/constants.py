@@ -1,7 +1,13 @@
-"""Minimal legacy constants subset for DB-support builders.
+"""
+Support retained legacy database-fixture constants behavior.
 
-Extracted from the original LiuXin test constants so tests/support/test_databases
-can stand alone without importing the duplicate LiuXin_tests tree.
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise constants through a consuming regression::
+
+        python -m pytest -q tests/databases/test_test_resources_manager.py
 """
 
 rand_size_ints = [

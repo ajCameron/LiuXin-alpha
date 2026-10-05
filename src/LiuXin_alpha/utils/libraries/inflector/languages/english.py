@@ -5,6 +5,17 @@
 #
 # See the end of this file for the free software, open source license (BSD-style).
 
+"""
+Provide english utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise english through a consuming regression::
+
+        python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+"""
 import re
 
 # from LiuXin.inflector.languages.base import Base
@@ -15,11 +26,26 @@ class English(Base):
     """
     Inflector for pluralize and singularize English nouns.
 
-    This is the default Inflector for the Inflector obj
+    Example:
+        Exercise English through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
     """
 
     def pluralize(self, word):
-        """Pluralizes English nouns."""
+        """
+        Pluralizes English nouns.
+
+        Example:
+            Exercise English.pluralize through a consuming regression::
+
+                python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+        :param word: Value supplied for word under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         rules = [
             ["(?i)(quiz)$", "\\1zes"],
@@ -91,7 +117,19 @@ class English(Base):
         return word
 
     def singularize(self, word: str) -> str:
-        """Singularizes English nouns."""
+        """
+        Singularizes English nouns.
+
+        Example:
+            Exercise English.singularize through a consuming regression::
+
+                python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+        :param word: Value supplied for word under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         rules = [
             ["(?i)(quiz)zes$", "\\1"],

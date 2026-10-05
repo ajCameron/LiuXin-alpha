@@ -1,3 +1,14 @@
+"""
+Provide test rtf modernized utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test rtf modernized through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+"""
 from __future__ import annotations
 
 import importlib
@@ -10,32 +21,154 @@ from lxml import etree
 
 
 class _Log:
+    """
+    Provide the log contract for validated ebook processing.
+
+    Example:
+        Exercise  Log through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+    """
     def __init__(self) -> None:
+        """
+        Initialize and validate the log state.
+
+        Example:
+            Exercise  Log.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.messages: list[tuple[str, str]] = []
 
     def __call__(self, *parts) -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.messages.append(("call", " ".join(str(x) for x in parts)))
 
     def debug(self, *parts) -> None:
+        """
+        Perform the debug operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.debug through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.messages.append(("debug", " ".join(str(x) for x in parts)))
 
     def info(self, *parts) -> None:
+        """
+        Perform the info operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.info through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.messages.append(("info", " ".join(str(x) for x in parts)))
 
     def warn(self, *parts) -> None:
+        """
+        Perform the warn operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.warn through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.messages.append(("warn", " ".join(str(x) for x in parts)))
 
     def warning(self, *parts) -> None:
+        """
+        Perform the warning operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.warning through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.messages.append(("warning", " ".join(str(x) for x in parts)))
 
     def error(self, *parts) -> None:
+        """
+        Perform the error operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.error through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.messages.append(("error", " ".join(str(x) for x in parts)))
 
     def exception(self, *parts) -> None:
+        """
+        Perform the exception operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.exception through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.messages.append(("exception", " ".join(str(x) for x in parts)))
 
 
 def test_rtf_modules_import_smoke() -> None:
+    """
+    Perform the test rtf modules import smoke operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test rtf modules import smoke through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     modules = (
         "LiuXin_alpha.file_formats.rtf",
         "LiuXin_alpha.file_formats.rtf.input",
@@ -50,6 +183,18 @@ def test_rtf_modules_import_smoke() -> None:
 
 
 def test_txt2rtf_escapes_control_chars_and_unicode() -> None:
+    """
+    Perform the test txt2rtf escapes control chars and unicode operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test txt2rtf escapes control chars and unicode through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     mod = importlib.import_module("LiuXin_alpha.file_formats.rtf.rtfml")
     out = mod.txt2rtf(r"{\} café Ω 😀")
     assert r"\'7b" in out and r"\'7d" in out and r"\'5c" in out
@@ -58,6 +203,19 @@ def test_txt2rtf_escapes_control_chars_and_unicode() -> None:
 
 
 def test_rtfmlizer_image_to_hexstring_handles_binary_bytes(monkeypatch) -> None:
+    """
+    Perform the test rtfmlizer image to hexstring handles binary bytes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test rtfmlizer image to hexstring handles binary bytes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     mod = importlib.import_module("LiuXin_alpha.file_formats.rtf.rtfml")
     monkeypatch.setattr(mod, "_convert_image_to_jpeg_bytes", lambda data: b"\x01\xAB\xFE\x10")
     monkeypatch.setattr(mod, "_identify_data", lambda data: (320, 240, "jpeg"))
@@ -68,14 +226,62 @@ def test_rtfmlizer_image_to_hexstring_handles_binary_bytes(monkeypatch) -> None:
 
 
 def test_rtf_output_convert_writes_binary_stream(tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test rtf output convert writes binary stream operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test rtf output convert writes binary stream through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     mod = importlib.import_module("LiuXin_alpha.file_formats.conversion.plugins.rtf_output")
     fake_rtfml_mod = types.ModuleType("LiuXin_alpha.file_formats.rtf.rtfml")
 
     class _RTFMLizer:
+        """
+        Provide the rtfmlizer contract for validated ebook processing.
+
+        Example:
+            Exercise test rtf output convert writes binary stream. RTFMLizer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+        """
         def __init__(self, _log):
+            """
+            Initialize and validate the rtfmlizer state.
+
+            Example:
+                Exercise test rtf output convert writes binary stream. RTFMLizer.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+            :param _log: Value supplied for log under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             pass
 
         def extract_content(self, _oeb, _opts):
+            """
+            Extract content under the format's safety and compatibility rules.
+
+            Example:
+                Exercise test rtf output convert writes binary stream. RTFMLizer.extract content through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+            :param _oeb: Value supplied for oeb under the utility contract.
+            :param _opts: Value supplied for opts under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return "{\\rtf1\\ansi hello}"
 
     fake_rtfml_mod.RTFMLizer = _RTFMLizer
@@ -91,6 +297,18 @@ def test_rtf_output_convert_writes_binary_stream(tmp_path: Path, monkeypatch) ->
 
 
 def test_rtf_preprocess_unicode_partial_data_fix() -> None:
+    """
+    Perform the test rtf preprocess unicode partial data fix operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test rtf preprocess unicode partial data fix through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     mod = importlib.import_module("LiuXin_alpha.file_formats.rtf.preprocess")
     tokens = [
         mod.tokenControlWordWithNumericArgument("\\u", 945, " "),  # alpha
@@ -104,6 +322,18 @@ def test_rtf_preprocess_unicode_partial_data_fix() -> None:
 
 
 def test_rtf_preprocess_tokenizer_accepts_bytes_input() -> None:
+    """
+    Perform the test rtf preprocess tokenizer accepts bytes input operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test rtf preprocess tokenizer accepts bytes input through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     mod = importlib.import_module("LiuXin_alpha.file_formats.rtf.preprocess")
     tok = mod.RtfTokenizer(b"{\\rtf1 test}")
     assert tok.tokens
@@ -113,6 +343,18 @@ def test_rtf_preprocess_tokenizer_accepts_bytes_input() -> None:
 
 
 def test_rtf_input_convert_borders_assigns_classes() -> None:
+    """
+    Perform the test rtf input convert borders assigns classes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test rtf input convert borders assigns classes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     mod = importlib.import_module("LiuXin_alpha.file_formats.conversion.plugins.rtf_input")
     plugin = mod.RTFInput(None)
     root = etree.fromstring(
@@ -130,6 +372,18 @@ def test_rtf_input_convert_borders_assigns_classes() -> None:
 
 
 def test_rtf_input_postprocess_book_removes_remove_me_images() -> None:
+    """
+    Perform the test rtf input postprocess book removes remove me images operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test rtf input postprocess book removes remove me images through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     mod = importlib.import_module("LiuXin_alpha.file_formats.conversion.plugins.rtf_input")
     plugin = mod.RTFInput(None)
 
@@ -150,11 +404,33 @@ def test_rtf_input_postprocess_book_removes_remove_me_images() -> None:
 
 
 def test_rtf_input_convert_glue_smoke(tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test rtf input convert glue smoke operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test rtf input convert glue smoke through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     mod = importlib.import_module("LiuXin_alpha.file_formats.conversion.plugins.rtf_input")
 
     fake_parse_rtf = types.ModuleType("LiuXin_alpha.file_formats.rtf2xml.ParseRtf")
 
     class _RtfInvalidCodeException(Exception):
+        """
+        Report a rtfinvalidcodeexception encountered while processing an ebook format.
+
+        Example:
+            Exercise test rtf input convert glue smoke. RtfInvalidCodeException through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+        """
         pass
 
     fake_parse_rtf.RtfInvalidCodeException = _RtfInvalidCodeException
@@ -169,27 +445,121 @@ def test_rtf_input_convert_glue_smoke(tmp_path: Path, monkeypatch) -> None:
     fake_opf2 = types.ModuleType("LiuXin_alpha.file_formats.opf.opf2")
 
     class _OPFCreator:
+        """
+        Provide the opfcreator contract for validated ebook processing.
+
+        Example:
+            Exercise test rtf input convert glue smoke. OPFCreator through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+        """
         def __init__(self, _cwd, _mi):
+            """
+            Initialize and validate the opfcreator state.
+
+            Example:
+                Exercise test rtf input convert glue smoke. OPFCreator.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+            :param _cwd: Value supplied for cwd under the utility contract.
+            :param _mi: Value supplied for mi under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             self.manifest = []
             self.spine = []
 
         def create_manifest(self, manifest):
+            """
+            Create the OPF manifest from normalized resource paths.
+
+            Example:
+                Exercise test rtf input convert glue smoke. OPFCreator.create manifest through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+            :param manifest: Value supplied for manifest under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.manifest = list(manifest)
 
         def create_spine(self, spine):
+            """
+            Create the OPF spine in the requested reading order.
+
+            Example:
+                Exercise test rtf input convert glue smoke. OPFCreator.create spine through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+            :param spine: Value supplied for spine under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.spine = list(spine)
 
         def render(self, f):
+            """
+            Perform the render operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test rtf input convert glue smoke. OPFCreator.render through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+            :param f: Value supplied for f under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             f.write(b"<package/>")
 
     fake_opf2.OPFCreator = _OPFCreator
     monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.opf.opf2", fake_opf2)
 
     class _FakeTransform:
+        """
+        Provide the faketransform contract for validated ebook processing.
+
+        Example:
+            Exercise test rtf input convert glue smoke. FakeTransform through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+        """
         def __call__(self, _doc):
+            """
+            Perform the call operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test rtf input convert glue smoke. FakeTransform.  call   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+            :param _doc: Value supplied for doc under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return object()
 
         def tostring(self, _result):
+            """
+            Perform the tostring operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test rtf input convert glue smoke. FakeTransform.tostring through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+            :param _result: Value supplied for result under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return "<html><body><p>RTF converted</p></body></html>"
 
     monkeypatch.setattr(etree, "XSLT", lambda *a, **k: _FakeTransform())

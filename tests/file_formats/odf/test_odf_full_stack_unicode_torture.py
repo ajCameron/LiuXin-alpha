@@ -1,3 +1,14 @@
+"""
+Provide test odf full stack unicode torture utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test odf full stack unicode torture through a consuming regression::
+
+        python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+"""
 from __future__ import annotations
 
 import unicodedata
@@ -24,6 +35,19 @@ UNICODE_TORTURE_LINES = [
 
 
 def _build_unicode_doc(lines: list[str]):
+    """
+    Perform the build unicode doc operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  build unicode doc through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+    :param lines: Value supplied for lines under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.file_formats.odf.opendocument import OpenDocumentText
     from LiuXin_alpha.file_formats.odf.teletype import addTextToElement
     from LiuXin_alpha.file_formats.odf.text import P
@@ -37,6 +61,20 @@ def _build_unicode_doc(lines: list[str]):
 
 
 def _rewrite_content_xml_with_invalid_utf8(src: Path, dst: Path) -> None:
+    """
+    Perform the rewrite content xml with invalid utf8 operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  rewrite content xml with invalid utf8 through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+    :param src: Value supplied for src under the utility contract.
+    :param dst: Value supplied for dst under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     with zipfile.ZipFile(src, "r") as zin, zipfile.ZipFile(dst, "w") as zout:
         for info in zin.infolist():
             data = zin.read(info.filename)
@@ -47,6 +85,19 @@ def _rewrite_content_xml_with_invalid_utf8(src: Path, dst: Path) -> None:
 
 
 def test_odf_full_stack_unicode_torture_roundtrip_and_xhtml(tmp_path: Path) -> None:
+    """
+    Perform the test odf full stack unicode torture roundtrip and xhtml operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test odf full stack unicode torture roundtrip and xhtml through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.odf.odf2xhtml import ODF2XHTML
     from LiuXin_alpha.file_formats.odf.opendocument import load
     from LiuXin_alpha.file_formats.odf.teletype import extractText
@@ -78,6 +129,19 @@ def test_odf_full_stack_unicode_torture_roundtrip_and_xhtml(tmp_path: Path) -> N
 
 
 def test_odf_full_stack_load_supports_stream_and_pathlike(tmp_path: Path) -> None:
+    """
+    Perform the test odf full stack load supports stream and pathlike operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test odf full stack load supports stream and pathlike through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.odf.odf2xhtml import ODF2XHTML
     from LiuXin_alpha.file_formats.odf.opendocument import load
     from LiuXin_alpha.file_formats.odf.teletype import extractText
@@ -98,6 +162,19 @@ def test_odf_full_stack_load_supports_stream_and_pathlike(tmp_path: Path) -> Non
 
 
 def test_odf_load_invalid_utf8_content_xml_raises(tmp_path: Path) -> None:
+    """
+    Perform the test odf load invalid utf8 content xml raises operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test odf load invalid utf8 content xml raises through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.odf.opendocument import load
 
     good = tmp_path / "good.odt"

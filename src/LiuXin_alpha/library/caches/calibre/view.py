@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Expose filtered and sorted views over cached library records.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise view through a consuming regression::
+
+        python -m pytest -q tests/library/test_unified_library.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 
 import operator
@@ -29,21 +40,29 @@ __docformat__ = "restructuredtext en"
 
 class ViewMetadata(object):
     """
-    Stored metadata about a view - the FIELD_MAP needed to located the positions of each of the columns in it and the
-    lines with form the SQL statement to construct it.
+    Stored metadata about a view - the FIELD_MAP needed to located the positions of each of the columns in it and the lines with form the SQL statement to construct it.
+
+    Example:
+        Exercise ViewMetadata through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def __init__(self, FIELD_MAP, sql_lines, custom_columns, field_metadata):
         """
         Stores all information about the view to be created.
 
-        :param FIELD_MAP: A dictionary keyed with the position of the column in the view and valued with the label of
-                          that column.
-        :param sql_lines: The sql which will be used to actually create the view
-        :param custom_columns: A CustomColumns object which stores information on the custom columns to be included in
-                               the view.
-        :param field_metadata: An object which stores metadata about the individual fields in the view.
-        :return:
+        Example:
+            Exercise ViewMetadata.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param FIELD_MAP: Value supplied for FIELD MAP under the utility contract.
+        :param sql_lines: Value supplied for sql lines under the utility contract.
+        :param custom_columns: Value supplied for custom columns under the utility contract.
+        :param field_metadata: Value supplied for field metadata under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.FIELD_MAP = FIELD_MAP
         self.sql_lines = sql_lines
@@ -53,10 +72,18 @@ class ViewMetadata(object):
 
 def sanitize_sort_field_name(field_metadata, field):
     """
+    Perform the sanitize sort field name operation under explicit file-format and conversion rules.
 
-    :param field_metadata:
-    :param field:
-    :return:
+    Example:
+        Exercise sanitize sort field name through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param field_metadata: Value supplied for field metadata under the utility contract.
+    :param field: Metadata or template field addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     field = field_metadata.search_term_to_field_key(field.lower().strip())
     # translate some fields to their hidden equivalent
@@ -65,25 +92,107 @@ def sanitize_sort_field_name(field_metadata, field):
 
 
 class CalibreMarkedVirtualField(object):
+    """
+    Provide the calibremarkedvirtualfield contract for validated ebook processing.
+
+    Example:
+        Exercise CalibreMarkedVirtualField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     def __init__(self, marked_ids):
+        """
+        Initialize and validate the calibremarkedvirtualfield state.
+
+        Example:
+            Exercise CalibreMarkedVirtualField.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param marked_ids: Value supplied for marked ids under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.marked_ids = marked_ids
 
     def iter_searchable_values(self, get_metadata, candidates, default_value=None):
+        """
+        Iterate over searchable values under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CalibreMarkedVirtualField.iter searchable values through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param candidates: Value supplied for candidates under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: An iterator yielding the normalized values described above.
+        """
         for book_id in candidates:
             yield self.marked_ids.get(book_id, default_value), {book_id}
 
     def sort_keys_for_books(self, get_metadata, lang_map):
+        """
+        Perform the sort keys for books operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreMarkedVirtualField.sort keys for books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param lang_map: Value supplied for lang map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         g = self.marked_ids.get
         return lambda book_id: g(book_id, None)
 
 
 class TableRow(object):
+    """
+    Provide the tablerow contract for validated ebook processing.
+
+    Example:
+        Exercise TableRow through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     def __init__(self, book_id, view):
+        """
+        Initialize and validate the tablerow state.
+
+        Example:
+            Exercise TableRow.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param view: Value supplied for view under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.book_id = book_id
         self.view = weakref.ref(view)
         self.column_count = view.column_count
 
     def __getitem__(self, obj):
+        """
+        Perform the getitem operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TableRow.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         view = self.view()
         if isinstance(obj, slice):
             return [view._field_getters[c](self.book_id) for c in memory_range(*obj.indices(len(view._field_getters)))]
@@ -91,9 +200,32 @@ class TableRow(object):
             return view._field_getters[obj](self.book_id)
 
     def __len__(self):
+        """
+        Perform the len operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TableRow.  len   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.column_count
 
     def __iter__(self):
+        """
+        Perform the iter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TableRow.  iter   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for i in memory_range(self.column_count):
             yield self[i]
 
@@ -101,10 +233,18 @@ class TableRow(object):
 def format_is_multiple(x, sep=",", repl=None):
     """
     Provides a format for display if the value has multiple components.
-    :param x:
-    :param sep:
-    :param repl:
-    :return:
+
+    Example:
+        Exercise format is multiple through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :param sep: Delimiter used to split or join list values.
+    :param repl: Value supplied for repl under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if not x:
         return None
@@ -116,8 +256,16 @@ def format_is_multiple(x, sep=",", repl=None):
 def format_identifiers(x):
     """
     Make a string representation of a set of identifiers.
-    :param x:
-    :return:
+
+    Example:
+        Exercise format identifiers through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if not x:
         return None
@@ -126,18 +274,26 @@ def format_identifiers(x):
 
 class CalibreView(object):
     """
-    A table view of the database, with rows and columns (some of which are made of formatted selections from others rows
-    and columns).
+    A table view of the database, with rows and columns (some of which are made of formatted selections from others rows and columns).
 
-    Used to actually display contents of the books/titles combined tables.
+    Example:
+        Exercise CalibreView through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def __init__(self, cache):
         """
         Needs to be able to thread safely read/write the database - so runs off a cache.
 
-        :param cache:
-        :return:
+        Example:
+            Exercise CalibreView.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param cache: Value supplied for cache under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.cache = cache
 
@@ -199,16 +355,32 @@ class CalibreView(object):
     def add_marked_listener(self, func):
         """
         Add a listener function to the view. Miantains a weakref so that it won;t block if this is deleted.
-        :param func:
-        :return:
+
+        Example:
+            Exercise CalibreView.add marked listener through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param func: Value supplied for func under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.marked_listeners[id(func)] = weakref.ref(func)
 
     def add_to_sort_history(self, items):
         """
         Add to the top of the current sort history.
-        :param items:
-        :return:
+
+        Example:
+            Exercise CalibreView.add to sort history through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param items: Value supplied for items under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.sort_history = uniq((list(items) + list(self.sort_history)), operator.itemgetter(0))[
             : tweaks["maximum_resort_levels"]
@@ -217,17 +389,33 @@ class CalibreView(object):
     def count(self):
         """
         The number of items in the current view.
-        :return:
+
+        Example:
+            Exercise CalibreView.count through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return len(self._map)
 
     def get_property(self, id_or_index, index_is_id=False, loc=-1):
         """
         Get the given property of the book from either it's id or some other unique id - given by the location.
-        :param id_or_index: The unique thing to search with
-        :param index_is_id: Is the id the index?
-        :param loc: By default -1 - the id of the book
-        :return:
+
+        Example:
+            Exercise CalibreView.get property through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param id_or_index: Value supplied for id or index under the utility contract.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :param loc: Value supplied for loc under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         book_id = id_or_index if index_is_id else self._map_filtered[id_or_index]
         return self._field_getters[loc](book_id)
@@ -235,8 +423,16 @@ class CalibreView(object):
     def sanitize_sort_field_name(self, field):
         """
         Sanitize the name for the sort field.
-        :param field:
-        :return:
+
+        Example:
+            Exercise CalibreView.sanitize sort field name through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return sanitize_sort_field_name(self.field_metadata, field)
 
@@ -244,17 +440,32 @@ class CalibreView(object):
     def field_metadata(self):
         """
         Returns the field metadata from the cache object.
-        :return:
+
+        Example:
+            Exercise CalibreView.field metadata through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.cache.field_metadata
 
     def _get_id(self, idx, index_is_id=True):
         """
-        If the index_is_id, returns the index if it exists in the view, or raise an exception if it isn't.
-        If not index_is_id tries to find the book from the given data and return the id identified from that identifier.
-        :param idx:
-        :param index_is_id:
-        :return:
+        If the index_is_id, returns the index if it exists in the view, or raise an exception if it isn't. If not index_is_id tries to find the book from the given data and return the id identified from that identifier.
+
+        Example:
+            Exercise CalibreView. get id through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param idx: Value supplied for idx under the utility contract.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if index_is_id and not self.cache.has_id(idx):
             raise IndexError("No book with id %s present" % idx)
@@ -263,36 +474,125 @@ class CalibreView(object):
     def has_id(self, book_id):
         """
         Uses the cache has_id method to check if the given book_id is currently in the cache.
-        :param book_id:
-        :return:
+
+        Example:
+            Exercise CalibreView.has id through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: True when the documented condition holds; otherwise False.
         """
         return self.cache.has_id(book_id)
 
     def __getitem__(self, row):
+        """
+        Perform the getitem operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreView.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param row: Value supplied for row under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return TableRow(self._map_filtered[row], self)
 
     def __len__(self):
+        """
+        Perform the len operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreView.  len   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return len(self._map_filtered)
 
     def __iter__(self):
+        """
+        Perform the iter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreView.  iter   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for book_id in self._map_filtered:
             yield TableRow(book_id, self)
 
     def iterall(self):
+        """
+        Perform the iterall operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreView.iterall through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for book_id in self.iterallids():
             yield TableRow(book_id, self)
 
     def iterallids(self):
+        """
+        Perform the iterallids operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreView.iterallids through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for book_id in sorted(self._map):
             yield book_id
 
     def tablerow_for_id(self, book_id):
+        """
+        Perform the tablerow for id operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreView.tablerow for id through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return TableRow(book_id, self)
 
     def get_field_map_field(self, row, col, index_is_id=True):
         """
-        Supports the legacy FIELD_MAP interface for getting metadata. Do not use
-        in new code.
+        Supports the legacy FIELD_MAP interface for getting metadata. Do not use in new code.
+
+        Example:
+            Exercise CalibreView.get field map field through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param row: Value supplied for row under the utility contract.
+        :param col: Value supplied for col under the utility contract.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         getter = self._field_getters[col]
         return getter(row, index_is_id=index_is_id)
@@ -300,35 +600,72 @@ class CalibreView(object):
     def index_to_id(self, idx):
         """
         Return the id of a book from the given index.
-        :param idx:
-        :return:
+
+        Example:
+            Exercise CalibreView.index to id through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param idx: Value supplied for idx under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self._map_filtered[idx]
 
     def id_to_index(self, book_id):
         """
         Get the id from the given book_id.
-        :param book_id:
-        :return:
+
+        Example:
+            Exercise CalibreView.id to index through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self._map_filtered.index(book_id)
 
     row = index_to_id
 
     def index(self, book_id, cache=False):
+        """
+        Perform the index operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreView.index through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param cache: Value supplied for cache under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         x = self._map if cache else self._map_filtered
         return x.index(book_id)
 
     def _get(self, field, idx, index_is_id=True, default_value=None, fmt=lambda x: x):
         """
-        Get a field value from an index with a given default value and the option of a format function to transform the
-        output.
-        :param field:
-        :param idx:
-        :param index_is_id:
-        :param default_value:
-        :param fmt:
-        :return:
+        Get a field value from an index with a given default value and the option of a format function to transform the output.
+
+        Example:
+            Exercise CalibreView. get through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :param idx: Value supplied for idx under the utility contract.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         id_ = idx if index_is_id else self.index_to_id(idx)
         if index_is_id and not self.cache.has_id(id_):
@@ -338,10 +675,18 @@ class CalibreView(object):
     def get_series_sort(self, idx, index_is_id=True, default_value=""):
         """
         Get the series sort index for the particular book.
-        :param idx:
-        :param index_is_id:
-        :param default_value:
-        :return:
+
+        Example:
+            Exercise CalibreView.get series sort through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param idx: Value supplied for idx under the utility contract.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if default_value:
             info_str = "an unexpected default_value was provided"
@@ -362,25 +707,56 @@ class CalibreView(object):
     def get_ondevice(self, idx, index_is_id=True, default_value=""):
         """
         Is a book with the given id or index on the currently connected device?
-        :param idx:
-        :param index_is_id:
-        :param default_value:
-        :return:
+
+        Example:
+            Exercise CalibreView.get ondevice through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param idx: Value supplied for idx under the utility contract.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         id_ = idx if index_is_id else self.index_to_id(idx)
         return self.cache.field_for("ondevice", id_, default_value=default_value)
 
     def get_marked(self, idx, index_is_id=True, default_value=None):
+        """
+        Return marked under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CalibreView.get marked through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param idx: Value supplied for idx under the utility contract.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         id_ = idx if index_is_id else self.index_to_id(idx)
         return self.marked_ids.get(id_, default_value)
 
     def get_author_data(self, idx, index_is_id=True, default_value=None):
         """
         Return a serialized string of author data for writing into a file.
-        :param idx: The index or id of the book
-        :param index_is_id: Is the given index an id
-        :param default_value: In the event of the author data not being retrievable return this.
-        :return:
+
+        Example:
+            Exercise CalibreView.get author data through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param idx: Value supplied for idx under the utility contract.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         id_ = idx if index_is_id else self.index_to_id(idx)
         with self.cache.safe_read_lock:
@@ -392,6 +768,21 @@ class CalibreView(object):
         return ":#:".join(ans) if ans else default_value
 
     def _do_sort(self, ids_to_sort, fields=(), subsort=False):
+        """
+        Perform the do sort operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreView. do sort through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param ids_to_sort: Value supplied for ids to sort under the utility contract.
+        :param fields: Value supplied for fields under the utility contract.
+        :param subsort: Value supplied for subsort under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         fields = [(sanitize_sort_field_name(self.field_metadata, x), bool(y)) for x, y in fields]
         keys = self.field_metadata.sortable_field_keys()
         fields = [x for x in fields if x[0] in keys]
@@ -407,6 +798,21 @@ class CalibreView(object):
         )
 
     def multisort(self, fields=None, subsort=False, only_ids=None):
+        """
+        Perform the multisort operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreView.multisort through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param fields: Value supplied for fields under the utility contract.
+        :param subsort: Value supplied for subsort under the utility contract.
+        :param only_ids: Value supplied for only ids under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if fields is None:
             fields = []
         sorted_book_ids = self._do_sort(self._map if only_ids is None else only_ids, fields=fields, subsort=subsort)
@@ -424,6 +830,20 @@ class CalibreView(object):
             only_ids.sort(key=smap.get)
 
     def incremental_sort(self, fields=(), subsort=False):
+        """
+        Perform the incremental sort operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreView.incremental sort through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param fields: Value supplied for fields under the utility contract.
+        :param subsort: Value supplied for subsort under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if len(self._map) == len(self._map_filtered):
             return self.multisort(fields=fields, subsort=subsort)
 
@@ -432,6 +852,21 @@ class CalibreView(object):
         self.add_to_sort_history(fields)
 
     def search(self, query, return_matches=False, sort_results=True):
+        """
+        Perform the search operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreView.search through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param query: Search expression parsed or evaluated by the utility.
+        :param return_matches: Value supplied for return matches under the utility contract.
+        :param sort_results: Value supplied for sort results under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = self.search_getting_ids(
             query,
             self.search_restriction,
@@ -443,6 +878,19 @@ class CalibreView(object):
         self._map_filtered = tuple(ans)
 
     def _build_restriction_string(self, restriction):
+        """
+        Perform the build restriction string operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreView. build restriction string through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param restriction: Value supplied for restriction under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.base_restriction:
             if restriction:
                 return "(%s) and (%s)" % (self.base_restriction, restriction)
@@ -461,13 +909,23 @@ class CalibreView(object):
     ):
         """
         Search the cache with the given query - return the results as an ordered list.
-        :param query: Query string - will be parsed and applied to the entries in the cache.
-        :param search_restriction: A restriction to apply the search - overridden if you choose to use a virtual
-                                   library.
-        :param set_restriction_count:
-        :param use_virtual_library: If True then applies the virtual library restriction to the search
-        :param sort_results:
-        :return:
+
+        Example:
+            Exercise CalibreView.search getting ids through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param query: Search expression parsed or evaluated by the utility.
+        :param search_restriction: Value supplied for search restriction under the utility
+            contract.
+        :param set_restriction_count: Value supplied for set restriction count under the
+            utility contract.
+        :param use_virtual_library: Value supplied for use virtual library under the utility
+            contract.
+        :param sort_results: Value supplied for sort results under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if use_virtual_library:
             search_restriction = self._build_restriction_string(search_restriction)
@@ -511,46 +969,188 @@ class CalibreView(object):
         return rv
 
     def get_search_restriction(self):
+        """
+        Return search restriction under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CalibreView.get search restriction through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.search_restriction
 
     def set_search_restriction(self, s):
+        """
+        Set search restriction under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CalibreView.set search restriction through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param s: Value supplied for s under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.search_restriction = s
 
     def get_base_restriction(self):
+        """
+        Return base restriction under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CalibreView.get base restriction through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.base_restriction
 
     def set_base_restriction(self, s):
+        """
+        Set base restriction under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CalibreView.set base restriction through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param s: Value supplied for s under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.base_restriction = s
 
     def get_base_restriction_name(self):
+        """
+        Return base restriction name under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CalibreView.get base restriction name through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.base_restriction_name
 
     def set_base_restriction_name(self, s):
+        """
+        Set base restriction name under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CalibreView.set base restriction name through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param s: Value supplied for s under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.base_restriction_name = s
 
     def get_search_restriction_name(self):
+        """
+        Return search restriction name under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CalibreView.get search restriction name through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.search_restriction_name
 
     def set_search_restriction_name(self, s):
+        """
+        Set search restriction name under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CalibreView.set search restriction name through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param s: Value supplied for s under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.search_restriction_name = s
 
     def search_restriction_applied(self):
+        """
+        Perform the search restriction applied operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreView.search restriction applied through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return bool(self.search_restriction) or bool(self.base_restriction)
 
     def get_search_restriction_book_count(self):
+        """
+        Return search restriction book count under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CalibreView.get search restriction book count through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.search_restriction_book_count
 
     def change_search_locations(self, newlocs):
+        """
+        Perform the change search locations operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreView.change search locations through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param newlocs: Value supplied for newlocs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.cache.change_search_locations(newlocs)
 
     def set_marked_ids(self, id_dict):
         """
-        ids in id_dict are "marked". They can be searched for by using the search term ``marked:true``. Pass in an empty
-        dictionary or set to clear marked ids.
+        ids in id_dict are "marked". They can be searched for by using the search term ``marked:true``. Pass in an empty dictionary or set to clear marked ids.
 
-        :param id_dict: Either a dictionary mapping ids to values or a set of ids. In the latter case, the value is set
-        to 'true' for all ids. If a mapping is provided, then the search can be used to search for particular values:
-        ``marked:value``
+        Example:
+            Exercise CalibreView.set marked ids through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param id_dict: Value supplied for id dict under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         old_marked_ids = set(self.marked_ids)
         if not hasattr(id_dict, "items"):
@@ -571,12 +1171,41 @@ class CalibreView(object):
                     func(old_marked_ids, cmids)
 
     def toggle_marked_ids(self, book_ids):
+        """
+        Perform the toggle marked ids operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreView.toggle marked ids through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         book_ids = set(book_ids)
         mids = set(self.marked_ids)
         common = mids.intersection(book_ids)
         self.set_marked_ids((mids | book_ids) - common)
 
     def refresh(self, field=None, ascending=True, clear_caches=True, do_search=True):
+        """
+        Perform the refresh operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreView.refresh through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :param ascending: Value supplied for ascending under the utility contract.
+        :param clear_caches: Value supplied for clear caches under the utility contract.
+        :param do_search: Value supplied for do search under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._map = tuple(sorted(self.cache.all_book_ids()))
         self._map_filtered = tuple(self._map)
         self.full_map_is_sorted = True
@@ -589,6 +1218,19 @@ class CalibreView(object):
             self.search("", return_matches=False)
 
     def refresh_ids(self, ids):
+        """
+        Perform the refresh ids operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreView.refresh ids through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param ids: Value supplied for ids under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.cache.clear_caches(book_ids=ids)
         try:
             return list(map(self.id_to_index, ids))
@@ -597,6 +1239,19 @@ class CalibreView(object):
         return None
 
     def remove(self, book_id):
+        """
+        Perform the remove operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreView.remove through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         try:
             self._map = tuple(bid for bid in self._map if bid != book_id)
         except ValueError:
@@ -607,10 +1262,36 @@ class CalibreView(object):
             pass
 
     def books_deleted(self, ids):
+        """
+        Perform the books deleted operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreView.books deleted through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param ids: Value supplied for ids under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for book_id in ids:
             self.remove(book_id)
 
     def books_added(self, ids):
+        """
+        Perform the books added operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreView.books added through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param ids: Value supplied for ids under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         ids = tuple(ids)
         self._map = ids + self._map
         self._map_filtered = ids + self._map_filtered

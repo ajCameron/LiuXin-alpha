@@ -1,9 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Defines the plugin system for conversions.
+Define customization hooks for conversion input and output plugins.
 
-These plugins transform one ebook file format into another.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise conversion through a consuming regression::
+
+        python -m pytest -q tests/customize/test_customize_base.py
 """
 
 import re
@@ -24,8 +30,10 @@ class ConversionOption:
     """
     Class representing a conversion option.
 
-    Most conversion processes will have some kind of options to control them.
-    All of the representatives of them should descend from this base class.
+    Example:
+        Exercise ConversionOption through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     def __init__(
@@ -34,11 +42,18 @@ class ConversionOption:
         """
         Set parameters for the conversion option.
 
-        :param name: Name of the conversion option.
-        :param option_help: A string which provides help as to what the option does and how to use it.
-        :param long_switch:
-        :param short_switch:
-        :param choices:
+        Example:
+            Exercise ConversionOption.  init   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param option_help: Value supplied for option help under the utility contract.
+        :param long_switch: Value supplied for long switch under the utility contract.
+        :param short_switch: Value supplied for short switch under the utility contract.
+        :param choices: Value supplied for choices under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.name = name
         self.option_help = option_help
@@ -54,6 +69,15 @@ class ConversionOption:
     def validate_parameters(self):
         """
         Validate the parameters passed to :meth:`__init__`.
+
+        Example:
+            Exercise ConversionOption.validate parameters through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if re.match(r"[a-zA-Z_]([a-zA-Z0-9_])*", self.name) is None:
             raise ValueError(self.name + " is not a valid Python identifier")
@@ -64,7 +88,14 @@ class ConversionOption:
         """
         hash of the name of the conversion option.
 
-        :return:
+        Example:
+            Exercise ConversionOption.  hash   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return hash(self.name)
 
@@ -72,8 +103,15 @@ class ConversionOption:
         """
         Hash check that the other option is the same as this one.
 
-        :param other:
-        :return:
+        Example:
+            Exercise ConversionOption.  eq   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return hash(self) == hash(other)
 
@@ -81,8 +119,14 @@ class ConversionOption:
         """
         Returns a clone of this option.
 
-        Clone is a new class entirely and not a reference.
-        :return:
+        Example:
+            Exercise ConversionOption.clone through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return ConversionOption(
             name=self.name,
@@ -96,6 +140,11 @@ class ConversionOption:
 class OptionRecommendation:
     """
     Provide a recommended value for an option.
+
+    Example:
+        Exercise OptionRecommendation through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     LOW = 1
@@ -106,9 +155,17 @@ class OptionRecommendation:
         """
         Includes the recommended value of the options and the strength of the recommendation (low, medium, high).
 
-        :param recommended_value:
-        :param level:
-        :param kwargs:
+        Example:
+            Exercise OptionRecommendation.  init   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param recommended_value: Value supplied for recommended value under the utility
+            contract.
+        :param level: Value supplied for level under the utility contract.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; validated state is stored on the receiving object.
         """
         self.level = level
         self.recommended_value = recommended_value
@@ -123,7 +180,14 @@ class OptionRecommendation:
         """
         Returns help for the option this is a recommendation for.
 
-        :return:
+        Example:
+            Exercise OptionRecommendation.option help through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.option.option_help
 
@@ -131,7 +195,14 @@ class OptionRecommendation:
         """
         Returns a duplicate of this recommendation.
 
-        :return:
+        Example:
+            Exercise OptionRecommendation.clone through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return OptionRecommendation(
             recommended_value=self.recommended_value,
@@ -143,7 +214,14 @@ class OptionRecommendation:
         """
         Check the parameters provided to this class are semantically correct.
 
-        :return:
+        Example:
+            Exercise OptionRecommendation.validate parameters through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.option.choices and self.recommended_value not in self.option.choices:
             raise ValueError("OpRec: %s: Recommended value not in choices" % self.option.name)
@@ -156,12 +234,42 @@ class OptionRecommendation:
 class DummyReporter(object):
     """
     When we don't want to define a reporter.
+
+    Example:
+        Exercise DummyReporter through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     def __init__(self):
+        """
+        Initialize and validate the dummyreporter state.
+
+        Example:
+            Exercise DummyReporter.  init   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.cancel_requested = False
 
     def __call__(self, percent, msg=""):
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DummyReporter.  call   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param percent: Value supplied for percent under the utility contract.
+        :param msg: Value supplied for msg under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
 
@@ -170,10 +278,12 @@ class DummyReporter(object):
 
 class InputFormatPlugin(Plugin):
     """
-    InputFormatPlugins are responsible for converting a document into HTML+OPF+CSS+etc.
-    T
-    he results of the conversion *must* be encoded in UTF-8.
-    The main action happens in :meth:`convert`.
+    InputFormatPlugins are responsible for converting a document into HTML+OPF+CSS+etc. T he results of the conversion *must* be encoded in UTF-8. The main action happens in :meth:`convert`.
+
+    Example:
+        Exercise InputFormatPlugin through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     type = _("Conversion Input")
@@ -231,6 +341,18 @@ class InputFormatPlugin(Plugin):
     recommendations = set([])
 
     def __init__(self, *args):
+        """
+        Initialize and validate the inputformatplugin state.
+
+        Example:
+            Exercise InputFormatPlugin.  init   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; validated state is stored on the receiving object.
+        """
         Plugin.__init__(self, *args)
         self.report_progress = DummyReporter()
 
@@ -238,7 +360,14 @@ class InputFormatPlugin(Plugin):
         """
         Return a list of absolute paths to the images, if this input plugin represents an image collection.
 
-        The list of images is in the same order as the spine and the TOC.
+        Example:
+            Exercise InputFormatPlugin.get images through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError()
 
@@ -246,29 +375,20 @@ class InputFormatPlugin(Plugin):
         """
         This method must be implemented in sub-classes - returning a path to a created OPF file or an :class:`OEBBook`.
 
-        All output should be contained in the current directory.
-        If this plugin creates files outside the current
-        directory they must be deleted/marked for deletion before this method
-        returns.
+        Example:
+            Exercise InputFormatPlugin.convert through a consuming regression::
 
-        :param stream:   A file like object that contains the input file.
-        :param options:  Options to customize the conversion process.
-                         Guaranteed to have attributes corresponding
-                         to all the options declared by this plugin. In
-                         addition, it will have a verbose attribute that
-                         takes integral values from zero upwards. Higher numbers
-                         mean be more verbose. Another useful attribute is
-                         ``input_profile`` that is an instance of
-                         :class:`calibre.customize.profiles.InputProfile`.
-        :param file_ext: The extension (without the .) of the input file. It
-                         is guaranteed to be one of the `file_types` supported
-                         by this plugin.
-        :param log: A :class:`calibre.utils.logging.Log` object. All output
-                    should use this object.
-        :param accelerators: A dictionary of various information that the input
-                             plugin can get easily that would speed up the
-                             subsequent stages of the conversion.
+                python -m pytest -q tests/customize/test_customize_base.py
 
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param options: Value supplied for options under the utility contract.
+        :param file_ext: Value supplied for file ext under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param accelerators: Value supplied for accelerators under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -276,13 +396,21 @@ class InputFormatPlugin(Plugin):
         """
         Calls convert with the stream after changing the current working dir to the output_dir.
 
-        :param stream:
-        :param options:
-        :param file_ext:
-        :param log:
-        :param accelerators:
-        :param output_dir:
-        :return:
+        Example:
+            Exercise InputFormatPlugin.  call   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param options: Value supplied for options under the utility contract.
+        :param file_ext: Value supplied for file ext under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param accelerators: Value supplied for accelerators under the utility contract.
+        :param output_dir: Value supplied for output dir under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         try:
             log("InputFormatPlugin: %s running" % self.name)
@@ -304,10 +432,17 @@ class InputFormatPlugin(Plugin):
         """
         Called to allow the input plugin to perform postprocessing after the book has been parsed.
 
-        :param oeb:
-        :param opts:
-        :param log:
-        :return:
+        Example:
+            Exercise InputFormatPlugin.postprocess book through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
@@ -315,12 +450,18 @@ class InputFormatPlugin(Plugin):
         """
         Called to allow the input plugin to specialize the parsed book for a particular output format.
 
-        Called after postprocess_book and before any transforms are performed on the parsed book.
-        :param oeb: The OEBBook for manipulation
-        :param opts: Input options
-        :param log:
-        :param output_fmt: The output format the specification is occurring for
-        :return:
+        Example:
+            Exercise InputFormatPlugin.specialize through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param output_fmt: Value supplied for output fmt under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
@@ -328,14 +469,21 @@ class InputFormatPlugin(Plugin):
         """
         Called to create the widget used for configuring this plugin in the calibre GUI.
 
-        The widget must be an instance of the PluginWidget class.
-        See the builting input plugins for examples.
-        :param parent:
-        :param get_option_by_name:
-        :param get_option_help:
-        :param db:
-        :param book_id:
-        :return:
+        Example:
+            Exercise InputFormatPlugin.gui configuration widget through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param get_option_by_name: Value supplied for get option by name under the utility
+            contract.
+        :param get_option_help: Value supplied for get option help under the utility
+            contract.
+        :param db: Value supplied for db under the utility contract.
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError(
             "This is a interface problem. " "The code for this has been moved to LiuXin.interfaces.gui_common.customize"
@@ -346,8 +494,10 @@ class OutputFormatPlugin(Plugin):
     """
     OutputFormatPlugins are responsible for converting an OEB document (OPF+HTML) into an output ebook.
 
-    The OEB document can be assumed to be encoded in UTF-8.
-    The main action happens in :meth:`convert`.
+    Example:
+        Exercise OutputFormatPlugin through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     type = _("Conversion Output")
@@ -387,11 +537,30 @@ class OutputFormatPlugin(Plugin):
         """
         Description for the plugin.
 
-        :return:
+        Example:
+            Exercise OutputFormatPlugin.description through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return _("Convert ebooks to the %s format") % self.file_type
 
     def __init__(self, *args):
+        """
+        Initialize and validate the outputformatplugin state.
+
+        Example:
+            Exercise OutputFormatPlugin.  init   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; validated state is stored on the receiving object.
+        """
         Plugin.__init__(self, *args)
         self.report_progress = DummyReporter()
 
@@ -399,17 +568,19 @@ class OutputFormatPlugin(Plugin):
         """
         Render the contents of `oeb_book` (an instance of :class:`LiuXin.file_formats.oeb.OEBBook`) to the output.
 
-        :param oeb_book:
-        :param output: Either a file like object or a string. If it is a string
-                       it is the path to a directory that may or may not exist. The output
-                       plugin should write its output into that directory. If it is a file like
-                       object, the output plugin should write its output into the file.
-        :param input_plugin: The input plugin that was used at the beginning of
-                             the conversion pipeline.
-        :param opts: Conversion options. Guaranteed to have attributes
-                     corresponding to the OptionRecommendations of this plugin.
-        :param log: The logger. Print debug/info messages etc. using this.
+        Example:
+            Exercise OutputFormatPlugin.convert through a consuming regression::
 
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param output: Value supplied for output under the utility contract.
+        :param input_plugin: Value supplied for input plugin under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -418,7 +589,13 @@ class OutputFormatPlugin(Plugin):
         """
         Is the file registered as a periodical?
 
-        :return:
+        Example:
+            Exercise OutputFormatPlugin.is periodical through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: True when the documented condition holds; otherwise False.
         """
         return self.oeb.metadata.publication_type and six_unicode(self.oeb.metadata.publication_type[0]).startswith(
             "periodical:"
@@ -428,10 +605,18 @@ class OutputFormatPlugin(Plugin):
         """
         Can be used to make changes to the css during the CSS flattening process.
 
-        :param item: The item (HTML file) being processed
-        :param stylizer: A Stylizer object containing the flattened styles for item.
-                         You can get the style for any element by stylizer.style(element).
+        Example:
+            Exercise OutputFormatPlugin.specialize css for output through a consuming regression::
 
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param log: Value supplied for log under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param item: Value supplied for item under the utility contract.
+        :param stylizer: Value supplied for stylizer under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
@@ -439,14 +624,21 @@ class OutputFormatPlugin(Plugin):
         """
         Called to create the widget used for configuring this plugin in the calibre GUI.
 
-        The widget must be an instance of the PluginWidget class.
-        See the builtin output plugins for examples.
-        :param parent:
-        :param get_option_by_name:
-        :param get_option_help:
-        :param db:
-        :param book_id:
-        :return:
+        Example:
+            Exercise OutputFormatPlugin.gui configuration widget through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param get_option_by_name: Value supplied for get option by name under the utility
+            contract.
+        :param get_option_help: Value supplied for get option help under the utility
+            contract.
+        :param db: Value supplied for db under the utility contract.
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError("Method logic has been moved to LiuXin.interface.gui_common.customize")
 

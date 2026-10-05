@@ -1,8 +1,13 @@
 """
-Copyright (c) 2003-2010  Gustavo Niemeyer <gustavo@niemeyer.net>
+Represent and apply calendar-relative date and time deltas.
 
-This module offers extensions to the standard python 2.3+
-datetime module.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise relativedelta through a consuming regression::
+
+        python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
 """
 __author__ = "Gustavo Niemeyer <gustavo@niemeyer.net>"
 __license__ = "PSF License"
@@ -14,19 +19,66 @@ __all__ = ["relativedelta", "MO", "TU", "WE", "TH", "FR", "SA", "SU"]
 
 
 class weekday(object):
+    """
+    Provide the weekday utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise weekday through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+    """
     __slots__ = ["weekday", "n"]
 
     def __init__(self, weekday, n=None):
+        """
+        Initialize and validate the weekday state.
+
+        Example:
+            Exercise weekday.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param weekday: Value supplied for weekday under the utility contract.
+        :param n: Value supplied for n under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.weekday = weekday
         self.n = n
 
     def __call__(self, n):
+        """
+        Perform the call utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise weekday.  call   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param n: Value supplied for n under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if n == self.n:
             return self
         else:
             return self.__class__(self.weekday, n)
 
     def __eq__(self, other):
+        """
+        Perform the eq utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise weekday.  eq   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             if self.weekday != other.weekday or self.n != other.n:
                 return False
@@ -35,6 +87,18 @@ class weekday(object):
         return True
 
     def __repr__(self):
+        """
+        Perform the repr utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise weekday.  repr   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         s = ("MO", "TU", "WE", "TH", "FR", "SA", "SU")[self.weekday]
         if not self.n:
             return s
@@ -47,66 +111,12 @@ MO, TU, WE, TH, FR, SA, SU = weekdays = tuple([weekday(x) for x in range(7)])
 
 class relativedelta:
     """
-    The relativedelta type is based on the specification of the excelent
-    work done by M.-A. Lemburg in his mx.DateTime extension. However,
-    notice that this type does *NOT* implement the same algorithm as
-    his work. Do *NOT* expect it to behave like mx.DateTime's counterpart.
+    The relativedelta type is based on the specification of the excelent work done by M.-A. Lemburg in his mx.DateTime extension. However, notice that this type does *NOT* implement the same algorithm as his work. Do *NOT* expect it to behave like mx.DateTime's counterpart.
 
-    There's two different ways to build a relativedelta instance. The
-    first one is passing it two date/datetime classes:
+    Example:
+        Exercise relativedelta through a consuming regression::
 
-        relativedelta(datetime1, datetime2)
-
-    And the other way is to use the following keyword arguments:
-
-        year, month, day, hour, minute, second, microsecond:
-            Absolute information.
-
-        years, months, weeks, days, hours, minutes, seconds, microseconds:
-            Relative information, may be negative.
-
-        weekday:
-            One of the weekday instances (MO, TU, etc). These instances may
-            receive a parameter N, specifying the Nth weekday, which could
-            be positive or negative (like MO(+1) or MO(-2). Not specifying
-            it is the same as specifying +1. You can also use an integer,
-            where 0=MO.
-
-        leapdays:
-            Will add given days to the date found, if year is a leap
-            year, and the date found is post 28 of february.
-
-        yearday, nlyearday:
-            Set the yearday or the non-leap year day (jump leap days).
-            These are converted to day/month/leapdays information.
-
-    Here is the behavior of operations with relativedelta:
-
-    1) Calculate the absolute year, using the 'year' argument, or the
-       original datetime year, if the argument is not present.
-
-    2) Add the relative 'years' argument to the absolute year.
-
-    3) Do steps 1 and 2 for month/months.
-
-    4) Calculate the absolute day, using the 'day' argument, or the
-       original datetime day, if the argument is not present. Then,
-       subtract from the day until it fits in the year and month
-       found after their operations.
-
-    5) Add the relative 'days' argument to the absolute day. Notice
-       that the 'weeks' argument is multiplied by 7 and added to
-       'days'.
-
-    6) Do steps 1 and 2 for hour/hours, minute/minutes, second/seconds,
-       microsecond/microseconds.
-
-    7) If the 'weekday' argument is present, calculate the weekday,
-       with the given (wday, nth) tuple. wday is the index of the
-       weekday (0-6, 0=Mon), and nth is the number of weeks to add
-       forward or backward, depending on its signal. Notice that if
-       the calculated date is already Monday, for example, using
-       (0, 1) or (0, -1) won't change the day.
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
     """
 
     def __init__(
@@ -133,6 +143,38 @@ class relativedelta:
         second=None,
         microsecond=None,
     ):
+        """
+        Initialize and validate the relativedelta state.
+
+        Example:
+            Exercise relativedelta.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt1: Value supplied for dt1 under the utility contract.
+        :param dt2: Value supplied for dt2 under the utility contract.
+        :param years: Value supplied for years under the utility contract.
+        :param months: Value supplied for months under the utility contract.
+        :param days: Value supplied for days under the utility contract.
+        :param leapdays: Value supplied for leapdays under the utility contract.
+        :param weeks: Value supplied for weeks under the utility contract.
+        :param hours: Value supplied for hours under the utility contract.
+        :param minutes: Value supplied for minutes under the utility contract.
+        :param seconds: Value supplied for seconds under the utility contract.
+        :param microseconds: Value supplied for microseconds under the utility contract.
+        :param year: Value supplied for year under the utility contract.
+        :param month: Value supplied for month under the utility contract.
+        :param day: Value supplied for day under the utility contract.
+        :param weekday: Value supplied for weekday under the utility contract.
+        :param yearday: Value supplied for yearday under the utility contract.
+        :param nlyearday: Value supplied for nlyearday under the utility contract.
+        :param hour: Value supplied for hour under the utility contract.
+        :param minute: Value supplied for minute under the utility contract.
+        :param second: Value supplied for second under the utility contract.
+        :param microsecond: Value supplied for microsecond under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         if dt1 and dt2:
             if not isinstance(dt1, datetime.date) or not isinstance(dt2, datetime.date):
                 raise TypeError("relativedelta only diffs datetime/date")
@@ -220,6 +262,18 @@ class relativedelta:
         self._fix()
 
     def _fix(self):
+        """
+        Perform the fix utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise relativedelta. fix through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if abs(self.microseconds) > 999999:
             s = self.microseconds // abs(self.microseconds)
             div, mod = divmod(self.microseconds * s, 1000000)
@@ -260,6 +314,19 @@ class relativedelta:
             self._has_time = 0
 
     def _set_months(self, months):
+        """
+        Perform the set months utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise relativedelta. set months through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param months: Value supplied for months under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.months = months
         if abs(self.months) > 11:
             s = self.months // abs(self.months)
@@ -270,6 +337,19 @@ class relativedelta:
             self.years = 0
 
     def __radd__(self, other):
+        """
+        Perform the radd utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise relativedelta.  radd   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not isinstance(other, datetime.date):
             raise TypeError("unsupported type for add operation")
         elif self._has_time and not isinstance(other, datetime.datetime):
@@ -309,9 +389,35 @@ class relativedelta:
         return ret
 
     def __rsub__(self, other):
+        """
+        Perform the rsub utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise relativedelta.  rsub   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.__neg__().__radd__(other)
 
     def __add__(self, other):
+        """
+        Perform the add utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise relativedelta.  add   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not isinstance(other, relativedelta):
             raise TypeError("unsupported type for add operation")
         return relativedelta(
@@ -334,6 +440,19 @@ class relativedelta:
         )
 
     def __sub__(self, other):
+        """
+        Perform the sub utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise relativedelta.  sub   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not isinstance(other, relativedelta):
             raise TypeError("unsupported type for sub operation")
         return relativedelta(
@@ -356,6 +475,18 @@ class relativedelta:
         )
 
     def __neg__(self):
+        """
+        Perform the neg utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise relativedelta.  neg   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return relativedelta(
             years=-self.years,
             months=-self.months,
@@ -376,6 +507,17 @@ class relativedelta:
         )
 
     def __bool__(self):
+        """
+        Expose bool behavior for the compatibility container.
+
+        Example:
+            Exercise relativedelta.  bool   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: True when the documented condition holds; otherwise False.
+        """
         return not (
             not self.years
             and not self.months
@@ -396,6 +538,19 @@ class relativedelta:
         )
 
     def __mul__(self, other):
+        """
+        Perform the mul utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise relativedelta.  mul   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         f = float(other)
         return relativedelta(
             years=self.years * f,
@@ -417,6 +572,19 @@ class relativedelta:
         )
 
     def __eq__(self, other):
+        """
+        Perform the eq utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise relativedelta.  eq   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not isinstance(other, relativedelta):
             return False
         if self.weekday or other.weekday:
@@ -445,12 +613,50 @@ class relativedelta:
         )
 
     def __ne__(self, other):
+        """
+        Perform the ne utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise relativedelta.  ne   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return not self.__eq__(other)
 
     def __div__(self, other):
+        """
+        Perform the div utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise relativedelta.  div   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.__mul__(1 / float(other))
 
     def __repr__(self):
+        """
+        Perform the repr utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise relativedelta.  repr   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         l = []
         for attr in ["years", "months", "days", "leapdays", "hours", "minutes", "seconds", "microseconds"]:
             value = getattr(self, attr)

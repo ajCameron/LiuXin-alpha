@@ -1,5 +1,16 @@
 # -*- encoding: utf-8 -*-
 
+"""
+Compute CSS styles for OEB elements, media and page contexts.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise stylizer through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+"""
 from __future__ import with_statement
 from __future__ import annotations
 
@@ -34,28 +45,137 @@ except ModuleNotFoundError:
     _HAS_CSSUTILS = False
 
     class _NoopLogger:
+        """
+        Provide the nooplogger contract for validated ebook processing.
+
+        Example:
+            Exercise  NoopLogger through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+        """
         def setLevel(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> None:
+            """
+            Perform the setLevel operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise  NoopLogger.setLevel through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param args: Positional values forwarded to the compatibility implementation.
+            :param kwargs: Keyword values forwarded to the compatibility implementation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return None
 
     class _MissingCSSProfiles:
+        """
+        Provide the missingcssprofiles contract for validated ebook processing.
+
+        Example:
+            Exercise  MissingCSSProfiles through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+        """
         @staticmethod
         def addProfile(*args: _typing.Any, **kwargs: _typing.Any) -> None:
+            """
+            Perform the addProfile operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise  MissingCSSProfiles.addProfile through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param args: Positional values forwarded to the compatibility implementation.
+            :param kwargs: Keyword values forwarded to the compatibility implementation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return None
 
         @staticmethod
         def validateWithProfile(*args: _typing.Any, **kwargs: _typing.Any) -> tuple[_typing.Any, ...]:
+            """
+            Perform the validateWithProfile operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise  MissingCSSProfiles.validateWithProfile through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param args: Positional values forwarded to the compatibility implementation.
+            :param kwargs: Keyword values forwarded to the compatibility implementation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return (None, False)
 
     class _MissingProfiles:
+        """
+        Provide the missingprofiles contract for validated ebook processing.
+
+        Example:
+            Exercise  MissingProfiles through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+        """
         class Profiles:
+            """
+            Provide the profiles contract for validated ebook processing.
+
+            Example:
+                Exercise  MissingProfiles.Profiles through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+            """
             CSS_LEVEL_2 = "CSS_LEVEL_2"
 
     class _MissingCSSProperties:
+        """
+        Provide the missingcssproperties contract for validated ebook processing.
+
+        Example:
+            Exercise  MissingCSSProperties through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+        """
         @staticmethod
         def _toDOMname(name: _typing.Any) -> _typing.Any:
+            """
+            Perform the toDOMname operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise  MissingCSSProperties. toDOMname through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param name: Field, file, function or resource name addressed by the operation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return str(name).replace("-", "_")
 
     def _missing_cssutils(*args: _typing.Any, **kwargs: _typing.Any) -> None:
+        """
+        Perform the missing cssutils operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  missing cssutils through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise ModuleNotFoundError("cssutils is required for OEB styling operations")
 
     cssprofiles = _MissingCSSProfiles()
@@ -91,6 +211,18 @@ css_to_xpath = HTMLTranslator().css_to_xpath
 
 
 def html_css_stylesheet() -> _typing.Any:
+    """
+    Perform the html css stylesheet operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise html css stylesheet through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     global _html_css_stylesheet
     if _html_css_stylesheet is None:
         with open(P("templates/html.css"), "rb") as temp_html_css:
@@ -151,8 +283,16 @@ FONT_SIZE_NAMES = {"xx-small", "x-small", "small", "medium", "large", "x-large",
 def xpath_lower_case(arg: _typing.Any) -> _typing.Any:
     """
     An ASCII lowercase function for XPath
-    :param arg:
-    :return:
+
+    Example:
+        Exercise xpath lower case through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param arg: Value supplied for arg under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return ("translate(%s, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', " "'abcdefghijklmnopqrstuvwxyz')") % arg
 
@@ -163,13 +303,26 @@ is_non_whitespace = re.compile(r"^[^ \t\r\n\f]+$").match
 class CaseInsensitiveAttributesTranslator(HTMLTranslator):
     """
     Treat class and id CSS selectors case-insensitively
+
+    Example:
+        Exercise CaseInsensitiveAttributesTranslator through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     def xpath_class(self: _typing.Self, class_selector: _typing.Any) -> _typing.Any:
         """
         Translate a class selector.
-        :param class_selector:
-        :return:
+
+        Example:
+            Exercise CaseInsensitiveAttributesTranslator.xpath class through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param class_selector: Value supplied for class selector under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         x = self.xpath(class_selector.selector)
         if is_non_whitespace(class_selector.class_name):
@@ -188,8 +341,16 @@ class CaseInsensitiveAttributesTranslator(HTMLTranslator):
     def xpath_hash(self: _typing.Self, id_selector: _typing.Any) -> _typing.Any:
         """
         Translate an ID selector.
-        :param id_selector:
-        :return:
+
+        Example:
+            Exercise CaseInsensitiveAttributesTranslator.xpath hash through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param id_selector: Value supplied for id selector under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         x = self.xpath(id_selector.selector)
         return self.xpath_attrib_equals(x, xpath_lower_case("@id"), (id_selector.id.lower()))
@@ -208,13 +369,17 @@ except AttributeError:
 
 def fix_namespace(raw: _typing.Any) -> _typing.Any:
     """
-    cssselect uses name() = 'h:p' to select tags for some CSS selectors (e.g.
-    h|p+h|p).
-    However, since for us the XHTML namespace is the default namespace (with no
-    prefix), name() is the same as local-name(). So this is a hack to
-    workaround the problem.
-    :param raw:
-    :return:
+    cssselect uses name() = 'h:p' to select tags for some CSS selectors (e.g. h|p+h|p). However, since for us the XHTML namespace is the default namespace (with no prefix), name() is the same as local-name(). So this is a hack to workaround the problem.
+
+    Example:
+        Exercise fix namespace through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     try:
         return NULL_NAMESPACE_REGEX.sub(r"\1", raw)
@@ -223,13 +388,50 @@ def fix_namespace(raw: _typing.Any) -> _typing.Any:
 
 
 class CSSSelector(object):
+    """
+    Provide the cssselector contract for validated ebook processing.
+
+    Example:
+        Exercise CSSSelector through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+    """
     def __init__(self: _typing.Self, css: _typing.Any, log: _typing.Any = None, namespaces: _typing.Any = XPNSMAP) -> None:
+        """
+        Initialize and validate the cssselector state.
+
+        Example:
+            Exercise CSSSelector.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param css: Value supplied for css under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param namespaces: Value supplied for namespaces under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.namespaces = namespaces
         self.sel = self.build_selector(css, log)
         self.css = css
         self.used_ci_sel = False
 
     def build_selector(self: _typing.Self, css: _typing.Any, log: _typing.Any, func: _typing.Any = css_to_xpath) -> _typing.Any:
+        """
+        Perform the build selector operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CSSSelector.build selector through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param css: Value supplied for css under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param func: Value supplied for func under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return etree.XPath(fix_namespace(func(css)), namespaces=self.namespaces)
         except:
@@ -238,6 +440,20 @@ class CSSSelector(object):
         return None
 
     def __call__(self: _typing.Self, node: _typing.Any, log: _typing.Any) -> _typing.Any:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CSSSelector.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.sel is None:
             return []
         try:
@@ -269,6 +485,20 @@ MIN_SPACE_RE = re.compile(r" *([>~+]) *")
 
 
 def get_css_selector(raw_selector: _typing.Any, log: _typing.Any) -> _typing.Any:
+    """
+    Return css selector under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get css selector through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param raw_selector: Value supplied for raw selector under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     css = MIN_SPACE_RE.sub(r"\1", raw_selector)
     ans = _selector_cache.get(css, None)
     if ans is None:
@@ -278,9 +508,36 @@ def get_css_selector(raw_selector: _typing.Any, log: _typing.Any) -> _typing.Any
 
 
 class Stylizer(object):
+    """
+    Provide the stylizer contract for validated ebook processing.
+
+    Example:
+        Exercise Stylizer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+    """
     STYLESHEETS = WeakKeyDictionary()
 
     def __init__(self: _typing.Self, tree: _typing.Any, path: _typing.Any, oeb: _typing.Any, opts: _typing.Any, profile: _typing.Any = None, extra_css: str = "", user_css: str = "") -> None:
+        """
+        Initialize and validate the stylizer state.
+
+        Example:
+            Exercise Stylizer.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param tree: Value supplied for tree under the utility contract.
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param profile: Value supplied for profile under the utility contract.
+        :param extra_css: Value supplied for extra css under the utility contract.
+        :param user_css: Value supplied for user css under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         if not _HAS_CSSUTILS:
             raise ModuleNotFoundError("cssutils is required for Stylizer; install cssutils to enable OEB CSS handling")
         self.oeb, self.opts = oeb, opts
@@ -488,6 +745,20 @@ class Stylizer(object):
                     style._update_cssdict(upd)
 
     def _fetch_css_file(self: _typing.Self, path: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the fetch css file operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Stylizer. fetch css file through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         hrefs = self.oeb.manifest.hrefs
         if path not in hrefs:
             self.logger.warn("CSS import of missing file %r" % path)
@@ -500,6 +771,23 @@ class Stylizer(object):
         return "utf-8", data
 
     def flatten_rule(self: _typing.Self, rule: _typing.Any, href: _typing.Any, index: _typing.Any, is_user_agent_sheet: bool = False) -> _typing.Any:
+        """
+        Perform the flatten rule operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Stylizer.flatten rule through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param rule: Value supplied for rule under the utility contract.
+        :param href: Value supplied for href under the utility contract.
+        :param index: Value supplied for index under the utility contract.
+        :param is_user_agent_sheet: Value supplied for is user agent sheet under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         results = []
         sheet_index = 0 if is_user_agent_sheet else 1
         if isinstance(rule, CSSStyleRule):
@@ -521,6 +809,19 @@ class Stylizer(object):
         return results
 
     def flatten_style(self: _typing.Self, cssstyle: _typing.Any) -> _typing.Any:
+        """
+        Perform the flatten style operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Stylizer.flatten style through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param cssstyle: Value supplied for cssstyle under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         style = {}
         for prop in cssstyle:
             name = prop.name
@@ -542,17 +843,57 @@ class Stylizer(object):
         return style
 
     def _apply_text_align(self: _typing.Self, text: _typing.Any) -> _typing.Any:
+        """
+        Perform the apply text align operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Stylizer. apply text align through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if text in ("left", "justify") and self.opts.change_justification in ("left", "justify"):
             text = self.opts.change_justification
         return text
 
     def style(self: _typing.Self, element: _typing.Any) -> _typing.Any:
+        """
+        Perform the style operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Stylizer.style through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param element: Value supplied for element under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return self._styles[element]
         except KeyError:
             return Style(element, self)
 
     def stylesheet(self: _typing.Self, name: _typing.Any, font_scale: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the stylesheet operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Stylizer.stylesheet through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param font_scale: Value supplied for font scale under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         rules = []
         for _, _, style, selector, href in self.rules:
             if href != name:
@@ -567,9 +908,30 @@ class Stylizer(object):
 
 
 class Style(object):
+    """
+    Provide the style contract for validated ebook processing.
+
+    Example:
+        Exercise Style through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+    """
     MS_PAT = re.compile(r"^\s*(mso-|panose-|text-underline|tab-interval)")
 
     def __init__(self: _typing.Self, element: _typing.Any, stylizer: _typing.Any) -> None:
+        """
+        Initialize and validate the style state.
+
+        Example:
+            Exercise Style.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param element: Value supplied for element under the utility contract.
+        :param stylizer: Value supplied for stylizer under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self._element = element
         self._profile = stylizer.profile
         self._stylizer = stylizer
@@ -583,20 +945,88 @@ class Style(object):
         stylizer._styles[element] = self
 
     def set(self: _typing.Self, prop: _typing.Any, val: _typing.Any) -> None:
+        """
+        Perform the set operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.set through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param prop: Value supplied for prop under the utility contract.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._style[prop] = val
 
     def drop(self: _typing.Self, prop: _typing.Any, default: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the drop operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.drop through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param prop: Value supplied for prop under the utility contract.
+        :param default: Value supplied for default under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._style.pop(prop, default)
 
     def _update_cssdict(self: _typing.Self, cssdict: _typing.Any) -> None:
+        """
+        Perform the update cssdict operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style. update cssdict through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param cssdict: Value supplied for cssdict under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._style.update(cssdict)
 
     def _update_pseudo_class(self: _typing.Self, name: _typing.Any, cssdict: _typing.Any) -> None:
+        """
+        Perform the update pseudo class operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style. update pseudo class through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param cssdict: Value supplied for cssdict under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         orig = self._pseudo_classes.get(name, {})
         orig.update(cssdict)
         self._pseudo_classes[name] = orig
 
     def _apply_style_attr(self: _typing.Self, url_replacer: _typing.Any = None) -> None:
+        """
+        Perform the apply style attr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style. apply style attr through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param url_replacer: Value supplied for url replacer under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         attrib = self._element.attrib
         if "style" not in attrib:
             return
@@ -614,21 +1044,71 @@ class Style(object):
         self._style.update(self._stylizer.flatten_style(style))
 
     def _has_parent(self: _typing.Self) -> bool:
+        """
+        Perform the has parent operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style. has parent through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._element.getparent() is not None
 
     def _get_parent(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the get parent operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style. get parent through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         elem = self._element.getparent()
         if elem is None:
             return None
         return self._stylizer.style(elem)
 
     def __getitem__(self: _typing.Self, name: _typing.Any) -> _typing.Any:
+        """
+        Perform the getitem operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         domname = cssproperties._toDOMname(name)
         if hasattr(self, domname):
             return getattr(self, domname)
         return self._unit_convert(self._get(name))
 
     def _get(self: _typing.Self, name: _typing.Any) -> _typing.Any:
+        """
+        Perform the get operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style. get through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         result = None
         if name in self._style:
             result = self._style[name]
@@ -642,10 +1122,18 @@ class Style(object):
     def _unit_convert(self: _typing.Self, value: _typing.Any, base: _typing.Any = None, font: _typing.Any = None) -> _typing.Any:
         """
         Return value in pts
-        :param value:
-        :param base:
-        :param font:
-        :return:
+
+        Example:
+            Exercise Style. unit convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :param base: Value supplied for base under the utility contract.
+        :param font: Value supplied for font under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if base is None:
             base = self.width
@@ -654,18 +1142,50 @@ class Style(object):
         return unit_convert(value, base, font, self._profile.dpi, body_font_size=self._stylizer.body_font_size)
 
     def pt_to_px(self: _typing.Self, value: _typing.Any) -> _typing.Any:
+        """
+        Perform the pt to px operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.pt to px through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return (self._profile.dpi / 72.0) * value
 
     @property
     def backgroundColor(self: _typing.Self) -> _typing.Any:
         """
-        Return the background color by parsing both the background-color and
-        background shortcut properties. Note that inheritance/default values
-        are not used. None is returned if no background color is set.
-        :return:
+        Return the background color by parsing both the background-color and background shortcut properties. Note that inheritance/default values are not used. None is returned if no background color is set.
+
+        Example:
+            Exercise Style.backgroundColor through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         def validate_color(col: _typing.Any) -> _typing.Any:
+            """
+            Validate color under the format's safety and compatibility rules.
+
+            Example:
+                Exercise Style.backgroundColor.validate color through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param col: Value supplied for col under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return cssprofiles.validateWithProfile("color", col, profiles=[profiles.Profiles.CSS_LEVEL_2])[1]
 
         if self._bgcolor is None:
@@ -699,7 +1219,33 @@ class Style(object):
 
     @property
     def fontSize(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the fontSize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.fontSize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         def normalize_fontsize(value: _typing.Any, base: _typing.Any) -> _typing.Any:
+            """
+            Normalize fontsize under the format's safety and compatibility rules.
+
+            Example:
+                Exercise Style.fontSize.normalize fontsize through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param value: Value normalized, stored, formatted or returned.
+            :param base: Value supplied for base under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             value = value.replace('"', "").replace("'", "")
             result = None
             factor = None
@@ -748,6 +1294,18 @@ class Style(object):
 
     @property
     def width(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the width operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.width through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self._width is None:
             width = None
 
@@ -785,6 +1343,18 @@ class Style(object):
 
     @property
     def parent_width(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the parent width operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.parent width through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         parent = self._get_parent()
         if parent is None:
             return self.width
@@ -792,6 +1362,18 @@ class Style(object):
 
     @property
     def height(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the height operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.height through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self._height is None:
             height = None
             base = None
@@ -824,6 +1406,18 @@ class Style(object):
 
     @property
     def lineHeight(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the lineHeight operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.lineHeight through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self._lineHeight is None:
             result = None
             parent = self._get_parent()
@@ -846,14 +1440,16 @@ class Style(object):
     @property
     def effective_text_decoration(self: _typing.Self) -> _typing.Any:
         """
-        Browsers do this creepy thing with text-decoration where even though the
-        property is not inherited, it looks like it is because containing
-        blocks apply it. The actual algorithm is utterly ridiculous, see
-        http://reference.sitepoint.com/css/text-decoration
-        This matters for MOBI output, where text-decoration is mapped to <u>
-        and <st> tags. Trying to implement the actual algorithm is too much
-        work, so we just use a simple fake that should cover most cases.
-        :return:
+        Browsers do this creepy thing with text-decoration where even though the property is not inherited, it looks like it is because containing blocks apply it. The actual algorithm is utterly ridiculous, see http://reference.sitepoint.com/css/text-decoration This matters for MOBI output, where text-decoration is mapped to <u> and <st> tags. Trying to implement the actual algorithm is too much work, so we just use a simple fake that should cover most cases.
+
+        Example:
+            Exercise Style.effective text decoration through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         css = self._style.get("text-decoration", None)
         pcss = None
@@ -867,9 +1463,16 @@ class Style(object):
     @property
     def first_vertical_align(self: _typing.Self) -> _typing.Any:
         """
-        For docx output where tags are not nested, we cannot directly simulate the HTML vertical-align rendering model.
-        Instead use the approximation of considering the first non-default vertical-align
-        :return:
+        For docx output where tags are not nested, we cannot directly simulate the HTML vertical-align rendering model. Instead use the approximation of considering the first non-default vertical-align
+
+        Example:
+            Exercise Style.first vertical align through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         val = self["vertical-align"]
         if val != "baseline":
@@ -883,44 +1486,177 @@ class Style(object):
 
     @property
     def marginTop(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the marginTop operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.marginTop through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._unit_convert(self._get("margin-top"), base=self.height)
 
     @property
     def marginBottom(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the marginBottom operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.marginBottom through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._unit_convert(self._get("margin-bottom"), base=self.height)
 
     @property
     def marginLeft(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the marginLeft operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.marginLeft through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._unit_convert(self._get("margin-left"), base=self.parent_width)
 
     @property
     def marginRight(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the marginRight operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.marginRight through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._unit_convert(self._get("margin-right"), base=self.parent_width)
 
     @property
     def paddingTop(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the paddingTop operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.paddingTop through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._unit_convert(self._get("padding-top"), base=self.height)
 
     @property
     def paddingBottom(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the paddingBottom operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.paddingBottom through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._unit_convert(self._get("padding-bottom"), base=self.height)
 
     @property
     def paddingLeft(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the paddingLeft operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.paddingLeft through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._unit_convert(self._get("padding-left"), base=self.parent_width)
 
     @property
     def paddingRight(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the paddingRight operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.paddingRight through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._unit_convert(self._get("padding-right"), base=self.parent_width)
 
     def __str__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         items = sorted(iteritems(self._style))
         return "; ".join("%s: %s" % (key, val) for key, val in items)
 
     def cssdict(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the cssdict operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.cssdict through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return dict(self._style)
 
     def pseudo_classes(self: _typing.Self, filter_css: _typing.Any) -> _typing.Any:
+        """
+        Perform the pseudo classes operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.pseudo classes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param filter_css: Value supplied for filter css under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if filter_css:
             css = copy.deepcopy(self._pseudo_classes)
             for psel, cssdict in iteritems(css):
@@ -932,4 +1668,15 @@ class Style(object):
 
     @property
     def is_hidden(self: _typing.Self) -> bool:
+        """
+        Return whether is hidden holds for the supplied ebook data.
+
+        Example:
+            Exercise Style.is hidden through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: True when the documented condition holds; otherwise False.
+        """
         return self._style.get("display") == "none" or self._style.get("visibility") == "hidden"

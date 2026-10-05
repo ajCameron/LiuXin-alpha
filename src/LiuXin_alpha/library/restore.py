@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Restore library records, files and metadata from backups.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise restore through a consuming regression::
+
+        python -m pytest -q tests/library/test_unified_library.py
+"""
 import os
 import re
 import shutil
@@ -29,6 +40,14 @@ NON_EBOOK_EXTENSIONS = frozenset(["jpg", "jpeg", "gif", "png", "bmp", "opf", "sw
 
 
 class Restorer(CalibreCache):
+    """
+    Provide the restorer contract for validated ebook processing.
+
+    Example:
+        Exercise Restorer through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     def __init__(
         self,
         library_path,
@@ -37,6 +56,23 @@ class Restorer(CalibreCache):
         progress_callback=lambda x, y: True,
     ):
 
+        """
+        Initialize and validate the restorer state.
+
+        Example:
+            Exercise Restorer.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param library_path: Value supplied for library path under the utility contract.
+        :param default_prefs: Value supplied for default prefs under the utility contract.
+        :param restore_all_prefs: Value supplied for restore all prefs under the utility
+            contract.
+        :param progress_callback: Value supplied for progress callback under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         backend = DB(
             library_path,
             default_prefs=default_prefs,
@@ -51,11 +87,47 @@ class Restorer(CalibreCache):
         self.init()
 
     def no_op(self, *args, **kwargs):
+        """
+        Perform the no op operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Restorer.no op through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
 
 class Restore(Thread):
+    """
+    Provide the restore contract for validated ebook processing.
+
+    Example:
+        Exercise Restore through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     def __init__(self, library_path, progress_callback=None):
+        """
+        Initialize and validate the restore state.
+
+        Example:
+            Exercise Restore.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param library_path: Value supplied for library path under the utility contract.
+        :param progress_callback: Value supplied for progress callback under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super(Restore, self).__init__()
         if isbytestring(library_path):
             library_path = library_path.decode(filesystem_encoding)
@@ -77,9 +149,33 @@ class Restore(Thread):
         self.authors_links = {}
 
     def errors_occurred(self):
+        """
+        Perform the errors occurred operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Restore.errors occurred through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.failed_dirs or self.mismatched_dirs or self.conflicting_custom_cols or self.failed_restores
 
     def report(self):
+        """
+        Perform the report operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Restore.report through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = ""
         failures = list(self.failed_dirs) + [(x["dirpath"], tb) for x, tb in self.failed_restores]
         if failures:
@@ -117,6 +213,18 @@ class Restore(Thread):
         return ans
 
     def run(self):
+        """
+        Execute the configured conversion stage and return its primary result.
+
+        Example:
+            Exercise Restore.run through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         try:
             basedir = os.path.dirname(self.src_library_path)
             try:
@@ -146,6 +254,18 @@ class Restore(Thread):
             self.tb = traceback.format_exc()
 
     def load_preferences(self):
+        """
+        Perform the load preferences operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Restore.load preferences through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.progress_callback(None, 1)
         self.progress_callback(_("Starting restoring preferences and column metadata"), 0)
         prefs_path = os.path.join(self.src_library_path, "metadata_db_prefs_backup.json")
@@ -174,6 +294,18 @@ class Restore(Thread):
         return False
 
     def scan_library(self):
+        """
+        Perform the scan library operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Restore.scan library through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for dirpath, dirnames, filenames in os.walk(self.src_library_path):
             leaf = os.path.basename(dirpath)
             m = self.db_id_regexp.search(leaf)
@@ -194,6 +326,18 @@ class Restore(Thread):
             self.progress_callback(_("Processed") + " " + dirpath, i + 1)
 
     def is_ebook_file(self, filename):
+        """
+        Return whether is ebook file holds for the supplied ebook data.
+
+        Example:
+            Exercise Restore.is ebook file through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param filename: Filename used for type inference or archive output.
+        :return: True when the documented condition holds; otherwise False.
+        """
         ext = os.path.splitext(filename)[1]
         if not ext:
             return False
@@ -203,6 +347,21 @@ class Restore(Thread):
         return True
 
     def process_dir(self, dirpath, filenames, book_id):
+        """
+        Perform the process dir operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Restore.process dir through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param dirpath: Value supplied for dirpath under the utility contract.
+        :param filenames: Value supplied for filenames under the utility contract.
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         book_id = int(book_id)
         formats = filter(self.is_ebook_file, filenames)
         fmts = [os.path.splitext(x)[1][1:].upper() for x in formats]
@@ -234,6 +393,18 @@ class Restore(Thread):
                 self.authors_links[author] = (link, mi.timestamp)
 
     def create_cc_metadata(self):
+        """
+        Create cc metadata under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Restore.create cc metadata through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.books.sort(key=itemgetter("timestamp"))
         self.custom_columns = {}
         fields = ("label", "name", "datatype", "is_multiple", "is_editable", "display")
@@ -266,6 +437,18 @@ class Restore(Thread):
         db.close()
 
     def restore_books(self):
+        """
+        Perform the restore books operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Restore.restore books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.progress_callback(None, len(self.books))
         self.books.sort(key=itemgetter("id"))
 
@@ -292,6 +475,18 @@ class Restore(Thread):
         db.close()
 
     def replace_db(self):
+        """
+        Perform the replace db operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Restore.replace db through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         dbpath = os.path.join(self.src_library_path, "metadata.db")
         ndbpath = os.path.join(self.library_path, "metadata.db")
 

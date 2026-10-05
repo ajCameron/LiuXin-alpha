@@ -1,3 +1,14 @@
+"""
+Verify modern metadata-reader dispatch, registration and failure policy.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test dispatcher modernized through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_dispatcher_modernized.py
+"""
 from __future__ import annotations
 
 import io
@@ -7,6 +18,18 @@ import pytest
 
 
 def _encode_vwi(value: int) -> bytes:
+    """
+    Perform the encode vwi test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise encode vwi through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_dispatcher_modernized.py
+
+
+    :param value: Value stored, compared or projected by the operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     parts = [value & 0x7F]
     value >>= 7
     while value:
@@ -16,6 +39,19 @@ def _encode_vwi(value: int) -> bytes:
 
 
 def _build_topaz_bytes(title: str, authors: str) -> bytes:
+    """
+    Perform the build topaz bytes test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise build topaz bytes through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_dispatcher_modernized.py
+
+
+    :param title: Value supplied for title in the focused test operation.
+    :param authors: Value supplied for authors in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     fields = [
         ("Title", title.encode("utf-8", "replace")),
         ("Authors", authors.encode("utf-8", "replace")),
@@ -47,12 +83,34 @@ def _build_topaz_bytes(title: str, authors: str) -> bytes:
 
 
 def test_metadata_file_sources_dispatcher_import_smoke() -> None:
+    """
+    Verify metadata file sources dispatcher import smoke.
+
+    Example:
+        Exercise test metadata file sources dispatcher import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_dispatcher_modernized.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources as dispatcher
 
     assert dispatcher is not None
 
 
 def test_metadata_dispatcher_get_plugins_for_extension_pdb() -> None:
+    """
+    Verify metadata dispatcher get plugins for extension pdb.
+
+    Example:
+        Exercise test metadata dispatcher get plugins for extension pdb through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_dispatcher_modernized.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources import get_plugins_for_extension
 
     plugins = get_plugins_for_extension("pdb")
@@ -61,6 +119,19 @@ def test_metadata_dispatcher_get_plugins_for_extension_pdb() -> None:
 
 
 def test_metadata_dispatcher_reads_pdb_from_path(md_test_fixture) -> None:
+    """
+    Verify metadata dispatcher reads pdb from path.
+
+    Example:
+        Exercise test metadata dispatcher reads pdb from path through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_dispatcher_modernized.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources import get_metadata
 
     fixture = md_test_fixture(file_ext="pdb", file_num=1, verify_hash=True)
@@ -70,6 +141,19 @@ def test_metadata_dispatcher_reads_pdb_from_path(md_test_fixture) -> None:
 
 
 def test_metadata_dispatcher_reads_pdb_from_stream_with_force_type(md_test_fixture) -> None:
+    """
+    Verify metadata dispatcher reads pdb from stream with force type.
+
+    Example:
+        Exercise test metadata dispatcher reads pdb from stream with force type through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_dispatcher_modernized.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources import get_metadata
 
     fixture = md_test_fixture(file_ext="pdb", file_num=2, verify_hash=True)
@@ -79,6 +163,17 @@ def test_metadata_dispatcher_reads_pdb_from_stream_with_force_type(md_test_fixtu
 
 
 def test_metadata_dispatcher_requires_force_type_for_stream_without_name() -> None:
+    """
+    Verify metadata dispatcher requires force type for stream without name.
+
+    Example:
+        Exercise test metadata dispatcher requires force type for stream without name through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_dispatcher_modernized.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources import get_metadata
 
     with pytest.raises(ValueError, match="Could not infer extension"):
@@ -86,6 +181,18 @@ def test_metadata_dispatcher_requires_force_type_for_stream_without_name() -> No
 
 
 def test_metadata_dispatcher_invalid_extension_raises_clean_error(tmp_path: Path) -> None:
+    """
+    Verify metadata dispatcher invalid extension raises clean error.
+
+    Example:
+        Exercise test metadata dispatcher invalid extension raises clean error through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_dispatcher_modernized.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources import InvalidMetadataExtractor, get_metadata
 
     target = tmp_path / "unknown.foo"
@@ -95,6 +202,17 @@ def test_metadata_dispatcher_invalid_extension_raises_clean_error(tmp_path: Path
 
 
 def test_metadata_dispatcher_filter_plugin_sources_compat() -> None:
+    """
+    Verify metadata dispatcher filter plugin sources compat.
+
+    Example:
+        Exercise test metadata dispatcher filter plugin sources compat through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_dispatcher_modernized.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources import filter_plugin_sources
 
     result = filter_plugin_sources(["__init__.py", "foo.py", "bar.pyc", "baz.py"])
@@ -102,6 +220,19 @@ def test_metadata_dispatcher_filter_plugin_sources_compat() -> None:
 
 
 def test_metadata_dispatcher_supports_positional_force_type_arg(md_test_fixture) -> None:
+    """
+    Verify metadata dispatcher supports positional force type arg.
+
+    Example:
+        Exercise test metadata dispatcher supports positional force type arg through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_dispatcher_modernized.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources import get_metadata
 
     fixture = md_test_fixture(file_ext="pdb", file_num=1, verify_hash=True)
@@ -111,6 +242,19 @@ def test_metadata_dispatcher_supports_positional_force_type_arg(md_test_fixture)
 
 
 def test_metadata_dispatcher_reads_rtf_when_reader_plugin_is_available(md_test_fixture) -> None:
+    """
+    Verify metadata dispatcher reads rtf when reader plugin remains available.
+
+    Example:
+        Exercise test metadata dispatcher reads rtf when reader plugin is available through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_dispatcher_modernized.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources import get_metadata
 
     fixture = md_test_fixture(file_ext="rtf", file_num=1, verify_hash=True)
@@ -126,6 +270,19 @@ def test_metadata_dispatcher_reads_rtf_when_reader_plugin_is_available(md_test_f
 
 
 def test_metadata_dispatcher_reads_snb_when_reader_plugin_is_available(md_test_fixture) -> None:
+    """
+    Verify metadata dispatcher reads snb when reader plugin remains available.
+
+    Example:
+        Exercise test metadata dispatcher reads snb when reader plugin is available through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_dispatcher_modernized.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources import get_metadata
 
     fixture = md_test_fixture(file_ext="snb", file_num=1, verify_hash=True)
@@ -141,6 +298,18 @@ def test_metadata_dispatcher_reads_snb_when_reader_plugin_is_available(md_test_f
 
 
 def test_metadata_dispatcher_reads_topaz_when_reader_plugin_is_available(tmp_path: Path) -> None:
+    """
+    Verify metadata dispatcher reads topaz when reader plugin remains available.
+
+    Example:
+        Exercise test metadata dispatcher reads topaz when reader plugin is available through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_dispatcher_modernized.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources import get_metadata
 
     payload = _build_topaz_bytes("Dispatcher Topaz", "Alice; Bob")
@@ -158,6 +327,18 @@ def test_metadata_dispatcher_reads_topaz_when_reader_plugin_is_available(tmp_pat
 
 
 def test_metadata_dispatcher_reads_txt_when_reader_plugin_is_available(tmp_path: Path) -> None:
+    """
+    Verify metadata dispatcher reads txt when reader plugin remains available.
+
+    Example:
+        Exercise test metadata dispatcher reads txt when reader plugin is available through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_dispatcher_modernized.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources import get_metadata
 
     payload = b"Dispatcher TXT Title\n\n\nDispatcher TXT Author\nBody\n"
@@ -175,6 +356,19 @@ def test_metadata_dispatcher_reads_txt_when_reader_plugin_is_available(tmp_path:
 
 
 def test_metadata_dispatcher_reads_txtz_when_reader_plugin_is_available(md_test_fixture) -> None:
+    """
+    Verify metadata dispatcher reads txtz when reader plugin remains available.
+
+    Example:
+        Exercise test metadata dispatcher reads txtz when reader plugin is available through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_dispatcher_modernized.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources import get_metadata
 
     fixture = md_test_fixture(file_ext="txtz", file_num=1, verify_hash=True)

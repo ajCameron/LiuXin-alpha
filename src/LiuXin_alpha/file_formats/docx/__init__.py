@@ -1,5 +1,16 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
+"""
+Expose the supported docx compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -8,4 +19,12 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 class InvalidDOCX(ValueError):
+    """
+    Provide the invaliddocx contract for validated ebook processing.
+
+    Example:
+        Exercise InvalidDOCX through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     pass

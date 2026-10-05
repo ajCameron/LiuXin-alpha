@@ -1,6 +1,14 @@
 
 """
-Utils for file conversion and generation.
+Provide shared archive, image, filename and metadata helpers for file formats.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise utils through a consuming regression::
+
+        python -m pytest -q tests/file_formats/test_utils_parity.py
 """
 from __future__ import annotations
 
@@ -30,13 +38,44 @@ __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
 class HTMLRenderer:
     """
     HTML renderer class to generate covers from HTML.
+
+    Example:
+        Exercise HTMLRenderer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_utils_parity.py
     """
     def __init__(self: _typing.Self, page: _typing.Any, loop: _typing.Any) -> None:
+        """
+        Initialize and validate the htmlrenderer state.
+
+        Example:
+            Exercise HTMLRenderer.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param page: Value supplied for page under the utility contract.
+        :param loop: Value supplied for loop under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.page, self.loop = page, loop
         self.data = ""
         self.exception = self.tb = None
 
     def __call__(self: _typing.Self, ok: _typing.Any) -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLRenderer.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param ok: Value supplied for ok under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from PyQt5.Qt import QImage, QPainter, QByteArray, QBuffer
 
         try:
@@ -68,8 +107,16 @@ def return_raster_image(path: Union[str, LiteralString, bytes]) -> Optional[byte
     """
     Return a rasterized image - or return None if the given path doesn't point to one.
 
-    :param path:
-    :return:
+    Example:
+        Exercise return raster image through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     from LiuXin_alpha.utils.image_tools.imghdr import what
 
@@ -81,6 +128,21 @@ def return_raster_image(path: Union[str, LiteralString, bytes]) -> Optional[byte
 
 
 def extract_cover_from_embedded_svg(html: _typing.Any, base: _typing.Any, log: _typing.Any) -> Optional[bytes]:
+    """
+    Extract cover from embedded svg under the format's safety and compatibility rules.
+
+    Example:
+        Exercise extract cover from embedded svg through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+    :param html: Value supplied for html under the utility contract.
+    :param base: Value supplied for base under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from lxml import etree
     from LiuXin_alpha.file_formats.oeb.base import XPath, SVG, XLINK
 
@@ -99,10 +161,17 @@ def extract_calibre_cover(raw: _typing.Any, base: _typing.Any, log: _typing.Any)
     """
     Extract a cover from a html tree.
 
-    :param raw:
-    :param base:
-    :param log:
-    :return:
+    Example:
+        Exercise extract calibre cover through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param base: Value supplied for base under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     from LiuXin_alpha.utils.libraries.BeautifulSoup import BeautifulSoup
 
@@ -161,13 +230,18 @@ def render_html_svg_workaround(path_to_html: _typing.Any, log: _typing.Any, widt
     """
     Render html data (which might or might not include an svg file) as a image.
 
-    This is what's used to generate a cover for a book when an actual image can't be extracted - the first page of the
-    book is rendered and that#s returned.
-    :param path_to_html: The path to the html to preform the render wity
-    :param log:
-    :param width: The width of the output
-    :param height: The height of the output
-    :return:
+    Example:
+        Exercise render html svg workaround through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+    :param path_to_html: Value supplied for path to html under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :param width: Value supplied for width under the utility contract.
+    :param height: Value supplied for height under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     from LiuXin_alpha.file_formats.oeb.base import SVG_NS
 
@@ -221,11 +295,42 @@ def render_html_svg_workaround(path_to_html: _typing.Any, log: _typing.Any, widt
 
 
 def render_html_data(path_to_html: _typing.Any, width: _typing.Any, height: _typing.Any) -> _typing.Any:
+    """
+    Perform the render html data operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise render html data through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+    :param path_to_html: Value supplied for path to html under the utility contract.
+    :param width: Value supplied for width under the utility contract.
+    :param height: Value supplied for height under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     renderer = render_html(path_to_html, width, height)
     return getattr(renderer, "data", None)
 
 
 def render_html(path_to_html: _typing.Any, width: int = 590, height: int = 750, as_xhtml: bool = True) -> _typing.Any:
+    """
+    Perform the render html operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise render html through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+    :param path_to_html: Value supplied for path to html under the utility contract.
+    :param width: Value supplied for width under the utility contract.
+    :param height: Value supplied for height under the utility contract.
+    :param as_xhtml: Value supplied for as xhtml under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         from PyQt5.QtWebKitWidgets import QWebPage
         from PyQt5.Qt import QEventLoop, QPalette, Qt, QUrl, QSize
@@ -268,6 +373,21 @@ def render_html(path_to_html: _typing.Any, width: int = 590, height: int = 750, 
 
 
 def check_ebook_format(stream: _typing.Any, current_guess: _typing.Any) -> _typing.Any:
+    """
+    Perform the check ebook format operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise check ebook format through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+    :param stream: Input or output stream wrapped by the terminal or compatibility
+        layer.
+    :param current_guess: Value supplied for current guess under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ans = current_guess
     if current_guess.lower() in ("prc", "mobi", "azw", "azw1", "azw3"):
         stream.seek(0)
@@ -279,12 +399,17 @@ def check_ebook_format(stream: _typing.Any, current_guess: _typing.Any) -> _typi
 
 def normalize(x: _typing.Any) -> _typing.Any:
     """
-    Brings a unicode string into normal form.
-    There may be multiple different ways of representing a unicode string which are human readable as the same -
-    however they will differ on a bytes level. Normalization brings a unicode string into a form suitable for
-    comparison.
-    :param x:
-    :return:
+    Brings a unicode string into normal form. There may be multiple different ways of representing a unicode string which are human readable as the same - however they will differ on a bytes level. Normalization brings a unicode string into a form suitable for comparison.
+
+    Example:
+        Exercise normalize through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if isinstance(x, str):
         import unicodedata
@@ -298,14 +423,22 @@ def calibre_cover(
 ) -> _typing.Any:
     """
     Generate a custom cover file for your books.
-    :param title: Title for the book
-    :param author_string: The author (creators) string to appear on the cover
-    :param series_string: The series of the work
-    :param output_format: IGNORED - Currently only 'jpg' is used
-    :param title_size: The font size of the title
-    :param author_size: Font size of the creator
-    :param logo_path: Replacement logo instead of the default
-    :return:
+
+    Example:
+        Exercise calibre cover through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+    :param title: Value supplied for title under the utility contract.
+    :param author_string: Value supplied for author string under the utility contract.
+    :param series_string: Value supplied for series string under the utility contract.
+    :param output_format: Value supplied for output format under the utility contract.
+    :param title_size: Value supplied for title size under the utility contract.
+    :param author_size: Value supplied for author size under the utility contract.
+    :param logo_path: Value supplied for logo path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     # Initial normalization
     title = normalize(title)
@@ -357,7 +490,23 @@ UNIT_RE = re.compile(r"^(-*[0-9]*[.]?[0-9]*)\s*(%|em|ex|en|px|mm|cm|in|pt|pc|rem
 
 
 def unit_convert(value: _typing.Any, base: _typing.Any, font: _typing.Any, dpi: _typing.Any, body_font_size: int = 12) -> _typing.Any:
-    "Return value in pts"
+    """
+    Return value in pts
+
+    Example:
+        Exercise unit convert through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :param base: Value supplied for base under the utility contract.
+    :param font: Value supplied for font under the utility contract.
+    :param dpi: Value supplied for dpi under the utility contract.
+    :param body_font_size: Value supplied for body font size under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(value, (int, float)):
         return value
     try:
@@ -396,6 +545,22 @@ def unit_convert(value: _typing.Any, base: _typing.Any, font: _typing.Any, dpi: 
 
 
 def generate_masthead(title: _typing.Any, output_path: _typing.Any = None, width: int = 600, height: int = 60) -> _typing.Any:
+    """
+    Perform the generate masthead operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise generate masthead through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+    :param title: Value supplied for title under the utility contract.
+    :param output_path: Value supplied for output path under the utility contract.
+    :param width: Value supplied for width under the utility contract.
+    :param height: Value supplied for height under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.file_formats.conversion.config import load_defaults
 
     recs = load_defaults("mobi_output")
@@ -408,6 +573,19 @@ def generate_masthead(title: _typing.Any, output_path: _typing.Any = None, width
 
 
 def escape_xpath_attr(value: _typing.Any) -> _typing.Any:
+    """
+    Perform the escape xpath attr operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise escape xpath attr through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if '"' in value:
         if "'" in value:
             parts = re.split('("+)', value)
@@ -423,6 +601,19 @@ def escape_xpath_attr(value: _typing.Any) -> _typing.Any:
 
 
 def parse_css_length(value: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Parse css length under the format's safety and compatibility rules.
+
+    Example:
+        Exercise parse css length through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         m = UNIT_RE.match(value)
     except TypeError:

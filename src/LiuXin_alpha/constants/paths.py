@@ -1,14 +1,13 @@
-"""LiuXin path constants - resource and execution paths.
+"""
+Resolve application configuration, cache and resource paths.
 
-This module is imported very early during startup (often during module import
-side-effects). Keep it lightweight and dependency-free.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-Environment overrides (useful for tests and portable installs):
+Example:
+    Exercise paths through a consuming regression::
 
-* ``LIUXIN_BASE_DIR`` : Base folder for top-level LiuXin folders.
-* ``LIUXIN_PREFS_DIR`` : Overrides ``LiuXin_prefs_folder``.
-* ``LIUXIN_CONFIG_DIR`` : Overrides ``config_dir`` / calibre-style config dir.
-* ``LIUXIN_CALIBRE_RESOURCES_DIR`` : External Calibre resource overlay.
+        python -m pytest -q tests/test_constants.py
 """
 
 from __future__ import annotations
@@ -23,11 +22,19 @@ CONFIG_DIR_MODE = 0o0700
 
 
 def rebuild_file_path(split_file_path: Iterable[str]) -> str:
-    """Rebuild a filesystem path from parts.
+    """
+    Rebuild a filesystem path from parts.
 
-    Historically this function lived here and returned ``False`` for empty
-    input. Returning a boolean from a function annotated as ``str`` is a footgun,
-    so the modern behaviour is to return an empty string.
+    Example:
+        Exercise rebuild file path through a consuming regression::
+
+            python -m pytest -q tests/test_constants.py
+
+
+    :param split_file_path: Value supplied for split file path under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     parts = list(split_file_path)
@@ -37,6 +44,19 @@ def rebuild_file_path(split_file_path: Iterable[str]) -> str:
 
 
 def _env_path(key: str) -> Path | None:
+    """
+    Perform the env path operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  env path through a consuming regression::
+
+            python -m pytest -q tests/test_constants.py
+
+
+    :param key: Metadata, identifier or local-variable key.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     v = os.environ.get(key)
     if not v:
         return None
@@ -44,13 +64,17 @@ def _env_path(key: str) -> Path | None:
 
 
 def _resolve_base_dir() -> Path:
-    """Resolve the LiuXin base folder.
+    """
+    Resolve the LiuXin base folder.
 
-    Preference order:
-    1) Explicit env override.
-    2) Project root (parent of a ``src`` directory containing this file).
-    3) Nearest ancestor containing a typical project marker.
-    4) Current working directory.
+    Example:
+        Exercise  resolve base dir through a consuming regression::
+
+            python -m pytest -q tests/test_constants.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     env = _env_path("LIUXIN_BASE_DIR")
@@ -73,9 +97,20 @@ def _resolve_base_dir() -> Path:
 
 
 def _makedirs(path: Path, mode: int = CONFIG_DIR_MODE) -> None:
-    """Create a directory tree if needed.
+    """
+    Create a directory tree if needed.
 
-    Uses ``os.makedirs`` so that the *mode* is applied on POSIX when possible.
+    Example:
+        Exercise  makedirs through a consuming regression::
+
+            python -m pytest -q tests/test_constants.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param mode: Open or adapter mode controlling read/write behavior.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
 
     os.makedirs(str(path), mode=mode, exist_ok=True)

@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Partition KF8 markup into skeleton and fragment records.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise skeleton through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -108,10 +119,36 @@ _self_closing_pat = re.compile(
 
 
 def close_self_closing_tags(raw: _typing.Any) -> _typing.Any:
+    """
+    Perform the close self closing tags operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise close self closing tags through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return _self_closing_pat.sub(rb"<\g<tag>\g<arg>></\g<tag>>", raw)
 
 
 def path_to_node(node: _typing.Any) -> _typing.Any:
+    """
+    Perform the path to node operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise path to node through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+    :param node: Value supplied for node under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ans = []
     parent = node.getparent()
     while parent is not None:
@@ -122,6 +159,21 @@ def path_to_node(node: _typing.Any) -> _typing.Any:
 
 
 def node_from_path(root: _typing.Any, path: _typing.Any) -> _typing.Any:
+    """
+    Perform the node from path operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise node from path through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parent = root
     for idx in path:
         parent = parent[idx]
@@ -133,14 +185,18 @@ mychr = chr if ispy3 else unichr
 
 def tostring(raw: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
     """
-    lxml *sometimes* represents non-ascii characters as hex entities in
-    attribute values. I can't figure out exactly what circumstances cause it.
-    It seems to happen when serializing a part of a larger tree. Since we need
-    serialization to be the same when serializing full and partial trees, we
-    manually replace all hex entities with their unicode codepoints.
-    :param raw:
-    :param kwargs:
-    :return:
+    lxml *sometimes* represents non-ascii characters as hex entities in attribute values. I can't figure out exactly what circumstances cause it. It seems to happen when serializing a part of a larger tree. Since we need serialization to be the same when serializing full and partial trees, we manually replace all hex entities with their unicode codepoints.
+
+    Example:
+        Exercise tostring through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param kwargs: Keyword values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     xml_declaration = kwargs.pop("xml_declaration", False)
     encoding = kwargs.pop("encoding", "UTF-8")
@@ -153,7 +209,28 @@ def tostring(raw: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
 
 
 class Chunk(object):
+    """
+    Provide the chunk contract for validated ebook processing.
+
+    Example:
+        Exercise Chunk through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+    """
     def __init__(self: _typing.Self, raw: _typing.Any, selector: _typing.Any) -> None:
+        """
+        Initialize and validate the chunk state.
+
+        Example:
+            Exercise Chunk.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :param selector: Value supplied for selector under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.raw = raw
         self.starts_tags = []
         self.ends_tags = []
@@ -162,13 +239,50 @@ class Chunk(object):
         self.selector = "%s-//*[@aid='%s']" % selector
 
     def __len__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the len operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Chunk.  len   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return len(self.raw)
 
     def merge(self: _typing.Self, chunk: _typing.Any) -> None:
+        """
+        Perform the merge operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Chunk.merge through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param chunk: Value supplied for chunk under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.raw += chunk.raw
         self.ends_tags = chunk.ends_tags
 
     def __repr__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the repr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Chunk.  repr   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "Chunk(len=%r insert_pos=%r starts_tags=%r ends_tags=%r)" % (
             len(self.raw),
             self.insert_pos,
@@ -180,7 +294,30 @@ class Chunk(object):
 
 
 class Skeleton(object):
+    """
+    Provide the skeleton contract for validated ebook processing.
+
+    Example:
+        Exercise Skeleton through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+    """
     def __init__(self: _typing.Self, file_number: _typing.Any, item: _typing.Any, root: _typing.Any, chunks: _typing.Any) -> None:
+        """
+        Initialize and validate the skeleton state.
+
+        Example:
+            Exercise Skeleton.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param file_number: Value supplied for file number under the utility contract.
+        :param item: Value supplied for item under the utility contract.
+        :param root: Root directory that bounds path resolution or traversal.
+        :param chunks: Value supplied for chunks under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.file_number, self.item = file_number, item
         self.chunks = chunks
 
@@ -191,12 +328,38 @@ class Skeleton(object):
         self.calculate_insert_positions()
 
     def render(self: _typing.Self, root: _typing.Any) -> _typing.Any:
+        """
+        Perform the render operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Skeleton.render through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         raw = tostring(root, xml_declaration=True)
         raw = raw.replace(b"<html", ('<html xmlns="%s"' % XHTML_NS).encode("utf-8"), 1)
         raw = close_self_closing_tags(raw)
         return raw
 
     def calculate_metrics(self: _typing.Self, root: _typing.Any) -> None:
+        """
+        Perform the calculate metrics operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Skeleton.calculate metrics through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         metric = namedtuple("Metric", "start end")
         self.metrics = {}
         for tag in root.xpath("//*[@aid]"):
@@ -207,6 +370,18 @@ class Skeleton(object):
             self.metrics[tag.get("aid")] = metric(start_length, end_length)
 
     def calculate_insert_positions(self: _typing.Self) -> None:
+        """
+        Perform the calculate insert positions operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Skeleton.calculate insert positions through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pos = self.body_offset
         for chunk in self.chunks:
             for tag in chunk.starts_tags:
@@ -217,6 +392,18 @@ class Skeleton(object):
                 pos += self.metrics[tag].end
 
     def rebuild(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the rebuild operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Skeleton.rebuild through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = self.skeleton
         for chunk in self.chunks:
             i = chunk.insert_pos
@@ -224,15 +411,62 @@ class Skeleton(object):
         return ans
 
     def __len__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the len operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Skeleton.  len   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return len(self.skeleton) + sum([len(x.raw) for x in self.chunks])
 
     @property
     def raw_text(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the raw text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Skeleton.raw text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return b"".join([self.skeleton] + [x.raw for x in self.chunks])
 
 
 class Chunker(object):
+    """
+    Provide the chunker contract for validated ebook processing.
+
+    Example:
+        Exercise Chunker through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+    """
     def __init__(self: _typing.Self, oeb: _typing.Any, data_func: _typing.Any, placeholder_map: _typing.Any) -> None:
+        """
+        Initialize and validate the chunker state.
+
+        Example:
+            Exercise Chunker.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param data_func: Value supplied for data func under the utility contract.
+        :param placeholder_map: Value supplied for placeholder map under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.oeb, self.log = oeb, oeb.log
         self.data = data_func
         self.placeholder_map = placeholder_map
@@ -283,6 +517,19 @@ class Chunker(object):
         self.text = self.set_internal_links(text, b"".join(x.rebuild() for x in self.skeletons))
 
     def remove_namespaces(self: _typing.Self, root: _typing.Any) -> _typing.Any:
+        """
+        Perform the remove namespaces operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Chunker.remove namespaces through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         lang = None
         for attr, val in iteritems(root.attrib):
             if attr.rpartition("}")[-1] == "lang":
@@ -330,6 +577,20 @@ class Chunker(object):
         return nroot
 
     def step_into_tag(self: _typing.Self, tag: _typing.Any, chunks: _typing.Any) -> None:
+        """
+        Perform the step into tag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Chunker.step into tag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param chunks: Value supplied for chunks under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         aid = tag.get("aid")
         self.chunk_selector = ("P", aid)
 
@@ -375,11 +636,37 @@ class Chunker(object):
         self.chunk_selector = ("S", aid)
 
     def chunk_up_text(self: _typing.Self, text: _typing.Any) -> _typing.Any:
+        """
+        Perform the chunk up text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Chunker.chunk up text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = escape(text)
         text = text.encode("utf-8")
         ans = []
 
         def split_multibyte_text(raw: _typing.Any) -> tuple[_typing.Any, ...]:
+            """
+            Perform the split multibyte text operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Chunker.chunk up text.split multibyte text through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+            :param raw: Value supplied for raw under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if len(raw) <= CHUNK_SIZE:
                 return raw, b""
             l = raw[:CHUNK_SIZE]
@@ -394,6 +681,19 @@ class Chunker(object):
         return [Chunk(x, self.chunk_selector) for x in ans]
 
     def merge_small_chunks(self: _typing.Self, chunks: _typing.Any) -> _typing.Any:
+        """
+        Perform the merge small chunks operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Chunker.merge small chunks through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param chunks: Value supplied for chunks under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = chunks[:1]
         for chunk in chunks[1:]:
             prev = ans[-1]
@@ -408,6 +708,18 @@ class Chunker(object):
         return ans
 
     def create_tables(self: _typing.Self) -> None:
+        """
+        Create tables under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Chunker.create tables through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         skel = namedtuple("Skel", "file_number name chunk_count start_pos length")
         sp = 0
         for s in self.skeletons:
@@ -446,11 +758,18 @@ class Chunker(object):
 
     def set_internal_links(self: _typing.Self, text: _typing.Any, rebuilt_text: _typing.Any) -> _typing.Any:
         """
-        Update the internal link placeholders to point to the correct
-        location, based on the chunk table.
-        :param text:
-        :param rebuilt_text:
-        :return:
+        Update the internal link placeholders to point to the correct location, based on the chunk table.
+
+        Example:
+            Exercise Chunker.set internal links through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :param rebuilt_text: Value supplied for rebuilt text under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # A kindle:pos:fid:off link contains two base 32 numbers of the form
         # XXXX:YYYYYYYYYY
@@ -481,6 +800,19 @@ class Chunker(object):
         self.aid_offset_map = aid_map
 
         def to_placeholder(aid: _typing.Any) -> _typing.Any:
+            """
+            Perform the to placeholder operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Chunker.set internal links.to placeholder through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+            :param aid: Value supplied for aid under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             pos, fid, _ = aid_map[aid]
             pos, fid = to_base(pos, min_num_digits=4), to_href(fid)
             return ":off:".join((pos, fid)).encode("ascii")
@@ -502,6 +834,19 @@ class Chunker(object):
 
         # Now update the links
         def sub(local_match: _typing.Any) -> _typing.Any:
+            """
+            Perform the sub operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Chunker.set internal links.sub through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+            :param local_match: Value supplied for local match under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             raw = local_match.group()
             pl = local_match.group(1)
             try:
@@ -513,6 +858,19 @@ class Chunker(object):
         return re.sub(rb"<[^>]+(kindle:pos:fid:0000:off:[0-9A-Za-z]{10})", sub, text)
 
     def dump(self: _typing.Self, orig_dumps: _typing.Any) -> None:
+        """
+        Perform the dump operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Chunker.dump through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param orig_dumps: Value supplied for orig dumps under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         import os
         import shutil
         import tempfile

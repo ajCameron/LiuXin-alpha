@@ -1,3 +1,14 @@
+"""
+Build deterministic UNICODE fixtures and test doubles.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise file format unicode through a consuming regression::
+
+        python -m pytest -q tests/metadata/test_standardization_torture.py
+"""
 from __future__ import annotations
 
 import codecs
@@ -11,6 +22,14 @@ _T = TypeVar("_T")
 
 @dataclass(frozen=True)
 class UnicodeCase:
+    """
+    Carry the deterministic UnicodeCase inputs and expected values used by format tests.
+
+    Example:
+        Exercise UnicodeCase through a consuming regression::
+
+            python -m pytest -q tests/metadata/test_standardization_torture.py
+    """
     case_id: str
     text: str
     fragments: tuple[str, ...]
@@ -19,6 +38,14 @@ class UnicodeCase:
 
 @dataclass(frozen=True)
 class EncodedUnicodeCase:
+    """
+    Carry the deterministic EncodedUnicodeCase inputs and expected values used by format tests.
+
+    Example:
+        Exercise EncodedUnicodeCase through a consuming regression::
+
+            python -m pytest -q tests/metadata/test_standardization_torture.py
+    """
     case_id: str
     encoding: str
     payload: bytes
@@ -90,6 +117,22 @@ KNOWN_BOMS = (
 
 
 def assert_fragments_present(rendered: str, fragments: Sequence[str] = MULTISCRIPT_FRAGMENTS, *, context: str = "") -> None:
+    """
+    Assert fragments present under the fixture contract.
+
+    Example:
+        Exercise assert fragments present through a consuming regression::
+
+            python -m pytest -q tests/metadata/test_standardization_torture.py
+
+
+    :param rendered: Value supplied for rendered under the deterministic fixture
+        contract.
+    :param fragments: Value supplied for fragments under the deterministic fixture
+        contract.
+    :param context: Value supplied for context under the deterministic fixture contract.
+    :return: None; fixture state or the supplied destination is updated in place.
+    """
     missing = [fragment for fragment in fragments if fragment not in rendered]
     if missing:
         detail = f" for {context}" if context else ""
@@ -97,12 +140,42 @@ def assert_fragments_present(rendered: str, fragments: Sequence[str] = MULTISCRI
 
 
 def assert_no_replacement_chars(rendered: str, *, context: str = "") -> None:
+    """
+    Assert no replacement chars under the fixture contract.
+
+    Example:
+        Exercise assert no replacement chars through a consuming regression::
+
+            python -m pytest -q tests/metadata/test_standardization_torture.py
+
+
+    :param rendered: Value supplied for rendered under the deterministic fixture
+        contract.
+    :param context: Value supplied for context under the deterministic fixture contract.
+    :return: None; fixture state or the supplied destination is updated in place.
+    """
     if "\ufffd" in rendered:
         detail = f" for {context}" if context else ""
         raise AssertionError(f"unexpected replacement character{detail}")
 
 
 def assert_output_deterministic(renderer: Callable[[_T], str], source: _T, *, context: str = "") -> str:
+    """
+    Assert output deterministic under the fixture contract.
+
+    Example:
+        Exercise assert output deterministic through a consuming regression::
+
+            python -m pytest -q tests/metadata/test_standardization_torture.py
+
+
+    :param renderer: Value supplied for renderer under the deterministic fixture
+        contract.
+    :param source: Value supplied for source under the deterministic fixture contract.
+    :param context: Value supplied for context under the deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     first = renderer(source)
     second = renderer(source)
     if first != second:
@@ -112,11 +185,40 @@ def assert_output_deterministic(renderer: Callable[[_T], str], source: _T, *, co
 
 
 def deterministic_unicode_fuzz(*, seed: int = 20260520, length: int = 512, alphabet: str = FUZZ_ALPHABET) -> str:
+    """
+    Perform the deterministic unicode fuzz step with deterministic fixture inputs.
+
+    Example:
+        Exercise deterministic unicode fuzz through a consuming regression::
+
+            python -m pytest -q tests/metadata/test_standardization_torture.py
+
+
+    :param seed: Stable seed controlling deterministic generated values.
+    :param length: Value supplied for length under the deterministic fixture contract.
+    :param alphabet: Value supplied for alphabet under the deterministic fixture
+        contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     rng = random.Random(seed)
     return "".join(rng.choice(alphabet) for _ in range(length))
 
 
 def strip_known_bom(payload: bytes) -> bytes:
+    """
+    Perform the strip known bom step with deterministic fixture inputs.
+
+    Example:
+        Exercise strip known bom through a consuming regression::
+
+            python -m pytest -q tests/metadata/test_standardization_torture.py
+
+
+    :param payload: Binary or structured payload encoded into the fixture.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     for bom in KNOWN_BOMS:
         if payload.startswith(bom):
             return payload[len(bom) :]
@@ -127,6 +229,21 @@ def encoded_unicode_cases(
     text: str = MULTISCRIPT_TEXT,
     fragments: Sequence[str] = COMMON_TEXT_FRAGMENTS,
 ) -> tuple[EncodedUnicodeCase, ...]:
+    """
+    Perform the encoded unicode cases step with deterministic fixture inputs.
+
+    Example:
+        Exercise encoded unicode cases through a consuming regression::
+
+            python -m pytest -q tests/metadata/test_standardization_torture.py
+
+
+    :param text: Text encoded, parsed or embedded in the fixture.
+    :param fragments: Value supplied for fragments under the deterministic fixture
+        contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     fragment_tuple = tuple(fragments)
     return (
         EncodedUnicodeCase(
@@ -165,4 +282,17 @@ def encoded_unicode_cases(
 
 
 def case_ids(cases: Iterable[UnicodeCase | EncodedUnicodeCase]) -> tuple[str, ...]:
+    """
+    Perform the case ids step with deterministic fixture inputs.
+
+    Example:
+        Exercise case ids through a consuming regression::
+
+            python -m pytest -q tests/metadata/test_standardization_torture.py
+
+
+    :param cases: Value supplied for cases under the deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     return tuple(case.case_id for case in cases)

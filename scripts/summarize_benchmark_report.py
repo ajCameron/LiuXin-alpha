@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Render benchmark JSON reports as concise text or Markdown summaries."""
+"""
+Provide summarize benchmark report utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise summarize benchmark report through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+"""
 
 from __future__ import annotations
 
@@ -13,6 +23,18 @@ from typing import Iterable, Optional
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parse args under the format's safety and compatibility rules.
+
+    Example:
+        Exercise parse args through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = argparse.ArgumentParser(description="Summarize a LiuXin benchmark JSON report.")
     parser.add_argument("report", help="Path to a benchmark JSON report.")
     parser.add_argument(
@@ -36,13 +58,54 @@ def parse_args() -> argparse.Namespace:
 
 
 def _load_report(path: Path) -> dict[str, object]:
+    """
+    Perform the load report operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  load report through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _flatten_results(report: dict[str, object]) -> list[dict[str, object]]:
+    """
+    Perform the flatten results operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  flatten results through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param report: Value supplied for report under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     results: list[dict[str, object]] = []
 
     def append_group(kind: str, reports: Iterable[dict[str, object]]) -> None:
+        """
+        Perform the append group operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  flatten results.append group through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :param kind: Value supplied for kind under the utility contract.
+        :param reports: Value supplied for reports under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for report_payload in reports:
             database = dict(report_payload.get("database") or {})
             db_source = str(database.get("source") or "")
@@ -68,16 +131,56 @@ def _flatten_results(report: dict[str, object]) -> list[dict[str, object]]:
 
 
 def _timed_results(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    """
+    Perform the timed results operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  timed results through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param rows: Value supplied for rows under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return [row for row in rows if not row.get("skipped") and row.get("mean_ms") is not None]
 
 
 def _format_ms(value: object) -> str:
+    """
+    Perform the format ms operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  format ms through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if value is None:
         return "-"
     return "{:.3f} ms".format(float(value))
 
 
 def render_text_summary(report: dict[str, object], *, top: int) -> str:
+    """
+    Perform the render text summary operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise render text summary through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param report: Value supplied for report under the utility contract.
+    :param top: Value supplied for top under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     rows = _flatten_results(report)
     timed = sorted(_timed_results(rows), key=lambda row: float(row.get("mean_ms") or 0.0), reverse=True)
     skipped = [row for row in rows if row.get("skipped")]
@@ -131,6 +234,20 @@ def render_text_summary(report: dict[str, object], *, top: int) -> str:
 
 
 def render_markdown_summary(report: dict[str, object], *, top: int) -> str:
+    """
+    Perform the render markdown summary operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise render markdown summary through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param report: Value supplied for report under the utility contract.
+    :param top: Value supplied for top under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     rows = _flatten_results(report)
     timed = sorted(_timed_results(rows), key=lambda row: float(row.get("mean_ms") or 0.0), reverse=True)
     skipped = [row for row in rows if row.get("skipped")]
@@ -176,6 +293,20 @@ def render_markdown_summary(report: dict[str, object], *, top: int) -> str:
 
 
 def write_text(text: str, output: str) -> None:
+    """
+    Write text under the format's safety and compatibility rules.
+
+    Example:
+        Exercise write text through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :param output: Value supplied for output under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if not output:
         sys.stdout.write(text)
         sys.stdout.flush()
@@ -186,6 +317,19 @@ def write_text(text: str, output: str) -> None:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     args = parse_args()
     path = Path(args.report).expanduser().resolve()
     report = _load_report(path)

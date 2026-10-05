@@ -1,7 +1,13 @@
-"""Legacy DB-support helpers kept local to the test-database support tree.
+"""
+Support retained legacy database-fixture init behavior.
 
-These are intentionally narrow shims extracted during legacy test
-normalization. They are not meant to become general test infrastructure.
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/databases/test_test_resources_manager.py
 """
 
 from .objects import TestObjectsHandler

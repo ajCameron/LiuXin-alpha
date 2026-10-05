@@ -1,3 +1,14 @@
+"""
+Provide test core runtime phase1 utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test core runtime phase1 through a consuming regression::
+
+        python -m pytest -q tests/core/test_core_runtime_phase1.py
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -14,6 +25,20 @@ from LiuXin_alpha.utils.jobs.manager import InMemoryJobManager
 
 
 def test_core_runtime_health_and_invoke_paths(core_runtime_factory: Callable[..., CoreRuntime]) -> None:
+    """
+    Perform the test core runtime health and invoke paths operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test core runtime health and invoke paths through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_runtime_phase1.py
+
+
+    :param core_runtime_factory: Value supplied for core runtime factory under the
+        utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     runtime = core_runtime_factory(core_version="test-phase1")
 
     health = runtime.execute_query(CoreQuery(name="health")).result
@@ -29,6 +54,20 @@ def test_core_runtime_health_and_invoke_paths(core_runtime_factory: Callable[...
 
 
 def test_core_runtime_emits_command_lifecycle_events(core_runtime_factory: Callable[..., CoreRuntime]) -> None:
+    """
+    Perform the test core runtime emits command lifecycle events operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test core runtime emits command lifecycle events through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_runtime_phase1.py
+
+
+    :param core_runtime_factory: Value supplied for core runtime factory under the
+        utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     runtime = core_runtime_factory(core_version="test-phase1")
     events = []
     runtime.subscribe(events.append)
@@ -59,6 +98,20 @@ def test_core_runtime_emits_command_lifecycle_events(core_runtime_factory: Calla
 def test_core_runtime_api_describe_exposes_named_handlers_and_targets(
     core_runtime_factory: Callable[..., CoreRuntime],
 ) -> None:
+    """
+    Perform the test core runtime api describe exposes named handlers and targets operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test core runtime api describe exposes named handlers and targets through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_runtime_phase1.py
+
+
+    :param core_runtime_factory: Value supplied for core runtime factory under the
+        utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     runtime = core_runtime_factory(core_version="test-phase1")
 
     described = runtime.describe_api()
@@ -89,6 +142,20 @@ def test_core_runtime_api_describe_exposes_named_handlers_and_targets(
 
 
 def test_local_proxy_auto_dispatches_read_and_write(core_runtime_factory: Callable[..., CoreRuntime]) -> None:
+    """
+    Perform the test local proxy auto dispatches read and write operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test local proxy auto dispatches read and write through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_runtime_phase1.py
+
+
+    :param core_runtime_factory: Value supplied for core runtime factory under the
+        utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     runtime = core_runtime_factory(core_version="test-phase1")
     proxy = LocalLibraryProxy(runtime)
 
@@ -103,20 +170,69 @@ def test_local_proxy_auto_dispatches_read_and_write(core_runtime_factory: Callab
 
 
 def test_local_proxy_bootstrap_storage_manager_routes_via_command() -> None:
+    """
+    Perform the test local proxy bootstrap storage manager routes via command operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test local proxy bootstrap storage manager routes via command through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_runtime_phase1.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     @dataclass
     class _FakeDatabase:
+        """
+        Provide the fakedatabase contract for validated ebook processing.
+
+        Example:
+            Exercise test local proxy bootstrap storage manager routes via command. FakeDatabase through a consuming regression::
+
+                python -m pytest -q tests/core/test_core_runtime_phase1.py
+        """
         bootstrapped: int = 0
 
         def bootstrap_storage_manager(self, *, clear_existing: bool = False):
+            """
+            Perform the bootstrap storage manager operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test local proxy bootstrap storage manager routes via command. FakeDatabase.bootstrap storage manager through a consuming regression::
+
+                    python -m pytest -q tests/core/test_core_runtime_phase1.py
+
+
+            :param clear_existing: Value supplied for clear existing under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.bootstrapped += 1
             return {"bootstrapped": self.bootstrapped, "clear_existing": bool(clear_existing)}
 
     @dataclass
     class _FakeStorage:
+        """
+        Provide the fakestorage contract for validated ebook processing.
+
+        Example:
+            Exercise test local proxy bootstrap storage manager routes via command. FakeStorage through a consuming regression::
+
+                python -m pytest -q tests/core/test_core_runtime_phase1.py
+        """
         pass
 
     @dataclass
     class _FakeLibrary:
+        """
+        Provide the fakelibrary contract for validated ebook processing.
+
+        Example:
+            Exercise test local proxy bootstrap storage manager routes via command. FakeLibrary through a consuming regression::
+
+                python -m pytest -q tests/core/test_core_runtime_phase1.py
+        """
         database: _FakeDatabase
         storage: _FakeStorage
 
@@ -139,6 +255,19 @@ def test_local_proxy_bootstrap_storage_manager_routes_via_command() -> None:
 
 
 def test_core_runtime_library_store_save_and_lookup_round_trip(tmp_path) -> None:
+    """
+    Perform the test core runtime library store save and lookup round trip operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test core runtime library store save and lookup round trip through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_runtime_phase1.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "core_runtime_store_save.sqlite"
     store_root = tmp_path / "runtime-store"
     with Database(
@@ -191,6 +320,19 @@ def test_core_runtime_library_store_save_and_lookup_round_trip(tmp_path) -> None
 
 
 def test_core_runtime_library_row_get_and_update_round_trip(tmp_path) -> None:
+    """
+    Perform the test core runtime library row get and update round trip operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test core runtime library row get and update round trip through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_runtime_phase1.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "core_runtime_row_update.sqlite"
     store_root = tmp_path / "runtime-row-store"
     with Database(
@@ -245,6 +387,19 @@ def test_core_runtime_library_row_get_and_update_round_trip(tmp_path) -> None:
 
 
 def test_core_runtime_library_delete_row_round_trip(tmp_path) -> None:
+    """
+    Perform the test core runtime library delete row round trip operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test core runtime library delete row round trip through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_runtime_phase1.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "core_runtime_row_delete.sqlite"
     store_root = tmp_path / "runtime-delete-store"
     with Database(
@@ -284,6 +439,19 @@ def test_core_runtime_library_delete_row_round_trip(tmp_path) -> None:
 
 
 def test_core_runtime_library_delete_impact_reports_direct_references(tmp_path) -> None:
+    """
+    Perform the test core runtime library delete impact reports direct references operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test core runtime library delete impact reports direct references through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_runtime_phase1.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "core_runtime_delete_impact.sqlite"
     store_root = tmp_path / "runtime-impact-store"
     with Database(
@@ -342,6 +510,19 @@ def test_core_runtime_library_delete_impact_reports_direct_references(tmp_path) 
 
 
 def test_core_runtime_sync_store_start_submits_job(monkeypatch) -> None:
+    """
+    Perform the test core runtime sync store start submits job operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test core runtime sync store start submits job through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_runtime_phase1.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     sync_job_module = pytest.importorskip(
         "LiuXin_alpha.core.workflow_jobs",
         reason="Core workflow jobs are not exposed in this checkout.",
@@ -349,20 +530,57 @@ def test_core_runtime_sync_store_start_submits_job(monkeypatch) -> None:
 
     @dataclass
     class _FakeDatabase:
+        """
+        Provide the fakedatabase contract for validated ebook processing.
+
+        Example:
+            Exercise test core runtime sync store start submits job. FakeDatabase through a consuming regression::
+
+                python -m pytest -q tests/core/test_core_runtime_phase1.py
+        """
         value: int = 0
 
     @dataclass
     class _FakeStorage:
+        """
+        Provide the fakestorage contract for validated ebook processing.
+
+        Example:
+            Exercise test core runtime sync store start submits job. FakeStorage through a consuming regression::
+
+                python -m pytest -q tests/core/test_core_runtime_phase1.py
+        """
         ping_count: int = 0
 
     @dataclass
     class _FakeLibrary:
+        """
+        Provide the fakelibrary contract for validated ebook processing.
+
+        Example:
+            Exercise test core runtime sync store start submits job. FakeLibrary through a consuming regression::
+
+                python -m pytest -q tests/core/test_core_runtime_phase1.py
+        """
         database: _FakeDatabase
         storage: _FakeStorage
 
     captured: dict[str, object] = {}
 
     def _fake_run_sync_store_job(**kwargs):
+        """
+        Perform the fake run sync store job operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test core runtime sync store start submits job. fake run sync store job through a consuming regression::
+
+                python -m pytest -q tests/core/test_core_runtime_phase1.py
+
+
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         captured.update(kwargs)
         return {"ok": True, "inserted_files": 1}
 
@@ -425,6 +643,20 @@ def test_core_runtime_sync_store_start_submits_job(monkeypatch) -> None:
 
 
 def test_core_runtime_sync_store_cancel_reports_unknown_job(core_runtime_factory: Callable[..., CoreRuntime]) -> None:
+    """
+    Perform the test core runtime sync store cancel reports unknown job operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test core runtime sync store cancel reports unknown job through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_runtime_phase1.py
+
+
+    :param core_runtime_factory: Value supplied for core runtime factory under the
+        utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     runtime = core_runtime_factory(core_version="test-phase1")
     result = runtime.execute_command(
         CoreCommand(

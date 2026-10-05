@@ -1,3 +1,14 @@
+"""
+Parse HTML5 token streams into normalized document trees with specification-compatible recovery.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise html5parser through a consuming regression::
+
+        python -m pytest -q tests/file_formats/html/test_html_modernized.py
+"""
 from __future__ import absolute_import, division, unicode_literals
 
 import types
@@ -32,26 +43,109 @@ from LiuXin_alpha.utils.libraries.liuxin_html5lib.constants import (
 )
 
 def with_metaclass(meta, *bases):
-    """Create a base class with a metaclass."""
+    """
+    Create a base class with a metaclass.
+
+    Example:
+        Exercise with metaclass through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param meta: Value supplied for meta under the utility contract.
+    :param bases: Value supplied for bases under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return meta("NewBase", bases, {})
 
 
 def parse(doc, treebuilder="etree", encoding=None, namespaceHTMLElements=True):
-    """Parse a string or file-like object into a tree"""
+    """
+    Parse a string or file-like object into a tree
+
+    Example:
+        Exercise parse through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param doc: Value supplied for doc under the utility contract.
+    :param treebuilder: Value supplied for treebuilder under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param namespaceHTMLElements: Value supplied for namespaceHTMLElements under the
+        utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     tb = treebuilders.getTreeBuilder(treebuilder)
     p = HTMLParser(tb, namespaceHTMLElements=namespaceHTMLElements)
     return p.parse(doc, encoding=encoding)
 
 
 def parseFragment(doc, container="div", treebuilder="etree", encoding=None, namespaceHTMLElements=True):
+    """
+    Perform the parseFragment utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise parseFragment through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param doc: Value supplied for doc under the utility contract.
+    :param container: Value supplied for container under the utility contract.
+    :param treebuilder: Value supplied for treebuilder under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param namespaceHTMLElements: Value supplied for namespaceHTMLElements under the
+        utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     tb = treebuilders.getTreeBuilder(treebuilder)
     p = HTMLParser(tb, namespaceHTMLElements=namespaceHTMLElements)
     return p.parseFragment(doc, container=container, encoding=encoding)
 
 
 def method_decorator_metaclass(function):
+    """
+    Perform the method decorator metaclass utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise method decorator metaclass through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param function: Value supplied for function under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     class Decorated(type):
+        """
+        Provide the Decorated utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise method decorator metaclass.Decorated through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         def __new__(meta, classname, bases, classDict):
+            """
+            Perform the new utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise method decorator metaclass.Decorated.  new   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param classname: Value supplied for classname under the utility contract.
+            :param bases: Value supplied for bases under the utility contract.
+            :param classDict: Value supplied for classDict under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             for attributeName, attribute in classDict.items():
                 if isinstance(attribute, types.FunctionType):
                     attribute = function(attribute)
@@ -64,8 +158,14 @@ def method_decorator_metaclass(function):
 
 class HTMLParser(object):
 
-    """HTML parser. Generates a tree structure from a stream of (possibly
-    malformed) HTML"""
+    """
+    HTML parser. Generates a tree structure from a stream of (possibly malformed) HTML
+
+    Example:
+        Exercise HTMLParser through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
 
     def __init__(
         self,
@@ -79,13 +179,21 @@ class HTMLParser(object):
         """
         strict - raise an exception when a parse error is encountered
 
-        tree - a treebuilder class controlling the type of tree that will be
-        returned. Built in treebuilders can be accessed through
-        html5lib.treebuilders.getTreeBuilder(treeType)
+        Example:
+            Exercise HTMLParser.  init   through a consuming regression::
 
-        tokenizer - a class that provides a stream of tokens to the treebuilder.
-        This may be replaced for e.g. a sanitizer which converts some tags to
-        text
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param tree: Value supplied for tree under the utility contract.
+        :param tokenizer: Value supplied for tokenizer under the utility contract.
+        :param strict: Value supplied for strict under the utility contract.
+        :param namespaceHTMLElements: Value supplied for namespaceHTMLElements under the
+            utility contract.
+        :param debug: Value supplied for debug under the utility contract.
+        :param track_positions: Value supplied for track positions under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
         """
 
         # Raise an exception on the first error encountered
@@ -104,6 +212,26 @@ class HTMLParser(object):
         self, stream, innerHTML=False, container="div", encoding=None, parseMeta=True, useChardet=True, **kwargs
     ):
 
+        """
+        Perform the parse utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLParser. parse through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param innerHTML: Value supplied for innerHTML under the utility contract.
+        :param container: Value supplied for container under the utility contract.
+        :param encoding: Value supplied for encoding under the utility contract.
+        :param parseMeta: Value supplied for parseMeta under the utility contract.
+        :param useChardet: Value supplied for useChardet under the utility contract.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.innerHTMLMode = innerHTML
         self.container = container
         self.tokenizer = self.tokenizer_class(
@@ -125,6 +253,18 @@ class HTMLParser(object):
                 self.reset()
 
     def reset(self):
+        """
+        Perform the reset utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLParser.reset through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.tree.reset()
         self.firstStartTag = False
         self.errors = []
@@ -160,16 +300,36 @@ class HTMLParser(object):
 
     @property
     def documentEncoding(self):
-        """The name of the character encoding
-        that was used to decode the input stream,
-        or :obj:`None` if that is not determined yet.
+        """
+        The name of the character encoding that was used to decode the input stream, or :obj:`None` if that is not determined yet.
 
+        Example:
+            Exercise HTMLParser.documentEncoding through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if not hasattr(self, "tokenizer"):
             return None
         return self.tokenizer.stream.charEncoding[0]
 
     def isHTMLIntegrationPoint(self, element):
+        """
+        Perform the isHTMLIntegrationPoint utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLParser.isHTMLIntegrationPoint through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param element: Value supplied for element under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if element.name == "annotation-xml" and element.namespace == namespaces["mathml"]:
             try:
                 return "encoding" in element.attributes and element.attributes["encoding"].translate(
@@ -187,9 +347,34 @@ class HTMLParser(object):
             return (element.namespace, element.name) in htmlIntegrationPointElements
 
     def isMathMLTextIntegrationPoint(self, element):
+        """
+        Perform the isMathMLTextIntegrationPoint utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLParser.isMathMLTextIntegrationPoint through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param element: Value supplied for element under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return (element.namespace, element.name) in mathmlTextIntegrationPointElements
 
     def mainLoop(self):
+        """
+        Perform the mainLoop utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLParser.mainLoop through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         CharactersToken = tokenTypes["Characters"]
         SpaceCharactersToken = tokenTypes["SpaceCharacters"]
         StartTagToken = tokenTypes["StartTag"]
@@ -261,18 +446,37 @@ class HTMLParser(object):
                 assert self.phase not in phases
 
     def normalizedTokens(self):
+        """
+        Perform the normalizedTokens utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLParser.normalizedTokens through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for token in self.tokenizer:
             yield self.normalizeToken(token)
 
     def parse(self, stream, encoding=None, parseMeta=True, useChardet=True):
-        """Parse a HTML document into a well-formed tree
+        """
+        Parse a HTML document into a well-formed tree
 
-        stream - a filelike object or string containing the HTML to be parsed
+        Example:
+            Exercise HTMLParser.parse through a consuming regression::
 
-        The optional encoding parameter must be a string that indicates
-        the encoding.  If specified, that encoding will be used,
-        regardless of any BOM or later declaration (such as in a meta
-        element)
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param encoding: Value supplied for encoding under the utility contract.
+        :param parseMeta: Value supplied for parseMeta under the utility contract.
+        :param useChardet: Value supplied for useChardet under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self._parse(
             stream,
@@ -284,29 +488,61 @@ class HTMLParser(object):
         return self.tree.getDocument()
 
     def parseFragment(self, stream, container="div", encoding=None, parseMeta=False, useChardet=True):
-        """Parse a HTML fragment into a well-formed tree fragment
+        """
+        Parse a HTML fragment into a well-formed tree fragment
 
-        container - name of the element we're setting the innerHTML property
-        if set to None, default to 'div'
+        Example:
+            Exercise HTMLParser.parseFragment through a consuming regression::
 
-        stream - a filelike object or string containing the HTML to be parsed
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
 
-        The optional encoding parameter must be a string that indicates
-        the encoding.  If specified, that encoding will be used,
-        regardless of any BOM or later declaration (such as in a meta
-        element)
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param container: Value supplied for container under the utility contract.
+        :param encoding: Value supplied for encoding under the utility contract.
+        :param parseMeta: Value supplied for parseMeta under the utility contract.
+        :param useChardet: Value supplied for useChardet under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self._parse(stream, True, container=container, encoding=encoding)
         return self.tree.getFragment()
 
     def parseError(self, errorcode="XXX-undefined-error", datavars={}):
         # XXX The idea is to make errorcode mandatory.
+        """
+        Perform the parseError utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLParser.parseError through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param errorcode: Value supplied for errorcode under the utility contract.
+        :param datavars: Value supplied for datavars under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.errors.append((self.tokenizer.stream.position(), errorcode, datavars))
         if self.strict:
             raise ParseError(E[errorcode] % datavars)
 
     def normalizeToken(self, token):
-        """HTML5 specific normalizations to the token stream"""
+        """
+        HTML5 specific normalizations to the token stream
+
+        Example:
+            Exercise HTMLParser.normalizeToken through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param token: Value supplied for token under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         if token["type"] == tokenTypes["StartTag"]:
             token["data"] = OrderedDict(token["data"])
@@ -314,20 +550,84 @@ class HTMLParser(object):
         return token
 
     def adjustMathMLAttributes(self, token):
+        """
+        Perform the adjustMathMLAttributes utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLParser.adjustMathMLAttributes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param token: Value supplied for token under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         adjust_attributes(token, adjustMathMLAttributes)
 
     def adjustSVGAttributes(self, token):
+        """
+        Perform the adjustSVGAttributes utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLParser.adjustSVGAttributes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param token: Value supplied for token under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         adjust_attributes(token, adjustSVGAttributes)
 
     def adjustForeignAttributes(self, token):
+        """
+        Perform the adjustForeignAttributes utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLParser.adjustForeignAttributes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param token: Value supplied for token under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         adjust_attributes(token, adjustForeignAttributesMap)
 
     def reparseTokenNormal(self, token):
+        """
+        Perform the reparseTokenNormal utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLParser.reparseTokenNormal through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param token: Value supplied for token under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.parser.phase()
 
     def resetInsertionMode(self):
         # The name of this method is mostly historical. (It's also used in the
         # specification.)
+        """
+        Perform the resetInsertionMode utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLParser.resetInsertionMode through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         last = False
         newModes = {
             "select": "inSelect",
@@ -370,8 +670,19 @@ class HTMLParser(object):
         self.phase = new_phase
 
     def parseRCDataRawtext(self, token, contentType):
-        """Generic RCDATA/RAWTEXT Parsing algorithm
-        contentType - RCDATA or RAWTEXT
+        """
+        Generic RCDATA/RAWTEXT Parsing algorithm contentType - RCDATA or RAWTEXT
+
+        Example:
+            Exercise HTMLParser.parseRCDataRawtext through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param token: Value supplied for token under the utility contract.
+        :param contentType: Value supplied for contentType under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         assert contentType in ("RAWTEXT", "RCDATA")
 
@@ -387,6 +698,22 @@ class HTMLParser(object):
         self.phase = self.phases["text"]
 
     def impliedTagToken(self, name, type="EndTag", attributes=None, selfClosing=False):
+        """
+        Perform the impliedTagToken utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLParser.impliedTagToken through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param type: Value supplied for type under the utility contract.
+        :param attributes: Value supplied for attributes under the utility contract.
+        :param selfClosing: Value supplied for selfClosing under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if attributes is None:
             attributes = {}
         ans = {
@@ -401,11 +728,51 @@ class HTMLParser(object):
 
 
 def getPhases(debug):
+    """
+    Perform the getPhases utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise getPhases through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param debug: Value supplied for debug under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     def log(function):
-        """Logger that records which phase processes each token"""
+        """
+        Logger that records which phase processes each token
+
+        Example:
+            Exercise getPhases.log through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param function: Value supplied for function under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         type_names = dict((value, key) for key, value in tokenTypes.items())
 
         def wrapped(self, *args, **kwargs):
+            """
+            Perform the wrapped utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.log.wrapped through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param self: Value supplied for self under the utility contract.
+            :param args: Positional values forwarded to the compatibility implementation.
+            :param kwargs: Keyword values forwarded to the compatibility implementation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if function.__name__.startswith("process") and len(args) > 0:
                 token = args[0]
                 try:
@@ -431,6 +798,20 @@ def getPhases(debug):
         return wrapped
 
     def getMetaclass(use_metaclass, metaclass_func):
+        """
+        Perform the getMetaclass utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise getPhases.getMetaclass through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param use_metaclass: Value supplied for use metaclass under the utility contract.
+        :param metaclass_func: Value supplied for metaclass func under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if use_metaclass:
             return method_decorator_metaclass(metaclass_func)
         else:
@@ -438,34 +819,144 @@ def getPhases(debug):
 
     class Phase(with_metaclass(getMetaclass(debug, log))):
 
-        """Base class for helper object that implements each phase of processing"""
+        """
+        Base class for helper object that implements each phase of processing
+
+        Example:
+            Exercise getPhases.Phase through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
 
         def __init__(self, parser, tree):
+            """
+            Initialize and validate the Phase state.
+
+            Example:
+                Exercise getPhases.Phase.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param parser: Value supplied for parser under the utility contract.
+            :param tree: Value supplied for tree under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             self.parser = parser
             self.tree = tree
             self.impliedTagToken = parser.impliedTagToken
 
         def processEOF(self):
+            """
+            Perform the processEOF utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.Phase.processEOF through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             raise NotImplementedError
 
         def processComment(self, token):
             # For most phases the following is correct. Where it's not it will be
             # overridden.
+            """
+            Perform the processComment utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.Phase.processComment through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.insertComment(token, self.tree.openElements[-1])
 
         def processDoctype(self, token):
+            """
+            Perform the processDoctype utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.Phase.processDoctype through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("unexpected-doctype")
 
         def processCharacters(self, token):
+            """
+            Perform the processCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.Phase.processCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.insertText(token["data"])
 
         def processSpaceCharacters(self, token):
+            """
+            Perform the processSpaceCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.Phase.processSpaceCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.insertText(token["data"])
 
         def processStartTag(self, token):
+            """
+            Perform the processStartTag utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.Phase.processStartTag through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.startTagHandler[token["name"]](token)
 
         def startTagHtml(self, token):
+            """
+            Perform the startTagHtml utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.Phase.startTagHtml through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if not self.parser.firstStartTag and token["name"] == "html":
                 self.parser.parseError("non-html-root")
             # XXX Need a check here to see if the first start tag token emitted is
@@ -474,16 +965,76 @@ def getPhases(debug):
             self.parser.firstStartTag = False
 
         def processEndTag(self, token):
+            """
+            Perform the processEndTag utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.Phase.processEndTag through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.endTagHandler[token["name"]](token)
 
     class InitialPhase(Phase):
+        """
+        Provide the InitialPhase utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise getPhases.InitialPhase through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         def processSpaceCharacters(self, token):
+            """
+            Perform the processSpaceCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InitialPhase.processSpaceCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             pass
 
         def processComment(self, token):
+            """
+            Perform the processComment utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InitialPhase.processComment through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.insertComment(token, self.tree.document)
 
         def processDoctype(self, token):
+            """
+            Perform the processDoctype utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InitialPhase.processDoctype through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             name = token["name"]
             publicId = token["publicId"]
             systemId = token["systemId"]
@@ -599,25 +1150,88 @@ def getPhases(debug):
             self.parser.phase = self.parser.phases["beforeHtml"]
 
         def anythingElse(self):
+            """
+            Perform the anythingElse utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InitialPhase.anythingElse through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.compatMode = "quirks"
             self.parser.phase = self.parser.phases["beforeHtml"]
 
         def processCharacters(self, token):
+            """
+            Perform the processCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InitialPhase.processCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.parser.parseError("expected-doctype-but-got-chars")
             self.anythingElse()
             return token
 
         def processStartTag(self, token):
+            """
+            Perform the processStartTag utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InitialPhase.processStartTag through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.parser.parseError("expected-doctype-but-got-start-tag", {"name": token["name"]})
             self.anythingElse()
             return token
 
         def processEndTag(self, token):
+            """
+            Perform the processEndTag utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InitialPhase.processEndTag through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.parser.parseError("expected-doctype-but-got-end-tag", {"name": token["name"]})
             self.anythingElse()
             return token
 
         def processEOF(self):
+            """
+            Perform the processEOF utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InitialPhase.processEOF through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.parser.parseError("expected-doctype-but-got-eof")
             self.anythingElse()
             return True
@@ -625,32 +1239,129 @@ def getPhases(debug):
     class BeforeHtmlPhase(Phase):
         # helper methods
 
+        """
+        Provide the BeforeHtmlPhase utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise getPhases.BeforeHtmlPhase through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         def insertHtmlElement(self):
+            """
+            Perform the insertHtmlElement utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.BeforeHtmlPhase.insertHtmlElement through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.insertRoot(self.impliedTagToken("html", "StartTag"))
             self.parser.phase = self.parser.phases["beforeHead"]
 
         # other
         def processEOF(self):
+            """
+            Perform the processEOF utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.BeforeHtmlPhase.processEOF through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.insertHtmlElement()
             return True
 
         def processComment(self, token):
+            """
+            Perform the processComment utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.BeforeHtmlPhase.processComment through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.insertComment(token, self.tree.document)
 
         def processSpaceCharacters(self, token):
+            """
+            Perform the processSpaceCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.BeforeHtmlPhase.processSpaceCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             pass
 
         def processCharacters(self, token):
+            """
+            Perform the processCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.BeforeHtmlPhase.processCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.insertHtmlElement()
             return token
 
         def processStartTag(self, token):
+            """
+            Perform the processStartTag utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.BeforeHtmlPhase.processStartTag through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if token["name"] == "html":
                 self.parser.firstStartTag = True
             self.insertHtmlElement()
             return token
 
         def processEndTag(self, token):
+            """
+            Perform the processEndTag utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.BeforeHtmlPhase.processEndTag through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if token["name"] not in ("head", "body", "html", "br"):
                 self.parser.parseError("unexpected-end-tag-before-html", {"name": token["name"]})
             else:
@@ -658,7 +1369,28 @@ def getPhases(debug):
                 return token
 
     class BeforeHeadPhase(Phase):
+        """
+        Provide the BeforeHeadPhase utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise getPhases.BeforeHeadPhase through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         def __init__(self, parser, tree):
+            """
+            Initialize and validate the BeforeHeadPhase state.
+
+            Example:
+                Exercise getPhases.BeforeHeadPhase.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param parser: Value supplied for parser under the utility contract.
+            :param tree: Value supplied for tree under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             Phase.__init__(self, parser, tree)
 
             self.startTagHandler = utils.MethodDispatcher([("html", self.startTagHtml), ("head", self.startTagHead)])
@@ -668,37 +1400,161 @@ def getPhases(debug):
             self.endTagHandler.default = self.endTagOther
 
         def processEOF(self):
+            """
+            Perform the processEOF utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.BeforeHeadPhase.processEOF through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.startTagHead(self.impliedTagToken("head", "StartTag"))
             return True
 
         def processSpaceCharacters(self, token):
+            """
+            Perform the processSpaceCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.BeforeHeadPhase.processSpaceCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             pass
 
         def processCharacters(self, token):
+            """
+            Perform the processCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.BeforeHeadPhase.processCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.startTagHead(self.impliedTagToken("head", "StartTag"))
             return token
 
         def startTagHtml(self, token):
+            """
+            Perform the startTagHtml utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.BeforeHeadPhase.startTagHtml through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inBody"].processStartTag(token)
 
         def startTagHead(self, token):
+            """
+            Perform the startTagHead utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.BeforeHeadPhase.startTagHead through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.insertElement(token)
             self.tree.headPointer = self.tree.openElements[-1]
             self.parser.phase = self.parser.phases["inHead"]
 
         def startTagOther(self, token):
+            """
+            Perform the startTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.BeforeHeadPhase.startTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.startTagHead(self.impliedTagToken("head", "StartTag"))
             return token
 
         def endTagImplyHead(self, token):
+            """
+            Perform the endTagImplyHead utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.BeforeHeadPhase.endTagImplyHead through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.startTagHead(self.impliedTagToken("head", "StartTag"))
             return token
 
         def endTagOther(self, token):
+            """
+            Perform the endTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.BeforeHeadPhase.endTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("end-tag-after-implied-root", {"name": token["name"]})
 
     class InHeadPhase(Phase):
+        """
+        Provide the InHeadPhase utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise getPhases.InHeadPhase through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         def __init__(self, parser, tree):
+            """
+            Initialize and validate the InHeadPhase state.
+
+            Example:
+                Exercise getPhases.InHeadPhase.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param parser: Value supplied for parser under the utility contract.
+            :param tree: Value supplied for tree under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             Phase.__init__(self, parser, tree)
 
             self.startTagHandler = utils.MethodDispatcher(
@@ -730,25 +1586,102 @@ def getPhases(debug):
 
         # the real thing
         def processEOF(self):
+            """
+            Perform the processEOF utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InHeadPhase.processEOF through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.anythingElse()
             return True
 
         def processCharacters(self, token):
+            """
+            Perform the processCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InHeadPhase.processCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.anythingElse()
             return token
 
         def startTagHtml(self, token):
+            """
+            Perform the startTagHtml utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InHeadPhase.startTagHtml through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inBody"].processStartTag(token)
 
         def startTagHead(self, token):
+            """
+            Perform the startTagHead utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InHeadPhase.startTagHead through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("two-heads-are-not-better-than-one")
 
         def startTagBaseLinkCommand(self, token):
+            """
+            Perform the startTagBaseLinkCommand utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InHeadPhase.startTagBaseLinkCommand through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.insertElement(token)
             self.tree.openElements.pop()
             token["selfClosingAcknowledged"] = True
 
         def startTagMeta(self, token):
+            """
+            Perform the startTagMeta utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InHeadPhase.startTagMeta through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.insertElement(token)
             self.tree.openElements.pop()
             token["selfClosingAcknowledged"] = True
@@ -772,35 +1705,138 @@ def getPhases(debug):
                     self.parser.tokenizer.stream.changeEncoding(codec)
 
         def startTagTitle(self, token):
+            """
+            Perform the startTagTitle utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InHeadPhase.startTagTitle through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseRCDataRawtext(token, "RCDATA")
 
         def startTagNoScriptNoFramesStyle(self, token):
             # Need to decide whether to implement the scripting-disabled case
+            """
+            Perform the startTagNoScriptNoFramesStyle utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InHeadPhase.startTagNoScriptNoFramesStyle through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseRCDataRawtext(token, "RAWTEXT")
 
         def startTagScript(self, token):
+            """
+            Perform the startTagScript utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InHeadPhase.startTagScript through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.insertElement(token)
             self.parser.tokenizer.state = self.parser.tokenizer.scriptDataState
             self.parser.originalPhase = self.parser.phase
             self.parser.phase = self.parser.phases["text"]
 
         def startTagOther(self, token):
+            """
+            Perform the startTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InHeadPhase.startTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.anythingElse()
             return token
 
         def endTagHead(self, token):
+            """
+            Perform the endTagHead utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InHeadPhase.endTagHead through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             node = self.parser.tree.openElements.pop()
             assert node.name == "head", "Expected head got %s" % node.name
             self.parser.phase = self.parser.phases["afterHead"]
 
         def endTagHtmlBodyBr(self, token):
+            """
+            Perform the endTagHtmlBodyBr utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InHeadPhase.endTagHtmlBodyBr through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.anythingElse()
             return token
 
         def endTagOther(self, token):
+            """
+            Perform the endTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InHeadPhase.endTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("unexpected-end-tag", {"name": token["name"]})
 
         def anythingElse(self):
+            """
+            Perform the anythingElse utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InHeadPhase.anythingElse through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.endTagHead(self.impliedTagToken("head"))
 
     # XXX If we implement a parser for which scripting is disabled we need to
@@ -808,7 +1844,28 @@ def getPhases(debug):
     #
     # class InHeadNoScriptPhase(Phase):
     class AfterHeadPhase(Phase):
+        """
+        Provide the AfterHeadPhase utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise getPhases.AfterHeadPhase through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         def __init__(self, parser, tree):
+            """
+            Initialize and validate the AfterHeadPhase state.
+
+            Example:
+                Exercise getPhases.AfterHeadPhase.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param parser: Value supplied for parser under the utility contract.
+            :param tree: Value supplied for tree under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             Phase.__init__(self, parser, tree)
 
             self.startTagHandler = utils.MethodDispatcher(
@@ -838,26 +1895,103 @@ def getPhases(debug):
             self.endTagHandler.default = self.endTagOther
 
         def processEOF(self):
+            """
+            Perform the processEOF utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterHeadPhase.processEOF through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.anythingElse()
             return True
 
         def processCharacters(self, token):
+            """
+            Perform the processCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterHeadPhase.processCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.anythingElse()
             return token
 
         def startTagHtml(self, token):
+            """
+            Perform the startTagHtml utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterHeadPhase.startTagHtml through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inBody"].processStartTag(token)
 
         def startTagBody(self, token):
+            """
+            Perform the startTagBody utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterHeadPhase.startTagBody through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.framesetOK = False
             self.tree.insertElement(token)
             self.parser.phase = self.parser.phases["inBody"]
 
         def startTagFrameset(self, token):
+            """
+            Perform the startTagFrameset utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterHeadPhase.startTagFrameset through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.insertElement(token)
             self.parser.phase = self.parser.phases["inFrameset"]
 
         def startTagFromHead(self, token):
+            """
+            Perform the startTagFromHead utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterHeadPhase.startTagFromHead through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("unexpected-start-tag-out-of-my-head", {"name": token["name"]})
             self.tree.openElements.append(self.tree.headPointer)
             self.parser.phases["inHead"].processStartTag(token)
@@ -867,20 +2001,84 @@ def getPhases(debug):
                     break
 
         def startTagHead(self, token):
+            """
+            Perform the startTagHead utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterHeadPhase.startTagHead through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("unexpected-start-tag", {"name": token["name"]})
 
         def startTagOther(self, token):
+            """
+            Perform the startTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterHeadPhase.startTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.anythingElse()
             return token
 
         def endTagHtmlBodyBr(self, token):
+            """
+            Perform the endTagHtmlBodyBr utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterHeadPhase.endTagHtmlBodyBr through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.anythingElse()
             return token
 
         def endTagOther(self, token):
+            """
+            Perform the endTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterHeadPhase.endTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("unexpected-end-tag", {"name": token["name"]})
 
         def anythingElse(self):
+            """
+            Perform the anythingElse utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterHeadPhase.anythingElse through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.insertElement(self.impliedTagToken("body", "StartTag"))
             self.parser.phase = self.parser.phases["inBody"]
             self.parser.framesetOK = True
@@ -889,7 +2087,28 @@ def getPhases(debug):
         # http://www.whatwg.org/specs/web-apps/current-work/#parsing-main-inbody
         # the really-really-really-very crazy mode
 
+        """
+        Provide the InBodyPhase utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise getPhases.InBodyPhase through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         def __init__(self, parser, tree):
+            """
+            Initialize and validate the InBodyPhase state.
+
+            Example:
+                Exercise getPhases.InBodyPhase.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param parser: Value supplied for parser under the utility contract.
+            :param tree: Value supplied for tree under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             Phase.__init__(self, parser, tree)
 
             # Keep a ref to this for special handling of whitespace in <pre>
@@ -1073,12 +2292,39 @@ def getPhases(debug):
             self.endTagHandler.default = self.endTagOther
 
         def isMatchingFormattingElement(self, node1, node2):
+            """
+            Perform the isMatchingFormattingElement utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.isMatchingFormattingElement through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param node1: Value supplied for node1 under the utility contract.
+            :param node2: Value supplied for node2 under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return (
                 node1.name == node2.name and node1.namespace == node2.namespace and node1.attributes == node2.attributes
             )
 
         # helper
         def addFormattingElement(self, token):
+            """
+            Perform the addFormattingElement utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.addFormattingElement through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.insertElement(token)
             element = self.tree.openElements[-1]
 
@@ -1096,6 +2342,18 @@ def getPhases(debug):
 
         # the real deal
         def processEOF(self):
+            """
+            Perform the processEOF utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.processEOF through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             allowed_elements = frozenset(
                 (
                     "dd",
@@ -1121,6 +2379,19 @@ def getPhases(debug):
         def processSpaceCharactersDropNewline(self, token):
             # Sometimes (start of <pre>, <listing>, and <textarea> blocks) we
             # want to drop leading newlines
+            """
+            Perform the processSpaceCharactersDropNewline utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.processSpaceCharactersDropNewline through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             data = token["data"]
             self.processSpaceCharacters = self.processSpaceCharactersNonPre
             if (
@@ -1134,6 +2405,19 @@ def getPhases(debug):
                 self.tree.insertText(data)
 
         def processCharacters(self, token):
+            """
+            Perform the processCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.processCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if token["data"] == "\u0000":
                 # The tokenizer should always emit null on its own
                 return
@@ -1144,13 +2428,52 @@ def getPhases(debug):
                 self.parser.framesetOK = False
 
         def processSpaceCharacters(self, token):
+            """
+            Perform the processSpaceCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.processSpaceCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.reconstructActiveFormattingElements()
             self.tree.insertText(token["data"])
 
         def startTagProcessInHead(self, token):
+            """
+            Perform the startTagProcessInHead utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagProcessInHead through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inHead"].processStartTag(token)
 
         def startTagBody(self, token):
+            """
+            Perform the startTagBody utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagBody through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("unexpected-start-tag", {"name": "body"})
             if len(self.tree.openElements) == 1 or self.tree.openElements[1].name != "body":
                 assert self.parser.innerHTML
@@ -1159,6 +2482,19 @@ def getPhases(debug):
                 self.tree.apply_body_attributes(token["data"])
 
         def startTagFrameset(self, token):
+            """
+            Perform the startTagFrameset utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagFrameset through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("unexpected-start-tag", {"name": "frameset"})
             if len(self.tree.openElements) == 1 or self.tree.openElements[1].name != "body":
                 assert self.parser.innerHTML
@@ -1173,11 +2509,37 @@ def getPhases(debug):
                 self.parser.phase = self.parser.phases["inFrameset"]
 
         def startTagCloseP(self, token):
+            """
+            Perform the startTagCloseP utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagCloseP through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self.tree.elementInScope("p", variant="button"):
                 self.endTagP(self.impliedTagToken("p"))
             self.tree.insertElement(token)
 
         def startTagPreListing(self, token):
+            """
+            Perform the startTagPreListing utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagPreListing through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self.tree.elementInScope("p", variant="button"):
                 self.endTagP(self.impliedTagToken("p"))
             self.tree.insertElement(token)
@@ -1185,6 +2547,19 @@ def getPhases(debug):
             self.processSpaceCharacters = self.processSpaceCharactersDropNewline
 
         def startTagForm(self, token):
+            """
+            Perform the startTagForm utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagForm through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self.tree.formPointer:
                 self.parser.parseError("unexpected-start-tag", {"name": "form"})
             else:
@@ -1194,6 +2569,19 @@ def getPhases(debug):
                 self.tree.formPointer = self.tree.openElements[-1]
 
         def startTagListItem(self, token):
+            """
+            Perform the startTagListItem utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagListItem through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.framesetOK = False
 
             stopNamesMap = {"li": ["li"], "dt": ["dt", "dd"], "dd": ["dt", "dd"]}
@@ -1215,12 +2603,38 @@ def getPhases(debug):
             self.tree.insertElement(token)
 
         def startTagPlaintext(self, token):
+            """
+            Perform the startTagPlaintext utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagPlaintext through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self.tree.elementInScope("p", variant="button"):
                 self.endTagP(self.impliedTagToken("p"))
             self.tree.insertElement(token)
             self.parser.tokenizer.state = self.parser.tokenizer.plaintextState
 
         def startTagHeading(self, token):
+            """
+            Perform the startTagHeading utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagHeading through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self.tree.elementInScope("p", variant="button"):
                 self.endTagP(self.impliedTagToken("p"))
             if self.tree.openElements[-1].name in headingElements:
@@ -1229,6 +2643,19 @@ def getPhases(debug):
             self.tree.insertElement(token)
 
         def startTagA(self, token):
+            """
+            Perform the startTagA utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagA through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             afeAElement = self.tree.elementInActiveFormattingElements("a")
             if afeAElement is not False:
                 self.parser.parseError(
@@ -1244,10 +2671,36 @@ def getPhases(debug):
             self.addFormattingElement(token)
 
         def startTagFormatting(self, token):
+            """
+            Perform the startTagFormatting utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagFormatting through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.reconstructActiveFormattingElements()
             self.addFormattingElement(token)
 
         def startTagNobr(self, token):
+            """
+            Perform the startTagNobr utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagNobr through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.reconstructActiveFormattingElements()
             if self.tree.elementInScope("nobr"):
                 self.parser.parseError(
@@ -1260,6 +2713,19 @@ def getPhases(debug):
             self.addFormattingElement(token)
 
         def startTagButton(self, token):
+            """
+            Perform the startTagButton utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagButton through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if self.tree.elementInScope("button"):
                 self.parser.parseError(
                     "unexpected-start-tag-implies-end-tag",
@@ -1273,12 +2739,38 @@ def getPhases(debug):
                 self.parser.framesetOK = False
 
         def startTagAppletMarqueeObject(self, token):
+            """
+            Perform the startTagAppletMarqueeObject utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagAppletMarqueeObject through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.reconstructActiveFormattingElements()
             self.tree.insertElement(token)
             self.tree.activeFormattingElements.append(Marker)
             self.parser.framesetOK = False
 
         def startTagXmp(self, token):
+            """
+            Perform the startTagXmp utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagXmp through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self.tree.elementInScope("p", variant="button"):
                 self.endTagP(self.impliedTagToken("p"))
             self.tree.reconstructActiveFormattingElements()
@@ -1286,6 +2778,19 @@ def getPhases(debug):
             self.parser.parseRCDataRawtext(token, "RAWTEXT")
 
         def startTagTable(self, token):
+            """
+            Perform the startTagTable utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagTable through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self.parser.compatMode != "quirks":
                 if self.tree.elementInScope("p", variant="button"):
                     self.processEndTag(self.impliedTagToken("p"))
@@ -1294,6 +2799,19 @@ def getPhases(debug):
             self.parser.phase = self.parser.phases["inTable"]
 
         def startTagVoidFormatting(self, token):
+            """
+            Perform the startTagVoidFormatting utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagVoidFormatting through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.reconstructActiveFormattingElements()
             self.tree.insertElement(token)
             self.tree.openElements.pop()
@@ -1301,6 +2819,19 @@ def getPhases(debug):
             self.parser.framesetOK = False
 
         def startTagInput(self, token):
+            """
+            Perform the startTagInput utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagInput through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             framesetOK = self.parser.framesetOK
             self.startTagVoidFormatting(token)
             if "type" in token["data"] and token["data"]["type"].translate(asciiUpper2Lower) == "hidden":
@@ -1308,11 +2839,37 @@ def getPhases(debug):
                 self.parser.framesetOK = framesetOK
 
         def startTagParamSource(self, token):
+            """
+            Perform the startTagParamSource utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagParamSource through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.insertElement(token)
             self.tree.openElements.pop()
             token["selfClosingAcknowledged"] = True
 
         def startTagHr(self, token):
+            """
+            Perform the startTagHr utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagHr through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self.tree.elementInScope("p", variant="button"):
                 self.endTagP(self.impliedTagToken("p"))
             self.tree.insertElement(token)
@@ -1322,6 +2879,19 @@ def getPhases(debug):
 
         def startTagImage(self, token):
             # No really...
+            """
+            Perform the startTagImage utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagImage through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError(
                 "unexpected-start-tag-treated-as",
                 {"originalName": "image", "newName": "img"},
@@ -1336,6 +2906,19 @@ def getPhases(debug):
             )
 
         def startTagIsIndex(self, token):
+            """
+            Perform the startTagIsIndex utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagIsIndex through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("deprecated-tag", {"name": "isindex"})
             if self.tree.formPointer:
                 return
@@ -1370,26 +2953,90 @@ def getPhases(debug):
             self.processEndTag(self.impliedTagToken("form"))
 
         def startTagTextarea(self, token):
+            """
+            Perform the startTagTextarea utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagTextarea through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.insertElement(token)
             self.parser.tokenizer.state = self.parser.tokenizer.rcdataState
             self.processSpaceCharacters = self.processSpaceCharactersDropNewline
             self.parser.framesetOK = False
 
         def startTagIFrame(self, token):
+            """
+            Perform the startTagIFrame utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagIFrame through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.framesetOK = False
             self.startTagRawtext(token)
 
         def startTagRawtext(self, token):
-            """iframe, noembed noframes, noscript(if scripting enabled)"""
+            """
+            iframe, noembed noframes, noscript(if scripting enabled)
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagRawtext through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseRCDataRawtext(token, "RAWTEXT")
 
         def startTagOpt(self, token):
+            """
+            Perform the startTagOpt utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagOpt through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self.tree.openElements[-1].name == "option":
                 self.parser.phase.processEndTag(self.impliedTagToken("option"))
             self.tree.reconstructActiveFormattingElements()
             self.parser.tree.insertElement(token)
 
         def startTagSelect(self, token):
+            """
+            Perform the startTagSelect utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagSelect through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.reconstructActiveFormattingElements()
             self.tree.insertElement(token)
             self.parser.framesetOK = False
@@ -1406,6 +3053,19 @@ def getPhases(debug):
                 self.parser.phase = self.parser.phases["inSelect"]
 
         def startTagRpRt(self, token):
+            """
+            Perform the startTagRpRt utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagRpRt through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self.tree.elementInScope("ruby"):
                 self.tree.generateImpliedEndTags()
                 if self.tree.openElements[-1].name != "ruby":
@@ -1413,6 +3073,19 @@ def getPhases(debug):
             self.tree.insertElement(token)
 
         def startTagMath(self, token):
+            """
+            Perform the startTagMath utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagMath through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.reconstructActiveFormattingElements()
             self.parser.adjustMathMLAttributes(token)
             self.parser.adjustForeignAttributes(token)
@@ -1425,6 +3098,19 @@ def getPhases(debug):
                 token["selfClosingAcknowledged"] = True
 
         def startTagSvg(self, token):
+            """
+            Perform the startTagSvg utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagSvg through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.reconstructActiveFormattingElements()
             self.parser.adjustSVGAttributes(token)
             self.parser.adjustForeignAttributes(token)
@@ -1437,19 +3123,52 @@ def getPhases(debug):
                 token["selfClosingAcknowledged"] = True
 
         def startTagMisplaced(self, token):
-            """Elements that should be children of other elements that have a
-            different insertion mode; here they are ignored
-            "caption", "col", "colgroup", "frame", "frameset", "head",
-            "option", "optgroup", "tbody", "td", "tfoot", "th", "thead",
-            "tr", "noscript"
+            """
+            Elements that should be children of other elements that have a different insertion mode; here they are ignored "caption", "col", "colgroup", "frame", "frameset", "head", "option", "optgroup", "tbody", "td", "tfoot", "th", "thead", "tr", "noscript"
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagMisplaced through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
             """
             self.parser.parseError("unexpected-start-tag-ignored", {"name": token["name"]})
 
         def startTagOther(self, token):
+            """
+            Perform the startTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.startTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.reconstructActiveFormattingElements()
             self.tree.insertElement(token)
 
         def endTagP(self, token):
+            """
+            Perform the endTagP utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.endTagP through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if not self.tree.elementInScope("p", variant="button"):
                 self.startTagCloseP(self.impliedTagToken("p", "StartTag"))
                 self.parser.parseError("unexpected-end-tag", {"name": "p"})
@@ -1463,6 +3182,19 @@ def getPhases(debug):
                     node = self.tree.openElements.pop()
 
         def endTagBody(self, token):
+            """
+            Perform the endTagBody utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.endTagBody through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if not self.tree.elementInScope("body"):
                 self.parser.parseError()
                 return
@@ -1498,12 +3230,38 @@ def getPhases(debug):
 
         def endTagHtml(self, token):
             # We repeat the test for the body end tag token being ignored here
+            """
+            Perform the endTagHtml utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.endTagHtml through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if self.tree.elementInScope("body"):
                 self.endTagBody(self.impliedTagToken("body"))
                 return token
 
         def endTagBlock(self, token):
             # Put us back in the right whitespace handling mode
+            """
+            Perform the endTagBlock utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.endTagBlock through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if token["name"] == "pre":
                 self.processSpaceCharacters = self.processSpaceCharactersNonPre
             inScope = self.tree.elementInScope(token["name"])
@@ -1517,6 +3275,19 @@ def getPhases(debug):
                     node = self.tree.openElements.pop()
 
         def endTagForm(self, token):
+            """
+            Perform the endTagForm utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.endTagForm through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             node = self.tree.formPointer
             self.tree.formPointer = None
             if node is None or not self.tree.elementInScope(node):
@@ -1528,6 +3299,19 @@ def getPhases(debug):
                 self.tree.openElements.remove(node)
 
         def endTagListItem(self, token):
+            """
+            Perform the endTagListItem utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.endTagListItem through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if token["name"] == "li":
                 variant = "list"
             else:
@@ -1543,6 +3327,19 @@ def getPhases(debug):
                     node = self.tree.openElements.pop()
 
         def endTagHeading(self, token):
+            """
+            Perform the endTagHeading utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.endTagHeading through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             for item in headingElements:
                 if self.tree.elementInScope(item):
                     self.tree.generateImpliedEndTags()
@@ -1558,7 +3355,19 @@ def getPhases(debug):
                     break
 
         def endTagFormatting(self, token):
-            """The much-feared adoption agency algorithm"""
+            """
+            The much-feared adoption agency algorithm
+
+            Example:
+                Exercise getPhases.InBodyPhase.endTagFormatting through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             # http://svn.whatwg.org/webapps/complete.html#adoptionAgency revision 7867
             # XXX Better parseError messages appreciated.
 
@@ -1717,6 +3526,19 @@ def getPhases(debug):
                 self.tree.openElements.insert(self.tree.openElements.index(furthestBlock) + 1, clone)
 
         def endTagAppletMarqueeObject(self, token):
+            """
+            Perform the endTagAppletMarqueeObject utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.endTagAppletMarqueeObject through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self.tree.elementInScope(token["name"]):
                 self.tree.generateImpliedEndTags()
             if self.tree.openElements[-1].name != token["name"]:
@@ -1729,6 +3551,19 @@ def getPhases(debug):
                 self.tree.clearActiveFormattingElements()
 
         def endTagBr(self, token):
+            """
+            Perform the endTagBr utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.endTagBr through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError(
                 "unexpected-end-tag-treated-as",
                 {"originalName": "br", "newName": "br element"},
@@ -1738,6 +3573,19 @@ def getPhases(debug):
             self.tree.openElements.pop()
 
         def endTagOther(self, token):
+            """
+            Perform the endTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InBodyPhase.endTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             for node in self.tree.openElements[::-1]:
                 if node.name == token["name"]:
                     self.tree.generateImpliedEndTags(exclude=token["name"])
@@ -1752,7 +3600,28 @@ def getPhases(debug):
                         break
 
     class TextPhase(Phase):
+        """
+        Provide the TextPhase utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise getPhases.TextPhase through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         def __init__(self, parser, tree):
+            """
+            Initialize and validate the TextPhase state.
+
+            Example:
+                Exercise getPhases.TextPhase.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param parser: Value supplied for parser under the utility contract.
+            :param tree: Value supplied for tree under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             Phase.__init__(self, parser, tree)
             self.startTagHandler = utils.MethodDispatcher([])
             self.startTagHandler.default = self.startTagOther
@@ -1760,9 +3629,34 @@ def getPhases(debug):
             self.endTagHandler.default = self.endTagOther
 
         def processCharacters(self, token):
+            """
+            Perform the processCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.TextPhase.processCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.insertText(token["data"])
 
         def processEOF(self):
+            """
+            Perform the processEOF utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.TextPhase.processEOF through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.parser.parseError(
                 "expected-named-closing-tag-but-got-eof",
                 {"name": self.tree.openElements[-1].name},
@@ -1772,9 +3666,35 @@ def getPhases(debug):
             return True
 
         def startTagOther(self, token):
+            """
+            Perform the startTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.TextPhase.startTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             assert False, "Tried to process start tag %s in RCDATA/RAWTEXT mode" % token["name"]
 
         def endTagScript(self, token):
+            """
+            Perform the endTagScript utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.TextPhase.endTagScript through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             node = self.tree.openElements.pop()
             assert node.name == "script"
             self.parser.phase = self.parser.originalPhase
@@ -1782,13 +3702,47 @@ def getPhases(debug):
             # document.write works
 
         def endTagOther(self, token):
+            """
+            Perform the endTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.TextPhase.endTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.openElements.pop()
             self.parser.phase = self.parser.originalPhase
 
     class InTablePhase(Phase):
         # http://www.whatwg.org/specs/web-apps/current-work/#in-table
 
+        """
+        Provide the InTablePhase utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise getPhases.InTablePhase through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         def __init__(self, parser, tree):
+            """
+            Initialize and validate the InTablePhase state.
+
+            Example:
+                Exercise getPhases.InTablePhase.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param parser: Value supplied for parser under the utility contract.
+            :param tree: Value supplied for tree under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             Phase.__init__(self, parser, tree)
             self.startTagHandler = utils.MethodDispatcher(
                 [
@@ -1832,6 +3786,18 @@ def getPhases(debug):
         # helper methods
         def clearStackToTableContext(self):
             # "clear the stack back to a table context"
+            """
+            Perform the clearStackToTableContext utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTablePhase.clearStackToTableContext through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             while self.tree.openElements[-1].name not in ("table", "html"):
                 # self.parser.parseError("unexpected-implied-end-tag-in-table",
                 #  {"name":  self.tree.openElements[-1].name})
@@ -1840,6 +3806,18 @@ def getPhases(debug):
 
         # processing methods
         def processEOF(self):
+            """
+            Perform the processEOF utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTablePhase.processEOF through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self.tree.openElements[-1].name != "html":
                 self.parser.parseError("eof-in-table")
             else:
@@ -1847,12 +3825,38 @@ def getPhases(debug):
             # Stop parsing
 
         def processSpaceCharacters(self, token):
+            """
+            Perform the processSpaceCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTablePhase.processSpaceCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             originalPhase = self.parser.phase
             self.parser.phase = self.parser.phases["inTableText"]
             self.parser.phase.originalPhase = originalPhase
             self.parser.phase.processSpaceCharacters(token)
 
         def processCharacters(self, token):
+            """
+            Perform the processCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTablePhase.processCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             originalPhase = self.parser.phase
             self.parser.phase = self.parser.phases["inTableText"]
             self.parser.phase.originalPhase = originalPhase
@@ -1861,35 +3865,126 @@ def getPhases(debug):
         def insertText(self, token):
             # If we get here there must be at least one non-whitespace character
             # Do the table magic!
+            """
+            Perform the insertText utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTablePhase.insertText through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.insertFromTable = True
             self.parser.phases["inBody"].processCharacters(token)
             self.tree.insertFromTable = False
 
         def startTagCaption(self, token):
+            """
+            Perform the startTagCaption utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTablePhase.startTagCaption through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.clearStackToTableContext()
             self.tree.activeFormattingElements.append(Marker)
             self.tree.insertElement(token)
             self.parser.phase = self.parser.phases["inCaption"]
 
         def startTagColgroup(self, token):
+            """
+            Perform the startTagColgroup utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTablePhase.startTagColgroup through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.clearStackToTableContext()
             self.tree.insertElement(token)
             self.parser.phase = self.parser.phases["inColumnGroup"]
 
         def startTagCol(self, token):
+            """
+            Perform the startTagCol utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTablePhase.startTagCol through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.startTagColgroup(self.impliedTagToken("colgroup", "StartTag"))
             return token
 
         def startTagRowGroup(self, token):
+            """
+            Perform the startTagRowGroup utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTablePhase.startTagRowGroup through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.clearStackToTableContext()
             self.tree.insertElement(token)
             self.parser.phase = self.parser.phases["inTableBody"]
 
         def startTagImplyTbody(self, token):
+            """
+            Perform the startTagImplyTbody utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTablePhase.startTagImplyTbody through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.startTagRowGroup(self.impliedTagToken("tbody", "StartTag"))
             return token
 
         def startTagTable(self, token):
+            """
+            Perform the startTagTable utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTablePhase.startTagTable through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.parser.parseError(
                 "unexpected-start-tag-implies-end-tag",
                 {"startName": "table", "endName": "table"},
@@ -1899,9 +3994,35 @@ def getPhases(debug):
                 return token
 
         def startTagStyleScript(self, token):
+            """
+            Perform the startTagStyleScript utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTablePhase.startTagStyleScript through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inHead"].processStartTag(token)
 
         def startTagInput(self, token):
+            """
+            Perform the startTagInput utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTablePhase.startTagInput through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if "type" in token["data"] and token["data"]["type"].translate(asciiUpper2Lower) == "hidden":
                 self.parser.parseError("unexpected-hidden-input-in-table")
                 self.tree.insertElement(token)
@@ -1911,6 +4032,19 @@ def getPhases(debug):
                 self.startTagOther(token)
 
         def startTagForm(self, token):
+            """
+            Perform the startTagForm utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTablePhase.startTagForm through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("unexpected-form-in-table")
             if self.tree.formPointer is None:
                 self.tree.insertElement(token)
@@ -1918,6 +4052,19 @@ def getPhases(debug):
                 self.tree.openElements.pop()
 
         def startTagOther(self, token):
+            """
+            Perform the startTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTablePhase.startTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("unexpected-start-tag-implies-table-voodoo", {"name": token["name"]})
             # Do the table magic!
             self.tree.insertFromTable = True
@@ -1925,6 +4072,19 @@ def getPhases(debug):
             self.tree.insertFromTable = False
 
         def endTagTable(self, token):
+            """
+            Perform the endTagTable utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTablePhase.endTagTable through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self.tree.elementInScope("table", variant="table"):
                 self.tree.generateImpliedEndTags()
                 if self.tree.openElements[-1].name != "table":
@@ -1945,9 +4105,35 @@ def getPhases(debug):
                 self.parser.parseError()
 
         def endTagIgnore(self, token):
+            """
+            Perform the endTagIgnore utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTablePhase.endTagIgnore through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("unexpected-end-tag", {"name": token["name"]})
 
         def endTagOther(self, token):
+            """
+            Perform the endTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTablePhase.endTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("unexpected-end-tag-implies-table-voodoo", {"name": token["name"]})
             # Do the table magic!
             self.tree.insertFromTable = True
@@ -1955,12 +4141,45 @@ def getPhases(debug):
             self.tree.insertFromTable = False
 
     class InTableTextPhase(Phase):
+        """
+        Provide the InTableTextPhase utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise getPhases.InTableTextPhase through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         def __init__(self, parser, tree):
+            """
+            Initialize and validate the InTableTextPhase state.
+
+            Example:
+                Exercise getPhases.InTableTextPhase.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param parser: Value supplied for parser under the utility contract.
+            :param tree: Value supplied for tree under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             Phase.__init__(self, parser, tree)
             self.originalPhase = None
             self.characterTokens = []
 
         def flushCharacters(self):
+            """
+            Perform the flushCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTableTextPhase.flushCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             data = "".join([item["data"] for item in self.characterTokens])
             if any([item not in spaceCharacters for item in data]):
                 token = {"type": tokenTypes["Characters"], "data": data}
@@ -1970,32 +4189,109 @@ def getPhases(debug):
             self.characterTokens = []
 
         def processComment(self, token):
+            """
+            Perform the processComment utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTableTextPhase.processComment through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.flushCharacters()
             self.parser.phase = self.originalPhase
             return token
 
         def processEOF(self):
+            """
+            Perform the processEOF utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTableTextPhase.processEOF through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.flushCharacters()
             self.parser.phase = self.originalPhase
             return True
 
         def processCharacters(self, token):
+            """
+            Perform the processCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTableTextPhase.processCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if token["data"] == "\u0000":
                 return
             self.characterTokens.append(token)
 
         def processSpaceCharacters(self, token):
             # pretty sure we should never reach here
+            """
+            Perform the processSpaceCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTableTextPhase.processSpaceCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.characterTokens.append(token)
 
         #        assert False
 
         def processStartTag(self, token):
+            """
+            Perform the processStartTag utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTableTextPhase.processStartTag through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.flushCharacters()
             self.parser.phase = self.originalPhase
             return token
 
         def processEndTag(self, token):
+            """
+            Perform the processEndTag utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTableTextPhase.processEndTag through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.flushCharacters()
             self.parser.phase = self.originalPhase
             return token
@@ -2003,7 +4299,28 @@ def getPhases(debug):
     class InCaptionPhase(Phase):
         # http://www.whatwg.org/specs/web-apps/current-work/#in-caption
 
+        """
+        Provide the InCaptionPhase utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise getPhases.InCaptionPhase through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         def __init__(self, parser, tree):
+            """
+            Initialize and validate the InCaptionPhase state.
+
+            Example:
+                Exercise getPhases.InCaptionPhase.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param parser: Value supplied for parser under the utility contract.
+            :param tree: Value supplied for tree under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             Phase.__init__(self, parser, tree)
 
             self.startTagHandler = utils.MethodDispatcher(
@@ -2051,15 +4368,65 @@ def getPhases(debug):
             self.endTagHandler.default = self.endTagOther
 
         def ignoreEndTagCaption(self):
+            """
+            Perform the ignoreEndTagCaption utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InCaptionPhase.ignoreEndTagCaption through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return not self.tree.elementInScope("caption", variant="table")
 
         def processEOF(self):
+            """
+            Perform the processEOF utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InCaptionPhase.processEOF through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.phases["inBody"].processEOF()
 
         def processCharacters(self, token):
+            """
+            Perform the processCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InCaptionPhase.processCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inBody"].processCharacters(token)
 
         def startTagTableElement(self, token):
+            """
+            Perform the startTagTableElement utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InCaptionPhase.startTagTableElement through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.parser.parseError()
             # XXX Have to duplicate logic here to find out if the tag is ignored
             ignoreEndTag = self.ignoreEndTagCaption()
@@ -2068,9 +4435,35 @@ def getPhases(debug):
                 return token
 
         def startTagOther(self, token):
+            """
+            Perform the startTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InCaptionPhase.startTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inBody"].processStartTag(token)
 
         def endTagCaption(self, token):
+            """
+            Perform the endTagCaption utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InCaptionPhase.endTagCaption through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if not self.ignoreEndTagCaption():
                 # AT this code is quite similar to endTagTable in "InTable"
                 self.tree.generateImpliedEndTags()
@@ -2093,6 +4486,19 @@ def getPhases(debug):
                 self.parser.parseError()
 
         def endTagTable(self, token):
+            """
+            Perform the endTagTable utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InCaptionPhase.endTagTable through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.parser.parseError()
             ignoreEndTag = self.ignoreEndTagCaption()
             self.parser.phase.processEndTag(self.impliedTagToken("caption"))
@@ -2100,15 +4506,62 @@ def getPhases(debug):
                 return token
 
         def endTagIgnore(self, token):
+            """
+            Perform the endTagIgnore utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InCaptionPhase.endTagIgnore through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("unexpected-end-tag", {"name": token["name"]})
 
         def endTagOther(self, token):
+            """
+            Perform the endTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InCaptionPhase.endTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inBody"].processEndTag(token)
 
     class InColumnGroupPhase(Phase):
         # http://www.whatwg.org/specs/web-apps/current-work/#in-column
 
+        """
+        Provide the InColumnGroupPhase utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise getPhases.InColumnGroupPhase through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         def __init__(self, parser, tree):
+            """
+            Initialize and validate the InColumnGroupPhase state.
+
+            Example:
+                Exercise getPhases.InColumnGroupPhase.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param parser: Value supplied for parser under the utility contract.
+            :param tree: Value supplied for tree under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             Phase.__init__(self, parser, tree)
 
             self.startTagHandler = utils.MethodDispatcher([("html", self.startTagHtml), ("col", self.startTagCol)])
@@ -2118,9 +4571,33 @@ def getPhases(debug):
             self.endTagHandler.default = self.endTagOther
 
         def ignoreEndTagColgroup(self):
+            """
+            Perform the ignoreEndTagColgroup utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InColumnGroupPhase.ignoreEndTagColgroup through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.tree.openElements[-1].name == "html"
 
         def processEOF(self):
+            """
+            Perform the processEOF utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InColumnGroupPhase.processEOF through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if self.tree.openElements[-1].name == "html":
                 assert self.parser.innerHTML
                 return
@@ -2131,22 +4608,74 @@ def getPhases(debug):
                     return True
 
         def processCharacters(self, token):
+            """
+            Perform the processCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InColumnGroupPhase.processCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             ignoreEndTag = self.ignoreEndTagColgroup()
             self.endTagColgroup(self.impliedTagToken("colgroup"))
             if not ignoreEndTag:
                 return token
 
         def startTagCol(self, token):
+            """
+            Perform the startTagCol utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InColumnGroupPhase.startTagCol through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.insertElement(token)
             self.tree.openElements.pop()
 
         def startTagOther(self, token):
+            """
+            Perform the startTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InColumnGroupPhase.startTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             ignoreEndTag = self.ignoreEndTagColgroup()
             self.endTagColgroup(self.impliedTagToken("colgroup"))
             if not ignoreEndTag:
                 return token
 
         def endTagColgroup(self, token):
+            """
+            Perform the endTagColgroup utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InColumnGroupPhase.endTagColgroup through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self.ignoreEndTagColgroup():
                 # innerHTML case
                 assert self.parser.innerHTML
@@ -2156,9 +4685,35 @@ def getPhases(debug):
                 self.parser.phase = self.parser.phases["inTable"]
 
         def endTagCol(self, token):
+            """
+            Perform the endTagCol utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InColumnGroupPhase.endTagCol through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("no-end-tag", {"name": "col"})
 
         def endTagOther(self, token):
+            """
+            Perform the endTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InColumnGroupPhase.endTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             ignoreEndTag = self.ignoreEndTagColgroup()
             self.endTagColgroup(self.impliedTagToken("colgroup"))
             if not ignoreEndTag:
@@ -2167,7 +4722,28 @@ def getPhases(debug):
     class InTableBodyPhase(Phase):
         # http://www.whatwg.org/specs/web-apps/current-work/#in-table0
 
+        """
+        Provide the InTableBodyPhase utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise getPhases.InTableBodyPhase through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         def __init__(self, parser, tree):
+            """
+            Initialize and validate the InTableBodyPhase state.
+
+            Example:
+                Exercise getPhases.InTableBodyPhase.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param parser: Value supplied for parser under the utility contract.
+            :param tree: Value supplied for tree under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             Phase.__init__(self, parser, tree)
             self.startTagHandler = utils.MethodDispatcher(
                 [
@@ -2205,6 +4781,18 @@ def getPhases(debug):
 
         # helper methods
         def clearStackToTableBodyContext(self):
+            """
+            Perform the clearStackToTableBodyContext utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTableBodyPhase.clearStackToTableBodyContext through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             while self.tree.openElements[-1].name not in (
                 "tbody",
                 "tfoot",
@@ -2219,26 +4807,103 @@ def getPhases(debug):
 
         # the rest
         def processEOF(self):
+            """
+            Perform the processEOF utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTableBodyPhase.processEOF through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.phases["inTable"].processEOF()
 
         def processSpaceCharacters(self, token):
+            """
+            Perform the processSpaceCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTableBodyPhase.processSpaceCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inTable"].processSpaceCharacters(token)
 
         def processCharacters(self, token):
+            """
+            Perform the processCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTableBodyPhase.processCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inTable"].processCharacters(token)
 
         def startTagTr(self, token):
+            """
+            Perform the startTagTr utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTableBodyPhase.startTagTr through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.clearStackToTableBodyContext()
             self.tree.insertElement(token)
             self.parser.phase = self.parser.phases["inRow"]
 
         def startTagTableCell(self, token):
+            """
+            Perform the startTagTableCell utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTableBodyPhase.startTagTableCell through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.parser.parseError("unexpected-cell-in-table-body", {"name": token["name"]})
             self.startTagTr(self.impliedTagToken("tr", "StartTag"))
             return token
 
         def startTagTableOther(self, token):
             # XXX AT Any ideas on how to share this with endTagTable?
+            """
+            Perform the startTagTableOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTableBodyPhase.startTagTableOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if (
                 self.tree.elementInScope("tbody", variant="table")
                 or self.tree.elementInScope("thead", variant="table")
@@ -2253,9 +4918,35 @@ def getPhases(debug):
                 self.parser.parseError()
 
         def startTagOther(self, token):
+            """
+            Perform the startTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTableBodyPhase.startTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inTable"].processStartTag(token)
 
         def endTagTableRowGroup(self, token):
+            """
+            Perform the endTagTableRowGroup utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTableBodyPhase.endTagTableRowGroup through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self.tree.elementInScope(token["name"], variant="table"):
                 self.clearStackToTableBodyContext()
                 self.tree.openElements.pop()
@@ -2264,6 +4955,19 @@ def getPhases(debug):
                 self.parser.parseError("unexpected-end-tag-in-table-body", {"name": token["name"]})
 
         def endTagTable(self, token):
+            """
+            Perform the endTagTable utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTableBodyPhase.endTagTable through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if (
                 self.tree.elementInScope("tbody", variant="table")
                 or self.tree.elementInScope("thead", variant="table")
@@ -2278,15 +4982,62 @@ def getPhases(debug):
                 self.parser.parseError()
 
         def endTagIgnore(self, token):
+            """
+            Perform the endTagIgnore utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTableBodyPhase.endTagIgnore through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("unexpected-end-tag-in-table-body", {"name": token["name"]})
 
         def endTagOther(self, token):
+            """
+            Perform the endTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InTableBodyPhase.endTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inTable"].processEndTag(token)
 
     class InRowPhase(Phase):
         # http://www.whatwg.org/specs/web-apps/current-work/#in-row
 
+        """
+        Provide the InRowPhase utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise getPhases.InRowPhase through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         def __init__(self, parser, tree):
+            """
+            Initialize and validate the InRowPhase state.
+
+            Example:
+                Exercise getPhases.InRowPhase.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param parser: Value supplied for parser under the utility contract.
+            :param tree: Value supplied for tree under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             Phase.__init__(self, parser, tree)
             self.startTagHandler = utils.MethodDispatcher(
                 [
@@ -2315,6 +5066,18 @@ def getPhases(debug):
 
         # helper methods (XXX unify this with other table helper methods)
         def clearStackToTableRowContext(self):
+            """
+            Perform the clearStackToTableRowContext utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InRowPhase.clearStackToTableRowContext through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             while self.tree.openElements[-1].name not in ("tr", "html"):
                 self.parser.parseError(
                     "unexpected-implied-end-tag-in-table-row",
@@ -2323,25 +5086,101 @@ def getPhases(debug):
                 self.tree.openElements.pop()
 
         def ignoreEndTagTr(self):
+            """
+            Perform the ignoreEndTagTr utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InRowPhase.ignoreEndTagTr through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return not self.tree.elementInScope("tr", variant="table")
 
         # the rest
         def processEOF(self):
+            """
+            Perform the processEOF utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InRowPhase.processEOF through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.phases["inTable"].processEOF()
 
         def processSpaceCharacters(self, token):
+            """
+            Perform the processSpaceCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InRowPhase.processSpaceCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inTable"].processSpaceCharacters(token)
 
         def processCharacters(self, token):
+            """
+            Perform the processCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InRowPhase.processCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inTable"].processCharacters(token)
 
         def startTagTableCell(self, token):
+            """
+            Perform the startTagTableCell utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InRowPhase.startTagTableCell through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.clearStackToTableRowContext()
             self.tree.insertElement(token)
             self.parser.phase = self.parser.phases["inCell"]
             self.tree.activeFormattingElements.append(Marker)
 
         def startTagTableOther(self, token):
+            """
+            Perform the startTagTableOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InRowPhase.startTagTableOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             ignoreEndTag = self.ignoreEndTagTr()
             self.endTagTr(self.impliedTagToken("tr"))
             # XXX how are we sure it's always ignored in the innerHTML case?
@@ -2349,9 +5188,35 @@ def getPhases(debug):
                 return token
 
         def startTagOther(self, token):
+            """
+            Perform the startTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InRowPhase.startTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inTable"].processStartTag(token)
 
         def endTagTr(self, token):
+            """
+            Perform the endTagTr utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InRowPhase.endTagTr through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if not self.ignoreEndTagTr():
                 self.clearStackToTableRowContext()
                 self.tree.openElements.pop()
@@ -2362,6 +5227,19 @@ def getPhases(debug):
                 self.parser.parseError()
 
         def endTagTable(self, token):
+            """
+            Perform the endTagTable utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InRowPhase.endTagTable through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             ignoreEndTag = self.ignoreEndTagTr()
             self.endTagTr(self.impliedTagToken("tr"))
             # Reprocess the current tag if the tr end tag was not ignored
@@ -2370,6 +5248,19 @@ def getPhases(debug):
                 return token
 
         def endTagTableRowGroup(self, token):
+            """
+            Perform the endTagTableRowGroup utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InRowPhase.endTagTableRowGroup through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if self.tree.elementInScope(token["name"], variant="table"):
                 self.endTagTr(self.impliedTagToken("tr"))
                 return token
@@ -2377,15 +5268,62 @@ def getPhases(debug):
                 self.parser.parseError()
 
         def endTagIgnore(self, token):
+            """
+            Perform the endTagIgnore utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InRowPhase.endTagIgnore through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("unexpected-end-tag-in-table-row", {"name": token["name"]})
 
         def endTagOther(self, token):
+            """
+            Perform the endTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InRowPhase.endTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inTable"].processEndTag(token)
 
     class InCellPhase(Phase):
         # http://www.whatwg.org/specs/web-apps/current-work/#in-cell
 
+        """
+        Provide the InCellPhase utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise getPhases.InCellPhase through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         def __init__(self, parser, tree):
+            """
+            Initialize and validate the InCellPhase state.
+
+            Example:
+                Exercise getPhases.InCellPhase.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param parser: Value supplied for parser under the utility contract.
+            :param tree: Value supplied for tree under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             Phase.__init__(self, parser, tree)
             self.startTagHandler = utils.MethodDispatcher(
                 [
@@ -2419,6 +5357,18 @@ def getPhases(debug):
 
         # helper
         def closeCell(self):
+            """
+            Perform the closeCell utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InCellPhase.closeCell through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self.tree.elementInScope("td", variant="table"):
                 self.endTagTableCell(self.impliedTagToken("td"))
             elif self.tree.elementInScope("th", variant="table"):
@@ -2426,12 +5376,50 @@ def getPhases(debug):
 
         # the rest
         def processEOF(self):
+            """
+            Perform the processEOF utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InCellPhase.processEOF through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.phases["inBody"].processEOF()
 
         def processCharacters(self, token):
+            """
+            Perform the processCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InCellPhase.processCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inBody"].processCharacters(token)
 
         def startTagTableOther(self, token):
+            """
+            Perform the startTagTableOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InCellPhase.startTagTableOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if self.tree.elementInScope("td", variant="table") or self.tree.elementInScope("th", variant="table"):
                 self.closeCell()
                 return token
@@ -2441,9 +5429,35 @@ def getPhases(debug):
                 self.parser.parseError()
 
         def startTagOther(self, token):
+            """
+            Perform the startTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InCellPhase.startTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inBody"].processStartTag(token)
 
         def endTagTableCell(self, token):
+            """
+            Perform the endTagTableCell utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InCellPhase.endTagTableCell through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self.tree.elementInScope(token["name"], variant="table"):
                 self.tree.generateImpliedEndTags(token["name"])
                 if self.tree.openElements[-1].name != token["name"]:
@@ -2460,9 +5474,35 @@ def getPhases(debug):
                 self.parser.parseError("unexpected-end-tag", {"name": token["name"]})
 
         def endTagIgnore(self, token):
+            """
+            Perform the endTagIgnore utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InCellPhase.endTagIgnore through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("unexpected-end-tag", {"name": token["name"]})
 
         def endTagImply(self, token):
+            """
+            Perform the endTagImply utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InCellPhase.endTagImply through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if self.tree.elementInScope(token["name"], variant="table"):
                 self.closeCell()
                 return token
@@ -2471,10 +5511,44 @@ def getPhases(debug):
                 self.parser.parseError()
 
         def endTagOther(self, token):
+            """
+            Perform the endTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InCellPhase.endTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inBody"].processEndTag(token)
 
     class InSelectPhase(Phase):
+        """
+        Provide the InSelectPhase utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise getPhases.InSelectPhase through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         def __init__(self, parser, tree):
+            """
+            Initialize and validate the InSelectPhase state.
+
+            Example:
+                Exercise getPhases.InSelectPhase.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param parser: Value supplied for parser under the utility contract.
+            :param tree: Value supplied for tree under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             Phase.__init__(self, parser, tree)
 
             self.startTagHandler = utils.MethodDispatcher(
@@ -2500,23 +5574,74 @@ def getPhases(debug):
 
         # http://www.whatwg.org/specs/web-apps/current-work/#in-select
         def processEOF(self):
+            """
+            Perform the processEOF utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InSelectPhase.processEOF through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self.tree.openElements[-1].name != "html":
                 self.parser.parseError("eof-in-select")
             else:
                 assert self.parser.innerHTML
 
         def processCharacters(self, token):
+            """
+            Perform the processCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InSelectPhase.processCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if token["data"] == "\u0000":
                 return
             self.tree.insertText(token["data"])
 
         def startTagOption(self, token):
             # We need to imply </option> if <option> is the current node.
+            """
+            Perform the startTagOption utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InSelectPhase.startTagOption through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self.tree.openElements[-1].name == "option":
                 self.tree.openElements.pop()
             self.tree.insertElement(token)
 
         def startTagOptgroup(self, token):
+            """
+            Perform the startTagOptgroup utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InSelectPhase.startTagOptgroup through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self.tree.openElements[-1].name == "option":
                 self.tree.openElements.pop()
             if self.tree.openElements[-1].name == "optgroup":
@@ -2524,10 +5649,36 @@ def getPhases(debug):
             self.tree.insertElement(token)
 
         def startTagSelect(self, token):
+            """
+            Perform the startTagSelect utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InSelectPhase.startTagSelect through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("unexpected-select-in-select")
             self.endTagSelect(self.impliedTagToken("select"))
 
         def startTagInput(self, token):
+            """
+            Perform the startTagInput utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InSelectPhase.startTagInput through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.parser.parseError("unexpected-input-in-select")
             if self.tree.elementInScope("select", variant="select"):
                 self.endTagSelect(self.impliedTagToken("select"))
@@ -2536,12 +5687,51 @@ def getPhases(debug):
                 assert self.parser.innerHTML
 
         def startTagScript(self, token):
+            """
+            Perform the startTagScript utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InSelectPhase.startTagScript through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inHead"].processStartTag(token)
 
         def startTagOther(self, token):
+            """
+            Perform the startTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InSelectPhase.startTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("unexpected-start-tag-in-select", {"name": token["name"]})
 
         def endTagOption(self, token):
+            """
+            Perform the endTagOption utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InSelectPhase.endTagOption through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self.tree.openElements[-1].name == "option":
                 self.tree.openElements.pop()
             else:
@@ -2549,6 +5739,19 @@ def getPhases(debug):
 
         def endTagOptgroup(self, token):
             # </optgroup> implicitly closes <option>
+            """
+            Perform the endTagOptgroup utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InSelectPhase.endTagOptgroup through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self.tree.openElements[-1].name == "option" and self.tree.openElements[-2].name == "optgroup":
                 self.tree.openElements.pop()
             # It also closes </optgroup>
@@ -2559,6 +5762,19 @@ def getPhases(debug):
                 self.parser.parseError("unexpected-end-tag-in-select", {"name": "optgroup"})
 
         def endTagSelect(self, token):
+            """
+            Perform the endTagSelect utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InSelectPhase.endTagSelect through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self.tree.elementInScope("select", variant="select"):
                 node = self.tree.openElements.pop()
                 while node.name != "select":
@@ -2570,10 +5786,44 @@ def getPhases(debug):
                 self.parser.parseError()
 
         def endTagOther(self, token):
+            """
+            Perform the endTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InSelectPhase.endTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("unexpected-end-tag-in-select", {"name": token["name"]})
 
     class InSelectInTablePhase(Phase):
+        """
+        Provide the InSelectInTablePhase utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise getPhases.InSelectInTablePhase through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         def __init__(self, parser, tree):
+            """
+            Initialize and validate the InSelectInTablePhase state.
+
+            Example:
+                Exercise getPhases.InSelectInTablePhase.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param parser: Value supplied for parser under the utility contract.
+            :param tree: Value supplied for tree under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             Phase.__init__(self, parser, tree)
 
             self.startTagHandler = utils.MethodDispatcher(
@@ -2615,12 +5865,50 @@ def getPhases(debug):
             self.endTagHandler.default = self.endTagOther
 
         def processEOF(self):
+            """
+            Perform the processEOF utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InSelectInTablePhase.processEOF through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.phases["inSelect"].processEOF()
 
         def processCharacters(self, token):
+            """
+            Perform the processCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InSelectInTablePhase.processCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inSelect"].processCharacters(token)
 
         def startTagTable(self, token):
+            """
+            Perform the startTagTable utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InSelectInTablePhase.startTagTable through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.parser.parseError(
                 "unexpected-table-element-start-tag-in-select-in-table",
                 {"name": token["name"]},
@@ -2629,9 +5917,35 @@ def getPhases(debug):
             return token
 
         def startTagOther(self, token):
+            """
+            Perform the startTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InSelectInTablePhase.startTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inSelect"].processStartTag(token)
 
         def endTagTable(self, token):
+            """
+            Perform the endTagTable utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InSelectInTablePhase.endTagTable through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.parser.parseError(
                 "unexpected-table-element-end-tag-in-select-in-table",
                 {"name": token["name"]},
@@ -2641,9 +5955,30 @@ def getPhases(debug):
                 return token
 
         def endTagOther(self, token):
+            """
+            Perform the endTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InSelectInTablePhase.endTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inSelect"].processEndTag(token)
 
     class InForeignContentPhase(Phase):
+        """
+        Provide the InForeignContentPhase utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise getPhases.InForeignContentPhase through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         breakoutElements = frozenset(
             [
                 "b",
@@ -2694,9 +6029,35 @@ def getPhases(debug):
         )
 
         def __init__(self, parser, tree):
+            """
+            Initialize and validate the InForeignContentPhase state.
+
+            Example:
+                Exercise getPhases.InForeignContentPhase.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param parser: Value supplied for parser under the utility contract.
+            :param tree: Value supplied for tree under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             Phase.__init__(self, parser, tree)
 
         def adjustSVGTagNames(self, token):
+            """
+            Perform the adjustSVGTagNames utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InForeignContentPhase.adjustSVGTagNames through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             replacements = {
                 "altglyph": "altGlyph",
                 "altglyphdef": "altGlyphDef",
@@ -2740,6 +6101,19 @@ def getPhases(debug):
                 token["name"] = replacements[token["name"]]
 
         def processCharacters(self, token):
+            """
+            Perform the processCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InForeignContentPhase.processCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if token["data"] == "\u0000":
                 token["data"] = "\uFFFD"
             elif self.parser.framesetOK and any(char not in spaceCharacters for char in token["data"]):
@@ -2747,6 +6121,19 @@ def getPhases(debug):
             Phase.processCharacters(self, token)
 
         def processStartTag(self, token):
+            """
+            Perform the processStartTag utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InForeignContentPhase.processStartTag through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             currentNode = self.tree.openElements[-1]
             if token["name"] in self.breakoutElements or (
                 token["name"] == "font" and set(token["data"].keys()) & set(["color", "face", "size"])
@@ -2777,6 +6164,19 @@ def getPhases(debug):
                     token["selfClosingAcknowledged"] = True
 
         def processEndTag(self, token):
+            """
+            Perform the processEndTag utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InForeignContentPhase.processEndTag through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             nodeIndex = len(self.tree.openElements) - 1
             node = self.tree.openElements[-1]
             if node.name != token["name"]:
@@ -2803,7 +6203,28 @@ def getPhases(debug):
             return new_token
 
     class AfterBodyPhase(Phase):
+        """
+        Provide the AfterBodyPhase utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise getPhases.AfterBodyPhase through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         def __init__(self, parser, tree):
+            """
+            Initialize and validate the AfterBodyPhase state.
+
+            Example:
+                Exercise getPhases.AfterBodyPhase.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param parser: Value supplied for parser under the utility contract.
+            :param tree: Value supplied for tree under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             Phase.__init__(self, parser, tree)
 
             self.startTagHandler = utils.MethodDispatcher([("html", self.startTagHtml)])
@@ -2814,33 +6235,123 @@ def getPhases(debug):
 
         def processEOF(self):
             # Stop parsing
+            """
+            Perform the processEOF utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterBodyPhase.processEOF through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             pass
 
         def processComment(self, token):
             # This is needed because data is to be appended to the <html> element
             # here and not to whatever is currently open.
+            """
+            Perform the processComment utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterBodyPhase.processComment through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.insertComment(token, self.tree.openElements[0])
 
         def processCharacters(self, token):
+            """
+            Perform the processCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterBodyPhase.processCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.parser.parseError("unexpected-char-after-body")
             self.parser.phase = self.parser.phases["inBody"]
             return token
 
         def startTagHtml(self, token):
+            """
+            Perform the startTagHtml utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterBodyPhase.startTagHtml through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inBody"].processStartTag(token)
 
         def startTagOther(self, token):
+            """
+            Perform the startTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterBodyPhase.startTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.parser.parseError("unexpected-start-tag-after-body", {"name": token["name"]})
             self.parser.phase = self.parser.phases["inBody"]
             return token
 
         def endTagHtml(self, name):
+            """
+            Perform the endTagHtml utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterBodyPhase.endTagHtml through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param name: Field, file, function or resource name addressed by the operation.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self.parser.innerHTML:
                 self.parser.parseError("unexpected-end-tag-after-body-innerhtml")
             else:
                 self.parser.phase = self.parser.phases["afterAfterBody"]
 
         def endTagOther(self, token):
+            """
+            Perform the endTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterBodyPhase.endTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.parser.parseError("unexpected-end-tag-after-body", {"name": token["name"]})
             self.parser.phase = self.parser.phases["inBody"]
             return token
@@ -2848,7 +6359,28 @@ def getPhases(debug):
     class InFramesetPhase(Phase):
         # http://www.whatwg.org/specs/web-apps/current-work/#in-frameset
 
+        """
+        Provide the InFramesetPhase utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise getPhases.InFramesetPhase through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         def __init__(self, parser, tree):
+            """
+            Initialize and validate the InFramesetPhase state.
+
+            Example:
+                Exercise getPhases.InFramesetPhase.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param parser: Value supplied for parser under the utility contract.
+            :param tree: Value supplied for tree under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             Phase.__init__(self, parser, tree)
 
             self.startTagHandler = utils.MethodDispatcher(
@@ -2865,28 +6397,118 @@ def getPhases(debug):
             self.endTagHandler.default = self.endTagOther
 
         def processEOF(self):
+            """
+            Perform the processEOF utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InFramesetPhase.processEOF through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self.tree.openElements[-1].name != "html":
                 self.parser.parseError("eof-in-frameset")
             else:
                 assert self.parser.innerHTML
 
         def processCharacters(self, token):
+            """
+            Perform the processCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InFramesetPhase.processCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("unexpected-char-in-frameset")
 
         def startTagFrameset(self, token):
+            """
+            Perform the startTagFrameset utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InFramesetPhase.startTagFrameset through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.insertElement(token)
 
         def startTagFrame(self, token):
+            """
+            Perform the startTagFrame utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InFramesetPhase.startTagFrame through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.insertElement(token)
             self.tree.openElements.pop()
 
         def startTagNoframes(self, token):
+            """
+            Perform the startTagNoframes utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InFramesetPhase.startTagNoframes through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inBody"].processStartTag(token)
 
         def startTagOther(self, token):
+            """
+            Perform the startTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InFramesetPhase.startTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("unexpected-start-tag-in-frameset", {"name": token["name"]})
 
         def endTagFrameset(self, token):
+            """
+            Perform the endTagFrameset utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InFramesetPhase.endTagFrameset through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self.tree.openElements[-1].name == "html":
                 # innerHTML case
                 self.parser.parseError("unexpected-frameset-in-frameset-innerhtml")
@@ -2898,12 +6520,46 @@ def getPhases(debug):
                 self.parser.phase = self.parser.phases["afterFrameset"]
 
         def endTagOther(self, token):
+            """
+            Perform the endTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.InFramesetPhase.endTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("unexpected-end-tag-in-frameset", {"name": token["name"]})
 
     class AfterFramesetPhase(Phase):
         # http://www.whatwg.org/specs/web-apps/current-work/#after3
 
+        """
+        Provide the AfterFramesetPhase utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise getPhases.AfterFramesetPhase through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         def __init__(self, parser, tree):
+            """
+            Initialize and validate the AfterFramesetPhase state.
+
+            Example:
+                Exercise getPhases.AfterFramesetPhase.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param parser: Value supplied for parser under the utility contract.
+            :param tree: Value supplied for tree under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             Phase.__init__(self, parser, tree)
 
             self.startTagHandler = utils.MethodDispatcher(
@@ -2916,59 +6572,268 @@ def getPhases(debug):
 
         def processEOF(self):
             # Stop parsing
+            """
+            Perform the processEOF utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterFramesetPhase.processEOF through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             pass
 
         def processCharacters(self, token):
+            """
+            Perform the processCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterFramesetPhase.processCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("unexpected-char-after-frameset")
 
         def startTagNoframes(self, token):
+            """
+            Perform the startTagNoframes utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterFramesetPhase.startTagNoframes through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inHead"].processStartTag(token)
 
         def startTagOther(self, token):
+            """
+            Perform the startTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterFramesetPhase.startTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("unexpected-start-tag-after-frameset", {"name": token["name"]})
 
         def endTagHtml(self, token):
+            """
+            Perform the endTagHtml utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterFramesetPhase.endTagHtml through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.phase = self.parser.phases["afterAfterFrameset"]
 
         def endTagOther(self, token):
+            """
+            Perform the endTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterFramesetPhase.endTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("unexpected-end-tag-after-frameset", {"name": token["name"]})
 
     class AfterAfterBodyPhase(Phase):
+        """
+        Provide the AfterAfterBodyPhase utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise getPhases.AfterAfterBodyPhase through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         def __init__(self, parser, tree):
+            """
+            Initialize and validate the AfterAfterBodyPhase state.
+
+            Example:
+                Exercise getPhases.AfterAfterBodyPhase.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param parser: Value supplied for parser under the utility contract.
+            :param tree: Value supplied for tree under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             Phase.__init__(self, parser, tree)
 
             self.startTagHandler = utils.MethodDispatcher([("html", self.startTagHtml)])
             self.startTagHandler.default = self.startTagOther
 
         def processEOF(self):
+            """
+            Perform the processEOF utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterAfterBodyPhase.processEOF through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             pass
 
         def processComment(self, token):
+            """
+            Perform the processComment utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterAfterBodyPhase.processComment through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.insertComment(token, self.tree.document)
 
         def processSpaceCharacters(self, token):
+            """
+            Perform the processSpaceCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterAfterBodyPhase.processSpaceCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inBody"].processSpaceCharacters(token)
 
         def processCharacters(self, token):
+            """
+            Perform the processCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterAfterBodyPhase.processCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.parser.parseError("expected-eof-but-got-char")
             self.parser.phase = self.parser.phases["inBody"]
             return token
 
         def startTagHtml(self, token):
+            """
+            Perform the startTagHtml utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterAfterBodyPhase.startTagHtml through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inBody"].processStartTag(token)
 
         def startTagOther(self, token):
+            """
+            Perform the startTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterAfterBodyPhase.startTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.parser.parseError("expected-eof-but-got-start-tag", {"name": token["name"]})
             self.parser.phase = self.parser.phases["inBody"]
             return token
 
         def processEndTag(self, token):
+            """
+            Perform the processEndTag utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterAfterBodyPhase.processEndTag through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.parser.parseError("expected-eof-but-got-end-tag", {"name": token["name"]})
             self.parser.phase = self.parser.phases["inBody"]
             return token
 
     class AfterAfterFramesetPhase(Phase):
+        """
+        Provide the AfterAfterFramesetPhase utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise getPhases.AfterAfterFramesetPhase through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         def __init__(self, parser, tree):
+            """
+            Initialize and validate the AfterAfterFramesetPhase state.
+
+            Example:
+                Exercise getPhases.AfterAfterFramesetPhase.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param parser: Value supplied for parser under the utility contract.
+            :param tree: Value supplied for tree under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             Phase.__init__(self, parser, tree)
 
             self.startTagHandler = utils.MethodDispatcher(
@@ -2977,27 +6842,130 @@ def getPhases(debug):
             self.startTagHandler.default = self.startTagOther
 
         def processEOF(self):
+            """
+            Perform the processEOF utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterAfterFramesetPhase.processEOF through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             pass
 
         def processComment(self, token):
+            """
+            Perform the processComment utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterAfterFramesetPhase.processComment through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.tree.insertComment(token, self.tree.document)
 
         def processSpaceCharacters(self, token):
+            """
+            Perform the processSpaceCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterAfterFramesetPhase.processSpaceCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inBody"].processSpaceCharacters(token)
 
         def processCharacters(self, token):
+            """
+            Perform the processCharacters utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterAfterFramesetPhase.processCharacters through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("expected-eof-but-got-char")
 
         def startTagHtml(self, token):
+            """
+            Perform the startTagHtml utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterAfterFramesetPhase.startTagHtml through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inBody"].processStartTag(token)
 
         def startTagNoFrames(self, token):
+            """
+            Perform the startTagNoFrames utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterAfterFramesetPhase.startTagNoFrames through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.parser.phases["inHead"].processStartTag(token)
 
         def startTagOther(self, token):
+            """
+            Perform the startTagOther utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterAfterFramesetPhase.startTagOther through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("expected-eof-but-got-start-tag", {"name": token["name"]})
 
         def processEndTag(self, token):
+            """
+            Perform the processEndTag utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getPhases.AfterAfterFramesetPhase.processEndTag through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param token: Value supplied for token under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.parser.parseError("expected-eof-but-got-end-tag", {"name": token["name"]})
 
     return {
@@ -3029,12 +6997,33 @@ def getPhases(debug):
 
 
 def adjust_attributes(token, replacements):
+    """
+    Perform the adjust attributes utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise adjust attributes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param token: Value supplied for token under the utility contract.
+    :param replacements: Value supplied for replacements under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if set(token["data"]) & set(replacements):
         token["data"] = OrderedDict((replacements.get(k, k), v) for k, v in token["data"].items())
 
 
 class ParseError(Exception):
 
-    """Error in parsed document"""
+    """
+    Error in parsed document
+
+    Example:
+        Exercise ParseError through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
 
     pass

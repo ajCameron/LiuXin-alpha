@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
 
+"""
+Convert SNB content into the normalized ebook conversion pipeline.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise snb input through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -22,6 +33,19 @@ HTML_TEMPLATE = (
 
 
 def html_encode(s: _typing.Any) -> _typing.Any:
+    """
+    Perform the html encode operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise html encode through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     s = "" if s is None else str(s)
     return (
         s.replace("&", "&amp;")
@@ -36,6 +60,14 @@ def html_encode(s: _typing.Any) -> _typing.Any:
 
 class SNBInput(InputFormatPlugin):
 
+    """
+    Convert snbinput sources into the normalized OEB pipeline model.
+
+    Example:
+        Exercise SNBInput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     name = "SNB Input"
     author = "Li Fanxi"
     description = "Convert SNB files to OEB"
@@ -44,6 +76,24 @@ class SNBInput(InputFormatPlugin):
     options = set()
 
     def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
+        """
+        Convert the supplied source into the stage's normalized output representation.
+
+        Example:
+            Exercise SNBInput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param options: Value supplied for options under the utility contract.
+        :param file_ext: Value supplied for file ext under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param accelerators: Value supplied for accelerators under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         import uuid
         from lxml import etree
 

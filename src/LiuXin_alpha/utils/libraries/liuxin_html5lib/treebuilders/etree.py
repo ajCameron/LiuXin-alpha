@@ -1,3 +1,14 @@
+"""
+Build or walk HTML5 trees using the configured ElementTree implementation.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise etree through a consuming regression::
+
+        python -m pytest -q tests/file_formats/html/test_html_modernized.py
+"""
 from __future__ import absolute_import, division, unicode_literals
 
 try:
@@ -17,11 +28,47 @@ tag_regexp = re.compile("{([^}]*)}(.*)")
 
 
 def getETreeBuilder(ElementTreeImplementation, fullTree=False):
+    """
+    Perform the getETreeBuilder utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise getETreeBuilder through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param ElementTreeImplementation: Value supplied for ElementTreeImplementation under
+        the utility contract.
+    :param fullTree: Value supplied for fullTree under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ElementTree = ElementTreeImplementation
     ElementTreeCommentType = ElementTree.Comment("asd").tag
 
     class Element(_base.Node):
+        """
+        Provide the Element utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise getETreeBuilder.Element through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         def __init__(self, name, namespace=None):
+            """
+            Initialize and validate the Element state.
+
+            Example:
+                Exercise getETreeBuilder.Element.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param name: Field, file, function or resource name addressed by the operation.
+            :param namespace: Value supplied for namespace under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             self._name = name
             self._namespace = namespace
             self._element = ElementTree.Element(self._getETreeTag(name, namespace))
@@ -34,6 +81,20 @@ def getETreeBuilder(ElementTreeImplementation, fullTree=False):
             self._flags = []
 
         def _getETreeTag(self, name, namespace):
+            """
+            Perform the getETreeTag utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getETreeBuilder.Element. getETreeTag through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param name: Field, file, function or resource name addressed by the operation.
+            :param namespace: Value supplied for namespace under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if namespace is None:
                 etree_tag = name
             else:
@@ -41,29 +102,104 @@ def getETreeBuilder(ElementTreeImplementation, fullTree=False):
             return etree_tag
 
         def _setName(self, name):
+            """
+            Perform the setName utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getETreeBuilder.Element. setName through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param name: Field, file, function or resource name addressed by the operation.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self._name = name
             self._element.tag = self._getETreeTag(self._name, self._namespace)
 
         def _getName(self):
+            """
+            Perform the getName utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getETreeBuilder.Element. getName through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self._name
 
         name = property(_getName, _setName)
 
         def _setNamespace(self, namespace):
+            """
+            Perform the setNamespace utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getETreeBuilder.Element. setNamespace through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param namespace: Value supplied for namespace under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self._namespace = namespace
             self._element.tag = self._getETreeTag(self._name, self._namespace)
 
         def _getNamespace(self):
+            """
+            Perform the getNamespace utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getETreeBuilder.Element. getNamespace through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self._namespace
 
         namespace = property(_getNamespace, _setNamespace)
 
         def _getAttributes(self):
+            """
+            Perform the getAttributes utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getETreeBuilder.Element. getAttributes through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self._element.attrib
 
         def _setAttributes(self, attributes):
             # Delete existing attributes first
             # XXX - there may be a better way to do this...
+            """
+            Perform the setAttributes utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getETreeBuilder.Element. setAttributes through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param attributes: Value supplied for attributes under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             for key in list(self._element.attrib.keys()):
                 del self._element.attrib[key]
             for key, value in attributes.items():
@@ -76,9 +212,34 @@ def getETreeBuilder(ElementTreeImplementation, fullTree=False):
         attributes = property(_getAttributes, _setAttributes)
 
         def _getChildNodes(self):
+            """
+            Perform the getChildNodes utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getETreeBuilder.Element. getChildNodes through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self._childNodes
 
         def _setChildNodes(self, value):
+            """
+            Perform the setChildNodes utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getETreeBuilder.Element. setChildNodes through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param value: Value normalized, stored, formatted or returned.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             del self._element[:]
             self._childNodes = []
             for element in value:
@@ -87,24 +248,89 @@ def getETreeBuilder(ElementTreeImplementation, fullTree=False):
         childNodes = property(_getChildNodes, _setChildNodes)
 
         def hasContent(self):
-            """Return true if the node has children or text"""
+            """
+            Return true if the node has children or text
+
+            Example:
+                Exercise getETreeBuilder.Element.hasContent through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return bool(self._element.text or len(self._element))
 
         def appendChild(self, node):
+            """
+            Perform the appendChild utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getETreeBuilder.Element.appendChild through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param node: Value supplied for node under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self._childNodes.append(node)
             self._element.append(node._element)
             node.parent = self
 
         def insertBefore(self, node, refNode):
+            """
+            Perform the insertBefore utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getETreeBuilder.Element.insertBefore through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param node: Value supplied for node under the utility contract.
+            :param refNode: Value supplied for refNode under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             index = list(self._element).index(refNode._element)
             self._element.insert(index, node._element)
             node.parent = self
 
         def removeChild(self, node):
+            """
+            Perform the removeChild utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getETreeBuilder.Element.removeChild through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param node: Value supplied for node under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self._element.remove(node._element)
             node.parent = None
 
         def insertText(self, data, insertBefore=None):
+            """
+            Perform the insertText utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getETreeBuilder.Element.insertText through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param data: Value supplied for data under the utility contract.
+            :param insertBefore: Value supplied for insertBefore under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if not (len(self._element)):
                 if not self._element.text:
                     self._element.text = ""
@@ -128,12 +354,37 @@ def getETreeBuilder(ElementTreeImplementation, fullTree=False):
                     self._element.text += data
 
         def cloneNode(self):
+            """
+            Perform the cloneNode utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getETreeBuilder.Element.cloneNode through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             element = type(self)(self.name, self.namespace)
             for name, value in self.attributes.items():
                 element.attributes[name] = value
             return element
 
         def reparentChildren(self, newParent):
+            """
+            Perform the reparentChildren utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getETreeBuilder.Element.reparentChildren through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param newParent: Value supplied for newParent under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if newParent.childNodes:
                 newParent.childNodes[-1]._element.tail += self._element.text
             else:
@@ -145,59 +396,241 @@ def getETreeBuilder(ElementTreeImplementation, fullTree=False):
             _base.Node.reparentChildren(self, newParent)
 
     class Comment(Element):
+        """
+        Provide the Comment utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise getETreeBuilder.Comment through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         def __init__(self, data):
             # Use the superclass constructor to set all properties on the
             # wrapper element
+            """
+            Initialize and validate the Comment state.
+
+            Example:
+                Exercise getETreeBuilder.Comment.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param data: Value supplied for data under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             self._element = ElementTree.Comment(data)
             self.parent = None
             self._childNodes = []
             self._flags = []
 
         def _getData(self):
+            """
+            Perform the getData utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getETreeBuilder.Comment. getData through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self._element.text
 
         def _setData(self, value):
+            """
+            Perform the setData utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getETreeBuilder.Comment. setData through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param value: Value normalized, stored, formatted or returned.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self._element.text = value
 
         data = property(_getData, _setData)
 
     class DocumentType(Element):
+        """
+        Provide the DocumentType utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise getETreeBuilder.DocumentType through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         def __init__(self, name, publicId, systemId):
+            """
+            Initialize and validate the DocumentType state.
+
+            Example:
+                Exercise getETreeBuilder.DocumentType.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param name: Field, file, function or resource name addressed by the operation.
+            :param publicId: Value supplied for publicId under the utility contract.
+            :param systemId: Value supplied for systemId under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             Element.__init__(self, "<!DOCTYPE>")
             self._element.text = name
             self.publicId = publicId
             self.systemId = systemId
 
         def _getPublicId(self):
+            """
+            Perform the getPublicId utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getETreeBuilder.DocumentType. getPublicId through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self._element.get("publicId", "")
 
         def _setPublicId(self, value):
+            """
+            Perform the setPublicId utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getETreeBuilder.DocumentType. setPublicId through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param value: Value normalized, stored, formatted or returned.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if value is not None:
                 self._element.set("publicId", value)
 
         publicId = property(_getPublicId, _setPublicId)
 
         def _getSystemId(self):
+            """
+            Perform the getSystemId utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getETreeBuilder.DocumentType. getSystemId through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self._element.get("systemId", "")
 
         def _setSystemId(self, value):
+            """
+            Perform the setSystemId utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getETreeBuilder.DocumentType. setSystemId through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param value: Value normalized, stored, formatted or returned.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if value is not None:
                 self._element.set("systemId", value)
 
         systemId = property(_getSystemId, _setSystemId)
 
     class Document(Element):
+        """
+        Provide the Document utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise getETreeBuilder.Document through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         def __init__(self):
+            """
+            Initialize and validate the Document state.
+
+            Example:
+                Exercise getETreeBuilder.Document.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; validated state is stored on the receiving object.
+            """
             Element.__init__(self, "DOCUMENT_ROOT")
 
     class DocumentFragment(Element):
+        """
+        Provide the DocumentFragment utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise getETreeBuilder.DocumentFragment through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         def __init__(self):
+            """
+            Initialize and validate the DocumentFragment state.
+
+            Example:
+                Exercise getETreeBuilder.DocumentFragment.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; validated state is stored on the receiving object.
+            """
             Element.__init__(self, "DOCUMENT_FRAGMENT")
 
     def testSerializer(element):
+        """
+        Perform the testSerializer utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise getETreeBuilder.testSerializer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param element: Value supplied for element under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         rv = []
 
         def serializeElement(element, indent=0):
+            """
+            Perform the serializeElement utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getETreeBuilder.testSerializer.serializeElement through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param element: Value supplied for element under the utility contract.
+            :param indent: Value supplied for indent under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if not (hasattr(element, "tag")):
                 element = element.getroot()
             if element.tag == "<!DOCTYPE>":
@@ -259,11 +692,36 @@ def getETreeBuilder(ElementTreeImplementation, fullTree=False):
         return "\n".join(rv)
 
     def tostring(element):
-        """Serialize an element and its child nodes to a string"""
+        """
+        Serialize an element and its child nodes to a string
+
+        Example:
+            Exercise getETreeBuilder.tostring through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param element: Value supplied for element under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         rv = []
         filter = ihatexml.InfosetFilter()
 
         def serializeElement(element):
+            """
+            Perform the serializeElement utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getETreeBuilder.tostring.serializeElement through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param element: Value supplied for element under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if isinstance(element, ElementTree.ElementTree):
                 element = element.getroot()
 
@@ -312,6 +770,14 @@ def getETreeBuilder(ElementTreeImplementation, fullTree=False):
         return "".join(rv)
 
     class TreeBuilder(_base.TreeBuilder):
+        """
+        Provide the TreeBuilder utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise getETreeBuilder.TreeBuilder through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+        """
         documentClass = Document
         doctypeClass = DocumentType
         elementClass = Element
@@ -320,9 +786,34 @@ def getETreeBuilder(ElementTreeImplementation, fullTree=False):
         implementation = ElementTreeImplementation
 
         def testSerializer(self, element):
+            """
+            Perform the testSerializer utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getETreeBuilder.TreeBuilder.testSerializer through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :param element: Value supplied for element under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return testSerializer(element)
 
         def getDocument(self):
+            """
+            Perform the getDocument utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getETreeBuilder.TreeBuilder.getDocument through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if fullTree:
                 return self.document._element
             else:
@@ -332,6 +823,18 @@ def getETreeBuilder(ElementTreeImplementation, fullTree=False):
                     return self.document._element.find("html")
 
         def getFragment(self):
+            """
+            Perform the getFragment utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise getETreeBuilder.TreeBuilder.getFragment through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return _base.TreeBuilder.getFragment(self)._element
 
     return locals()

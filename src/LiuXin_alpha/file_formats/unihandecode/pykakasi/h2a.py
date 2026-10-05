@@ -21,6 +21,17 @@
 # *
 # */
 
+"""
+Romanize Hiragana text for Japanese transliteration.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise h2a through a consuming regression::
+
+        python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -29,6 +40,14 @@ from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
 
 class H2a(object):
 
+    """
+    Provide the h2a contract for validated ebook processing.
+
+    Example:
+        Exercise H2a through a consuming regression::
+
+            python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+    """
     H2a_table = {
         "\u3041": "a",
         "\u3042": "a",
@@ -263,14 +282,54 @@ class H2a(object):
     _shared_state = {}
 
     def __new__(cls: type[_typing.Self], *p: _typing.Any, **k: _typing.Any) -> _typing.Any:
+        """
+        Perform the new operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise H2a.  new   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param p: Path-like value normalized or validated by the operation.
+        :param k: Value supplied for k under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self = object.__new__(cls, *p, **k)
         self.__dict__ = cls._shared_state
         return self
 
     def isHiragana(self: _typing.Self, char: _typing.Any) -> bool:
+        """
+        Perform the isHiragana operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise H2a.isHiragana through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param char: Value supplied for char under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return 0x3040 < ord(char) and ord(char) < 0x3094
 
     def convert(self: _typing.Self, text: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Convert the supplied source into the stage's normalized output representation.
+
+        Example:
+            Exercise H2a.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         Hstr = ""
         max_len = -1
         r = min(4, len(text) + 1)

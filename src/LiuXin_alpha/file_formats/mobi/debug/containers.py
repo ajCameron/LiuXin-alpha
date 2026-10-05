@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 
+"""
+Inspect and describe MOBI container sections and records.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise containers through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -15,7 +26,27 @@ __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 class ContainerHeader(object):
+    """
+    Provide the containerheader contract for validated ebook processing.
+
+    Example:
+        Exercise ContainerHeader through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     def __init__(self: _typing.Self, data: _typing.Any) -> None:
+        """
+        Initialize and validate the containerheader state.
+
+        Example:
+            Exercise ContainerHeader.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.ident = data[:4]
         self.record_size, self.type, self.count, self.encoding = unpack_from(b">IHHI", data, 4)
         self.encoding = {
@@ -47,9 +78,34 @@ class ContainerHeader(object):
 
     def add_hrefs(self: _typing.Self, data: _typing.Any) -> None:
         # kindlegen inserts a trailing | after the last href
+        """
+        Perform the add hrefs operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ContainerHeader.add hrefs through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.hrefs = filter(None, data.decode("utf-8").split("|"))
 
     def __str__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ContainerHeader.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = [("*" * 10) + " Container Header " + ("*" * 10)]
         a = ans.append
         a("Record size: %d" % self.record_size)

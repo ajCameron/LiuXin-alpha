@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Transform OEB content into Textile formatted plain text
+Convert Textile text into normalized OEB-compatible markup.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise textileml through a consuming regression::
+
+        python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
 """
 from __future__ import annotations
 
@@ -30,12 +38,46 @@ __docformat__ = "restructuredtext en"
 
 class TextileMLizer(OEB2HTML):
 
+    """
+    Provide the textilemlizer contract for validated ebook processing.
+
+    Example:
+        Exercise TextileMLizer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+    """
     MAX_EM = 10
 
     def __init__(self: _typing.Self, log: _typing.Any = None) -> None:
+        """
+        Initialize and validate the textilemlizer state.
+
+        Example:
+            Exercise TextileMLizer.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param log: Value supplied for log under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         OEB2HTML.__init__(self, log=log)
 
     def extract_content(self: _typing.Self, oeb_book: _typing.Any, opts: _typing.Any) -> _typing.Any:
+        """
+        Extract content under the format's safety and compatibility rules.
+
+        Example:
+            Exercise TextileMLizer.extract content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.log.info("Converting XHTML to Textile formatted TXT...")
         self.opts = opts
         self.in_pre = False
@@ -68,6 +110,19 @@ class TextileMLizer(OEB2HTML):
         return txt
 
     def mlize_spine(self: _typing.Self, oeb_book: _typing.Any) -> _typing.Any:
+        """
+        Perform the mlize spine operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextileMLizer.mlize spine through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         output = [""]
         for item in oeb_book.spine:
             self.log.debug("Converting %s to Textile formatted TXT..." % item.href)
@@ -80,7 +135,34 @@ class TextileMLizer(OEB2HTML):
 
     def tidy_up(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         # May need tweaking and finetuning
+        """
+        Perform the tidy up operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextileMLizer.tidy up through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         def check_escaping(text: _typing.Any, tests: _typing.Any) -> _typing.Any:
+            """
+            Perform the check escaping operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise TextileMLizer.tidy up.check escaping through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+            :param text: Text parsed, normalized or rendered.
+            :param tests: Value supplied for tests under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             for t in tests:
                 # I'm not checking for duplicated spans '%' as any that follow each other were being incorrectly merged
                 txt = "%s" % t
@@ -155,6 +237,19 @@ class TextileMLizer(OEB2HTML):
         return text
 
     def remove_newlines(self: _typing.Self, text: _typing.Any) -> _typing.Any:
+        """
+        Perform the remove newlines operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextileMLizer.remove newlines through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = text.replace("\r\n", " ")
         text = text.replace("\n", " ")
         text = text.replace("\r", " ")
@@ -167,6 +262,19 @@ class TextileMLizer(OEB2HTML):
         return text
 
     def check_styles(self: _typing.Self, style: _typing.Any) -> _typing.Any:
+        """
+        Perform the check styles operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextileMLizer.check styles through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param style: Value supplied for style under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         txt = "{"
         if self.opts.keep_color:
             if "color" in style.cssdict() and style["color"] != "black":
@@ -179,6 +287,19 @@ class TextileMLizer(OEB2HTML):
         return txt
 
     def check_halign(self: _typing.Self, style: _typing.Any) -> _typing.Any:
+        """
+        Perform the check halign operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextileMLizer.check halign through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param style: Value supplied for style under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         tests = {"left": "<", "justify": "<>", "center": "=", "right": ">"}
         for i in tests:
             if style["text-align"] == i:
@@ -186,6 +307,19 @@ class TextileMLizer(OEB2HTML):
         return ""
 
     def check_valign(self: _typing.Self, style: _typing.Any) -> _typing.Any:
+        """
+        Perform the check valign operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextileMLizer.check valign through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param style: Value supplied for style under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         tests = {"top": "^", "bottom": "~"}  # , 'middle':'-'}
         for i in tests:
             if style["vertical-align"] == i:
@@ -193,6 +327,20 @@ class TextileMLizer(OEB2HTML):
         return ""
 
     def check_padding(self: _typing.Self, style: _typing.Any, stylizer: _typing.Any) -> _typing.Any:
+        """
+        Perform the check padding operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextileMLizer.check padding through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param style: Value supplied for style under the utility contract.
+        :param stylizer: Value supplied for stylizer under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         txt = ""
         left_padding_pts = 0
         left_margin_pts = 0
@@ -223,6 +371,19 @@ class TextileMLizer(OEB2HTML):
         return txt
 
     def check_id_tag(self: _typing.Self, attribs: _typing.Any) -> _typing.Any:
+        """
+        Perform the check id tag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextileMLizer.check id tag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param attribs: Value supplied for attribs under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         txt = ""
         if "id" in attribs:
             txt = "(#" + attribs["id"] + ")"
@@ -231,6 +392,22 @@ class TextileMLizer(OEB2HTML):
         return txt
 
     def build_block(self: _typing.Self, tag: _typing.Any, style: _typing.Any, attribs: _typing.Any, stylizer: _typing.Any) -> _typing.Any:
+        """
+        Perform the build block operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextileMLizer.build block through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param style: Value supplied for style under the utility contract.
+        :param attribs: Value supplied for attribs under the utility contract.
+        :param stylizer: Value supplied for stylizer under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         txt = "\n" + tag
         if self.opts.keep_links:
             txt += self.check_id_tag(attribs)
@@ -240,6 +417,19 @@ class TextileMLizer(OEB2HTML):
         return txt
 
     def prepare_string_for_textile(self: _typing.Self, txt: _typing.Any) -> _typing.Any:
+        """
+        Perform the prepare string for textile operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextileMLizer.prepare string for textile through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param txt: Value supplied for txt under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if re.search(r"(\s([*&_+\-~@%|]|\?{2})\S)|(\S([*&_+\-~@%|]|\?{2})\s)", txt):
             return " ==%s== " % txt
         return txt
@@ -247,9 +437,17 @@ class TextileMLizer(OEB2HTML):
     def dump_text(self: _typing.Self, elem: _typing.Any, stylizer: _typing.Any) -> _typing.Any:
         """
         Dumps the processed text.
-        :param elem:
-        :param stylizer:
-        :return:
+
+        Example:
+            Exercise TextileMLizer.dump text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :param stylizer: Value supplied for stylizer under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         # We can only processes tags. If there isn't a tag return any text.

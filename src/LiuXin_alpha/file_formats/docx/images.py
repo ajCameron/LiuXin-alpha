@@ -1,6 +1,17 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
 
+"""
+Resolve DOCX image relationships, dimensions, cropping and output resources.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise images through a consuming regression::
+
+        python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -30,20 +41,81 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 class LinkedImageNotFound(ValueError):
+    """
+    Provide the linkedimagenotfound contract for validated ebook processing.
+
+    Example:
+        Exercise LinkedImageNotFound through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     def __init__(self: _typing.Self, fname: _typing.Any) -> None:
+        """
+        Initialize and validate the linkedimagenotfound state.
+
+        Example:
+            Exercise LinkedImageNotFound.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param fname: Value supplied for fname under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         ValueError.__init__(self, fname)
         self.fname = fname
 
 
 def emu_to_pt(x: _typing.Any) -> _typing.Any:
+    """
+    Perform the emu to pt operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise emu to pt through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return x / 12700
 
 
 def pt_to_emu(x: _typing.Any) -> _typing.Any:
+    """
+    Perform the pt to emu operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise pt to emu through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return int(x * 12700)
 
 
 def get_image_properties(parent: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Return image properties under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get image properties through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :param get: Value supplied for get under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     width = height = None
     for extent in XPath("./wp:extent")(parent):
         try:
@@ -72,6 +144,19 @@ def get_image_properties(parent: _typing.Any, XPath: _typing.Any, get: _typing.A
 
 
 def get_image_margins(elem: _typing.Any) -> _typing.Any:
+    """
+    Return image margins under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get image margins through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param elem: Value supplied for elem under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ans = {}
     for w, css in iteritems({"L": "left", "T": "top", "R": "right", "B": "bottom"}):
         val = elem.get("dist%s" % w, None)
@@ -85,6 +170,22 @@ def get_image_margins(elem: _typing.Any) -> _typing.Any:
 
 
 def get_hpos(anchor: _typing.Any, page_width: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> _typing.Any:
+    """
+    Return hpos under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get hpos through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param anchor: Value supplied for anchor under the utility contract.
+    :param page_width: Value supplied for page width under the utility contract.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :param get: Value supplied for get under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     for ph in XPath("./wp:positionH")(anchor):
         rp = ph.get("relativeFrom", None)
         if rp == "leftMargin":
@@ -117,7 +218,28 @@ def get_hpos(anchor: _typing.Any, page_width: _typing.Any, XPath: _typing.Any, g
 
 
 class Images(object):
+    """
+    Provide the images contract for validated ebook processing.
+
+    Example:
+        Exercise Images through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     def __init__(self: _typing.Self, namespace: _typing.Any, log: _typing.Any) -> None:
+        """
+        Initialize and validate the images state.
+
+        Example:
+            Exercise Images.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param namespace: Value supplied for namespace under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.namespace = namespace
         self.rid_map = {}
         self.used = {}
@@ -128,9 +250,37 @@ class Images(object):
         self.log = log
 
     def __call__(self: _typing.Self, relationships_by_id: _typing.Any) -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Images.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param relationships_by_id: Value supplied for relationships by id under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.rid_map = relationships_by_id
 
     def read_image_data(self: _typing.Self, fname: _typing.Any, base: _typing.Any = None) -> tuple[_typing.Any, ...]:
+        """
+        Read image data under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Images.read image data through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param fname: Value supplied for fname under the utility contract.
+        :param base: Value supplied for base under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if fname.startswith("file://"):
             src = fname[len("file://") :]
             if iswindows and src and src[0] == "/":
@@ -163,6 +313,19 @@ class Images(object):
         return raw, base
 
     def unique_name(self: _typing.Self, base: _typing.Any) -> _typing.Any:
+        """
+        Perform the unique name operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Images.unique name through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param base: Value supplied for base under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         exists = frozenset(itervalues(self.used))
         c = 1
         name = base
@@ -173,6 +336,22 @@ class Images(object):
         return name
 
     def resize_image(self: _typing.Self, raw: _typing.Any, base: _typing.Any, max_width: _typing.Any, max_height: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the resize image operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Images.resize image through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :param base: Value supplied for base under the utility contract.
+        :param max_width: Value supplied for max width under the utility contract.
+        :param max_height: Value supplied for max height under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         resized, img = resize_to_fit(raw, max_width, max_height)
         if resized:
             base, ext = os.path.splitext(base)
@@ -181,6 +360,23 @@ class Images(object):
         return raw, base, resized
 
     def generate_filename(self: _typing.Self, rid: _typing.Any, base: _typing.Any = None, rid_map: _typing.Any = None, max_width: _typing.Any = None, max_height: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the generate filename operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Images.generate filename through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param rid: Value supplied for rid under the utility contract.
+        :param base: Value supplied for base under the utility contract.
+        :param rid_map: Value supplied for rid map under the utility contract.
+        :param max_width: Value supplied for max width under the utility contract.
+        :param max_height: Value supplied for max height under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         rid_map = self.rid_map if rid_map is None else rid_map
         fname = rid_map[rid]
         key = (fname, max_width, max_height)
@@ -204,6 +400,21 @@ class Images(object):
         return name
 
     def pic_to_img(self: _typing.Self, pic: _typing.Any, alt: _typing.Any, parent: _typing.Any) -> _typing.Any:
+        """
+        Perform the pic to img operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Images.pic to img through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param pic: Value supplied for pic under the utility contract.
+        :param alt: Value supplied for alt under the utility contract.
+        :param parent: Value supplied for parent under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         xpath, get = self.namespace.XPath, self.namespace.get
         link = None
         for hl in xpath("descendant::a:hlinkClick[@r:id]")(parent):
@@ -237,6 +448,19 @@ class Images(object):
                     return img
 
     def drawing_to_html(self: _typing.Self, drawing: _typing.Any, page: _typing.Any) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the drawing to html operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Images.drawing to html through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param drawing: Value supplied for drawing under the utility contract.
+        :param page: Value supplied for page under the utility contract.
+        :return: An iterator yielding the normalized values described above.
+        """
         xpath, get = self.namespace.XPath, self.namespace.get
         # First process the inline pictures
         for inline in xpath("./wp:inline")(drawing):
@@ -266,6 +490,19 @@ class Images(object):
                     yield ans
 
     def pict_to_html(self: _typing.Self, pict: _typing.Any, page: _typing.Any) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the pict to html operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Images.pict to html through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param pict: Value supplied for pict under the utility contract.
+        :param page: Value supplied for page under the utility contract.
+        :return: An iterator yielding the normalized values described above.
+        """
         xpath, get = self.namespace.XPath, self.namespace.get
         # First see if we have an <hr>
         is_hr = len(pict) == 1 and get(pict[0], "o:hr") in {"t", "true"}
@@ -301,6 +538,21 @@ class Images(object):
                 yield img
 
     def get_float_properties(self: _typing.Self, anchor: _typing.Any, style: _typing.Any, page: _typing.Any) -> None:
+        """
+        Return float properties under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Images.get float properties through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param anchor: Value supplied for anchor under the utility contract.
+        :param style: Value supplied for style under the utility contract.
+        :param page: Value supplied for page under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         xpath, get = self.namespace.XPath, self.namespace.get
         if "display" not in style:
             style["display"] = "block"
@@ -346,6 +598,21 @@ class Images(object):
         style.update(padding)
 
     def to_html(self: _typing.Self, elem: _typing.Any, page: _typing.Any, docx: _typing.Any, dest_dir: _typing.Any) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the to html operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Images.to html through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :param page: Value supplied for page under the utility contract.
+        :param docx: Value supplied for docx under the utility contract.
+        :param dest_dir: Value supplied for dest dir under the utility contract.
+        :return: An iterator yielding the normalized values described above.
+        """
         dest = os.path.join(dest_dir, "images")
         if not os.path.exists(dest):
             os.mkdir(dest)

@@ -5,6 +5,17 @@
 # LiuXin style persistent temporary files. By default all create in the scratch folder.
 # Some sorta locking database will have to be implemented
 
+"""
+Manage temporary files and scratch folders with explicit ownership and cleanup.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise ptempfiles through a consuming regression::
+
+        python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+"""
 from __future__ import print_function
 
 # Todo: Tidy up and do some re-writing
@@ -42,24 +53,98 @@ _base_dir = LiuXin_scratch_folder
 
 
 def get_base_scratch_folders():
+    """
+    Return base scratch folders under the documented compatibility and safety rules.
+
+    Example:
+        Exercise get base scratch folders through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return globals()["LiuXin_scratch_folder"]
 
 
 def set_base_scratch_folders(new_scratch_folder):
+    """
+    Set base scratch folders under the documented compatibility and safety rules.
+
+    Example:
+        Exercise set base scratch folders through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+    :param new_scratch_folder: Value supplied for new scratch folder under the utility
+        contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     globals()["LiuXin_scratch_folder"] = new_scratch_folder
 
 
 class SwitchOutScratchFolder(object):
+    """
+    Own the SwitchOutScratchFolder resource and clean it according to the selected lifetime policy.
+
+    Example:
+        Exercise SwitchOutScratchFolder through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+    """
     def __init__(self, new_scratch_folder):
+        """
+        Initialize and validate the SwitchOutScratchFolder state.
+
+        Example:
+            Exercise SwitchOutScratchFolder.  init   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param new_scratch_folder: Value supplied for new scratch folder under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.old_scratch_folder = None
         self.new_scratch_folder = new_scratch_folder
 
     def __enter__(self):
+        """
+        Implement the resource's enter lifecycle operation.
+
+        Example:
+            Exercise SwitchOutScratchFolder.  enter   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.old_scratch_folder = globals()["LiuXin_scratch_folder"]
         globals()["LiuXin_scratch_folder"] = self.new_scratch_folder
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Implement the resource's exit lifecycle operation.
+
+        Example:
+            Exercise SwitchOutScratchFolder.  exit   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param exc_type: Value supplied for exc type under the utility contract.
+        :param exc_val: Value supplied for exc val under the utility contract.
+        :param exc_tb: Value supplied for exc tb under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         assert exc_type is None
         globals()["LiuXin_scratch_folder"] = self.old_scratch_folder
 
@@ -118,6 +203,18 @@ _osx_cache_dir = None
 
 
 def osx_cache_dir():
+    """
+    Perform the osx cache dir utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise osx cache dir through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     global _osx_cache_dir
     if _osx_cache_dir:
         return _osx_cache_dir
@@ -139,18 +236,58 @@ def osx_cache_dir():
 
 
 def reset_base_dir(override_folder=None):
+    """
+    Perform the reset base dir utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise reset base dir through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+    :param override_folder: Value supplied for override folder under the utility
+        contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     global _base_dir
     _base_dir = override_folder
     base_dir()
 
 
 def app_prefix(prefix):
+    """
+    Perform the app prefix utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise app prefix through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+    :param prefix: Text prepended to the formatted or selected result.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if iswindows:
         return "%s_" % __appname__
     return "%s_%s_%s" % (__appname__, __version__, prefix)
 
 
 def determined_remove_dir(x):
+    """
+    Perform the determined remove dir utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise determined remove dir through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for i in range(10):
         try:
             import shutil
@@ -177,8 +314,16 @@ def determined_remove_dir(x):
 
 def scrub_LX_scratch_folder():
     """
-    Deletes all the files currently in the scratch folder ready for continued use.
-    Only use this command if you're sure that no other process could be using this target destination.
+    Deletes all the files currently in the scratch folder ready for continued use. Only use this command if you're sure that no other process could be using this target destination.
+
+    Example:
+        Exercise scrub LX scratch folder through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     shutil.rmtree(LiuXin_scratch_folder, ignore_errors=True)
     create_scratch_folder()
@@ -186,10 +331,18 @@ def scrub_LX_scratch_folder():
 
 def get_scratch_folder(filename=None, delete_at_exit=False):
     """
-    Returns a folder in the default LiuXin_scratch folder (in a parallel dir to the LiuXin install called
-    LiuXin_scratch).
-    :param filename: Filename to be appended to the unique identifier generated for the scratch folder.
-    :return:
+    Returns a folder in the default LiuXin_scratch folder (in a parallel dir to the LiuXin install called LiuXin_scratch).
+
+    Example:
+        Exercise get scratch folder through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+    :param filename: Filename used for type inference or archive output.
+    :param delete_at_exit: Value supplied for delete at exit under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     target_path = get_scratch_folder_path(filename)
     os.mkdir(target_path)
@@ -207,9 +360,17 @@ def get_scratch_folder(filename=None, delete_at_exit=False):
 def get_scratch_folder_path(filename=None, in_folder=None):
     """
     Gets a valid name for a scratch folder in the LiuXin_scratch_folder.
-    :param filename: If present will be appended to the unique identifier to form the full name for the scratch folder.
-    :param in_folder:
-    :return:
+
+    Example:
+        Exercise get scratch folder path through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+    :param filename: Filename used for type inference or archive output.
+    :param in_folder: Value supplied for in folder under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     filename = deepcopy(filename)
     if filename is None:
@@ -228,8 +389,16 @@ def get_scratch_folder_path(filename=None, in_folder=None):
 def derez_scratch_folder(folder_path):
     """
     Scrubs a scratch folder from LiuXin_scratch.
-    :param folder_path: A folder path to remove
-    :return bool:
+
+    Example:
+        Exercise derez scratch folder through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+    :param folder_path: Value supplied for folder path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     folder_path = deepcopy(folder_path)
 
@@ -249,12 +418,37 @@ def derez_scratch_folder(folder_path):
 def force_unicode(x):
     # Cannot use the implementation in calibre.__init__ as it causes a circular
     # dependency
+    """
+    Perform the force unicode utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise force unicode through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(x, bytes):
         x = x.decode(filesystem_encoding)
     return x
 
 
 def base_dir():
+    """
+    Perform the base dir utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise base dir through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     global _base_dir
     if _base_dir is None:
         _base_dir = LiuXin_scratch_folder
@@ -267,17 +461,61 @@ def base_dir():
 
 
 def _make_file(suffix, prefix, base):
+    """
+    Perform the make file utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  make file through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+    :param suffix: Text appended to the formatted or selected result.
+    :param prefix: Text prepended to the formatted or selected result.
+    :param base: Value supplied for base under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     suffix, prefix = map(force_unicode, (suffix, prefix))
     fd, name = tempfile.mkstemp(suffix, prefix, dir=base)
     return fd, name
 
 
 def _make_dir(suffix, prefix, base):
+    """
+    Perform the make dir utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  make dir through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+    :param suffix: Text appended to the formatted or selected result.
+    :param prefix: Text prepended to the formatted or selected result.
+    :param base: Value supplied for base under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     suffix, prefix = map(force_unicode, (suffix, prefix))
     return tempfile.mkdtemp(suffix, prefix, base)
 
 
 def cleanup(path):
+    """
+    Perform the cleanup utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise cleanup through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     try:
         import os as oss
 
@@ -322,10 +560,18 @@ def cleanup(path):
 def make_path(suffix, prefix, base):
     """
     Constructs a valid name for a temporary file.
-    :param suffix:
-    :param prefix:
-    :param base:
-    :return:
+
+    Example:
+        Exercise make path through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+    :param suffix: Text appended to the formatted or selected result.
+    :param prefix: Text prepended to the formatted or selected result.
+    :param base: Value supplied for base under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     suffix, prefix = map(force_unicode, (suffix, prefix))
     unique_id = get_unique_id()
@@ -336,17 +582,54 @@ def make_path(suffix, prefix, base):
 class ScratchFolder(object):
     """
     Creates a ScratchFolder - a folder in LiuXin_scratch.
+
+    Example:
+        Exercise ScratchFolder through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
     """
 
     def __init__(self):
+        """
+        Initialize and validate the ScratchFolder state.
+
+        Example:
+            Exercise ScratchFolder.  init   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.path = None
 
     def manual_create(self):
+        """
+        Perform the manual create utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ScratchFolder.manual create through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.path = get_scratch_folder()
 
     def __enter__(self):
         """
         Creates a scratch folder - stores the path.
+
+        Example:
+            Exercise ScratchFolder.  enter   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self.path = get_scratch_folder()
         return self
@@ -354,13 +637,33 @@ class ScratchFolder(object):
     def __exit__(self, *args):
         """
         Cleans up the file - removing the created temporary folder
-        :param args:
-        :return:
+
+        Example:
+            Exercise ScratchFolder.  exit   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         derez_scratch_folder(self.path)
         self.path = None
 
     def __del__(self):
+        """
+        Perform the del utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ScratchFolder.  del   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         try:
             derez_scratch_folder(self.path)
         except:
@@ -374,17 +677,40 @@ scratchfolder = ScratchFolder()
 class ScratchCWDFolder(object):
     """
     Creates a scratch folder - changes the current working dictionary to that folder - changes it back on exit.
+
+    Example:
+        Exercise ScratchCWDFolder through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
     """
 
     def __init__(self):
+        """
+        Initialize and validate the ScratchCWDFolder state.
+
+        Example:
+            Exercise ScratchCWDFolder.  init   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.path = None
         self.original_cwd = None
 
     def __enter__(self):
         """
-        Creates the scratch folder. Stores the path.
-        Stores the original cwd - changes into the folder.
-        :return:
+        Creates the scratch folder. Stores the path. Stores the original cwd - changes into the folder.
+
+        Example:
+            Exercise ScratchCWDFolder.  enter   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self.path = get_scratch_folder()
         self.original_cwd = os.getcwd()
@@ -394,8 +720,16 @@ class ScratchCWDFolder(object):
     def __exit__(self, *args):
         """
         Change back to the main directory - then delete the temporary files.
-        :param args:
-        :return:
+
+        Example:
+            Exercise ScratchCWDFolder.  exit   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         os.chdir(self.original_cwd)
         derez_scratch_folder(self.path)
@@ -408,12 +742,25 @@ scratch_cwd_folder = ScratchCWDFolder()
 class ScratchFileCopy(object):
     """
     Creates a scratch copy of a file in a scratch folder.
+
+    Example:
+        Exercise ScratchFileCopy through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
     """
 
     def __init__(self, file_path):
         """
         Makes a scratch copy of the file at the given location.
-        :param file_path:
+
+        Example:
+            Exercise ScratchFileCopy.  init   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param file_path: Value supplied for file path under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.src_file_path = file_path
         self.file_path = None
@@ -421,7 +768,15 @@ class ScratchFileCopy(object):
     def __enter__(self):
         """
         Copy the file into position.
-        :return:
+
+        Example:
+            Exercise ScratchFileCopy.  enter   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self.src_file_name = os.path.split(self.src_file_path)[1]
         self.src_file_ext = os.path.splitext(self.src_file_path)[1]
@@ -439,6 +794,19 @@ class ScratchFileCopy(object):
         return self
 
     def __exit__(self, *args):
+        """
+        Implement the resource's exit lifecycle operation.
+
+        Example:
+            Exercise ScratchFileCopy.  exit   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         try:
             derez_scratch_folder(self.dst_folder_path)
         except os.WindowsError:
@@ -446,7 +814,30 @@ class ScratchFileCopy(object):
 
 
 class TemporaryFile(object):
+    """
+    Own the TemporaryFile resource and clean it according to the selected lifetime policy.
+
+    Example:
+        Exercise TemporaryFile through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+    """
     def __init__(self, suffix="", prefix="", dir=None, mode="w+b"):
+        """
+        Initialize and validate the TemporaryFile state.
+
+        Example:
+            Exercise TemporaryFile.  init   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param suffix: Text appended to the formatted or selected result.
+        :param prefix: Text prepended to the formatted or selected result.
+        :param dir: Value supplied for dir under the utility contract.
+        :param mode: Open or adapter mode controlling read/write behavior.
+        :return: None; validated state is stored on the receiving object.
+        """
         if prefix is None:
             prefix = ""
         if suffix is None:
@@ -457,6 +848,18 @@ class TemporaryFile(object):
         self._file = None
 
     def __enter__(self):
+        """
+        Implement the resource's enter lifecycle operation.
+
+        Example:
+            Exercise TemporaryFile.  enter   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         fd, name = _make_file(self.suffix, self.prefix, self.dir)
         self._file = os.fdopen(fd, self.mode)
         self._name = name
@@ -464,18 +867,50 @@ class TemporaryFile(object):
         return name
 
     def __exit__(self, *args):
+        """
+        Implement the resource's exit lifecycle operation.
+
+        Example:
+            Exercise TemporaryFile.  exit   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         cleanup(self._name)
 
 
 class PersistentTemporaryFile(object):
     """
-    A file-like object that is a temporary file that is available even after being closed on all platforms.
-    It is automatically deleted on normal program termination.
+    A file-like object that is a temporary file that is available even after being closed on all platforms. It is automatically deleted on normal program termination.
+
+    Example:
+        Exercise PersistentTemporaryFile through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
     """
 
     _file = None
 
     def __init__(self, suffix="", prefix="", dir=None, mode="w+b"):
+        """
+        Initialize and validate the PersistentTemporaryFile state.
+
+        Example:
+            Exercise PersistentTemporaryFile.  init   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param suffix: Text appended to the formatted or selected result.
+        :param prefix: Text prepended to the formatted or selected result.
+        :param dir: Value supplied for dir under the utility contract.
+        :param mode: Open or adapter mode controlling read/write behavior.
+        :return: None; validated state is stored on the receiving object.
+        """
         if prefix is None:
             prefix = ""
         if dir is None:
@@ -488,17 +923,67 @@ class PersistentTemporaryFile(object):
         # atexit.register(cleanup, name)
 
     def __getattr__(self, name):
+        """
+        Perform the getattr utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise PersistentTemporaryFile.  getattr   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if name == "name":
             return self.__dict__["_name"]
         return getattr(self.__dict__["_file"], name)
 
     def __enter__(self):
+        """
+        Implement the resource's enter lifecycle operation.
+
+        Example:
+            Exercise PersistentTemporaryFile.  enter   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self
 
     def __exit__(self, *args):
+        """
+        Implement the resource's exit lifecycle operation.
+
+        Example:
+            Exercise PersistentTemporaryFile.  exit   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.close()
 
     def __del__(self):
+        """
+        Perform the del utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise PersistentTemporaryFile.  del   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         try:
             self.close()
         except:
@@ -507,19 +992,30 @@ class PersistentTemporaryFile(object):
 
 class TemporaryDirectory(object):
     """
-    A temporary directory intended to be used in a with statement.
-    Creates a temporary dictionary in the LiuXin_scratch folder.
-    Then cleans it up in the exit phase.
+    A temporary directory intended to be used in a with statement. Creates a temporary dictionary in the LiuXin_scratch folder. Then cleans it up in the exit phase.
+
+    Example:
+        Exercise TemporaryDirectory through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
     """
 
     def __init__(self, suffix="", prefix="", dir=None, mode="w+b", keep=False):
         """
         Starts up the temporary directory.
-        :param suffix:
-        :param prefix:
-        :param dir:
-        :param mode:
-        :param keep:
+
+        Example:
+            Exercise TemporaryDirectory.  init   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param suffix: Text appended to the formatted or selected result.
+        :param prefix: Text prepended to the formatted or selected result.
+        :param dir: Value supplied for dir under the utility contract.
+        :param mode: Open or adapter mode controlling read/write behavior.
+        :param keep: Value supplied for keep under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         # Ensures that an exception won;t be thrown by ensuring the naming is sane.
         if prefix is None:
@@ -535,7 +1031,15 @@ class TemporaryDirectory(object):
     def __enter__(self):
         """
         Entry point for the with statement. Returns the path to the temporary folder.
-        :return temp_folder_path:
+
+        Example:
+            Exercise TemporaryDirectory.  enter   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self.path = make_path(self.suffix, self.prefix, self.dir)
 
@@ -543,6 +1047,19 @@ class TemporaryDirectory(object):
         return self.path
 
     def __exit__(self, *args):
+        """
+        Implement the resource's exit lifecycle operation.
+
+        Example:
+            Exercise TemporaryDirectory.  exit   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         try:
             if not self.keep:
                 shutil.rmtree(self.path)
@@ -553,6 +1070,19 @@ class TemporaryDirectory(object):
 
 
 def remove_dir(x):
+    """
+    Remove dir under the documented compatibility and safety rules.
+
+    Example:
+        Exercise remove dir through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     try:
         import shutil
 
@@ -564,10 +1094,18 @@ def remove_dir(x):
 def PersistentTemporaryDirectory(suffix="", prefix="", dir=None):
     """
     Return the path to a newly created temporary directory that will be automatically deleted on application exit.
-    :param suffix:
-    :param prefix:
-    :param dir:
-    :return:
+
+    Example:
+        Exercise PersistentTemporaryDirectory through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+    :param suffix: Text appended to the formatted or selected result.
+    :param prefix: Text prepended to the formatted or selected result.
+    :param dir: Value supplied for dir under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if dir is None:
         dir = base_dir()
@@ -580,9 +1118,31 @@ def PersistentTemporaryDirectory(suffix="", prefix="", dir=None):
 class SpooledTemporaryFile(tempfile.SpooledTemporaryFile):
     """
     SpooledTemporaryFile from tempfile, with some additional properties to make it more file like.
+
+    Example:
+        Exercise SpooledTemporaryFile through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
     """
 
     def __init__(self, max_size=0, suffix="", prefix="", dir=None, mode="w+b", bufsize=-1):
+        """
+        Initialize and validate the SpooledTemporaryFile state.
+
+        Example:
+            Exercise SpooledTemporaryFile.  init   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param max_size: Value supplied for max size under the utility contract.
+        :param suffix: Text appended to the formatted or selected result.
+        :param prefix: Text prepended to the formatted or selected result.
+        :param dir: Value supplied for dir under the utility contract.
+        :param mode: Open or adapter mode controlling read/write behavior.
+        :param bufsize: Value supplied for bufsize under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         if prefix is None:
             prefix = ""
         if suffix is None:
@@ -603,23 +1163,69 @@ class SpooledTemporaryFile(tempfile.SpooledTemporaryFile):
     def truncate(self, *args):
         # The stdlib SpooledTemporaryFile implementation of truncate() doesn't
         # allow specifying a size.
+        """
+        Forward the truncate operation while preserving adapter ownership rules.
+
+        Example:
+            Exercise SpooledTemporaryFile.truncate through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._file.truncate(*args)
 
     @property
     def name(self):
+        """
+        Perform the name utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise SpooledTemporaryFile.name through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.__file_name
 
     @name.setter
     def name(self, val):
+        """
+        Perform the name utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise SpooledTemporaryFile.name through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__file_name = val
 
 
 def better_mktemp(*args, **kwargs):
     """
     Make a temporary directory using the tempfile.mkstemp command.
-    :param args:
-    :param kwargs:
-    :return:
+
+    Example:
+        Exercise better mktemp through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+    :param args: Positional values forwarded to the compatibility implementation.
+    :param kwargs: Keyword values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     fd, path = tempfile.mkstemp(*args, **kwargs)
     os.close(fd)
@@ -642,23 +1248,26 @@ if not iswindows:
         use_dev_shm=True,
     ):
         """
-        Construct a ram disk - of size 512M.
-        May fail if the LiuXin path contains unicode characters.
-        :param force_mountpoint: Either bool (False) or a path to the location you want the mountpoint (for security
-                                 reasons should fail unless the path is in the LiuXin scratch folder and the name of the
-                                  given mountpoint is ASCII)
-        :param write_creation_traceback: If True then will write the traceback of the function which created this ramdisk
-                                         into the root of the ramdisk.
-                                         Used when debugging when trying to determine where the ramdisk was generated from.
-        :param persist: Persist this ramdisk after the process dies.
-                        Default is False - the ramdisk will be removed when this process shuts down.
-        :param size: The size of the ramdisk to create - defaults to 512M
-        :param folder_fallback: If True, then, if we cannot create a ramdisk - will create and return a scratch folder.
-                                Which is sub-optimal
-        :param retry: Trying to work around "Resource temporarily unavailable" error - on a fail, wait te given number
-                      of seconds
-        :param use_dev_shm: If True, then we'll try and use the temp file system which
-        :return:
+        Construct a ram disk - of size 512M. May fail if the LiuXin path contains unicode characters.
+
+        Example:
+            Exercise get ramdisk through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param force_mountpoint: Value supplied for force mountpoint under the utility
+            contract.
+        :param write_creation_traceback: Value supplied for write creation traceback under
+            the utility contract.
+        :param persist: Value supplied for persist under the utility contract.
+        :param size: Value supplied for size under the utility contract.
+        :param folder_fallback: Value supplied for folder fallback under the utility
+            contract.
+        :param retry: Value supplied for retry under the utility contract.
+        :param use_dev_shm: Value supplied for use dev shm under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         assert size in ["512M", "2048M"]
 
@@ -734,15 +1343,21 @@ else:
     # Todo: This is not going to work. At all
     def get_ramdisk(force_mountpoint=False, write_creation_traceback=True, persist=False):
         """
-        Construct a ram disk - of size 512MB.
-        May fail if the LiuXin path contains unicode characters.
-        :param force_mountpoint: Either bool (False) or a path to the location you want the mountpoint (for security reasons
-                                 should fail unless the path is in the LiuXin scratch folder and the name of the given
-                                 mountpoint is ASCII)
-        :param write_creation_traceback: If True then will write the traceback of the function which created this ramdisk
-                                         into the root of the ramdisk.
-                                         Used when debugging when trying to determine where the ramdisk was generated from.
-        :return:
+        Construct a ram disk - of size 512MB. May fail if the LiuXin path contains unicode characters.
+
+        Example:
+            Exercise get ramdisk through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param force_mountpoint: Value supplied for force mountpoint under the utility
+            contract.
+        :param write_creation_traceback: Value supplied for write creation traceback under
+            the utility contract.
+        :param persist: Value supplied for persist under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         ramdisk_mountpoint = get_scratch_folder_path("RAMDISK") if not force_mountpoint else force_mountpoint
         return os.path.join("L:", ramdisk_mountpoint)
@@ -751,11 +1366,17 @@ else:
 # Todo: VERY BADLY NAMED - GIVEN WHAT DEREZ_SCRATCH_FOLDER DOES ABOVE!
 def derez_ramdisk(mountpoint):
     """
-    Empties a given ramdisk
-    Does not actually remove the disk.
-    All data in the ramdisk will be permanently lost and the folder it was mounted on will be removed.
-    :param mountpoint:
-    :return:
+    Empties a given ramdisk Does not actually remove the disk. All data in the ramdisk will be permanently lost and the folder it was mounted on will be removed.
+
+    Example:
+        Exercise derez ramdisk through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+    :param mountpoint: Value supplied for mountpoint under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     if mountpoint not in known_ramdisks:
         err_str = "mountpoint was not known to this process. Cannot remove arbitary mountpoints for security reasons\n"
@@ -769,6 +1390,19 @@ def derez_ramdisk(mountpoint):
 
 def safe_unmount_ramdisk(mountpoint):
 
+    """
+    Perform the safe unmount ramdisk utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise safe unmount ramdisk through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+    :param mountpoint: Value supplied for mountpoint under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     global known_ramdisks
     if mountpoint not in known_ramdisks:
         return
@@ -818,8 +1452,16 @@ def safe_unmount_ramdisk(mountpoint):
 def unmount_ramdisk(mountpoint):
     """
     Preforms unmount operations to remove a ramdisk and free up it's memory.
-    :param mountpoint:
-    :return:
+
+    Example:
+        Exercise unmount ramdisk through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+    :param mountpoint: Value supplied for mountpoint under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     global known_ramdisks
     if mountpoint not in known_ramdisks:
@@ -886,7 +1528,15 @@ def unmount_ramdisk(mountpoint):
 def get_known_ramdisk_count():
     """
     Return the current number of active ramdisks known to the system.
-    :return:
+
+    Example:
+        Exercise get known ramdisk count through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     global known_ramdisks
     return len(known_ramdisks)
@@ -895,9 +1545,27 @@ def get_known_ramdisk_count():
 class BaseScratchFolderManager(object):
     """
     Base class from which more sophisticated scratch folder managers can be derived.
+
+    Example:
+        Exercise BaseScratchFolderManager through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
     """
 
     def __init__(self, make_in=None, only_derez_own=False):
+        """
+        Initialize and validate the BaseScratchFolderManager state.
+
+        Example:
+            Exercise BaseScratchFolderManager.  init   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param make_in: Value supplied for make in under the utility contract.
+        :param only_derez_own: Value supplied for only derez own under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.only_derez_own = only_derez_own
 
         # Default place to create all the scratch folders
@@ -912,7 +1580,15 @@ class BaseScratchFolderManager(object):
     def pinned(self):
         """
         Return the pinned folders
-        :return:
+
+        Example:
+            Exercise BaseScratchFolderManager.pinned through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.pinned_folders
 
@@ -920,82 +1596,206 @@ class BaseScratchFolderManager(object):
     def made(self):
         """
         Return all folders which have been created by the folder store manager.
-        :return:
+
+        Example:
+            Exercise BaseScratchFolderManager.made through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.made_folders
 
     def get_scratch_folder(self, filename=None, pinned=False, base_filename=False):
         """
         Returns the path for a new scratch folder in the base_scratch_loc.
-        :param filename: If not None, then this name will be appended to the end of the newly generated folder name.
-        :param pinned: If True then the folder will be added to the pinned folders - which will not be removed when
-                       clear is called.
-        :param base_filename: If True, then will use the raw foldername rather than making a name based on it.
-        :return:
+
+        Example:
+            Exercise BaseScratchFolderManager.get scratch folder through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param filename: Filename used for type inference or archive output.
+        :param pinned: Value supplied for pinned under the utility contract.
+        :param base_filename: Value supplied for base filename under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
     def get_scratch_folder_name(self, filename=None, base_filename=False):
         """
         Gets a valid name for a scratch folder in the current base folder.
-        :param filename:
-        :param base_filename:
-        :return:
+
+        Example:
+            Exercise BaseScratchFolderManager.get scratch folder name through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param filename: Filename used for type inference or archive output.
+        :param base_filename: Value supplied for base filename under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
     def derez_scratch_folder(self, folder_path):
         """
-        Removes a scratch folder from the current base_scratch_loc. Will error if the folder isn't in the current
-        base_scratch_loc or if the only_derez_own flag is set to True and the folder was not created by this instance
-        of this class.
-        :param folder_path:
-        :return bool: Either True or AssertionError
+        Removes a scratch folder from the current base_scratch_loc. Will error if the folder isn't in the current base_scratch_loc or if the only_derez_own flag is set to True and the folder was not created by this instance of this class.
+
+        Example:
+            Exercise BaseScratchFolderManager.derez scratch folder through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param folder_path: Value supplied for folder path under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
     def clear(self):
         """
         Delete all the folders that have been created by this folder store.
-        :return:
+
+        Example:
+            Exercise BaseScratchFolderManager.clear through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
     def __iter__(self):
         """
         Iterates over all the files currently under management by this class.
-        :return:
+
+        Example:
+            Exercise BaseScratchFolderManager.  iter   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :return: An iterator yielding the normalized values described above.
         """
         for file_path in self.made_folders:
             yield file_path
 
     def __contains__(self, item):
+        """
+        Perform the contains utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise BaseScratchFolderManager.  contains   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return item in self.made_folders
 
     def __len__(self):
         """
         Return the number of files currently under management.
-        :return:
+
+        Example:
+            Exercise BaseScratchFolderManager.  len   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return len(self.made_folders)
 
 
 class DummyScratchFolderManager(BaseScratchFolderManager):
     """
-    Dummy to be used as a default for objects which might be passed a ScratchFolderManager - provides the same interface
-    as the ScratchFolderManager but just provides a passthrough to the main scratch folder methods.
+    Dummy to be used as a default for objects which might be passed a ScratchFolderManager - provides the same interface as the ScratchFolderManager but just provides a passthrough to the main scratch folder methods.
+
+    Example:
+        Exercise DummyScratchFolderManager through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
     """
 
     def __init__(self, make_in=None, only_derez_own=False):
+        """
+        Initialize and validate the DummyScratchFolderManager state.
+
+        Example:
+            Exercise DummyScratchFolderManager.  init   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param make_in: Value supplied for make in under the utility contract.
+        :param only_derez_own: Value supplied for only derez own under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         BaseScratchFolderManager.__init__(self, make_in=make_in, only_derez_own=only_derez_own)
 
     def get_scratch_folder(self, filename=None, pinned=False, base_filename=False):
+        """
+        Return scratch folder under the documented compatibility and safety rules.
+
+        Example:
+            Exercise DummyScratchFolderManager.get scratch folder through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param filename: Filename used for type inference or archive output.
+        :param pinned: Value supplied for pinned under the utility contract.
+        :param base_filename: Value supplied for base filename under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return get_scratch_folder(filename)
 
     def get_scratch_folder_name(self, filename=None, base_filename=False):
+        """
+        Return scratch folder name under the documented compatibility and safety rules.
+
+        Example:
+            Exercise DummyScratchFolderManager.get scratch folder name through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param filename: Filename used for type inference or archive output.
+        :param base_filename: Value supplied for base filename under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return get_scratch_folder_path(filename)
 
     def derez_scratch_folder(self, folder_path):
+        """
+        Perform the derez scratch folder utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise DummyScratchFolderManager.derez scratch folder through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param folder_path: Value supplied for folder path under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return derez_scratch_folder(folder_path)
 
 
@@ -1004,18 +1804,27 @@ scratch_folder_manager = DummyScratchFolderManager()
 
 class ScratchFolderManager(BaseScratchFolderManager):
     """
-    Object which produces and manages scratch folders.
-    Useful when you want to taylor the behavior of scratch folders more closely - for example if you want some
-    subprocess to generate scratch folders in a different location to the default.
-    This is useful if you want to speed up test performance by creating all scratch folders in a ramdisk.
-    By default just uses the regular scratch folder system.
+    Object which produces and manages scratch folders. Useful when you want to taylor the behavior of scratch folders more closely - for example if you want some subprocess to generate scratch folders in a different location to the default. This is useful if you want to speed up test performance by creating all scratch folders in a ramdisk. By default just uses the regular scratch folder system.
+
+    Example:
+        Exercise ScratchFolderManager through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
     """
 
     def __init__(self, make_in=None, only_derez_own=False):
         """
         Starts up the Manager - by default behaves just like a regular scratch folder.
-        :param make_in: Default location to put all the scratch folders
-        :param only_derez_own: If True, then this class will only remove folders that it created
+
+        Example:
+            Exercise ScratchFolderManager.  init   through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param make_in: Value supplied for make in under the utility contract.
+        :param only_derez_own: Value supplied for only derez own under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         BaseScratchFolderManager.__init__(self, make_in=make_in, only_derez_own=only_derez_own)
 
@@ -1024,11 +1833,18 @@ class ScratchFolderManager(BaseScratchFolderManager):
         def get_scratch_folder(self, filename=None, pinned=False, base_filename=False):
             """
             Returns the path for a new scratch folder in the base_scratch_loc.
-            :param filename: If not None, then this name will be appended to the end of the newly generated folder name.
-            :param pinned: If True then the folder will be added to the pinned folders - which will not be removed when
-                           clear is called.
-            :param base_filename: If True, then will use the raw foldername rather than making a name based on it.
-            :return:
+
+            Example:
+                Exercise ScratchFolderManager.get scratch folder through a consuming regression::
+
+                    python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+            :param filename: Filename used for type inference or archive output.
+            :param pinned: Value supplied for pinned under the utility contract.
+            :param base_filename: Value supplied for base filename under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
             """
             target_path = self.get_scratch_folder_name(filename, base_filename=base_filename)
             os.makedirs(target_path)
@@ -1044,11 +1860,18 @@ class ScratchFolderManager(BaseScratchFolderManager):
         def get_scratch_folder(self, filename=None, pinned=False, base_filename=False):
             """
             Returns the path for a new scratch folder in the base_scratch_loc.
-            :param filename: If not None, then this name will be appended to the end of the newly generated folder name.
-            :param pinned: If True then the folder will be added to the pinned folders - which will not be removed when
-                           clear is called.
-            :param base_filename: If True, then will use the raw foldername rather than making a name based on it.
-            :return:
+
+            Example:
+                Exercise ScratchFolderManager.get scratch folder through a consuming regression::
+
+                    python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+            :param filename: Filename used for type inference or archive output.
+            :param pinned: Value supplied for pinned under the utility contract.
+            :param base_filename: Value supplied for base filename under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
             """
             target_path = self.get_scratch_folder_name(filename, base_filename=base_filename)
             os.mkdir(target_path)
@@ -1062,9 +1885,17 @@ class ScratchFolderManager(BaseScratchFolderManager):
     def get_scratch_folder_name(self, filename=None, base_filename=False):
         """
         Gets a valid name for a scratch folder in the current base folder.
-        :param filename:
-        :param base_filename:
-        :return:
+
+        Example:
+            Exercise ScratchFolderManager.get scratch folder name through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param filename: Filename used for type inference or archive output.
+        :param base_filename: Value supplied for base filename under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         filename = deepcopy(filename)
         if filename is None:
@@ -1081,11 +1912,17 @@ class ScratchFolderManager(BaseScratchFolderManager):
     # Todo: Does not account for their being files in the root of the folder store
     def derez_scratch_folder(self, folder_path):
         """
-        Removes a scratch folder from the current base_scratch_loc. Will error if the folder isn't in the current
-        base_scratch_loc or if the only_derez_own flag is set to True and the folder was not created by this instance
-        of this class.
-        :param folder_path:
-        :return bool: Either True or AssertionError
+        Removes a scratch folder from the current base_scratch_loc. Will error if the folder isn't in the current base_scratch_loc or if the only_derez_own flag is set to True and the folder was not created by this instance of this class.
+
+        Example:
+            Exercise ScratchFolderManager.derez scratch folder through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param folder_path: Value supplied for folder path under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Ensure that the path is of the same type as stored in the internal creation record
         if self.only_derez_own and folder_path not in self.made_folders:
@@ -1119,8 +1956,17 @@ class ScratchFolderManager(BaseScratchFolderManager):
     def make_scratch(self, src_folder_path):
         """
         Copy a folder into a scratch folder. Return the path to the scratch folder.
-        :param src_folder_path:
-        :return:
+
+        Example:
+            Exercise ScratchFolderManager.make scratch through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :param src_folder_path: Value supplied for src folder path under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         src_folder_name = os.path.split(src_folder_path)[1]
         scratch_folder = self.get_scratch_folder()
@@ -1131,7 +1977,15 @@ class ScratchFolderManager(BaseScratchFolderManager):
     def clear(self):
         """
         Delete all the folders that have been created by this folder store.
-        :return:
+
+        Example:
+            Exercise ScratchFolderManager.clear through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         folders_for_remove = deepcopy(self.made_folders)
         for folder_path in folders_for_remove:
@@ -1142,7 +1996,15 @@ class ScratchFolderManager(BaseScratchFolderManager):
     def purge(self):
         """
         Delete ALL the folders that have been created by this folder store.
-        :return:
+
+        Example:
+            Exercise ScratchFolderManager.purge through a consuming regression::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         folders_for_remove = deepcopy(self.made_folders)
         for folder_path in folders_for_remove:
@@ -1152,8 +2014,16 @@ class ScratchFolderManager(BaseScratchFolderManager):
 def safe_at_exit_remove_dir(dir_path):
     """
     Remove a directory without throwing an error if the directory does, in fact, not exist
-    :param dir_path:
-    :return:
+
+    Example:
+        Exercise safe at exit remove dir through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+    :param dir_path: Value supplied for dir path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     try:
         shutil.rmtree(dir_path)
@@ -1167,6 +2037,18 @@ def reset_temp_folder_permissions():
     # folder are set to not be executable, which means chdir() into temp
     # folders fails. Try to fix that by resetting the permissions on the temp
     # folder.
+    """
+    Perform the reset temp folder permissions utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise reset temp folder permissions through a consuming regression::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     global _base_dir
     if iswindows and _base_dir:
         import subprocess

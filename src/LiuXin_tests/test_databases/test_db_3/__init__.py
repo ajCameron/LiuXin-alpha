@@ -8,6 +8,17 @@
 # The folder-file lin priority serves as the priority column for the book-file link - it affects the order the files
 # appear and the extension they are assigned
 
+"""
+Expose the supported test db 3 compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+"""
 from itertools import cycle
 
 from LiuXin_alpha.utils.libraries.liuxin_clint import puts, colored
@@ -23,15 +34,46 @@ __folder__ = test_db_1_folder
 class TestDB3Builder(TestDatabaseBuilder):
     """
     Constructs test_db_3 - which has a LOT of (largely invalid) fake file and folder data
+
+    Example:
+        Exercise TestDB3Builder through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
     """
 
     def detail_databases(self, scratch_db):
+        """
+        Perform the detail databases operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TestDB3Builder.detail databases through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         make_file_test_data(scratch_db)
 
         return scratch_db
 
     def write_timestamps(self, scratch_db):
 
+        """
+        Write timestamps under the format's safety and compatibility rules.
+
+        Example:
+            Exercise TestDB3Builder.write timestamps through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.write_timestamps_books_table(scratch_db)
         self.write_timestamps_titles_table(scratch_db)
 
@@ -39,8 +81,16 @@ class TestDB3Builder(TestDatabaseBuilder):
     def write_timestamps_books_table(scratch_db):
         """
         Update the timestamp columns of the books field to static values, freezing them after database rebuilds.
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB3Builder.write timestamps books table through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Update the books table
 
@@ -151,8 +201,16 @@ class TestDB3Builder(TestDatabaseBuilder):
     def write_timestamps_titles_table(scratch_db):
         """
         Update the timestamp columns of the books field to static values, freezing them after database rebuilds.
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB3Builder.write timestamps titles table through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         theo_title_created_datestamp_dict = {
             1: "2022-05-09 18:28:52",
@@ -369,11 +427,22 @@ def build_test_db(
     test_asset_version=None,
 ):
     """
-    Constructs test db 1 - then adds the randomly generated file data to it.
-    Should build in a repeatable, platform agnostic way.
-    :param dst_file_path:
-    :param dump:
-    :return:
+    Constructs test db 1 - then adds the randomly generated file data to it. Should build in a repeatable, platform agnostic way.
+
+    Example:
+        Exercise build test db through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+    :param dst_file_path: Value supplied for dst file path under the utility contract.
+    :param dump: Value supplied for dump under the utility contract.
+    :param plugin_name: Value supplied for plugin name under the utility contract.
+    :param new_db_uuid: Value supplied for new db uuid under the utility contract.
+    :param test_asset_version: Value supplied for test asset version under the utility
+        contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     test_db_builder = TestDB3Builder(
         dst_file_path=dst_file_path,
@@ -388,13 +457,19 @@ def build_test_db(
 
 def make_file_test_data(test_db, clear=True, extensions=None):
     """
-    Write file test data to the target db - in a repeatable manner - if the database has the same number of books each
-    time it should end up with the test data each time.
-    :param test_db:
-    :param clear: The relevant tables will be cleared before anything is written to them
-    :param extensions: Overriding iterable of extensions to assign to the files. If None is passed will default to
-                       cycling over ["epub", "mobi", "pdf"]
-    :return:
+    Write file test data to the target db - in a repeatable manner - if the database has the same number of books each time it should end up with the test data each time.
+
+    Example:
+        Exercise make file test data through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+    :param test_db: Value supplied for test db under the utility contract.
+    :param clear: Value supplied for clear under the utility contract.
+    :param extensions: Value supplied for extensions under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     if clear:
         # Clear the decks - erase book_folder_links, folders, file_folder_links, files

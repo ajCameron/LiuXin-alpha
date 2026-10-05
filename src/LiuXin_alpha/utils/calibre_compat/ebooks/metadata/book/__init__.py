@@ -1,8 +1,13 @@
-"""calibre.ebooks.metadata.book compatibility constants.
+"""
+Expose the supported book compatibility surface.
 
-This mirrors the constants exposed by calibre's
-``calibre.ebooks.metadata.book`` package, backed by LiuXin's compat
-constants module.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
 """
 
 from LiuXin_alpha.utils.calibre_compat.metadata.calibre_metadata_constants import (

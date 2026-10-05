@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Collect linked HTML resources into a validated portable archive.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise to zip through a consuming regression::
+
+        python -m pytest -q tests/file_formats/html/test_html_modernized.py
+"""
 from __future__ import (
     absolute_import,
     annotations,
@@ -25,8 +36,12 @@ __docformat__ = "restructuredtext en"
 
 class HTML2ZIP(FileTypePlugin):
     """
-    Follows all local links in an HTML file and creates a ZIP file containing all linked files.
-    This plugin is run every time you add an HTML file to the library.
+    Follows all local links in an HTML file and creates a ZIP file containing all linked files. This plugin is run every time you add an HTML file to the library.
+
+    Example:
+        Exercise HTML2ZIP through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
     """
 
     name = "HTML to ZIP"
@@ -46,20 +61,52 @@ every time you add an HTML file to the library.\
     on_import = True
 
     def run(self: _typing.Self, htmlfile: _typing.Any) -> _typing.Any:
-        """Report that this plugin requires the unavailable GUI conversion engine."""
+        """
+        Report that this plugin requires the unavailable GUI conversion engine.
+
+        Example:
+            Exercise HTML2ZIP.run through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param htmlfile: Value supplied for htmlfile under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise RuntimeError("GUI conversion is unavailable in a headless environment.")
 
     def customization_help(self: _typing.Self, gui: bool = False) -> _typing.Any:
+        """
+        Perform the customization help operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTML2ZIP.customization help through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param gui: Value supplied for gui under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return _(
             "Character encoding for the input HTML files. Common choices " "include: cp1252, cp1251, latin1 and utf-8."
         )
 
     def do_user_config(self: _typing.Self, parent: _typing.Any = None) -> _typing.Any:
         """
-        This method shows a configuration dialog for this plugin. It returns
-        True if the user clicks OK, False otherwise. The changes are
-        automatically applied.
-        :param parent:
+        This method shows a configuration dialog for this plugin. It returns True if the user clicks OK, False otherwise. The changes are automatically applied.
+
+        Example:
+            Exercise HTML2ZIP.do user config through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         from PyQt5.Qt import (
             QCheckBox,
@@ -76,6 +123,18 @@ every time you add an HTML file to the library.\
         v = QVBoxLayout(config_dialog)
 
         def size_dialog() -> None:
+            """
+            Perform the size dialog operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise HTML2ZIP.do user config.size dialog through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             config_dialog.resize(config_dialog.sizeHint())
 
         button_box.accepted.connect(config_dialog.accept)

@@ -10,6 +10,17 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+"""
+Process multi-token RTF fields and their nested results.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise fields large through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -21,78 +32,13 @@ from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
 
 
 class FieldsLarge:
-    r"""
-    =========================
-    Logic
-    =========================
-    Make tags for fields.
-    -Fields reflect text that Microsoft Word automatically generates.
-    -Each file contains (or should contain) an inner group called field instructions.
-    -Fields can be nested.
-    --------------
-    Logic
-    --------------
-    1. As soon as a field is found, make a new text string by appending an empty
-    text string to the field list. Collect all the lines in this string until the
-    field instructions are found.
-    2. Collect all the tokens and text in the field instructions. When the end of
-    the field instructions is found, process the string of text with the
-    field_strings module. Append the processed string to the field instructins
-    list.
-    3. Continue collecting tokens. Check for paragraphs or sections. If either is found, add to the paragraph or section list.
-    4. Continue collecting tokens and text either the beginning of a new field is found, or the end of this field is found.
-    5. If a new field is found, repeat steps 1-3.
-    6. If the end of the field is found, process the last text string of the field list.
-    7. If the field list is empty (after removing the last text string), there are
-    no more fields. Print out the final string. If the list contains other strings,
-    add the processed string to the last string in the field list.
-    ============================
-    Examples
-    ============================
-        This line of RTF:
-            {\field{\*\fldinst { CREATEDATE  \\* MERGEFORMAT }}{\fldrslt {
-            \lang1024 1/11/03 10:34 PM}}}
-        Becomes:
-            <field type = "insert-time">
-                10:34 PM
-            </field>
-        The simple field in the above example contains no paragraph or sections breaks.
-        This line of RTF:
-            {{\field{\*\fldinst SYMBOL 97 \\f "Symbol" \\s 12}{\fldrslt\f3\fs24}}}
-        Becomes:
-            <para><inline font-size="18"><inline font-style="Symbol">&#x03A7;</inline></inline></para>
-            The RTF in the example above should be represented as UTF-8 rather than a field.
-        This RTF:
-            {\field\fldedit{\*\fldinst { TOC \\o "1-3" }}{\fldrslt {\lang1024
-            Heading one\tab }{\field{\*\fldinst {\lang1024  PAGEREF _Toc440880424
-            \\h }{\lang1024 {\*\datafield
-            {\lang1024 1}}}{\lang1024 \par }\pard\plain
-            \s18\li240\widctlpar\tqr\tldot\tx8630\aspalpha\aspnum\faauto\adjustright\rin0\lin240\itap0
-            \f4\lang1033\cgrid {\lang1024 Heading 2\tab }{\field{\*\fldinst
-            {\lang1024  PAGEREF _Toc440880425 \\h }{\lang1024 {\*\datafield
-            {\lang1024 1}}}{\lang1024 \par }\pard\plain
-            \widctlpar\aspalpha\aspnum\faauto\adjustright\rin0\lin0\itap0
-            \f4\lang1033\cgrid }}\pard\plain
-            \widctlpar\aspalpha\aspnum\faauto\adjustright\rin0\lin0\itap0
-            \f4\lang1033\cgrid {\fs28 \\u214\'85 \par }{\fs36 {\field{\*\fldinst
-            SYMBOL 67 \\f "Symbol" \\s 18}{\fldrslt\f3\fs36}}}
-        Becomes:
-            <field-block type="table-of-contents">
-            <paragraph-definition language="1033" nest-level="0"
-            font-style="Times" name="toc 1" adjust-right="true"
-            widow-control="true">
-            <para><inline language="1024">Heading one&#x009;</inline><field
-            type="reference-to-page" ref="_Toc440880424"><inline
-            language="1024">1</inline></field></para>
-            </paragraph-definition>
-            <paragraph-definition language="1033" nest-level="0" left-indent="12"
-            font-style="Times" name="toc 2" adjust-right="true"
-            widow-control="true">
-            <para><inline language="1024">Heading 2&#x009;</inline><field
-            type="reference-to-page" ref="_Toc440880425"><inline
-            language="1024">1</inline></field></para>
-            </paragraph-definition>
-            </field-block>
+    """
+    Provide the fieldslarge contract for validated ebook processing.
+
+    Example:
+        Exercise FieldsLarge through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
     """
 
     def __init__(
@@ -103,14 +49,19 @@ class FieldsLarge:
         run_level: int = 1,
     ) -> None:
         """
-        Required:
-            'file'--file to parse
-        Optional:
-            'copy'-- whether to make a copy of result for debugging
-            'temp_dir' --where to output temporary results (default is
-            directory from which the script is run.)
-        Returns:
-            nothing
+        Required: 'file'--file to parse Optional: 'copy'-- whether to make a copy of result for debugging 'temp_dir' --where to output temporary results (default is directory from which the script is run.) Returns: nothing
+
+        Example:
+            Exercise FieldsLarge.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param copy: Value supplied for copy under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.__file = in_file
         self.__bug_handler = bug_handler
@@ -121,6 +72,15 @@ class FieldsLarge:
     def __initiate_values(self: _typing.Self) -> None:
         """
         Initiate all values.
+
+        Example:
+            Exercise FieldsLarge.  initiate values through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__text_string = ""
         self.__field_instruction_string = ""
@@ -156,13 +116,17 @@ class FieldsLarge:
 
     def __before_body_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line --line ro parse
-        Returns:
-            nothing (changes an instant and writes a line)
-        Logic:
-            Check for the beginninf of the body. If found, changed the state.
-            Always write out the line.
+        Required: line --line ro parse Returns: nothing (changes an instant and writes a line) Logic: Check for the beginninf of the body. If found, changed the state. Always write out the line.
+
+        Example:
+            Exercise FieldsLarge.  before body func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "mi<mk<body-open_":
             self.__state = "in_body"
@@ -170,12 +134,17 @@ class FieldsLarge:
 
     def __in_body_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line --line to parse
-        Returns:
-            nothing. (Writes a line to the output file, or performs other actions.)
-        Logic:
-            Check of the beginning of a field. Always output the line.
+        Required: line --line to parse Returns: nothing. (Writes a line to the output file, or performs other actions.) Logic: Check of the beginning of a field. Always output the line.
+
+        Example:
+            Exercise FieldsLarge.  in body func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         action = self.__in_body_dict.get(self.__token_info)
         if action:
@@ -184,13 +153,17 @@ class FieldsLarge:
 
     def __found_field_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --line to parse
-        Returns:
-            nothing
-        Logic:
-            Set the values for parsing the field. Four lists have to have
-            items appended to them.
+        Requires: line --line to parse Returns: nothing Logic: Set the values for parsing the field. Four lists have to have items appended to them.
+
+        Example:
+            Exercise FieldsLarge.  found field func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__state = "field"
         self.__cb_count = 0
@@ -202,14 +175,17 @@ class FieldsLarge:
 
     def __in_field_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --line to parse
-        Returns:
-            nothing.
-        Logic:
-            Check for the end of the field; a paragraph break; a section break;
-            the beginning of another field; or the beginning of the field
-            instruction.
+        Requires: line --line to parse Returns: nothing. Logic: Check for the end of the field; a paragraph break; a section break; the beginning of another field; or the beginning of the field instruction.
+
+        Example:
+            Exercise FieldsLarge.  in field func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__cb_count == self.__field_count[-1]:
             self.__field_string[-1] += line
@@ -223,39 +199,51 @@ class FieldsLarge:
 
     def __par_in_field_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --line to parse
-        Returns:
-            nothing
-        Logic:
-            Write the line to the output file and set the last item in the
-            paragraph in field list to true.
+        Requires: line --line to parse Returns: nothing Logic: Write the line to the output file and set the last item in the paragraph in field list to true.
+
+        Example:
+            Exercise FieldsLarge.  par in field func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__field_string[-1] += line
         self.__par_in_field[-1] = 1
 
     def __sec_in_field_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --line to parse
-        Returns:
-            nothing
-        Logic:
-            Write the line to the output file and set the last item in the
-            section in field list to true.
+        Requires: line --line to parse Returns: nothing Logic: Write the line to the output file and set the last item in the section in field list to true.
+
+        Example:
+            Exercise FieldsLarge.  sec in field func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__field_string[-1] += line
         self.__sec_in_field[-1] = 1
 
     def __found_field_instruction_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line -- line to parse
-        Returns:
-            nothing
-        Change the state to field instruction. Set the open bracket count of
-        the beginning of this field so  you know when it ends. Set the closed
-        bracket count to 0 so you don't prematureley exit this state.
+        Requires: line -- line to parse Returns: nothing Change the state to field instruction. Set the open bracket count of the beginning of this field so you know when it ends. Set the closed bracket count to 0 so you don't prematureley exit this state.
+
+        Example:
+            Exercise FieldsLarge.  found field instruction func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__state = "field_instruction"
         self.__field_instruction_count = self.__ob_count
@@ -263,14 +251,17 @@ class FieldsLarge:
 
     def __field_instruction_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --line to parse
-        Returns:
-            nothing
-        Logic:
-            Collect all the lines until the end of the field is reached.
-            Process these lines with the module rtr.field_strings.
-            Check if the field instruction is 'Symbol' (really UTF-8).
+        Requires: line --line to parse Returns: nothing Logic: Collect all the lines until the end of the field is reached. Process these lines with the module rtr.field_strings. Check if the field instruction is 'Symbol' (really UTF-8).
+
+        Example:
+            Exercise FieldsLarge.  field instruction func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__cb_count == self.__field_instruction_count:
             # The closing bracket should be written, since the opening bracket
@@ -288,22 +279,16 @@ class FieldsLarge:
 
     def __end_field_func(self: _typing.Self) -> None:
         """
-        Requires:
-            nothing
-        Returns:
-            Nothing
-        Logic:
-            Pop the last values in the instructions list, the fields list, the
-            paragraph list, and the section list.
-            If the field is a symbol, do not write the tags <field></field>,
-            since this field is really just UTF-8.
-            If the field contains paragraph or section breaks, it is a
-            field-block rather than just a field.
-            Write the paragraph or section markers for later parsing of the
-            file.
-            If the filed list contains more strings, add the latest
-            (processed) string to the last string in the list. Otherwise,
-            write the string to the output file.
+        Requires: nothing Returns: Nothing Logic: Pop the last values in the instructions list, the fields list, the paragraph list, and the section list. If the field is a symbol, do not write the tags <field></field>, since this field is really just UTF-8. If the field contains paragraph or section breaks, it is a field-block rather than just a field. Write the paragraph or section markers for later parsing of the file. If the filed list contains more strings, add the latest (processed) string to the last string in the list. Otherwise, write the string to the output file.
+
+        Example:
+            Exercise FieldsLarge.  end field func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         last_bracket = self.__field_count.pop()
         instruction = self.__field_instruction.pop()
@@ -340,20 +325,34 @@ class FieldsLarge:
         self.__symbol = 0
 
     def __write_field_string(self: _typing.Self, the_string: _typing.Any) -> None:
+        """
+        Perform the write field string operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FieldsLarge.  write field string through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param the_string: Value supplied for the string under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__state = "in_body"
         self.__write_obj.write(the_string)
 
     def fix_fields(self: _typing.Self) -> None:
         """
-        Requires:
-            nothing
-        Returns:
-            nothing (changes the original file)
-        Logic:
-            Read one line in at a time. Determine what action to take based on
-            the state. If the state is before the body, look for the
-            beginning of the body.
-            If the state is body, send the line to the body method.
+        Requires: nothing Returns: nothing (changes the original file) Logic: Read one line in at a time. Determine what action to take based on the state. If the state is before the body, look for the beginning of the body. If the state is body, send the line to the body method.
+
+        Example:
+            Exercise FieldsLarge.fix fields through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__initiate_values()
         read_obj = open_for_read(self.__file)

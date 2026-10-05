@@ -1,5 +1,16 @@
 # Generates test_db_10 - a database with all the usual metadata and a number of complex series
 
+"""
+Build the deterministic test_db_10 database fixture and its declared content profile.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/databases/test_test_resources_manager.py
+"""
 import os
 
 from clint.textui import puts, colored
@@ -14,20 +25,62 @@ __folder__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__
 class TestDB10Builder(TestDatabaseBuilder):
     """
     Constructs test_db_10 - which has some complex series data and no asset data
+
+    Example:
+        Exercise TestDB10Builder through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
     """
 
     @staticmethod
     def purge_tables(scratch_db):
+        """
+        Remove rows not required by the selected database profile.
+
+        Example:
+            Exercise TestDB10Builder.purge tables through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param scratch_db: Scratch database receiving deterministic schema and rows.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         puts(colored.green("Purging asset rows - all will be removed"))
         scratch_db.driver_wrapper.clear("files")
         scratch_db.driver_wrapper.clear("folders")
         scratch_db.driver_wrapper.clear("covers")
 
     def load_base_database(self):
+        """
+        Load the shared base schema and rows before profile-specific mutations.
+
+        Example:
+            Exercise TestDB10Builder.load base database through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         return load_data(folder_path=None, overwrite_db=False, base_data=False, load_from=None)
 
     @staticmethod
     def detail_databases(scratch_db):
+        """
+        Return or record the database profiles supplied by this fixture module.
+
+        Example:
+            Exercise TestDB10Builder.detail databases through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param scratch_db: Scratch database receiving deterministic schema and rows.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         add_complex_series_to_db(scratch_db)
         return scratch_db
 
@@ -41,15 +94,23 @@ def build_test_db(
     test_asset_version=None,
 ):
     """
-    test_db_2 is intended for applications where the whole database had to be read into the cache - as such size is at a
-    premium in order to speed up the tests.
-    The test database has one title - it's got all the metadata associated with that title - but it only has one title.
-    This method constructs the test database - starting with a regular test database and removing everything except
-    title 1 (and the unknown title - if it exists).
-    :param dst_file_path: Place to copy the database file to after it's been built
-    :param dump: If True then the csv files compromising this database will be written into the folder where this
-                 script is running.
-    :return:
+    test_db_2 is intended for applications where the whole database had to be read into the cache - as such size is at a premium in order to speed up the tests. The test database has one title - it's got all the metadata associated with that title - but it only has one title. This method constructs the test database - starting with a regular test database and removing everything except title 1 (and the unknown title - if it exists).
+
+    Example:
+        Exercise build test db through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param dst_file_path: Destination file written with the generated database or asset.
+    :param dump: Value supplied for dump under the deterministic fixture contract.
+    :param plugin_name: Value supplied for plugin name under the deterministic fixture
+        contract.
+    :param new_db_uuid: Value supplied for new db uuid under the deterministic fixture
+        contract.
+    :param test_asset_version: Value supplied for test asset version under the
+        deterministic fixture contract.
+    :return: None; fixture state or the supplied destination is updated in place.
     """
     test_db_builder = TestDB10Builder(
         dst_file_path=dst_file_path,
@@ -65,6 +126,19 @@ def build_test_db(
 def add_complex_series_to_db(scratch_db):
     # Add in the complex series - a series in the Star Wars extended universe
     # Write a series tree into the database - it should be as horrible as possible
+    """
+    Add complex series to db for deterministic fixture consumers.
+
+    Example:
+        Exercise add complex series to db through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param scratch_db: Scratch database receiving deterministic schema and rows.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     series_tree_ids = set()
 
     # Make the root of the new tree - the Star Wars Universe

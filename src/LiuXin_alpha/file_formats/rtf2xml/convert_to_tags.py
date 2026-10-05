@@ -1,3 +1,14 @@
+"""
+Convert normalized RTF tokens into structured XML tags.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise convert to tags through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -13,6 +24,11 @@ public_dtd = "rtf2xml1.0.dtd"
 class ConvertToTags:
     """
     Convert file to XML
+
+    Example:
+        Exercise ConvertToTags through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
     """
 
     def __init__(
@@ -27,14 +43,23 @@ class ConvertToTags:
         run_level: int = 1,
     ) -> None:
         """
-        Required:
-            'file'
-        Optional:
-            'copy'-- whether to make a copy of result for debugging
-            'temp_dir' --where to output temporary results (default is
-            directory from which the script is run.)
-        Returns:
-            nothing
+        Required: 'file' Optional: 'copy'-- whether to make a copy of result for debugging 'temp_dir' --where to output temporary results (default is directory from which the script is run.) Returns: nothing
+
+        Example:
+            Exercise ConvertToTags.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param dtd_path: Value supplied for dtd path under the utility contract.
+        :param no_dtd: Value supplied for no dtd under the utility contract.
+        :param encoding: Value supplied for encoding under the utility contract.
+        :param indent: Value supplied for indent under the utility contract.
+        :param copy: Value supplied for copy under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.__file = in_file
         self.__bug_handler = bug_handler
@@ -53,6 +78,15 @@ class ConvertToTags:
     def __initiate_values(self: _typing.Self) -> None:
         """
         Set values, including those for the dictionary.
+
+        Example:
+            Exercise ConvertToTags.  initiate values through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__state = "default"
         self.__new_line = 0
@@ -116,6 +150,16 @@ class ConvertToTags:
     def __open_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Print the opening tag and newlines when needed.
+
+        Example:
+            Exercise ConvertToTags.  open func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # mi<tg<open______<style-sheet
         info = line[17:-1]
@@ -129,6 +173,16 @@ class ConvertToTags:
     def __empty_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Print out empty tag and newlines when needed.
+
+        Example:
+            Exercise ConvertToTags.  empty func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         info = line[17:-1]
         self.__write_obj.write("<%s/>" % info)
@@ -140,11 +194,17 @@ class ConvertToTags:
 
     def __open_att_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Process lines for open tags that have attributes.
-        The important info is between [17:-1]. Take this info and split it
-        with the delimiter '<'. The first token in this group is the element
-        name. The rest are attributes, separated fromt their values by '>'. So
-        read each token one at a time, and split them by '>'.
+        Process lines for open tags that have attributes. The important info is between [17:-1]. Take this info and split it with the delimiter '<'. The first token in this group is the element name. The rest are attributes, separated fromt their values by '>'. So read each token one at a time, and split them by '>'.
+
+        Example:
+            Exercise ConvertToTags.  open att func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # mi<tg<open-att__<footnote<num>
         info = line[17:-1]
@@ -174,6 +234,16 @@ class ConvertToTags:
     def __empty_att_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Same as the __open_att_func, except a '/' is placed at the end of the tag.
+
+        Example:
+            Exercise ConvertToTags.  empty att func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # mi<tg<open-att__<footnote<num>
         info = line[17:-1]
@@ -198,6 +268,16 @@ class ConvertToTags:
     def __close_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Print out the closed tag and new lines, if appropriate.
+
+        Example:
+            Exercise ConvertToTags.  close func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # mi<tg<close_____<style-sheet\n
         info = line[17:-1]
@@ -211,6 +291,16 @@ class ConvertToTags:
     def __text_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Simply print out the information between [17:-1]
+
+        Example:
+            Exercise ConvertToTags.  text func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # tx<nu<__________<Normal;
         # change this!
@@ -218,8 +308,16 @@ class ConvertToTags:
 
     def __write_extra_new_line(self: _typing.Self) -> None:
         """
-        Print out extra new lines if the new lines have not exceeded two. If
-        the new lines are greater than two, do nothing.
+        Print out extra new lines if the new lines have not exceeded two. If the new lines are greater than two, do nothing.
+
+        Example:
+            Exercise ConvertToTags.  write extra new line through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if not self.__indent:
             return
@@ -227,11 +325,33 @@ class ConvertToTags:
             self.__write_obj.write("\n")
 
     def __default_func(self: _typing.Self, line: _typing.Any) -> None:
+        """
+        Perform the default func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ConvertToTags.  default func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     def __write_new_line(self: _typing.Self) -> None:
         """
         Print out a new line if a new line has not already been printed out.
+
+        Example:
+            Exercise ConvertToTags.  write new line through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if not self.__indent:
             return
@@ -242,6 +362,15 @@ class ConvertToTags:
     def __write_dec(self: _typing.Self) -> None:
         """
         Write the XML declaration at the top of the document.
+
+        Example:
+            Exercise ConvertToTags.  write dec through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # keep maximum compatibility with previous version
         check_encoding_obj = check_encoding.CheckEncoding(bug_handler=self.__bug_handler)
@@ -274,17 +403,16 @@ class ConvertToTags:
 
     def convert_to_tags(self: _typing.Self) -> None:
         """
-        Read in the file one line at a time. Get the important info, between
-        [:16]. Check if this info matches a dictionary entry. If it does, call
-        the appropriate function.
-        The functions that are called:
-            a text function for text
-            an open function for open tags
-            an open with attribute function for tags with attributes
-            an empty with attribute function for tags that are empty but have
-            attributes.
-            a closed function for closed tags.
-            an empty tag function.
+        Read in the file one line at a time. Get the important info, between [:16]. Check if this info matches a dictionary entry. If it does, call the appropriate function. The functions that are called: a text function for text an open function for open tags an open with attribute function for tags with attributes an empty with attribute function for tags that are empty but have attributes. a closed function for closed tags. an empty tag function.
+
+        Example:
+            Exercise ConvertToTags.convert to tags through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__initiate_values()
         with open_for_write(self.__write_to) as self.__write_obj:

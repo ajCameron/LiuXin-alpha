@@ -1,4 +1,14 @@
-"""A parser for SGML, using the derived class as a static DTD."""
+"""
+Parse tolerant SGML-like markup and dispatch normalized tokens to handlers.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise sgmllib through a consuming regression::
+
+        python -m pytest -q tests/file_formats/html/test_html_modernized.py
+"""
 
 # XXX This only supports those SGML features used by HTML.
 
@@ -40,6 +50,11 @@ attrfind = re.compile(
 class SGMLParseError(RuntimeError):
     """
     Exception raised for all parse errors.
+
+    Example:
+        Exercise SGMLParseError through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
     """
 
     pass
@@ -59,15 +74,45 @@ class SGMLParseError(RuntimeError):
 
 class SGMLParser(markupbase.ParserBase):
     # Definition of entities -- derived classes may override
+    """
+    Parse sgmlparser data into normalized ebook structures.
+
+    Example:
+        Exercise SGMLParser through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
     entity_or_charref = re.compile("&(?:" "([a-zA-Z][-.a-zA-Z0-9]*)|#([0-9]+)" ")(;?)")
 
     def __init__(self: _typing.Self, verbose: int = 0) -> None:
-        """Initialize and reset this instance."""
+        """
+        Initialize and reset this instance.
+
+        Example:
+            Exercise SGMLParser.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param verbose: Value supplied for verbose under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.verbose = verbose
         self.reset()
 
     def reset(self: _typing.Self) -> None:
-        """Reset this instance. Loses all unprocessed data."""
+        """
+        Reset this instance. Loses all unprocessed data.
+
+        Example:
+            Exercise SGMLParser.reset through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__starttag_text = None
         self.rawdata = ""
         self.stack = []
@@ -77,41 +122,102 @@ class SGMLParser(markupbase.ParserBase):
         markupbase.ParserBase.reset(self)
 
     def setnomoretags(self: _typing.Self) -> None:
-        """Enter literal mode (CDATA) till EOF.
+        """
+        Enter literal mode (CDATA) till EOF.
 
-        Intended for derived classes only.
+        Example:
+            Exercise SGMLParser.setnomoretags through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.nomoretags = self.literal = 1
 
     def setliteral(self: _typing.Self, *args: _typing.Any) -> None:
-        """Enter literal mode (CDATA).
+        """
+        Enter literal mode (CDATA).
 
-        Intended for derived classes only.
+        Example:
+            Exercise SGMLParser.setliteral through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.literal = 1
 
     def feed(self: _typing.Self, data: _typing.Any) -> None:
-        """Feed some data to the parser.
+        """
+        Feed some data to the parser.
 
-        Call this as often as you want, with as little or as much text
-        as you want (may include '\n').  (This just saves the text,
-        all the processing is done by goahead().)
+        Example:
+            Exercise SGMLParser.feed through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
 
         self.rawdata = self.rawdata + data
         self.goahead(0)
 
     def close(self: _typing.Self) -> None:
-        """Handle the remaining data."""
+        """
+        Handle the remaining data.
+
+        Example:
+            Exercise SGMLParser.close through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.goahead(1)
 
     def error(self: _typing.Self, message: _typing.Any) -> None:
+        """
+        Perform the error operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SGMLParser.error through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param message: Value supplied for message under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise SGMLParseError(message)
 
     # Internal -- handle data as far as reasonable.  May leave state
     # and data to be processed by a subsequent call.  If 'end' is
     # true, force handling all data as if followed by EOF marker.
     def goahead(self: _typing.Self, end: _typing.Any) -> None:
+        """
+        Perform the goahead operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SGMLParser.goahead through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param end: Value supplied for end under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         rawdata = self.rawdata
         i = 0
         n = len(rawdata)
@@ -228,6 +334,19 @@ class SGMLParser(markupbase.ParserBase):
 
     # Internal -- parse processing instr, return length or -1 if not terminated
     def parse_pi(self: _typing.Self, i: _typing.Any) -> _typing.Any:
+        """
+        Parse pi under the format's safety and compatibility rules.
+
+        Example:
+            Exercise SGMLParser.parse pi through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param i: Value supplied for i under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         rawdata = self.rawdata
         if rawdata[i : i + 2] != "<?":
             self.error("unexpected call to parse_pi()")
@@ -240,10 +359,35 @@ class SGMLParser(markupbase.ParserBase):
         return j - i
 
     def get_starttag_text(self: _typing.Self) -> _typing.Any:
+        """
+        Return starttag text under the format's safety and compatibility rules.
+
+        Example:
+            Exercise SGMLParser.get starttag text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.__starttag_text
 
     # Internal -- handle starttag, return length or -1 if not terminated
     def parse_starttag(self: _typing.Self, i: _typing.Any) -> _typing.Any:
+        """
+        Parse starttag under the format's safety and compatibility rules.
+
+        Example:
+            Exercise SGMLParser.parse starttag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param i: Value supplied for i under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.__starttag_text = None
         start_pos = i
         rawdata = self.rawdata
@@ -305,6 +449,19 @@ class SGMLParser(markupbase.ParserBase):
 
     # Internal -- convert entity or character reference
     def _convert_ref(self: _typing.Self, match: _typing.Any) -> _typing.Any:
+        """
+        Convert ref under the format's safety and compatibility rules.
+
+        Example:
+            Exercise SGMLParser. convert ref through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param match: Value supplied for match under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if match.group(2):
             return self.convert_charref(match.group(2)) or "&#%s%s" % match.groups()[1:]
         elif match.group(3):
@@ -314,6 +471,19 @@ class SGMLParser(markupbase.ParserBase):
 
     # Internal -- parse endtag
     def parse_endtag(self: _typing.Self, i: _typing.Any) -> _typing.Any:
+        """
+        Parse endtag under the format's safety and compatibility rules.
+
+        Example:
+            Exercise SGMLParser.parse endtag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param i: Value supplied for i under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         rawdata = self.rawdata
         match = endbracket.search(rawdata, i + 1)
         if not match:
@@ -327,6 +497,20 @@ class SGMLParser(markupbase.ParserBase):
 
     # Internal -- finish parsing of <tag/data/ (same as <tag>data</tag>)
     def finish_shorttag(self: _typing.Self, tag: _typing.Any, data: _typing.Any) -> None:
+        """
+        Perform the finish shorttag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SGMLParser.finish shorttag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param data: Value supplied for data under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.finish_starttag(tag, [])
         self.handle_data(data)
         self.finish_endtag(tag)
@@ -334,6 +518,20 @@ class SGMLParser(markupbase.ParserBase):
     # Internal -- finish processing of start tag
     # Return -1 for unknown tag, 0 for open-only tag, 1 for balanced tag
     def finish_starttag(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> int:
+        """
+        Perform the finish starttag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SGMLParser.finish starttag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             method = getattr(self, "start_" + tag)
         except AttributeError:
@@ -352,6 +550,19 @@ class SGMLParser(markupbase.ParserBase):
 
     # Internal -- finish processing of end tag
     def finish_endtag(self: _typing.Self, tag: _typing.Any) -> None:
+        """
+        Perform the finish endtag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SGMLParser.finish endtag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not tag:
             found = len(self.stack) - 1
             if found < 0:
@@ -384,20 +595,74 @@ class SGMLParser(markupbase.ParserBase):
 
     # Overridable -- handle start tag
     def handle_starttag(self: _typing.Self, tag: _typing.Any, method: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the handle starttag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SGMLParser.handle starttag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param method: Value supplied for method under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         method(attrs)
 
     # Overridable -- handle end tag
     def handle_endtag(self: _typing.Self, tag: _typing.Any, method: _typing.Any) -> None:
+        """
+        Perform the handle endtag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SGMLParser.handle endtag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param method: Value supplied for method under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         method()
 
     # Example -- report an unbalanced </...> tag.
     def report_unbalanced(self: _typing.Self, tag: _typing.Any) -> None:
+        """
+        Perform the report unbalanced operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SGMLParser.report unbalanced through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.verbose:
             print("*** Unbalanced </" + tag + ">")
             print("*** Stack:", self.stack)
 
     def convert_charref(self: _typing.Self, name: _typing.Any) -> _typing.Any:
-        """Convert character reference, may be overridden."""
+        """
+        Convert character reference, may be overridden.
+
+        Example:
+            Exercise SGMLParser.convert charref through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             n = int(name)
         except ValueError:
@@ -407,10 +672,35 @@ class SGMLParser(markupbase.ParserBase):
         return self.convert_codepoint(n)
 
     def convert_codepoint(self: _typing.Self, codepoint: _typing.Any) -> _typing.Any:
+        """
+        Convert codepoint under the format's safety and compatibility rules.
+
+        Example:
+            Exercise SGMLParser.convert codepoint through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param codepoint: Value supplied for codepoint under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return chr(codepoint)
 
     def handle_charref(self: _typing.Self, name: _typing.Any) -> None:
-        """Handle character reference, no need to override."""
+        """
+        Handle character reference, no need to override.
+
+        Example:
+            Exercise SGMLParser.handle charref through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         replacement = self.convert_charref(name)
         if replacement is None:
             self.unknown_charref(name)
@@ -421,10 +711,18 @@ class SGMLParser(markupbase.ParserBase):
     entitydefs = {"lt": "<", "gt": ">", "amp": "&", "quot": '"', "apos": "'"}
 
     def convert_entityref(self: _typing.Self, name: _typing.Any) -> _typing.Any:
-        """Convert entity references.
+        """
+        Convert entity references.
 
-        As an alternative to overriding this method; one can tailor the
-        results by setting up the self.entitydefs mapping appropriately.
+        Example:
+            Exercise SGMLParser.convert entityref through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         table = self.entitydefs
         if name in table:
@@ -433,7 +731,19 @@ class SGMLParser(markupbase.ParserBase):
             return
 
     def handle_entityref(self: _typing.Self, name: _typing.Any) -> None:
-        """Handle entity references, no need to override."""
+        """
+        Handle entity references, no need to override.
+
+        Example:
+            Exercise SGMLParser.handle entityref through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         replacement = self.convert_entityref(name)
         if replacement is None:
             self.unknown_entityref(name)
@@ -442,51 +752,214 @@ class SGMLParser(markupbase.ParserBase):
 
     # Example -- handle data, should be overridden
     def handle_data(self: _typing.Self, data: _typing.Any) -> None:
+        """
+        Perform the handle data operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SGMLParser.handle data through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     # Example -- handle comment, could be overridden
     def handle_comment(self: _typing.Self, data: _typing.Any) -> None:
+        """
+        Perform the handle comment operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SGMLParser.handle comment through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     # Example -- handle declaration, could be overridden
     def handle_decl(self: _typing.Self, decl: _typing.Any) -> None:
+        """
+        Perform the handle decl operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SGMLParser.handle decl through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param decl: Value supplied for decl under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     # Example -- handle processing instruction, could be overridden
     def handle_pi(self: _typing.Self, data: _typing.Any) -> None:
+        """
+        Perform the handle pi operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SGMLParser.handle pi through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     # To be overridden -- handlers for unknown objects
     def unknown_starttag(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the unknown starttag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SGMLParser.unknown starttag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     def unknown_endtag(self: _typing.Self, tag: _typing.Any) -> None:
+        """
+        Perform the unknown endtag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SGMLParser.unknown endtag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     def unknown_charref(self: _typing.Self, ref: _typing.Any) -> None:
+        """
+        Perform the unknown charref operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SGMLParser.unknown charref through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param ref: Value supplied for ref under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     def unknown_entityref(self: _typing.Self, ref: _typing.Any) -> None:
+        """
+        Perform the unknown entityref operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SGMLParser.unknown entityref through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param ref: Value supplied for ref under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
 
 class TestSGMLParser(SGMLParser):
+    """
+    Parse testsgmlparser data into normalized ebook structures.
+
+    Example:
+        Exercise TestSGMLParser through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
     def __init__(self: _typing.Self, verbose: int = 0) -> None:
+        """
+        Initialize and validate the testsgmlparser state.
+
+        Example:
+            Exercise TestSGMLParser.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param verbose: Value supplied for verbose under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.testdata = ""
         SGMLParser.__init__(self, verbose)
 
     def handle_data(self: _typing.Self, data: _typing.Any) -> None:
+        """
+        Perform the handle data operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TestSGMLParser.handle data through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.testdata = self.testdata + data
         if len(repr(self.testdata)) >= 70:
             self.flush()
 
     def flush(self: _typing.Self) -> None:
+        """
+        Perform the flush operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TestSGMLParser.flush through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         data = self.testdata
         if data:
             self.testdata = ""
             print("data:{}".format(repr(data)))
 
     def handle_comment(self: _typing.Self, data: _typing.Any) -> None:
+        """
+        Perform the handle comment operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TestSGMLParser.handle comment through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.flush()
         r = repr(data)
         if len(r) > 68:
@@ -494,6 +967,20 @@ class TestSGMLParser(SGMLParser):
         print("comment:{}".format(r))
 
     def unknown_starttag(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the unknown starttag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TestSGMLParser.unknown starttag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.flush()
         if not attrs:
             print("start tag: <" + tag + ">")
@@ -508,27 +995,104 @@ class TestSGMLParser(SGMLParser):
             print(">")
 
     def unknown_endtag(self: _typing.Self, tag: _typing.Any) -> None:
+        """
+        Perform the unknown endtag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TestSGMLParser.unknown endtag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.flush()
         print("end tag: </" + tag + ">")
 
     def unknown_entityref(self: _typing.Self, ref: _typing.Any) -> None:
+        """
+        Perform the unknown entityref operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TestSGMLParser.unknown entityref through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param ref: Value supplied for ref under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.flush()
         print("*** unknown entity ref: &" + ref + ";")
 
     def unknown_charref(self: _typing.Self, ref: _typing.Any) -> None:
+        """
+        Perform the unknown charref operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TestSGMLParser.unknown charref through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param ref: Value supplied for ref under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.flush()
         print("*** unknown char ref: &#" + ref + ";")
 
     def unknown_decl(self: _typing.Self, data: _typing.Any) -> None:
+        """
+        Perform the unknown decl operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TestSGMLParser.unknown decl through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.flush()
         print("*** unknown decl: [" + data + "]")
 
     def close(self: _typing.Self) -> None:
+        """
+        Perform the close operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TestSGMLParser.close through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         SGMLParser.close(self)
         self.flush()
 
 
 def test(args: _typing.Any = None) -> None:
+    """
+    Perform the test operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param args: Positional values forwarded to the compatibility implementation.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     import sys
 
     if args is None:

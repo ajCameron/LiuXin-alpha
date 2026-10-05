@@ -1,82 +1,15 @@
 # TODO: Bundle the recommended packages in with LiuXin and change the references
 #       either directly or through wrappers
-"""Beautiful Soup
-Elixir and Tonic
-"The Screen-Scraper's Friend"
-http://www.crummy.com/software/BeautifulSoup/
+"""
+Parse, navigate and serialize tolerant HTML and XML trees through the bundled Beautiful Soup API.
 
-Beautiful Soup parses a (possibly invalid) XML or HTML document into a
-tree representation. It provides methods and Pythonic idioms that make
-it easy to navigate, search, and modify the tree.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-A well-formed XML/HTML document yields a well-formed data
-structure. An ill-formed XML/HTML document yields a correspondingly
-ill-formed data structure. If your document is only locally
-well-formed, you can use this library to find and process the
-well-formed part of it.
+Example:
+    Exercise BeautifulSoup through a consuming regression::
 
-Beautiful Soup works with Python 2.2 and up. It has no external
-dependencies, but you'll have more success at converting data to UTF-8
-if you also install these three packages:
-
-* chardet, for auto-detecting character encodings
-  http://chardet.feedparser.org/
-* cjkcodecs and iconv_codec, which add more encodings to the ones supported
-  by stock Python.
-  http://cjkpython.i18n.org/
-
-Beautiful Soup defines classes for two main parsing strategies:
-
- * BeautifulStoneSoup, for parsing XML, SGML, or your domain-specific
-   language that kind of looks like XML.
-
- * BeautifulSoup, for parsing run-of-the-mill HTML code, be it valid
-   or invalid. This class has web browser-like heuristics for
-   obtaining a sensible parse tree in the face of common HTML errors.
-
-Beautiful Soup also defines a class (UnicodeDammit) for autodetecting
-the encoding of an HTML or XML document, and converting it to
-Unicode. Much of this code is taken from Mark Pilgrim's Universal Feed Parser.
-
-For more than you ever wanted to know about Beautiful Soup, see the
-documentation:
-http://www.crummy.com/software/BeautifulSoup/documentation.html
-
-Here, have some legalese:
-
-Copyright (c) 2004-2007, Leonard Richardson
-
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are
-met:
-
-  * Redistributions of source code must retain the above copyright
-    notice, this list of conditions and the following disclaimer.
-
-  * Redistributions in binary form must reproduce the above
-    copyright notice, this list of conditions and the following
-    disclaimer in the documentation and/or other materials provided
-    with the distribution.
-
-  * Neither the name of the the Beautiful Soup Consortium and All
-    Night Kosher Bakery nor the names of its contributors may be
-    used to endorse or promote products derived from this software
-    without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
-CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE, DAMMIT.
-
+        python -m pytest -q tests/file_formats/html/test_html_modernized.py
 """
 # Todo: Add these terms to mewbot
 
@@ -109,12 +42,30 @@ DEFAULT_OUTPUT_ENCODING = "utf-8"
 
 
 class PageElement:
-    """Contains the navigational information for some part of the page
-    (either a tag or a piece of text)"""
+    """
+    Contains the navigational information for some part of the page (either a tag or a piece of text)
+
+    Example:
+        Exercise PageElement through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
 
     def setup(self, parent=None, previous=None):
-        """Sets up the initial relations between this element and
-        other elements."""
+        """
+        Sets up the initial relations between this element and other elements.
+
+        Example:
+            Exercise PageElement.setup through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param previous: Value supplied for previous under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.parent = parent
         self.previous = previous
         self.next = None
@@ -125,6 +76,19 @@ class PageElement:
             self.previousSibling.nextSibling = self
 
     def replaceWith(self, replaceWith):
+        """
+        Perform the replaceWith utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise PageElement.replaceWith through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param replaceWith: Value supplied for replaceWith under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         oldParent = self.parent
         myIndex = self.parent.contents.index(self)
         if hasattr(replaceWith, "parent") and replaceWith.parent == self.parent:
@@ -139,7 +103,18 @@ class PageElement:
         oldParent.insert(myIndex, replaceWith)
 
     def extract(self):
-        """Destructively rips this element out of the tree."""
+        """
+        Destructively rips this element out of the tree.
+
+        Example:
+            Exercise PageElement.extract through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         # Changed by KG as list.remove uses _-eq__ which is True for two Tags
         # with the same name and attributes.
         if self.parent:
@@ -172,13 +147,38 @@ class PageElement:
         self.previousSibling = self.nextSibling = None
 
     def _lastRecursiveChild(self):
-        "Finds the last element beneath this object to be parsed."
+        """
+        Finds the last element beneath this object to be parsed.
+
+        Example:
+            Exercise PageElement. lastRecursiveChild through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         lastChild = self
         while hasattr(lastChild, "contents") and lastChild.contents:
             lastChild = lastChild.contents[-1]
         return lastChild
 
     def insert(self, position, newChild):
+        """
+        Perform the insert utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise PageElement.insert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param position: Value supplied for position under the utility contract.
+        :param newChild: Value supplied for newChild under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if (isinstance(newChild, basestring) or isinstance(newChild, unicode)) and not isinstance(
             newChild, NavigableString
         ):
@@ -239,58 +239,199 @@ class PageElement:
         self.contents.insert(position, newChild)
 
     def append(self, tag):
-        """Appends the given tag to the contents of this tag."""
+        """
+        Appends the given tag to the contents of this tag.
+
+        Example:
+            Exercise PageElement.append through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.insert(len(self.contents), tag)
 
     def findNext(self, name=None, attrs={}, text=None, **kwargs):
-        """Returns the first item that matches the given criteria and
-        appears after this Tag in the document."""
+        """
+        Returns the first item that matches the given criteria and appears after this Tag in the document.
+
+        Example:
+            Exercise PageElement.findNext through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :param text: Text parsed, normalized or rendered.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._findOne(self.findAllNext, name, attrs, text, **kwargs)
 
     def findAllNext(self, name=None, attrs={}, text=None, limit=None, **kwargs):
-        """Returns all items that match the given criteria and appear
-        before after Tag in the document."""
+        """
+        Returns all items that match the given criteria and appear before after Tag in the document.
+
+        Example:
+            Exercise PageElement.findAllNext through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :param text: Text parsed, normalized or rendered.
+        :param limit: Value supplied for limit under the utility contract.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._findAll(name, attrs, text, limit, self.nextGenerator)
 
     def findNextSibling(self, name=None, attrs={}, text=None, **kwargs):
-        """Returns the closest sibling to this Tag that matches the
-        given criteria and appears after this Tag in the document."""
+        """
+        Returns the closest sibling to this Tag that matches the given criteria and appears after this Tag in the document.
+
+        Example:
+            Exercise PageElement.findNextSibling through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :param text: Text parsed, normalized or rendered.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._findOne(self.findNextSiblings, name, attrs, text, **kwargs)
 
     def findNextSiblings(self, name=None, attrs={}, text=None, limit=None, **kwargs):
-        """Returns the siblings of this Tag that match the given
-        criteria and appear after this Tag in the document."""
+        """
+        Returns the siblings of this Tag that match the given criteria and appear after this Tag in the document.
+
+        Example:
+            Exercise PageElement.findNextSiblings through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :param text: Text parsed, normalized or rendered.
+        :param limit: Value supplied for limit under the utility contract.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._findAll(name, attrs, text, limit, self.nextSiblingGenerator, **kwargs)
 
     fetchNextSiblings = findNextSiblings  # Compatibility with pre-3.x
 
     def findPrevious(self, name=None, attrs={}, text=None, **kwargs):
-        """Returns the first item that matches the given criteria and
-        appears before this Tag in the document."""
+        """
+        Returns the first item that matches the given criteria and appears before this Tag in the document.
+
+        Example:
+            Exercise PageElement.findPrevious through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :param text: Text parsed, normalized or rendered.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._findOne(self.findAllPrevious, name, attrs, text, **kwargs)
 
     def findAllPrevious(self, name=None, attrs={}, text=None, limit=None, **kwargs):
-        """Returns all items that match the given criteria and appear
-        before this Tag in the document."""
+        """
+        Returns all items that match the given criteria and appear before this Tag in the document.
+
+        Example:
+            Exercise PageElement.findAllPrevious through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :param text: Text parsed, normalized or rendered.
+        :param limit: Value supplied for limit under the utility contract.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._findAll(name, attrs, text, limit, self.previousGenerator, **kwargs)
 
     fetchPrevious = findAllPrevious  # Compatibility with pre-3.x
 
     def findPreviousSibling(self, name=None, attrs={}, text=None, **kwargs):
-        """Returns the closest sibling to this Tag that matches the
-        given criteria and appears before this Tag in the document."""
+        """
+        Returns the closest sibling to this Tag that matches the given criteria and appears before this Tag in the document.
+
+        Example:
+            Exercise PageElement.findPreviousSibling through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :param text: Text parsed, normalized or rendered.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._findOne(self.findPreviousSiblings, name, attrs, text, **kwargs)
 
     def findPreviousSiblings(self, name=None, attrs={}, text=None, limit=None, **kwargs):
-        """Returns the siblings of this Tag that match the given
-        criteria and appear before this Tag in the document."""
+        """
+        Returns the siblings of this Tag that match the given criteria and appear before this Tag in the document.
+
+        Example:
+            Exercise PageElement.findPreviousSiblings through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :param text: Text parsed, normalized or rendered.
+        :param limit: Value supplied for limit under the utility contract.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._findAll(name, attrs, text, limit, self.previousSiblingGenerator, **kwargs)
 
     fetchPreviousSiblings = findPreviousSiblings  # Compatibility with pre-3.x
 
     def findParent(self, name=None, attrs={}, **kwargs):
-        """Returns the closest parent of this Tag that matches the given
-        criteria."""
+        """
+        Returns the closest parent of this Tag that matches the given criteria.
+
+        Example:
+            Exercise PageElement.findParent through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         # NOTE: We can't use _findOne because findParents takes a different
         # set of arguments.
         r = None
@@ -300,8 +441,22 @@ class PageElement:
         return r
 
     def findParents(self, name=None, attrs={}, limit=None, **kwargs):
-        """Returns the parents of this Tag that match the given
-        criteria."""
+        """
+        Returns the parents of this Tag that match the given criteria.
+
+        Example:
+            Exercise PageElement.findParents through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :param limit: Value supplied for limit under the utility contract.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         return self._findAll(name, attrs, None, limit, self.parentGenerator, **kwargs)
 
@@ -310,6 +465,23 @@ class PageElement:
     # These methods do the real heavy lifting.
 
     def _findOne(self, method, name, attrs, text, **kwargs):
+        """
+        Perform the findOne utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise PageElement. findOne through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param method: Value supplied for method under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :param text: Text parsed, normalized or rendered.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         r = None
         l = method(name, attrs, text, 1, **kwargs)
         if l:
@@ -317,7 +489,24 @@ class PageElement:
         return r
 
     def _findAll(self, name, attrs, text, limit, generator, **kwargs):
-        "Iterates over a generator looking for things that match."
+        """
+        Iterates over a generator looking for things that match.
+
+        Example:
+            Exercise PageElement. findAll through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :param text: Text parsed, normalized or rendered.
+        :param limit: Value supplied for limit under the utility contract.
+        :param generator: Value supplied for generator under the utility contract.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         if isinstance(name, SoupStrainer):
             strainer = name
@@ -342,30 +531,85 @@ class PageElement:
     # These Generators can be used to navigate starting from both
     # NavigableStrings and Tags.
     def nextGenerator(self):
+        """
+        Perform the nextGenerator utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise PageElement.nextGenerator through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         i = self
         while i:
             i = i.next
             yield i
 
     def nextSiblingGenerator(self):
+        """
+        Perform the nextSiblingGenerator utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise PageElement.nextSiblingGenerator through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         i = self
         while i:
             i = i.nextSibling
             yield i
 
     def previousGenerator(self):
+        """
+        Perform the previousGenerator utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise PageElement.previousGenerator through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         i = self
         while i:
             i = i.previous
             yield i
 
     def previousSiblingGenerator(self):
+        """
+        Perform the previousSiblingGenerator utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise PageElement.previousSiblingGenerator through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         i = self
         while i:
             i = i.previousSibling
             yield i
 
     def parentGenerator(self):
+        """
+        Perform the parentGenerator utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise PageElement.parentGenerator through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         i = self
         while i:
             i = i.parent
@@ -373,12 +617,38 @@ class PageElement:
 
     # Utility methods
     def substituteEncoding(self, str, encoding=None):
+        """
+        Perform the substituteEncoding utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise PageElement.substituteEncoding through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param str: Value supplied for str under the utility contract.
+        :param encoding: Value supplied for encoding under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         encoding = encoding or "utf-8"
         return str.replace("%SOUP-ENCODING%", encoding)
 
     def toEncoding(self, s, encoding=None):
-        """Encodes an object to a string in some encoding, or to Unicode.
-        ."""
+        """
+        Encodes an object to a string in some encoding, or to Unicode. .
+
+        Example:
+            Exercise PageElement.toEncoding through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param s: Value supplied for s under the utility contract.
+        :param encoding: Value supplied for encoding under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if isinstance(s, unicode):
             if encoding:
                 s = s.encode(encoding)
@@ -396,13 +666,43 @@ class PageElement:
 
 
 class NavigableString(unicode, PageElement):
+    """
+    Provide the NavigableString utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise NavigableString through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
     def __getnewargs__(self):
+        """
+        Perform the getnewargs utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise NavigableString.  getnewargs   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return (NavigableString.__str__(self),)
 
     def __getattr__(self, attr):
-        """text.string gives you text. This is for backwards
-        compatibility for Navigable*String, but for CData* it lets you
-        get the string without the CData wrapper."""
+        """
+        text.string gives you text. This is for backwards compatibility for Navigable*String, but for CData* it lets you get the string without the CData wrapper.
+
+        Example:
+            Exercise NavigableString.  getattr   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param attr: Value supplied for attr under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if attr == "string":
             return self
         else:
@@ -415,9 +715,34 @@ class NavigableString(unicode, PageElement):
             )
 
     def __unicode__(self):
+        """
+        Perform the unicode utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise NavigableString.  unicode   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return six_unicode(str(self), DEFAULT_OUTPUT_ENCODING)  # Changed by Kovid
 
     def __str__(self, encoding=DEFAULT_OUTPUT_ENCODING):
+        """
+        Perform the str utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise NavigableString.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param encoding: Value supplied for encoding under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if encoding:
             return self.encode(encoding)
         else:
@@ -425,12 +750,54 @@ class NavigableString(unicode, PageElement):
 
 
 class CData(NavigableString):
+    """
+    Provide the CData utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise CData through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
     def __str__(self, encoding=DEFAULT_OUTPUT_ENCODING):
+        """
+        Perform the str utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise CData.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param encoding: Value supplied for encoding under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "<![CDATA[%s]]>" % NavigableString.__str__(self, encoding)
 
 
 class ProcessingInstruction(NavigableString):
+    """
+    Provide the ProcessingInstruction utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise ProcessingInstruction through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
     def __str__(self, encoding=DEFAULT_OUTPUT_ENCODING):
+        """
+        Perform the str utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ProcessingInstruction.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param encoding: Value supplied for encoding under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         output = self
         if "%SOUP-ENCODING%" in output:
             output = self.substituteEncoding(output, encoding)
@@ -438,21 +805,81 @@ class ProcessingInstruction(NavigableString):
 
 
 class Comment(NavigableString):
+    """
+    Provide the Comment utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise Comment through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
     def __str__(self, encoding=DEFAULT_OUTPUT_ENCODING):
+        """
+        Perform the str utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Comment.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param encoding: Value supplied for encoding under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "<!--%s-->" % NavigableString.__str__(self, encoding)
 
 
 class Declaration(NavigableString):
+    """
+    Provide the Declaration utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise Declaration through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
     def __str__(self, encoding=DEFAULT_OUTPUT_ENCODING):
+        """
+        Perform the str utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Declaration.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param encoding: Value supplied for encoding under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "<!%s>" % NavigableString.__str__(self, encoding)
 
 
 class Tag(PageElement):
 
-    """Represents a found HTML tag with its attributes and contents."""
+    """
+    Represents a found HTML tag with its attributes and contents.
+
+    Example:
+        Exercise Tag through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
 
     def _invert(h):
-        "Cheap function to invert a hash."
+        """
+        Cheap function to invert a hash.
+
+        Example:
+            Exercise Tag. invert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         i = {}
         for k, v in h.items():
             i[v] = k
@@ -469,10 +896,19 @@ class Tag(PageElement):
     XML_SPECIAL_CHARS_TO_ENTITIES = _invert(XML_ENTITIES_TO_SPECIAL_CHARS)
 
     def _convertEntities(self, match):
-        """Used in a call to re.sub to replace HTML, XML, and numeric
-        entities with the appropriate Unicode characters. If HTML
-        entities are being converted, any unrecognized entities are
-        escaped."""
+        """
+        Used in a call to re.sub to replace HTML, XML, and numeric entities with the appropriate Unicode characters. If HTML entities are being converted, any unrecognized entities are escaped.
+
+        Example:
+            Exercise Tag. convertEntities through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param match: Value supplied for match under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         x = match.group(1)
         if self.convertHTMLEntities and x in name2codepoint:
             return unichr(name2codepoint[x])
@@ -494,7 +930,22 @@ class Tag(PageElement):
             return "&%s;" % x
 
     def __init__(self, parser, name, attrs=None, parent=None, previous=None):
-        "Basic constructor."
+        """
+        Basic constructor.
+
+        Example:
+            Exercise Tag.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param parser: Value supplied for parser under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :param parent: Value supplied for parent under the utility contract.
+        :param previous: Value supplied for previous under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
 
         # We don't actually store the parser object: that lets extracted
         # chunks be garbage-collected
@@ -520,37 +971,128 @@ class Tag(PageElement):
         self.attrs = map(convert, self.attrs)
 
     def get(self, key, default=None):
-        """Returns the value of the 'key' attribute for the tag, or
-        the value given for 'default' if it doesn't have that
-        attribute."""
+        """
+        Returns the value of the 'key' attribute for the tag, or the value given for 'default' if it doesn't have that attribute.
+
+        Example:
+            Exercise Tag.get through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :param default: Value supplied for default under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._getAttrMap().get(key, default)
 
     def has_key(self, key):
+        """
+        Return or update whether has key holds for the compatibility value.
+
+        Example:
+            Exercise Tag.has key through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :return: True when the documented condition holds; otherwise False.
+        """
         return key in self._getAttrMap()
 
     def __getitem__(self, key):
-        """tag[key] returns the value of the 'key' attribute for the tag,
-        and throws an exception if it's not there."""
+        """
+        tag[key] returns the value of the 'key' attribute for the tag, and throws an exception if it's not there.
+
+        Example:
+            Exercise Tag.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._getAttrMap()[key]
 
     def __iter__(self):
-        "Iterating over a tag iterates over its contents."
+        """
+        Iterating over a tag iterates over its contents.
+
+        Example:
+            Exercise Tag.  iter   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return iter(self.contents)
 
     def __len__(self):
-        "The length of a tag is the length of its list of contents."
+        """
+        The length of a tag is the length of its list of contents.
+
+        Example:
+            Exercise Tag.  len   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return len(self.contents)
 
     def __contains__(self, x):
+        """
+        Perform the contains utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Tag.  contains   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param x: Value supplied for x under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return x in self.contents
 
     def __nonzero__(self):
-        "A tag is non-None even if it has no contents."
+        """
+        A tag is non-None even if it has no contents.
+
+        Example:
+            Exercise Tag.  nonzero   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: True when the documented condition holds; otherwise False.
+        """
         return True
 
     def __setitem__(self, key, value):
-        """Setting tag[key] sets the value of the 'key' attribute for the
-        tag."""
+        """
+        Setting tag[key] sets the value of the 'key' attribute for the tag.
+
+        Example:
+            Exercise Tag.  setitem   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._getAttrMap()
         self.attrMap[key] = value
         found = False
@@ -563,7 +1105,19 @@ class Tag(PageElement):
         self._getAttrMap()[key] = value
 
     def __delitem__(self, key):
-        "Deleting tag[key] deletes all 'key' attributes for the tag."
+        """
+        Deleting tag[key] deletes all 'key' attributes for the tag.
+
+        Example:
+            Exercise Tag.  delitem   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for item in self.attrs:
             if item[0] == key:
                 self.attrs.remove(item)
@@ -574,13 +1128,37 @@ class Tag(PageElement):
                 del self.attrMap[key]
 
     def __call__(self, *args, **kwargs):
-        """Calling a tag like a function is the same as calling its
-        findAll() method. Eg. tag('a') returns a list of all the A tags
-        found within this tag."""
+        """
+        Calling a tag like a function is the same as calling its findAll() method. Eg. tag('a') returns a list of all the A tags found within this tag.
+
+        Example:
+            Exercise Tag.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.findAll(*args, **kwargs)
 
     def __getattr__(self, tag):
         # print "Getattr %s.%s" % (self.__class__, tag)
+        """
+        Perform the getattr utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Tag.  getattr   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if len(tag) > 3 and tag.rfind("Tag") == len(tag) - 3:
             return self.find(tag[:-3])
         elif tag.find("__") != 0:
@@ -594,11 +1172,19 @@ class Tag(PageElement):
         )
 
     def __eq__(self, other):
-        """Returns true iff this tag has the same name, the same attributes,
-        and the same contents (recursively) as the given tag.
+        """
+        Returns true iff this tag has the same name, the same attributes, and the same contents (recursively) as the given tag.
 
-        NOTE: right now this will return false if two tags have the
-        same attributes in a different order. Should this be fixed?"""
+        Example:
+            Exercise Tag.  eq   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if (
             not hasattr(other, "name")
             or not hasattr(other, "attrs")
@@ -614,31 +1200,86 @@ class Tag(PageElement):
         return True
 
     def __ne__(self, other):
-        """Returns true iff this tag is not identical to the other tag,
-        as defined in __eq__."""
+        """
+        Returns true iff this tag is not identical to the other tag, as defined in __eq__.
+
+        Example:
+            Exercise Tag.  ne   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return not self == other
 
     def __repr__(self, encoding=DEFAULT_OUTPUT_ENCODING):
-        """Renders this tag as a string."""
+        """
+        Renders this tag as a string.
+
+        Example:
+            Exercise Tag.  repr   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param encoding: Value supplied for encoding under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.__str__(encoding)
 
     def __unicode__(self):
+        """
+        Perform the unicode utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Tag.  unicode   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.__str__(None)
 
     BARE_AMPERSAND_OR_BRACKET = re.compile(r"([<>]|" + r"&(?!#\d+;|#x[0-9a-fA-F]+;|\w+;)" + r")")
 
     def _sub_entity(self, x):
-        """Used with a regular expression to substitute the
-        appropriate XML entity for an XML special character."""
+        """
+        Used with a regular expression to substitute the appropriate XML entity for an XML special character.
+
+        Example:
+            Exercise Tag. sub entity through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param x: Value supplied for x under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "&" + self.XML_SPECIAL_CHARS_TO_ENTITIES[x.group(0)[0]] + ";"
 
     def __str__(self, encoding=DEFAULT_OUTPUT_ENCODING, prettyPrint=False, indentLevel=0):
-        """Returns a string or Unicode representation of this tag and
-        its contents. To get Unicode, pass None for encoding.
+        """
+        Returns a string or Unicode representation of this tag and its contents. To get Unicode, pass None for encoding.
 
-        NOTE: since Python's HTML parser consumes whitespace, this
-        method is not certain to reproduce the whitespace present in
-        the original string."""
+        Example:
+            Exercise Tag.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param encoding: Value supplied for encoding under the utility contract.
+        :param prettyPrint: Value supplied for prettyPrint under the utility contract.
+        :param indentLevel: Value supplied for indentLevel under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         encodedName = self.toEncoding(self.name, encoding)
 
@@ -716,11 +1357,37 @@ class Tag(PageElement):
         return s
 
     def prettify(self, encoding=DEFAULT_OUTPUT_ENCODING):
+        """
+        Perform the prettify utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Tag.prettify through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param encoding: Value supplied for encoding under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.__str__(encoding, True)
 
     def renderContents(self, encoding=DEFAULT_OUTPUT_ENCODING, prettyPrint=False, indentLevel=0):
-        """Renders the contents of this tag as a string in the given
-        encoding. If encoding is None, returns a Unicode string.."""
+        """
+        Renders the contents of this tag as a string in the given encoding. If encoding is None, returns a Unicode string..
+
+        Example:
+            Exercise Tag.renderContents through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param encoding: Value supplied for encoding under the utility contract.
+        :param prettyPrint: Value supplied for prettyPrint under the utility contract.
+        :param indentLevel: Value supplied for indentLevel under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         s = []
         for c in self:
             text = None
@@ -741,8 +1408,23 @@ class Tag(PageElement):
     # Soup methods
 
     def find(self, name=None, attrs={}, recursive=True, text=None, **kwargs):
-        """Return only the first child of this Tag matching the given
-        criteria."""
+        """
+        Return only the first child of this Tag matching the given criteria.
+
+        Example:
+            Exercise Tag.find through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :param recursive: Value supplied for recursive under the utility contract.
+        :param text: Text parsed, normalized or rendered.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         r = None
         l = self.findAll(name, attrs, recursive, text, 1, **kwargs)
         if l:
@@ -752,15 +1434,24 @@ class Tag(PageElement):
     findChild = find
 
     def findAll(self, name=None, attrs={}, recursive=True, text=None, limit=None, **kwargs):
-        """Extracts a list of Tag objects that match the given
-        criteria.  You can specify the name of the Tag and any
-        attributes you want the Tag to have.
+        """
+        Extracts a list of Tag objects that match the given criteria. You can specify the name of the Tag and any attributes you want the Tag to have.
 
-        The value of a key-value pair in the 'attrs' map can be a
-        string, a list of strings, a regular expression object, or a
-        callable that takes a string and returns whether or not the
-        string matches for some custom definition of 'matches'. The
-        same is true of the tag name."""
+        Example:
+            Exercise Tag.findAll through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :param recursive: Value supplied for recursive under the utility contract.
+        :param text: Text parsed, normalized or rendered.
+        :param limit: Value supplied for limit under the utility contract.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         generator = self.recursiveChildGenerator
         if not recursive:
             generator = self.childGenerator
@@ -773,16 +1464,55 @@ class Tag(PageElement):
     fetch = findAll
 
     def fetchText(self, text=None, recursive=True, limit=None):
+        """
+        Perform the fetchText utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Tag.fetchText through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :param recursive: Value supplied for recursive under the utility contract.
+        :param limit: Value supplied for limit under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.findAll(text=text, recursive=recursive, limit=limit)
 
     def firstText(self, text=None, recursive=True):
+        """
+        Perform the firstText utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Tag.firstText through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :param recursive: Value supplied for recursive under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.find(text=text, recursive=recursive)
 
     # Private methods
 
     def _getAttrMap(self):
-        """Initializes a map representation of this tag's attributes,
-        if not already initialized."""
+        """
+        Initializes a map representation of this tag's attributes, if not already initialized.
+
+        Example:
+            Exercise Tag. getAttrMap through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not getattr(self, "attrMap"):
             self.attrMap = {}
             for (key, value) in self.attrs:
@@ -791,10 +1521,32 @@ class Tag(PageElement):
 
     # Generator methods
     def childGenerator(self):
+        """
+        Perform the childGenerator utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Tag.childGenerator through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for i in range(0, len(self.contents)):
             yield self.contents[i]
 
     def recursiveChildGenerator(self):
+        """
+        Perform the recursiveChildGenerator utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Tag.recursiveChildGenerator through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         stack = [(self, 0)]
         while stack:
             tag, start = stack.pop()
@@ -811,10 +1563,31 @@ class Tag(PageElement):
 
 # Next, a couple classes to represent queries and their results.
 class SoupStrainer:
-    """Encapsulates a number of ways of matching a markup element (tag or
-    text)."""
+    """
+    Encapsulates a number of ways of matching a markup element (tag or text).
+
+    Example:
+        Exercise SoupStrainer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
 
     def __init__(self, name=None, attrs={}, text=None, **kwargs):
+        """
+        Initialize and validate the SoupStrainer state.
+
+        Example:
+            Exercise SoupStrainer.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :param text: Text parsed, normalized or rendered.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.name = name
         if isString(attrs):
             kwargs["class"] = attrs
@@ -829,12 +1602,38 @@ class SoupStrainer:
         self.text = text
 
     def __str__(self):
+        """
+        Perform the str utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise SoupStrainer.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.text:
             return self.text
         else:
             return "%s|%s" % (self.name, self.attrs)
 
     def searchTag(self, markupName=None, markupAttrs={}):
+        """
+        Perform the searchTag utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise SoupStrainer.searchTag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param markupName: Value supplied for markupName under the utility contract.
+        :param markupAttrs: Value supplied for markupAttrs under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         found = None
         markup = None
         if isinstance(markupName, Tag):
@@ -874,6 +1673,19 @@ class SoupStrainer:
 
     def search(self, markup):
         # print 'looking for %s in %s' % (self, markup)
+        """
+        Perform the search utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise SoupStrainer.search through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param markup: Value supplied for markup under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         found = None
         # If given a list of items, scan it for a text element that
         # matches.
@@ -897,6 +1709,20 @@ class SoupStrainer:
 
     def _matches(self, markup, matchAgainst):
         # print "Matching %s against %s" % (markup, matchAgainst)
+        """
+        Perform the matches utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise SoupStrainer. matches through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param markup: Value supplied for markup under the utility contract.
+        :param matchAgainst: Value supplied for matchAgainst under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         result = False
         if matchAgainst == True and type(matchAgainst) == types.BooleanType:
             result = markup != None
@@ -929,10 +1755,28 @@ class SoupStrainer:
 
 
 class ResultSet(list):
-    """A ResultSet is just a list that keeps track of the SoupStrainer
-    that created it."""
+    """
+    A ResultSet is just a list that keeps track of the SoupStrainer that created it.
+
+    Example:
+        Exercise ResultSet through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
 
     def __init__(self, source):
+        """
+        Initialize and validate the ResultSet state.
+
+        Example:
+            Exercise ResultSet.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param source: Value supplied for source under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         list.__init__([])
         self.source = source
 
@@ -941,14 +1785,36 @@ class ResultSet(list):
 
 
 def isList(l):
-    """Convenience method that works with all 2.x versions of Python
-    to determine whether or not something is listlike."""
+    """
+    Convenience method that works with all 2.x versions of Python to determine whether or not something is listlike.
+
+    Example:
+        Exercise isList through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param l: Value supplied for l under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return hasattr(l, "__iter__") or isinstance(l, (list, tuple))
 
 
 def isString(s):
-    """Convenience method that works with all 2.x versions of Python
-    to determine whether or not something is stringlike."""
+    """
+    Convenience method that works with all 2.x versions of Python to determine whether or not something is stringlike.
+
+    Example:
+        Exercise isString through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         return isinstance(s, unicode) or isinstance(s, str)
     except NameError:
@@ -956,9 +1822,20 @@ def isString(s):
 
 
 def buildTagMap(default, *args):
-    """Turns a list of maps, lists, or scalars into a single map.
-    Used to build the SELF_CLOSING_TAGS, NESTABLE_TAGS, and
-    NESTING_RESET_TAGS maps out of lists and partial maps."""
+    """
+    Turns a list of maps, lists, or scalars into a single map. Used to build the SELF_CLOSING_TAGS, NESTABLE_TAGS, and NESTING_RESET_TAGS maps out of lists and partial maps.
+
+    Example:
+        Exercise buildTagMap through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param default: Value supplied for default under the utility contract.
+    :param args: Positional values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     built = {}
     for portion in args:
         if hasattr(portion, "items"):
@@ -980,21 +1857,14 @@ def buildTagMap(default, *args):
 
 class BeautifulStoneSoup(Tag, SGMLParser):
 
-    """This class contains the basic parser and search code. It defines
-    a parser that knows nothing about tag behavior except for the
-    following:
+    """
+    This class contains the basic parser and search code. It defines a parser that knows nothing about tag behavior except for the following:
 
-      You can't close a tag without closing all the tags it encloses.
-      That is, "<foo><bar></foo>" actually means
-      "<foo><bar></bar></foo>".
+    Example:
+        Exercise BeautifulStoneSoup through a consuming regression::
 
-    [Another possible explanation is "<foo><bar /></foo>", but since
-    this class defines no SELF_CLOSING_TAGS, it will never use that
-    explanation.]
-
-    This class is useful for parsing XML or made-up markup languages,
-    or when BeautifulSoup makes an assumption counter to what you were
-    expecting."""
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
 
     SELF_CLOSING_TAGS = {}
     NESTABLE_TAGS = {}
@@ -1037,30 +1907,26 @@ class BeautifulStoneSoup(Tag, SGMLParser):
         convertEntities=None,
         selfClosingTags=None,
     ):
-        """The Soup object is initialized as the 'root tag', and the
-        provided markup (which can be a string or a file-like object)
-        is fed into the underlying parser.
+        """
+        The Soup object is initialized as the 'root tag', and the provided markup (which can be a string or a file-like object) is fed into the underlying parser.
 
-        sgmllib will process most bad HTML, and the BeautifulSoup
-        class has some tricks for dealing with some HTML that kills
-        sgmllib, but Beautiful Soup can nonetheless choke or lose data
-        if your data uses self-closing tags or declarations
-        incorrectly.
+        Example:
+            Exercise BeautifulStoneSoup.  init   through a consuming regression::
 
-        By default, Beautiful Soup uses regexes to sanitize input,
-        avoiding the vast majority of these problems. If the problems
-        don't apply to you, pass in False for markupMassage, and
-        you'll get better performance.
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
 
-        The default parser massage techniques fix the two most common
-        instances of invalid HTML that choke sgmllib:
 
-         <br/> (No space between name of closing tag and tag close)
-         <! --Comment--> (Extraneous whitespace in declaration)
-
-        You can pass in a custom list of (RE object, replace method)
-        tuples to get Beautiful Soup to scrub your input the way you
-        want."""
+        :param markup: Value supplied for markup under the utility contract.
+        :param parseOnlyThese: Value supplied for parseOnlyThese under the utility contract.
+        :param fromEncoding: Value supplied for fromEncoding under the utility contract.
+        :param markupMassage: Value supplied for markupMassage under the utility contract.
+        :param smartQuotesTo: Value supplied for smartQuotesTo under the utility contract.
+        :param convertEntities: Value supplied for convertEntities under the utility
+            contract.
+        :param selfClosingTags: Value supplied for selfClosingTags under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
 
         self.parseOnlyThese = parseOnlyThese
         self.fromEncoding = fromEncoding
@@ -1104,7 +1970,19 @@ class BeautifulStoneSoup(Tag, SGMLParser):
         self.markup = None  # The markup can now be GCed
 
     def convert_charref(self, name):
-        """This method fixes a bug in Python's SGMLParser."""
+        """
+        This method fixes a bug in Python's SGMLParser.
+
+        Example:
+            Exercise BeautifulStoneSoup.convert charref through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             n = int(name)
         except ValueError:
@@ -1115,6 +1993,20 @@ class BeautifulStoneSoup(Tag, SGMLParser):
 
     def _feed(self, inDocumentEncoding=None):
         # Convert the document to Unicode.
+        """
+        Perform the feed utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise BeautifulStoneSoup. feed through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param inDocumentEncoding: Value supplied for inDocumentEncoding under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         markup = self.markup
         if isinstance(markup, unicode):
             if not hasattr(self, "originalEncoding"):
@@ -1147,8 +2039,19 @@ class BeautifulStoneSoup(Tag, SGMLParser):
             self.popTag()
 
     def __getattr__(self, methodName):
-        """This method routes method call requests to either the SGMLParser
-        superclass or the Tag superclass, depending on the method name."""
+        """
+        This method routes method call requests to either the SGMLParser superclass or the Tag superclass, depending on the method name.
+
+        Example:
+            Exercise BeautifulStoneSoup.  getattr   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param methodName: Value supplied for methodName under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         # print "__getattr__ called on %s.%s" % (self.__class__, methodName)
 
         if methodName.find("start_") == 0 or methodName.find("end_") == 0 or methodName.find("do_") == 0:
@@ -1159,11 +2062,34 @@ class BeautifulStoneSoup(Tag, SGMLParser):
             raise AttributeError
 
     def isSelfClosingTag(self, name):
-        """Returns true iff the given string is the name of a
-        self-closing tag according to this parser."""
+        """
+        Returns true iff the given string is the name of a self-closing tag according to this parser.
+
+        Example:
+            Exercise BeautifulStoneSoup.isSelfClosingTag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return name in self.SELF_CLOSING_TAGS or name in self.instanceSelfClosingTags
 
     def reset(self):
+        """
+        Perform the reset utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise BeautifulStoneSoup.reset through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         Tag.__init__(self, self, self.ROOT_TAG_NAME)
         self.hidden = 1
         SGMLParser.reset(self)
@@ -1174,6 +2100,18 @@ class BeautifulStoneSoup(Tag, SGMLParser):
         self.pushTag(self)
 
     def popTag(self):
+        """
+        Perform the popTag utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise BeautifulStoneSoup.popTag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.tagStack.pop()
         # Tags with just one string-owning child get the child as a
         # 'string' property, so that soup.tag.string is shorthand for
@@ -1188,12 +2126,38 @@ class BeautifulStoneSoup(Tag, SGMLParser):
 
     def pushTag(self, tag):
         # print "Push", tag.name
+        """
+        Perform the pushTag utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise BeautifulStoneSoup.pushTag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.currentTag:
             self.currentTag.contents.append(tag)
         self.tagStack.append(tag)
         self.currentTag = self.tagStack[-1]
 
     def endData(self, containerClass=NavigableString):
+        """
+        Perform the endData utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise BeautifulStoneSoup.endData through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param containerClass: Value supplied for containerClass under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.currentData:
             currentData = "".join(self.currentData)
             # Changed by Kovid to not clobber whitespace inside <pre> tags and the like
@@ -1219,10 +2183,20 @@ class BeautifulStoneSoup(Tag, SGMLParser):
             self.currentTag.contents.append(o)
 
     def _popToTag(self, name, inclusivePop=True):
-        """Pops the tag stack up to and including the most recent
-        instance of the given tag. If inclusivePop is false, pops the tag
-        stack up to but *not* including the most recent instqance of
-        the given tag."""
+        """
+        Pops the tag stack up to and including the most recent instance of the given tag. If inclusivePop is false, pops the tag stack up to but *not* including the most recent instqance of the given tag.
+
+        Example:
+            Exercise BeautifulStoneSoup. popToTag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param inclusivePop: Value supplied for inclusivePop under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         # print "Popping to %s" % name
         if name == self.ROOT_TAG_NAME:
             return
@@ -1242,20 +2216,18 @@ class BeautifulStoneSoup(Tag, SGMLParser):
 
     def _smartPop(self, name):
 
-        """We need to pop up to the previous tag of this type, unless
-        one of this tag's nesting reset triggers comes between this
-        tag and the previous tag of this type, OR unless this tag is a
-        generic nesting trigger and another generic nesting trigger
-        comes between this tag and the previous tag of this type.
+        """
+        We need to pop up to the previous tag of this type, unless one of this tag's nesting reset triggers comes between this tag and the previous tag of this type, OR unless this tag is a generic nesting trigger and another generic nesting trigger comes between this tag and the previous tag of this type.
 
-        Examples:
-         <p>Foo<b>Bar *<p>* should pop to 'p', not 'b'.
-         <p>Foo<table>Bar *<p>* should pop to 'table', not 'p'.
-         <p>Foo<table><tr>Bar *<p>* should pop to 'tr', not 'p'.
+        Example:
+            Exercise BeautifulStoneSoup. smartPop through a consuming regression::
 
-         <li><ul><li> *<li>* should pop to 'ul', not the first 'li'.
-         <tr><table><tr> *<tr>* should pop to 'table', not the first 'tr'
-         <td><tr><td> *<td>* should pop to 'tr', not the first 'td'
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
 
         nestingResetTriggers = self.NESTABLE_TAGS.get(name)
@@ -1287,6 +2259,21 @@ class BeautifulStoneSoup(Tag, SGMLParser):
 
     def unknown_starttag(self, name, attrs, selfClosing=0):
         # print "Start tag %s: %s" % (name, attrs)
+        """
+        Perform the unknown starttag utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise BeautifulStoneSoup.unknown starttag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :param selfClosing: Value supplied for selfClosing under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.quoteStack:
             # This is not a real tag.
             # print "<%s> is not real!" % name
@@ -1320,6 +2307,19 @@ class BeautifulStoneSoup(Tag, SGMLParser):
 
     def unknown_endtag(self, name):
         # print "End tag %s" % name
+        """
+        Perform the unknown endtag utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise BeautifulStoneSoup.unknown endtag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.quoteStack and self.quoteStack[-1] != name:
             # This is not a real end tag.
             # print "</%s> is not real!" % name
@@ -1332,29 +2332,88 @@ class BeautifulStoneSoup(Tag, SGMLParser):
             self.literal = len(self.quoteStack) > 0
 
     def handle_data(self, data):
+        """
+        Perform the handle data utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise BeautifulStoneSoup.handle data through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.currentData.append(data)
 
     def _toStringSubclass(self, text, subclass):
-        """Adds a certain piece of text to the tree as a NavigableString
-        subclass."""
+        """
+        Adds a certain piece of text to the tree as a NavigableString subclass.
+
+        Example:
+            Exercise BeautifulStoneSoup. toStringSubclass through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :param subclass: Value supplied for subclass under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.endData()
         self.handle_data(text)
         self.endData(subclass)
 
     def handle_pi(self, text):
-        """Handle a processing instruction as a ProcessingInstruction
-        object, possibly one with a %SOUP-ENCODING% slot into which an
-        encoding will be plugged later."""
+        """
+        Handle a processing instruction as a ProcessingInstruction object, possibly one with a %SOUP-ENCODING% slot into which an encoding will be plugged later.
+
+        Example:
+            Exercise BeautifulStoneSoup.handle pi through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if text[:3] == "xml":
             text = "xml version='1.0' encoding='%SOUP-ENCODING%'"
         self._toStringSubclass(text, ProcessingInstruction)
 
     def handle_comment(self, text):
-        "Handle comments as Comment objects."
+        """
+        Handle comments as Comment objects.
+
+        Example:
+            Exercise BeautifulStoneSoup.handle comment through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._toStringSubclass(text, Comment)
 
     def handle_charref(self, ref):
-        "Handle character references as data."
+        """
+        Handle character references as data.
+
+        Example:
+            Exercise BeautifulStoneSoup.handle charref through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param ref: Value supplied for ref under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.convertEntities:
             if ref.lower().startswith("x"):  #
                 ref = int(ref[1:], 16)  # Added by Kovid to handle hex numeric entities
@@ -1367,9 +2426,19 @@ class BeautifulStoneSoup(Tag, SGMLParser):
         self.handle_data(data)
 
     def handle_entityref(self, ref):
-        """Handle entity references as data, possibly converting known
-        HTML and/or XML entity references to the corresponding Unicode
-        characters."""
+        """
+        Handle entity references as data, possibly converting known HTML and/or XML entity references to the corresponding Unicode characters.
+
+        Example:
+            Exercise BeautifulStoneSoup.handle entityref through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param ref: Value supplied for ref under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         data = None
         if self.convertHTMLEntities:
             try:
@@ -1409,12 +2478,35 @@ class BeautifulStoneSoup(Tag, SGMLParser):
         self.handle_data(data)
 
     def handle_decl(self, data):
-        "Handle DOCTYPEs and the like as Declaration objects."
+        """
+        Handle DOCTYPEs and the like as Declaration objects.
+
+        Example:
+            Exercise BeautifulStoneSoup.handle decl through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._toStringSubclass(data, Declaration)
 
     def parse_declaration(self, i):
-        """Treat a bogus SGML declaration as raw data. Treat a CDATA
-        declaration as a CData object."""
+        """
+        Treat a bogus SGML declaration as raw data. Treat a CDATA declaration as a CData object.
+
+        Example:
+            Exercise BeautifulStoneSoup.parse declaration through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param i: Value supplied for i under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         j = None
         if self.rawdata[i : i + 9] == "<![CDATA[":
             k = self.rawdata.find("]]>", i)
@@ -1435,53 +2527,29 @@ class BeautifulStoneSoup(Tag, SGMLParser):
 
 class BeautifulSoup(BeautifulStoneSoup):
 
-    """This parser knows the following facts about HTML:
+    """
+    This parser knows the following facts about HTML:
 
-    * Some tags have no closing tag and should be interpreted as being
-      closed as soon as they are encountered.
+    Example:
+        Exercise BeautifulSoup through a consuming regression::
 
-    * The text inside some tags (ie. 'script') may contain tags which
-      are not really part of the document and which should be parsed
-      as text, not tags. If you want to parse the text as tags, you can
-      always fetch it and parse it explicitly.
-
-    * Tag nesting rules:
-
-      Most tags can't be nested at all. For instance, the occurance of
-      a <p> tag should implicitly close the previous <p> tag.
-
-       <p>Para1<p>Para2
-        should be transformed into:
-       <p>Para1</p><p>Para2
-
-      Some tags can be nested arbitrarily. For instance, the occurance
-      of a <blockquote> tag should _not_ implicitly close the previous
-      <blockquote> tag.
-
-       Alice said: <blockquote>Bob said: <blockquote>Blah
-        should NOT be transformed into:
-       Alice said: <blockquote>Bob said: </blockquote><blockquote>Blah
-
-      Some tags can be nested, but the nesting is reset by the
-      interposition of other tags. For instance, a <tr> tag should
-      implicitly close the previous <tr> tag within the same <table>,
-      but not close a <tr> tag in another table.
-
-       <table><tr>Blah<tr>Blah
-        should be transformed into:
-       <table><tr>Blah</tr><tr>Blah
-        but,
-       <tr>Blah<table><tr>Blah
-        should NOT be transformed into
-       <tr>Blah<table></tr><tr>Blah
-
-    Differing assumptions about tag nesting rules are a major source
-    of problems with the BeautifulSoup class. If BeautifulSoup is not
-    treating as nestable a tag your page author treats as nestable,
-    try ICantBelieveItsBeautifulSoup, MinimalSoup, or
-    BeautifulStoneSoup before writing your own subclass."""
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
 
     def __init__(self, *args, **kwargs):
+        """
+        Initialize and validate the BeautifulSoup state.
+
+        Example:
+            Exercise BeautifulSoup.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; validated state is stored on the receiving object.
+        """
         if "smartQuotesTo" not in kwargs:
             kwargs["smartQuotesTo"] = self.HTML_ENTITIES
         BeautifulStoneSoup.__init__(self, *args, **kwargs)
@@ -1572,9 +2640,19 @@ class BeautifulSoup(BeautifulStoneSoup):
     CHARSET_RE = re.compile(r"((^|;)\s*charset=)([^;]*)")
 
     def start_meta(self, attrs):
-        """Beautiful Soup can detect a charset included in a META tag,
-        try to convert the document to that charset, and re-parse the
-        document from the beginning."""
+        """
+        Beautiful Soup can detect a charset included in a META tag, try to convert the document to that charset, and re-parse the document from the beginning.
+
+        Example:
+            Exercise BeautifulSoup.start meta through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         httpEquiv = None
         contentType = None
         contentTypeIndex = None
@@ -1613,33 +2691,27 @@ class BeautifulSoup(BeautifulStoneSoup):
 
 
 class StopParsing(Exception):
+    """
+    Provide the StopParsing utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise StopParsing through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
     pass
 
 
 class ICantBelieveItsBeautifulSoup(BeautifulSoup):
 
-    """The BeautifulSoup class is oriented towards skipping over
-    common HTML errors like unclosed tags. However, sometimes it makes
-    errors of its own. For instance, consider this fragment:
+    """
+    The BeautifulSoup class is oriented towards skipping over common HTML errors like unclosed tags. However, sometimes it makes errors of its own. For instance, consider this fragment:
 
-     <b>Foo<b>Bar</b></b>
+    Example:
+        Exercise ICantBelieveItsBeautifulSoup through a consuming regression::
 
-    This is perfectly valid (if bizarre) HTML. However, the
-    BeautifulSoup class will implicitly close the first b tag when it
-    encounters the second 'b'. It will think the author wrote
-    "<b>Foo<b>Bar", and didn't close the first 'b' tag, because
-    there's no real-world reason to bold something that's already
-    bold. When it encounters '</b></b>' it will close two more 'b'
-    tags, for a grand total of three tags closed instead of two. This
-    can throw off the rest of your document structure. The same is
-    true of a number of other tags, listed below.
-
-    It's much more common for someone to forget to close a 'b' tag
-    than to actually use nested 'b' tags, and the BeautifulSoup class
-    handles the common case. This class handles the not-co-common
-    case: where you can't believe someone wrote what they did, but
-    it's valid HTML and BeautifulSoup screwed up by assuming it
-    wouldn't be."""
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
 
     I_CANT_BELIEVE_THEYRE_NESTABLE_INLINE_TAGS = [
         "em",
@@ -1672,40 +2744,42 @@ class ICantBelieveItsBeautifulSoup(BeautifulSoup):
 
 
 class MinimalSoup(BeautifulSoup):
-    """The MinimalSoup class is for parsing HTML that contains
-    pathologically bad markup. It makes no assumptions about tag
-    nesting, but it does know which tags are self-closing, that
-    <script> tags contain Javascript and should not be parsed, that
-    META tags may contain encoding information, and so on.
+    """
+    The MinimalSoup class is for parsing HTML that contains pathologically bad markup. It makes no assumptions about tag nesting, but it does know which tags are self-closing, that <script> tags contain Javascript and should not be parsed, that META tags may contain encoding information, and so on.
 
-    This also makes it better for subclassing than BeautifulStoneSoup
-    or BeautifulSoup."""
+    Example:
+        Exercise MinimalSoup through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
 
     RESET_NESTING_TAGS = buildTagMap("noscript")
     NESTABLE_TAGS = {}
 
 
 class BeautifulSOAP(BeautifulStoneSoup):
-    """This class will push a tag with only a single string child into
-    the tag's parent as an attribute. The attribute's name is the tag
-    name, and the value is the string child. An example should give
-    the flavor of the change:
+    """
+    This class will push a tag with only a single string child into the tag's parent as an attribute. The attribute's name is the tag name, and the value is the string child. An example should give the flavor of the change:
 
-    <foo><bar>baz</bar></foo>
-     =>
-    <foo bar="baz"><bar>baz</bar></foo>
+    Example:
+        Exercise BeautifulSOAP through a consuming regression::
 
-    You can then access fooTag['bar'] instead of fooTag.barTag.string.
-
-    This is, of course, useful for scraping structures that tend to
-    use subelements instead of attributes, such as SOAP messages. Note
-    that it modifies its input, so don't print the modified version
-    out.
-
-    I'm not sure how many people really want to use this class; let me
-    know if you do. Mainly I like the name."""
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
 
     def popTag(self):
+        """
+        Perform the popTag utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise BeautifulSOAP.popTag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if len(self.tagStack) > 1:
             tag = self.tagStack[-1]
             parent = self.tagStack[-2]
@@ -1729,22 +2803,62 @@ class BeautifulSOAP(BeautifulStoneSoup):
 # "RobustParserBeanInterface.class") and using the following
 # enterprise-friendly class aliases:
 class RobustXMLParser(BeautifulStoneSoup):
+    """
+    Parse or evaluate RobustXMLParser expressions under Calibre template semantics.
+
+    Example:
+        Exercise RobustXMLParser through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
     pass
 
 
 class RobustHTMLParser(BeautifulSoup):
+    """
+    Parse or evaluate RobustHTMLParser expressions under Calibre template semantics.
+
+    Example:
+        Exercise RobustHTMLParser through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
     pass
 
 
 class RobustWackAssHTMLParser(ICantBelieveItsBeautifulSoup):
+    """
+    Parse or evaluate RobustWackAssHTMLParser expressions under Calibre template semantics.
+
+    Example:
+        Exercise RobustWackAssHTMLParser through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
     pass
 
 
 class RobustInsanelyWackAssHTMLParser(MinimalSoup):
+    """
+    Parse or evaluate RobustInsanelyWackAssHTMLParser expressions under Calibre template semantics.
+
+    Example:
+        Exercise RobustInsanelyWackAssHTMLParser through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
     pass
 
 
 class SimplifyingSOAPParser(BeautifulSOAP):
+    """
+    Parse or evaluate SimplifyingSOAPParser expressions under Calibre template semantics.
+
+    Example:
+        Exercise SimplifyingSOAPParser through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
     pass
 
 
@@ -1765,10 +2879,14 @@ import LiuXin_alpha.utils.libraries.calibre_chardet as chardet
 
 
 class UnicodeDammit:
-    """A class for detecting the encoding of a *ML document and
-    converting it to a Unicode string. If the source encoding is
-    windows-1252, can replace MS smart quotes with their HTML or XML
-    equivalents."""
+    """
+    A class for detecting the encoding of a *ML document and converting it to a Unicode string. If the source encoding is windows-1252, can replace MS smart quotes with their HTML or XML equivalents.
+
+    Example:
+        Exercise UnicodeDammit through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
 
     # This dictionary maps commonly seen values for "charset" in HTML
     # meta tags to the corresponding Python codec names. It only covers
@@ -1777,6 +2895,21 @@ class UnicodeDammit:
     CHARSET_ALIASES = {"macintosh": "mac-roman", "x-sjis": "shift-jis"}
 
     def __init__(self, markup, overrideEncodings=[], smartQuotesTo="xml"):
+        """
+        Initialize and validate the UnicodeDammit state.
+
+        Example:
+            Exercise UnicodeDammit.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param markup: Value supplied for markup under the utility contract.
+        :param overrideEncodings: Value supplied for overrideEncodings under the utility
+            contract.
+        :param smartQuotesTo: Value supplied for smartQuotesTo under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.markup, documentEncoding, sniffedEncoding = self._detectEncoding(markup)
         self.smartQuotesTo = smartQuotesTo
         self.triedEncodings = []
@@ -1812,8 +2945,19 @@ class UnicodeDammit:
             self.originalEncoding = None
 
     def _subMSChar(self, orig):
-        """Changes a MS smart quote character to an XML or HTML
-        entity."""
+        """
+        Changes a MS smart quote character to an XML or HTML entity.
+
+        Example:
+            Exercise UnicodeDammit. subMSChar through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param orig: Value supplied for orig under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         sub = self.MS_CHARS.get(orig)
         if isinstance(sub, tuple):
             if self.smartQuotesTo == "xml":
@@ -1823,6 +2967,19 @@ class UnicodeDammit:
         return sub
 
     def _convertFrom(self, proposed):
+        """
+        Perform the convertFrom utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise UnicodeDammit. convertFrom through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param proposed: Value supplied for proposed under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         proposed = self.find_codec(proposed)
         if not proposed or proposed in self.triedEncodings:
             return None
@@ -1851,8 +3008,20 @@ class UnicodeDammit:
         return self.markup
 
     def _toUnicode(self, data, encoding):
-        """Given a string and its encoding, decodes the string into Unicode.
-        %encoding is a string recognized by encodings.aliases"""
+        """
+        Given a string and its encoding, decodes the string into Unicode. %encoding is a string recognized by encodings.aliases
+
+        Example:
+            Exercise UnicodeDammit. toUnicode through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :param encoding: Value supplied for encoding under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         # strip Byte Order Mark (if present)
         if (len(data) >= 4) and (data[:2] == "\xfe\xff") and (data[2:4] != "\x00\x00"):
@@ -1876,7 +3045,19 @@ class UnicodeDammit:
         return newdata
 
     def _detectEncoding(self, xml_data):
-        """Given a document, tries to detect its XML encoding."""
+        """
+        Given a document, tries to detect its XML encoding.
+
+        Example:
+            Exercise UnicodeDammit. detectEncoding through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param xml_data: Value supplied for xml data under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         xml_encoding = sniffed_xml_encoding = None
         try:
             if xml_data[:4] == "\x4c\x6f\xa7\x94":
@@ -1957,6 +3138,19 @@ class UnicodeDammit:
         return xml_data, xml_encoding, sniffed_xml_encoding
 
     def find_codec(self, charset):
+        """
+        Find codec under the documented compatibility and safety rules.
+
+        Example:
+            Exercise UnicodeDammit.find codec through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param charset: Value supplied for charset under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return (
             self._codec(self.CHARSET_ALIASES.get(charset, charset))
             or (charset and self._codec(charset.replace("-", "")))
@@ -1965,6 +3159,19 @@ class UnicodeDammit:
         )
 
     def _codec(self, charset):
+        """
+        Perform the codec utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise UnicodeDammit. codec through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param charset: Value supplied for charset under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not charset:
             return charset
         codec = None
@@ -1978,6 +3185,19 @@ class UnicodeDammit:
     EBCDIC_TO_ASCII_MAP = None
 
     def _ebcdic_to_ascii(self, s):
+        """
+        Perform the ebcdic to ascii utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise UnicodeDammit. ebcdic to ascii through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param s: Value supplied for s under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         c = self.__class__
         if not c.EBCDIC_TO_ASCII_MAP:
             emap = (

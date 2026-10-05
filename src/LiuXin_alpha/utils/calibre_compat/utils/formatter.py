@@ -1,5 +1,13 @@
 """
-Created on 23 Sep 2010
+Parse and evaluate Calibre template programs against metadata and local variables.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise formatter through a consuming regression::
+
+        python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
 """
 
 __license__ = "GPL v3"
@@ -19,6 +27,14 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 
 class _Parser:
+    """
+    Parse or evaluate Parser expressions under Calibre template semantics.
+
+    Example:
+        Exercise  Parser through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     LEX_OP = 1
     LEX_ID = 2
     LEX_STR = 3
@@ -28,6 +44,20 @@ class _Parser:
     LEX_CONSTANTS = frozenset([LEX_STR, LEX_NUM])
 
     def __init__(self, val, prog, parent):
+        """
+        Initialize and validate the Parser state.
+
+        Example:
+            Exercise  Parser.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :param prog: Value supplied for prog under the utility contract.
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.lex_pos = 0
         self.prog = prog[0]
         self.prog_len = len(self.prog)
@@ -39,6 +69,19 @@ class _Parser:
         self.locals = {"$": val}
 
     def error(self, message):
+        """
+        Perform the error utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  Parser.error through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param message: Value supplied for message under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         m = "Formatter: " + message + _(" near ")
         if self.lex_pos > 0:
             m = "{0} {1}".format(m, self.prog[self.lex_pos - 1][1])
@@ -49,6 +92,18 @@ class _Parser:
         raise ValueError(m)
 
     def token(self):
+        """
+        Perform the token utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  Parser.token through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.lex_pos >= self.prog_len:
             return None
         token = self.prog[self.lex_pos][1]
@@ -56,61 +111,193 @@ class _Parser:
         return token
 
     def consume(self):
+        """
+        Perform the consume utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  Parser.consume through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.lex_pos += 1
 
     def token_op_is_a_equals(self):
+        """
+        Perform the token op is a equals utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  Parser.token op is a equals through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.lex_pos >= self.prog_len:
             return False
         token = self.prog[self.lex_pos]
         return token[0] == self.LEX_OP and token[1] == "="
 
     def token_op_is_a_lparen(self):
+        """
+        Perform the token op is a lparen utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  Parser.token op is a lparen through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.lex_pos >= self.prog_len:
             return False
         token = self.prog[self.lex_pos]
         return token[0] == self.LEX_OP and token[1] == "("
 
     def token_op_is_a_rparen(self):
+        """
+        Perform the token op is a rparen utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  Parser.token op is a rparen through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.lex_pos >= self.prog_len:
             return False
         token = self.prog[self.lex_pos]
         return token[0] == self.LEX_OP and token[1] == ")"
 
     def token_op_is_a_comma(self):
+        """
+        Perform the token op is a comma utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  Parser.token op is a comma through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.lex_pos >= self.prog_len:
             return False
         token = self.prog[self.lex_pos]
         return token[0] == self.LEX_OP and token[1] == ","
 
     def token_op_is_a_semicolon(self):
+        """
+        Perform the token op is a semicolon utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  Parser.token op is a semicolon through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.lex_pos >= self.prog_len:
             return False
         token = self.prog[self.lex_pos]
         return token[0] == self.LEX_OP and token[1] == ";"
 
     def token_is_id(self):
+        """
+        Perform the token is id utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  Parser.token is id through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.lex_pos >= self.prog_len:
             return False
         return self.prog[self.lex_pos][0] == self.LEX_ID
 
     def token_is_constant(self):
+        """
+        Perform the token is constant utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  Parser.token is constant through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.lex_pos >= self.prog_len:
             return False
         return self.prog[self.lex_pos][0] in self.LEX_CONSTANTS
 
     def token_is_eof(self):
+        """
+        Perform the token is eof utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  Parser.token is eof through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.lex_pos >= self.prog_len:
             return True
         token = self.prog[self.lex_pos]
         return token[0] == self.LEX_EOF
 
     def program(self):
+        """
+        Perform the program utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  Parser.program through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         val = self.statement()
         if not self.token_is_eof():
             self.error(_("syntax error - program ends before EOF"))
         return val
 
     def statement(self):
+        """
+        Perform the statement utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  Parser.statement through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         while True:
             val = self.expr()
             if self.token_is_eof():
@@ -122,6 +309,18 @@ class _Parser:
                 return val
 
     def expr(self):
+        """
+        Perform the expr utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  Parser.expr through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.token_is_id():
             funcs = formatter_functions().get_functions()
             # We have an identifier. Determine if it is a function
@@ -183,7 +382,30 @@ class _Parser:
 
 
 class _CompileParser(_Parser):
+    """
+    Parse or evaluate CompileParser expressions under Calibre template semantics.
+
+    Example:
+        Exercise  CompileParser through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     def __init__(self, val, prog, parent, compile_text):
+        """
+        Initialize and validate the CompileParser state.
+
+        Example:
+            Exercise  CompileParser.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :param prog: Value supplied for prog under the utility contract.
+        :param parent: Value supplied for parent under the utility contract.
+        :param compile_text: Value supplied for compile text under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.lex_pos = 0
         self.prog = prog[0]
         self.prog_len = len(self.prog)
@@ -196,6 +418,18 @@ class _CompileParser(_Parser):
         self.compile_text = compile_text
 
     def program(self):
+        """
+        Perform the program utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  CompileParser.program through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.compile_text:
             t = self.compile_text
             self.compile_text = "\n"
@@ -212,6 +446,19 @@ class _CompileParser(_Parser):
         return val
 
     def statement(self, level=0):
+        """
+        Perform the statement utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  CompileParser.statement through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param level: Value supplied for level under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         while True:
             val = self.expr(level)
             if self.token_is_eof():
@@ -225,6 +472,19 @@ class _CompileParser(_Parser):
                 self.compile_text += "\targs[%d] = list()\n" % (level,)
 
     def expr(self, level):
+        """
+        Perform the expr utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  CompileParser.expr through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param level: Value supplied for level under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.compile_text:
             self.max_level = max(level + 1, self.max_level)
 
@@ -339,6 +599,11 @@ compile_counter = 0
 class TemplateFormatter(string.Formatter):
     """
     Provides a format function that substitutes '' for any missing value
+
+    Example:
+        Exercise TemplateFormatter through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
     """
 
     _validation_string = "This Is Some Text THAT SHOULD be LONG Enough.%^&*"
@@ -348,6 +613,17 @@ class TemplateFormatter(string.Formatter):
     composite_values = {}
 
     def __init__(self):
+        """
+        Initialize and validate the TemplateFormatter state.
+
+        Example:
+            Exercise TemplateFormatter.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         string.Formatter.__init__(self)
         self.book = None
         self.kwargs = None
@@ -355,6 +631,20 @@ class TemplateFormatter(string.Formatter):
         self.locals = {}
 
     def _do_format(self, val, fmt):
+        """
+        Perform the do format utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise TemplateFormatter. do format through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :param fmt: Date, number or template format specification.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not fmt or not val:
             return val
         if val == self._validation_string:
@@ -375,6 +665,19 @@ class TemplateFormatter(string.Formatter):
         return six_unicode(("{0:" + fmt + "}").format(val))
 
     def _explode_format_string(self, fmt):
+        """
+        Perform the explode format string utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise TemplateFormatter. explode format string through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param fmt: Date, number or template format specification.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             matches = self.format_string_re.match(fmt)
             if matches is None or matches.lastindex != 3:
@@ -417,6 +720,21 @@ class TemplateFormatter(string.Formatter):
         # keep a cache of the lex'ed program under the theory that re-lexing
         # is much more expensive than the cache lookup. This is certainly true
         # for more than a few tokens, but it isn't clear for simple programs.
+        """
+        Perform the eval program utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise TemplateFormatter. eval program through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :param prog: Value supplied for prog under the utility contract.
+        :param column_name: Value supplied for column name under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if tweaks["compile_gpm_templates"]:
             if column_name is not None and self.template_cache is not None:
                 lprog = self.template_cache.get(column_name, None)
@@ -452,10 +770,39 @@ class TemplateFormatter(string.Formatter):
     ################## Override parent classes methods #####################
 
     def get_value(self, key, args, kwargs):
+        """
+        Return value under the documented compatibility and safety rules.
+
+        Example:
+            Exercise TemplateFormatter.get value through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise Exception("get_value must be implemented in the subclass")
 
     def format_field(self, val, fmt):
         # ensure we are dealing with a string.
+        """
+        Format field under the documented compatibility and safety rules.
+
+        Example:
+            Exercise TemplateFormatter.format field through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :param fmt: Date, number or template format specification.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if isinstance(val, (int, float)):
             if val:
                 val = six_unicode(val)
@@ -524,6 +871,21 @@ class TemplateFormatter(string.Formatter):
         return prefix + val + suffix
 
     def evaluate(self, fmt, args, kwargs):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise TemplateFormatter.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param fmt: Date, number or template format specification.
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if fmt.startswith("program:"):
             ans = self._eval_program(kwargs.get("$", None), fmt[8:], self.column_name)
         else:
@@ -535,6 +897,22 @@ class TemplateFormatter(string.Formatter):
     ########## a formatter that throws exceptions ############
 
     def unsafe_format(self, fmt, kwargs, book, strip_results=True):
+        """
+        Perform the unsafe format utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise TemplateFormatter.unsafe format through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param fmt: Date, number or template format specification.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param book: Value supplied for book under the utility contract.
+        :param strip_results: Value supplied for strip results under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.strip_results = strip_results
         self.column_name = self.template_cache = None
         self.kwargs = kwargs
@@ -555,6 +933,25 @@ class TemplateFormatter(string.Formatter):
         template_cache=None,
         strip_results=True,
     ):
+        """
+        Perform the safe format utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise TemplateFormatter.safe format through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param fmt: Date, number or template format specification.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param error_value: Value supplied for error value under the utility contract.
+        :param book: Value supplied for book under the utility contract.
+        :param column_name: Value supplied for column name under the utility contract.
+        :param template_cache: Value supplied for template cache under the utility contract.
+        :param strip_results: Value supplied for strip results under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.strip_results = strip_results
         self.column_name = column_name
         self.template_cache = template_cache
@@ -574,12 +971,45 @@ class TemplateFormatter(string.Formatter):
 class ValidateFormatter(TemplateFormatter):
     """
     Provides a formatter that substitutes the validation string for every value
+
+    Example:
+        Exercise ValidateFormatter through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
     """
 
     def get_value(self, key, args, kwargs):
+        """
+        Return value under the documented compatibility and safety rules.
+
+        Example:
+            Exercise ValidateFormatter.get value through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._validation_string
 
     def validate(self, x):
+        """
+        Perform the validate utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ValidateFormatter.validate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param x: Value supplied for x under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.utils.calibre_compat.ebooks.metadata.book.base import Metadata
 
         self.book = Metadata("")
@@ -592,9 +1022,29 @@ validation_formatter = ValidateFormatter()
 class EvalFormatter(TemplateFormatter):
     """
     A template formatter that uses a simple dict instead of an mi instance
+
+    Example:
+        Exercise EvalFormatter through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
     """
 
     def get_value(self, key, args, kwargs):
+        """
+        Return value under the documented compatibility and safety rules.
+
+        Example:
+            Exercise EvalFormatter.get value through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if key == "":
             return ""
         key = key.lower()

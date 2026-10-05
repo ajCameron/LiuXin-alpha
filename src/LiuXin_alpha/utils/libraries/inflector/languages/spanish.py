@@ -7,6 +7,17 @@
 #
 # See the end of this file for the free software, open source license (BSD - style).
 
+"""
+Provide spanish utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise spanish through a consuming regression::
+
+        python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+"""
 import re
 from LiuXin_alpha.utils.libraries.inflector.languages.base import Base
 
@@ -14,10 +25,27 @@ from LiuXin_alpha.utils.libraries.inflector.languages.base import Base
 class Spanish(Base):
     """
     Inflector for pluralize and singularize Spanish nouns.
+
+    Example:
+        Exercise Spanish through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
     """
 
     def pluralize(self, word):
-        """Pluralizes Spanish nouns."""
+        """
+        Pluralizes Spanish nouns.
+
+        Example:
+            Exercise Spanish.pluralize through a consuming regression::
+
+                python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+        :param word: Value supplied for word under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         rules = [
             [r"(?i)([aeiou])x$", r"\1x"],  # This could fail if the word is oxytone.
             [r"(?i)([áéíóú])([ns])$", r"|1\2es"],
@@ -104,7 +132,19 @@ class Spanish(Base):
         return word
 
     def singularize(self, word):
-        """Singularizes Spanish nouns."""
+        """
+        Singularizes Spanish nouns.
+
+        Example:
+            Exercise Spanish.singularize through a consuming regression::
+
+                python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+        :param word: Value supplied for word under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         rules = [
             ["(?i)^([bcdfghjklmnñpqrstvwxyz]*)([aeiou])([ns])es$", "\\1\\2\\3"],

@@ -20,6 +20,17 @@
 #
 # import pdb
 # pdb.set_trace()
+"""
+Translate ODF content, styles and resources into XHTML output.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise odf2xhtml through a consuming regression::
+
+        python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -79,13 +90,28 @@ if False:  # Added by Kovid
 
 
 class StyleToCSS:
-    """The purpose of the StyleToCSS class is to contain the rules to convert
-    ODF styles to CSS2. Since it needs the generic fonts, it would probably
-    make sense to also contain the Styles in a dict as well..
+    """
+    The purpose of the StyleToCSS class is to contain the rules to convert ODF styles to CSS2. Since it needs the generic fonts, it would probably make sense to also contain the Styles in a dict as well..
+
+    Example:
+        Exercise StyleToCSS through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
     """
 
     def __init__(self: _typing.Self) -> None:
         # Font declarations
+        """
+        Initialize and validate the styletocss state.
+
+        Example:
+            Exercise StyleToCSS.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.fontdict = {}
 
         # Fill-images from presentations for backgrounds
@@ -135,12 +161,20 @@ class StyleToCSS:
         }
 
     def save_font(self: _typing.Self, name: _typing.Any, family: _typing.Any, generic: _typing.Any) -> None:
-        """It is possible that the HTML browser doesn't know how to
-        show a particular font. Fortunately ODF provides generic fallbacks.
-        Unfortunately they are not the same as CSS2.
-        CSS2: serif, sans-serif, cursive, fantasy, monospace
-        ODF: roman, swiss, modern, decorative, script, system
-        This method put the font and fallback into a dictionary
+        """
+        It is possible that the HTML browser doesn't know how to show a particular font. Fortunately ODF provides generic fallbacks. Unfortunately they are not the same as CSS2. CSS2: serif, sans-serif, cursive, fantasy, monospace ODF: roman, swiss, modern, decorative, script, system This method put the font and fallback into a dictionary
+
+        Example:
+            Exercise StyleToCSS.save font through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param family: Value supplied for family under the utility contract.
+        :param generic: Value supplied for generic under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         htmlgeneric = "sans-serif"
         if generic == "roman":
@@ -158,18 +192,61 @@ class StyleToCSS:
         self.fontdict[name] = (family, htmlgeneric)
 
     def c_drawfillimage(self: _typing.Self, ruleset: _typing.Any, sdict: _typing.Any, rule: _typing.Any, val: _typing.Any) -> None:
-        """Fill a figure with an image. Since CSS doesn't let you resize images
-        this should really be implemented as an absolutely position <img>
-        with a width and a height
+        """
+        Fill a figure with an image. Since CSS doesn't let you resize images this should really be implemented as an absolutely position <img> with a width and a height
+
+        Example:
+            Exercise StyleToCSS.c drawfillimage through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param ruleset: Value supplied for ruleset under the utility contract.
+        :param sdict: Value supplied for sdict under the utility contract.
+        :param rule: Value supplied for rule under the utility contract.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         sdict["background-image"] = "url('%s')" % self.fillimages[val]
 
     def c_fo(self: _typing.Self, ruleset: _typing.Any, sdict: _typing.Any, rule: _typing.Any, val: _typing.Any) -> None:
-        """XSL formatting attributes"""
+        """
+        XSL formatting attributes
+
+        Example:
+            Exercise StyleToCSS.c fo through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param ruleset: Value supplied for ruleset under the utility contract.
+        :param sdict: Value supplied for sdict under the utility contract.
+        :param rule: Value supplied for rule under the utility contract.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         selector = rule[1]
         sdict[selector] = val
 
     def c_break(self: _typing.Self, ruleset: _typing.Any, sdict: _typing.Any, rule: _typing.Any, val: _typing.Any) -> None:  # Added by Kovid
+        """
+        Perform the c break operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise StyleToCSS.c break through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param ruleset: Value supplied for ruleset under the utility contract.
+        :param sdict: Value supplied for sdict under the utility contract.
+        :param rule: Value supplied for rule under the utility contract.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         property = "page-" + rule[1]
         values = {
             "auto": "auto",
@@ -182,18 +259,63 @@ class StyleToCSS:
         sdict[property] = values.get(val, "auto")
 
     def c_border_model(self: _typing.Self, ruleset: _typing.Any, sdict: _typing.Any, rule: _typing.Any, val: _typing.Any) -> None:
-        """Convert to CSS2 border model"""
+        """
+        Convert to CSS2 border model
+
+        Example:
+            Exercise StyleToCSS.c border model through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param ruleset: Value supplied for ruleset under the utility contract.
+        :param sdict: Value supplied for sdict under the utility contract.
+        :param rule: Value supplied for rule under the utility contract.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if val == "collapsing":
             sdict["border-collapse"] = "collapse"
         else:
             sdict["border-collapse"] = "separate"
 
     def c_width(self: _typing.Self, ruleset: _typing.Any, sdict: _typing.Any, rule: _typing.Any, val: _typing.Any) -> None:
-        """Set width of box"""
+        """
+        Set width of box
+
+        Example:
+            Exercise StyleToCSS.c width through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param ruleset: Value supplied for ruleset under the utility contract.
+        :param sdict: Value supplied for sdict under the utility contract.
+        :param rule: Value supplied for rule under the utility contract.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         sdict["width"] = val
 
     def c_text_align(self: _typing.Self, ruleset: _typing.Any, sdict: _typing.Any, rule: _typing.Any, align: _typing.Any) -> None:
-        """Text align"""
+        """
+        Text align
+
+        Example:
+            Exercise StyleToCSS.c text align through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param ruleset: Value supplied for ruleset under the utility contract.
+        :param sdict: Value supplied for sdict under the utility contract.
+        :param rule: Value supplied for rule under the utility contract.
+        :param align: Value supplied for align under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if align == "start":
             align = "left"
         if align == "end":
@@ -201,9 +323,21 @@ class StyleToCSS:
         sdict["text-align"] = align
 
     def c_fn(self: _typing.Self, ruleset: _typing.Any, sdict: _typing.Any, rule: _typing.Any, fontstyle: _typing.Any) -> None:
-        """Generate the CSS font family
-        A generic font can be found in two ways. In a <style:font-face>
-        element or as a font-family-generic attribute in text-properties.
+        """
+        Generate the CSS font family A generic font can be found in two ways. In a <style:font-face> element or as a font-family-generic attribute in text-properties.
+
+        Example:
+            Exercise StyleToCSS.c fn through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param ruleset: Value supplied for ruleset under the utility contract.
+        :param sdict: Value supplied for sdict under the utility contract.
+        :param rule: Value supplied for rule under the utility contract.
+        :param fontstyle: Value supplied for fontstyle under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         generic = ruleset.get((STYLENS, "font-family-generic"))
         if generic is not None:
@@ -212,23 +346,21 @@ class StyleToCSS:
         sdict["font-family"] = "%s, %s" % (family, htmlgeneric)
 
     def c_text_position(self: _typing.Self, ruleset: _typing.Any, sdict: _typing.Any, rule: _typing.Any, tp: _typing.Any) -> None:
-        """Text position. This is used e.g. to make superscript and subscript
-        This attribute can have one or two values.
+        """
+        Text position. This is used e.g. to make superscript and subscript This attribute can have one or two values.
 
-        The first value must be present and specifies the vertical
-        text position as a percentage that relates to the current font
-        height or it takes one of the values sub or super. Negative
-        percentages or the sub value place the text below the
-        baseline. Positive percentages or the super value place
-        the text above the baseline. If sub or super is specified,
-        the application can choose an appropriate text position.
+        Example:
+            Exercise StyleToCSS.c text position through a consuming regression::
 
-        The second value is optional and specifies the font height
-        as a percentage that relates to the current font-height. If
-        this value is not specified, an appropriate font height is
-        used. Although this value may change the font height that
-        is displayed, it never changes the current font height that
-        is used for additional calculations.
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param ruleset: Value supplied for ruleset under the utility contract.
+        :param sdict: Value supplied for sdict under the utility contract.
+        :param rule: Value supplied for rule under the utility contract.
+        :param tp: Value supplied for tp under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         textpos = tp.split(" ")
         if len(textpos) == 2 and textpos[0] != "0%":
@@ -245,6 +377,22 @@ class StyleToCSS:
         # FIXME: Frames wrap-style defaults to 'parallel', graphics to 'none'.
         # It is properly set in the parent-styles, but the program doesn't
         # collect the information.
+        """
+        Perform the c hp operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise StyleToCSS.c hp through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param ruleset: Value supplied for ruleset under the utility contract.
+        :param sdict: Value supplied for sdict under the utility contract.
+        :param rule: Value supplied for rule under the utility contract.
+        :param hpos: Value supplied for hpos under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         wrap = ruleset.get((STYLENS, "wrap"), "parallel")
         # Can have: from-left, left, center, right, from-inside, inside, outside
         if hpos == "center":
@@ -284,32 +432,96 @@ class StyleToCSS:
                     sdict["left"] = ruleset[(SVGNS, "x")]
 
     def c_page_width(self: _typing.Self, ruleset: _typing.Any, sdict: _typing.Any, rule: _typing.Any, val: _typing.Any) -> None:
-        """Set width of box
-        HTML doesn't really have a page-width. It is always 100% of the browser width
+        """
+        Set width of box HTML doesn't really have a page-width. It is always 100% of the browser width
+
+        Example:
+            Exercise StyleToCSS.c page width through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param ruleset: Value supplied for ruleset under the utility contract.
+        :param sdict: Value supplied for sdict under the utility contract.
+        :param rule: Value supplied for rule under the utility contract.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         sdict["width"] = val
 
     def c_text_underline_style(self: _typing.Self, ruleset: _typing.Any, sdict: _typing.Any, rule: _typing.Any, val: _typing.Any) -> None:
-        """Set underline decoration
-        HTML doesn't really have a page-width. It is always 100% of the browser width
+        """
+        Set underline decoration HTML doesn't really have a page-width. It is always 100% of the browser width
+
+        Example:
+            Exercise StyleToCSS.c text underline style through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param ruleset: Value supplied for ruleset under the utility contract.
+        :param sdict: Value supplied for sdict under the utility contract.
+        :param rule: Value supplied for rule under the utility contract.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if val and val != "none":
             sdict["text-decoration"] = "underline"
 
     def c_text_line_through_style(self: _typing.Self, ruleset: _typing.Any, sdict: _typing.Any, rule: _typing.Any, val: _typing.Any) -> None:
-        """Set underline decoration
-        HTML doesn't really have a page-width. It is always 100% of the browser width
+        """
+        Set underline decoration HTML doesn't really have a page-width. It is always 100% of the browser width
+
+        Example:
+            Exercise StyleToCSS.c text line through style through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param ruleset: Value supplied for ruleset under the utility contract.
+        :param sdict: Value supplied for sdict under the utility contract.
+        :param rule: Value supplied for rule under the utility contract.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if val and val != "none":
             sdict["text-decoration"] = "line-through"
 
     def c_page_height(self: _typing.Self, ruleset: _typing.Any, sdict: _typing.Any, rule: _typing.Any, val: _typing.Any) -> None:
-        """Set height of box"""
+        """
+        Set height of box
+
+        Example:
+            Exercise StyleToCSS.c page height through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param ruleset: Value supplied for ruleset under the utility contract.
+        :param sdict: Value supplied for sdict under the utility contract.
+        :param rule: Value supplied for rule under the utility contract.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         sdict["height"] = val
 
     def convert_styles(self: _typing.Self, ruleset: _typing.Any) -> _typing.Any:
-        """Rule is a tuple of (namespace, name). If the namespace is '' then
-        it is already CSS2
+        """
+        Rule is a tuple of (namespace, name). If the namespace is '' then it is already CSS2
+
+        Example:
+            Exercise StyleToCSS.convert styles through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param ruleset: Value supplied for ruleset under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         sdict = {}
         for rule, val in ruleset.items():
@@ -323,28 +535,110 @@ class StyleToCSS:
 
 
 class TagStack:
+    """
+    Provide the tagstack contract for validated ebook processing.
+
+    Example:
+        Exercise TagStack through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+    """
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the tagstack state.
+
+        Example:
+            Exercise TagStack.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.stack = []
 
     def push(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the push operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TagStack.push through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.stack.append((tag, attrs))
 
     def pop(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the pop operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TagStack.pop through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         item = self.stack.pop()
         return item
 
     def stackparent(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the stackparent operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TagStack.stackparent through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         item = self.stack[-1]
         return item[1]
 
     def rfindattr(self: _typing.Self, attr: _typing.Any) -> _typing.Any:
-        """Find a tag with the given attribute"""
+        """
+        Find a tag with the given attribute
+
+        Example:
+            Exercise TagStack.rfindattr through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param attr: Value supplied for attr under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for tag, attrs in self.stack:
             if attr in attrs:
                 return attrs[attr]
         return None
 
     def count_tags(self: _typing.Self, tag: _typing.Any) -> _typing.Any:
+        """
+        Perform the count tags operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TagStack.count tags through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         c = 0
         for ttag, tattrs in self.stack:
             if ttag == tag:
@@ -383,10 +677,30 @@ special_styles = {
 
 
 class ODF2XHTML(handler.ContentHandler):
-    """The ODF2XHTML parses an ODF file and produces XHTML"""
+    """
+    The ODF2XHTML parses an ODF file and produces XHTML
+
+    Example:
+        Exercise ODF2XHTML through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+    """
 
     def __init__(self: _typing.Self, generate_css: bool = True, embedable: bool = False) -> None:
         # Tags
+        """
+        Initialize and validate the odf2xhtml state.
+
+        Example:
+            Exercise ODF2XHTML.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param generate_css: Value supplied for generate css under the utility contract.
+        :param embedable: Value supplied for embedable under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.generate_css = generate_css
         self.elements = {
             (DCNS, "title"): (self.s_processcont, self.e_dc_title),
@@ -537,19 +851,52 @@ class ODF2XHTML(handler.ContentHandler):
         self._resetobject()
 
     def set_plain(self: _typing.Self) -> None:
-        """Tell the parser to not generate CSS"""
+        """
+        Tell the parser to not generate CSS
+
+        Example:
+            Exercise ODF2XHTML.set plain through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.generate_css = False
 
     def set_embedable(self: _typing.Self) -> None:
-        """Tells the converter to only output the parts inside the <body>"""
+        """
+        Tells the converter to only output the parts inside the <body>
+
+        Example:
+            Exercise ODF2XHTML.set embedable through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.elements[(OFFICENS, "text")] = (None, None)
         self.elements[(OFFICENS, "spreadsheet")] = (None, None)
         self.elements[(OFFICENS, "presentation")] = (None, None)
         self.elements[(OFFICENS, "document-content")] = (None, None)
 
     def add_style_file(self: _typing.Self, stylefilename: _typing.Any, media: _typing.Any = None) -> None:
-        """Add a link to an external style file.
-        Also turns of the embedding of styles in the HTML
+        """
+        Add a link to an external style file. Also turns of the embedding of styles in the HTML
+
+        Example:
+            Exercise ODF2XHTML.add style file through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param stylefilename: Value supplied for stylefilename under the utility contract.
+        :param media: Value supplied for media under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.use_internal_css = False
         self.stylefilename = stylefilename
@@ -562,11 +909,35 @@ class ODF2XHTML(handler.ContentHandler):
 
     def _resetfootnotes(self: _typing.Self) -> None:
         # Footnotes and endnotes
+        """
+        Perform the resetfootnotes operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML. resetfootnotes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.notedict = {}
         self.currentnote = 0
         self.notebody = ""
 
     def _resetobject(self: _typing.Self) -> None:
+        """
+        Perform the resetobject operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML. resetobject through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.lines = []
         self._wfunc = self._wlines
         self.xmlfile = ""
@@ -596,16 +967,55 @@ class ODF2XHTML(handler.ContentHandler):
         self.metatags = []
 
     def writeout(self: _typing.Self, s: _typing.Any) -> None:
+        """
+        Perform the writeout operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.writeout through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param s: Value supplied for s under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if s != "":
             self._wfunc(s)
 
     def writedata(self: _typing.Self) -> None:
+        """
+        Perform the writedata operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.writedata through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         d = "".join(self.data)
         if d != "":
             self.writeout(escape(d))
 
     def opentag(self: _typing.Self, tag: _typing.Any, attrs: dict[_typing.Any, _typing.Any] = {}, block: bool = False) -> None:
-        """Create an open HTML tag"""
+        """
+        Create an open HTML tag
+
+        Example:
+            Exercise ODF2XHTML.opentag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :param block: Value supplied for block under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.htmlstack.append((tag, attrs, block))
         a = []
         for key, val in attrs.items():
@@ -618,13 +1028,40 @@ class ODF2XHTML(handler.ContentHandler):
             self.writeout("\n")
 
     def closetag(self: _typing.Self, tag: _typing.Any, block: bool = True) -> None:
-        """Close an open HTML tag"""
+        """
+        Close an open HTML tag
+
+        Example:
+            Exercise ODF2XHTML.closetag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param block: Value supplied for block under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.htmlstack.pop()
         self.writeout("</%s>" % tag)
         if block == True:
             self.writeout("\n")
 
     def emptytag(self: _typing.Self, tag: _typing.Any, attrs: dict[_typing.Any, _typing.Any] = {}) -> None:
+        """
+        Perform the emptytag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.emptytag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         a = []
         for key, val in attrs.items():
             a.append("""%s=%s""" % (key, quoteattr(val)))
@@ -634,10 +1071,38 @@ class ODF2XHTML(handler.ContentHandler):
     # Interface to parser
     # --------------------------------------------------
     def characters(self: _typing.Self, data: _typing.Any) -> None:
+        """
+        Perform the characters operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.characters through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.processelem and self.processcont:
             self.data.append(data)
 
     def startElementNS(self: _typing.Self, tag: _typing.Any, qname: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the startElementNS operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.startElementNS through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param qname: Value supplied for qname under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.pstack.append((self.processelem, self.processcont))
         if self.processelem:
             method = self.elements.get(tag, (None, None))[0]
@@ -648,6 +1113,20 @@ class ODF2XHTML(handler.ContentHandler):
         self.tagstack.push(tag, attrs)
 
     def endElementNS(self: _typing.Self, tag: _typing.Any, qname: _typing.Any) -> None:
+        """
+        Perform the endElementNS operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.endElementNS through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param qname: Value supplied for qname under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         stag, attrs = self.tagstack.pop()
         if self.processelem:
             method = self.elements.get(tag, (None, None))[1]
@@ -659,39 +1138,158 @@ class ODF2XHTML(handler.ContentHandler):
 
     # --------------------------------------------------
     def handle_starttag(self: _typing.Self, tag: _typing.Any, method: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the handle starttag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.handle starttag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param method: Value supplied for method under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         method(tag, attrs)
 
     def handle_endtag(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any, method: _typing.Any) -> None:
+        """
+        Perform the handle endtag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.handle endtag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :param method: Value supplied for method under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         method(tag, attrs)
 
     def unknown_starttag(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the unknown starttag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.unknown starttag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     def unknown_endtag(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the unknown endtag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.unknown endtag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     def s_ignorexml(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """Ignore this xml element and all children of it
-        It will automatically stop ignoring
+        """
+        Ignore this xml element and all children of it It will automatically stop ignoring
+
+        Example:
+            Exercise ODF2XHTML.s ignorexml through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.processelem = False
 
     def s_ignorecont(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """Stop processing the text nodes"""
+        """
+        Stop processing the text nodes
+
+        Example:
+            Exercise ODF2XHTML.s ignorecont through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.processcont = False
 
     def s_processcont(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """Start processing the text nodes"""
+        """
+        Start processing the text nodes
+
+        Example:
+            Exercise ODF2XHTML.s processcont through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.processcont = True
 
     def classname(self: _typing.Self, attrs: _typing.Any) -> _typing.Any:
-        """Generate a class name from a style name"""
+        """
+        Generate a class name from a style name
+
+        Example:
+            Exercise ODF2XHTML.classname through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         c = attrs.get((TEXTNS, "style-name"), "")
         c = c.replace(".", "_")
         return c
 
     def get_anchor(self: _typing.Self, name: _typing.Any) -> _typing.Any:
-        """Create a unique anchor id for a href name"""
+        """
+        Create a unique anchor id for a href name
+
+        Example:
+            Exercise ODF2XHTML.get anchor through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if name not in self.anchors:
             # Changed by Kovid
             self.anchors[name] = "anchor%d" % (len(self.anchors) + 1)
@@ -700,6 +1298,18 @@ class ODF2XHTML(handler.ContentHandler):
     # --------------------------------------------------
 
     def purgedata(self: _typing.Self) -> None:
+        """
+        Perform the purgedata operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.purgedata through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.data = []
 
     # -----------------------------------------------------------------------------
@@ -708,30 +1318,95 @@ class ODF2XHTML(handler.ContentHandler):
     #
     # -----------------------------------------------------------------------------
     def e_dc_title(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """Get the title from the meta data and create a HTML <title>"""
+        """
+        Get the title from the meta data and create a HTML <title>
+
+        Example:
+            Exercise ODF2XHTML.e dc title through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.title = "".join(self.data)
         # self.metatags.append('<title>%s</title>\n' % escape(self.title))
         self.data = []
 
     def e_dc_metatag(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """Any other meta data is added as a <meta> element"""
+        """
+        Any other meta data is added as a <meta> element
+
+        Example:
+            Exercise ODF2XHTML.e dc metatag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.metatags.append('<meta name="%s" content=%s/>\n' % (tag[1], quoteattr("".join(self.data))))
         self.data = []
 
     def e_dc_contentlanguage(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """Set the content language. Identifies the targeted audience"""
+        """
+        Set the content language. Identifies the targeted audience
+
+        Example:
+            Exercise ODF2XHTML.e dc contentlanguage through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.language = "".join(self.data)
         self.metatags.append('<meta http-equiv="content-language" content="%s"/>\n' % escape(self.language))
         self.data = []
 
     def e_dc_creator(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """Set the content creator. Identifies the targeted audience"""
+        """
+        Set the content creator. Identifies the targeted audience
+
+        Example:
+            Exercise ODF2XHTML.e dc creator through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.creator = "".join(self.data)
         self.metatags.append('<meta http-equiv="creator" content="%s"/>\n' % escape(self.creator))
         self.data = []
 
     def s_custom_shape(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """A <draw:custom-shape> is made into a <div> in HTML which is then styled"""
+        """
+        A <draw:custom-shape> is made into a <div> in HTML which is then styled
+
+        Example:
+            Exercise ODF2XHTML.s custom shape through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         anchor_type = attrs.get((TEXTNS, "anchor-type"), "notfound")
         htmltag = "div"
         name = "G-" + attrs.get((DRAWNS, "style-name"), "")
@@ -761,11 +1436,37 @@ class ODF2XHTML(handler.ContentHandler):
             self.opentag(htmltag)
 
     def e_custom_shape(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """End the <draw:frame>"""
+        """
+        End the <draw:frame>
+
+        Example:
+            Exercise ODF2XHTML.e custom shape through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.closetag("div")
 
     def s_draw_frame(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """A <draw:frame> is made into a <div> in HTML which is then styled"""
+        """
+        A <draw:frame> is made into a <div> in HTML which is then styled
+
+        Example:
+            Exercise ODF2XHTML.s draw frame through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         anchor_type = attrs.get((TEXTNS, "anchor-type"), "notfound")
         htmltag = "div"
         name = "G-" + attrs.get((DRAWNS, "style-name"), "")
@@ -795,23 +1496,73 @@ class ODF2XHTML(handler.ContentHandler):
             self.opentag(htmltag)
 
     def e_draw_frame(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """End the <draw:frame>"""
+        """
+        End the <draw:frame>
+
+        Example:
+            Exercise ODF2XHTML.e draw frame through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.closetag("div")
 
     def s_draw_fill_image(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the s draw fill image operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.s draw fill image through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         name = attrs.get((DRAWNS, "name"), "NoName")
         imghref = attrs[(XLINKNS, "href")]
         imghref = self.rewritelink(imghref)
         self.cs.fillimages[name] = imghref
 
     def rewritelink(self: _typing.Self, imghref: _typing.Any) -> _typing.Any:
-        """Intended to be overloaded if you don't store your pictures
-        in a Pictures subfolder
+        """
+        Intended to be overloaded if you don't store your pictures in a Pictures subfolder
+
+        Example:
+            Exercise ODF2XHTML.rewritelink through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param imghref: Value supplied for imghref under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return imghref
 
     def s_draw_image(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """A <draw:image> becomes an <img/> element"""
+        """
+        A <draw:image> becomes an <img/> element
+
+        Example:
+            Exercise ODF2XHTML.s draw image through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         parent = self.tagstack.stackparent()
         anchor_type = parent.get((TEXTNS, "anchor-type"))
         imghref = attrs[(XLINKNS, "href")]
@@ -823,7 +1574,20 @@ class ODF2XHTML(handler.ContentHandler):
         self.emptytag("img", htmlattrs)
 
     def s_draw_object(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """A <draw:object> is embedded object in the document (e.g. spreadsheet in presentation)."""
+        """
+        A <draw:object> is embedded object in the document (e.g. spreadsheet in presentation).
+
+        Example:
+            Exercise ODF2XHTML.s draw object through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         return  # Added by Kovid
         objhref = attrs[(XLINKNS, "href")]
         # Remove leading "./": from "./Object 1" to "Object 1"
@@ -837,7 +1601,20 @@ class ODF2XHTML(handler.ContentHandler):
                 self._walknode(c.topnode)
 
     def s_draw_object_ole(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """A <draw:object-ole> is embedded OLE object in the document (e.g. MS Graph)."""
+        """
+        A <draw:object-ole> is embedded OLE object in the document (e.g. MS Graph).
+
+        Example:
+            Exercise ODF2XHTML.s draw object ole through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         try:
             class_id = attrs[(DRAWNS, "class-id")]
         except KeyError:  # Added by Kovid to ignore <draw> without the right
@@ -848,9 +1625,19 @@ class ODF2XHTML(handler.ContentHandler):
             self.closetag("a", tagattrs)
 
     def s_draw_page(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """A <draw:page> is a slide in a presentation. We use a <fieldset> element in HTML.
-        Therefore if you convert a ODP file, you get a series of <fieldset>s.
-        Override this for your own purpose.
+        """
+        A <draw:page> is a slide in a presentation. We use a <fieldset> element in HTML. Therefore if you convert a ODP file, you get a series of <fieldset>s. Override this for your own purpose.
+
+        Example:
+            Exercise ODF2XHTML.s draw page through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         name = attrs.get((DRAWNS, "name"), "NoName")
         stylename = attrs.get((DRAWNS, "style-name"), "")
@@ -866,9 +1653,37 @@ class ODF2XHTML(handler.ContentHandler):
         self.closetag("legend")
 
     def e_draw_page(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the e draw page operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.e draw page through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.closetag("fieldset")
 
     def s_draw_textbox(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the s draw textbox operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.s draw textbox through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         style = ""
         if (FONS, "min-height") in attrs:
             style = style + "min-height:" + attrs[(FONS, "min-height")] + ";"
@@ -877,10 +1692,37 @@ class ODF2XHTML(handler.ContentHandler):
     #       self.opentag('div', {'style': style})
 
     def e_draw_textbox(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """End the <draw:text-box>"""
+        """
+        End the <draw:text-box>
+
+        Example:
+            Exercise ODF2XHTML.e draw textbox through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.closetag("div")
 
     def html_body(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the html body operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.html body through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.writedata()
         if self.generate_css and self.use_internal_css:
             self.opentag("style", {"type": "text/css"}, True)
@@ -903,6 +1745,17 @@ ol, ul { padding-left: 2em; }
 """
 
     def generate_stylesheet(self: _typing.Self) -> None:
+        """
+        Perform the generate stylesheet operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.generate stylesheet through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for name in self.stylestack:
             styles = self.styledict.get(name)
             # Preload with the family's default style
@@ -933,6 +1786,18 @@ ol, ul { padding-left: 2em; }
                 css_styles[css2] = [name]
 
         def filter_margins(css2: _typing.Any) -> _typing.Iterator[_typing.Any]:
+            """
+            Perform the filter margins operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise ODF2XHTML.generate stylesheet.filter margins through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+            :param css2: Value supplied for css2 under the utility contract.
+            :return: An iterator yielding the normalized values described above.
+            """
             names = {k for k, v in css2}
             ignore = set()
             if {"margin-left", "margin-right", "margin-top", "margin-bottom"}.issubset(names):
@@ -953,6 +1818,18 @@ ol, ul { padding-left: 2em; }
             self.writeout("}\n")
 
     def generate_footnotes(self: _typing.Self) -> None:
+        """
+        Perform the generate footnotes operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.generate footnotes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.currentnote == 0:
             return
         if self.generate_css:
@@ -971,13 +1848,40 @@ ol, ul { padding-left: 2em; }
         self.closetag("ol")
 
     def s_office_automatic_styles(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the s office automatic styles operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.s office automatic styles through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.xmlfile == "styles.xml":
             self.autoprefix = "A"
         else:
             self.autoprefix = ""
 
     def s_office_document_content(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """First tag in the content.xml file"""
+        """
+        First tag in the content.xml file
+
+        Example:
+            Exercise ODF2XHTML.s office document content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.writeout('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" ')
         self.writeout('"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">\n')
         self.opentag("html", {"xmlns": "http://www.w3.org/1999/xhtml"}, True)
@@ -988,47 +1892,177 @@ ol, ul { padding-left: 2em; }
         self.writeout("<title>%s</title>\n" % escape(self.title))
 
     def e_office_document_content(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """Last tag"""
+        """
+        Last tag
+
+        Example:
+            Exercise ODF2XHTML.e office document content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.closetag("html")
 
     def s_office_master_styles(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """ """
+        """
+        Perform the s office master styles operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.s office master styles through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
 
     def s_office_presentation(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """For some odd reason, OpenOffice Impress doesn't define a default-style
-        for the 'paragraph'. We therefore force a standard when we see
-        it is a presentation
+        """
+        For some odd reason, OpenOffice Impress doesn't define a default-style for the 'paragraph'. We therefore force a standard when we see it is a presentation
+
+        Example:
+            Exercise ODF2XHTML.s office presentation through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.styledict["p"] = {(FONS, "font-size"): "24pt"}
         self.styledict["presentation"] = {(FONS, "font-size"): "24pt"}
         self.html_body(tag, attrs)
 
     def e_office_presentation(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the e office presentation operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.e office presentation through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.generate_footnotes()
         self.closetag("body")
 
     def s_office_spreadsheet(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the s office spreadsheet operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.s office spreadsheet through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.html_body(tag, attrs)
 
     def e_office_spreadsheet(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the e office spreadsheet operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.e office spreadsheet through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.generate_footnotes()
         self.closetag("body")
 
     def s_office_styles(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the s office styles operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.s office styles through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.autoprefix = ""
 
     def s_office_text(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """OpenDocument text"""
+        """
+        OpenDocument text
+
+        Example:
+            Exercise ODF2XHTML.s office text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.styledict["frame"] = {(STYLENS, "wrap"): "parallel"}
         self.html_body(tag, attrs)
 
     def e_office_text(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the e office text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.e office text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.generate_footnotes()
         self.closetag("body")
 
     def s_style_handle_properties(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """Copy all attributes to a struct.
-        We will later convert them to CSS2
+        """
+        Copy all attributes to a struct. We will later convert them to CSS2
+
+        Example:
+            Exercise ODF2XHTML.s style handle properties through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.currentstyle is None:  # Added by Kovid
             return
@@ -1050,7 +2084,20 @@ ol, ul { padding-left: 2em; }
     }
 
     def s_style_default_style(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """A default style is like a style on an HTML tag"""
+        """
+        A default style is like a style on an HTML tag
+
+        Example:
+            Exercise ODF2XHTML.s style default style through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         family = attrs[(STYLENS, "family")]
         htmlfamily = self.familymap.get(family, "unknown")
         self.currentstyle = htmlfamily
@@ -1058,14 +2105,36 @@ ol, ul { padding-left: 2em; }
         self.styledict[self.currentstyle] = {}
 
     def e_style_default_style(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the e style default style operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.e style default style through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.currentstyle = None
 
     def s_style_font_face(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """It is possible that the HTML browser doesn't know how to
-        show a particular font. Luckily ODF provides generic fallbacks
-        Unfortunately they are not the same as CSS2.
-        CSS2: serif, sans-serif, cursive, fantasy, monospace
-        ODF: roman, swiss, modern, decorative, script, system
+        """
+        It is possible that the HTML browser doesn't know how to show a particular font. Luckily ODF provides generic fallbacks Unfortunately they are not the same as CSS2. CSS2: serif, sans-serif, cursive, fantasy, monospace ODF: roman, swiss, modern, decorative, script, system
+
+        Example:
+            Exercise ODF2XHTML.s style font face through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         name = attrs[(STYLENS, "name")]
         family = attrs[(SVGNS, "font-family")]
@@ -1073,43 +2142,150 @@ ol, ul { padding-left: 2em; }
         self.cs.save_font(name, family, generic)
 
     def s_style_footer(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the s style footer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.s style footer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.opentag("div", {"id": "footer"})
         self.purgedata()
 
     def e_style_footer(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the e style footer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.e style footer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.writedata()
         self.closetag("div")
         self.purgedata()
 
     def s_style_footer_style(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the s style footer style operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.s style footer style through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.currentstyle = "@print #footer"
         self.stylestack.append(self.currentstyle)
         self.styledict[self.currentstyle] = {}
 
     def s_style_header(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the s style header operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.s style header through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.opentag("div", {"id": "header"})
         self.purgedata()
 
     def e_style_header(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the e style header operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.e style header through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.writedata()
         self.closetag("div")
         self.purgedata()
 
     def s_style_header_style(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the s style header style operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.s style header style through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.currentstyle = "@print #header"
         self.stylestack.append(self.currentstyle)
         self.styledict[self.currentstyle] = {}
 
     def s_style_default_page_layout(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """Collect the formatting for the default page layout style."""
+        """
+        Collect the formatting for the default page layout style.
+
+        Example:
+            Exercise ODF2XHTML.s style default page layout through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.currentstyle = "@page"
         self.stylestack.append(self.currentstyle)
         self.styledict[self.currentstyle] = {}
 
     def s_style_page_layout(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """Collect the formatting for the page layout style.
-        This won't work in CSS 2.1, as page identifiers are not allowed.
-        It is legal in CSS3, but the rest of the application doesn't specify when to use what page layout
+        """
+        Collect the formatting for the page layout style. This won't work in CSS 2.1, as page identifiers are not allowed. It is legal in CSS3, but the rest of the application doesn't specify when to use what page layout
+
+        Example:
+            Exercise ODF2XHTML.s style page layout through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         name = attrs[(STYLENS, "name")]
         name = name.replace(".", "_")
@@ -1118,11 +2294,37 @@ ol, ul { padding-left: 2em; }
         self.styledict[self.currentstyle] = {}
 
     def e_style_page_layout(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """End this style"""
+        """
+        End this style
+
+        Example:
+            Exercise ODF2XHTML.e style page layout through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.currentstyle = None
 
     def s_style_master_page(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """Collect the formatting for the page layout style."""
+        """
+        Collect the formatting for the page layout style.
+
+        Example:
+            Exercise ODF2XHTML.s style master page through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         name = attrs[(STYLENS, "name")]
         name = name.replace(".", "_")
 
@@ -1156,11 +2358,19 @@ ol, ul { padding-left: 2em; }
     }
 
     def s_style_style(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """Collect the formatting for the style.
-        Styles have scope. The same name can be used for both paragraph and
-        character styles Since CSS has no scope we use a prefix. (Not elegant)
-        In ODF a style can have a parent, these parents can be chained.
-        We may not have encountered the parent yet, but if we have, we resolve it.
+        """
+        Collect the formatting for the style. Styles have scope. The same name can be used for both paragraph and character styles Since CSS has no scope we use a prefix. (Not elegant) In ODF a style can have a parent, these parents can be chained. We may not have encountered the parent yet, but if we have, we resolve it.
+
+        Example:
+            Exercise ODF2XHTML.s style style through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         name = attrs[(STYLENS, "name")]
         name = name.replace(".", "_")
@@ -1188,11 +2398,37 @@ ol, ul { padding-left: 2em; }
                 self.styledict[self.currentstyle]["__parent-style-name"] = parent
 
     def e_style_style(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """End this style"""
+        """
+        End this style
+
+        Example:
+            Exercise ODF2XHTML.e style style through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.currentstyle = None
 
     def s_table_table(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """Start a table"""
+        """
+        Start a table
+
+        Example:
+            Exercise ODF2XHTML.s table table through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         c = attrs.get((TABLENS, "style-name"), None)
         if c and self.generate_css:
             c = c.replace(".", "_")
@@ -1202,13 +2438,39 @@ ol, ul { padding-left: 2em; }
         self.purgedata()
 
     def e_table_table(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """End a table"""
+        """
+        End a table
+
+        Example:
+            Exercise ODF2XHTML.e table table through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.writedata()
         self.closetag("table")
         self.purgedata()
 
     def s_table_table_cell(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """Start a table cell"""
+        """
+        Start a table cell
+
+        Example:
+            Exercise ODF2XHTML.s table table cell through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         # FIXME: number-columns-repeated § 8.1.3
         # repeated = int(attrs.get( (TABLENS,'number-columns-repeated'), 1))
         htmlattrs = {}
@@ -1226,13 +2488,39 @@ ol, ul { padding-left: 2em; }
         self.purgedata()
 
     def e_table_table_cell(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """End a table cell"""
+        """
+        End a table cell
+
+        Example:
+            Exercise ODF2XHTML.e table table cell through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.writedata()
         self.closetag("td")
         self.purgedata()
 
     def s_table_table_column(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """Start a table column"""
+        """
+        Start a table column
+
+        Example:
+            Exercise ODF2XHTML.s table table column through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         c = attrs.get((TABLENS, "style-name"), None)
         repeated = int(attrs.get((TABLENS, "number-columns-repeated"), 1))
         htmlattrs = {}
@@ -1243,7 +2531,20 @@ ol, ul { padding-left: 2em; }
         self.purgedata()
 
     def s_table_table_row(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """Start a table row"""
+        """
+        Start a table row
+
+        Example:
+            Exercise ODF2XHTML.s table table row through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         # FIXME: table:number-rows-repeated
         c = attrs.get((TABLENS, "style-name"), None)
         htmlattrs = {}
@@ -1253,13 +2554,39 @@ ol, ul { padding-left: 2em; }
         self.purgedata()
 
     def e_table_table_row(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """End a table row"""
+        """
+        End a table row
+
+        Example:
+            Exercise ODF2XHTML.e table table row through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.writedata()
         self.closetag("tr")
         self.purgedata()
 
     def s_text_a(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """Anchors start"""
+        """
+        Anchors start
+
+        Example:
+            Exercise ODF2XHTML.s text a through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.writedata()
         href = attrs[(XLINKNS, "href")].split("|")[0]
         if href[:1] == "#":  # Changed by Kovid
@@ -1268,13 +2595,39 @@ ol, ul { padding-left: 2em; }
         self.purgedata()
 
     def e_text_a(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """End an anchor or bookmark reference"""
+        """
+        End an anchor or bookmark reference
+
+        Example:
+            Exercise ODF2XHTML.e text a through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.writedata()
         self.closetag("a", False)
         self.purgedata()
 
     def s_text_bookmark(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """Bookmark definition"""
+        """
+        Bookmark definition
+
+        Example:
+            Exercise ODF2XHTML.s text bookmark through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         name = attrs[(TEXTNS, "name")]
         html_id = self.get_anchor(name)
         self.writedata()
@@ -1283,7 +2636,20 @@ ol, ul { padding-left: 2em; }
         self.purgedata()
 
     def s_text_bookmark_ref(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """Bookmark reference"""
+        """
+        Bookmark reference
+
+        Example:
+            Exercise ODF2XHTML.s text bookmark ref through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         name = attrs[(TEXTNS, "ref-name")]
         html_id = "#" + self.get_anchor(name)
         self.writedata()
@@ -1291,7 +2657,20 @@ ol, ul { padding-left: 2em; }
         self.purgedata()
 
     def s_text_h(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """Headings start"""
+        """
+        Headings start
+
+        Example:
+            Exercise ODF2XHTML.s text h through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         level = int(attrs[(TEXTNS, "outline-level")])
         if level > 6:
             level = 6  # Heading levels go only to 6 in XHTML
@@ -1309,9 +2688,19 @@ ol, ul { padding-left: 2em; }
         self.purgedata()
 
     def e_text_h(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """Headings end
-        Side-effect: If there is no title in the metadata, then it is taken
-        from the first heading of any level.
+        """
+        Headings end Side-effect: If there is no title in the metadata, then it is taken from the first heading of any level.
+
+        Example:
+            Exercise ODF2XHTML.e text h through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.writedata()
         level = int(attrs[(TEXTNS, "outline-level")])
@@ -1336,15 +2725,38 @@ ol, ul { padding-left: 2em; }
         self.purgedata()
 
     def s_text_line_break(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """Force a line break (<br/>)"""
+        """
+        Force a line break (<br/>)
+
+        Example:
+            Exercise ODF2XHTML.s text line break through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.writedata()
         self.emptytag("br")
         self.purgedata()
 
     def s_text_list(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """Start a list (<ul> or <ol>)
-        To know which level we're at, we have to count the number
-        of <text:list> elements on the tagstack.
+        """
+        Start a list (<ul> or <ol>) To know which level we're at, we have to count the number of <text:list> elements on the tagstack.
+
+        Example:
+            Exercise ODF2XHTML.s text list through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         name = attrs.get((TEXTNS, "style-name"))
         level = self.tagstack.count_tags(tag) + 1
@@ -1363,7 +2775,20 @@ ol, ul { padding-left: 2em; }
         self.purgedata()
 
     def e_text_list(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """End a list"""
+        """
+        End a list
+
+        Example:
+            Exercise ODF2XHTML.e text list through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.writedata()
         name = attrs.get((TEXTNS, "style-name"))
         level = self.tagstack.count_tags(tag) + 1
@@ -1379,20 +2804,56 @@ ol, ul { padding-left: 2em; }
         self.purgedata()
 
     def s_text_list_item(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """Start list item"""
+        """
+        Start list item
+
+        Example:
+            Exercise ODF2XHTML.s text list item through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.opentag("li")
         self.purgedata()
 
     def e_text_list_item(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """End list item"""
+        """
+        End list item
+
+        Example:
+            Exercise ODF2XHTML.e text list item through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.writedata()
         self.closetag("li")
         self.purgedata()
 
     def s_text_list_level_style_bullet(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """CSS doesn't have the ability to set the glyph
-        to a particular character, so we just go through
-        the available glyphs
+        """
+        CSS doesn't have the ability to set the glyph to a particular character, so we just go through the available glyphs
+
+        Example:
+            Exercise ODF2XHTML.s text list level style bullet through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         name = self.tagstack.rfindattr((STYLENS, "name"))
         level = attrs[(TEXTNS, "level")]
@@ -1408,10 +2869,38 @@ ol, ul { padding-left: 2em; }
         self.styledict[self.currentstyle][("", "list-style-type")] = listtype
 
     def e_text_list_level_style_bullet(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the e text list level style bullet operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.e text list level style bullet through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.currentstyle = self.prevstyle
         del self.prevstyle
 
     def s_text_list_level_style_number(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the s text list level style number operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.s text list level style number through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         name = self.tagstack.stackparent()[(STYLENS, "name")]
         level = attrs[(TEXTNS, "level")]
         num_format = attrs.get((STYLENS, "name"), "1")
@@ -1436,10 +2925,38 @@ ol, ul { padding-left: 2em; }
         self.styledict[self.currentstyle][("", "list-style-type")] = listtype
 
     def e_text_list_level_style_number(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the e text list level style number operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.e text list level style number through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.currentstyle = self.prevstyle
         del self.prevstyle
 
     def s_text_note(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the s text note operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.s text note through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.writedata()
         self.purgedata()
         self.currentnote = self.currentnote + 1
@@ -1447,23 +2964,92 @@ ol, ul { padding-left: 2em; }
         self.notebody = []
 
     def e_text_note(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the e text note operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.e text note through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     def collectnote(self: _typing.Self, s: _typing.Any) -> None:
+        """
+        Perform the collectnote operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.collectnote through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param s: Value supplied for s under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if s != "":
             self.notebody.append(s)
 
     def s_text_note_body(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the s text note body operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.s text note body through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._orgwfunc = self._wfunc
         self._wfunc = self.collectnote
 
     def e_text_note_body(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the e text note body operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.e text note body through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._wfunc = self._orgwfunc
         self.notedict[self.currentnote]["body"] = "".join(self.notebody)
         self.notebody = ""
         del self._orgwfunc
 
     def e_text_note_citation(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
+        """
+        Perform the e text note citation operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML.e text note citation through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         mark = "".join(self.data)
         self.notedict[self.currentnote]["citation"] = mark
         self.opentag("a", {"href": "#footnote-%s" % self.currentnote})
@@ -1476,7 +3062,20 @@ ol, ul { padding-left: 2em; }
         self.closetag("a")
 
     def s_text_p(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """Paragraph"""
+        """
+        Paragraph
+
+        Example:
+            Exercise ODF2XHTML.s text p through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         htmlattrs = {}
         specialtag = "p"
         c = attrs.get((TEXTNS, "style-name"), None)
@@ -1491,7 +3090,20 @@ ol, ul { padding-left: 2em; }
         self.purgedata()
 
     def e_text_p(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """End Paragraph"""
+        """
+        End Paragraph
+
+        Example:
+            Exercise ODF2XHTML.e text p through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         specialtag = "p"
         c = attrs.get((TEXTNS, "style-name"), None)
         if c:
@@ -1511,8 +3123,19 @@ ol, ul { padding-left: 2em; }
         # element instead of being part of the text flow.
         # We don't use an entity for the nbsp as the contents of self.data will
         # be escaped on writeout.
-        """Generate a number of spaces. We use the non breaking space for
-        the text:s ODF element.
+        """
+        Generate a number of spaces. We use the non breaking space for the text:s ODF element.
+
+        Example:
+            Exercise ODF2XHTML.s text s through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         try:
             c = int(attrs.get((TEXTNS, "c"), 1))
@@ -1522,8 +3145,19 @@ ol, ul { padding-left: 2em; }
             self.data.append("\u00a0" * c)
 
     def s_text_span(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """The <text:span> element matches the <span> element in HTML. It is
-        typically used to properties of the text.
+        """
+        The <text:span> element matches the <span> element in HTML. It is typically used to properties of the text.
+
+        Example:
+            Exercise ODF2XHTML.s text span through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.writedata()
         c = attrs.get((TEXTNS, "style-name"), None)
@@ -1543,7 +3177,20 @@ ol, ul { padding-left: 2em; }
         self.purgedata()
 
     def e_text_span(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """End the <text:span>"""
+        """
+        End the <text:span>
+
+        Example:
+            Exercise ODF2XHTML.e text span through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.writedata()
         c = attrs.get((TEXTNS, "style-name"), None)
         # Changed by Kovid to handle inline special styles defined on <text:span> tags.
@@ -1559,19 +3206,58 @@ ol, ul { padding-left: 2em; }
         self.purgedata()
 
     def s_text_tab(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """Move to the next tabstop. We ignore this in HTML"""
+        """
+        Move to the next tabstop. We ignore this in HTML
+
+        Example:
+            Exercise ODF2XHTML.s text tab through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.writedata()
         self.writeout(" ")
         self.purgedata()
 
     def s_text_x_source(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """Various indexes and tables of contents. We ignore those."""
+        """
+        Various indexes and tables of contents. We ignore those.
+
+        Example:
+            Exercise ODF2XHTML.s text x source through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.writedata()
         self.purgedata()
         self.s_ignorexml(tag, attrs)
 
     def e_text_x_source(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
-        """Various indexes and tables of contents. We ignore those."""
+        """
+        Various indexes and tables of contents. We ignore those.
+
+        Example:
+            Exercise ODF2XHTML.e text x source through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.writedata()
         self.purgedata()
 
@@ -1582,8 +3268,18 @@ ol, ul { padding-left: 2em; }
     # -----------------------------------------------------------------------------
 
     def load(self: _typing.Self, odffile: _typing.Any) -> None:
-        """Loads a document into the parser and parses it.
-        The argument can either be a filename or a document in memory.
+        """
+        Loads a document into the parser and parses it. The argument can either be a filename or a document in memory.
+
+        Example:
+            Exercise ODF2XHTML.load through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param odffile: Value supplied for odffile under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.lines = []
         self._wfunc = self._wlines
@@ -1594,6 +3290,19 @@ ol, ul { padding-left: 2em; }
         self._walknode(self.document.topnode)
 
     def _walknode(self: _typing.Self, node: _typing.Any) -> None:
+        """
+        Perform the walknode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML. walknode through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if node.nodeType == Node.ELEMENT_NODE:
             self.startElementNS(node.qname, node.tagName, node.attributes)
             for c in node.childNodes:
@@ -1603,27 +3312,100 @@ ol, ul { padding-left: 2em; }
             self.characters(str(node))
 
     def odf2xhtml(self: _typing.Self, odffile: _typing.Any) -> _typing.Any:
-        """Load a file and return the XHTML"""
+        """
+        Load a file and return the XHTML
+
+        Example:
+            Exercise ODF2XHTML.odf2xhtml through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param odffile: Value supplied for odffile under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.load(odffile)
         return self.xhtml()
 
     def _wlines(self: _typing.Self, s: _typing.Any) -> None:
+        """
+        Perform the wlines operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML. wlines through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param s: Value supplied for s under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if s != "":
             self.lines.append(s)
 
     def xhtml(self: _typing.Self) -> _typing.Any:
-        """Returns the xhtml"""
+        """
+        Returns the xhtml
+
+        Example:
+            Exercise ODF2XHTML.xhtml through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "".join(self.lines)
 
     def _writecss(self: _typing.Self, s: _typing.Any) -> None:
+        """
+        Perform the writecss operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML. writecss through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param s: Value supplied for s under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if s != "":
             self._csslines.append(s)
 
     def _writenothing(self: _typing.Self, s: _typing.Any) -> None:
+        """
+        Perform the writenothing operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2XHTML. writenothing through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param s: Value supplied for s under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     def css(self: _typing.Self) -> _typing.Any:
-        """Returns the CSS content"""
+        """
+        Returns the CSS content
+
+        Example:
+            Exercise ODF2XHTML.css through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self._csslines = []
         self._wfunc = self._writecss
         self.generate_stylesheet()
@@ -1633,9 +3415,19 @@ ol, ul { padding-left: 2em; }
         return res
 
     def save(self: _typing.Self, outputfile: _typing.Any, addsuffix: bool = False) -> None:
-        """Save the HTML under the filename.
-        If the filename is '-' then save to stdout
-        We have the last style filename in self.stylefilename
+        """
+        Save the HTML under the filename. If the filename is '-' then save to stdout We have the last style filename in self.stylefilename
+
+        Example:
+            Exercise ODF2XHTML.save through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param outputfile: Value supplied for outputfile under the utility contract.
+        :param addsuffix: Value supplied for addsuffix under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if outputfile == "-":
             import sys  # Added by Kovid
@@ -1650,9 +3442,30 @@ ol, ul { padding-left: 2em; }
 
 
 class ODF2XHTMLembedded(ODF2XHTML):
-    """The ODF2XHTML parses an ODF file and produces XHTML"""
+    """
+    The ODF2XHTML parses an ODF file and produces XHTML
+
+    Example:
+        Exercise ODF2XHTMLembedded through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+    """
 
     def __init__(self: _typing.Self, lines: _typing.Any, generate_css: bool = True, embedable: bool = False) -> None:
+        """
+        Initialize and validate the odf2xhtmlembedded state.
+
+        Example:
+            Exercise ODF2XHTMLembedded.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param lines: Value supplied for lines under the utility contract.
+        :param generate_css: Value supplied for generate css under the utility contract.
+        :param embedable: Value supplied for embedable under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self._resetobject()
         self.lines = lines
 

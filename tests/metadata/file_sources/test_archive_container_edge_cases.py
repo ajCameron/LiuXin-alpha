@@ -1,3 +1,14 @@
+"""
+Exercise archive-container selection, recursion, safety and malformed inputs.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test archive container edge cases through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+"""
 from __future__ import annotations
 
 import io
@@ -14,6 +25,18 @@ from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
 
 def _values(raw):
+    """
+    Perform the values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise values through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, dict):
@@ -27,6 +50,19 @@ def _values(raw):
 
 
 def _zip_bytes(entries: dict[str, bytes], *, comment: bytes = b"") -> bytes:
+    """
+    Perform the zip bytes test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise zip bytes through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+    :param entries: Value supplied for entries in the focused test operation.
+    :param comment: Value supplied for comment in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w") as zf:
         for name, payload in entries.items():
@@ -36,33 +72,130 @@ def _zip_bytes(entries: dict[str, bytes], *, comment: bytes = b"") -> bytes:
 
 
 class _TextHeaderStream:
+    """
+    Provide the TextHeaderStream test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise TextHeaderStream through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+    """
     def read(self, _n):
+        """
+        Perform the read test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise TextHeaderStream.read through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+        :param _n: Value supplied for n in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return "Rar!"
 
     def tell(self):
+        """
+        Perform the tell test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise TextHeaderStream.tell through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise OSError("tell unavailable")
 
 
 class _SeekBrokenBytes(io.BytesIO):
+    """
+    Provide the SeekBrokenBytes test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise SeekBrokenBytes through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+    """
     name = "seek-broken.zip"
 
     def seek(self, pos, whence=os.SEEK_SET):
+        """
+        Perform the seek test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise SeekBrokenBytes.seek through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+        :param pos: Value supplied for pos in the focused test operation.
+        :param whence: Value supplied for whence in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         if getattr(self, "_break_restore", False) and pos != 0:
             raise OSError("restore unavailable")
         return super().seek(pos, whence)
 
 
 class _TimestampRaises:
+    """
+    Provide the TimestampRaises test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise TimestampRaises through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+    """
     @property
     def timestamp(self):
+        """
+        Perform the timestamp test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise TimestampRaises.timestamp through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return "old"
 
     @timestamp.setter
     def timestamp(self, _value):
+        """
+        Perform the timestamp test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise TimestampRaises.timestamp through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+        :param _value: Value supplied for value in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise RuntimeError("timestamp backend unavailable")
 
 
 def test_archive_private_decoders_and_comic_edges(monkeypatch, tmp_path: Path) -> None:
+    """
+    Verify archive private decoders and comic edges.
+
+    Example:
+        Exercise test archive private decoders and comic edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.archive as archive_md
 
     assert list(archive_md._iter_clean_names(["folder", "Thumbs.db", r"dir\page.JPG"])) == ["dir/page.JPG"]
@@ -117,11 +250,45 @@ def test_archive_private_decoders_and_comic_edges(monkeypatch, tmp_path: Path) -
 
 
 def test_archive_comic_metadata_cbr_and_failure_paths(monkeypatch) -> None:
+    """
+    Verify archive comic metadata cbr and failure paths.
+
+    Example:
+        Exercise test archive comic metadata cbr and failure paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.archive as archive_md
     import LiuXin_alpha.utils.decompression.unrar as unrar_mod
 
     class _FakeRARFile:
+        """
+        Provide the FakeRARFile test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test archive comic metadata cbr and failure paths.FakeRARFile through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+        """
         def __init__(self, _stream, get_comment=False):
+            """
+            Initialize the FakeRARFile test double.
+
+            Example:
+                Exercise test archive comic metadata cbr and failure paths.FakeRARFile.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+            :param _stream: Value supplied for stream in the focused test operation.
+            :param get_comment: Value supplied for get comment in the focused test operation.
+            :return: None; the function records state or raises through its assertions.
+            """
             assert get_comment is True
             self.comment = json.dumps(
                 {"ComicBookInfo/1.0": {"series": "CBR Série", "volume": 3, "title": "CBR Title"}}
@@ -140,7 +307,28 @@ def test_archive_comic_metadata_cbr_and_failure_paths(monkeypatch) -> None:
     monkeypatch.setattr(archive_md.default_log, "log_exception", lambda *args, **_kwargs: events.append(args))
 
     class _BrokenRARFile:
+        """
+        Provide the BrokenRARFile test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test archive comic metadata cbr and failure paths.BrokenRARFile through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+        """
         def __init__(self, *_args, **_kwargs):
+            """
+            Initialize the BrokenRARFile test double.
+
+            Example:
+                Exercise test archive comic metadata cbr and failure paths.BrokenRARFile.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+            :param _args: Value supplied for args in the focused test operation.
+            :param _kwargs: Value supplied for kwargs in the focused test operation.
+            :return: None; the function records state or raises through its assertions.
+            """
             raise RuntimeError("rar comment failed")
 
     monkeypatch.setattr(unrar_mod, "RARFile", _BrokenRARFile)
@@ -149,6 +337,20 @@ def test_archive_comic_metadata_cbr_and_failure_paths(monkeypatch) -> None:
 
 
 def test_zip_helpers_opf_cover_resolution_and_stream_edges(monkeypatch, tmp_path: Path) -> None:
+    """
+    Verify zip helpers opf cover resolution and stream edges.
+
+    Example:
+        Exercise test zip helpers opf cover resolution and stream edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.file_formats.opf.opf2 as opf2_mod
     import LiuXin_alpha.metadata.file_sources.zip as zip_md
 
@@ -162,11 +364,43 @@ def test_zip_helpers_opf_cover_resolution_and_stream_edges(monkeypatch, tmp_path
     zip_md._set_timestamp_none(_TimestampRaises())
 
     class _FakeOPF:
+        """
+        Provide the FakeOPF test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test zip helpers opf cover resolution and stream edges.FakeOPF through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+        """
         def __init__(self, stream, opf_dir):
+            """
+            Initialize the FakeOPF test double.
+
+            Example:
+                Exercise test zip helpers opf cover resolution and stream edges.FakeOPF.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+            :param stream: Value supplied for stream in the focused test operation.
+            :param opf_dir: Value supplied for opf dir in the focused test operation.
+            :return: None; the function records state or raises through its assertions.
+            """
             self.stream = stream
             self.opf_dir = opf_dir
 
         def to_book_metadata(self):
+            """
+            Perform the to book metadata test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test zip helpers opf cover resolution and stream edges.FakeOPF.to book metadata through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             mi = calibreMetaInformation("OPF Zip — 世界", ["Zip Author"])
             mi.cover = "cover.jpg"
             return mi
@@ -202,6 +436,20 @@ def test_zip_helpers_opf_cover_resolution_and_stream_edges(monkeypatch, tmp_path
 
 
 def test_extz_helpers_cover_resolution_writer_and_error_edges(monkeypatch, tmp_path: Path) -> None:
+    """
+    Verify extz helpers cover resolution writer and error edges.
+
+    Example:
+        Exercise test extz helpers cover resolution writer and error edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.extz as extz
     from LiuXin_alpha.utils.calibre_compat.ebooks.metadata.book.base import Metadata as OPFCalibreMetadata
 
@@ -222,27 +470,124 @@ def test_extz_helpers_cover_resolution_writer_and_error_edges(monkeypatch, tmp_p
     assert extz._as_opf_calibre_metadata(SimpleNamespace(title="Duck", authors=["Typed"], tags=[])).title == "Duck"
 
     class _MetaNode:
+        """
+        Provide the MetaNode test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test extz helpers cover resolution writer and error edges.MetaNode through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+        """
         def __init__(self, content):
+            """
+            Initialize the MetaNode test double.
+
+            Example:
+                Exercise test extz helpers cover resolution writer and error edges.MetaNode.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+            :param content: Value supplied for content in the focused test operation.
+            :return: None; the function records state or raises through its assertions.
+            """
             self.content = content
 
         def get(self, key):
+            """
+            Perform the get test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test extz helpers cover resolution writer and error edges.MetaNode.get through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+            :param key: Value supplied for key in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return self.content if key == "content" else None
 
     class _Root:
+        """
+        Provide the Root test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test extz helpers cover resolution writer and error edges.Root through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+        """
         def __init__(self, values=(), raises=False):
+            """
+            Initialize the Root test double.
+
+            Example:
+                Exercise test extz helpers cover resolution writer and error edges.Root.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+            :param values: Values stored, compared or projected by the operation.
+            :param raises: Value supplied for raises in the focused test operation.
+            :return: None; the function records state or raises through its assertions.
+            """
             self.values = values
             self.raises = raises
 
         def xpath(self, _expr):
+            """
+            Perform the xpath test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test extz helpers cover resolution writer and error edges.Root.xpath through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+            :param _expr: Value supplied for expr in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             if self.raises:
                 raise RuntimeError("xpath fail")
             return [SimpleNamespace(text=value) for value in self.values]
 
     class _Metadata:
+        """
+        Provide the Metadata test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test extz helpers cover resolution writer and error edges.Metadata through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+        """
         def __init__(self, values=()):
+            """
+            Initialize the Metadata test double.
+
+            Example:
+                Exercise test extz helpers cover resolution writer and error edges.Metadata.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+            :param values: Values stored, compared or projected by the operation.
+            :return: None; the function records state or raises through its assertions.
+            """
             self.values = values
 
         def xpath(self, _expr):
+            """
+            Perform the xpath test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test extz helpers cover resolution writer and error edges.Metadata.xpath through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+            :param _expr: Value supplied for expr in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return [_MetaNode(value) for value in self.values]
 
     fake = SimpleNamespace(raster_cover="raster.jpg")
@@ -295,17 +640,64 @@ def test_extz_helpers_cover_resolution_writer_and_error_edges(monkeypatch, tmp_p
 
 
 def test_docx_fake_container_cover_read_and_write_edges(monkeypatch, tmp_path: Path) -> None:
+    """
+    Verify docx fake container cover read and write edges.
+
+    Example:
+        Exercise test docx fake container cover read and write edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.docx as docx_md
 
     class _Namespace:
+        """
+        Provide the Namespace test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test docx fake container cover read and write edges.Namespace through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+        """
         namespaces = {"ep": "urn:extended"}
 
         @staticmethod
         def get(image, key):
+            """
+            Perform the get test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test docx fake container cover read and write edges.Namespace.get through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+            :param image: Value supplied for image in the focused test operation.
+            :param key: Value supplied for key in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return image.get(key)
 
         @staticmethod
         def XPath(_expr):
+            """
+            Perform the XPath test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test docx fake container cover read and write edges.Namespace.XPath through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+            :param _expr: Value supplied for expr in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return lambda _document: [
                 {"r:embed": "missing"},
                 {"r:embed": "bad-read"},
@@ -315,6 +707,14 @@ def test_docx_fake_container_cover_read_and_write_edges(monkeypatch, tmp_path: P
             ]
 
     class _CoverDocx:
+        """
+        Provide the CoverDocx test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test docx fake container cover read and write edges.CoverDocx through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+        """
         document = object()
         namespace = _Namespace()
         document_relationships = [
@@ -327,11 +727,35 @@ def test_docx_fake_container_cover_read_and_write_edges(monkeypatch, tmp_path: P
         ]
 
         def read(self, name):
+            """
+            Perform the read test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test docx fake container cover read and write edges.CoverDocx.read through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+            :param name: Value supplied for name in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             if name == "bad.bin":
                 raise RuntimeError("read failed")
             return name.encode()
 
     def fake_identify(raw):
+        """
+        Perform the fake identify test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test docx fake container cover read and write edges.fake identify through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+        :param raw: Value supplied for raw in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         if raw == b"tiny.png":
             return "png", 0, 100
         if raw == b"wide.png":
@@ -350,19 +774,74 @@ def test_docx_fake_container_cover_read_and_write_edges(monkeypatch, tmp_path: P
     replacement = {}
 
     class _WriteDocx:
+        """
+        Provide the WriteDocx test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test docx fake container cover read and write edges.WriteDocx through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+        """
         def __init__(self, _stream, extract=False):
+            """
+            Initialize the WriteDocx test double.
+
+            Example:
+                Exercise test docx fake container cover read and write edges.WriteDocx.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+            :param _stream: Value supplied for stream in the focused test operation.
+            :param extract: Value supplied for extract in the focused test operation.
+            :return: None; the function records state or raises through its assertions.
+            """
             assert extract is False
             self.namespace = SimpleNamespace(namespaces={"ep": "urn:extended"})
 
         def get_document_properties_names(self):
+            """
+            Return document properties names from deterministic test state.
+
+            Example:
+                Exercise test docx fake container cover read and write edges.WriteDocx.get document properties names through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return "docProps/core.xml", "docProps/app.xml"
 
         def read(self, name):
+            """
+            Perform the read test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test docx fake container cover read and write edges.WriteDocx.read through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+            :param name: Value supplied for name in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             if name.endswith("core.xml"):
                 return b"<cp:coreProperties xmlns:cp='urn:core'/>"
             return b"<Properties xmlns='urn:extended'><Company>Old</Company></Properties>"
 
         def close(self):
+            """
+            Mark the cache double closed for lifecycle assertions.
+
+            Example:
+                Exercise test docx fake container cover read and write edges.WriteDocx.close through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+            :return: None; the function records state or raises through its assertions.
+            """
             closed.append(True)
 
     monkeypatch.setattr(docx_md, "DOCX", _WriteDocx)
@@ -390,7 +869,26 @@ def test_docx_fake_container_cover_read_and_write_edges(monkeypatch, tmp_path: P
     assert closed
 
     class _MissingCore(_WriteDocx):
+        """
+        Provide the MissingCore test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test docx fake container cover read and write edges.MissingCore through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+        """
         def get_document_properties_names(self):
+            """
+            Return document properties names from deterministic test state.
+
+            Example:
+                Exercise test docx fake container cover read and write edges.MissingCore.get document properties names through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return None, None
 
     monkeypatch.setattr(docx_md, "DOCX", _MissingCore)

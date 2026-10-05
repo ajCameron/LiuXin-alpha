@@ -1,20 +1,14 @@
 #!/usr/bin/env python3
 """
-Manage hash baseline for HTML ingest fixtures.
+Provide manage html ingest fixture hashes utility behavior.
 
-This script operates on:
-  - fixture dir: tests/fixtures/html_ingest
-  - manifest:    tests/support/html_ingest_fixture_hashes.py
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-Typical usage:
-  - Revalidate current baseline:
-      python scripts/manage_html_ingest_fixture_hashes.py --revalidate
+Example:
+    Exercise manage html ingest fixture hashes through a consuming regression::
 
-  - Add/update one newly-added fixture:
-      python scripts/manage_html_ingest_fixture_hashes.py --add html_ingest_case_007_new.html
-
-  - Do both:
-      python scripts/manage_html_ingest_fixture_hashes.py --add x.html --revalidate
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
 """
 
 from __future__ import annotations
@@ -31,6 +25,19 @@ DEFAULT_FIXTURES_REL = Path("tests/fixtures/html_ingest")
 
 
 def find_repo_root(start: Path) -> Path:
+    """
+    Find repo root under the format's safety and compatibility rules.
+
+    Example:
+        Exercise find repo root through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param start: Value supplied for start under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     start = start.resolve()
     for candidate in [start, *start.parents]:
         if (candidate / "src" / "LiuXin_alpha").is_dir() and (candidate / "tests").is_dir():
@@ -39,6 +46,20 @@ def find_repo_root(start: Path) -> Path:
 
 
 def resolve_fixtures_dir(repo_root: Path, explicit_dir: str | None) -> Path:
+    """
+    Perform the resolve fixtures dir operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise resolve fixtures dir through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :param explicit_dir: Value supplied for explicit dir under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if explicit_dir:
         p = Path(explicit_dir).expanduser()
         if not p.is_absolute():
@@ -54,6 +75,20 @@ def resolve_fixtures_dir(repo_root: Path, explicit_dir: str | None) -> Path:
 
 
 def legacy_sha512_size_hash(path: Path) -> str:
+    """
+    Perform the legacy sha512 size hash operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise legacy sha512 size hash through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     hasher = hashlib.sha512()
     with path.open("rb") as stream:
         while True:
@@ -65,6 +100,20 @@ def legacy_sha512_size_hash(path: Path) -> str:
 
 
 def load_manifest(path: Path) -> dict[str, str]:
+    """
+    Perform the load manifest operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise load manifest through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     scope = runpy.run_path(str(path))
     data = scope.get("EXPECTED_HTML_INGEST_FIXTURE_HASHES")
     if not isinstance(data, dict):
@@ -79,6 +128,19 @@ def load_manifest(path: Path) -> dict[str, str]:
 
 
 def render_manifest(mapping: dict[str, str]) -> str:
+    """
+    Perform the render manifest operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise render manifest through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param mapping: Value supplied for mapping under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     lines: list[str] = [
         "from __future__ import annotations\n",
         "\n",
@@ -112,17 +174,61 @@ def render_manifest(mapping: dict[str, str]) -> str:
 
 
 def write_manifest(path: Path, mapping: dict[str, str]) -> None:
+    """
+    Write manifest under the format's safety and compatibility rules.
+
+    Example:
+        Exercise write manifest through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param mapping: Value supplied for mapping under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_manifest(mapping), encoding="utf-8")
 
 
 def _is_within(base: Path, target: Path) -> bool:
+    """
+    Perform the is within operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  is within through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param base: Value supplied for base under the utility contract.
+    :param target: Value supplied for target under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     base = base.resolve()
     target = target.resolve()
     return target == base or base in target.parents
 
 
 def resolve_add_target(raw: str, fixtures_dir: Path, repo_root: Path) -> Path:
+    """
+    Perform the resolve add target operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise resolve add target through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param fixtures_dir: Value supplied for fixtures dir under the utility contract.
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     raw_path = Path(raw).expanduser()
     candidates: list[Path] = []
 
@@ -151,6 +257,21 @@ def revalidate_existing_hashes(
     *,
     strict_set: bool = False,
 ) -> bool:
+    """
+    Perform the revalidate existing hashes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise revalidate existing hashes through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param mapping: Value supplied for mapping under the utility contract.
+    :param fixtures_dir: Value supplied for fixtures dir under the utility contract.
+    :param strict_set: Value supplied for strict set under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     missing: list[str] = []
     mismatches: list[tuple[str, str, str]] = []
 
@@ -193,6 +314,22 @@ def add_or_update_hash_entries(
     fixtures_dir: Path,
     repo_root: Path,
 ) -> bool:
+    """
+    Perform the add or update hash entries operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise add or update hash entries through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param mapping: Value supplied for mapping under the utility contract.
+    :param add_targets: Value supplied for add targets under the utility contract.
+    :param fixtures_dir: Value supplied for fixtures dir under the utility contract.
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     changed = False
     for raw in add_targets:
         path = resolve_add_target(raw, fixtures_dir=fixtures_dir, repo_root=repo_root)
@@ -213,6 +350,19 @@ def add_or_update_hash_entries(
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
+    """
+    Parse args under the format's safety and compatibility rules.
+
+    Example:
+        Exercise parse args through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = argparse.ArgumentParser(description="Manage HTML ingest fixture hash manifest")
     parser.add_argument(
         "--add",
@@ -251,6 +401,19 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     args = parse_args(argv or sys.argv[1:])
 
     repo_root = Path(args.repo_root).expanduser().resolve() if args.repo_root else find_repo_root(Path.cwd())

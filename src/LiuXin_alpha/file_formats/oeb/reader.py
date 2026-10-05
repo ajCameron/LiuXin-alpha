@@ -1,3 +1,14 @@
+"""
+Read source resources into a normalized OEB book model.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise reader through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+"""
 from __future__ import with_statement, print_function
 from __future__ import annotations
 
@@ -78,6 +89,11 @@ __all__ = ["OEBReader"]
 class OEBReader(object):
     """
     Read an OEBPS 1.x or OPF/OPS 2.0 file collection.
+
+    Example:
+        Exercise OEBReader through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     COVER_SVG_XP = XPath("h:body//svg:svg[position() = 1]")
@@ -96,24 +112,51 @@ class OEBReader(object):
     def config(cls: type[_typing.Self], cfg: _typing.Any) -> None:
         """
         Add any book-reading options to the :class:`Config` object
-        :param cfg:
+
+        Example:
+            Exercise OEBReader.config through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param cfg: Value supplied for cfg under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         return
 
     @classmethod
     def generate(cls: type[_typing.Self], opts: _typing.Any) -> _typing.Any:
         """
-        Generate a Reader instance from command-line options.
-        Included for future compatibility reasons.
-        :param opts:
-        :return:
+        Generate a Reader instance from command-line options. Included for future compatibility reasons.
+
+        Example:
+            Exercise OEBReader.generate through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param opts: Value supplied for opts under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return cls()
 
     def __call__(self: _typing.Self, oeb: _typing.Any, path: _typing.Any) -> _typing.Any:
         """
         Read the book at :param:`path` into the :class:`OEBBook` object
-        :param:`oeb`.
+
+        Example:
+            Exercise OEBReader.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self.scratch_path = path
 
@@ -126,6 +169,19 @@ class OEBReader(object):
         return oeb
 
     def _clean_opf(self: _typing.Self, opf: _typing.Any) -> _typing.Any:
+        """
+        Perform the clean opf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEBReader. clean opf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param opf: Value supplied for opf under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         nsmap = {}
         for elem in opf.iter():
             nsmap.update(elem.nsmap)
@@ -161,6 +217,18 @@ class OEBReader(object):
         return nroot
 
     def _read_opf(self: _typing.Self) -> _typing.Any:
+        """
+        Read opf under the format's safety and compatibility rules.
+
+        Example:
+            Exercise OEBReader. read opf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.oeb.container.read(None)
         data = self.oeb.decode(data)
         data = XMLDECL_RE.sub("", data)
@@ -195,6 +263,19 @@ class OEBReader(object):
 
     def _metadata_from_opf(self: _typing.Self, opf: _typing.Any) -> None:
 
+        """
+        Perform the metadata from opf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEBReader. metadata from opf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param opf: Value supplied for opf under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.file_formats.oeb.transforms.metadata import (
             meta_info_to_oeb_metadata,
         )
@@ -223,9 +304,16 @@ class OEBReader(object):
 
     def _manifest_prune_invalid(self: _typing.Self) -> _typing.Any:
         """
-        Remove items from manifest that contain invalid data. This prevents
-        catastrophic conversion failure, when a few files contain corrupted
-        data.
+        Remove items from manifest that contain invalid data. This prevents catastrophic conversion failure, when a few files contain corrupted data.
+
+        Example:
+            Exercise OEBReader. manifest prune invalid through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         bad = []
         check = OEB_DOCS.union(OEB_STYLES)
@@ -244,6 +332,19 @@ class OEBReader(object):
         return bad
 
     def _manifest_add_missing(self: _typing.Self, invalid: _typing.Any) -> None:
+        """
+        Perform the manifest add missing operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEBReader. manifest add missing through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param invalid: Value supplied for invalid under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         try:
             import cssutils
         except ModuleNotFoundError:
@@ -332,6 +433,19 @@ class OEBReader(object):
                 self.oeb.manifest.remove(item)
 
     def _manifest_from_opf(self: _typing.Self, opf: _typing.Any) -> None:
+        """
+        Perform the manifest from opf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEBReader. manifest from opf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param opf: Value supplied for opf under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         manifest = self.oeb.manifest
         for elem in xpath(opf, "/o2:package/o2:manifest/o2:item"):
             man_id = elem.get("id")
@@ -359,6 +473,18 @@ class OEBReader(object):
         self._manifest_add_missing(invalid)
 
     def _spine_add_extra(self: _typing.Self) -> None:
+        """
+        Perform the spine add extra operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEBReader. spine add extra through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         manifest = self.oeb.manifest
         spine = self.oeb.spine
         unchecked = set(spine)
@@ -393,6 +519,19 @@ class OEBReader(object):
             spine.add(item, linear=False)
 
     def _spine_from_opf(self: _typing.Self, opf: _typing.Any) -> None:
+        """
+        Perform the spine from opf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEBReader. spine from opf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param opf: Value supplied for opf under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         spine = self.oeb.spine
         manifest = self.oeb.manifest
         for elem in xpath(opf, "/o2:package/o2:spine/o2:itemref"):
@@ -417,6 +556,19 @@ class OEBReader(object):
                 spine.page_progression_direction = val
 
     def _guide_from_opf(self: _typing.Self, opf: _typing.Any) -> None:
+        """
+        Perform the guide from opf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEBReader. guide from opf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param opf: Value supplied for opf under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         guide = self.oeb.guide
         manifest = self.oeb.manifest
         for elem in xpath(opf, "/o2:package/o2:guide/o2:reference"):
@@ -437,6 +589,19 @@ class OEBReader(object):
                 guide.add(typ, elem.get("title"), ref_href)
 
     def _find_ncx(self: _typing.Self, opf: _typing.Any) -> _typing.Any:
+        """
+        Find ncx under the format's safety and compatibility rules.
+
+        Example:
+            Exercise OEBReader. find ncx through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param opf: Value supplied for opf under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         result = xpath(opf, "/o2:package/o2:spine/@toc")
         if result:
             element_id = result[0]
@@ -452,6 +617,21 @@ class OEBReader(object):
         return None
 
     def _toc_from_navpoint(self: _typing.Self, item: _typing.Any, toc: _typing.Any, navpoint: _typing.Any) -> None:
+        """
+        Perform the toc from navpoint operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEBReader. toc from navpoint through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :param toc: Value supplied for toc under the utility contract.
+        :param navpoint: Value supplied for navpoint under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         children = xpath(navpoint, "ncx:navPoint")
         for child in children:
             title = "".join(xpath(child, "ncx:navLabel/ncx:text/text()"))
@@ -512,6 +692,19 @@ class OEBReader(object):
             self._toc_from_navpoint(item, node, child)
 
     def _toc_from_ncx(self: _typing.Self, item: _typing.Any) -> bool:
+        """
+        Perform the toc from ncx operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEBReader. toc from ncx through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if (item is None) or (item.data is None):
             return False
         self.log.debug("Reading TOC from NCX...")
@@ -527,6 +720,19 @@ class OEBReader(object):
         return True
 
     def _toc_from_tour(self: _typing.Self, opf: _typing.Any) -> bool:
+        """
+        Perform the toc from tour operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEBReader. toc from tour through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param opf: Value supplied for opf under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         result = xpath(opf, "o2:tours/o2:tour")
         if not result:
             return False
@@ -549,6 +755,19 @@ class OEBReader(object):
         return True
 
     def _toc_from_html(self: _typing.Self, opf: _typing.Any) -> bool:
+        """
+        Perform the toc from html operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEBReader. toc from html through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param opf: Value supplied for opf under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if "toc" not in self.oeb.guide:
             return False
         self.log.debug("Reading TOC from HTML...")
@@ -582,6 +801,19 @@ class OEBReader(object):
         return True
 
     def _toc_from_spine(self: _typing.Self, opf: _typing.Any) -> bool:
+        """
+        Perform the toc from spine operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEBReader. toc from spine through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param opf: Value supplied for opf under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.log.warn("Generating default TOC from spine...")
         toc = self.oeb.toc
         titles = []
@@ -612,6 +844,20 @@ class OEBReader(object):
         return True
 
     def _toc_from_opf(self: _typing.Self, opf: _typing.Any, item: _typing.Any) -> None:
+        """
+        Perform the toc from opf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEBReader. toc from opf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param opf: Value supplied for opf under the utility contract.
+        :param item: Value supplied for item under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.oeb.auto_generated_toc = False
         if self._toc_from_ncx(item):
             return
@@ -624,6 +870,20 @@ class OEBReader(object):
         self.oeb.auto_generated_toc = True
 
     def _pages_from_ncx(self: _typing.Self, opf: _typing.Any, item: _typing.Any) -> bool:
+        """
+        Perform the pages from ncx operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEBReader. pages from ncx through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param opf: Value supplied for opf under the utility contract.
+        :param item: Value supplied for item under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if item is None:
             return False
         ncx = item.data
@@ -647,6 +907,19 @@ class OEBReader(object):
         return True
 
     def _find_page_map(self: _typing.Self, opf: _typing.Any) -> _typing.Any:
+        """
+        Find page map under the format's safety and compatibility rules.
+
+        Example:
+            Exercise OEBReader. find page map through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param opf: Value supplied for opf under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         result = xpath(opf, "/o2:package/o2:spine/@page-map")
         if result:
             manifest_id = result[0]
@@ -664,8 +937,16 @@ class OEBReader(object):
     def _pages_from_page_map(self: _typing.Self, opf: _typing.Any) -> bool:
         """
         Extract the pages from the page map and add them to the self.oeb.pages variable.
-        :param opf:
-        :return:
+
+        Example:
+            Exercise OEBReader. pages from page map through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param opf: Value supplied for opf under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         item = self._find_page_map(opf)
         if item is None:
@@ -688,6 +969,20 @@ class OEBReader(object):
         return True
 
     def _pages_from_opf(self: _typing.Self, opf: _typing.Any, item: _typing.Any) -> None:
+        """
+        Perform the pages from opf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEBReader. pages from opf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param opf: Value supplied for opf under the utility contract.
+        :param item: Value supplied for item under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self._pages_from_ncx(opf, item):
             return
         if self._pages_from_page_map(opf):
@@ -695,6 +990,19 @@ class OEBReader(object):
         return
 
     def _cover_from_html(self: _typing.Self, hcover: _typing.Any) -> _typing.Any:
+        """
+        Perform the cover from html operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEBReader. cover from html through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param hcover: Value supplied for hcover under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats import render_html_svg_workaround
 
         with TemporaryDirectory("_html_cover") as tdir:
@@ -712,7 +1020,15 @@ class OEBReader(object):
     def _locate_cover_image(self: _typing.Self) -> _typing.Any:
         """
         Tries to find the cover image.
-        :return:
+
+        Example:
+            Exercise OEBReader. locate cover image through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if self.oeb.metadata.cover:
             cand_id = six_unicode(self.oeb.metadata.cover[0])
@@ -752,6 +1068,18 @@ class OEBReader(object):
         return self._cover_from_html(hcover)
 
     def _ensure_cover_image(self: _typing.Self) -> None:
+        """
+        Perform the ensure cover image operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEBReader. ensure cover image through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         cover = self._locate_cover_image()
         if self.oeb.metadata.cover:
             self.oeb.metadata.cover[0].value = cover.id
@@ -759,6 +1087,18 @@ class OEBReader(object):
         self.oeb.metadata.add("cover", cover.id)
 
     def _manifest_remove_duplicates(self: _typing.Self) -> None:
+        """
+        Perform the manifest remove duplicates operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEBReader. manifest remove duplicates through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         seen = set()
         dups = set()
         for item in self.oeb.manifest:
@@ -774,6 +1114,19 @@ class OEBReader(object):
                     self.oeb.manifest.remove_duplicate_item(x)
 
     def _all_from_opf(self: _typing.Self, opf: _typing.Any) -> None:
+        """
+        Perform the all from opf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEBReader. all from opf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param opf: Value supplied for opf under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.oeb.version = opf.get("version", "1.2")
         self._metadata_from_opf(opf)
         self._manifest_from_opf(opf)
@@ -787,6 +1140,19 @@ class OEBReader(object):
 
 
 def main(argv: _typing.Any = sys.argv) -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     reader = OEBReader()
     for arg in argv[1:]:
         oeb = reader(OEBBook(), arg)

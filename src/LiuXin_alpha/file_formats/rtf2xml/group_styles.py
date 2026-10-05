@@ -10,6 +10,17 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+"""
+Group RTF style tokens and resolve their inheritance.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise group styles through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -21,10 +32,12 @@ from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
 
 class GroupStyles:
     """
-    Form lists.
-    Use RTF's own formatting to determine if a paragraph definition is part of a
-    list.
-    Use indents to determine items and how lists are nested.
+    Form lists. Use RTF's own formatting to determine if a paragraph definition is part of a list. Use indents to determine items and how lists are nested.
+
+    Example:
+        Exercise GroupStyles through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
     """
 
     def __init__(
@@ -36,14 +49,20 @@ class GroupStyles:
         wrap: int = 0,
     ) -> None:
         """
-        Required:
-            'file'
-        Optional:
-            'copy'-- whether to make a copy of result for debugging
-            'temp_dir' --where to output temporary results (default is
-            directory from which the script is run.)
-        Returns:
-            nothing
+        Required: 'file' Optional: 'copy'-- whether to make a copy of result for debugging 'temp_dir' --where to output temporary results (default is directory from which the script is run.) Returns: nothing
+
+        Example:
+            Exercise GroupStyles.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param copy: Value supplied for copy under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :param wrap: Value supplied for wrap under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.__file = in_file
         self.__bug_handler = bug_handler
@@ -54,13 +73,16 @@ class GroupStyles:
 
     def __initiate_values(self: _typing.Self) -> None:
         """
-        Required:
-            Nothing
-        Return:
-            Nothing
-        Logic:
-            The self.__end_list is a list of tokens that will force a list to end.
-            Likewise, the self.__end_lines is a list of lines that forces a list to end.
+        Required: Nothing Return: Nothing Logic: The self.__end_list is a list of tokens that will force a list to end. Likewise, the self.__end_lines is a list of lines that forces a list to end.
+
+        Example:
+            Exercise GroupStyles.  initiate values through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__state = "default"
         self.__left_indent = 0
@@ -113,13 +135,17 @@ class GroupStyles:
 
     def __in_pard_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line -- the line of current text.
-        Return:
-            Nothing
-        Logic:
-            You are in a list, but in the middle of a paragraph definition.
-            Don't do anything until you find the end of the paragraph definition.
+        Required: line -- the line of current text. Return: Nothing Logic: You are in a list, but in the middle of a paragraph definition. Don't do anything until you find the end of the paragraph definition.
+
+        Example:
+            Exercise GroupStyles.  in pard func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "mi<tg<close_____" and line[17:-1] == "paragraph-definition":
             self.__state = "after_pard"
@@ -128,11 +154,17 @@ class GroupStyles:
 
     def __after_pard_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line -- the line of current text.
-        Return:
-            Nothing
-        Logic:
+        Required: line -- the line of current text. Return: Nothing Logic:
+
+        Example:
+            Exercise GroupStyles.  after pard func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "mi<tg<open-att__" and line[17:37] == "paragraph-definition":
             # found paragraph definition
@@ -153,6 +185,19 @@ class GroupStyles:
             self.__list_chunk += line
 
     def __close_pard_(self: _typing.Self, line: _typing.Any) -> None:
+        """
+        Perform the close pard operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise GroupStyles.  close pard  through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__write_obj.write(self.__list_chunk)
         self.__write_obj.write("mi<tg<close_____<paragraph-definition\n")
         self.__write_end_wrap()
@@ -160,12 +205,37 @@ class GroupStyles:
         self.__state = "default"
 
     def __write_start_wrap(self: _typing.Self, name: _typing.Any) -> None:
+        """
+        Perform the write start wrap operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise GroupStyles.  write start wrap through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.__wrap:
             self.__write_obj.write("mi<mk<style-grp_<%s\n" % name)
             self.__write_obj.write("mi<tg<open-att__<style-group<name>%s\n" % name)
             self.__write_obj.write("mi<mk<style_grp_<%s\n" % name)
 
     def __write_end_wrap(self: _typing.Self) -> None:
+        """
+        Perform the write end wrap operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise GroupStyles.  write end wrap through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.__wrap:
             self.__write_obj.write("mi<mk<style_gend\n")
             self.__write_obj.write("mi<tg<close_____<style-group\n")
@@ -173,12 +243,17 @@ class GroupStyles:
 
     def __pard_after_par_def_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line -- the line of current text.
-            id -- the id of the current list
-        Return:
-            Nothing
-        Logic:
+        Required: line -- the line of current text. id -- the id of the current list Return: Nothing Logic:
+
+        Example:
+            Exercise GroupStyles.  pard after par def func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__last_style_name == self.__style_name:
             # just keep going
@@ -202,14 +277,17 @@ class GroupStyles:
 
     def __default_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            self, line
-        Returns:
-            Nothing
-        Logic
-            Look for the start of a paragraph definition. If one is found, check if
-            it contains a list-id. If it does, start a list. Change the state to
-            in_pard.
+        Required: self, line Returns: Nothing Logic Look for the start of a paragraph definition. If one is found, check if it contains a list-id. If it does, start a list. Change the state to in_pard.
+
+        Example:
+            Exercise GroupStyles.  default func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "mi<tg<open-att__" and line[17:37] == "paragraph-definition":
             self.__state = "in_pard"
@@ -220,16 +298,34 @@ class GroupStyles:
             self.__write_obj.write(line)
 
     def __get_style_name(self: _typing.Self, line: _typing.Any) -> None:
+        """
+        Perform the get style name operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise GroupStyles.  get style name through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.__token_info == "mi<mk<style-name":
             self.__style_name = line[17:-1]
 
     def group_styles(self: _typing.Self) -> None:
         """
-        Required:
-            nothing
-        Returns:
-            original file will be changed
-        Logic:
+        Required: nothing Returns: original file will be changed Logic:
+
+        Example:
+            Exercise GroupStyles.group styles through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__initiate_values()
         read_obj = open_for_read(self.__file)

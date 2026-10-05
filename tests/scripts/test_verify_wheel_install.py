@@ -1,4 +1,14 @@
-"""Regression contracts for explicit wheel discovery and runtime assets."""
+"""
+Provide test verify wheel install utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test verify wheel install through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_verify_wheel_install.py
+"""
 
 from __future__ import annotations
 
@@ -21,6 +31,18 @@ SPEC.loader.exec_module(verify_wheel_install)
 
 
 def test_pyproject_owns_production_discovery_and_runtime_data() -> None:
+    """
+    Perform the test pyproject owns production discovery and runtime data operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test pyproject owns production discovery and runtime data through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_verify_wheel_install.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     configuration = tomllib.loads(
         (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     )
@@ -80,6 +102,18 @@ def test_pyproject_owns_production_discovery_and_runtime_data() -> None:
 
 
 def test_expected_runtime_assets_include_complete_calibre_bundle() -> None:
+    """
+    Perform the test expected runtime assets include complete calibre bundle operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test expected runtime assets include complete calibre bundle through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_verify_wheel_install.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     assets = verify_wheel_install.expected_runtime_assets(REPO_ROOT)
     resource_prefix = "LiuXin_alpha/resources/calibre/"
     resources = {name for name in assets if name.startswith(resource_prefix)}
@@ -91,6 +125,19 @@ def test_expected_runtime_assets_include_complete_calibre_bundle() -> None:
 
 
 def test_wheel_inspection_rejects_test_package_leaks(tmp_path: Path) -> None:
+    """
+    Perform the test wheel inspection rejects test package leaks operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test wheel inspection rejects test package leaks through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_verify_wheel_install.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     wheel = tmp_path / "bad.whl"
     with zipfile.ZipFile(wheel, "w") as archive:
         for name in verify_wheel_install.expected_runtime_assets(REPO_ROOT):
@@ -107,6 +154,19 @@ def test_wheel_inspection_rejects_test_package_leaks(tmp_path: Path) -> None:
 
 
 def test_wheel_inspection_rejects_missing_schema_asset(tmp_path: Path) -> None:
+    """
+    Perform the test wheel inspection rejects missing schema asset operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test wheel inspection rejects missing schema asset through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_verify_wheel_install.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     wheel = tmp_path / "bad.whl"
     assets = set(verify_wheel_install.expected_runtime_assets(REPO_ROOT))
     assets.remove(
@@ -127,6 +187,19 @@ def test_wheel_inspection_rejects_missing_schema_asset(tmp_path: Path) -> None:
 
 
 def test_wheel_inspection_rejects_missing_calibre_resource(tmp_path: Path) -> None:
+    """
+    Perform the test wheel inspection rejects missing calibre resource operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test wheel inspection rejects missing calibre resource through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_verify_wheel_install.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     wheel = tmp_path / "bad.whl"
     assets = set(verify_wheel_install.expected_runtime_assets(REPO_ROOT))
     assets.remove("LiuXin_alpha/resources/calibre/templates/html.css")

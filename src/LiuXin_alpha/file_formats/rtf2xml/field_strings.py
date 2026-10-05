@@ -10,6 +10,17 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+"""
+Parse and rewrite RTF field instructions and result strings.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise field strings through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -19,16 +30,27 @@ import re
 
 class FieldStrings:
     """
-    This module is given a string. It processes the field instruction string and
-    returns a list of three values.
+    This module is given a string. It processes the field instruction string and returns a list of three values.
+
+    Example:
+        Exercise FieldStrings through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
     """
 
     def __init__(self: _typing.Self, bug_handler: _typing.Any, run_level: int = 1) -> None:
         """
-        Requires:
-            nothing
-        Returns:
-            nothing
+        Requires: nothing Returns: nothing
+
+        Example:
+            Exercise FieldStrings.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.__run_level = run_level
         self.__bug_handler = bug_handler
@@ -36,14 +58,16 @@ class FieldStrings:
 
     def __initiate_values(self: _typing.Self) -> None:
         """
-        Requires:
-            nothing.
-        Returns:
-            nothing.
-        Logic:
-            initiate values for rest of class.
-            self.__field_instruction_dict:
-                The dictionary for all field names.
+        Requires: nothing. Returns: nothing. Logic: initiate values for rest of class. self.__field_instruction_dict: The dictionary for all field names.
+
+        Example:
+            Exercise FieldStrings.  initiate values through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__field_instruction_dict = {
             # number type (arabic, etc.) and number format (\# " ")
@@ -187,18 +211,18 @@ class FieldStrings:
 
     def process_string(self: _typing.Self, my_string: _typing.Any, type: _typing.Any) -> _typing.Any:
         """
-        Requires:
-            my_string --the string to parse.
-            type -- the type of string.
-        Returns:
-            Returns a string for a field instrution attribute.
-        Logic:
-            This handles all "large" fields, which means everything except
-            toc entries, index entries, and bookmarks
-            Split the string by spaces, and get the first item in the
-            resulting list. This item is the field's type. Check for the
-            action in the field instructions dictionary for further parsing.
-            If no action is found, print out an error message.
+        Requires: my_string --the string to parse. type -- the type of string. Returns: Returns a string for a field instrution attribute. Logic: This handles all "large" fields, which means everything except toc entries, index entries, and bookmarks Split the string by spaces, and get the first item in the resulting list. This item is the field's type. Check for the action in the field instructions dictionary for further parsing. If no action is found, print out an error message.
+
+        Example:
+            Exercise FieldStrings.process string through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param my_string: Value supplied for my string under the utility contract.
+        :param type: Value supplied for type under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         changed_string = ""
         lines = my_string.split("\n")
@@ -231,27 +255,36 @@ class FieldStrings:
 
     def __default_inst_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
-        Requires:
-            field_name -- the first word in the string
-            name -- the changed name according to the dictionary
-            line -- the string to be parsed
-        Returns:
-            The name of the field.
-        Logic:
-            I only need the changed name for the field.
+        Requires: field_name -- the first word in the string name -- the changed name according to the dictionary line -- the string to be parsed Returns: The name of the field. Logic: I only need the changed name for the field.
+
+        Example:
+            Exercise FieldStrings.  default inst func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param field_name: Value supplied for field name under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return [None, None, name]
 
     def __fall_back_func(self: _typing.Self, field_name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
-        Requires:
-            field_name -- the first word in the string
-            name -- the changed name according to the dictionary
-            line -- the string to be parsed
-        Returns:
-            The name of the field.
-        Logic:
-            Used for fields not found in dict
+        Requires: field_name -- the first word in the string name -- the changed name according to the dictionary line -- the string to be parsed Returns: The name of the field. Logic: Used for fields not found in dict
+
+        Example:
+            Exercise FieldStrings.  fall back func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param field_name: Value supplied for field name under the utility contract.
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         the_string = field_name
         the_string += "<update>none"
@@ -259,40 +292,55 @@ class FieldStrings:
 
     def __equation_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
-        Required:
-            field_name -- the first word in the string
-            name --the changed name according to the dictionary
-            line -- the string to be parse
-        Returns:
-            The name of the field
-        Logic:
+        Required: field_name -- the first word in the string name --the changed name according to the dictionary line -- the string to be parse Returns: The name of the field Logic:
+
+        Example:
+            Exercise FieldStrings.  equation func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param field_name: Value supplied for field name under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return [None, None, name]
 
     def __no_switch_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
-        Required:
-            field_name --the first
-            field_name -- the first word in the string
-            name --the changed name according to the dictionary
-            line -- the string to be parse
-        Returns:
-            The name of the field
-        Logic:
+        Required: field_name --the first field_name -- the first word in the string name --the changed name according to the dictionary line -- the string to be parse Returns: The name of the field Logic:
+
+        Example:
+            Exercise FieldStrings.  no switch func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param field_name: Value supplied for field name under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return [None, None, name]
 
     def __num_type_and_format_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
-        Required:
-            field_name -- the first word in the string
-            name --the changed name according to the dictionary
-            line -- the string to be parse
-        Returns:
-            list of None, None, and part of a tag
-        Logic:
-            parse num_type
-            parse num_format
+        Required: field_name -- the first word in the string name --the changed name according to the dictionary line -- the string to be parse Returns: list of None, None, and part of a tag Logic: parse num_type parse num_format
+
+        Example:
+            Exercise FieldStrings.  num type and format func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param field_name: Value supplied for field name under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         the_string = name
         num_format = self.__parse_num_format(line)
@@ -311,13 +359,19 @@ class FieldStrings:
 
     def __num_format_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
-        Required:
-            field_name -- the first word in the string
-            name --the changed name according to the dictionary
-            line -- the string to be parse
-        Returns:
-            list of None, None, and part of a tag
-        Logic:
+        Required: field_name -- the first word in the string name --the changed name according to the dictionary line -- the string to be parse Returns: list of None, None, and part of a tag Logic:
+
+        Example:
+            Exercise FieldStrings.  num format func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param field_name: Value supplied for field name under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         the_string = name
         num_format = self.__parse_num_format(line)
@@ -327,12 +381,17 @@ class FieldStrings:
 
     def __parse_num_format(self: _typing.Self, the_string: _typing.Any) -> _typing.Any:
         """
-        Required:
-            the_string -- the string to parse
-        Returns:
-            a string if the_string contains number formatting information
-            None, otherwise
-        Logic:
+        Required: the_string -- the string to parse Returns: a string if the_string contains number formatting information None, otherwise Logic:
+
+        Example:
+            Exercise FieldStrings.  parse num format through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param the_string: Value supplied for the string under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         match_group = re.search(self.__date_exp, the_string)
         if match_group:
@@ -340,17 +399,17 @@ class FieldStrings:
 
     def __parse_num_type(self: _typing.Self, the_string: _typing.Any) -> _typing.Any:
         """
-        Required:
-            the_string -- the string to parse
-        Returns:
-            a string if the_string contains number type information
-            None, otherwise
-        Logic:
-            the_string might look like:
-            USERNAME \\* Arabic \\* MERGEFORMAT
-            Get the \\* Upper part. Use a dictionary to convert the "Arabic" to
-            a more-readable word for the value of the key "number-type".
-            (<field number-type = "Arabic">
+        Perform the parse num type operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FieldStrings.  parse num type through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param the_string: Value supplied for the string under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         match_group = re.search(self.__num_type_exp, the_string)
         if match_group:
@@ -365,14 +424,19 @@ class FieldStrings:
 
     def __date_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
-        Required:
-            field_name --the fist
-            field_name -- the first word in the string
-            name --the changed name according to the dictionary
-            line -- the string to be parse
-        Returns:
-            list of None, None, and part of a tag
-        Logic:
+        Required: field_name --the fist field_name -- the first word in the string name --the changed name according to the dictionary line -- the string to be parse Returns: list of None, None, and part of a tag Logic:
+
+        Example:
+            Exercise FieldStrings.  date func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param field_name: Value supplied for field name under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         the_string = name
         match_group = re.search(self.__date_exp, line)
@@ -382,18 +446,19 @@ class FieldStrings:
 
     def __simple_info_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
-        Required:
-            field_name -- the first word in the string
-            name --the changed name according to the dictionary
-            line -- the string to be parse
-        Returns:
-            The name of the field
-        Logic:
-            These fields can only have the following switches:
-                1. Upper
-                2. Lower
-                3. FirstCap
-                4. Caps
+        Required: field_name -- the first word in the string name --the changed name according to the dictionary line -- the string to be parse Returns: The name of the field Logic: These fields can only have the following switches: 1. Upper 2. Lower 3. FirstCap 4. Caps
+
+        Example:
+            Exercise FieldStrings.  simple info func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param field_name: Value supplied for field name under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         the_string = name
         match_group = re.search(self.__format_text_exp, line)
@@ -410,12 +475,19 @@ class FieldStrings:
 
     def __hyperlink_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
-        Required:
-            field_name -- the first word in the string
-            name --the changed name according to the dictionary
-            line -- the string to be parse
-        Returns:
-            The name of the field
+        Required: field_name -- the first word in the string name --the changed name according to the dictionary line -- the string to be parse Returns: The name of the field
+
+        Example:
+            Exercise FieldStrings.  hyperlink func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param field_name: Value supplied for field name under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self.__link_switch = re.compile(r'\\l\s{1,}"{0,1}(.*?)"{0,1}\s')
         the_string = name
@@ -446,13 +518,19 @@ class FieldStrings:
 
     def __include_text_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
-        Required:
-            field_name -- the first word in the string
-            name --the changed name according to the dictionary
-            line -- the string to be parse
-        Returns:
-            The name of the field
-        Logic:
+        Required: field_name -- the first word in the string name --the changed name according to the dictionary line -- the string to be parse Returns: The name of the field Logic:
+
+        Example:
+            Exercise FieldStrings.  include text func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param field_name: Value supplied for field name under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         the_string = name
         match_group = re.search(self.__format_text_exp, line)
@@ -488,13 +566,19 @@ class FieldStrings:
 
     def __include_pict_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
-        Required:
-            field_name -- the first word in the string
-            name --the changed name according to the dictionary
-            line -- the string to be parse
-        Returns:
-            The name of the field
-        Logic:
+        Required: field_name -- the first word in the string name --the changed name according to the dictionary line -- the string to be parse Returns: The name of the field Logic:
+
+        Example:
+            Exercise FieldStrings.  include pict func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param field_name: Value supplied for field name under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         the_string = name
         match_group = re.search(self.__filter_switch, line)
@@ -520,17 +604,19 @@ class FieldStrings:
 
     def __ref_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
-        Requires:
-            field_name -- the first word in the string
-            name -- the changed name according to the dictionary
-            line -- the string to be parsed
-        Returns:
-            The name of the field.
-        Logic:
-            A page reference field looks like this:
-                PAGEREF _Toc440880424 \\h
-            I want to extract the second line of info, which is used as an
-            anchor in the resulting XML file.
+        Perform the ref func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FieldStrings.  ref func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param field_name: Value supplied for field name under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         the_string = name
         match_group = re.search(self.__format_text_exp, line)
@@ -574,15 +660,19 @@ class FieldStrings:
 
     def __toc_table_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
-        Requires:
-            field_name -- the name of the first word in the string
-            name --the changed name, according to the dictionary.
-            line --the string to be parsed.
-        Returns:
-            A string for a TOC table field.
-        Logic:
-            If the string contains Figure, it is a table of figures.
-            Otherwise, it is a plain old table of contents.
+        Requires: field_name -- the name of the first word in the string name --the changed name, according to the dictionary. line --the string to be parsed. Returns: A string for a TOC table field. Logic: If the string contains Figure, it is a table of figures. Otherwise, it is a plain old table of contents.
+
+        Example:
+            Exercise FieldStrings.  toc table func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param field_name: Value supplied for field name under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         the_string = name
         index = line.find('\\c "Figure"')
@@ -593,17 +683,19 @@ class FieldStrings:
 
     def __sequence_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
-        Requires:
-            field_name --the name of the first word in the string.
-            name --the changed name according to the dictionary.
-            line -- the string to parse.
-        Returns:
-            A string with a value for the type and label attributes
-        Logic:
-            The type of sequence--whether figure, graph, my-name, or
-            whatever--is represented by the second word in the string. Extract
-            and return.
-            SEQ Figure \\* ARABIC
+        Perform the sequence func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FieldStrings.  sequence func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param field_name: Value supplied for field name under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         fields = line.split()
         label = fields[1]
@@ -612,13 +704,19 @@ class FieldStrings:
 
     def __ta_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
-        Requires:
-            field_name --the name of the first word in the string.
-            name --the changed name according to the dictionary.
-            line -- the string to parse.
-        Returns:
-            A string with a value for the type and label attributes
-        Logic:
+        Requires: field_name --the name of the first word in the string. name --the changed name according to the dictionary. line -- the string to parse. Returns: A string with a value for the type and label attributes Logic:
+
+        Example:
+            Exercise FieldStrings.  ta func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param field_name: Value supplied for field name under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         the_string = name
         match_group = re.search(self.__ta_short_field_exp, line)
@@ -643,13 +741,19 @@ class FieldStrings:
 
     def __index_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
-        Requires:
-            field_name --the name of the first word in the string.
-            name --the changed name according to the dictionary.
-            line -- the string to parse.
-        Returns:
-            A string with a value for the type and label attributes
-        Logic:
+        Requires: field_name --the name of the first word in the string. name --the changed name according to the dictionary. line -- the string to parse. Returns: A string with a value for the type and label attributes Logic:
+
+        Example:
+            Exercise FieldStrings.  index func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param field_name: Value supplied for field name under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # self.__index_insert_blank_line_exp = re.compile(r'\\h\s{1,}""')
         # self.__index_insert_letter_exp = re.compile(r'\\h\s{1,}(".*?")')
@@ -716,13 +820,19 @@ class FieldStrings:
 
     def __page_ref_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
-        Requires:
-            field_name --first name in the string.
-            name -- the changed name according to the dictionary.
-            line -- the string to parse.
-        Returns:
-            A string .
-        Logic:
+        Requires: field_name --first name in the string. name -- the changed name according to the dictionary. line -- the string to parse. Returns: A string . Logic:
+
+        Example:
+            Exercise FieldStrings.  page ref func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param field_name: Value supplied for field name under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         the_string = name
         num_format = self.__parse_num_format(line)
@@ -747,13 +857,19 @@ class FieldStrings:
 
     def __note_ref_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
-        Requires:
-            field_name --first name in the string.
-            name -- the changed name according to the dictionary.
-            line -- the string to parse.
-        Returns:
-            A string .
-        Logic:
+        Requires: field_name --first name in the string. name -- the changed name according to the dictionary. line -- the string to parse. Returns: A string . Logic:
+
+        Example:
+            Exercise FieldStrings.  note ref func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param field_name: Value supplied for field name under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         the_string = name
         line = re.sub(self.__merge_format_exp, "", line)
@@ -775,27 +891,19 @@ class FieldStrings:
 
     def __symbol_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
-        Requires:
-            field_name --first name in the string.
-            name -- the changed name according to the dictionary.
-            line -- the string to parse.
-        Returns:
-            A string containing font size, font style, and a hexadecimal value.
-        Logic:
-            The SYMBOL field is one of Microsoft's many quirky ways of
-            entering text. The string that results from this method looks like
-            this:
-                SYMBOL 97 \\f "Symbol" \\s 12
-            The first word merely tells us that we have encountered a SYMBOL
-            field.
-            The next value is the Microsoft decimal value. Change this to
-            hexadecimal.
-            The pattern '\\f "some font' tells us the font.
-            The pattern '\\s some size'  tells us the font size.
-            Extract all of this information. Store this information in a
-            string, and make this string the last item in a list. The first
-            item in the list is the simple word 'symbol', which tells me that
-            I don't really have  field, but UTF-8 data.
+        Perform the symbol func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FieldStrings.  symbol func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param field_name: Value supplied for field name under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         num = ""
         font = ""

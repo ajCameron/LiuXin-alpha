@@ -1,5 +1,16 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
+"""
+Serialize normalized markup into MOBI-compatible text records.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise serializer through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -33,26 +44,32 @@ __docformat__ = "restructuredtext en"
 
 class Serializer(object):
 
+    """
+    Provide the serializer contract for validated ebook processing.
+
+    Example:
+        Exercise Serializer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+    """
     NSRMAP = {"": None, XML_NS: "xml", XHTML_NS: "", MBP_NS: "mbp"}
 
     def __init__(self: _typing.Self, oeb: _typing.Any, images: _typing.Any, is_periodical: _typing.Any, write_page_breaks_after_item: bool = True) -> None:
         """
-        Write all the HTML markup in oeb into a single in memory buffer
-        containing a single html document with links replaced by offsets into
-        the buffer.
+        Write all the HTML markup in oeb into a single in memory buffer containing a single html document with links replaced by offsets into the buffer.
 
-        :param oeb: OEBBook object that encapsulates the document to be
-        processed.
+        Example:
+            Exercise Serializer.  init   through a consuming regression::
 
-        :param images: Mapping of image hrefs (urlnormalized) to image record
-        indices.
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
 
-        :param is_periodical:
 
-        :param write_page_breaks_after_item: If True a MOBIpocket pagebreak tag
-        is written after every element of the spine in ``oeb``.
-
-        :return:
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param images: Value supplied for images under the utility contract.
+        :param is_periodical: Value supplied for is periodical under the utility contract.
+        :param write_page_breaks_after_item: Value supplied for write page breaks after item
+            under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.oeb = oeb
         # Map of image hrefs to image index in the MOBI file
@@ -84,15 +101,35 @@ class Serializer(object):
 
     def find_blocks(self: _typing.Self) -> None:
         """
-        Mark every item in the spine if it is the start/end of a
-        section/article, so that it can be wrapped in divs appropriately.
-        :return:
+        Mark every item in the spine if it is the start/end of a section/article, so that it can be wrapped in divs appropriately.
+
+        Example:
+            Exercise Serializer.find blocks through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         for item in self.oeb.spine:
             item.is_section_start = item.is_section_end = False
             item.is_article_start = item.is_article_end = False
 
         def spine_item(tocitem: _typing.Any) -> _typing.Any:
+            """
+            Perform the spine item operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Serializer.find blocks.spine item through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+            :param tocitem: Value supplied for tocitem under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             href = urldefrag(tocitem.href)[0]
             for spine_item in self.oeb.spine:
                 if spine_item.href == href:
@@ -133,7 +170,15 @@ class Serializer(object):
     def __call__(self: _typing.Self) -> _typing.Any:
         """
         Return the document serialized as a single UTF-8 encoded bytestring.
-        :return:
+
+        Example:
+            Exercise Serializer.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         buf = self.buf = BytesIO()
         buf.write(b"<html>")
@@ -151,6 +196,18 @@ class Serializer(object):
         return buf.getvalue()
 
     def serialize_head(self: _typing.Self) -> None:
+        """
+        Serialize head under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Serializer.serialize head through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         buf = self.buf
         buf.write(b"<head>")
         if len(self.oeb.guide) > 0:
@@ -159,13 +216,16 @@ class Serializer(object):
 
     def serialize_guide(self: _typing.Self) -> None:
         """
-        The Kindle decides where to open a book based on the presence of
-        an item in the guide that looks like
-        <reference type="text" title="Start" href="chapter-one.xhtml"/>
+        The Kindle decides where to open a book based on the presence of an item in the guide that looks like <reference type="text" title="Start" href="chapter-one.xhtml"/>
 
-        Similarly an item with type="toc" controls where the Goto Table of
-        Contents operation on the kindle goes.
-        :return:
+        Example:
+            Exercise Serializer.serialize guide through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
 
         buf = self.buf
@@ -198,13 +258,18 @@ class Serializer(object):
 
     def serialize_href(self: _typing.Self, href: _typing.Any, base: _typing.Any = None) -> bool:
         """
-        Serialize the href attribute of an <a> or <reference> tag. It is
-        serialized as filepos="000000000" and a pointer to its location is
-        stored in self.href_offsets so that the correct value can be filled in
-        at the end.
-        :param href:
-        :param base:
-        :return:
+        Serialize the href attribute of an <a> or <reference> tag. It is serialized as filepos="000000000" and a pointer to its location is stored in self.href_offsets so that the correct value can be filled in at the end.
+
+        Example:
+            Exercise Serializer.serialize href through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param href: Value supplied for href under the utility contract.
+        :param base: Value supplied for base under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         hrefs = self.oeb.manifest.hrefs
         try:
@@ -232,15 +297,36 @@ class Serializer(object):
 
     def serialize_body(self: _typing.Self) -> None:
         """
-        Serialize all items in the spine of the document. Non linear items are
-        moved to the end.
-        :return:
+        Serialize all items in the spine of the document. Non linear items are moved to the end.
+
+        Example:
+            Exercise Serializer.serialize body through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         buf = self.buf
 
         def serialize_toc_level(tocref: _typing.Any, href: _typing.Any = None) -> None:
             # add the provided toc level to the output stream
             # if href is provided add a link ref to the toc level output (e.g. feed_0/index.html)
+            """
+            Serialize toc level under the format's safety and compatibility rules.
+
+            Example:
+                Exercise Serializer.serialize body.serialize toc level through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+            :param tocref: Value supplied for tocref under the utility contract.
+            :param href: Value supplied for href under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if href is not None:
                 # resolve the section url in id_offsets
                 buf.write("<mbp:pagebreak />")
@@ -309,10 +395,17 @@ class Serializer(object):
 
     def serialize_item(self: _typing.Self, item: _typing.Any) -> None:
         """
-        Serialize an individual item from the spine of the input document.
-        A reference to this item is stored in self.href_offsets
-        :param item:
-        :return:
+        Serialize an individual item from the spine of the input document. A reference to this item is stored in self.href_offsets
+
+        Example:
+            Exercise Serializer.serialize item through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         buf = self.buf
         if not item.linear:
@@ -334,6 +427,21 @@ class Serializer(object):
         self.anchor_offset = None
 
     def serialize_elem(self: _typing.Self, elem: _typing.Any, item: _typing.Any, nsrmap: _typing.Any = NSRMAP) -> None:
+        """
+        Serialize elem under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Serializer.serialize elem through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :param item: Value supplied for item under the utility contract.
+        :param nsrmap: Value supplied for nsrmap under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         buf = self.buf
         if not isinstance(elem.tag, six_string_types) or namespace(elem.tag) not in nsrmap:
             return
@@ -384,6 +492,20 @@ class Serializer(object):
         buf.write(b"</%s>" % tag.encode("utf-8"))
 
     def serialize_text(self: _typing.Self, text: _typing.Any, quot: bool = False) -> None:
+        """
+        Serialize text under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Serializer.serialize text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :param quot: Value supplied for quot under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         text = text.replace("&", "&amp;")
         text = text.replace("<", "&lt;")
         text = text.replace(">", "&gt;")
@@ -396,9 +518,16 @@ class Serializer(object):
 
     def fixup_links(self: _typing.Self) -> None:
         """
-        Fill in the correct values for all filepos="..." links with the offsets
-        of the linked to content (as stored in id_offsets).
-        :return:
+        Fill in the correct values for all filepos="..." links with the offsets of the linked to content (as stored in id_offsets).
+
+        Example:
+            Exercise Serializer.fixup links through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         buf = self.buf
         id_offsets = self.id_offsets

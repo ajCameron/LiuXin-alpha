@@ -74,6 +74,7 @@ class StorageDriverObjectAddressAPI(Generic[DriverObjectAddressT], abc.ABC):
         """
         return self.object_address_checker(object_address)
 
+    # Todo: Again move to a base implementation class and leave the API seperate
     def require_canonical_object_address(
         self,
         object_address: DriverObjectAddressT,

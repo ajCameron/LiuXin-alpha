@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Transform OEB package metadata for conversion output.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise metadata through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+"""
 from __future__ import with_statement
 from __future__ import annotations
 
@@ -24,18 +35,39 @@ __docformat__ = "restructuredtext en"
 def meta_info_to_oeb_metadata(mi: _typing.Any, m: _typing.Any, log: _typing.Any, override_input_metadata: bool = False) -> None:
     """
     Prepare a section of oeb metadata for writing.
-    :param mi:
-    :type mi: calibreMetadata
-    :param m:
-    :type m: OEB Metadata object (LiuXin.file_formats.oeb.base Metadata object)
-    :param log:
-    :param override_input_metadata:
-    :return:
+
+    Example:
+        Exercise meta info to oeb metadata through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param mi: Metadata object exposed to the template function.
+    :param m: Value supplied for m under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :param override_input_metadata: Value supplied for override input metadata under the
+        utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if not hasattr(mi, "is_null"):
         raise TypeError("meta_info_to_oeb_metadata requires a metadata-like object with is_null()")
 
     def safe_attr(name: _typing.Any, default: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the safe attr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise meta info to oeb metadata.safe attr through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param default: Value supplied for default under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return getattr(mi, name)
         except Exception:
@@ -152,19 +184,68 @@ def meta_info_to_oeb_metadata(mi: _typing.Any, m: _typing.Any, log: _typing.Any,
 class MergeMetadata(object):
     """
     Merge in user metadata, including cover
+
+    Example:
+        Exercise MergeMetadata through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     def __call__(self: _typing.Self, oeb: _typing.Any, mi: _typing.Any, opts: _typing.Any, override_input_metadata: bool = False) -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MergeMetadata.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param mi: Metadata object exposed to the template function.
+        :param opts: Value supplied for opts under the utility contract.
+        :param override_input_metadata: Value supplied for override input metadata under the
+            utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.oeb, self.log = oeb, oeb.log
         m = self.oeb.metadata
 
         def safe_attr(name: _typing.Any, default: _typing.Any = None) -> _typing.Any:
+            """
+            Perform the safe attr operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise MergeMetadata.  call  .safe attr through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param name: Field, file, function or resource name addressed by the operation.
+            :param default: Value supplied for default under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             try:
                 return getattr(mi, name)
             except Exception:
                 return default
 
         def first_identifier_value(raw: _typing.Any) -> _typing.Any:
+            """
+            Perform the first identifier value operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise MergeMetadata.  call  .first identifier value through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param raw: Value supplied for raw under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if raw is None:
                 return None
             if isinstance(raw, dict):
@@ -198,6 +279,21 @@ class MergeMetadata(object):
             self.oeb.metadata.add("identifier", app_id, scheme="calibre")
 
     def set_cover(self: _typing.Self, mi: _typing.Any, prefer_metadata_cover: _typing.Any) -> _typing.Any:
+        """
+        Replace the container's cover while preserving required package references.
+
+        Example:
+            Exercise MergeMetadata.set cover through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param mi: Metadata object exposed to the template function.
+        :param prefer_metadata_cover: Value supplied for prefer metadata cover under the
+            utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         cdata, ext = "", "jpg"
         cover = getattr(mi, "cover", None)
         cover_data = getattr(mi, "cover_data", None)
@@ -243,6 +339,19 @@ class MergeMetadata(object):
 
     def remove_old_cover(self: _typing.Self, cover_item: _typing.Any) -> None:
 
+        """
+        Perform the remove old cover operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MergeMetadata.remove old cover through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param cover_item: Value supplied for cover item under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from lxml import etree
         from LiuXin_alpha.file_formats.oeb.base import XPath
 

@@ -1,5 +1,16 @@
 # tests/metadata/containers/calibre_like_book_metadata/test_metadata_creators.py
 
+"""
+Verify creator names, roles, sorting and deduplication.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test metadata creators through its owning regression module::
+
+        python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_creators.py
+"""
 from __future__ import annotations
 
 from collections import OrderedDict
@@ -12,6 +23,17 @@ from LiuXin_alpha.metadata.standardize import standardize_creator_category
 
 
 def test_creators_property_and_get_authors_copy() -> None:
+    """
+    Verify creators property and get authors copy.
+
+    Example:
+        Exercise test creators property and get authors copy through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_creators.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     md = CalibreLikeLiuXinBookMetaData(title="T", authors=["A", "B"])
     creators = md.creators
     assert "authors" in creators
@@ -27,7 +49,13 @@ def test_add_creators_multiple_roles_and_dump_roundtrip() -> None:
     """
     Tests adding creators and a dump roundtrip.
 
-    :return:
+    Example:
+        Exercise test add creators multiple roles and dump roundtrip through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_creators.py
+
+
+    :return: None; the function records state or raises through its assertions.
     """
     md = CalibreLikeLiuXinBookMetaData()
 
@@ -56,6 +84,17 @@ def test_add_creators_multiple_roles_and_dump_roundtrip() -> None:
 
 
 def test_read_creators_accepts_duck_typed_input() -> None:
+    """
+    Verify read creators accepts duck typed input.
+
+    Example:
+        Exercise test read creators accepts duck typed input through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_creators.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     md = CalibreLikeLiuXinBookMetaData()
 
     md.read_creators(
@@ -72,12 +111,34 @@ def test_read_creators_accepts_duck_typed_input() -> None:
 
 def test_creator_category_standardization_smoke() -> None:
     # Exercise standardizer used by creator setters
+    """
+    Verify creator category standardization smoke.
+
+    Example:
+        Exercise test creator category standardization smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_creators.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     for cat in list(CREATOR_CATEGORIES)[:5]:
         norm = standardize_creator_category(cat)
         assert norm is None or isinstance(norm, str)
 
 
 def test_setting_creators_directly_is_blocked() -> None:
+    """
+    Verify setting creators directly remains blocked.
+
+    Example:
+        Exercise test setting creators directly is blocked through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_creators.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     md = CalibreLikeLiuXinBookMetaData()
     with pytest.raises(AttributeError):
         md.creators = {"authors": ["X"]}  # type: ignore[assignment]

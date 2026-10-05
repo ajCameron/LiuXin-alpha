@@ -1,10 +1,13 @@
 """
-Keep extracted implementations bounded and outside compatibility facades.
+Provide test workflow ownership utility behavior.
 
-Size limits exclude documentation-only lines while retaining code, comments, and
-other blank lines. Facade delegates must still contain exactly one Return calling
-their owner after removal of a recognized leading literal docstring. Dependency
-and cycle checks retain their existing scope.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test workflow ownership through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_workflow_ownership.py
 """
 
 import ast
@@ -24,6 +27,19 @@ SERVICE_ROOTS = ("core/program_services", "surfaces/cli/storage_commands")
 
 @pytest.mark.parametrize("relative", SERVICE_ROOTS)
 def test_workflow_owners_remain_bounded(relative: str) -> None:
+    """
+    Perform the test workflow owners remain bounded operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test workflow owners remain bounded through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_workflow_ownership.py
+
+
+    :param relative: Value supplied for relative under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for path in (ROOT / "src/LiuXin_alpha" / relative).glob("*.py"):
         metrics = SourceMetrics(path.read_text())
         assert metrics.line_count() <= 450, path
@@ -35,6 +51,19 @@ def test_workflow_owners_remain_bounded(relative: str) -> None:
 
 @pytest.mark.parametrize("relative", ("core/program_api.py", "surfaces/cli/storage.py"))
 def test_compatibility_facades_do_not_reaccumulate_workflows(relative: str) -> None:
+    """
+    Perform the test compatibility facades do not reaccumulate workflows operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test compatibility facades do not reaccumulate workflows through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_workflow_ownership.py
+
+
+    :param relative: Value supplied for relative under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     path = ROOT / "src/LiuXin_alpha" / relative
     metrics = SourceMetrics(path.read_text())
     assert metrics.line_count() <= 250
@@ -51,6 +80,18 @@ def test_compatibility_facades_do_not_reaccumulate_workflows(relative: str) -> N
 
 
 def test_workflow_owners_have_no_cycles_or_back_imports_to_facades() -> None:
+    """
+    Perform the test workflow owners have no cycles or back imports to facades operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test workflow owners have no cycles or back imports to facades through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_workflow_ownership.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     prefixes = tuple(
         "LiuXin_alpha." + value.replace("/", ".") for value in SERVICE_ROOTS
     )

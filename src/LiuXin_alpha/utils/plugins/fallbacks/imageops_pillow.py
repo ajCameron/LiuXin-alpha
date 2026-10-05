@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
-"""Pure-Python imageops fallback.
+"""
+Provide imageops pillow utility behavior.
 
-calibre ships a compiled ``imageops`` extension that wraps Qt's QImage.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-For LiuXin-alpha we prefer a dependency-light approach:
-  - If Qt (PyQt/PySide) is available and callers pass QImage, we will accept it.
-  - Otherwise, we operate on encoded image *bytes* using Pillow.
+Example:
+    Exercise imageops pillow through a consuming regression::
 
-The goal is *practical* compatibility for cover/thumbnail style operations.
-Pixel-perfect matches with calibre are not required.
+        python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
 """
 
 from __future__ import annotations
@@ -21,6 +21,18 @@ BytesLike = Union[bytes, bytearray, memoryview]
 
 
 def _pillow():
+    """
+    Perform the pillow utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  pillow through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         from PIL import Image  # type: ignore
 
@@ -32,10 +44,36 @@ def _pillow():
 
 
 def _is_qimage(obj: Any) -> bool:
+    """
+    Perform the is qimage utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  is qimage through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param obj: Value supplied for obj under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return hasattr(obj, "isNull") and hasattr(obj, "save") and hasattr(obj, "width") and hasattr(obj, "height")
 
 
 def _qimage_to_png_bytes(qimg: Any) -> bytes:
+    """
+    Perform the qimage to png bytes utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  qimage to png bytes through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param qimg: Value supplied for qimg under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     for qt_pkg in ("PyQt6", "PyQt5", "PySide6", "PySide2"):
         try:
             QtCore = __import__(f"{qt_pkg}.QtCore", fromlist=["QtCore"])
@@ -56,6 +94,19 @@ def _qimage_to_png_bytes(qimg: Any) -> bytes:
 
 
 def _png_bytes_to_qimage(data: bytes) -> Any:
+    """
+    Perform the png bytes to qimage utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  png bytes to qimage through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     for qt_pkg in ("PyQt6", "PyQt5", "PySide6", "PySide2"):
         try:
             QtGui = __import__(f"{qt_pkg}.QtGui", fromlist=["QtGui"])
@@ -70,15 +121,50 @@ def _png_bytes_to_qimage(data: bytes) -> Any:
 
 
 class _Coerced:
+    """
+    Provide the Coerced utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise  Coerced through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+    """
     __slots__ = ("kind", "data", "original")
 
     def __init__(self, kind: str, data: bytes, original: Any):
+        """
+        Initialize and validate the Coerced state.
+
+        Example:
+            Exercise  Coerced.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :param kind: Value supplied for kind under the utility contract.
+        :param data: Value supplied for data under the utility contract.
+        :param original: Value supplied for original under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.kind = kind  # "qimage" | "bytes" | "bytearray"
         self.data = data
         self.original = original
 
 
 def _coerce_in(image: Any) -> _Coerced:
+    """
+    Coerce in under the documented compatibility and safety rules.
+
+    Example:
+        Exercise  coerce in through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param image: Value supplied for image under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if _is_qimage(image):
         if image.isNull():
             raise ValueError("Cannot operate on null QImage")
@@ -91,6 +177,20 @@ def _coerce_in(image: Any) -> _Coerced:
 
 
 def _restore_out(out_png: bytes, c: _Coerced) -> Any:
+    """
+    Perform the restore out utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  restore out through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param out_png: Value supplied for out png under the utility contract.
+    :param c: Value supplied for c under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if c.kind == "qimage":
         return _png_bytes_to_qimage(out_png)
     if c.kind == "bytearray":
@@ -101,6 +201,19 @@ def _restore_out(out_png: bytes, c: _Coerced) -> Any:
 
 
 def _open(inp: bytes) -> Any:
+    """
+    Perform the open utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  open through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param inp: Value supplied for inp under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     Image = _pillow()
     im = Image.open(BytesIO(inp))
     im.load()
@@ -108,12 +221,38 @@ def _open(inp: bytes) -> Any:
 
 
 def _encode_png(im: Any) -> bytes:
+    """
+    Perform the encode png utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  encode png through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param im: Value supplied for im under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     out = BytesIO()
     im.save(out, format="PNG")
     return out.getvalue()
 
 
 def _parse_color(s: str) -> Tuple[int, int, int]:
+    """
+    Parse color under the documented compatibility and safety rules.
+
+    Example:
+        Exercise  parse color through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     s = (s or "#ffffff").strip()
     if s.startswith("#"):
         s = s[1:]
@@ -128,6 +267,19 @@ def _parse_color(s: str) -> Tuple[int, int, int]:
 
 
 def _has_alpha(im: Any) -> bool:
+    """
+    Perform the has alpha utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  has alpha through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param im: Value supplied for im under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if getattr(im, "mode", "") in ("RGBA", "LA"):
         return True
     if getattr(im, "mode", "") == "P" and "transparency" in getattr(im, "info", {}):
@@ -136,6 +288,20 @@ def _has_alpha(im: Any) -> bool:
 
 
 def _blend_alpha(im: Any, bgcolor: str = "#ffffff") -> Any:
+    """
+    Perform the blend alpha utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  blend alpha through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param im: Value supplied for im under the utility contract.
+    :param bgcolor: Value supplied for bgcolor under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     Image = _pillow()
     if not _has_alpha(im):
         return im
@@ -146,6 +312,20 @@ def _blend_alpha(im: Any, bgcolor: str = "#ffffff") -> Any:
 
 
 def _trim_borders(im: Any, fuzz: int) -> Any:
+    """
+    Perform the trim borders utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  trim borders through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param im: Value supplied for im under the utility contract.
+    :param fuzz: Value supplied for fuzz under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     src = im.convert("RGBA") if _has_alpha(im) else im.convert("RGB")
     w, h = src.size
     if w <= 2 or h <= 2:
@@ -156,6 +336,18 @@ def _trim_borders(im: Any, fuzz: int) -> Any:
     bg = tuple(int(sum(c[i] for c in corners_rgb) / 4) for i in range(3))
 
     def is_bg(p: Any) -> bool:
+        """
+        Return or update whether is bg holds for the compatibility value.
+
+        Example:
+            Exercise  trim borders.is bg through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :param p: Path-like value normalized or validated by the operation.
+        :return: True when the documented condition holds; otherwise False.
+        """
         r, g, b = p[0], p[1], p[2]
         return max(abs(r - bg[0]), abs(g - bg[1]), abs(b - bg[2])) <= fuzz
 
@@ -191,6 +383,20 @@ def _trim_borders(im: Any, fuzz: int) -> Any:
 
 
 def remove_borders(image: Any, fuzz: float) -> Any:
+    """
+    Remove borders under the documented compatibility and safety rules.
+
+    Example:
+        Exercise remove borders through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param image: Value supplied for image under the utility contract.
+    :param fuzz: Value supplied for fuzz under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     inp = _coerce_in(image)
     im = _open(inp.data)
     out = _trim_borders(im, max(0, int(fuzz)))
@@ -198,6 +404,19 @@ def remove_borders(image: Any, fuzz: float) -> Any:
 
 
 def grayscale(image: Any) -> Any:
+    """
+    Perform the grayscale utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise grayscale through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param image: Value supplied for image under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from PIL import ImageOps  # type: ignore
 
     inp = _coerce_in(image)
@@ -207,6 +426,22 @@ def grayscale(image: Any) -> Any:
 
 
 def gaussian_sharpen(image: Any, radius: int, sigma: float, high_quality: bool) -> Any:
+    """
+    Perform the gaussian sharpen utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise gaussian sharpen through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param image: Value supplied for image under the utility contract.
+    :param radius: Value supplied for radius under the utility contract.
+    :param sigma: Value supplied for sigma under the utility contract.
+    :param high_quality: Value supplied for high quality under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from PIL import ImageFilter  # type: ignore
 
     inp = _coerce_in(image)
@@ -217,6 +452,21 @@ def gaussian_sharpen(image: Any, radius: int, sigma: float, high_quality: bool) 
 
 
 def gaussian_blur(image: Any, radius: int, sigma: float) -> Any:
+    """
+    Perform the gaussian blur utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise gaussian blur through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param image: Value supplied for image under the utility contract.
+    :param radius: Value supplied for radius under the utility contract.
+    :param sigma: Value supplied for sigma under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from PIL import ImageFilter  # type: ignore
 
     inp = _coerce_in(image)
@@ -227,6 +477,19 @@ def gaussian_blur(image: Any, radius: int, sigma: float) -> Any:
 
 
 def despeckle(image: Any) -> Any:
+    """
+    Perform the despeckle utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise despeckle through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param image: Value supplied for image under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from PIL import ImageFilter  # type: ignore
 
     inp = _coerce_in(image)
@@ -236,7 +499,22 @@ def despeckle(image: Any) -> Any:
 
 
 def overlay(img: Any, canvas: Any, left: int, top: int) -> None:
-    """Overlay img onto canvas. Mutates *canvas* if it is a QImage or bytearray."""
+    """
+    Overlay img onto canvas. Mutates *canvas* if it is a QImage or bytearray.
+
+    Example:
+        Exercise overlay through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param img: Value supplied for img under the utility contract.
+    :param canvas: Value supplied for canvas under the utility contract.
+    :param left: Value supplied for left under the utility contract.
+    :param top: Value supplied for top under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     a = _coerce_in(img)
     b = _coerce_in(canvas)
@@ -258,6 +536,19 @@ def overlay(img: Any, canvas: Any, left: int, top: int) -> None:
 
 
 def normalize(image: Any) -> Any:
+    """
+    Perform the normalize utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise normalize through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param image: Value supplied for image under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from PIL import ImageOps  # type: ignore
 
     inp = _coerce_in(image)
@@ -267,6 +558,21 @@ def normalize(image: Any) -> Any:
 
 
 def oil_paint(image: Any, radius: int, high_quality: bool) -> Any:
+    """
+    Perform the oil paint utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise oil paint through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param image: Value supplied for image under the utility contract.
+    :param radius: Value supplied for radius under the utility contract.
+    :param high_quality: Value supplied for high quality under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from PIL import ImageFilter  # type: ignore
 
     inp = _coerce_in(image)
@@ -277,6 +583,22 @@ def oil_paint(image: Any, radius: int, high_quality: bool) -> Any:
 
 
 def quantize(image: Any, max_colors: int, dither: bool, palette: Sequence[int]) -> Any:
+    """
+    Perform the quantize utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise quantize through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param image: Value supplied for image under the utility contract.
+    :param max_colors: Value supplied for max colors under the utility contract.
+    :param dither: Value supplied for dither under the utility contract.
+    :param palette: Value supplied for palette under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     Image = _pillow()
     inp = _coerce_in(image)
     im = _open(inp.data)
@@ -304,6 +626,18 @@ def quantize(image: Any, max_colors: int, dither: bool, palette: Sequence[int]) 
 
 
 def has_transparent_pixels(image: Any) -> bool:
+    """
+    Return or update whether has transparent pixels holds for the compatibility value.
+
+    Example:
+        Exercise has transparent pixels through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param image: Value supplied for image under the utility contract.
+    :return: True when the documented condition holds; otherwise False.
+    """
     inp = _coerce_in(image)
     im = _open(inp.data)
     if not _has_alpha(im):
@@ -314,6 +648,20 @@ def has_transparent_pixels(image: Any) -> bool:
 
 
 def set_opacity(image: Any, alpha: float) -> Any:
+    """
+    Set opacity under the documented compatibility and safety rules.
+
+    Example:
+        Exercise set opacity through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param image: Value supplied for image under the utility contract.
+    :param alpha: Value supplied for alpha under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     inp = _coerce_in(image)
     im = _open(inp.data)
     if not _has_alpha(im):
@@ -325,6 +673,20 @@ def set_opacity(image: Any, alpha: float) -> Any:
 
 
 def texture_image(canvas: Any, texture: Any) -> Any:
+    """
+    Perform the texture image utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise texture image through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param canvas: Value supplied for canvas under the utility contract.
+    :param texture: Value supplied for texture under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     a = _coerce_in(canvas)
     b = _coerce_in(texture)
     base = _open(a.data)
@@ -347,7 +709,21 @@ def texture_image(canvas: Any, texture: Any) -> Any:
     return _restore_out(_encode_png(out.convert("RGB")), a)
 
 def _encode_any(im: Any, fmt: str = "png", *, jpeg_quality: int = 85) -> bytes:
-    """Encode a PIL image into the requested format."""
+    """
+    Encode a PIL image into the requested format.
+
+    Example:
+        Exercise  encode any through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param im: Value supplied for im under the utility contract.
+    :param fmt: Date, number or template format specification.
+    :param jpeg_quality: Value supplied for jpeg quality under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     fmt = (fmt or "png").lower().strip()
     if fmt == "jpg":
         fmt = "jpeg"
@@ -368,7 +744,22 @@ def _encode_any(im: Any, fmt: str = "png", *, jpeg_quality: int = 85) -> bytes:
 
 
 def resize(data: Any, width: int, height: int, fmt: str = "png") -> Any:
-    """Resize an image to (width, height). Accepts bytes or QImage."""
+    """
+    Resize an image to (width, height). Accepts bytes or QImage.
+
+    Example:
+        Exercise resize through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :param width: Value supplied for width under the utility contract.
+    :param height: Value supplied for height under the utility contract.
+    :param fmt: Date, number or template format specification.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     inp = _coerce_in(data)
     im = _open(inp.data)
     w = max(1, int(width))

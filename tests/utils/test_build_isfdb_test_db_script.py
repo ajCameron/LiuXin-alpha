@@ -1,3 +1,14 @@
+"""
+Provide test build isfdb test db script utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test build isfdb test db script through a consuming regression::
+
+        python -m pytest -q tests/utils/test_build_isfdb_test_db_script.py
+"""
 from __future__ import annotations
 
 import importlib.util
@@ -7,6 +18,18 @@ from pathlib import Path
 
 
 def _load_script():
+    """
+    Perform the load script utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  load script through a consuming regression::
+
+            python -m pytest -q tests/utils/test_build_isfdb_test_db_script.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     script_path = Path(__file__).resolve().parents[2] / "scripts" / "build_isfdb_test_db.py"
     spec = importlib.util.spec_from_file_location("build_isfdb_test_db", script_path)
     assert spec is not None
@@ -18,6 +41,19 @@ def _load_script():
 
 
 def _new_stage_conn(module) -> sqlite3.Connection:
+    """
+    Perform the new stage conn utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  new stage conn through a consuming regression::
+
+            python -m pytest -q tests/utils/test_build_isfdb_test_db_script.py
+
+
+    :param module: Value supplied for module under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     conn = sqlite3.connect(":memory:")
     for spec in module.STAGE_SPECS.values():
         conn.execute(spec.create_sql)
@@ -25,6 +61,19 @@ def _new_stage_conn(module) -> sqlite3.Connection:
 
 
 def test_build_frbr_target_handles_reused_agents_publishers_and_series(tmp_path: Path) -> None:
+    """
+    Perform the test build frbr target handles reused agents publishers and series utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test build frbr target handles reused agents publishers and series through a consuming regression::
+
+            python -m pytest -q tests/utils/test_build_isfdb_test_db_script.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     module = _load_script()
     stage_conn = _new_stage_conn(module)
     try:

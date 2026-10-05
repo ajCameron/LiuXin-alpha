@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Read content from ereader pdb file with a 116 and 202 byte header created by Makebook.
+Read eReader 202 Palm database payloads and metadata.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise reader202 through a consuming regression::
+
+        python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
 """
 from __future__ import annotations
 
@@ -26,13 +34,27 @@ IMAGE_RECORD_HEADER_SIZE = 62
 
 class HeaderRecord(object):
     """
-    The first record in the file is always the header record. It holds
-    information related to the location of text, images, and so on
-    in the file. This is used in conjunction with the sections
-    defined in the file header.
+    The first record in the file is always the header record. It holds information related to the location of text, images, and so on in the file. This is used in conjunction with the sections defined in the file header.
+
+    Example:
+        Exercise HeaderRecord through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
     """
 
     def __init__(self: _typing.Self, raw: _typing.Any) -> None:
+        """
+        Initialize and validate the headerrecord state.
+
+        Example:
+            Exercise HeaderRecord.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         if len(raw) not in HEADER_RECORD_SIZES:
             raise EreaderError("Size mismatch. eReader header record size %s KB is not supported." % len(raw))
         (self.version,) = struct.unpack(">H", raw[0:2])
@@ -42,7 +64,31 @@ class HeaderRecord(object):
 
 
 class Reader202(FormatReader):
+    """
+    Provide the reader202 contract for validated ebook processing.
+
+    Example:
+        Exercise Reader202 through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+    """
     def __init__(self: _typing.Self, header: _typing.Any, stream: _typing.Any, log: _typing.Any, options: _typing.Any) -> None:
+        """
+        Initialize and validate the reader202 state.
+
+        Example:
+            Exercise Reader202.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param header: Value supplied for header under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param log: Value supplied for log under the utility contract.
+        :param options: Value supplied for options under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.log = log
         self.encoding = options.input_encoding
 
@@ -63,18 +109,68 @@ class Reader202(FormatReader):
         self.mi = get_metadata(stream, False)
 
     def _validate_header_ranges(self: _typing.Self) -> None:
+        """
+        Validate header ranges under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Reader202. validate header ranges through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.header_record.non_text_offset < 1 or self.header_record.non_text_offset > len(self.sections):
             raise EreaderError("eReader text range exceeds available sections")
 
     def _text_encoding(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the text encoding operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Reader202. text encoding through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "cp1252" if self.encoding is None else self.encoding
 
     def section_data(self: _typing.Self, number: _typing.Any) -> _typing.Any:
+        """
+        Perform the section data operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Reader202.section data through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param number: Value supplied for number under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if number < 0 or number >= len(self.sections):
             raise EreaderError("eReader section %i is outside the PDB section table" % number)
         return self.sections[number]
 
     def decompress_text(self: _typing.Self, number: _typing.Any) -> _typing.Any:
+        """
+        Perform the decompress text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Reader202.decompress text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param number: Value supplied for number under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.compression.palmdoc import decompress_doc
 
         payload = self.section_data(number)
@@ -87,6 +183,19 @@ class Reader202(FormatReader):
             raise EreaderError("eReader text decompression failed for section %i: %s" % (number, err)) from err
 
     def get_image(self: _typing.Self, number: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Return image under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Reader202.get image through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param number: Value supplied for number under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         name = None
         img = None
 
@@ -101,11 +210,17 @@ class Reader202(FormatReader):
 
     def get_text_page(self: _typing.Self, number: _typing.Any) -> _typing.Any:
         """
-        Only palmdoc compression is supported. The text is xored with 0xA5 and
-        assumed to be encoded as Windows-1252. The encoding is part of
-        the eReader file spec and should always be this encoding.
-        :param number:
-        :return:
+        Only palmdoc compression is supported. The text is xored with 0xA5 and assumed to be encoded as Windows-1252. The encoding is part of the eReader file spec and should always be this encoding.
+
+        Example:
+            Exercise Reader202.get text page through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param number: Value supplied for number under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if number not in range(1, self.header_record.num_text_pages + 1):
             return ""
@@ -113,6 +228,19 @@ class Reader202(FormatReader):
         return self.decompress_text(number)
 
     def extract_content(self: _typing.Self, output_dir: _typing.Any) -> _typing.Any:
+        """
+        Extract content under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Reader202.extract content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param output_dir: Value supplied for output dir under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.pml.pmlconverter import pml_to_html
 
         output_dir = os.path.abspath(output_dir)
@@ -156,6 +284,20 @@ class Reader202(FormatReader):
         return opf_path
 
     def create_opf(self: _typing.Self, output_dir: _typing.Any, images: _typing.Any) -> _typing.Any:
+        """
+        Create opf under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Reader202.create opf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param output_dir: Value supplied for output dir under the utility contract.
+        :param images: Value supplied for images under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         with CurrentDir(output_dir):
             opf = OPFCreator(output_dir, self.mi)
 
@@ -173,8 +315,16 @@ class Reader202(FormatReader):
 
     def dump_pml(self: _typing.Self) -> _typing.Any:
         """
-        This is primarily used for debugging and 3rd party tools to
-        get the plm markup that comprises the text in the file.
+        This is primarily used for debugging and 3rd party tools to get the plm markup that comprises the text in the file.
+
+        Example:
+            Exercise Reader202.dump pml through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         pml = ""
 
@@ -185,8 +335,17 @@ class Reader202(FormatReader):
 
     def dump_images(self: _typing.Self, output_dir: _typing.Any) -> None:
         """
-        This is primarily used for debugging and 3rd party tools to
-        get the images in the file.
+        This is primarily used for debugging and 3rd party tools to get the images in the file.
+
+        Example:
+            Exercise Reader202.dump images through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param output_dir: Value supplied for output dir under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)

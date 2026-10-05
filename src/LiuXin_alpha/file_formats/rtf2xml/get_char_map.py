@@ -12,27 +12,43 @@
 #########################################################################
 
 
+"""
+Load character mappings used by the RTF decoder.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise get char map through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
 class GetCharMap:
     """
-
     Return the character map for the given value
 
+    Example:
+        Exercise GetCharMap through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
     """
 
     def __init__(self: _typing.Self, bug_handler: _typing.Any, char_file: _typing.Any) -> None:
         """
-
         Required:
 
-            'char_file'--the file with the mappings
+        Example:
+            Exercise GetCharMap.  init   through a consuming regression::
 
-        Returns:
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
 
-            nothing
 
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param char_file: Value supplied for char file under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.__char_file = char_file
         self.__bug_handler = bug_handler
@@ -40,6 +56,19 @@ class GetCharMap:
     def get_char_map(self: _typing.Self, map: _typing.Any) -> _typing.Any:
         # if map == 'ansicpg10000':
         #   map = 'mac_roman'
+        """
+        Return char map under the format's safety and compatibility rules.
+
+        Example:
+            Exercise GetCharMap.get char map through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param map: Value supplied for map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         found_map = False
         map_dict = {}
         self.__char_file.seek(0)

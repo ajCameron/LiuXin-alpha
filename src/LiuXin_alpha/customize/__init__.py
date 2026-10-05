@@ -1,19 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Plugins provide means of extending LiuXin's functionality.
+Expose the supported customize compatibility surface.
 
-As LiuXin uses a lot of calibre parts, porting calibre plugins to LiuXin should be fairly easy.
-Here you can find methods to assist with that.
-WARNING - Compatibility is intended to be high, but there may well be some weird corner cases.
-Testing is always advised.
-There are some example methods in the tests to help with this.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-E.g. If you want to test a database or cache like object, you can subclass a contructor which will patch in your
-experimental object.
-Then run the full suite of tests which have been marked as for it.
+Example:
+    Exercise   init   through a consuming regression::
 
-All base classes for any plugins anywhere in LiuXin should be stored here.
+        python -m pytest -q tests/customize/test_customize_base.py
 """
 
 from __future__ import with_statement, print_function, annotations
@@ -51,6 +47,14 @@ from datetime import datetime
 @runtime_checkable
 class ZipInfoLike(Protocol):
     # --- core identity / metadata ---
+    """
+    Provide the zipinfolike contract for validated ebook processing.
+
+    Example:
+        Exercise ZipInfoLike through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
+    """
     filename: str
     date_time: Tuple[int, int, int, int, int, int]  # (Y, M, D, h, m, s)
     compress_type: int
@@ -80,20 +84,75 @@ class ZipInfoLike(Protocol):
     volume: int
 
     # --- methods ZipInfo provides ---
-    def is_dir(self) -> bool: ...
-    def FileHeader(self, zip64: Optional[bool] = None) -> bytes: ...
+    def is_dir(self) -> bool:
+        """
+        Return whether is dir holds for the supplied ebook data.
+
+        Example:
+            Exercise ZipInfoLike.is dir through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: True when the documented condition holds; otherwise False.
+        """
+        ...
+    def FileHeader(self, zip64: Optional[bool] = None) -> bytes:
+        """
+        Perform the FileHeader operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ZipInfoLike.FileHeader through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param zip64: Value supplied for zip64 under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
 
     # Not always needed, but commonly used for display/logging.
-    def __repr__(self) -> str: ...
+    def __repr__(self) -> str:
+        """
+        Perform the repr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ZipInfoLike.  repr   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
 
 
 class Base:
+    """
+    Provide the base contract for validated ebook processing.
+
+    Example:
+        Exercise Base through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
+    """
     ...
 
 T = TypeVar("T", bound=Base)
 
 
 class CatalogCLIOption(NamedTuple):
+    """
+    Provide the catalogclioption contract for validated ebook processing.
+
+    Example:
+        Exercise CatalogCLIOption through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
+    """
     option: str
     default: str
     dest: str
@@ -113,9 +172,25 @@ __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
 class PluginPreferences:
     """
     Class that can be used to store the preferences of a plugin.
+
+    Example:
+        Exercise PluginPreferences through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     def __init__(self):
+        """
+        Initialize and validate the pluginpreferences state.
+
+        Example:
+            Exercise PluginPreferences.  init   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.defaults = dict()
 
 
@@ -123,21 +198,10 @@ class Plugin:  # {{{
     """
     Base class for a calibre plugin.
 
-    Useful members include:
+    Example:
+        Exercise Plugin through a consuming regression::
 
-       * ``self.plugin_path``: Stores path to the zip file that contains this plugin or None if it is a builtin plugin
-       * ``self.site_customization``: Stores a customization string entered by the user.
-
-    Methods that should be overridden in sub classes:
-
-       * :meth:`initialize`
-       * :meth:`customization_help`
-
-    Useful methods:
-
-        * :meth:`temporary_file`
-        * :meth:`__enter__`
-        * :meth:`load_resources`
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     # List of platforms this plugin works on. For example: ``['windows', 'osx', 'linux']``
@@ -176,7 +240,14 @@ class Plugin:  # {{{
         """
         Startup the plugin.
 
-        :param plugin_path:
+        Example:
+            Exercise Plugin.  init   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param plugin_path: Value supplied for plugin path under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.plugin_path = plugin_path
         self.site_customization = None
@@ -184,28 +255,31 @@ class Plugin:  # {{{
 
     def initialize(self) -> None:
         """
-        Called once when calibre plugins are initialized. Plugins are re-initialized
-        every time a new plugin is added.
+        Called once when calibre plugins are initialized. Plugins are re-initialized every time a new plugin is added.
 
-        Perform any plugin specific initialization here, such as extracting
-        resources from the plugin zip file. The path to the zip file is
-        available as ``self.plugin_path``.
+        Example:
+            Exercise Plugin.initialize through a consuming regression::
 
-        Note that ``self.site_customization`` is **not** available at this point.
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
     def config_widget(self):
         """
-        Implement this method and :meth:`save_settings` in your plugin to use a custom configuration dialog, rather then
-        relying on the simple string based default customization.
+        Implement this method and :meth:`save_settings` in your plugin to use a custom configuration dialog, rather then relying on the simple string based default customization.
 
-        This method, if implemented, must return a QWidget. The widget can have an optional method validate() that takes
-        no arguments and is called immediately after the user clicks OK. Changes are applied if and only if the method
-        returns True.
+        Example:
+            Exercise Plugin.config widget through a consuming regression::
 
-        If for some reason you cannot perform the configuration at this time, return a tuple of two strings (message,
-        details), these will be displayed as a warning dialog to the user and the process will be aborted.
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError()
 
@@ -213,8 +287,15 @@ class Plugin:  # {{{
         """
         Save the settings specified by the user with config_widget.
 
-        :param config_widget: The widget returned by :meth:`config_widget`.
+        Example:
+            Exercise Plugin.save settings through a consuming regression::
 
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param config_widget: Value supplied for config widget under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError()
 
@@ -222,18 +303,15 @@ class Plugin:  # {{{
         """
         This method shows a configuration dialog for this plugin.
 
-        It returns True if the user clicks OK, False otherwise.
-        The changes are automatically applied - if you use the default logic.
-        If you don't, it's up to you.
+        Example:
+            Exercise Plugin.do user config through a consuming regression::
 
-        To preserve separation between core and interface logic, the code for this has been moved to
-        `LiuXin.interfaces.gui_common.plugin_user_config`.
-        Call the method `do_calibre_plugin_config` there with this plugin as the first argument and the parent as the
-        second.
-        This will invoke the defaut configuration logic for calibre.
+                python -m pytest -q tests/customize/test_customize_base.py
 
-        :param parent: The parent window for the widget
 
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -241,17 +319,15 @@ class Plugin:  # {{{
         """
         Allows the plugin to be configured in a PyQt5 environment.
 
-        There should be one of these methods for each of the generic environments which the interfaces support.
+        Example:
+            Exercise Plugin.pyqt5 do user config through a consuming regression::
 
-        If you just want a method that returns True if the user clicks OK, False otherwise, use the defalt calibre logic
-        by calling the method as specified in `do_user_config`
+                python -m pytest -q tests/customize/test_customize_base.py
 
-        The changes should be automatically applied.
-        Probably.
-        But it is really up to you!
 
-        :param parent:
-        :return:
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -259,11 +335,15 @@ class Plugin:  # {{{
         """
         Allows the plugin to be configured in a command line environment.
 
-        The changes should be automatically applied.
-        But it really is up to you!
+        Example:
+            Exercise Plugin.command line do user config through a consuming regression::
 
-        :param parent:
-        :return:
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -271,23 +351,17 @@ class Plugin:  # {{{
 
     def load_resources(self, names: list[str]) -> dict[str, bytes]:
         """
-        If this plugin comes in a ZIP file (user added plugin), this method will allow you to load resources from the
-        ZIP file.
+        If this plugin comes in a ZIP file (user added plugin), this method will allow you to load resources from the ZIP file.
 
-        For example to load an image::
+        Example:
+            Exercise Plugin.load resources through a consuming regression::
 
-            pixmap = QPixmap()
-            pixmap.loadFromData(self.load_resources(['images/icon.png']).itervalues().next())
-            icon = QIcon(pixmap)
+                python -m pytest -q tests/customize/test_customize_base.py
 
-        Resource will be returned as bytes.
 
-        :param names: List of paths to resources in the zip file using / as separator
-
-        :return: A dictionary of the form ``{name: file_contents}``. Any names
-                 that were not found in the zip file will not be present in the
-                 dictionary.
-
+        :param names: Value supplied for names under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if self.plugin_path is None:
             raise ValueError("This plugin was not loaded from a ZIP file")
@@ -302,14 +376,15 @@ class Plugin:  # {{{
         """
         Return a string giving help on how to customize this plugin.
 
-        By default, raise a :class:`NotImplementedError`, which indicates that the plugin does not require
-        customization.
+        Example:
+            Exercise Plugin.customization help through a consuming regression::
 
-        If you re-implement this method in your subclass, the user will be asked to enter a string as customization for
-        this plugin. The customization string will be available as ``self.site_customization``.
-        Site customization could be anything, for example, the path to a needed binary on the user's computer.
+                python -m pytest -q tests/customize/test_customize_base.py
 
-        :param gui: If True return HTML help, otherwise return plain text help.
+
+        :param gui: Value supplied for gui under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -318,12 +393,15 @@ class Plugin:  # {{{
         """
         Return a file-like object that is a temporary file on the file system.
 
-        This file will remain available even after being closed and will only
-        be removed on interpreter shutdown. Use the ``name`` member of the
-        returned object to access the full path to the created temporary file.
+        Example:
+            Exercise Plugin.temporary file through a consuming regression::
 
-        :param suffix: The suffix that the temporary file will have.
+                python -m pytest -q tests/customize/test_customize_base.py
 
+
+        :param suffix: Text appended to the formatted or selected result.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return PersistentTemporaryFile(suffix)
 
@@ -331,7 +409,13 @@ class Plugin:  # {{{
         """
         Can the plugin be customized?
 
-        :return:
+        Example:
+            Exercise Plugin.is customizable through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: True when the documented condition holds; otherwise False.
         """
         try:
             self.customization_help()
@@ -345,10 +429,16 @@ class Plugin:  # {{{
         """
         Add this plugin to the python path so that it's contents become directly importable.
 
-        Useful when bundling large python libraries into the plugin. Use it like this::
-            with plugin:
-                import something
-        Included for legacy compatibility reasons - ideally should never be used.
+        Example:
+            Exercise Plugin.  enter   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.plugin_path is not None:
 
@@ -377,8 +467,15 @@ class Plugin:  # {{{
         """
         Remove the previously added paths.
 
-        :param args:
-        :return:
+        Example:
+            Exercise Plugin.  exit   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         ip, it = getattr(self, "sys_insertion_path", None), getattr(self, "_sys_insertion_tdir", None)
         if ip in sys.path:
@@ -390,8 +487,15 @@ class Plugin:  # {{{
         """
         This method is the main entry point for your plugins command line interface.
 
-        It is called when the user does: calibre-debug -r "Plugin Name".
-        Any arguments passed are present in the args variable.
+        Example:
+            Exercise Plugin.cli main through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError("The %s plugin has no command line interface" % self.name)
 
@@ -403,17 +507,10 @@ class FileTypePlugin(Plugin):  # {{{
     """
     A plugin transforms a particular set of file types.
 
-    Specifically a file plugin_type that preforms a transform on a given file type.
-    Each of these plugins can be run at one - or more - of three different times
-     - on_import - run before the file is imported into the library
-     - on_postimport - run once the file has been added to the file
-     - on_preprocess - run just before a conversion
-     - on_postprocess - run right after a conversion
+    Example:
+        Exercise FileTypePlugin through a consuming regression::
 
-    Two methods are presented
-     - run -
-
-
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     #: Set of file types for which this plugin should be run. For example: ``{'lit', 'mobi', 'prc'}``
@@ -438,14 +535,15 @@ class FileTypePlugin(Plugin):  # {{{
         """
         Run the plugin. Must be implemented in subclasses.
 
-        It should perform whatever modifications are required on the ebook and return the absolute path to the modified
-        ebook. If no modifications are needed, it should return the path to the original ebook. If an error is
-        encountered it should raise an Exception. The default implementation simply return the path to the original
-        ebook.
+        Example:
+            Exercise FileTypePlugin.run through a consuming regression::
 
-        The modified ebook file should be created with the :meth:`temporary_file` method.
-        :param path_to_ebook: Absolute path to the ebook.
-        :return: Absolute path to the modified ebook.
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param path_to_ebook: Value supplied for path to ebook under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Default implementation does nothing
         return path_to_ebook
@@ -454,9 +552,17 @@ class FileTypePlugin(Plugin):  # {{{
         """
         Called post import, i.e., after the book file has been added to the database.
 
-        :param book_id: DatabasePing id of the added book.
-        :param book_format: The file plugin_type of the book that was added.
-        :param db: Library database.
+        Example:
+            Exercise FileTypePlugin.postimport through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param book_format: Value supplied for book format under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass  # Default implementation does nothing
 
@@ -466,6 +572,11 @@ class FileTypePlugin(Plugin):  # {{{
 class _MetadataReaderPlugin:
     """
     We want both LiuXin and calibre metadata readers to have a common interface - but not a common class heirachy.
+
+    Example:
+        Exercise  MetadataReaderPlugin through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     # Set of file types for which this plugin should be run. For example: ``set(['lit', 'mobi', 'prc'])``
@@ -490,8 +601,15 @@ class _MetadataReaderPlugin:
         """
         Startup the plugin.
 
-        :param args:
-        :param kwargs:
+        Example:
+            Exercise  MetadataReaderPlugin.  init   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; validated state is stored on the receiving object.
         """
         super().__init__(*args, **kwargs)
 
@@ -502,10 +620,17 @@ class _MetadataReaderPlugin:
         """
         Return metadata for the file represented by stream (a file like object that supports reading).
 
-        Raise an exception when there is an error with the input data.
+        Example:
+            Exercise  MetadataReaderPlugin.get metadata through a consuming regression::
 
-        :param ftype: The plugin_type of file. Guaranteed to be one of the entries in :attr:`file_types`.
-        :return: A :class:`LiuXin.metadata.metadata.MetaData` object
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param ftype: Value supplied for ftype under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -513,12 +638,16 @@ class _MetadataReaderPlugin:
         """
         Returns metadata for the file represented by the file path.
 
-        Must be a valid path with read access.
-        Raises an exception when there is an error with the input data.
-        Sometimes avoids having to copy the entire file into memory.
-        :param file_path:
-        :param ftype: Guaranteed to be one of the entries in :attr:`file_types`.
-        :return: A :class:`LiuXin.metadata.metadata.MetaData` object
+        Example:
+            Exercise  MetadataReaderPlugin.get metadata inplace through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param file_path: Value supplied for file path under the utility contract.
+        :param ftype: Value supplied for ftype under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Tries to open the file as a stream and use the get_metadata method on it
         with open(file_path, "rb") as md_file_stream:
@@ -528,15 +657,27 @@ class _MetadataReaderPlugin:
 class MetadataReaderPlugin(Plugin, _MetadataReaderPlugin):  # {{{
     """
     A plugin that implements reading metadata from a set of file types.
+
+    Example:
+        Exercise MetadataReaderPlugin through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     def __init__(self, plugin_path: Union[str, pathlib.Path, None], *args: Any, **kwargs: Any) -> None:
         """
         Initialize shared plugin state and metadata-reader flags.
 
-        `_MetadataReaderPlugin.__init__()` is defined as a cooperative mixin, but
-        `Plugin` comes first in this class' MRO, so the mixin constructor will not
-        run unless we wire the reader-specific state explicitly here.
+        Example:
+            Exercise MetadataReaderPlugin.  init   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param plugin_path: Value supplied for plugin path under the utility contract.
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; validated state is stored on the receiving object.
         """
         super().__init__(plugin_path, *args, **kwargs)
         self.quick = False
@@ -545,6 +686,11 @@ class MetadataReaderPlugin(Plugin, _MetadataReaderPlugin):  # {{{
 class MetadataWriterPlugin(Plugin):
     """
     A plugin that implements writing metadata to files in a certain set of file types.
+
+    Example:
+        Exercise MetadataWriterPlugin through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     #: Set of file types for which this plugin should be run
@@ -563,8 +709,15 @@ class MetadataWriterPlugin(Plugin):
         """
         Startup the plugin.
 
-        :param args:
-        :param kwargs:
+        Example:
+            Exercise MetadataWriterPlugin.  init   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; validated state is stored on the receiving object.
         """
         super().__init__(*args, **kwargs)
 
@@ -574,10 +727,18 @@ class MetadataWriterPlugin(Plugin):
         """
         Set metadata for the file represented by stream (a file like object that supports reading).
 
-        Raise an exception when there is an error with the input data.
-        :param stream: The file to be modified
-        :param type: The plugin_type of file. Guaranteed to be one of the entries in :attr:`file_types`.
-        :param mi: A :class:`calibre.ebooks.metadata.book.Metadata` object
+        Example:
+            Exercise MetadataWriterPlugin.set metadata through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param mi: Metadata object exposed to the template function.
+        :param type: Value supplied for type under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -585,15 +746,17 @@ class MetadataWriterPlugin(Plugin):
         """
         Set metadata for the file pointed to by the file path.
 
-        Means that the file doesn't have to be copied into memory for updating.
-        Raise an exception when there is an error with the input data.
+        Example:
+            Exercise MetadataWriterPlugin.set metadata inplace through a consuming regression::
 
-        WARNING: THE ACTUAL FILE ON DISK WILL BE MODIFIED.
-        PLEASE CONSIDER TAKING A BACKUP FIRST.
+                python -m pytest -q tests/customize/test_customize_base.py
 
-        :param file_path: The file to be modified
-        :param type: The plugin_type of file. Guaranteed to be one of the entries in :attr:`file_types`.
-        :param mi: A :class:`calibre.ebooks.metadata.book.Metadata` object
+
+        :param file_path: Value supplied for file path under the utility contract.
+        :param mi: Metadata object exposed to the template function.
+        :param type: Value supplied for type under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -605,9 +768,10 @@ class CatalogPlugin(Plugin):  # {{{
     """
     A plugin that implements a catalog generator.
 
-    Catalogs are files containing catalog entries from the database.
-    The default plugin only writes out calibre metadata.
-    You want a LiuXinCatalogPlugin if you want the full LiuXin metadata.
+    Example:
+        Exercise CatalogPlugin through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     resources_path = None
@@ -634,6 +798,16 @@ class CatalogPlugin(Plugin):  # {{{
     def _field_sorter(self, key: str) -> str:
         """
         Custom fields sort after standard fields.
+
+        Example:
+            Exercise CatalogPlugin. field sorter through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if key.startswith("#"):
             return "~%s" % key[1:]
@@ -644,10 +818,16 @@ class CatalogPlugin(Plugin):  # {{{
         """
         Generate a catalog off a db search.
 
-        Returns the data as a dict for writing out.
-        :param db:
-        :param opts:
-        :return:
+        Example:
+            Exercise CatalogPlugin.search sort db through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         db.search(opts.search_text)
@@ -662,9 +842,16 @@ class CatalogPlugin(Plugin):  # {{{
         """
         Returns a list of the requested fields.
 
-        :param db:
-        :param opts:
-        :return:
+        Example:
+            Exercise CatalogPlugin.get output fields through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         all_std_fields = {
             "author_sort",
@@ -728,8 +915,14 @@ class CatalogPlugin(Plugin):  # {{{
         """
         If plugin is not a built-in, copy the plugin's .ui and .py files from the zip file to $TMPDIR.
 
-        Tab will be dynamically generated and added to the Catalog Options dialog in
-        calibre.gui2.dialogs.catalog.py:Catalog
+        Example:
+            Exercise CatalogPlugin.initialize through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         from LiuXin_alpha.customize.builtins import plugins as builtin_plugins
         from LiuXin_alpha.customize.ui import config
@@ -755,16 +948,21 @@ class CatalogPlugin(Plugin):  # {{{
 
     def run(self, path_to_output: Union[str, pathlib.Path], opts, db, ids: Iterable[str], notification=None) -> None:
         """
-        Run the plugin. Must be implemented in subclasses.
-        It should generate the catalog in the format specified in file_types, returning the absolute path to the
-        generated catalog file. If an error is encountered it should raise an Exception.
+        Run the plugin. Must be implemented in subclasses. It should generate the catalog in the format specified in file_types, returning the absolute path to the generated catalog file. If an error is encountered it should raise an Exception.
 
-        The generated catalog file should be created with the :meth:`temporary_file` method.
+        Example:
+            Exercise CatalogPlugin.run through a consuming regression::
 
-        :param path_to_output: Absolute path to the generated catalog file.
-        :param opts: A dictionary of keyword arguments
-        :param db: A LibraryDatabase2 object
-        :param ids:
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param path_to_output: Value supplied for path to output under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :param ids: Value supplied for ids under the utility contract.
+        :param notification: Value supplied for notification under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Default implementation does nothing
         raise NotImplementedError("CatalogPlugin.generate_catalog() default method, should be overridden in subclass")
@@ -777,7 +975,10 @@ class InterfaceActionBase(Plugin):  # {{{
     """
     Slots into the GUI.
 
-    Probably not going to live here.
+    Example:
+        Exercise InterfaceActionBase through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     supported_platforms = ["windows", "osx", "linux"]
@@ -791,6 +992,19 @@ class InterfaceActionBase(Plugin):  # {{{
     actual_plugin = None
 
     def __init__(self, *args, **kwargs):
+        """
+        Initialize and validate the interfaceactionbase state.
+
+        Example:
+            Exercise InterfaceActionBase.  init   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; validated state is stored on the receiving object.
+        """
         Plugin.__init__(self, *args, **kwargs)
         self.actual_plugin_ = None
 
@@ -798,8 +1012,15 @@ class InterfaceActionBase(Plugin):  # {{{
         """
         This method must return the actual interface action plugin object.
 
-        :param gui:
-        :return:
+        Example:
+            Exercise InterfaceActionBase.load actual plugin through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param gui: Value supplied for gui under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         ac = self.actual_plugin_
         if ac is None:
@@ -816,8 +1037,10 @@ class PreferencesPlugin(Plugin):  # {{{
     """
     A plugin representing a widget displayed in the Preferences dialog.
 
-    This plugin has only one important method :meth:`create_widget`. The various fields of the plugin control how it is
-    categorized in the UI.
+    Example:
+        Exercise PreferencesPlugin through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     supported_platforms = ["windows", "osx", "linux"]
@@ -855,11 +1078,15 @@ class PreferencesPlugin(Plugin):  # {{{
         """
         Create and return the actual Qt widget used for setting this group of preferences. The widget must implement the
 
-        :class:`calibre.gui2.preferences.ConfigWidgetInterface`.
+        Example:
+            Exercise PreferencesPlugin.create widget through a consuming regression::
 
-        The default implementation uses :attr:`config_widget` to instantiate the widget.
-        :param parent:
-        :return:
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         base, _, wc = self.config_widget.partition(":")
         if not wc:
@@ -872,6 +1099,11 @@ class PreferencesPlugin(Plugin):  # {{{
 class StoreBase(Plugin):  # {{{
     """
     Interface to an ebook store to allow buying books from within calibre.
+
+    Example:
+        Exercise StoreBase through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
     # Plugins this store will run for
     supported_platforms = ["windows", "osx", "linux"]
@@ -909,8 +1141,15 @@ class StoreBase(Plugin):  # {{{
         """
         This method must return the actual interface action plugin object.
 
-        :param gui:
-        :return:
+        Example:
+            Exercise StoreBase.load actual plugin through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param gui: Value supplied for gui under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         mod, cls = self.actual_plugin.split(":")
         self.actual_plugin_object = getattr(importlib.import_module(mod), cls)(gui, self.name)
@@ -920,8 +1159,15 @@ class StoreBase(Plugin):  # {{{
         """
         Help with customizing the store.
 
-        :param gui:
-        :return:
+        Example:
+            Exercise StoreBase.customization help through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param gui: Value supplied for gui under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if getattr(self, "actual_plugin_object", None) is not None:
             return self.actual_plugin_object.customization_help(gui)
@@ -931,8 +1177,14 @@ class StoreBase(Plugin):  # {{{
         """
         Provides a config widget to config the store plugin.
 
-        At a guess, this returns a QWidget.
-        :return:
+        Example:
+            Exercise StoreBase.config widget through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if getattr(self, "actual_plugin_object", None) is not None:
             return self.actual_plugin_object.config_widget()
@@ -942,8 +1194,15 @@ class StoreBase(Plugin):  # {{{
         """
         Save setting changes made with the config_widget.
 
-        :param config_widget:
-        :return:
+        Example:
+            Exercise StoreBase.save settings through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param config_widget: Value supplied for config widget under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if getattr(self, "actual_plugin_object", None) is not None:
             return self.actual_plugin_object.save_settings(config_widget)
@@ -956,6 +1215,11 @@ class StoreBase(Plugin):  # {{{
 class ViewerPlugin(Plugin):  # {{{
     """
     These plugins are used to add functionality to the calibre viewer.
+
+    Example:
+        Exercise ViewerPlugin through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     plugin_type = _("Viewer")
@@ -964,24 +1228,30 @@ class ViewerPlugin(Plugin):  # {{{
         """
         This method is called once at viewer startup. It should load any fonts it wants to make available. For example::
 
-            def load_fonts():
-                from PyQt5.Qt import QFontDatabase
-                font_data = get_resources(['myfont1.ttf', 'myfont2.ttf'])
-                for raw in font_data.itervalues():
-                    QFontDatabase.addApplicationFontFromData(raw)
+        Example:
+            Exercise ViewerPlugin.load fonts through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
     def load_javascript(self, evaljs):
         """
-        This method is called every time a new HTML document is loaded in the viewer. Use it to load javascript
-        libraries into the viewer. For example::
+        This method is called every time a new HTML document is loaded in the viewer. Use it to load javascript libraries into the viewer. For example::
 
-            def load_javascript(self, evaljs):
-                js = get_resources('myjavascript.js')
-                evaljs(js)
-        :param evaljs:
-        :return:
+        Example:
+            Exercise ViewerPlugin.load javascript through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param evaljs: Value supplied for evaljs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
@@ -989,29 +1259,50 @@ class ViewerPlugin(Plugin):  # {{{
         """
         This method is called every time a document has finished loading. Use it in the same way as load_javascript().
 
-        :param evaljs:
-        :return:
+        Example:
+            Exercise ViewerPlugin.run javascript through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param evaljs: Value supplied for evaljs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
     def customize_ui(self, ui):
         """
-        This method is called once when the viewer is created. Use it to make any customizations you want to the
-        viewer's user interface. For example, you can modify the toolbars via ui.tool_bar and ui.tool_bar2.
-        :param ui:
-        :return:
+        This method is called once when the viewer is created. Use it to make any customizations you want to the viewer's user interface. For example, you can modify the toolbars via ui.tool_bar and ui.tool_bar2.
+
+        Example:
+            Exercise ViewerPlugin.customize ui through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param ui: Value supplied for ui under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
     def customize_context_menu(self, menu, event, hit_test_result):
         """
-        This method is called every time the context (right-click) menu is shown. You can use it to customize the
-        context menu. ``event`` is the context menu event and hit_test_result is the QWebHitTestResult for this event
-        in the currently loaded document.
-        :param menu:
-        :param event:
-        :param hit_test_result:
-        :return:
+        This method is called every time the context (right-click) menu is shown. You can use it to customize the context menu. ``event`` is the context menu event and hit_test_result is the QWebHitTestResult for this event in the currently loaded document.
+
+        Example:
+            Exercise ViewerPlugin.customize context menu through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param menu: Value supplied for menu under the utility contract.
+        :param event: Value supplied for event under the utility contract.
+        :param hit_test_result: Value supplied for hit test result under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
@@ -1021,9 +1312,12 @@ class ViewerPlugin(Plugin):  # {{{
 
 class LibraryClosedPlugin(Plugin):  # {{{
     """
-    LibraryClosedPlugins are run when a library is closed, either at shutdown, when the library is changed, or when a
-    library is used in some other way.
-    At the moment these plugins won't be called by the CLI functions.
+    LibraryClosedPlugins are run when a library is closed, either at shutdown, when the library is changed, or when a library is used in some other way. At the moment these plugins won't be called by the CLI functions.
+
+    Example:
+        Exercise LibraryClosedPlugin through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     plugin_type = _("Library Closed")
@@ -1035,8 +1329,15 @@ class LibraryClosedPlugin(Plugin):  # {{{
         """
         The db will be a reference to the new_api (db.cache.py).
 
-        The plugin must run to completion.
-        It must not use the GUI, threads, or any signals.
+        Example:
+            Exercise LibraryClosedPlugin.run through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError("LibraryClosedPlugin " "run method must be overridden in subclass")
 
@@ -1047,6 +1348,11 @@ class LibraryClosedPlugin(Plugin):  # {{{
 class EditBookToolPlugin(Plugin):  # {{{
     """
     Tool to edit a book.
+
+    Example:
+        Exercise EditBookToolPlugin through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     plugin_type = _("Edit Book Tool")
@@ -1064,10 +1370,10 @@ class LiuXinPlugin(Plugin):
     """
     Base class for all LiuXin specific plugins.
 
-    The assumption with the rest of the plugins is that they're calibre at base.
-    This is the base class for all LiuXin specific plugins.
-    As a rule, the above plugins expect objects with a calibre compatible surface.
-    These plugins do not (at least by default).
+    Example:
+        Exercise LiuXinPlugin through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     # Will start incrementing... soon
@@ -1078,17 +1384,10 @@ class MDInputTransform(LiuXinPlugin):  # {{{
     """
     Base class for the MetaData Input Transformation plugins.
 
-    These plugins are intended to be run every time a set of MetaData is extracted from a file.
-    A plugin of this plugin_type takes a collection of MetaData objects, and returns a MetaData object.
-    This collection could be a single MetaData object.
-    The MetaData object should be loaded with either the files or, preferably, local paths to the files which are being
-    examined.
-    This allows this plugin to go back and check the metadata again. If needed.
+    Example:
+        Exercise MDInputTransform through a consuming regression::
 
-    This is also intended to be the base class for transforming  a single metadata object.
-    (for example "I want to ensure the title is in title case").
-    In this case it should take and return a single MetaData object.
-    (You should _check_ you're only being given one in this case - mistakes happen).
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     # There are several different metadata containers floating around
@@ -1099,9 +1398,16 @@ class MDInputTransform(LiuXinPlugin):  # {{{
         """
         Takes a collection of MetaData objects. Uses them to preform a transform. Returns the transformed MetaData.
 
-        :param first:
-        :param rest:
-        :return:
+        Example:
+            Exercise MDInputTransform.transform metadata through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param first: Value supplied for first under the utility contract.
+        :param rest: Value supplied for rest under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Optional runtime guard if you want it strict:
         if any(type(x) is not type(first) for x in rest):
@@ -1113,9 +1419,16 @@ class MDInputTransform(LiuXinPlugin):  # {{{
         """
         Mostly needed for typing.
 
-        :param first:
-        :param rest:
-        :return:
+        Example:
+            Exercise MDInputTransform. true transform metadata through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param first: Value supplied for first under the utility contract.
+        :param rest: Value supplied for rest under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError("You need to actually work out how to do this.")
 
@@ -1123,6 +1436,11 @@ class MDInputTransform(LiuXinPlugin):  # {{{
 class LXMetadataReaderPlugin(LiuXinPlugin, _MetadataReaderPlugin):
     """
     To distinguish the calibre metadata readers from the ones which have been re-written for LiuXin.
+
+    Example:
+        Exercise LXMetadataReaderPlugin through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
     # All file formats this plugin could be used for
     valid_for = None
@@ -1137,8 +1455,15 @@ class LXMetadataReaderPlugin(LiuXinPlugin, _MetadataReaderPlugin):
         """
         Startup the plugin.
 
-        :param args:
-        :param kwargs:
+        Example:
+            Exercise LXMetadataReaderPlugin.  init   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; validated state is stored on the receiving object.
         """
         super().__init__(self, *args, **kwargs)
         self.quick = False
@@ -1148,8 +1473,15 @@ class LXMetadataReaderPlugin(LiuXinPlugin, _MetadataReaderPlugin):
         """
         Standardizes a plugin_type so that it can be compared against the known types that the plugin can be run for.
 
-        :param file_type:
-        :return file_type:
+        Example:
+            Exercise LXMetadataReaderPlugin.standardize type through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param file_type: Value supplied for file type under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         file_type = deepcopy(file_type)
         if file_type.startswith("."):
@@ -1160,11 +1492,17 @@ class LXMetadataReaderPlugin(LiuXinPlugin, _MetadataReaderPlugin):
         """
         Return metadata for the file represented by stream or path.
 
-        (a file like object that supports reading) or a filepath on the local system).
-        Raise an exception when there is an error with the input data.
-        :param file_type: The plugin_type of file. Guaranteed to be one of the entries
-        in :attr:`file_types`.
-        :return: A :class:`calibre.ebooks.metadata.book.Metadata` object
+        Example:
+            Exercise LXMetadataReaderPlugin.get metadata through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param file_type: Value supplied for file type under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return None
 
@@ -1173,11 +1511,10 @@ class Archive(LiuXinPlugin):
     """
     Provides a zipfile like read interface to a compressed file format.
 
-    Options for writing interfaces are also provided - where possible.
-    read_formats and write_formats are the formats that this plugin can read/write to -
-    stored as the extension without the dot.
-    Note - all classes that inherit from this should try and raise only one form of error - ArchiveError from
-    LiuXin.errors
+    Example:
+        Exercise Archive through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
     # This plugin can read from these formats
     read_formats: frozenset[str] = frozenset()
@@ -1198,18 +1535,19 @@ class Archive(LiuXinPlugin):
         """
         Initialize an object representing the compressed file.
 
-        :param file_path: Path to the file
-        :param mode: Should be the standard python file modes for zipfile (a, r, w e.t.c)
-                     Note that there is no such mode as rb e.t.c supported for zip files - archives are opened in
-                     bytes mode by default.
-                     This should be reflected in all archive implementations.
-        :param compression_flags: A flag for the compression method
-        :param write_type: If an archive doesn't exist at the given file_path, then it has to be created. For plugins
-                           that can write to multiple file types the write_type is the plugin_type of archive you want to write
-                            to (e.g. if a plugin can write to both rar and zip, and you want to create a rar archive,
-                            the set write_type="rar").
-                            If the plugin can only write to one plugin_type of archive this will be ignored.
-        :return:
+        Example:
+            Exercise Archive.  init   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param file_path: Value supplied for file path under the utility contract.
+        :param mode: Open or adapter mode controlling read/write behavior.
+        :param compression_flags: Value supplied for compression flags under the utility
+            contract.
+        :param write_type: Value supplied for write type under the utility contract.
+        :param password: Value supplied for password under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         super().__init__(plugin_path="builtin")
 
@@ -1245,13 +1583,34 @@ class Archive(LiuXinPlugin):
         """
         Returns a string representation of the object
 
-        :return:
+        Example:
+            Exercise Archive.  str   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         ans = []
 
         def format(x: Any, y: Any) -> None:
 
+            """
+            Perform the format operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Archive.  str  .format through a consuming regression::
+
+                    python -m pytest -q tests/customize/test_customize_base.py
+
+
+            :param x: Value supplied for x under the utility contract.
+            :param y: Value supplied for y under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             candidate = None
             try:
                 candidate = "%-20s: %s" % (six_unicode(x), six_unicode(y))
@@ -1271,6 +1630,20 @@ class Archive(LiuXinPlugin):
 
         # Todo: This really needs testing against python 2 and python 3
         def set_format(x, y):
+            """
+            Set format under the format's safety and compatibility rules.
+
+            Example:
+                Exercise Archive.  str  .set format through a consuming regression::
+
+                    python -m pytest -q tests/customize/test_customize_base.py
+
+
+            :param x: Value supplied for x under the utility contract.
+            :param y: Value supplied for y under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             assert hasattr(y, "__iter__")
             try:
                 candidate = "%-20s: %s" % (six_unicode(x), six_unicode(""))
@@ -1304,7 +1677,14 @@ class Archive(LiuXinPlugin):
         """
         Prints a contents of the archive to sys.stdout.
 
-        :return:
+        Example:
+            Exercise Archive.printdir through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1316,10 +1696,15 @@ class Archive(LiuXinPlugin):
         """
         Takes a local path - determines if the file can be read by this class.
 
-        Checks the path is a valid example of one of the archive types that the class can read.
-        Equivalent to the is_zipfile method.
-        :param path:
-        :return:
+        Example:
+            Exercise Archive.is valid through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: True when the documented condition holds; otherwise False.
         """
         raise NotImplementedError
 
@@ -1330,15 +1715,15 @@ class Archive(LiuXinPlugin):
         """
         Return info on an element in the archive.
 
-        Calling this for a name not in the archive results in a KeyError.
-        Should return an object with the same API as the ZipInfo object.
+        Example:
+            Exercise Archive.getinfo through a consuming regression::
 
-        Note that, in later versions of ZipFile, the ZipInfo object for a file can be used in place of the name when
-        specifying an object for extraction - this might not be the case here - always use the name to be sure.
-        In cases where the plugin doesn't support much data extraction, there will always be a file name. That is the
-        only guarantee which is made.
-        :param name:
-        :return:
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1346,11 +1731,14 @@ class Archive(LiuXinPlugin):
         """
         Returns a list containing an info object for every element.
 
-        The objects are in the same order as their entries
-        in the actual ZIP file on disk if an existing archive was opened.
-        It's assumed that the objects that this method returns have the same interface as
-        :param name:
-        :return:
+        Example:
+            Exercise Archive.infolist through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1358,9 +1746,14 @@ class Archive(LiuXinPlugin):
         """
         Returns a list of all members of the archive by name.
 
-        Paths are unix style (/ separated).
-        Not a property to more closely match the zipfile interface.
-        :return:
+        Example:
+            Exercise Archive.namelist through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1369,9 +1762,14 @@ class Archive(LiuXinPlugin):
         """
         Returns all the files in the archive.
 
-        The paths are relative to the root of the file and are unix styles paths
-        (separated by /).
-        :return:
+        Example:
+            Exercise Archive.files through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1380,8 +1778,14 @@ class Archive(LiuXinPlugin):
         """
         Returns all the folders in the archive.
 
-        The paths are relative to the root of the file and are unix style paths (separated by /).
-        :return:
+        Example:
+            Exercise Archive.folders through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1392,15 +1796,18 @@ class Archive(LiuXinPlugin):
         """
         Extract a member of the archive.
 
-        Note that this function works like the method of this name from zipfile - if you point the member to a file in
-        the archive it'll create the dictionary structure of the archive up to that file, then create that file.
+        Example:
+            Exercise Archive.extract through a consuming regression::
 
-        :param path: Where the file should be extracted
-        :param pwd: Password for archive
-        :param member: Either the name of the object or an info object (preferably a name - as, often, the name will
-                       just have to be extracted out of the info object anyways).
+                python -m pytest -q tests/customize/test_customize_base.py
 
-        :return normalized_path: A normalized path created to the extracted member of the archive
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param pwd: Value supplied for pwd under the utility contract.
+        :param member: Value supplied for member under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1408,24 +1815,37 @@ class Archive(LiuXinPlugin):
         """
         Extract all members from the archive to the current working directory.
 
-        path specifies a different directory to extract to.
-        members is an optional param optional and must be a subset of the list returned by namelist().
-        pwd is the password used for encrypted files.
-        This works as the zipfile extractall method.
-        :param path:
-        :param pwd:
-        :param members:
-        :return:
+        Example:
+            Exercise Archive.extractall through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param pwd: Value supplied for pwd under the utility contract.
+        :param members: Value supplied for members under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
     def get_file(self, path, member, pwd):
         """
         Extract the file and write it out to a pre-prepared file path.
-        :param path:
-        :param member:
-        :param pwd:
-        :return:
+
+        Example:
+            Exercise Archive.get file through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param member: Value supplied for member under the utility contract.
+        :param pwd: Value supplied for pwd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1435,25 +1855,37 @@ class Archive(LiuXinPlugin):
 
     def write(self, filename, arcname, compress_type):
         """
-        Write the file named filename to the archive, giving it the archive name arcname (by default, this will be the
-        same as filename, but without a drive letter and with leading path separators removed). If given, compress_type
-        overrides the value given for the compression parameter to the constructor for the new entry. The archive must
-        be open with mode ’w’ or ’a’ – calling write() on a ZipFile created with mode ’r’ will raise a RuntimeError.
-        :param filename:
-        :param arcname:
-        :param compress_type:
-        :return:
+        Write the file named filename to the archive, giving it the archive name arcname (by default, this will be the same as filename, but without a drive letter and with leading path separators removed). If given, compress_type overrides the value given for the compression parameter to the constructor for the new entry. The archive must be open with mode ’w’ or ’a’ – calling write() on a ZipFile created with mode ’r’ will raise a RuntimeError.
+
+        Example:
+            Exercise Archive.write through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param filename: Filename used for type inference or archive output.
+        :param arcname: Value supplied for arcname under the utility contract.
+        :param compress_type: Value supplied for compress type under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
     def writestr(self, arcname, bytes_str, compress_type):
         """
         Method for writing bytes directly to the archive.
-        :param arcname: The name of the file as it will appear in the archive
-        :param bytes: The byte string to wrtie
-        :param compress_type: Type of compression to use (only supported in some plugins, where the compression plugin_type
-                              can be changed)
-        :return:
+
+        Example:
+            Exercise Archive.writestr through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param arcname: Value supplied for arcname under the utility contract.
+        :param bytes_str: Value supplied for bytes str under the utility contract.
+        :param compress_type: Value supplied for compress type under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1462,34 +1894,64 @@ class Archive(LiuXinPlugin):
     # ------------------------------------------------------------------------------------------------------------------
     def testarc(self):
         """
-        Tests the archive to check that it's valid. Ideally reads all the files and checks them. Returns the name of the
-        first bad file, or None.
-        :return:
+        Tests the archive to check that it's valid. Ideally reads all the files and checks them. Returns the name of the first bad file, or None.
+
+        Example:
+            Exercise Archive.testarc through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
     def close(self):
         """
-        Write anything in memory to file and close up. You must call this method when you've finished working with a
-        file to ensure that everything is written and the file can safely be finalized.
-        :return:
+        Write anything in memory to file and close up. You must call this method when you've finished working with a file to ensure that everything is written and the file can safely be finalized.
+
+        Example:
+            Exercise Archive.close through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
     def __enter__(self):
         """
         Allows use of this class as a context manager. Functions to ensure a call to close at the end of operations.
-        :return:
+
+        Example:
+            Exercise Archive.  enter   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """
         Ensures that self.close() is called at the end of operations.
-        :param exc_type:
-        :param exc_val:
-        :param exc_tb:
-        :return:
+
+        Example:
+            Exercise Archive.  exit   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param exc_type: Value supplied for exc type under the utility contract.
+        :param exc_val: Value supplied for exc val under the utility contract.
+        :param exc_tb: Value supplied for exc tb under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.close()
 

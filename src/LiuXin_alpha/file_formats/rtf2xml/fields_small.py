@@ -10,6 +10,17 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+"""
+Process compact RTF fields and inline field results.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise fields small through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -24,20 +35,12 @@ from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
 
 class FieldsSmall:
     """
-    =================
-    Purpose
-    =================
-    Write tags for bookmarks, index and toc entry fields in a tokenized file.
-    This module does not handle toc or index tables.  (This module won't be any
-    use to you unless you use it as part of the other modules.)
-    -----------
-    Method
-    -----------
-    Look for the beginning of a bookmark, index, or toc entry. When such a token
-    is found, store the opening bracket count in a variable. Collect all the text
-    until the closing bracket entry is found. Send the string to the module
-    field_strings to process it. Write the processed string to the output
-    file.
+    ================= Purpose ================= Write tags for bookmarks, index and toc entry fields in a tokenized file. This module does not handle toc or index tables. (This module won't be any use to you unless you use it as part of the other modules.) ----------- Method ----------- Look for the beginning of a bookmark, index, or toc entry. When such a token is found, store the opening bracket count in a variable. Collect all the text until the closing bracket entry is found. Send the string to the module field_strings to process it. Write the processed string to the output file.
+
+    Example:
+        Exercise FieldsSmall through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
     """
 
     def __init__(
@@ -48,14 +51,19 @@ class FieldsSmall:
         run_level: int = 1,
     ) -> None:
         """
-        Required:
-            'file'--file to parse
-        Optional:
-            'copy'-- whether to make a copy of result for debugging
-            'temp_dir' --where to output temporary results (default is
-            directory from which the script is run.)
-        Returns:
-            nothing
+        Required: 'file'--file to parse Optional: 'copy'-- whether to make a copy of result for debugging 'temp_dir' --where to output temporary results (default is directory from which the script is run.) Returns: nothing
+
+        Example:
+            Exercise FieldsSmall.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param copy: Value supplied for copy under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.__file = in_file
         self.__bug_handler = bug_handler
@@ -66,6 +74,15 @@ class FieldsSmall:
     def __initiate_values(self: _typing.Self) -> None:
         """
         Initiate all values.
+
+        Example:
+            Exercise FieldsSmall.  initiate values through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__string_obj = field_strings.FieldStrings(bug_handler=self.__bug_handler)
         self.__state = "before_body"
@@ -92,13 +109,17 @@ class FieldsSmall:
 
     def __before_body_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --the line to parse
-        Returns:
-            nothing
-        Logic:
-            Look for the beginning of the body. When found, change the state
-            to body. Always print out the line.
+        Requires: line --the line to parse Returns: nothing Logic: Look for the beginning of the body. When found, change the state to body. Always print out the line.
+
+        Example:
+            Exercise FieldsSmall.  before body func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "mi<mk<body-open_":
             self.__state = "body"
@@ -106,13 +127,17 @@ class FieldsSmall:
 
     def __body_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --the line to parse
-        Returns:
-            nothing
-        Logic:
-            This function handles all the lines in the body of the documents.
-            Look for a bookmark, index or toc entry and take the appropriate action.
+        Requires: line --the line to parse Returns: nothing Logic: This function handles all the lines in the body of the documents. Look for a bookmark, index or toc entry and take the appropriate action.
+
+        Example:
+            Exercise FieldsSmall.  body func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         action, tag = self.__body_dict.get(self.__token_info, (None, None))
         if action:
@@ -122,14 +147,18 @@ class FieldsSmall:
 
     def __found_bookmark_func(self: _typing.Self, line: _typing.Any, tag: _typing.Any) -> None:
         """
-        Requires:
-            line --the line to parse
-        Returns:
-            nothing
-        Logic:
-            This function is called when a bookmark is found. The opening
-            bracket count is stored int eh beginning bracket count. The state
-            is changed to 'bookmark.'
+        Requires: line --the line to parse Returns: nothing Logic: This function is called when a bookmark is found. The opening bracket count is stored int eh beginning bracket count. The state is changed to 'bookmark.'
+
+        Example:
+            Exercise FieldsSmall.  found bookmark func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :param tag: Value supplied for tag under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__beg_bracket_count = self.__ob_count
         self.__cb_count = 0
@@ -138,15 +167,17 @@ class FieldsSmall:
 
     def __bookmark_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --the line to parse
-        Returns:
-            nothing
-        Logic:
-            This function handles all lines within a bookmark. It adds each
-            line to a string until the end of the bookmark is found. It
-            processes the string with the fields_string module, and
-            prints out the result.
+        Requires: line --the line to parse Returns: nothing Logic: This function handles all lines within a bookmark. It adds each line to a string until the end of the bookmark is found. It processes the string with the fields_string module, and prints out the result.
+
+        Example:
+            Exercise FieldsSmall.  bookmark func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__beg_bracket_count == self.__cb_count:
             self.__state = "body"
@@ -166,20 +197,17 @@ class FieldsSmall:
 
     def __parse_index_func(self: _typing.Self, my_string: _typing.Any) -> _typing.Any:
         """
-        Requires:
-            my_string --string to parse
-            type --type of string
-        Returns:
-            A string for a toc instruction field.
-        Logic:
-            This method is meant for *both* index and toc entries.
-            I want to eliminate paragraph endings, and I want to divide the
-            entry into a main entry and (if it exists) a sub entry.
-            Split the string by newlines. Read on token at a time. If the
-            token is a special colon, end the main entry element and start the
-            sub entry element.
-            If the token is a pargrah ending, ignore it, since I don't won't
-            paragraphs within toc or index entries.
+        Requires: my_string --string to parse type --type of string Returns: A string for a toc instruction field. Logic: This method is meant for *both* index and toc entries. I want to eliminate paragraph endings, and I want to divide the entry into a main entry and (if it exists) a sub entry. Split the string by newlines. Read on token at a time. If the token is a special colon, end the main entry element and start the sub entry element. If the token is a pargrah ending, ignore it, since I don't won't paragraphs within toc or index entries.
+
+        Example:
+            Exercise FieldsSmall.  parse index func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param my_string: Value supplied for my string under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         my_string, see_string = self.__index_see_func(my_string)
         my_string, bookmark_string = self.__index_bookmark_func(my_string)
@@ -214,6 +242,19 @@ class FieldsSmall:
         return my_changed_string
 
     def __index_see_func(self: _typing.Self, my_string: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the index see func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FieldsSmall.  index see func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param my_string: Value supplied for my string under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         in_see = 0
         bracket_count = 0
         see_string = ""
@@ -241,11 +282,17 @@ class FieldsSmall:
 
     def __index_bookmark_func(self: _typing.Self, my_string: _typing.Any) -> tuple[_typing.Any, ...]:
         """
-        Requires:
-            my_string -- string in all the index
-        Returns:
-            bookmark_string -- the text string of the book mark
-            index_string -- string minus the bookmark_string
+        Requires: my_string -- string in all the index Returns: bookmark_string -- the text string of the book mark index_string -- string minus the bookmark_string
+
+        Example:
+            Exercise FieldsSmall.  index bookmark func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param my_string: Value supplied for my string under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # cw<an<place_____<nu<true
         in_bookmark = 0
@@ -277,6 +324,19 @@ class FieldsSmall:
         return index_string, bookmark_string
 
     def __index__format_func(self: _typing.Self, my_string: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the index format func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FieldsSmall.  index  format func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param my_string: Value supplied for my string under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         italics = 0
         bold = 0
         lines = my_string.split("\n")
@@ -290,11 +350,17 @@ class FieldsSmall:
 
     def __parse_toc_func(self: _typing.Self, my_string: _typing.Any) -> _typing.Any:
         """
-        Requires:
-            my_string -- all the string in the toc
-        Returns:
-            modidified string
-        Logic:
+        Requires: my_string -- all the string in the toc Returns: modidified string Logic:
+
+        Example:
+            Exercise FieldsSmall.  parse toc func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param my_string: Value supplied for my string under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         toc_level = 0
         toc_suppress = 0
@@ -325,12 +391,17 @@ class FieldsSmall:
 
     def __parse_bookmark_for_toc(self: _typing.Self, my_string: _typing.Any) -> tuple[_typing.Any, ...]:
         """
-        Requires:
-            the_string --string of toc, with new lines
-        Returns:
-            the_string -- string minus bookmarks
-            bookmark_string -- bookmarks
-        Logic:
+        Requires: the_string --string of toc, with new lines Returns: the_string -- string minus bookmarks bookmark_string -- bookmarks Logic:
+
+        Example:
+            Exercise FieldsSmall.  parse bookmark for toc through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param my_string: Value supplied for my string under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         in_bookmark = 0
         bracket_count = 0
@@ -371,28 +442,36 @@ class FieldsSmall:
 
     def __parse_bookmark_func(self: _typing.Self, my_string: _typing.Any, type: _typing.Any) -> _typing.Any:
         """
-        Requires:
-            my_string --string to parse
-            type --type of string
-        Returns:
-            A string formatted for a field instruction.
-        Logic:
-            The type is the name (either bookmark-end or bookmark-start). The
-            id is the complete text string.
+        Requires: my_string --string to parse type --type of string Returns: A string formatted for a field instruction. Logic: The type is the name (either bookmark-end or bookmark-start). The id is the complete text string.
+
+        Example:
+            Exercise FieldsSmall.  parse bookmark func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param my_string: Value supplied for my string under the utility contract.
+        :param type: Value supplied for type under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         my_changed_string = "mi<tg<empty-att_<field<type>%s" "<number>%s<update>none\n" % (type, my_string)
         return my_changed_string
 
     def __found_toc_index_func(self: _typing.Self, line: _typing.Any, tag: _typing.Any) -> None:
         """
-        Requires:
-            line --the line to parse
-        Returns:
-            nothing
-        Logic:
-            This function is called when a toc or index entry is found. The opening
-            bracket count is stored in the beginning bracket count. The state
-            is changed to 'toc_index.'
+        Requires: line --the line to parse Returns: nothing Logic: This function is called when a toc or index entry is found. The opening bracket count is stored in the beginning bracket count. The state is changed to 'toc_index.'
+
+        Example:
+            Exercise FieldsSmall.  found toc index func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :param tag: Value supplied for tag under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__beg_bracket_count = self.__ob_count
         self.__cb_count = 0
@@ -401,15 +480,17 @@ class FieldsSmall:
 
     def __toc_index_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --the line to parse
-        Returns:
-            nothing
-        Logic:
-            This function handles all lines within a toc or index entry. It
-            adds each line to a string until the end of the entry is found. It
-            processes the string with the fields_string module, and
-            prints out the result.
+        Requires: line --the line to parse Returns: nothing Logic: This function handles all lines within a toc or index entry. It adds each line to a string until the end of the entry is found. It processes the string with the fields_string module, and prints out the result.
+
+        Example:
+            Exercise FieldsSmall.  toc index func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__beg_bracket_count == self.__cb_count:
             self.__state = "body"
@@ -427,16 +508,16 @@ class FieldsSmall:
 
     def fix_fields(self: _typing.Self) -> None:
         """
-        Requires:
-            nothing
-        Returns:
-            nothing (changes the original file)
-        Logic:
-            Read one line in at a time. Determine what action to take based on
-            the state. If the state is before the body, look for the
-            beginning of the body.
-           The other two states are toc_index (for toc and index entries) and
-           bookmark.
+        Requires: nothing Returns: nothing (changes the original file) Logic: Read one line in at a time. Determine what action to take based on the state. If the state is before the body, look for the beginning of the body. The other two states are toc_index (for toc and index entries) and bookmark.
+
+        Example:
+            Exercise FieldsSmall.fix fields through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__initiate_values()
         with open_for_read(self.__file) as read_obj:

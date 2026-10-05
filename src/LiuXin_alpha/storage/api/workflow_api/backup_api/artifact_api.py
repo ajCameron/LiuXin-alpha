@@ -1,3 +1,4 @@
+
 """
 Expose backup-image Store registration and source-presence lookup.
 
@@ -30,6 +31,8 @@ class BackupArtifactRegistryAPI(abc.ABC):
 
     Example:
         >>> registration = registry.register_artifact(3, result)  # doctest: +SKIP
+
+    # Todo: I'm not sure what this class is for after reading this docstring. Is it a complete image of a store? What is it?
     """
 
     @abc.abstractmethod
@@ -59,11 +62,12 @@ class BackupArtifactRegistryAPI(abc.ABC):
             ...     3, result, store_name="nightly-pack",
             ... )
 
-
+        # Todo: Is this the identifier of the workflow which produced the artifact?
         :param workflow_id: Durable workflow identifier to associate with the output; result.workflow_id may be None or this ID.
         :param result: Terminal successful outcome containing an output artifact reference and source declaration.
         :param store_name: Optional name for a newly created Store; existing registrations or reused Store rows keep their names.
         :param link_sources: Whether a new registration should insert protected member-presence records from the declaration.
+
         :return: Registration value for the existing or newly associated Store, including the registry-reported presence count.
         """
         ...

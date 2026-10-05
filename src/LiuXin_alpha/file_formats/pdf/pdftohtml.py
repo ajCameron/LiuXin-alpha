@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
 
+"""
+Convert PDF extraction output into normalized HTML content.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise pdftohtml through a consuming regression::
+
+        python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+"""
 from __future__ import print_function
 from __future__ import annotations
 
@@ -43,14 +54,20 @@ if (islinux or isbsd) and getattr(sys, "frozen", False):
 
 def pdftohtml(output_dir: _typing.Any, pdf_path: _typing.Any, no_images: _typing.Any, as_xml: bool = False) -> None:
     """
-    Convert the pdf into html using the pdftohtml app.
-    This will write the html as index.html into output_dir.
-    It will also write all extracted images to the output_dir
-    :param output_dir:
-    :param pdf_path:
-    :param no_images:
-    :param as_xml:
-    :return:
+    Convert the pdf into html using the pdftohtml app. This will write the html as index.html into output_dir. It will also write all extracted images to the output_dir
+
+    Example:
+        Exercise pdftohtml through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+    :param output_dir: Value supplied for output dir under the utility contract.
+    :param pdf_path: Value supplied for pdf path under the utility contract.
+    :param no_images: Value supplied for no images under the utility contract.
+    :param as_xml: Value supplied for as xml under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     pdfsrc = os.path.join(output_dir, "src.pdf")
@@ -62,6 +79,19 @@ def pdftohtml(output_dir: _typing.Any, pdf_path: _typing.Any, no_images: _typing
     with CurrentDir(output_dir):
         # This is necessary as pdftohtml doesn't always (linux) respect absolute paths.
         def a(x: _typing.Any) -> _typing.Any:
+            """
+            Perform the a operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise pdftohtml.a through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+            :param x: Value supplied for x under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return os.path.basename(x)
 
         cmd = [
@@ -132,6 +162,20 @@ def pdftohtml(output_dir: _typing.Any, pdf_path: _typing.Any, no_images: _typing
 
 
 def flip_image(img: _typing.Any, flip: _typing.Any) -> None:
+    """
+    Perform the flip image operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise flip image through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+    :param img: Value supplied for img under the utility contract.
+    :param flip: Value supplied for flip under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     try:
         from PIL import Image as PILImage
     except Exception:
@@ -146,6 +190,19 @@ def flip_image(img: _typing.Any, flip: _typing.Any) -> None:
 
 
 def flip_images(raw: _typing.Any) -> _typing.Any:
+    """
+    Perform the flip images operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise flip images through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     for match in re.finditer(b"<IMG[^>]+/?>", raw, flags=re.I):
         img = match.group()
         m = re.search(rb'class="(x|y|xy)flip"', img)

@@ -1,3 +1,14 @@
+"""
+Recognize and transform Markdown inline syntax, links and emphasis.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise inlinepatterns through a consuming regression::
+
+        python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+"""
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import annotations
@@ -66,6 +77,17 @@ except ImportError:
 def build_inlinepatterns(md_instance: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
     """
     Build the default set of inline patterns for Markdown.
+
+    Example:
+        Exercise build inlinepatterns through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param md_instance: Value supplied for md instance under the utility contract.
+    :param kwargs: Keyword values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     inlinePatterns = odict.OrderedDict()
     inlinePatterns["backtick"] = BacktickPattern(BACKTICK_RE)
@@ -126,7 +148,19 @@ LINE_BREAK_RE = r"  \n"  # two spaces at end of line
 
 
 def dequote(string: _typing.Any) -> _typing.Any:
-    """Remove quotes from around a string."""
+    """
+    Remove quotes from around a string.
+
+    Example:
+        Exercise dequote through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param string: Value supplied for string under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if (string.startswith('"') and string.endswith('"')) or (string.startswith("'") and string.endswith("'")):
         return string[1:-1]
     else:
@@ -137,9 +171,35 @@ ATTR_RE = re.compile(r"\{@([^\}]*)=([^\}]*)}")  # {@id=123}
 
 
 def handleAttributes(text: _typing.Any, parent: _typing.Any) -> _typing.Any:
-    """Set values of an element based on attribute definitions ({@id=123})."""
+    """
+    Set values of an element based on attribute definitions ({@id=123}).
+
+    Example:
+        Exercise handleAttributes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :param parent: Value supplied for parent under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     def attributeCallback(match: _typing.Any) -> None:
+        """
+        Perform the attributeCallback operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise handleAttributes.attributeCallback through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param match: Value supplied for match under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         parent.set(match.group(1), match.group(2).replace("\n", " "))
 
     return ATTR_RE.sub(attributeCallback, text)
@@ -152,16 +212,29 @@ The pattern classes
 
 
 class Pattern(object):
-    """Base class that inline patterns subclass."""
+    """
+    Base class that inline patterns subclass.
+
+    Example:
+        Exercise Pattern through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     def __init__(self: _typing.Self, pattern: _typing.Any, markdown_instance: _typing.Any = None) -> None:
         """
         Create an instant of an inline pattern.
 
-        Keyword arguments:
+        Example:
+            Exercise Pattern.  init   through a consuming regression::
 
-        * pattern: A regular expression that matches a pattern
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
 
+
+        :param pattern: Value supplied for pattern under the utility contract.
+        :param markdown_instance: Value supplied for markdown instance under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.pattern = pattern
         self.compiled_re = re.compile("^(.*?)%s(.*?)$" % pattern, re.DOTALL | re.UNICODE)
@@ -172,34 +245,82 @@ class Pattern(object):
             self.markdown = markdown_instance
 
     def getCompiledRegExp(self: _typing.Self) -> _typing.Any:
-        """Return a compiled regular expression."""
+        """
+        Return a compiled regular expression.
+
+        Example:
+            Exercise Pattern.getCompiledRegExp through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.compiled_re
 
     def handleMatch(self: _typing.Self, m: _typing.Any) -> None:
-        """Return a ElementTree element from the given match.
+        """
+        Return a ElementTree element from the given match.
 
-        Subclasses should override this method.
+        Example:
+            Exercise Pattern.handleMatch through a consuming regression::
 
-        Keyword arguments:
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
 
-        * m: A re match object containing a match of the pattern.
 
+        :param m: Value supplied for m under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
     def type(self: _typing.Self) -> _typing.Any:
-        """Return class name, to define pattern type"""
+        """
+        Return class name, to define pattern type
+
+        Example:
+            Exercise Pattern.type through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.__class__.__name__
 
     def unescape(self: _typing.Self, text: _typing.Any) -> _typing.Any:
-        """Return unescaped text given text with an inline placeholder."""
+        """
+        Return unescaped text given text with an inline placeholder.
+
+        Example:
+            Exercise Pattern.unescape through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: An iterator yielding the normalized values described above.
+        """
         try:
             stash = self.markdown.treeprocessors["inline"].stashed_nodes
         except KeyError:
             return text
 
         def itertext(el: _typing.Any) -> _typing.Iterator[_typing.Any]:
-            "Reimplement Element.itertext for older python versions"
+            """
+            Reimplement Element.itertext for older python versions
+
+            Example:
+                Exercise Pattern.unescape.itertext through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+            :param el: Value supplied for el under the utility contract.
+            :return: An iterator yielding the normalized values described above.
+            """
             tag = el.tag
             if not isinstance(tag, util.string_type) and tag is not None:
                 return
@@ -212,6 +333,19 @@ class Pattern(object):
                     yield e.tail
 
         def get_stash(m: _typing.Any) -> _typing.Any:
+            """
+            Return stash under the format's safety and compatibility rules.
+
+            Example:
+                Exercise Pattern.unescape.get stash through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+            :param m: Value supplied for m under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             id = m.group(1)
             if id in stash:
                 value = stash.get(id)
@@ -225,9 +359,29 @@ class Pattern(object):
 
 
 class SimpleTextPattern(Pattern):
-    """Return a simple text of group(2) of a Pattern."""
+    """
+    Return a simple text of group(2) of a Pattern.
+
+    Example:
+        Exercise SimpleTextPattern through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     def handleMatch(self: _typing.Self, m: _typing.Any) -> _typing.Any:
+        """
+        Perform the handleMatch operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SimpleTextPattern.handleMatch through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param m: Value supplied for m under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = m.group(2)
         if text == util.INLINE_PLACEHOLDER_PREFIX:
             return None
@@ -235,9 +389,29 @@ class SimpleTextPattern(Pattern):
 
 
 class EscapePattern(Pattern):
-    """Return an escaped character."""
+    """
+    Return an escaped character.
+
+    Example:
+        Exercise EscapePattern through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     def handleMatch(self: _typing.Self, m: _typing.Any) -> _typing.Any:
+        """
+        Perform the handleMatch operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise EscapePattern.handleMatch through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param m: Value supplied for m under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         char = m.group(2)
         if char in self.markdown.ESCAPED_CHARS:
             return "%s%s%s" % (util.STX, ord(char), util.ETX)
@@ -247,49 +421,146 @@ class EscapePattern(Pattern):
 
 class SimpleTagPattern(Pattern):
     """
-    Return element of type `tag` with a text attribute of group(3)
-    of a Pattern.
+    Return element of type `tag` with a text attribute of group(3) of a Pattern.
 
+    Example:
+        Exercise SimpleTagPattern through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
     """
 
     def __init__(self: _typing.Self, pattern: _typing.Any, tag: _typing.Any) -> None:
+        """
+        Initialize and validate the simpletagpattern state.
+
+        Example:
+            Exercise SimpleTagPattern.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param pattern: Value supplied for pattern under the utility contract.
+        :param tag: Value supplied for tag under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         Pattern.__init__(self, pattern)
         self.tag = tag
 
     def handleMatch(self: _typing.Self, m: _typing.Any) -> _typing.Any:
+        """
+        Perform the handleMatch operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SimpleTagPattern.handleMatch through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param m: Value supplied for m under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         el = util.etree.Element(self.tag)
         el.text = m.group(3)
         return el
 
 
 class SubstituteTagPattern(SimpleTagPattern):
-    """Return an element of type `tag` with no children."""
+    """
+    Return an element of type `tag` with no children.
+
+    Example:
+        Exercise SubstituteTagPattern through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     def handleMatch(self: _typing.Self, m: _typing.Any) -> _typing.Any:
+        """
+        Perform the handleMatch operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SubstituteTagPattern.handleMatch through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param m: Value supplied for m under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return util.etree.Element(self.tag)
 
 
 class BacktickPattern(Pattern):
-    """Return a `<code>` element containing the matching text."""
+    """
+    Return a `<code>` element containing the matching text.
+
+    Example:
+        Exercise BacktickPattern through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     def __init__(self: _typing.Self, pattern: _typing.Any) -> None:
+        """
+        Initialize and validate the backtickpattern state.
+
+        Example:
+            Exercise BacktickPattern.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param pattern: Value supplied for pattern under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         Pattern.__init__(self, pattern)
         self.tag = "code"
 
     def handleMatch(self: _typing.Self, m: _typing.Any) -> _typing.Any:
+        """
+        Perform the handleMatch operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BacktickPattern.handleMatch through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param m: Value supplied for m under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         el = util.etree.Element(self.tag)
         el.text = util.AtomicString(m.group(3).strip())
         return el
 
 
 class DoubleTagPattern(SimpleTagPattern):
-    """Return a ElementTree element nested in tag2 nested in tag1.
+    """
+    Return a ElementTree element nested in tag2 nested in tag1.
 
-    Useful for strong emphasis etc.
+    Example:
+        Exercise DoubleTagPattern through a consuming regression::
 
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
     """
 
     def handleMatch(self: _typing.Self, m: _typing.Any) -> _typing.Any:
+        """
+        Perform the handleMatch operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DoubleTagPattern.handleMatch through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param m: Value supplied for m under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         tag1, tag2 = self.tag.split(",")
         el1 = util.etree.Element(tag1)
         el2 = util.etree.SubElement(el1, tag2)
@@ -298,21 +569,66 @@ class DoubleTagPattern(SimpleTagPattern):
 
 
 class HtmlPattern(Pattern):
-    """Store raw inline html and return a placeholder."""
+    """
+    Store raw inline html and return a placeholder.
+
+    Example:
+        Exercise HtmlPattern through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     def handleMatch(self: _typing.Self, m: _typing.Any) -> _typing.Any:
+        """
+        Perform the handleMatch operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HtmlPattern.handleMatch through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param m: Value supplied for m under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         rawhtml = self.unescape(m.group(2))
         place_holder = self.markdown.htmlStash.store(rawhtml)
         return place_holder
 
     def unescape(self: _typing.Self, text: _typing.Any) -> _typing.Any:
-        """Return unescaped text given text with an inline placeholder."""
+        """
+        Return unescaped text given text with an inline placeholder.
+
+        Example:
+            Exercise HtmlPattern.unescape through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             stash = self.markdown.treeprocessors["inline"].stashed_nodes
         except KeyError:
             return text
 
         def get_stash(m: _typing.Any) -> _typing.Any:
+            """
+            Return stash under the format's safety and compatibility rules.
+
+            Example:
+                Exercise HtmlPattern.unescape.get stash through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+            :param m: Value supplied for m under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             id = m.group(1)
             value = stash.get(id)
             if value is not None:
@@ -325,9 +641,29 @@ class HtmlPattern(Pattern):
 
 
 class LinkPattern(Pattern):
-    """Return a link element from the given match."""
+    """
+    Return a link element from the given match.
+
+    Example:
+        Exercise LinkPattern through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     def handleMatch(self: _typing.Self, m: _typing.Any) -> _typing.Any:
+        """
+        Perform the handleMatch operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LinkPattern.handleMatch through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param m: Value supplied for m under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         el = util.etree.Element("a")
         el.text = m.group(2)
         title = m.group(13)
@@ -349,18 +685,15 @@ class LinkPattern(Pattern):
         """
         Sanitize a url against xss attacks in "safe_mode".
 
-        Rather than specifically blacklisting `javascript:alert("XSS")` and all
-        its aliases (see <http://ha.ckers.org/xss.html>), we whitelist known
-        safe url formats. Most urls contain a network location, however some
-        are known not to (i.e.: mailto links). Script urls do not contain a
-        location. Additionally, for `javascript:...`, the scheme would be
-        "javascript" but some aliases will appear to `urlparse()` to have no
-        scheme. On top of that relative links (i.e.: "foo/bar.html") have no
-        scheme. Therefore we must check "path", "parameters", "query" and
-        "fragment" for any literal colons. We don't check "scheme" for colons
-        because it *should* never have any and "netloc" must allow the form:
-        `username:password@host:port`.
+        Example:
+            Exercise LinkPattern.sanitize url through a consuming regression::
 
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param url: Value supplied for url under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         url = url.replace(" ", "%20")
         if not self.markdown.safeMode:
@@ -393,9 +726,29 @@ class LinkPattern(Pattern):
 
 
 class ImagePattern(LinkPattern):
-    """Return a img element from the given match."""
+    """
+    Return a img element from the given match.
+
+    Example:
+        Exercise ImagePattern through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     def handleMatch(self: _typing.Self, m: _typing.Any) -> _typing.Any:
+        """
+        Perform the handleMatch operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ImagePattern.handleMatch through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param m: Value supplied for m under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         el = util.etree.Element("img")
         src_parts = m.group(9).split()
         if src_parts:
@@ -418,11 +771,31 @@ class ImagePattern(LinkPattern):
 
 
 class ReferencePattern(LinkPattern):
-    """Match to a stored reference and return link element."""
+    """
+    Match to a stored reference and return link element.
+
+    Example:
+        Exercise ReferencePattern through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     NEWLINE_CLEANUP_RE = re.compile(r"[ ]?\n", re.MULTILINE)
 
     def handleMatch(self: _typing.Self, m: _typing.Any) -> _typing.Any:
+        """
+        Perform the handleMatch operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ReferencePattern.handleMatch through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param m: Value supplied for m under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             id = m.group(9).lower()
         except IndexError:
@@ -442,6 +815,21 @@ class ReferencePattern(LinkPattern):
         return self.makeTag(href, title, text)
 
     def makeTag(self: _typing.Self, href: _typing.Any, title: _typing.Any, text: _typing.Any) -> _typing.Any:
+        """
+        Perform the makeTag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ReferencePattern.makeTag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param href: Value supplied for href under the utility contract.
+        :param title: Value supplied for title under the utility contract.
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         el = util.etree.Element("a")
 
         el.set("href", self.sanitize_url(href))
@@ -453,9 +841,31 @@ class ReferencePattern(LinkPattern):
 
 
 class ImageReferencePattern(ReferencePattern):
-    """Match to a stored reference and return img element."""
+    """
+    Match to a stored reference and return img element.
+
+    Example:
+        Exercise ImageReferencePattern through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     def makeTag(self: _typing.Self, href: _typing.Any, title: _typing.Any, text: _typing.Any) -> _typing.Any:
+        """
+        Perform the makeTag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ImageReferencePattern.makeTag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param href: Value supplied for href under the utility contract.
+        :param title: Value supplied for title under the utility contract.
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         el = util.etree.Element("img")
         el.set("src", self.sanitize_url(href))
         if title:
@@ -469,9 +879,29 @@ class ImageReferencePattern(ReferencePattern):
 
 
 class AutolinkPattern(Pattern):
-    """Return a link Element given an autolink (`<http://example/com>`)."""
+    """
+    Return a link Element given an autolink (`<http://example/com>`).
+
+    Example:
+        Exercise AutolinkPattern through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     def handleMatch(self: _typing.Self, m: _typing.Any) -> _typing.Any:
+        """
+        Perform the handleMatch operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise AutolinkPattern.handleMatch through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param m: Value supplied for m under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         el = util.etree.Element("a")
         el.set("href", self.unescape(m.group(2)))
         el.text = util.AtomicString(m.group(2))
@@ -481,16 +911,46 @@ class AutolinkPattern(Pattern):
 class AutomailPattern(Pattern):
     """
     Return a mailto link Element given an automail link (`<foo@example.com>`).
+
+    Example:
+        Exercise AutomailPattern through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
     """
 
     def handleMatch(self: _typing.Self, m: _typing.Any) -> _typing.Any:
+        """
+        Perform the handleMatch operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise AutomailPattern.handleMatch through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param m: Value supplied for m under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         el = util.etree.Element("a")
         email = self.unescape(m.group(2))
         if email.startswith("mailto:"):
             email = email[len("mailto:") :]
 
         def codepoint2name(code: _typing.Any) -> _typing.Any:
-            """Return entity definition by code, or the code if not defined."""
+            """
+            Return entity definition by code, or the code if not defined.
+
+            Example:
+                Exercise AutomailPattern.handleMatch.codepoint2name through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+            :param code: Value supplied for code under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             entity = entities.codepoint2name.get(code)
             if entity:
                 return "%s%s;" % (util.AMP_SUBSTITUTE, entity)

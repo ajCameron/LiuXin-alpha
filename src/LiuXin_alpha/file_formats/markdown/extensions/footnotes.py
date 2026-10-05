@@ -1,3 +1,14 @@
+"""
+Collect Markdown footnotes and generate references and definitions.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise footnotes through a consuming regression::
+
+        python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+"""
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import annotations
@@ -46,10 +57,28 @@ TABBED_RE = re.compile(r"((\t)|(    ))(.*)")
 
 
 class FootnoteExtension(Extension):
-    """Footnote Extension."""
+    """
+    Footnote Extension.
+
+    Example:
+        Exercise FootnoteExtension through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     def __init__(self: _typing.Self, configs: _typing.Any) -> None:
-        """Setup configs."""
+        """
+        Setup configs.
+
+        Example:
+            Exercise FootnoteExtension.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param configs: Value supplied for configs under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.config = {
             "PLACE_MARKER": [
                 "///Footnotes Go Here///",
@@ -74,7 +103,20 @@ class FootnoteExtension(Extension):
         self.reset()
 
     def extendMarkdown(self: _typing.Self, md: _typing.Any, md_globals: _typing.Any) -> None:
-        """Add pieces to Markdown."""
+        """
+        Add pieces to Markdown.
+
+        Example:
+            Exercise FootnoteExtension.extendMarkdown through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param md: Value supplied for md under the utility contract.
+        :param md_globals: Value supplied for md globals under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         md.registerExtension(self)
         self.parser = md.parser
         self.md = md
@@ -94,14 +136,50 @@ class FootnoteExtension(Extension):
         md.postprocessors.add("footnote", FootnotePostprocessor(self), ">amp_substitute")
 
     def reset(self: _typing.Self) -> None:
-        """Clear the footnotes on reset, and prepare for a distinct document."""
+        """
+        Clear the footnotes on reset, and prepare for a distinct document.
+
+        Example:
+            Exercise FootnoteExtension.reset through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.footnotes = OrderedDict()
         self.unique_prefix += 1
 
     def findFootnotesPlaceholder(self: _typing.Self, root: _typing.Any) -> _typing.Any:
-        """Return ElementTree Element that contains Footnote placeholder."""
+        """
+        Return ElementTree Element that contains Footnote placeholder.
+
+        Example:
+            Exercise FootnoteExtension.findFootnotesPlaceholder through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         def finder(element: _typing.Any) -> tuple[_typing.Any, ...] | None:
+            """
+            Perform the finder operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise FootnoteExtension.findFootnotesPlaceholder.finder through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+            :param element: Value supplied for element under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             for child in element:
                 if child.text:
                     if child.text.find(self.getConfig("PLACE_MARKER")) > -1:
@@ -116,25 +194,74 @@ class FootnoteExtension(Extension):
         return res
 
     def setFootnote(self: _typing.Self, id: _typing.Any, text: _typing.Any) -> None:
-        """Store a footnote for later retrieval."""
+        """
+        Store a footnote for later retrieval.
+
+        Example:
+            Exercise FootnoteExtension.setFootnote through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param id: Value supplied for id under the utility contract.
+        :param text: Text parsed, normalized or rendered.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.footnotes[id] = text
 
     def makeFootnoteId(self: _typing.Self, id: _typing.Any) -> _typing.Any:
-        """Return footnote link id."""
+        """
+        Return footnote link id.
+
+        Example:
+            Exercise FootnoteExtension.makeFootnoteId through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param id: Value supplied for id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.getConfig("UNIQUE_IDS"):
             return "fn%s%d-%s" % (self.sep, self.unique_prefix, id)
         else:
             return "fn%s%s" % (self.sep, id)
 
     def makeFootnoteRefId(self: _typing.Self, id: _typing.Any) -> _typing.Any:
-        """Return footnote back-link id."""
+        """
+        Return footnote back-link id.
+
+        Example:
+            Exercise FootnoteExtension.makeFootnoteRefId through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param id: Value supplied for id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.getConfig("UNIQUE_IDS"):
             return "fnref%s%d-%s" % (self.sep, self.unique_prefix, id)
         else:
             return "fnref%s%s" % (self.sep, id)
 
     def makeFootnotesDiv(self: _typing.Self, root: _typing.Any) -> _typing.Any:
-        """Return div of footnotes as et Element."""
+        """
+        Return div of footnotes as et Element.
+
+        Example:
+            Exercise FootnoteExtension.makeFootnotesDiv through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         if not list(self.footnotes.keys()):
             return None
@@ -171,21 +298,43 @@ class FootnoteExtension(Extension):
 
 
 class FootnotePreprocessor(Preprocessor):
-    """Find all footnote references and store for later use."""
+    """
+    Find all footnote references and store for later use.
+
+    Example:
+        Exercise FootnotePreprocessor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     def __init__(self: _typing.Self, footnotes: _typing.Any) -> None:
+        """
+        Initialize and validate the footnotepreprocessor state.
+
+        Example:
+            Exercise FootnotePreprocessor.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param footnotes: Value supplied for footnotes under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.footnotes = footnotes
 
     def run(self: _typing.Self, lines: _typing.Any) -> _typing.Any:
         """
         Loop through lines and find, set, and remove footnote definitions.
 
-        Keywords:
+        Example:
+            Exercise FootnotePreprocessor.run through a consuming regression::
 
-        * lines: A list of lines of text
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
 
-        Return: A list of lines of text with footnote definitions removed.
 
+        :param lines: Value supplied for lines under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         newlines = []
         i = 0
@@ -205,20 +354,37 @@ class FootnotePreprocessor(Preprocessor):
         return newlines
 
     def detectTabbed(self: _typing.Self, lines: _typing.Any) -> tuple[_typing.Any, ...]:
-        """Find indented text and remove indent before further proccesing.
+        """
+        Find indented text and remove indent before further proccesing.
 
-        Keyword arguments:
+        Example:
+            Exercise FootnotePreprocessor.detectTabbed through a consuming regression::
 
-        * lines: an array of strings
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
 
-        Returns: a list of post processed items and the index of last line.
 
+        :param lines: Value supplied for lines under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         items = []
         blank_line = False  # have we encountered a blank line yet?
         i = 0  # to keep track of where we are
 
         def detab(line: _typing.Any) -> _typing.Any:
+            """
+            Perform the detab operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise FootnotePreprocessor.detectTabbed.detab through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+            :param line: Value supplied for line under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             match = TABBED_RE.match(line)
             if match:
                 return match.group(4)
@@ -263,13 +429,46 @@ class FootnotePreprocessor(Preprocessor):
 
 
 class FootnotePattern(Pattern):
-    """InlinePattern for footnote markers in a document's body text."""
+    """
+    InlinePattern for footnote markers in a document's body text.
+
+    Example:
+        Exercise FootnotePattern through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     def __init__(self: _typing.Self, pattern: _typing.Any, footnotes: _typing.Any) -> None:
+        """
+        Initialize and validate the footnotepattern state.
+
+        Example:
+            Exercise FootnotePattern.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param pattern: Value supplied for pattern under the utility contract.
+        :param footnotes: Value supplied for footnotes under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super(FootnotePattern, self).__init__(pattern)
         self.footnotes = footnotes
 
     def handleMatch(self: _typing.Self, m: _typing.Any) -> _typing.Any:
+        """
+        Perform the handleMatch operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FootnotePattern.handleMatch through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param m: Value supplied for m under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         id = m.group(2)
         if id in self.footnotes.footnotes.keys():
             sup = etree.Element("sup")
@@ -286,12 +485,44 @@ class FootnotePattern(Pattern):
 
 
 class FootnoteTreeprocessor(Treeprocessor):
-    """Build and append footnote div to end of document."""
+    """
+    Build and append footnote div to end of document.
+
+    Example:
+        Exercise FootnoteTreeprocessor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     def __init__(self: _typing.Self, footnotes: _typing.Any) -> None:
+        """
+        Initialize and validate the footnotetreeprocessor state.
+
+        Example:
+            Exercise FootnoteTreeprocessor.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param footnotes: Value supplied for footnotes under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.footnotes = footnotes
 
     def run(self: _typing.Self, root: _typing.Any) -> None:
+        """
+        Execute the configured conversion stage and return its primary result.
+
+        Example:
+            Exercise FootnoteTreeprocessor.run through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         footnotesDiv = self.footnotes.makeFootnotesDiv(root)
         if footnotesDiv is not None:
             result = self.footnotes.findFootnotesPlaceholder(root)
@@ -309,16 +540,60 @@ class FootnoteTreeprocessor(Treeprocessor):
 
 
 class FootnotePostprocessor(Postprocessor):
-    """Replace placeholders with html entities."""
+    """
+    Replace placeholders with html entities.
+
+    Example:
+        Exercise FootnotePostprocessor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     def __init__(self: _typing.Self, footnotes: _typing.Any) -> None:
+        """
+        Initialize and validate the footnotepostprocessor state.
+
+        Example:
+            Exercise FootnotePostprocessor.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param footnotes: Value supplied for footnotes under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.footnotes = footnotes
 
     def run(self: _typing.Self, text: _typing.Any) -> _typing.Any:
+        """
+        Execute the configured conversion stage and return its primary result.
+
+        Example:
+            Exercise FootnotePostprocessor.run through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = text.replace(FN_BACKLINK_TEXT, self.footnotes.getConfig("BACKLINK_TEXT"))
         return text.replace(NBSP_PLACEHOLDER, "&#160;")
 
 
 def makeExtension(configs: _typing.Any = None) -> _typing.Any:
-    """Return an instance of the FootnoteExtension"""
+    """
+    Return an instance of the FootnoteExtension
+
+    Example:
+        Exercise makeExtension through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param configs: Value supplied for configs under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return FootnoteExtension(configs=configs or [])

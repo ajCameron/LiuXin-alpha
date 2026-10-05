@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Detect and normalize structural landmarks in OEB content.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise structure through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+"""
 from __future__ import with_statement
 from __future__ import annotations
 
@@ -25,6 +36,19 @@ __docformat__ = "restructuredtext en"
 
 
 def XPath(x: _typing.Any) -> _typing.Any:
+    """
+    Perform the XPath operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise XPath through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         return etree.XPath(x, namespaces=XPNSMAP)
     except etree.XPathSyntaxError:
@@ -32,14 +56,35 @@ def XPath(x: _typing.Any) -> _typing.Any:
 
 
 def isspace(x: _typing.Any) -> bool:
+    """
+    Perform the isspace operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise isspace through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return not x or x.replace("\xa0", "").isspace()
 
 
 def at_start(elem: _typing.Any) -> bool:
     """
     Return True if there is no content before elem
-    :param elem:
-    :return:
+
+    Example:
+        Exercise at start through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param elem: Value supplied for elem under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     body = XPath("ancestor-or-self::h:body")(elem)
     if not body:
@@ -60,9 +105,28 @@ def at_start(elem: _typing.Any) -> bool:
 class DetectStructure(object):
     """
     Detect and implement the structure of the book.
+
+    Example:
+        Exercise DetectStructure through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     def __call__(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any) -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DetectStructure.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.log = oeb.log
         self.oeb = oeb
         self.opts = opts
@@ -130,6 +194,18 @@ class DetectStructure(object):
             self.detect_start_reading()
 
     def detect_start_reading(self: _typing.Self) -> None:
+        """
+        Perform the detect start reading operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DetectStructure.detect start reading through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         expr = self.opts.start_reading_at
         try:
             expr = XPath(expr)
@@ -159,6 +235,19 @@ class DetectStructure(object):
     def get_toc_parts_for_xpath(self: _typing.Self, expr: _typing.Any) -> tuple[_typing.Any, ...]:
         # if an attribute is selected by the xpath expr then truncate it
         # from the path and instead return it as where to find the title text
+        """
+        Return toc parts for xpath under the format's safety and compatibility rules.
+
+        Example:
+            Exercise DetectStructure.get toc parts for xpath through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param expr: Value supplied for expr under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         title_attribute_regex = re.compile(r"/@([-\w]+)$")
         match = title_attribute_regex.search(expr)
         if match is not None:
@@ -167,10 +256,36 @@ class DetectStructure(object):
         return expr, None
 
     def detect_chapters(self: _typing.Self) -> None:
+        """
+        Perform the detect chapters operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DetectStructure.detect chapters through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.detected_chapters = []
         self.chapter_title_attribute = None
 
         def find_matches(expr: _typing.Any, doc: _typing.Any) -> _typing.Any:
+            """
+            Find matches under the format's safety and compatibility rules.
+
+            Example:
+                Exercise DetectStructure.detect chapters.find matches through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param expr: Value supplied for expr under the utility contract.
+            :param doc: Value supplied for doc under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             try:
                 ans = XPath(expr)(doc)
                 len(ans)
@@ -219,10 +334,34 @@ class DetectStructure(object):
                     self.log.exception("Failed to mark chapter")
 
     def create_level_based_toc(self: _typing.Self) -> None:
+        """
+        Create level based toc under the format's safety and compatibility rules.
+
+        Example:
+            Exercise DetectStructure.create level based toc through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.opts.level1_toc is not None:
             self.add_leveled_toc_items()
 
     def create_toc_from_chapters(self: _typing.Self) -> None:
+        """
+        Create toc from chapters under the format's safety and compatibility rules.
+
+        Example:
+            Exercise DetectStructure.create toc from chapters through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         counter = self.oeb.toc.next_play_order()
         for item, elem in self.detected_chapters:
             text, href = self.elem_to_link(item, elem, self.chapter_title_attribute, counter)
@@ -230,6 +369,18 @@ class DetectStructure(object):
             counter += 1
 
     def create_toc_from_links(self: _typing.Self) -> None:
+        """
+        Create toc from links under the format's safety and compatibility rules.
+
+        Example:
+            Exercise DetectStructure.create toc from links through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         num = 0
         for item in self.oeb.spine:
             for a in XPath("//h:a[@href]")(item.data):
@@ -256,6 +407,23 @@ class DetectStructure(object):
                             return
 
     def elem_to_link(self: _typing.Self, item: _typing.Any, elem: _typing.Any, title_attribute: _typing.Any, counter: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the elem to link operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DetectStructure.elem to link through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :param elem: Value supplied for elem under the utility contract.
+        :param title_attribute: Value supplied for title attribute under the utility
+            contract.
+        :param counter: Value supplied for counter under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = ""
         if title_attribute is not None:
             text = elem.get(title_attribute, "")
@@ -273,11 +441,37 @@ class DetectStructure(object):
         return text, href
 
     def add_leveled_toc_items(self: _typing.Self) -> None:
+        """
+        Perform the add leveled toc items operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DetectStructure.add leveled toc items through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         added = OrderedDict()
         added2 = OrderedDict()
         counter = 1
 
         def find_matches(expr: _typing.Any, doc: _typing.Any) -> _typing.Any:
+            """
+            Find matches under the format's safety and compatibility rules.
+
+            Example:
+                Exercise DetectStructure.add leveled toc items.find matches through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param expr: Value supplied for expr under the utility contract.
+            :param doc: Value supplied for doc under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             try:
                 ans = XPath(expr)(doc)
                 len(ans)

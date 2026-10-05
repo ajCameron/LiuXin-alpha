@@ -1,3 +1,14 @@
+"""
+Expose the supported test db 22 compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+"""
 from __future__ import print_function
 
 from LiuXin_alpha.exceptions import DatabaseIntegrityError
@@ -8,15 +19,46 @@ from LiuXin_tests.test_databases.test_db_21 import TestDB21Builer
 class TestDB22Builer(TestDB21Builer):
     """
     Preforms build for test db 21 - which has a table almost identical to series - but with a different name.
+
+    Example:
+        Exercise TestDB22Builer through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
     """
 
     def add_new_main_tables(self, scatch_db):
 
+        """
+        Perform the add new main tables operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TestDB22Builer.add new main tables through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scatch_db: Value supplied for scatch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         super(TestDB22Builer, self).add_new_main_tables(scatch_db)
 
     # Todo: Actually custom TABLES
     def add_custom_columns(self, scratch_db):
 
+        """
+        Perform the add custom columns operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TestDB22Builer.add custom columns through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         test_titles_cc_1_name = "do_not_read"
         scratch_db.driver_wrapper.create_custom_column(in_table="titles", name=test_titles_cc_1_name)
 
@@ -104,12 +146,22 @@ def build_test_db(
     test_asset_version=None,
 ):
     """
-    Construct the test database specified by this module.
-    In this case a blank database is constructed and filled with data - before being copied into the test_databases
-    folder.
-    :param dst_file_path: The file to write the database to after it's been built.
-    :param dump: HERE IGNORED
-    :return:
+    Construct the test database specified by this module. In this case a blank database is constructed and filled with data - before being copied into the test_databases folder.
+
+    Example:
+        Exercise build test db through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+    :param dst_file_path: Value supplied for dst file path under the utility contract.
+    :param dump: Value supplied for dump under the utility contract.
+    :param plugin_name: Value supplied for plugin name under the utility contract.
+    :param new_db_uuid: Value supplied for new db uuid under the utility contract.
+    :param test_asset_version: Value supplied for test asset version under the utility
+        contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     test_db_builder = TestDB22Builer(
         dst_file_path=dst_file_path,

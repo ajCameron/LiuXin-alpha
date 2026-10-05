@@ -1,3 +1,14 @@
+"""
+Verify file-source parsers reject bounded malformed inputs without escaping expected failures.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test malformed input fuzzing through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_malformed_input_fuzzing.py
+"""
 from __future__ import annotations
 
 import io
@@ -8,6 +19,14 @@ import pytest
 
 @dataclass(frozen=True)
 class MalformedPayload:
+    """
+    Provide the MalformedPayload test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise MalformedPayload through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_malformed_input_fuzzing.py
+    """
     name: str
     data: bytes
 
@@ -193,6 +212,19 @@ TEXTLIKE_CASES = [
 
 
 def _stream_for(extension: str, payload: MalformedPayload) -> io.BytesIO:
+    """
+    Perform the stream for test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise stream for through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_malformed_input_fuzzing.py
+
+
+    :param extension: Value supplied for extension in the focused test operation.
+    :param payload: Value supplied for payload in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     stream = io.BytesIO(payload.data)
     stream.name = f"{payload.name}.{extension}"
     return stream
@@ -207,8 +239,16 @@ def test_strict_container_extractors_reject_wrong_format_payloads(
     """
     Strict container readers should reject non-credible payloads.
 
-    The dispatcher is allowed to wrap the underlying format error, but it must
-    not return conservative fallback metadata for arbitrary wrong-format bytes.
+    Example:
+        Exercise test strict container extractors reject wrong format payloads through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_malformed_input_fuzzing.py
+
+
+    :param extension: Value supplied for extension in the focused test operation.
+    :param reader_name: Value supplied for reader name in the focused test operation.
+    :param payload_name: Value supplied for payload name in the focused test operation.
+    :return: None; the function records state or raises through its assertions.
     """
     from LiuXin_alpha.metadata.file_sources import get_metadata
 
@@ -227,6 +267,17 @@ def test_strict_xml_extractors_reject_wrong_format_payloads(
 ) -> None:
     """
     Structured XML readers should validate the root format, not just XML-ness.
+
+    Example:
+        Exercise test strict xml extractors reject wrong format payloads through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_malformed_input_fuzzing.py
+
+
+    :param extension: Value supplied for extension in the focused test operation.
+    :param reader_name: Value supplied for reader name in the focused test operation.
+    :param payload_name: Value supplied for payload name in the focused test operation.
+    :return: None; the function records state or raises through its assertions.
     """
     from LiuXin_alpha.metadata.file_sources import get_metadata
 
@@ -245,6 +296,17 @@ def test_strict_binary_extractors_reject_wrong_format_payloads(
 ) -> None:
     """
     Binary readers should reject arbitrary bytes and header-only impostors.
+
+    Example:
+        Exercise test strict binary extractors reject wrong format payloads through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_malformed_input_fuzzing.py
+
+
+    :param extension: Value supplied for extension in the focused test operation.
+    :param reader_name: Value supplied for reader name in the focused test operation.
+    :param payload_name: Value supplied for payload name in the focused test operation.
+    :return: None; the function records state or raises through its assertions.
     """
     from LiuXin_alpha.metadata.file_sources import get_metadata
 
@@ -263,6 +325,17 @@ def test_strict_legacy_extractors_reject_wrong_format_payloads(
 ) -> None:
     """
     Legacy/specialty readers should reject non-credible wrapper payloads.
+
+    Example:
+        Exercise test strict legacy extractors reject wrong format payloads through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_malformed_input_fuzzing.py
+
+
+    :param extension: Value supplied for extension in the focused test operation.
+    :param reader_name: Value supplied for reader name in the focused test operation.
+    :param payload_name: Value supplied for payload name in the focused test operation.
+    :return: None; the function records state or raises through its assertions.
     """
     from LiuXin_alpha.metadata.file_sources import get_metadata
 
@@ -280,8 +353,18 @@ def test_textlike_extractors_keep_malformed_payloads_safe(
     payload_name: str,
 ) -> None:
     """
-    Text-like readers should not reject arbitrary bytes, but they must not leak
-    parser errors or promote obvious binary bytes into raw titles.
+    Text-like readers should not reject arbitrary bytes, but they must not leak parser errors or promote obvious binary bytes into raw titles.
+
+    Example:
+        Exercise test textlike extractors keep malformed payloads safe through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_malformed_input_fuzzing.py
+
+
+    :param extension: Value supplied for extension in the focused test operation.
+    :param reader_name: Value supplied for reader name in the focused test operation.
+    :param payload_name: Value supplied for payload name in the focused test operation.
+    :return: None; the function records state or raises through its assertions.
     """
     from LiuXin_alpha.metadata.file_sources import get_metadata
 
@@ -297,6 +380,17 @@ def test_textlike_extractors_keep_malformed_payloads_safe(
 
 
 def test_registry_lists_strict_container_readers_for_fuzzing() -> None:
+    """
+    Verify registry lists strict container readers for fuzzing.
+
+    Example:
+        Exercise test registry lists strict container readers for fuzzing through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_malformed_input_fuzzing.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources import registry
 
     reader_names = {
@@ -317,6 +411,17 @@ def test_registry_lists_strict_container_readers_for_fuzzing() -> None:
 
 
 def test_registry_lists_strict_xml_readers_for_fuzzing() -> None:
+    """
+    Verify registry lists strict xml readers for fuzzing.
+
+    Example:
+        Exercise test registry lists strict xml readers for fuzzing through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_malformed_input_fuzzing.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources import registry
 
     reader_names = {
@@ -328,6 +433,17 @@ def test_registry_lists_strict_xml_readers_for_fuzzing() -> None:
 
 
 def test_registry_lists_strict_binary_readers_for_fuzzing() -> None:
+    """
+    Verify registry lists strict binary readers for fuzzing.
+
+    Example:
+        Exercise test registry lists strict binary readers for fuzzing through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_malformed_input_fuzzing.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources import registry
 
     reader_names = {
@@ -339,6 +455,17 @@ def test_registry_lists_strict_binary_readers_for_fuzzing() -> None:
 
 
 def test_registry_lists_strict_legacy_readers_for_fuzzing() -> None:
+    """
+    Verify registry lists strict legacy readers for fuzzing.
+
+    Example:
+        Exercise test registry lists strict legacy readers for fuzzing through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_malformed_input_fuzzing.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources import registry
 
     reader_names = {
@@ -359,6 +486,17 @@ def test_registry_lists_strict_legacy_readers_for_fuzzing() -> None:
 
 
 def test_registry_lists_textlike_readers_for_safety_fuzzing() -> None:
+    """
+    Verify registry lists textlike readers for safety fuzzing.
+
+    Example:
+        Exercise test registry lists textlike readers for safety fuzzing through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_malformed_input_fuzzing.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources import registry
 
     reader_names = {

@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Open the local ISFDB test DB with a LiuXin WEMI metadata hydrator."""
+"""
+Query ISFDB metadata from the command line.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise isfdb metadata shell through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+"""
 
 from __future__ import annotations
 
@@ -19,12 +29,36 @@ T = TypeVar("T")
 
 
 def _ensure_importable() -> None:
+    """
+    Perform the ensure importable operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  ensure importable through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for candidate in (str(REPO_ROOT), str(SRC_ROOT)):
         if candidate not in sys.path:
             sys.path.insert(0, candidate)
 
 
 def _ensure_quiet_calibre_config() -> None:
+    """
+    Perform the ensure quiet calibre config operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  ensure quiet calibre config through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     config_dir = Path(tempfile.gettempdir()) / "liuxin-calibre-config"
     config_dir.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("CALIBRE_CONFIG_DIRECTORY", str(config_dir))
@@ -41,6 +75,18 @@ _METADATA_CONTAINER_CLASSES: dict[str, object] | None = None
 
 
 def _metadata_container_classes() -> dict[str, object]:
+    """
+    Perform the metadata container classes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  metadata container classes through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     global _METADATA_CONTAINER_CLASSES
     if _METADATA_CONTAINER_CLASSES is None:
         from LiuXin_alpha.metadata.containers import (
@@ -58,9 +104,29 @@ def _metadata_container_classes() -> dict[str, object]:
 
 
 class LazyShellBinding:
-    """Small REPL helper that defers expensive sample hydration until use."""
+    """
+    Small REPL helper that defers expensive sample hydration until use.
+
+    Example:
+        Exercise LazyShellBinding through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+    """
 
     def __init__(self, label: str, factory: Callable[[], object]) -> None:
+        """
+        Initialize and validate the lazyshellbinding state.
+
+        Example:
+            Exercise LazyShellBinding.  init   through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :param label: Value supplied for label under the utility contract.
+        :param factory: Value supplied for factory under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         object.__setattr__(self, "_label", str(label))
         object.__setattr__(self, "_factory", factory)
         object.__setattr__(self, "_loaded", False)
@@ -68,9 +134,32 @@ class LazyShellBinding:
 
     @property
     def is_loaded(self) -> bool:
+        """
+        Return whether is loaded holds for the supplied ebook data.
+
+        Example:
+            Exercise LazyShellBinding.is loaded through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :return: True when the documented condition holds; otherwise False.
+        """
         return bool(object.__getattribute__(self, "_loaded"))
 
     def load(self):
+        """
+        Perform the load operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LazyShellBinding.load through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not bool(object.__getattribute__(self, "_loaded")):
             factory = object.__getattribute__(self, "_factory")
             object.__setattr__(self, "_value", factory())
@@ -78,36 +167,160 @@ class LazyShellBinding:
         return object.__getattribute__(self, "_value")
 
     def __getattr__(self, name: str):
+        """
+        Perform the getattr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LazyShellBinding.  getattr   through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return getattr(self.load(), name)
 
     def __setattr__(self, name: str, value: object) -> None:
+        """
+        Perform the setattr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LazyShellBinding.  setattr   through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; validated state is stored on the receiving object.
+        """
         if str(name).startswith("_"):
             object.__setattr__(self, name, value)
             return
         setattr(self.load(), name, value)
 
     def __getitem__(self, key: object):
+        """
+        Perform the getitem operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LazyShellBinding.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.load()[key]
 
     def __iter__(self):
+        """
+        Perform the iter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LazyShellBinding.  iter   through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return iter(self.load())
 
     def __len__(self) -> int:
+        """
+        Perform the len operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LazyShellBinding.  len   through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return len(self.load())
 
     def __bool__(self) -> bool:
+        """
+        Perform the bool operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LazyShellBinding.  bool   through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :return: True when the documented condition holds; otherwise False.
+        """
         return bool(self.load())
 
     def __call__(self, *args: object, **kwargs: object):
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LazyShellBinding.  call   through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.load()(*args, **kwargs)
 
     def __int__(self) -> int:
+        """
+        Perform the int operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LazyShellBinding.  int   through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return int(self.load())
 
     def __str__(self) -> str:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LazyShellBinding.  str   through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return str(self.load())
 
     def __repr__(self) -> str:
+        """
+        Perform the repr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LazyShellBinding.  repr   through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         label = object.__getattribute__(self, "_label")
         if not bool(object.__getattribute__(self, "_loaded")):
             return "<lazy {}: access attributes or call .load() to hydrate>".format(label)
@@ -115,12 +328,38 @@ class LazyShellBinding:
 
 
 def _realize(value: object) -> object:
+    """
+    Perform the realize operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  realize through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(value, LazyShellBinding):
         return value.load()
     return value
 
 
 def _existing_path(raw: str | None) -> Path | None:
+    """
+    Perform the existing path operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  existing path through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     text = str(raw or "").strip()
     if not text:
         return None
@@ -131,6 +370,19 @@ def _existing_path(raw: str | None) -> Path | None:
 
 
 def _candidate_data_roots(explicit: str | None) -> list[Path]:
+    """
+    Perform the candidate data roots operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  candidate data roots through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param explicit: Value supplied for explicit under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     raw_roots = [
         explicit,
         os.environ.get("LIUXIN_ALPHA_DATA_DIR"),
@@ -156,6 +408,20 @@ def _candidate_data_roots(explicit: str | None) -> list[Path]:
 
 
 def _bundle_candidates(data_root: Path, bundle_name: str) -> list[Path]:
+    """
+    Perform the bundle candidates operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  bundle candidates through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param data_root: Value supplied for data root under the utility contract.
+    :param bundle_name: Value supplied for bundle name under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     test_databases = data_root / "test_databases"
     candidates: list[Path] = []
     if bundle_name:
@@ -183,6 +449,21 @@ def resolve_isfdb_database(
     data_root: str | None,
     bundle_name: str,
 ) -> Path:
+    """
+    Perform the resolve isfdb database operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise resolve isfdb database through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param database: Value supplied for database under the utility contract.
+    :param data_root: Value supplied for data root under the utility contract.
+    :param bundle_name: Value supplied for bundle name under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     explicit = _existing_path(database) or _existing_path(os.environ.get("LIUXIN_ISFDB_TEST_DB"))
     if explicit is not None:
         return explicit
@@ -212,6 +493,26 @@ def open_database(
     enable_maintenance: bool = False,
     repair_bootstrap_rows: bool = False,
 ) -> Database:
+    """
+    Perform the open database operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise open database through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param database_path: Value supplied for database path under the utility contract.
+    :param db_type: Value supplied for db type under the utility contract.
+    :param enable_storage_manager: Value supplied for enable storage manager under the
+        utility contract.
+    :param enable_maintenance: Value supplied for enable maintenance under the utility
+        contract.
+    :param repair_bootstrap_rows: Value supplied for repair bootstrap rows under the
+        utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.databases.database import Database
 
     return Database(
@@ -226,6 +527,19 @@ def open_database(
 
 
 def first_item_id(db: "Database") -> int:
+    """
+    Perform the first item id operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise first item id through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     rows = db.get_all_rows("items")
     first = next(iter(rows), None)
     if first is None:
@@ -234,6 +548,22 @@ def first_item_id(db: "Database") -> int:
 
 
 def quiet_call(func: Callable[..., T], *args: object, quiet: bool = True, **kwargs: object) -> T:
+    """
+    Perform the quiet call operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise quiet call through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param func: Value supplied for func under the utility contract.
+    :param args: Positional values forwarded to the compatibility implementation.
+    :param quiet: Value supplied for quiet under the utility contract.
+    :param kwargs: Keyword values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not quiet:
         return func(*args, **kwargs)
     with open(os.devnull, "w", encoding="utf-8") as sink:
@@ -242,6 +572,18 @@ def quiet_call(func: Callable[..., T], *args: object, quiet: bool = True, **kwar
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
+    """
+    Perform the build arg parser operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise build arg parser through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = argparse.ArgumentParser(
         description="Open the ISFDB test database and drop into a metadata-hydrator Python shell."
     )
@@ -301,6 +643,19 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 
 def _parse_lazy_fields(raw_values: list[str]) -> tuple[str, ...] | None:
+    """
+    Parse lazy fields under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  parse lazy fields through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param raw_values: Value supplied for raw values under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     fields: list[str] = []
     for raw_value in raw_values:
         for token in str(raw_value or "").split(","):
@@ -314,6 +669,19 @@ def _parse_lazy_fields(raw_values: list[str]) -> tuple[str, ...] | None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     args = build_arg_parser().parse_args(argv)
     database_path = resolve_isfdb_database(
         database=args.database,
@@ -361,17 +729,56 @@ def main(argv: list[str] | None = None) -> int:
             _realize(item_id)
 
         def resolve_item_id(target_item_id: object | None = None) -> int:
+            """
+            Perform the resolve item id operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise main.resolve item id through a consuming regression::
+
+                    python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+            :param target_item_id: Value supplied for target item id under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if target_item_id is None:
                 return int(_realize(item_id))
             return int(_realize(target_item_id))
 
         def maybe_load_lazy_fields(metadata):
+            """
+            Perform the maybe load lazy fields operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise main.maybe load lazy fields through a consuming regression::
+
+                    python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+            :param metadata: Value supplied for metadata under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             force_hydrate = getattr(metadata, "force_hydrate", None)
             if args.load_lazy and callable(force_hydrate):
                 force_hydrate(fields=lazy_fields_to_load)
             return metadata
 
         def get_eager_md(target_item_id: object | None = None):
+            """
+            Return eager md under the format's safety and compatibility rules.
+
+            Example:
+                Exercise main.get eager md through a consuming regression::
+
+                    python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+            :param target_item_id: Value supplied for target item id under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return quiet_call(
                 _realize(eager_hydrator).get_liuxin_wemi_metadata,
                 item_id=resolve_item_id(target_item_id),
@@ -379,6 +786,19 @@ def main(argv: list[str] | None = None) -> int:
             )
 
         def get_lazy_md(target_item_id: object | None = None):
+            """
+            Return lazy md under the format's safety and compatibility rules.
+
+            Example:
+                Exercise main.get lazy md through a consuming regression::
+
+                    python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+            :param target_item_id: Value supplied for target item id under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             metadata = quiet_call(
                 _realize(lazy_hydrator).get_liuxin_wemi_metadata,
                 item_id=resolve_item_id(target_item_id),
@@ -387,23 +807,102 @@ def main(argv: list[str] | None = None) -> int:
             return maybe_load_lazy_fields(metadata)
 
         def get_md(target_item_id: object | None = None):
+            """
+            Return md under the format's safety and compatibility rules.
+
+            Example:
+                Exercise main.get md through a consuming regression::
+
+                    python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+            :param target_item_id: Value supplied for target item id under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if bool(args.lazy):
                 return get_lazy_md(target_item_id)
             return get_eager_md(target_item_id)
 
         def get_liuxin_md(target_item_id: object | None = None):
+            """
+            Return liuxin md under the format's safety and compatibility rules.
+
+            Example:
+                Exercise main.get liuxin md through a consuming regression::
+
+                    python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+            :param target_item_id: Value supplied for target item id under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return get_md(target_item_id).as_liuxin_metadata()
 
         def get_calibre_md(target_item_id: object | None = None):
+            """
+            Return calibre md under the format's safety and compatibility rules.
+
+            Example:
+                Exercise main.get calibre md through a consuming regression::
+
+                    python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+            :param target_item_id: Value supplied for target item id under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return get_md(target_item_id).as_calibre_metadata()
 
         def get_lazy_liuxin_md(target_item_id: object | None = None):
+            """
+            Return lazy liuxin md under the format's safety and compatibility rules.
+
+            Example:
+                Exercise main.get lazy liuxin md through a consuming regression::
+
+                    python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+            :param target_item_id: Value supplied for target item id under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return get_lazy_md(target_item_id).as_liuxin_metadata()
 
         def get_lazy_calibre_md(target_item_id: object | None = None):
+            """
+            Return lazy calibre md under the format's safety and compatibility rules.
+
+            Example:
+                Exercise main.get lazy calibre md through a consuming regression::
+
+                    python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+            :param target_item_id: Value supplied for target item id under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return get_lazy_md(target_item_id).as_calibre_metadata()
 
         def write_md(metadata=None, **kwargs):
+            """
+            Write md under the format's safety and compatibility rules.
+
+            Example:
+                Exercise main.write md through a consuming regression::
+
+                    python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+            :param metadata: Value supplied for metadata under the utility contract.
+            :param kwargs: Keyword values forwarded to the compatibility implementation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             target_metadata = _realize(metadata) if metadata is not None else get_md()
             kwargs.setdefault("item_id", resolve_item_id())
             return _realize(metadata_writer).write(target_metadata, **kwargs)

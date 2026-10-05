@@ -379,6 +379,7 @@ class StorageDriverConvenienceAPI(Generic[DriverObjectAddressT]):
             mode=mode,
         )
 
+    # Todo: Understand how it's happening, but there's a lot of code in this API - better way might be to create and then move these functions to a base class
     def store_bytes(
         self,
         data: bytes,
@@ -551,6 +552,7 @@ class StorageDriverConvenienceAPI(Generic[DriverObjectAddressT]):
             )
 
 
+# Todo: These should be off in utils
 def _bytes_stream(data: bytes) -> BinaryIO:
     """
     Wrap an in-memory payload as a binary stream.

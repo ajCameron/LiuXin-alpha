@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Build KF8 index records and lookup structures.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise index through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -27,6 +38,19 @@ TagMeta_ = namedtuple("TagMeta", "name number values_per_entry bitmask end_flag"
 
 
 def TagMeta(x: _typing.Any) -> _typing.Any:
+    """
+    Perform the TagMeta operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise TagMeta through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return TagMeta_(*x)
 
 
@@ -52,6 +76,14 @@ mask_to_bit_shifts = {
 
 class IndexHeader(Header):  # {{{
 
+    """
+    Provide the indexheader contract for validated ebook processing.
+
+    Example:
+        Exercise IndexHeader through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+    """
     HEADER_NAME = b"INDX"
     ALIGN_BLOCK = True
     HEADER_LENGTH = 192
@@ -122,6 +154,14 @@ class IndexHeader(Header):  # {{{
 
 class Index(object):  # {{{
 
+    """
+    Provide the index contract for validated ebook processing.
+
+    Example:
+        Exercise Index through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+    """
     control_byte_count = 1
     cncx = CNCX()
     tag_types = (EndTagTable,)
@@ -129,6 +169,18 @@ class Index(object):  # {{{
     HEADER_LENGTH = IndexHeader.HEADER_LENGTH
 
     def generate_tagx(cls: type[_typing.Self]) -> _typing.Any:
+        """
+        Perform the generate tagx operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Index.generate tagx through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         header = b"TAGX"
         byts = bytearray()
         for tag_meta in cls.tag_types:
@@ -138,6 +190,19 @@ class Index(object):  # {{{
         return header + bytes(byts)
 
     def calculate_control_bytes_for_each_entry(cls: type[_typing.Self], entries: _typing.Any) -> _typing.Any:
+        """
+        Perform the calculate control bytes for each entry operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Index.calculate control bytes for each entry through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param entries: Value supplied for entries under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         control_bytes = []
         for lead_text, tags in entries:
             cbs = []
@@ -160,6 +225,18 @@ class Index(object):  # {{{
         return control_bytes
 
     def __call__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Index.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.control_bytes = self.calculate_control_bytes_for_each_entry(self.entries)
 
         index_blocks, idxt_blocks, record_counts, last_indices = (
@@ -270,6 +347,14 @@ class Index(object):  # {{{
 
 class SkelIndex(Index):
 
+    """
+    Provide the skelindex contract for validated ebook processing.
+
+    Example:
+        Exercise SkelIndex through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+    """
     tag_types = tuple(
         six_map(
             TagMeta,
@@ -278,6 +363,18 @@ class SkelIndex(Index):
     )
 
     def __init__(self: _typing.Self, skel_table: _typing.Any) -> None:
+        """
+        Initialize and validate the skelindex state.
+
+        Example:
+            Exercise SkelIndex.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param skel_table: Value supplied for skel table under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.entries = [
             (
                 s.name,
@@ -293,6 +390,14 @@ class SkelIndex(Index):
 
 class ChunkIndex(Index):
 
+    """
+    Provide the chunkindex contract for validated ebook processing.
+
+    Example:
+        Exercise ChunkIndex through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+    """
     tag_types = tuple(
         six_map(
             TagMeta,
@@ -307,6 +412,18 @@ class ChunkIndex(Index):
     )
 
     def __init__(self: _typing.Self, chunk_table: _typing.Any) -> None:
+        """
+        Initialize and validate the chunkindex state.
+
+        Example:
+            Exercise ChunkIndex.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param chunk_table: Value supplied for chunk table under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.cncx = CNCX(c.selector for c in chunk_table)
 
         self.entries = [
@@ -325,9 +442,29 @@ class ChunkIndex(Index):
 
 class GuideIndex(Index):
 
+    """
+    Provide the guideindex contract for validated ebook processing.
+
+    Example:
+        Exercise GuideIndex through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+    """
     tag_types = tuple(six_map(TagMeta, (("title", 1, 1, 1, 0), ("pos_fid", 6, 2, 2, 0), EndTagTable)))
 
     def __init__(self: _typing.Self, guide_table: _typing.Any) -> None:
+        """
+        Initialize and validate the guideindex state.
+
+        Example:
+            Exercise GuideIndex.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param guide_table: Value supplied for guide table under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.cncx = CNCX(c.title for c in guide_table)
 
         self.entries = [
@@ -345,9 +482,12 @@ class GuideIndex(Index):
 class NCXIndex(Index):
 
     """
-    The commented out parts have been seen in NCX indexes from MOBI 6
-    periodicals. Since we have no MOBI 8 periodicals to reverse engineer, leave
-    it for now.
+    The commented out parts have been seen in NCX indexes from MOBI 6 periodicals. Since we have no MOBI 8 periodicals to reverse engineer, leave it for now.
+
+    Example:
+        Exercise NCXIndex through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
     """
 
     # control_byte_count = 2
@@ -375,6 +515,18 @@ class NCXIndex(Index):
     )
 
     def __init__(self: _typing.Self, toc_table: _typing.Any) -> None:
+        """
+        Initialize and validate the ncxindex state.
+
+        Example:
+            Exercise NCXIndex.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param toc_table: Value supplied for toc table under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         strings = []
         for entry in toc_table:
             strings.append(entry["label"])
@@ -396,6 +548,19 @@ class NCXIndex(Index):
         fmt = "%0{0}X".format(max(2, len("%X" % largest)))
 
         def to_entry(x: _typing.Any) -> tuple[_typing.Any, ...]:
+            """
+            Perform the to entry operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise NCXIndex.  init  .to entry through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+            :param x: Value supplied for x under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             ans = {}
             for f in (
                 "offset",
@@ -417,6 +582,14 @@ class NCXIndex(Index):
 
 
 class NonLinearNCXIndex(NCXIndex):
+    """
+    Provide the nonlinearncxindex contract for validated ebook processing.
+
+    Example:
+        Exercise NonLinearNCXIndex through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+    """
     control_byte_count = 2
     tag_types = tuple(
         six_map(

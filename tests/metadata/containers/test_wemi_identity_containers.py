@@ -1,3 +1,14 @@
+"""
+Verify WEMI identity containers validate and expose canonical keys.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test wemi identity containers through its owning regression module::
+
+        python -m pytest -q tests/metadata/containers/test_wemi_identity_containers.py
+"""
 from __future__ import annotations
 
 import pytest
@@ -12,6 +23,17 @@ from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.manife
 
 
 def test_agent_identity_setters_and_id_write_guard() -> None:
+    """
+    Verify agent identity setters and id write guard.
+
+    Example:
+        Exercise test agent identity setters and id write guard through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_wemi_identity_containers.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     identity = AgentIdentity()
 
     identity.agent_id = 2
@@ -31,6 +53,17 @@ def test_agent_identity_setters_and_id_write_guard() -> None:
 
 
 def test_agent_identity_from_mapping_uses_display_and_sort_fallbacks() -> None:
+    """
+    Verify agent identity from mapping uses display and sort fallbacks.
+
+    Example:
+        Exercise test agent identity from mapping uses display and sort fallbacks through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_wemi_identity_containers.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     identity = AgentIdentity.from_mapping(
         {
             "agent_id": 7,
@@ -46,6 +79,17 @@ def test_agent_identity_from_mapping_uses_display_and_sort_fallbacks() -> None:
 
 
 def test_expression_identity_id_write_guard() -> None:
+    """
+    Verify expression identity id write guard.
+
+    Example:
+        Exercise test expression identity id write guard through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_wemi_identity_containers.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     identity = ExpressionIdentity()
 
     identity.expression_id = 10
@@ -56,6 +100,17 @@ def test_expression_identity_id_write_guard() -> None:
 
 
 def test_expression_identity_mapping_flags_and_string_representation() -> None:
+    """
+    Verify expression identity mapping flags and string representation.
+
+    Example:
+        Exercise test expression identity mapping flags and string representation through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_wemi_identity_containers.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     empty = ExpressionIdentity()
     assert empty.to_mapping()["expression_flags"] is None
 
@@ -80,6 +135,17 @@ def test_expression_identity_mapping_flags_and_string_representation() -> None:
 
 
 def test_manifestation_identity_setters_and_id_write_guard() -> None:
+    """
+    Verify manifestation identity setters and id write guard.
+
+    Example:
+        Exercise test manifestation identity setters and id write guard through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_wemi_identity_containers.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     identity = ManifestationIdentity()
 
     identity.manifestation_id = 20
@@ -92,6 +158,17 @@ def test_manifestation_identity_setters_and_id_write_guard() -> None:
 
 
 def test_manifestation_identity_mapping_and_string_representation() -> None:
+    """
+    Verify manifestation identity mapping and string representation.
+
+    Example:
+        Exercise test manifestation identity mapping and string representation through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_wemi_identity_containers.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     identity = ManifestationIdentity.from_mapping(
         {
             "manifestation_id": 20,

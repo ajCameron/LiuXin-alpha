@@ -1,9 +1,13 @@
-"""Compatibility layer for GUI helpers used by file-format code.
+"""
+Expose the supported gui2 compatibility surface.
 
-This project's headless validation paths rely on optional Qt integrations that may
-not be available in a server or CI environment. The historical calibre-style API
-is kept intentionally tiny here so import-time compatibility is preserved without
-trying to boot a GUI.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/surfaces/test_compatibility_surface_documentation_contracts.py
 """
 
 from __future__ import annotations
@@ -14,30 +18,81 @@ config: dict[str, Any] = {"use_roman_numerals_for_series_number": False}
 
 
 def is_ok_to_use_qt() -> bool:
-    """Return whether the GUI path is available in this process."""
+    """
+    Return whether the GUI path is available in this process.
+
+    Example:
+        Exercise is ok to use qt through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_compatibility_surface_documentation_contracts.py
+
+
+    :return: True when the documented condition holds; otherwise False.
+    """
     return False
 
 
 def must_use_qt() -> bool:
-    """Compatibility hook for callers that require Qt to be used."""
+    """
+    Compatibility hook for callers that require Qt to be used.
+
+    Example:
+        Exercise must use qt through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_compatibility_surface_documentation_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return False
 
 
 def ensure_app() -> None:
-    """No-op placeholder when no Qt application bootstrap is available."""
+    """
+    No-op placeholder when no Qt application bootstrap is available.
+
+    Example:
+        Exercise ensure app through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_compatibility_surface_documentation_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return None
 
 
 def load_builtin_fonts() -> None:
-    """No-op placeholder for font loading in headless runs."""
+    """
+    No-op placeholder for font loading in headless runs.
+
+    Example:
+        Exercise load builtin fonts through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_compatibility_surface_documentation_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return None
 
 
 def pixmap_to_data(pixmap: Any) -> bytes:
-    """Convert a Qt pixmap-like object to bytes.
+    """
+    Convert a Qt pixmap-like object to bytes.
 
-    In the headless fallback, a real Qt object is unavailable, so callers should
-    treat this as a strict no-op and handle the absence of a pixmap before use.
+    Example:
+        Exercise pixmap to data through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_compatibility_surface_documentation_contracts.py
+
+
+    :param pixmap: Value supplied for pixmap under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if pixmap is None:
         return b""

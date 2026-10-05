@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
+"""
+Embed referenced fonts and resources into EPUB/OEB containers.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise embed through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -36,6 +47,20 @@ props = {
 
 
 def matching_rule(font: _typing.Any, rules: _typing.Any) -> _typing.Any:
+    """
+    Perform the matching rule operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise matching rule through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param font: Value supplied for font under the utility contract.
+    :param rules: Value supplied for rules under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ff = font["font-family"]
     if not isinstance(ff, six_string_types):
         ff = tuple(ff)[0]
@@ -54,6 +79,23 @@ def matching_rule(font: _typing.Any, rules: _typing.Any) -> _typing.Any:
 
 
 def embed_font(container: _typing.Any, font: _typing.Any, all_font_rules: _typing.Any, report: _typing.Any, warned: _typing.Any) -> _typing.Any:
+    """
+    Perform the embed font operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise embed font through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param font: Value supplied for font under the utility contract.
+    :param all_font_rules: Value supplied for all font rules under the utility contract.
+    :param report: Value supplied for report under the utility contract.
+    :param warned: Value supplied for warned under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     rule = matching_rule(font, all_font_rules)
     ff = font["font-family"]
     if not isinstance(ff, six_string_types):
@@ -119,6 +161,21 @@ def embed_font(container: _typing.Any, font: _typing.Any, all_font_rules: _typin
 
 
 def embed_all_fonts(container: _typing.Any, stats: _typing.Any, report: _typing.Any) -> bool:
+    """
+    Perform the embed all fonts operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise embed all fonts through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param stats: Value supplied for stats under the utility contract.
+    :param report: Value supplied for report under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     all_font_rules = tuple(itervalues(stats.all_font_rules))
     warned = set()
     rules, nrules = [], []

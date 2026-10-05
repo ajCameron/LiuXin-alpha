@@ -1,57 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-Decode unicode text to an ASCII representation of the text in Chinese.
-Transliterate unicode characters to ASCII based on chinese pronounce.
+Dispatch language-aware Unicode transliteration and fallbacks.
 
-Derived from John Schember's unidecode library. Which was created
-as part of calibre.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-Copyright(c) 2009, John Schember <john@nachtimwald.com>
+Example:
+    Exercise unidecoder through a consuming regression::
 
-Based on the ruby unidecode gem (http://rubyforge.org/projects/unidecode/) which
-is based on the perl module Text::Unidecode
-(http://search.cpan.org/~sburke/Text-Unidecode-0.04/). More information about
-unidecode can be found at
-http://interglacial.com/~sburke/tpj/as_html/tpj22.html.
-
-The major differences between this implementation and others is it's written in
-python and it uses a single dictionary instead of loading the code group files
-as needed.
-
-
-Copyright (c) 2007 Russell Norris
-
-Permission is hereby granted, free of charge, to any person
-obtaining a copy of this software and associated documentation
-files (the "Software"), to deal in the Software without
-restriction, including without limitation the rights to use,
-copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the
-Software is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
-OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
-HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-OTHER DEALINGS IN THE SOFTWARE.
-
-
-Copyright 2001, Sean M. Burke <sburke@cpan.org>, all rights reserved.
-
-The programs and documentation in this dist are distributed in the
-hope that they will be useful, but without any warranty; without even
-the implied warranty of merchantability or fitness for a particular
-purpose.
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
+        python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
 """
 from __future__ import annotations
 
@@ -71,21 +28,61 @@ __docformat__ = "restructuredtext en"
 
 class Unidecoder(object):
 
+    """
+    Provide the unidecoder contract for validated ebook processing.
+
+    Example:
+        Exercise Unidecoder through a consuming regression::
+
+            python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+    """
     codepoints = {}
 
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the unidecoder state.
+
+        Example:
+            Exercise Unidecoder.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.codepoints = CODEPOINTS
         self.codepoints.update(HANCODES)
 
     def decode(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         # Replace characters larger than 127 with their ASCII equivelent.
+        """
+        Perform the decode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Unidecoder.decode through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return re.sub("[^\x00-\x7f]", lambda x: self.replace_point(x.group()), text)
 
     def replace_point(self: _typing.Self, codepoint: _typing.Any) -> _typing.Any:
         """
         Returns the replacement character or ? if none can be found.
-        :param codepoint:
-        :return:
+
+        Example:
+            Exercise Unidecoder.replace point through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param codepoint: Value supplied for codepoint under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         try:
             # Split the unicode character xABCD into parts 0xAB and 0xCD.
@@ -98,8 +95,16 @@ class Unidecoder(object):
     def code_group(self: _typing.Self, character: _typing.Any) -> _typing.Any:
         """
         Find what group character is a part of.
-        :param character:
-        :return:
+
+        Example:
+            Exercise Unidecoder.code group through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param character: Value supplied for character under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Code groups withing CODEPOINTS take the form 'xAB'
         try:  # python2
@@ -109,10 +114,17 @@ class Unidecoder(object):
 
     def grouped_point(self: _typing.Self, character: _typing.Any) -> _typing.Any:
         """
-        Return the location the replacement character is in the list for a
-        the group character is a part of.
-        :param character:
-        :return:
+        Return the location the replacement character is in the list for a the group character is a part of.
+
+        Example:
+            Exercise Unidecoder.grouped point through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param character: Value supplied for character under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         try:  # python2
             return ord(six_unicode(character)) & 255

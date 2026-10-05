@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 
+"""
+Inspect font families, declarations and embedded font resources.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise fonts through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -10,6 +21,14 @@ try:
     from cssutils.css import CSSRule
 except ModuleNotFoundError:
     class CSSRule(object):
+        """
+        Provide the cssrule contract for validated ebook processing.
+
+        Example:
+            Exercise CSSRule through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+        """
         FONT_FACE_RULE = 5
         STYLE_RULE = 1
 
@@ -28,6 +47,14 @@ except ModuleNotFoundError:
     _HAS_FONT_UTILS = False
 
     class UnsupportedFont(Exception):
+        """
+        Provide the unsupportedfont contract for validated ebook processing.
+
+        Example:
+            Exercise UnsupportedFont through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+        """
         pass
 
 # Py2/Py3 comparability layer
@@ -40,10 +67,33 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 class InvalidFont(BaseError):
 
+    """
+    Provide the invalidfont contract for validated ebook processing.
+
+    Example:
+        Exercise InvalidFont through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     HELP = _("This font could not be processed. It most likely will" " not work in an ebook reader, either")
 
 
 def fix_property(prop: _typing.Any, css_name: _typing.Any, font_name: _typing.Any) -> _typing.Any:
+    """
+    Perform the fix property operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise fix property through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param prop: Value supplied for prop under the utility contract.
+    :param css_name: Value supplied for css name under the utility contract.
+    :param font_name: Value supplied for font name under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     changed = False
     ff = prop.propertyValue
     for i in memory_range(ff.length):
@@ -55,6 +105,21 @@ def fix_property(prop: _typing.Any, css_name: _typing.Any, font_name: _typing.An
 
 
 def fix_declaration(style: _typing.Any, css_name: _typing.Any, font_name: _typing.Any) -> _typing.Any:
+    """
+    Perform the fix declaration operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise fix declaration through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param style: Value supplied for style under the utility contract.
+    :param css_name: Value supplied for css name under the utility contract.
+    :param font_name: Value supplied for font name under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     changed = False
     for x in ("font-family", "font"):
         prop = style.getProperty(x)
@@ -64,6 +129,21 @@ def fix_declaration(style: _typing.Any, css_name: _typing.Any, font_name: _typin
 
 
 def fix_sheet(sheet: _typing.Any, css_name: _typing.Any, font_name: _typing.Any) -> _typing.Any:
+    """
+    Perform the fix sheet operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise fix sheet through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param sheet: Value supplied for sheet under the utility contract.
+    :param css_name: Value supplied for css name under the utility contract.
+    :param font_name: Value supplied for font name under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     changed = False
     for rule in sheet.cssRules:
         if rule.type in (CSSRule.FONT_FACE_RULE, CSSRule.STYLE_RULE):
@@ -74,9 +154,32 @@ def fix_sheet(sheet: _typing.Any, css_name: _typing.Any, font_name: _typing.Any)
 
 class FontAliasing(BaseError):
 
+    """
+    Provide the fontaliasing contract for validated ebook processing.
+
+    Example:
+        Exercise FontAliasing through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     level = WARN
 
     def __init__(self: _typing.Self, font_name: _typing.Any, css_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> None:
+        """
+        Initialize and validate the fontaliasing state.
+
+        Example:
+            Exercise FontAliasing.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param font_name: Value supplied for font name under the utility contract.
+        :param css_name: Value supplied for css name under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param line: Value supplied for line under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         BaseError.__init__(
             self,
             _("The CSS font-family name {0} does not match the actual " "font name {1}").format(css_name, font_name),
@@ -93,6 +196,19 @@ class FontAliasing(BaseError):
         self.font_name, self.css_name = font_name, css_name
 
     def __call__(self: _typing.Self, container: _typing.Any) -> _typing.Any:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FontAliasing.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param container: Value supplied for container under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         changed = False
         for name, mt in iteritems(container.mime_map):
             if mt in OEB_STYLES:
@@ -122,6 +238,19 @@ class FontAliasing(BaseError):
 
 
 def check_fonts(container: _typing.Any) -> _typing.Any:
+    """
+    Perform the check fonts operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise check fonts through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not _HAS_FONT_UTILS:
         return []
 

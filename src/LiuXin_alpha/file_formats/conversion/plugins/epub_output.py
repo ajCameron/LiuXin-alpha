@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Convert EPUB content from the normalized ebook conversion pipeline.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise epub output through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+"""
 from __future__ import with_statement
 from __future__ import annotations
 
@@ -58,6 +69,14 @@ block_level_tags = (
 
 class EPUBOutput(OutputFormatPlugin):
 
+    """
+    Provide the epuboutput contract for validated ebook processing.
+
+    Example:
+        Exercise EPUBOutput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     name = "EPUB Output"
     author = "Kovid Goyal"
     file_type = "epub"
@@ -156,6 +175,18 @@ class EPUBOutput(OutputFormatPlugin):
     recommendations = {("pretty_print", True, OptionRecommendation.HIGH)}
 
     def workaround_webkit_quirks(self: _typing.Self) -> None:  # {{{
+        """
+        Perform the workaround webkit quirks operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise EPUBOutput.workaround webkit quirks through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.file_formats.oeb.base import XPath
 
         for x in self.oeb.spine:
@@ -176,7 +207,15 @@ class EPUBOutput(OutputFormatPlugin):
     def upshift_markup(self: _typing.Self) -> None:  # {{{
         """
         Upgrade markup to comply with XHTML 1.1 where possible
-        :return:
+
+        Example:
+            Exercise EPUBOutput.upshift markup through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         from LiuXin_alpha.file_formats.oeb.base import XPath, XML
 
@@ -210,6 +249,18 @@ class EPUBOutput(OutputFormatPlugin):
     # }}}
 
     def ensure_legacy_css_files(self: _typing.Self) -> None:
+        """
+        Perform the ensure legacy css files operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise EPUBOutput.ensure legacy css files through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         try:
             import cssutils  # noqa: F401
             return
@@ -244,6 +295,23 @@ class EPUBOutput(OutputFormatPlugin):
                 self.oeb.manifest.add(item_id, font_alias, src_item.media_type, data=src_item.data)
 
     def convert(self: _typing.Self, oeb_book: _typing.Any, output_path: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
+        """
+        Convert the supplied source into the stage's normalized output representation.
+
+        Example:
+            Exercise EPUBOutput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param output_path: Value supplied for output path under the utility contract.
+        :param input_plugin: Value supplied for input plugin under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.log, self.opts, self.oeb = log, opts, oeb_book
 
         if self.opts.epub_inline_toc:
@@ -319,6 +387,19 @@ class EPUBOutput(OutputFormatPlugin):
         uuid = None
 
         def identifier_value(x: _typing.Any) -> _typing.Any:
+            """
+            Perform the identifier value operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise EPUBOutput.convert.identifier value through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+            :param x: Value supplied for x under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             raw = getattr(x, "value", getattr(x, "content", ""))
             if isinstance(raw, bytes):
                 return raw.decode("utf-8", "replace")
@@ -388,6 +469,21 @@ class EPUBOutput(OutputFormatPlugin):
                 self.log.info("EPUB extracted to", opts.extract_to)
 
     def encrypt_fonts(self: _typing.Self, uris: _typing.Any, tdir: _typing.Any, uuid: _typing.Any) -> _typing.Any:  # {{{
+        """
+        Perform the encrypt fonts operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise EPUBOutput.encrypt fonts through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param uris: Value supplied for uris under the utility contract.
+        :param tdir: Value supplied for tdir under the utility contract.
+        :param uuid: Value supplied for uuid under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from binascii import unhexlify
 
         key = re.sub(r"[^a-fA-F0-9]", "", uuid)
@@ -445,8 +541,16 @@ class EPUBOutput(OutputFormatPlugin):
     def condense_ncx(self: _typing.Self, ncx_path: _typing.Any) -> None:
         """
         Condense the ncx file - Navigation Control File - used in ePub files to define the Table of Contents.
-        :param ncx_path:
-        :return:
+
+        Example:
+            Exercise EPUBOutput.condense ncx through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param ncx_path: Value supplied for ncx path under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
@@ -464,6 +568,15 @@ class EPUBOutput(OutputFormatPlugin):
     def workaround_ade_quirks(self: _typing.Self) -> None:  # {{{
         """
         Perform various markup transforms to get the output to render correctly in the quirky ADE.
+
+        Example:
+            Exercise EPUBOutput.workaround ade quirks through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         from LiuXin_alpha.file_formats.oeb.base import XPath, XHTML, barename, urlunquote
 
@@ -609,11 +722,34 @@ class EPUBOutput(OutputFormatPlugin):
     def workaround_sony_quirks(self: _typing.Self) -> None:  # {{{
         """
         Perform toc link transforms to alleviate slow loading.
+
+        Example:
+            Exercise EPUBOutput.workaround sony quirks through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         from LiuXin_alpha.file_formats.oeb.base import urldefrag, XPath
         from LiuXin_alpha.file_formats.oeb.polish.toc import item_at_top
 
         def frag_is_at_top(root: _typing.Any, frag: _typing.Any) -> _typing.Any:
+            """
+            Perform the frag is at top operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise EPUBOutput.workaround sony quirks.frag is at top through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+            :param root: Root directory that bounds path resolution or traversal.
+            :param frag: Value supplied for frag under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             elem = XPath('//*[@id="%s" or @name="%s"]' % (frag, frag))(root)
             if elem:
                 elem = elem[0]
@@ -622,6 +758,19 @@ class EPUBOutput(OutputFormatPlugin):
             return item_at_top(elem)
 
         def simplify_toc_entry(toc: _typing.Any) -> None:
+            """
+            Perform the simplify toc entry operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise EPUBOutput.workaround sony quirks.simplify toc entry through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+            :param toc: Value supplied for toc under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if toc.href:
                 href, frag = urldefrag(toc.href)
                 if frag:

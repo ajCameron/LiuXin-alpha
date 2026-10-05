@@ -1,3 +1,14 @@
+"""
+Provide test in memory event log utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test in memory event log through a consuming regression::
+
+        python -m pytest -q tests/utils/logging/test_in_memory_event_log.py
+"""
 from __future__ import annotations
 
 import json
@@ -13,6 +24,19 @@ from LiuXin_alpha.utils.logging.event_logs import InMemoryEventLog
 
 
 def test_in_memory_event_log_put_get_filter_and_persist(tmp_path: Path) -> None:
+    """
+    Perform the test in memory event log put get filter and persist utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test in memory event log put get filter and persist through a consuming regression::
+
+            python -m pytest -q tests/utils/logging/test_in_memory_event_log.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     path = tmp_path / "events.jsonl"
     event_log = InMemoryEventLog(
         max_entries=3,
@@ -50,6 +74,18 @@ def test_in_memory_event_log_put_get_filter_and_persist(tmp_path: Path) -> None:
 
 
 def test_in_memory_event_log_resize_and_level_names() -> None:
+    """
+    Perform the test in memory event log resize and level names utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test in memory event log resize and level names through a consuming regression::
+
+            python -m pytest -q tests/utils/logging/test_in_memory_event_log.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     with InMemoryEventLog(max_entries=5) as event_log:
         for index in range(5):
             event_log.put(f"m{index}")
@@ -68,10 +104,34 @@ def test_in_memory_event_log_resize_and_level_names() -> None:
 
 
 def test_in_memory_event_log_follow_drains_events_before_close() -> None:
+    """
+    Perform the test in memory event log follow drains events before close utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test in memory event log follow drains events before close through a consuming regression::
+
+            python -m pytest -q tests/utils/logging/test_in_memory_event_log.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     event_log = InMemoryEventLog(max_entries=100)
     observed: list[str] = []
 
     def producer() -> None:
+        """
+        Perform the producer utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise test in memory event log follow drains events before close.producer through a consuming regression::
+
+                python -m pytest -q tests/utils/logging/test_in_memory_event_log.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for index in range(3):
             time.sleep(0.02)
             event_log.put(f"p{index}")
@@ -88,6 +148,18 @@ def test_in_memory_event_log_follow_drains_events_before_close() -> None:
 
 
 def test_in_memory_event_log_rejects_bad_inputs_and_closed_writes() -> None:
+    """
+    Perform the test in memory event log rejects bad inputs and closed writes utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test in memory event log rejects bad inputs and closed writes through a consuming regression::
+
+            python -m pytest -q tests/utils/logging/test_in_memory_event_log.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     event_log = InMemoryEventLog()
     with pytest.raises(TypeError):
         event_log.put_event(123)  # type: ignore[arg-type]

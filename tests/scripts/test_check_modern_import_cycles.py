@@ -1,4 +1,14 @@
-"""Dependency classification must explain, never weaken, the protected ratchet."""
+"""
+Provide test check modern import cycles utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test check modern import cycles through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_check_modern_import_cycles.py
+"""
 
 from __future__ import annotations
 
@@ -17,11 +27,39 @@ from scripts.check_modern_import_cycles import (
 
 
 def _write(path: Path, source: str) -> None:
+    """
+    Perform the write operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  write through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_check_modern_import_cycles.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param source: Value supplied for source under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(source, encoding="utf-8")
 
 
 def test_cycle_checker_reports_only_real_multi_module_cycles(tmp_path: Path) -> None:
+    """
+    Perform the test cycle checker reports only real multi module cycles operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test cycle checker reports only real multi module cycles through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_check_modern_import_cycles.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     _write(tmp_path / "demo" / "__init__.py", "")
     _write(tmp_path / "demo" / "one.py", "from demo import two\n")
     _write(tmp_path / "demo" / "two.py", "from . import one\n")
@@ -33,11 +71,36 @@ def test_cycle_checker_reports_only_real_multi_module_cycles(tmp_path: Path) -> 
 
 
 def test_current_modern_seams_are_acyclic() -> None:
+    """
+    Perform the test current modern seams are acyclic operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test current modern seams are acyclic through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_check_modern_import_cycles.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     assert main([]) == 0
 
 
 @pytest.mark.parametrize("package", ["cli", "terminal"])
 def test_surface_scope_includes_every_new_and_nested_owner(package: str) -> None:
+    """
+    Perform the test surface scope includes every new and nested owner operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test surface scope includes every new and nested owner through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_check_modern_import_cycles.py
+
+
+    :param package: Value supplied for package under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     root = Path(__file__).resolve().parents[2] / "src"
     inventory = collect_imports(root)
     expected = set((root / "LiuXin_alpha/surfaces" / package).rglob("*.py"))
@@ -47,6 +110,19 @@ def test_surface_scope_includes_every_new_and_nested_owner(package: str) -> None
 def test_cli_entry_points_and_downward_composition_are_allowed(
     tmp_path: Path,
 ) -> None:
+    """
+    Perform the test cli entry points and downward composition are allowed operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test cli entry points and downward composition are allowed through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_check_modern_import_cycles.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     owners = {
         "__init__": "",
         "__main__": "from LiuXin_alpha.surfaces.cli.app import main\n",
@@ -64,6 +140,19 @@ def test_cli_entry_points_and_downward_composition_are_allowed(
 def test_terminal_entry_points_and_downward_composition_are_allowed(
     tmp_path: Path,
 ) -> None:
+    """
+    Perform the test terminal entry points and downward composition are allowed operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test terminal entry points and downward composition are allowed through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_check_modern_import_cycles.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     owners = {
         "__init__": "",
         "__main__": "from .app import main\n",
@@ -131,6 +220,21 @@ def test_terminal_entry_points_and_downward_composition_are_allowed(
 def test_import_contexts_remain_in_combined_graph(
     tmp_path: Path, source: str, expected: ImportKind
 ) -> None:
+    """
+    Perform the test import contexts remain in combined graph operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test import contexts remain in combined graph through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_check_modern_import_cycles.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param source: Value supplied for source under the utility contract.
+    :param expected: Value supplied for expected under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     _write(tmp_path / "demo/owner.py", source + "\n")
     _write(tmp_path / "demo/leaf.py", "")
     inventory = collect_imports(tmp_path, protected_prefixes=("demo",))
@@ -147,6 +251,19 @@ def test_import_contexts_remain_in_combined_graph(
 def test_relative_package_imports_resolve_and_prefixes_respect_boundaries(
     tmp_path: Path,
 ) -> None:
+    """
+    Perform the test relative package imports resolve and prefixes respect boundaries operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test relative package imports resolve and prefixes respect boundaries through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_check_modern_import_cycles.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     _write(tmp_path / "demo/__init__.py", "from .nested import leaf\n")
     _write(tmp_path / "demo/nested/__init__.py", "from . import leaf\n")
     _write(tmp_path / "demo/nested/leaf.py", "from .. import sibling\n")
@@ -161,6 +278,19 @@ def test_relative_package_imports_resolve_and_prefixes_respect_boundaries(
 
 
 def test_context_is_restored_after_branches_and_nested_bodies(tmp_path: Path) -> None:
+    """
+    Perform the test context is restored after branches and nested bodies operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test context is restored after branches and nested bodies through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_check_modern_import_cycles.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     _write(
         tmp_path / "demo/owner.py",
         "from typing import TYPE_CHECKING\n"
@@ -210,6 +340,22 @@ def test_context_is_restored_after_branches_and_nested_bodies(tmp_path: Path) ->
 def test_gate_rejects_every_cycle_context(
     tmp_path: Path, capsys, source: str, kind: ImportKind
 ) -> None:
+    """
+    Perform the test gate rejects every cycle context operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test gate rejects every cycle context through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_check_modern_import_cycles.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param capsys: Value supplied for capsys under the utility contract.
+    :param source: Value supplied for source under the utility contract.
+    :param kind: Value supplied for kind under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     root = tmp_path / "LiuXin_alpha/catalog/write"
     _write(root / "one.py", "from . import two\n")
     _write(root / "two.py", source)
@@ -343,6 +489,24 @@ def test_direction_rules_reject_acyclic_back_imports(
     reason: str,
     context: ImportKind,
 ) -> None:
+    """
+    Perform the test direction rules reject acyclic back imports operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test direction rules reject acyclic back imports through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_check_modern_import_cycles.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param capsys: Value supplied for capsys under the utility contract.
+    :param owner: Value supplied for owner under the utility contract.
+    :param statement: Value supplied for statement under the utility contract.
+    :param reason: Value supplied for reason under the utility contract.
+    :param context: Value supplied for context under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     source = statement + "\n"
     if context == ImportKind.DEFERRED:
         source = "def run():\n    " + source
@@ -360,6 +524,19 @@ def test_direction_rules_reject_acyclic_back_imports(
 def test_direction_rules_allow_owner_imports_and_application_composition(
     tmp_path: Path,
 ) -> None:
+    """
+    Perform the test direction rules allow owner imports and application composition operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test direction rules allow owner imports and application composition through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_check_modern_import_cycles.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     _write(
         tmp_path / "LiuXin_alpha/caches/write/child.py",
         "from .base_writer import BaseWriter\n",
@@ -380,5 +557,19 @@ def test_direction_rules_allow_owner_imports_and_application_composition(
 def test_missing_protected_sources_do_not_report_success(
     tmp_path: Path, capsys
 ) -> None:
+    """
+    Perform the test missing protected sources do not report success operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test missing protected sources do not report success through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_check_modern_import_cycles.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param capsys: Value supplied for capsys under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     assert main(["--source-root", str(tmp_path)]) == 1
     assert "no protected modules" in capsys.readouterr().out

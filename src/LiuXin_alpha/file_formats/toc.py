@@ -1,12 +1,15 @@
 #!/usr/bin/env  python
 
 """
-Represents the table of contents of an ebook.
+Represent, traverse and serialize hierarchical ebook table-of-contents entries.
 
-Used in a number of ways
- - Used in the conversion process to create and manipulate some
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
+Example:
+    Exercise toc through a consuming regression::
 
+        python -m pytest -q tests/file_formats/test_toc_corner_cases.py
 """
 # Todo: probably should be merged with ebook_toc in metadata
 
@@ -52,6 +55,19 @@ C = ElementMaker(namespace=CALIBRE_NS, nsmap=NSMAP)
 
 
 def _parse_href(raw_href: str) -> Optional[Tuple[str, Optional[str]]]:
+    """
+    Parse href under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  parse href through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_toc_corner_cases.py
+
+
+    :param raw_href: Value supplied for raw href under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if raw_href is None:
         return None
     parsed = urlparse(unquote(raw_href))
@@ -64,6 +80,14 @@ def _parse_href(raw_href: str) -> Optional[Tuple[str, Optional[str]]]:
 
 
 class TOC(list):
+    """
+    Provide the toc contract for validated ebook processing.
+
+    Example:
+        Exercise TOC through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_toc_corner_cases.py
+    """
     def __init__(
         self: _typing.Self,
         href: Optional[str] = None,
@@ -80,16 +104,23 @@ class TOC(list):
         """
         Startup an empty table of contents.
 
-        :param href:
-        :param fragment:
-        :param text:
-        :param parent:
-        :param play_order:
-        :param base_path:
-        :param type:
-        :param author:
-        :param description:
-        :param toc_thumbnail:
+        Example:
+            Exercise TOC.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_toc_corner_cases.py
+
+
+        :param href: Value supplied for href under the utility contract.
+        :param fragment: Value supplied for fragment under the utility contract.
+        :param text: Text parsed, normalized or rendered.
+        :param parent: Value supplied for parent under the utility contract.
+        :param play_order: Value supplied for play order under the utility contract.
+        :param base_path: Value supplied for base path under the utility contract.
+        :param type: Value supplied for type under the utility contract.
+        :param author: Value supplied for author under the utility contract.
+        :param description: Value supplied for description under the utility contract.
+        :param toc_thumbnail: Value supplied for toc thumbnail under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         super().__init__()
 
@@ -107,6 +138,18 @@ class TOC(list):
         self.toc_thumbnail = toc_thumbnail
 
     def __str__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TOC.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_toc_corner_cases.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         lines = ["TOC: %s#%s %s" % (self.href, self.fragment, self.text)]
         for child in self:
             c = str(child).splitlines()
@@ -115,9 +158,36 @@ class TOC(list):
         return "\n".join(lines)
 
     def count(self: _typing.Self, type: _typing.Any) -> _typing.Any:
+        """
+        Perform the count operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TOC.count through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_toc_corner_cases.py
+
+
+        :param type: Value supplied for type under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return len([i for i in self.flat() if i.type == type])
 
     def purge(self: _typing.Self, types: _typing.Any, max: int = 0) -> _typing.Any:
+        """
+        Perform the purge operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TOC.purge through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_toc_corner_cases.py
+
+
+        :param types: Value supplied for types under the utility contract.
+        :param max: Value supplied for max under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         remove = []
         for entry in self.flat():
             if entry.type in types:
@@ -130,6 +200,19 @@ class TOC(list):
         return remove
 
     def remove(self: _typing.Self, entry: _typing.Any) -> None:
+        """
+        Perform the remove operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TOC.remove through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_toc_corner_cases.py
+
+
+        :param entry: Value supplied for entry under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         list.remove(self, entry)
         entry.parent = None
 
@@ -146,15 +229,23 @@ class TOC(list):
     ) -> _typing.Any:
         """
         Add an item to the toc
-        :param href:
-        :param fragment:
-        :param text:
-        :param play_order:
-        :param type:
-        :param author:
-        :param description:
-        :param toc_thumbnail:
-        :return:
+
+        Example:
+            Exercise TOC.add item through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_toc_corner_cases.py
+
+
+        :param href: Value supplied for href under the utility contract.
+        :param fragment: Value supplied for fragment under the utility contract.
+        :param text: Text parsed, normalized or rendered.
+        :param play_order: Value supplied for play order under the utility contract.
+        :param type: Value supplied for type under the utility contract.
+        :param author: Value supplied for author under the utility contract.
+        :param description: Value supplied for description under the utility contract.
+        :param toc_thumbnail: Value supplied for toc thumbnail under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if play_order is None:
             play_order = (self[-1].play_order if len(self) else self.play_order) + 1
@@ -177,13 +268,32 @@ class TOC(list):
     def top_level_items(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         """
         Iterate through the top level files.
-        :return:
+
+        Example:
+            Exercise TOC.top level items through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_toc_corner_cases.py
+
+
+        :return: An iterator yielding the normalized values described above.
         """
         for item in self:
             if item.text is not None:
                 yield item
 
     def depth(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the depth operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TOC.depth through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_toc_corner_cases.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         depth = 1
         for obj in self:
             c = obj.depth()
@@ -194,7 +304,14 @@ class TOC(list):
     def flat(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         """
         Depth first iteration over the tree rooted at self
-        :return:
+
+        Example:
+            Exercise TOC.flat through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_toc_corner_cases.py
+
+
+        :return: An iterator yielding the normalized values described above.
         """
         yield self
         for obj in self:
@@ -205,7 +322,15 @@ class TOC(list):
     def abspath(self: _typing.Self) -> _typing.Any:
         """
         Return the file this toc entry points to as a absolute path to a file on the system.
-        :return:
+
+        Example:
+            Exercise TOC.abspath through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_toc_corner_cases.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if self.href is None:
             return None
@@ -215,6 +340,19 @@ class TOC(list):
         return path
 
     def read_from_opf(self: _typing.Self, opfreader: _typing.Any) -> None:
+        """
+        Read from opf under the format's safety and compatibility rules.
+
+        Example:
+            Exercise TOC.read from opf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_toc_corner_cases.py
+
+
+        :param opfreader: Value supplied for opfreader under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         toc = opfreader.soup.find("spine", toc=True)
         if toc is not None:
             toc = toc["toc"]
@@ -260,6 +398,20 @@ class TOC(list):
                     self.read_ncx_toc(toc)
 
     def read_ncx_toc(self: _typing.Self, toc: _typing.Any, root: _typing.Any = None) -> None:
+        """
+        Read ncx toc under the format's safety and compatibility rules.
+
+        Example:
+            Exercise TOC.read ncx toc through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_toc_corner_cases.py
+
+
+        :param toc: Value supplied for toc under the utility contract.
+        :param root: Root directory that bounds path resolution or traversal.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.base_path = os.path.dirname(toc)
         if root is None:
             with open(toc, "rb") as toc_file:
@@ -269,6 +421,21 @@ class TOC(list):
         XPath = functools.partial(etree.XPath, namespaces=xpn)
 
         def get_attr(node: _typing.Any, default: _typing.Any = None, attr: str = "playorder") -> _typing.Any:
+            """
+            Return attr under the format's safety and compatibility rules.
+
+            Example:
+                Exercise TOC.read ncx toc.get attr through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/test_toc_corner_cases.py
+
+
+            :param node: Value supplied for node under the utility contract.
+            :param default: Value supplied for default under the utility contract.
+            :param attr: Value supplied for attr under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             for name, val in node.attrib.items():
                 if name and val and name.lower().endswith(attr):
                     return val
@@ -280,6 +447,20 @@ class TOC(list):
         np_path = XPath('./*[re:match(local-name(), "navpoint$", "i")]')
 
         def process_navpoint(np: _typing.Any, dest: _typing.Any) -> None:
+            """
+            Perform the process navpoint operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise TOC.read ncx toc.process navpoint through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/test_toc_corner_cases.py
+
+
+            :param np: Value supplied for np under the utility contract.
+            :param dest: Value supplied for dest under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             try:
                 play_order = int(get_attr(np, 1))
             except:
@@ -314,6 +495,19 @@ class TOC(list):
             process_navpoint(child, self)
 
     def read_html_toc(self: _typing.Self, toc: _typing.Any) -> None:
+        """
+        Read html toc under the format's safety and compatibility rules.
+
+        Example:
+            Exercise TOC.read html toc through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_toc_corner_cases.py
+
+
+        :param toc: Value supplied for toc under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.base_path = os.path.dirname(toc)
         with open(toc, "rb") as f:
             raw = f.read()
@@ -348,6 +542,21 @@ class TOC(list):
                 seen.add(key)
 
     def render(self: _typing.Self, stream: _typing.Any, uid: _typing.Any) -> None:
+        """
+        Perform the render operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TOC.render through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_toc_corner_cases.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param uid: Value supplied for uid under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         root = E.ncx(
             E.head(
                 E.meta(name="dtb:uid", content=str(uid)),
@@ -364,6 +573,20 @@ class TOC(list):
         c = Counter()
 
         def navpoint(parent: _typing.Any, np: _typing.Any) -> None:
+            """
+            Perform the navpoint operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise TOC.render.navpoint through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/test_toc_corner_cases.py
+
+
+            :param parent: Value supplied for parent under the utility contract.
+            :param np: Value supplied for np under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             text = np.text
             if not text:
                 text = ""

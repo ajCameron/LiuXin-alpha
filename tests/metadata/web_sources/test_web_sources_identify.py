@@ -1,3 +1,14 @@
+"""
+Verify concurrent identification, deduplication, merging and ranking.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test web sources identify through its owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+"""
 from __future__ import annotations
 
 from datetime import datetime
@@ -7,7 +18,30 @@ from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
 
 class _Plugin:
+    """
+    Provide the Plugin test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise Plugin through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+    """
     def __init__(self, name: str, results, *, has_html_comments: bool = False):
+        """
+        Initialize the Plugin test double.
+
+        Example:
+            Exercise Plugin.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+        :param name: Value supplied for name in the focused test operation.
+        :param results: Value supplied for results in the focused test operation.
+        :param has_html_comments: Value supplied for has html comments in the focused test
+            operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self.name = name
         self.version = (1, 0, 0)
         self._results = list(results)
@@ -19,9 +53,35 @@ class _Plugin:
 
     @staticmethod
     def is_configured() -> bool:
+        """
+        Perform the is configured test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Plugin.is configured through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+        :return: True when the tested condition is satisfied; otherwise False.
+        """
         return True
 
     def identify(self, log, result_queue, abort, **kwargs):
+        """
+        Perform the identify test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Plugin.identify through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param result_queue: Value supplied for result queue in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param kwargs: Keyword values forwarded by the test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del log, kwargs
         if abort.is_set():
             return
@@ -30,19 +90,70 @@ class _Plugin:
 
     @staticmethod
     def identify_results_keygen(**kwargs):
+        """
+        Perform the identify results keygen test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Plugin.identify results keygen through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+        :param kwargs: Keyword values forwarded by the test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del kwargs
         return lambda mi: getattr(mi, "source_relevance", 0)
 
     @staticmethod
     def get_cached_cover_url(_identifiers):
+        """
+        Return cached cover url from deterministic test state.
+
+        Example:
+            Exercise Plugin.get cached cover url through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+        :param _identifiers: Value supplied for identifiers in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return "https://covers.example/cover.jpg"
 
     @staticmethod
     def browser():
+        """
+        Perform the browser test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Plugin.browser through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return type("B", (), {"addheaders": [("User-Agent", "test")]})()
 
 
 def _mi(title: str, authors: list[str], *, isbn: str | None = None, comments: str = "", pubyear: int | None = None):
+    """
+    Perform the mi test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise mi through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :param title: Value supplied for title in the focused test operation.
+    :param authors: Value supplied for authors in the focused test operation.
+    :param isbn: Value supplied for isbn in the focused test operation.
+    :param comments: Value supplied for comments in the focused test operation.
+    :param pubyear: Value supplied for pubyear in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     mi = calibreMetaInformation(title, authors)
     if isbn:
         mi.set_identifier("isbn", isbn)
@@ -54,6 +165,18 @@ def _mi(title: str, authors: list[str], *, isbn: str | None = None, comments: st
 
 
 def _prefs(**overrides):
+    """
+    Perform the prefs test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise prefs through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :param overrides: Value supplied for overrides in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     prefs = {
         "wait_after_first_identify_result": 0.1,
         "txt_comments": False,
@@ -69,6 +192,20 @@ def _prefs(**overrides):
 
 
 def _ranked_result(mi, plugin, relevance: int):
+    """
+    Perform the ranked result test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise ranked result through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :param mi: Value supplied for mi in the focused test operation.
+    :param plugin: Value supplied for plugin in the focused test operation.
+    :param relevance: Value supplied for relevance in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     mi.identify_plugin = plugin
     mi.relevance_in_source = relevance
     mi.average_source_relevance = relevance
@@ -76,12 +213,34 @@ def _ranked_result(mi, plugin, relevance: int):
 
 
 def test_web_sources_identify_import_smoke() -> None:
+    """
+    Verify web sources identify import smoke.
+
+    Example:
+        Exercise test web sources identify import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.identify as identify
 
     assert identify is not None
 
 
 def test_urls_from_identifiers_default_links() -> None:
+    """
+    Verify urls from identifiers default links.
+
+    Example:
+        Exercise test urls from identifiers default links through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.identify import urls_from_identifiers
 
     urls = urls_from_identifiers(
@@ -103,17 +262,64 @@ def test_urls_from_identifiers_default_links() -> None:
 
 
 def test_urls_from_identifiers_uses_plugin_links(monkeypatch) -> None:
+    """
+    Verify urls from identifiers uses plugin links.
+
+    Example:
+        Exercise test urls from identifiers uses plugin links through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.identify as identify
 
     class _Plugin:
+        """
+        Provide the Plugin test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test urls from identifiers uses plugin links.Plugin through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+        """
         name = "PluginX"
 
         @staticmethod
         def get_book_urls(_identifiers):
+            """
+            Return book urls from deterministic test state.
+
+            Example:
+                Exercise test urls from identifiers uses plugin links.Plugin.get book urls through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+            :param _identifiers: Value supplied for identifiers in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return (("plugin-id", "abc", "https://example.invalid/books/abc"),)
 
         @staticmethod
         def get_book_url_name(id_type, id_val, _url):
+            """
+            Return book url name from deterministic test state.
+
+            Example:
+                Exercise test urls from identifiers uses plugin links.Plugin.get book url name through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+            :param id_type: Value supplied for id type in the focused test operation.
+            :param id_val: Value supplied for id val in the focused test operation.
+            :param _url: Value supplied for url in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return f"{id_type}:{id_val}"
 
     monkeypatch.setattr(identify, "_iter_all_metadata_plugins", lambda: [_Plugin()])
@@ -123,6 +329,17 @@ def test_urls_from_identifiers_uses_plugin_links(monkeypatch) -> None:
 
 
 def test_urls_from_identifiers_accepts_uri_fields_and_sorting() -> None:
+    """
+    Verify urls from identifiers accepts uri fields and sorting.
+
+    Example:
+        Exercise test urls from identifiers accepts uri fields and sorting through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.identify import urls_from_identifiers
 
     urls = urls_from_identifiers(
@@ -140,6 +357,19 @@ def test_urls_from_identifiers_accepts_uri_fields_and_sorting() -> None:
 
 
 def test_identify_respects_allowed_plugins_and_html_to_text(monkeypatch) -> None:
+    """
+    Verify identify respects allowed plugins and html to text.
+
+    Example:
+        Exercise test identify respects allowed plugins and html to text through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.identify as identify
 
     a = _Plugin(
@@ -172,6 +402,19 @@ def test_identify_respects_allowed_plugins_and_html_to_text(monkeypatch) -> None
 
 
 def test_identify_swaps_author_names_when_enabled(monkeypatch) -> None:
+    """
+    Verify identify swaps author names when enabled.
+
+    Example:
+        Exercise test identify swaps author names when enabled through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.identify as identify
 
     p = _Plugin("A", [_mi("Title", ["Jane Mary Doe"])])
@@ -196,6 +439,19 @@ def test_identify_swaps_author_names_when_enabled(monkeypatch) -> None:
 
 
 def test_isbn_merge_respects_keep_dups(monkeypatch) -> None:
+    """
+    Verify isbn merge respects keep dups.
+
+    Example:
+        Exercise test isbn merge respects keep dups through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.identify as identify
 
     plugin = _Plugin("A", [])
@@ -222,6 +478,19 @@ def test_isbn_merge_respects_keep_dups(monkeypatch) -> None:
 
 
 def test_urls_from_identifiers_normalizes_iterables_and_pipe_urls(monkeypatch) -> None:
+    """
+    Verify urls from identifiers normalizes iterables and pipe urls.
+
+    Example:
+        Exercise test urls from identifiers normalizes iterables and pipe urls through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.identify as identify
 
     monkeypatch.setattr(identify, "_iter_all_metadata_plugins", lambda: [])
@@ -241,6 +510,19 @@ def test_urls_from_identifiers_normalizes_iterables_and_pipe_urls(monkeypatch) -
 
 
 def test_urls_from_identifiers_uses_id_link_rules(monkeypatch) -> None:
+    """
+    Verify urls from identifiers uses id link rules.
+
+    Example:
+        Exercise test urls from identifiers uses id link rules through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.identify as identify
 
     monkeypatch.setattr(identify, "_iter_all_metadata_plugins", lambda: [])
@@ -260,12 +542,46 @@ def test_urls_from_identifiers_uses_id_link_rules(monkeypatch) -> None:
 
 
 def test_worker_records_plugin_failures() -> None:
+    """
+    Verify worker records plugin failures.
+
+    Example:
+        Exercise test worker records plugin failures through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.identify import Worker
 
     class BadPlugin:
+        """
+        Provide the BadPlugin test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test worker records plugin failures.BadPlugin through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+        """
         name = "BadPlugin"
 
         def identify(self, log, result_queue, abort, **kwargs):
+            """
+            Perform the identify test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test worker records plugin failures.BadPlugin.identify through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+            :param log: Value supplied for log in the focused test operation.
+            :param result_queue: Value supplied for result queue in the focused test operation.
+            :param abort: Value supplied for abort in the focused test operation.
+            :param kwargs: Keyword values forwarded by the test double.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             del log, result_queue, abort, kwargs
             raise RuntimeError("offline failure")
 
@@ -281,13 +597,46 @@ def test_worker_records_plugin_failures() -> None:
 
 
 def test_xisbn_thread_records_service_exceptions(monkeypatch) -> None:
+    """
+    Verify xisbn thread records service exceptions.
+
+    Example:
+        Exercise test xisbn thread records service exceptions through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.identify as identify
 
     class BrokenXISBN:
+        """
+        Provide the BrokenXISBN test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test xisbn thread records service exceptions.BrokenXISBN through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+        """
         service_available = True
 
         @staticmethod
         def get_isbn_pool(isbn):
+            """
+            Return isbn pool from deterministic test state.
+
+            Example:
+                Exercise test xisbn thread records service exceptions.BrokenXISBN.get isbn pool through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+            :param isbn: Value supplied for isbn in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             raise ValueError(f"bad isbn lookup: {isbn}")
 
     monkeypatch.setattr(identify, "xisbn", BrokenXISBN())
@@ -301,13 +650,46 @@ def test_xisbn_thread_records_service_exceptions(monkeypatch) -> None:
 
 
 def test_isbn_merge_uses_xisbn_pool_and_first_edition_date(monkeypatch) -> None:
+    """
+    Verify isbn merge uses xisbn pool and first edition date.
+
+    Example:
+        Exercise test isbn merge uses xisbn pool and first edition date through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.identify as identify
 
     class FakeXISBN:
+        """
+        Provide the FakeXISBN test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test isbn merge uses xisbn pool and first edition date.FakeXISBN through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+        """
         service_available = True
 
         @staticmethod
         def get_isbn_pool(isbn):
+            """
+            Return isbn pool from deterministic test state.
+
+            Example:
+                Exercise test isbn merge uses xisbn pool and first edition date.FakeXISBN.get isbn pool through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+            :param isbn: Value supplied for isbn in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             assert isbn in {"9780000000001", "9780000000002"}
             return frozenset({"9780000000001", "9780000000002"}), 1999
 
@@ -357,6 +739,19 @@ def test_isbn_merge_uses_xisbn_pool_and_first_edition_date(monkeypatch) -> None:
 
 
 def test_isbn_merge_drops_isbnless_duplicates_from_preferred_sources(monkeypatch) -> None:
+    """
+    Verify isbn merge drops isbnless duplicates from preferred sources.
+
+    Example:
+        Exercise test isbn merge drops isbnless duplicates from preferred sources through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.identify as identify
 
     plugin = _Plugin("A", [])
@@ -379,6 +774,19 @@ def test_isbn_merge_drops_isbnless_duplicates_from_preferred_sources(monkeypatch
 
 
 def test_merge_metadata_results_can_join_overlapping_identifiers(monkeypatch) -> None:
+    """
+    Verify merge metadata results can join overlapping identifiers.
+
+    Example:
+        Exercise test merge metadata results can join overlapping identifiers through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.identify as identify
 
     plugin_a = _Plugin("A", [])
@@ -406,24 +814,107 @@ def test_merge_metadata_results_can_join_overlapping_identifiers(monkeypatch) ->
 
 
 def test_identify_applies_plugin_ignore_fields_cover_errors_and_output_normalization(monkeypatch) -> None:
+    """
+    Verify identify applies plugin ignore fields cover errors and output normalization.
+
+    Example:
+        Exercise test identify applies plugin ignore fields cover errors and output normalization through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.identify as identify
     from LiuXin_alpha.utils.date import UNDEFINED_DATE
 
     class InfoLog:
+        """
+        Provide the InfoLog test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test identify applies plugin ignore fields cover errors and output normalization.InfoLog through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+        """
         def __init__(self):
+            """
+            Initialize the InfoLog test double.
+
+            Example:
+                Exercise test identify applies plugin ignore fields cover errors and output normalization.InfoLog.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+            :return: None; the function records state or raises through its assertions.
+            """
             self.messages = []
 
         def info(self, message):
+            """
+            Perform the info test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test identify applies plugin ignore fields cover errors and output normalization.InfoLog.info through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+            :param message: Value supplied for message in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             self.messages.append(message)
 
     class NoisyResult:
+        """
+        Provide the NoisyResult test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test identify applies plugin ignore fields cover errors and output normalization.NoisyResult through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+        """
         def __str__(self):
+            """
+            Perform the str test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test identify applies plugin ignore fields cover errors and output normalization.NoisyResult.str through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             raise TypeError("not printable")
 
     class NoisyPlugin(_Plugin):
+        """
+        Provide the NoisyPlugin test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test identify applies plugin ignore fields cover errors and output normalization.NoisyPlugin through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+        """
         name = "Noisy"
 
         def __init__(self, results):
+            """
+            Initialize the NoisyPlugin test double.
+
+            Example:
+                Exercise test identify applies plugin ignore fields cover errors and output normalization.NoisyPlugin.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+            :param results: Value supplied for results in the focused test operation.
+            :return: None; the function records state or raises through its assertions.
+            """
             super().__init__("Noisy", results, has_html_comments=True)
             self.prefs = {"ignore_fields": ["series", "unknown_field"]}
             self.cached_cover_url_is_reliable = True
@@ -431,10 +922,33 @@ def test_identify_applies_plugin_ignore_fields_cover_errors_and_output_normaliza
 
         @staticmethod
         def get_cached_cover_url(_identifiers):
+            """
+            Return cached cover url from deterministic test state.
+
+            Example:
+                Exercise test identify applies plugin ignore fields cover errors and output normalization.NoisyPlugin.get cached cover url through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+            :param _identifiers: Value supplied for identifiers in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             raise RuntimeError("cover cache unavailable")
 
         @staticmethod
         def browser():
+            """
+            Perform the browser test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test identify applies plugin ignore fields cover errors and output normalization.NoisyPlugin.browser through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             raise RuntimeError("browser unavailable")
 
     result = _mi("Cafe\u0301", ["Jose\u0301 Example"], comments="<p>One <b>Two</b></p>")
@@ -466,22 +980,89 @@ def test_identify_applies_plugin_ignore_fields_cover_errors_and_output_normaliza
 
 
 def test_urls_from_identifiers_falls_back_when_formatter_or_plugins_fail(monkeypatch) -> None:
+    """
+    Verify urls from identifiers falls back when formatter or plugins fail.
+
+    Example:
+        Exercise test urls from identifiers falls back when formatter or plugins fail through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.identify as identify
 
     class SingleUrlPlugin:
+        """
+        Provide the SingleUrlPlugin test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test urls from identifiers falls back when formatter or plugins fail.SingleUrlPlugin through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+        """
         name = "Single"
 
         @staticmethod
         def get_book_url(_identifiers):
+            """
+            Return book url from deterministic test state.
+
+            Example:
+                Exercise test urls from identifiers falls back when formatter or plugins fail.SingleUrlPlugin.get book url through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+            :param _identifiers: Value supplied for identifiers in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return ("single", "abc", "https://single.example/abc")
 
         @staticmethod
         def get_book_url_name(id_type, id_val, _url):
+            """
+            Return book url name from deterministic test state.
+
+            Example:
+                Exercise test urls from identifiers falls back when formatter or plugins fail.SingleUrlPlugin.get book url name through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+            :param id_type: Value supplied for id type in the focused test operation.
+            :param id_val: Value supplied for id val in the focused test operation.
+            :param _url: Value supplied for url in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return f"{id_type}:{id_val}"
 
     class BrokenPlugin:
+        """
+        Provide the BrokenPlugin test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test urls from identifiers falls back when formatter or plugins fail.BrokenPlugin through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+        """
         @staticmethod
         def get_book_urls(_identifiers):
+            """
+            Return book urls from deterministic test state.
+
+            Example:
+                Exercise test urls from identifiers falls back when formatter or plugins fail.BrokenPlugin.get book urls through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+            :param _identifiers: Value supplied for identifiers in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             raise RuntimeError("provider failed")
 
     monkeypatch.setattr(identify, "_iter_all_metadata_plugins", lambda: [SingleUrlPlugin(), BrokenPlugin()])

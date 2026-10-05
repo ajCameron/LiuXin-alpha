@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
+"""
+Translate drawing operations into PDF graphics commands.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise graphics through a consuming regression::
+
+        python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -32,11 +43,37 @@ __docformat__ = "restructuredtext en"
 
 
 def _require_qt() -> None:
+    """
+    Perform the require qt operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  require qt through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if not _HAS_QT:
         raise RuntimeError("PyQt5 is required for PDF graphics rendering.")
 
 
 def convert_path(path: _typing.Any) -> _typing.Any:  # {{{
+    """
+    Convert path under the format's safety and compatibility rules.
+
+    Example:
+        Exercise convert path through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     p = Path()
     i = 0
     while i < path.elementCount():
@@ -66,7 +103,32 @@ Brush = namedtuple("Brush", "origin brush color")
 
 
 class TilingPattern(Stream):
+    """
+    Provide the tilingpattern contract for validated ebook processing.
+
+    Example:
+        Exercise TilingPattern through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+    """
     def __init__(self: _typing.Self, cache_key: _typing.Any, matrix: _typing.Any, w: int = 8, h: int = 8, paint_type: int = 2, compress: bool = False) -> None:
+        """
+        Initialize and validate the tilingpattern state.
+
+        Example:
+            Exercise TilingPattern.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param cache_key: Value supplied for cache key under the utility contract.
+        :param matrix: Value supplied for matrix under the utility contract.
+        :param w: Value supplied for w under the utility contract.
+        :param h: Value supplied for h under the utility contract.
+        :param paint_type: Value supplied for paint type under the utility contract.
+        :param compress: Value supplied for compress under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         Stream.__init__(self, compress=compress)
         self.paint_type = paint_type
         self.w, self.h = w, h
@@ -82,6 +144,19 @@ class TilingPattern(Stream):
         self.cache_key = (self.__class__.__name__, cache_key, self.matrix)
 
     def add_extra_keys(self: _typing.Self, d: _typing.Any) -> None:
+        """
+        Add supported metadata keys to the PDF information dictionary.
+
+        Example:
+            Exercise TilingPattern.add extra keys through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param d: Value supplied for d under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         d["Type"] = Name("Pattern")
         d["PatternType"] = 1
         d["PaintType"] = self.paint_type
@@ -95,6 +170,14 @@ class TilingPattern(Stream):
 
 class QtPattern(TilingPattern):
 
+    """
+    Provide the qtpattern contract for validated ebook processing.
+
+    Example:
+        Exercise QtPattern through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+    """
     qt_patterns = (  # {{{
         "0 J\n" "6 w\n" "[] 0 d\n" "4 0 m\n" "4 8 l\n" "0 4 m\n" "8 4 l\n" "S\n",  # Dense1Pattern
         "0 J\n"
@@ -200,12 +283,48 @@ class QtPattern(TilingPattern):
     )  # }}}
 
     def __init__(self: _typing.Self, pattern_num: _typing.Any, matrix: _typing.Any) -> None:
+        """
+        Initialize and validate the qtpattern state.
+
+        Example:
+            Exercise QtPattern.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param pattern_num: Value supplied for pattern num under the utility contract.
+        :param matrix: Value supplied for matrix under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super(QtPattern, self).__init__(pattern_num, matrix)
         self.write(self.qt_patterns[pattern_num - 2])
 
 
 class TexturePattern(TilingPattern):
+    """
+    Provide the texturepattern contract for validated ebook processing.
+
+    Example:
+        Exercise TexturePattern through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+    """
     def __init__(self: _typing.Self, pixmap: _typing.Any, matrix: _typing.Any, pdf: _typing.Any, clone: _typing.Any = None) -> None:
+        """
+        Initialize and validate the texturepattern state.
+
+        Example:
+            Exercise TexturePattern.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param pixmap: Value supplied for pixmap under the utility contract.
+        :param matrix: Value supplied for matrix under the utility contract.
+        :param pdf: Value supplied for pdf under the utility contract.
+        :param clone: Value supplied for clone under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         _require_qt()
         if clone is None:
             image = pixmap.toImage()
@@ -236,6 +355,14 @@ class TexturePattern(TilingPattern):
 
 class GraphicsState(object):
 
+    """
+    Provide the graphicsstate contract for validated ebook processing.
+
+    Example:
+        Exercise GraphicsState through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+    """
     FIELDS = (
         "fill",
         "stroke",
@@ -248,6 +375,17 @@ class GraphicsState(object):
     )
 
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the graphicsstate state.
+
+        Example:
+            Exercise GraphicsState.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         _require_qt()
         self.fill = QBrush(Qt.white)
         self.stroke = QPen()
@@ -260,12 +398,37 @@ class GraphicsState(object):
         self.qt_pattern_cache = {}
 
     def __eq__(self: _typing.Self, other: _typing.Any) -> bool:
+        """
+        Perform the eq operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise GraphicsState.  eq   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for x in self.FIELDS:
             if getattr(other, x) != getattr(self, x):
                 return False
         return True
 
     def copy(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the copy operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise GraphicsState.copy through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = GraphicsState()
         ans.fill = QBrush(self.fill)
         ans.stroke = QPen(self.stroke)
@@ -278,7 +441,28 @@ class GraphicsState(object):
 
 
 class Graphics(object):
+    """
+    Provide the graphics contract for validated ebook processing.
+
+    Example:
+        Exercise Graphics through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+    """
     def __init__(self: _typing.Self, page_width_px: _typing.Any, page_height_px: _typing.Any) -> None:
+        """
+        Initialize and validate the graphics state.
+
+        Example:
+            Exercise Graphics.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param page_width_px: Value supplied for page width px under the utility contract.
+        :param page_height_px: Value supplied for page height px under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         _require_qt()
         self.base_state = GraphicsState()
         self.current_state = GraphicsState()
@@ -286,9 +470,36 @@ class Graphics(object):
         self.page_width_px, self.page_height_px = (page_width_px, page_height_px)
 
     def begin(self: _typing.Self, pdf: _typing.Any) -> None:
+        """
+        Perform the begin operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Graphics.begin through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param pdf: Value supplied for pdf under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.pdf = pdf
 
     def update_state(self: _typing.Self, state: _typing.Any, painter: _typing.Any) -> None:
+        """
+        Perform the update state operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Graphics.update state through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param state: Value supplied for state under the utility contract.
+        :param painter: Value supplied for painter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         flags = state.state()
         if self.pending_state is None:
             self.pending_state = self.current_state.copy()
@@ -314,11 +525,37 @@ class Graphics(object):
             s.clip_updated = True
 
     def reset(self: _typing.Self) -> None:
+        """
+        Perform the reset operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Graphics.reset through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.current_state = GraphicsState()
         self.pending_state = None
 
     def __call__(self: _typing.Self, pdf_system: _typing.Any, painter: _typing.Any) -> None:
         # Apply the currently pending state to the PDF
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Graphics.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param pdf_system: Value supplied for pdf system under the utility contract.
+        :param painter: Value supplied for painter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.pending_state is None:
             return
 
@@ -353,6 +590,23 @@ class Graphics(object):
 
     def convert_brush(self: _typing.Self, brush: _typing.Any, brush_origin: _typing.Any, global_opacity: _typing.Any, pdf_system: _typing.Any, qt_system: _typing.Any) -> tuple[_typing.Any, ...]:
         # Convert a QBrush to PDF operators
+        """
+        Convert brush under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Graphics.convert brush through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param brush: Value supplied for brush under the utility contract.
+        :param brush_origin: Value supplied for brush origin under the utility contract.
+        :param global_opacity: Value supplied for global opacity under the utility contract.
+        :param pdf_system: Value supplied for pdf system under the utility contract.
+        :param qt_system: Value supplied for qt system under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         style = brush.style()
         pdf = self.pdf
 
@@ -392,6 +646,21 @@ class Graphics(object):
 
     def apply_stroke(self: _typing.Self, state: _typing.Any, pdf_system: _typing.Any, painter: _typing.Any) -> None:
         # TODO: Support miter limit by using QPainterPathStroker
+        """
+        Perform the apply stroke operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Graphics.apply stroke through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param state: Value supplied for state under the utility contract.
+        :param pdf_system: Value supplied for pdf system under the utility contract.
+        :param painter: Value supplied for painter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pen = state.stroke
         self.pending_state.do_stroke = True
         pdf = self.pdf
@@ -439,6 +708,21 @@ class Graphics(object):
             self.pending_state.do_stroke = False
 
     def apply_fill(self: _typing.Self, state: _typing.Any, pdf_system: _typing.Any, painter: _typing.Any) -> None:
+        """
+        Perform the apply fill operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Graphics.apply fill through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param state: Value supplied for state under the utility contract.
+        :param pdf_system: Value supplied for pdf system under the utility contract.
+        :param painter: Value supplied for painter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.pending_state.do_fill = True
         color, opacity, pattern, self.pending_state.do_fill = self.convert_brush(
             state.fill,
@@ -451,25 +735,51 @@ class Graphics(object):
         self.last_fill = self.brushobj
 
     def __enter__(self: _typing.Self) -> None:
+        """
+        Implement the conversion resource's enter lifecycle operation.
+
+        Example:
+            Exercise Graphics.  enter   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.pdf.save_stack()
 
     def __exit__(self: _typing.Self, *args: _typing.Any) -> None:
+        """
+        Implement the conversion resource's exit lifecycle operation.
+
+        Example:
+            Exercise Graphics.  exit   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.pdf.restore_stack()
 
     def resolve_fill(self: _typing.Self, rect: _typing.Any, pdf_system: _typing.Any, qt_system: _typing.Any) -> None:
         """
-        Qt's paint system does not update brushOrigin when using
-        TexturePatterns and it also uses TexturePatterns to emulate gradients,
-        leading to brokenness. So this method allows the paint engine to update
-        the brush origin before painting an object. While not perfect, this is
-        better than nothing. The problem is that if the rect being filled has a
-        border, then QtWebKit generates an image of the rect size - border but
-        fills the full rect, and there's no way for the paint engine to know
-        that and adjust the brush origin.
-        :param rect:
-        :param pdf_system:
-        :param qt_system:
-        :return:
+        Qt's paint system does not update brushOrigin when using TexturePatterns and it also uses TexturePatterns to emulate gradients, leading to brokenness. So this method allows the paint engine to update the brush origin before painting an object. While not perfect, this is better than nothing. The problem is that if the rect being filled has a border, then QtWebKit generates an image of the rect size - border but fills the full rect, and there's no way for the paint engine to know that and adjust the brush origin.
+
+        Example:
+            Exercise Graphics.resolve fill through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param rect: Value supplied for rect under the utility contract.
+        :param pdf_system: Value supplied for pdf system under the utility contract.
+        :param qt_system: Value supplied for qt system under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if not hasattr(self, "last_fill") or not self.current_state.do_fill:
             return

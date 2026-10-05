@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-API for the builtin plugins included directly in LiuXin's code.
+Expose the supported builtins compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/customize/test_customize_base.py
 """
 
 # Todo: Make sure all MD extractors can cope with a file or path being passed in
@@ -22,6 +30,18 @@ except Exception as e:
     default_log.log_exception("Failed to import device driver plugins", e, "DEBUG")
 
     def get_device_driver_plugins():
+        """
+        Return device driver plugins under the format's safety and compatibility rules.
+
+        Example:
+            Exercise get device driver plugins through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return []
 
 from LiuXin_alpha.customize.builtins.on_import import get_file_type_plugins

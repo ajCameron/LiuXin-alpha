@@ -1,30 +1,13 @@
 """
-Tables are one level of abstraction below fields - they represent links between two database tables.
+Model cached tables, relations and normalized value mappings.
 
-(Is it a bad name for this object - kinda. Yes. But changing it breaks calibre compatibility too badly).
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-Tables represent links between the titles (or books) and various resources (e.g. series, tags for titles and formats
-for books).
-There are various types of table - named after the type of link
-- one_to_one
-- - items like titles or a book's uuid - only one of them can be assigned to a book or a title at any one time
-- one_to_many
-- - items like comments or notes. Many of them can be assigned to a title at any one time, but each of them is not
-    shared between titles
-- - items linked to titles in this way can be unique or not unique.
-- - - e.g. many identifiers can be uniquely assigned to one title (or one book)
-- - - e.g. many comments can be assigned to a given title - but the comments might not be unique (if they where you
-      could never assign the same comment to two books)
-- many_to_one
-- - many books can be assigned to one item. E.g. the physical location of books in a library - many books can be on
-    one shelf, but no book can be on two shelves at the same time
-- many_to_many
-- - Many of these can be linked to many titles. E.g. tags - one book can have many tags and one tag can be associated
-    with many books
-- - Also true for series - one book can be in many series and one series can have many titles
+Example:
+    Exercise base tables through a consuming regression::
 
-As elsewhere, as we're using the same naming as calibre, these classes assume that you'd only ever care about a table
-in the context of it's link to books.
+        python -m pytest -q tests/customize/test_customize_base.py
 """
 
 import re
@@ -67,17 +50,28 @@ T = TypeVar("T")
 class BaseTable(Generic[T]):
     """
     Base class for any table like implementation in any cache.
+
+    Example:
+        Exercise BaseTable through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     def __init__(self, name: str, metadata: MetadataDict, link_table=None, custom: bool = False) -> None:
         """
         Start up the table.
 
-        :param name: The name of the table
-        :param metadata: A metadata object with, at least,
-        :param link_table:
-        :param custom: Is this a custom table?
-        :return:
+        Example:
+            Exercise BaseTable.  init   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param metadata: Value supplied for metadata under the utility contract.
+        :param link_table: Value supplied for link table under the utility contract.
+        :param custom: Value supplied for custom under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         # Todo: This is a HEINOUS hack - need to sort the metadata later
         if name != "publisher":
@@ -119,10 +113,16 @@ class BaseTable(Generic[T]):
         """
         Remove books from the table.
 
-        Should be called when books are removed (this is an element of a cache, and it needs to be updated).
-        :param book_ids:
-        :param db:
-        :return:
+        Example:
+            Exercise BaseTable.remove books through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param db: Value supplied for db under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return set()
 
@@ -130,8 +130,15 @@ class BaseTable(Generic[T]):
         """
         LiuXin compatibility method - called to set the link table for this table.
 
-        :param db:
-        :return:
+        Example:
+            Exercise BaseTable.fix link table through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
@@ -139,10 +146,15 @@ class BaseTable(Generic[T]):
         """
         If this table contains entries that differ only by case, then merge those entries.
 
-        This can happen in databases created with old versions of calibre and non-ascii values, since sqlite's
-        NOCASE only works with ascii text.
-        :param db: The database containing the table
-        :return:
+        Example:
+            Exercise BaseTable.fix case duplicates through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
@@ -150,11 +162,17 @@ class BaseTable(Generic[T]):
         """
         For comparability reasons it is sometimes desirable to have a ManyToOne table appear as a OneToOne table.
 
-        If this is the case then data such as a link table is needed.
-        :param db: The database to read the link types from
-        :param set_priority: Set the priority column for the link table
-        :param set_type: Set the type column for the link table
-        :return:
+        Example:
+            Exercise BaseTable.set link tables through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :param set_priority: Value supplied for set priority under the utility contract.
+        :param set_type: Value supplied for set type under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Characterize the table which is being linked to
         table_name = self.name
@@ -223,14 +241,19 @@ class BaseTable(Generic[T]):
         """
         Method for writing updates out to the database.
 
-        (specifically the links between this table and another - data for which should be contained in metadata).
+        Example:
+            Exercise BaseTable.update db through a consuming regression::
 
-        There is a similar upate_db method in each of the fields - mostly that method should just call this one, however
-        that method is there for if you want to override update behavior at the field level.
-        :param book_id_to_val_map:
-        :param db:
-        :param allow_case_change:
-        :return status: Did the update actually go through?
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id_to_val_map: Value supplied for book id to val map under the utility
+            contract.
+        :param db: Value supplied for db under the utility contract.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.writer.set_books(book_id_to_val_map, db, allow_case_change=allow_case_change)
 
@@ -239,15 +262,27 @@ class BaseTable(Generic[T]):
 class BaseVirtualTable(BaseTable[T]):
     """
     Used for fields that only exist in memory e.g ondevice.
+
+    Example:
+        Exercise BaseVirtualTable through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     def __init__(self, name: str, table_type: TableTypes = ONE_ONE, datatype: DataTypes = "text") -> None:
         """
+        Initialize and validate the basevirtualtable state.
+
+        Example:
+            Exercise BaseVirtualTable.  init   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
 
 
-        :param name:
-        :param table_type:
-        :param datatype:
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param table_type: Value supplied for table type under the utility contract.
+        :param datatype: Value supplied for datatype under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
 
         metadata: MetadataDict = {"datatype": datatype, "table": name}
@@ -260,13 +295,10 @@ class BaseOneToOneTable(BaseTable[T]):
     """
     Serves as a generic base for OneToOneTables in the cache.
 
-    Inherits from base table.
-    If you need to inherit all tables in your cache from a customized base table, that's a valid thing to do - consider
-    multiple inheritance and consulting https://rhettinger.wordpress.com/2011/05/26/super-considered-super/
+    Example:
+        Exercise BaseOneToOneTable through a consuming regression::
 
-    Represents data that is unique per book - assigned to it in a 1-1 mapping - e.g. uuid, timestamp, size e.t.c.
-    This generally involved reading something from the db's "meta" view - where all information about each of the books
-    is aggregated.
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     # Todo: Load the valid main tables in for typing purporses from a json?
@@ -283,11 +315,17 @@ class BaseOneToOneTable(BaseTable[T]):
         """
         Setup for a OneToOne table - a value which is singular for a "book".
 
-        :param name:
-        :param metadata:
-        :param link_table: If applicable, the table linking this table to the titles or books table
-                           Or whatever other table this table is linked to.
-        :param custom:
+        Example:
+            Exercise BaseOneToOneTable.  init   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param metadata: Value supplied for metadata under the utility contract.
+        :param link_table: Value supplied for link table under the utility contract.
+        :param custom: Value supplied for custom under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         BaseTable.__init__(self, name, metadata, link_table, custom=custom)
 
@@ -300,18 +338,30 @@ class BaseOneToOneTable(BaseTable[T]):
 
 class BasePathTable(BaseOneToOneTable[T]):
     """
-    Contains a Location object for every book folder on the database.
-    Each book_id has a tuple of the Locations of the folders associated with it.
+    Contains a Location object for every book folder on the database. Each book_id has a tuple of the Locations of the folders associated with it.
+
+    Example:
+        Exercise BasePathTable through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     def set_path(self, book_id: SrcTableID, path: str, db) -> bool:
         """
         Update the cache with the path - a specialized write which just does this.
 
-        :param book_id: The id of the book to update the path for in the cache.
-        :param path: The path string to write out to the book
-        :param db: Database to update.
-        :return status: Did the cache update go through?
+        Example:
+            Exercise BasePathTable.set path through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -320,22 +370,45 @@ class BasePathTable(BaseOneToOneTable[T]):
         """
         Set the override path for the book in the database.
 
-        :param book_id: The id of the book to updte the path for on the database
-        :param path: The path to write out to the database
-        :param db: The database to update
-        :return status: Did the db write go through?
+        Example:
+            Exercise BasePathTable.set db path through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param db: Value supplied for db under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Todo: This should be a macro itself - no sql outside the drivers
         return db.macros.execute("UPDATE books SET book_paths=? WHERE book_id=?", (path, book_id))
 
 
 class BaseSizeTable(BaseOneToOneTable[T]):
+    """
+    Provide the basesizetable contract for validated ebook processing.
+
+    Example:
+        Exercise BaseSizeTable through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
+    """
     def update_sizes(self, size_map: Mapping[SrcTableID, int]) -> bool:
         """
         Update the cache when changes occur to the overall size of the files stored in the folder store manager.
 
-        :param size_map: Keyed with the id of the book and valued with the new size.
-        :return status: Did the update go through successfully?
+        Example:
+            Exercise BaseSizeTable.update sizes through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param size_map: Value supplied for size map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError("You must implement this class!")
 
@@ -343,8 +416,14 @@ class BaseSizeTable(BaseOneToOneTable[T]):
         """
         Parse the preferences to determine how the size of the book should be calculated
 
-        Internally sets the size_mode
-        :return:
+        Example:
+            Exercise BaseSizeTable. parse size mode through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pref_size_mode = preferences["book_size_display_mode"]
         if pref_size_mode.lower() not in ["sum", "max", "min"]:
@@ -361,17 +440,26 @@ class BaseUUIDTable(BaseOneToOneTable[UUIDStr]):
     """
     Stores the 1-1 correspondence between books and uuids.
 
-    May also store a cache of uuid values which can be used to more quickly look up a book from it's uuid.
+    Example:
+        Exercise BaseUUIDTable through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     def update_uuid_cache(self, book_id_val_map: Mapping[SrcTableID, UUIDStr]) -> bool:
         """
         Updates the uuid cache - used when changes occur to the uuid assigned to a book
 
-        Mostly these changes should be the addition of more books to the database.
-        But you can also manually update this - i.e. to bring it into line with another database.
-        :param book_id_val_map: Keyed with the id for the books to update and valued with their new UUIDs
-        :return:
+        Example:
+            Exercise BaseUUIDTable.update uuid cache through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id_val_map: Value supplied for book id val map under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -379,9 +467,16 @@ class BaseUUIDTable(BaseOneToOneTable[UUIDStr]):
         """
         Remove books from the cache - doesn't clear them from the database.
 
-        :param book_ids: The ids to remove from the table
-        :param db: The database to preform the writes to
-        :return status: Did the books get removed?
+        Example:
+            Exercise BaseUUIDTable.remove books through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -389,8 +484,15 @@ class BaseUUIDTable(BaseOneToOneTable[UUIDStr]):
         """
         Reverse lookup - provides the book which corresponds to that UUID.
 
-        :param uuid: The uuid to search for in the books table.
-        :return:
+        Example:
+            Exercise BaseUUIDTable.lookup by uuid through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param uuid: Value supplied for uuid under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -399,7 +501,10 @@ class BaseCompositeTable(BaseOneToOneTable[T]):
     """
     Composite tables contain data form multiple different tables.
 
-    As such, updates may be somewhat complicated.
+    Example:
+        Exercise BaseCompositeTable through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     def __init__(
@@ -408,10 +513,17 @@ class BaseCompositeTable(BaseOneToOneTable[T]):
         """
         Setup for a Composite table - a table which contains data from multiple different tables.
 
-        :param name:
-        :param metadata:
-        :param link_table: If applicable, the table linking this table to the titles or books table
-        :param custom:
+        Example:
+            Exercise BaseCompositeTable.  init   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param metadata: Value supplied for metadata under the utility contract.
+        :param link_table: Value supplied for link table under the utility contract.
+        :param custom: Value supplied for custom under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         BaseOneToOneTable.__init__(self, name=name, metadata=metadata, link_table=link_table, custom=custom)
 
@@ -425,9 +537,15 @@ class BaseCompositeTable(BaseOneToOneTable[T]):
         """
         Because the values for composite caches tend to be generated on the fly minimal actual reading is needed.
 
-        Sets interval values of this table.
-        :param db:
-        :return:
+        Example:
+            Exercise BaseCompositeTable.read through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
 
         d: MetadataDisplayDict = self.metadata["display"]
@@ -447,18 +565,33 @@ class BaseCompositeTable(BaseOneToOneTable[T]):
 
 class BaseManyToOneTable(BaseTable[T]):
 
+    """
+    Provide the basemanytoonetable contract for validated ebook processing.
+
+    Example:
+        Exercise BaseManyToOneTable through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
+    """
     table_type: TableTypes = MANY_ONE
 
     def __init__(
         self, name: MainTableName, metadata: MetadataDict, link_table: InterLinkTableName = None, custom: bool = False
     ) -> None:
         """
-        Startup a ManyToOneTable - includes the link_table and if the Table is custom (which may effect how the table
-        behaves in some circumstances).
-        :param name: The name of the table
-        :param metadata: The metadata associated with the table - how it should display and other properties
-        :param link_table: THe table linking this table to either the books or titles field
-        :param custom: Is this table a custom table
+        Startup a ManyToOneTable - includes the link_table and if the Table is custom (which may effect how the table behaves in some circumstances).
+
+        Example:
+            Exercise BaseManyToOneTable.  init   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param metadata: Value supplied for metadata under the utility contract.
+        :param link_table: Value supplied for link table under the utility contract.
+        :param custom: Value supplied for custom under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         super(BaseManyToOneTable, self).__init__(name, metadata, link_table, custom=custom)
 
@@ -466,12 +599,15 @@ class BaseManyToOneTable(BaseTable[T]):
         """
         Originally removed any items from the table which where not linked to the book
 
-        this functionality is not provided here, as
-        1) The Metadata might be assigned to things which are not books, and thus be still in use
-        2) Metadata should be properly deleted, with the library delete methods that will be made available
-        3) Just because a resource is currently not in use does not mean it won't be used again.
-        :param db: Database to apply the changes to
-        :return status: Did the changes go through as expected?
+        Example:
+            Exercise BaseManyToOneTable.fix link table through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
@@ -479,10 +615,15 @@ class BaseManyToOneTable(BaseTable[T]):
         """
         Originally intended to merge any items from the table which only differed up to a change of case.
 
-        Will have to be handled a bit more carefully - as most objects in LiuXin are defined with more than just a name.
-        But may of them should not, in principle, just differ by the case of their name.
-        :param db: The database to apply the changes to
-        :return status: Did the changes go through as expected?
+        Example:
+            Exercise BaseManyToOneTable.fix case duplicates through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
@@ -490,9 +631,16 @@ class BaseManyToOneTable(BaseTable[T]):
         """
         Remove items from the table, updating the cache and then the link row
 
-        :param item_ids: Ids of the things which this table is linked to - which will be removed
-        :param db: The database to apply the changes to.
-        :return affected_books: Books that where affected by removing the items
+        Example:
+            Exercise BaseManyToOneTable.remove items through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param item_ids: Value supplied for item ids under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -500,10 +648,17 @@ class BaseManyToOneTable(BaseTable[T]):
         """
         Change the column value for the item_id to the value given by new_name
 
-        :param item_id: The item to update
-        :param new_name: The value to change the column to
-        :param db: The database to preform the change in
-        :return status: Did the operation succeed?
+        Example:
+            Exercise BaseManyToOneTable.rename item through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :param new_name: Value supplied for new name under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -511,6 +666,11 @@ class BaseManyToOneTable(BaseTable[T]):
 class BaseRatingTable(BaseManyToOneTable[T]):
     """
     Base for the rating table - which stores the ratings of a work.
+
+    Example:
+        Exercise BaseRatingTable through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     def __init__(
@@ -519,10 +679,17 @@ class BaseRatingTable(BaseManyToOneTable[T]):
         """
         Start up the ratings table - which stores the rating information for the books.
 
-        :param name:
-        :param metadata:
-        :param link_table:
-        :param custom:
+        Example:
+            Exercise BaseRatingTable.  init   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param metadata: Value supplied for metadata under the utility contract.
+        :param link_table: Value supplied for link table under the utility contract.
+        :param custom: Value supplied for custom under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         super(BaseRatingTable, self).__init__(name, metadata, link_table, custom)
 
@@ -543,10 +710,10 @@ class BaseManyToManyTable(BaseManyToOneTable[T]):
     """
     Represents data that has a many-to-many mapping with books.
 
-    i.e. each book can have more than one value and each value can be mapped to more than one book.
-    i.e. "tags" or "authors"/"creators" linked to "titles".
-    i.e. But also "series"
-    In LiuXin most of the tables are linked together with ManyToMany links
+    Example:
+        Exercise BaseManyToManyTable through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     table_type: TableTypes = MANY_MANY
@@ -557,6 +724,11 @@ class BaseManyToManyTable(BaseManyToOneTable[T]):
 class BaseTypedManyToManyTable(BaseManyToManyTable):
     """
     Represents a MantToMany field with a type - e.g. creators - which have various types which might be of interest.
+
+    Example:
+        Exercise BaseTypedManyToManyTable through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     @property
@@ -564,7 +736,14 @@ class BaseTypedManyToManyTable(BaseManyToManyTable):
         """
         A set of all the types which have been used on the table.
 
-        :return:
+        Example:
+            Exercise BaseTypedManyToManyTable.seen types through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -572,15 +751,27 @@ class BaseTypedManyToManyTable(BaseManyToManyTable):
 class BaseCreatorsTable(BaseTypedManyToManyTable):
     """
     Represents the creators associated with a title - with some additional methods for the creators table.
+
+    Example:
+        Exercise BaseCreatorsTable through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     def set_sort_names(self, aus_map: Mapping[SrcTableID, str], db) -> Mapping[SrcTableID, str]:
         """
         Update the database with the given author_sort map
 
-        :param aus_map: An author_sort map
-        :param db: The database to write the changes out to
-        :return aus_map: A processed author sort map - as it will actually be written into the database.
+        Example:
+            Exercise BaseCreatorsTable.set sort names through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param aus_map: Value supplied for aus map under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -588,11 +779,16 @@ class BaseCreatorsTable(BaseTypedManyToManyTable):
         """
         NOTE: THIS DOES NOT UPDATE THE LINKS BETWEEN CREATOR AND BOOKS, DESPITE THE CONFUSING NAME.
 
-        This uses the link_map (keyed with the creator_id, valued with the value that the creator_link will have) to
-        update the creators table with new links.
-        :param link_map:
-        :param db:
-        :return link_map: With the standard transforms done on the values
+        Example:
+            Exercise BaseCreatorsTable.set links through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param link_map: Value supplied for link map under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -600,9 +796,16 @@ class BaseCreatorsTable(BaseTypedManyToManyTable):
         """
         Remove books from this cache.
 
-        :param book_ids:
-        :param db:
-        :return status: Did the remove go through?
+        Example:
+            Exercise BaseCreatorsTable.remove books through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -610,6 +813,11 @@ class BaseCreatorsTable(BaseTypedManyToManyTable):
 class BaseCoversTable(BaseManyToManyTable[T]):
     """
     Basis for the covers table - contains information as to the covers linked to titles.
+
+    Example:
+        Exercise BaseCoversTable through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     do_clean_on_remove: bool = False
@@ -618,6 +826,11 @@ class BaseCoversTable(BaseManyToManyTable[T]):
 class BaseFormatsTable(BaseManyToManyTable[T]):
     """
     Basis for the formats table = contains information as to the files linked to a book.
+
+    Example:
+        Exercise BaseFormatsTable through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     do_clean_on_remove: bool = False
@@ -626,11 +839,18 @@ class BaseFormatsTable(BaseManyToManyTable[T]):
         """
         Changes the file_name for the given format of the given file.
 
-        :param book_id: id of the book to update the file name for
-        :param fmt: fmt string for the book to trigger update - needs to be a LiuXin priority format e.g. MOBI_1
-        :param fname: The new name of the format
-        :param db: The database to preform the update in
-        :return status: Did the update go through?
+        Example:
+            Exercise BaseFormatsTable.set fname through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param fname: Value supplied for fname under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -640,16 +860,16 @@ class BaseFormatsTable(BaseManyToManyTable[T]):
         """
         Takes a format map - keyed with the book_id and valued with the formats to remove.
 
-        Removes those formats first from the cache and then from the database.
-        The formats are expected to be LiuXin formats - thus things like EPUB_2.
+        Example:
+            Exercise BaseFormatsTable.remove formats through a consuming regression::
 
-        If a SpecificFormat is passed that format, and only that format, will be removed.
-        If a GenericFormat is passed then all formats of that type will be removed.
+                python -m pytest -q tests/customize/test_customize_base.py
 
-        format priorities will be updated to take account of the removal of the old formats.
-        :param formats_map: Keyed with the id of the book and valued with the formats to remove.
-        :param db:
-        :return status: Did the remove go through?
+
+        :param formats_map: Value supplied for formats map under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -657,9 +877,16 @@ class BaseFormatsTable(BaseManyToManyTable[T]):
         """
         Reload information about a book from the db.
 
-        :param db: The database to reload from
-        :param book_id:
-        :return status: Did the reload go through?
+        Example:
+            Exercise BaseFormatsTable.reload book from db through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -667,14 +894,19 @@ class BaseFormatsTable(BaseManyToManyTable[T]):
         """
         Update the metadata for the particular format for this particular book.
 
-        :param book_id: The id of the book to work on
-        :param fmt: The format in the book to work on.
-                    If the given fmt is not a priority fmt, then it'll be assumed that the fmt to update is the highest
-                    priority file of that fmt associated with the book
-        :param fname: The updated name for the format
-        :param size: The updated size for the format
-        :param db: The database to apply the changes to
-        :return fmt_new_size: The new size of the format after the changes have taken effect
+        Example:
+            Exercise BaseFormatsTable.update fmt through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param fname: Value supplied for fname under the utility contract.
+        :param size: Value supplied for size under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -682,9 +914,16 @@ class BaseFormatsTable(BaseManyToManyTable[T]):
         """
         Return the highest priority fmt for the title - needed when adding a fmt to the end of the priority stack.
 
-        :param book_id: Book id to get the highest priority format for
-        :param fmt:
-        :return:
+        Example:
+            Exercise BaseFormatsTable.get last priority fmt through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -692,8 +931,16 @@ class BaseFormatsTable(BaseManyToManyTable[T]):
         """
         Return all the priority fmts corresponding to a given GenericFormat.
 
-        E.g. a call of "EPUB" would yield "EPUB_1", "EPUB_2" e.t.c.
-        :return:
+        Example:
+            Exercise BaseFormatsTable.get all priority fmts through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -702,10 +949,15 @@ class BaseFormatsTable(BaseManyToManyTable[T]):
         """
         Checks that the given fmt is a priority fmt (fmt of the form, e.g. EPUB_1)
 
-        Does not check the cache or database.
-        Just checks that the string has the right format.
-        :param fmt:
-        :return status: Does the string have the right format or not?
+        Example:
+            Exercise BaseFormatsTable.check fmt is priority fmt through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param fmt: Date, number or template format specification.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         num_regex = re.match(r"([A-Z0-9_]+)_[0-9]+$", fmt)
         if num_regex:
@@ -718,9 +970,15 @@ class BaseFormatsTable(BaseManyToManyTable[T]):
         """
         Bring a fmt into standard form.
 
-        No checking of the cache or database is preformed.
-        :param fmt:
-        :return:
+        Example:
+            Exercise BaseFormatsTable.stand fmt through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param fmt: Date, number or template format specification.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         fmt = fmt.upper()
         if fmt.startswith("."):
@@ -732,9 +990,15 @@ class BaseFormatsTable(BaseManyToManyTable[T]):
         """
         Prepare the format for inclusion in the book_fmts_map.
 
-        If it has a priority number, strip it. If it has a leading dot remove it. If it starts with the word ORIGINAL
-        then remove it - should be left with just the base format without anything else on it.
-        :return:
+        Example:
+            Exercise BaseFormatsTable.prep base fmt through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param fmt: Date, number or template format specification.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Upper case and strip any preceding .
         fmt = fmt.upper()
@@ -761,6 +1025,11 @@ class BaseFormatsTable(BaseManyToManyTable[T]):
 class BaseIdentifiersTable(BaseManyToManyTable[T]):
     """
     Basis for the identifiers table - which sis an unordered typed table.
+
+    Example:
+        Exercise BaseIdentifiersTable through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     pass
@@ -778,6 +1047,11 @@ class BaseIdentifiersTable(BaseManyToManyTable[T]):
 class BaseLinkAttributeTable(Generic[T]):
     """
     Represents a property (attribute) of a link between two assets
+
+    Example:
+        Exercise BaseLinkAttributeTable through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     def __init__(
@@ -791,11 +1065,20 @@ class BaseLinkAttributeTable(Generic[T]):
         """
         Startup. Stores the name of the property this class represents as well as the underlying table.
 
-        :param name: Name of the property
-        :param link_table_name: The property is defined in the following link table
-        :param link_table: Table class representing the underlying link table
-        :param main_table: The name of the main table
-        :param auxiliary_table: The name of the auxiliary table
+        Example:
+            Exercise BaseLinkAttributeTable.  init   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param link_table_name: Value supplied for link table name under the utility
+            contract.
+        :param link_table: Value supplied for link table under the utility contract.
+        :param main_table: Value supplied for main table under the utility contract.
+        :param auxiliary_table: Value supplied for auxiliary table under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.name = name
         self.link_table_name = link_table_name
@@ -819,9 +1102,15 @@ class BaseLinkAttributeTable(Generic[T]):
         """
         Preforms a read of information from the database into this table.
 
-        After this method has been called, the table should be populated with data.
-        :param db:
-        :return:
+        Example:
+            Exercise BaseLinkAttributeTable.read through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError("Need to either actually do the ")
 
@@ -829,9 +1118,15 @@ class BaseLinkAttributeTable(Generic[T]):
         """
         Set the characteristics of the link table.
 
-        Needs the main and auxiliary tables to be set.
-        :param db: The database to set the properties from.
-        :return:
+        Example:
+            Exercise BaseLinkAttributeTable.set link properties through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Link table name
         self.link_table_name = db.driver_wrapper.get_link_table_name(self.main_table, self.auxiliary_table)
@@ -862,9 +1157,15 @@ class BaseLinkAttributeTable(Generic[T]):
         """
         Used when reading properties off the database - affects how the data is locally stored for purposes of sorting.
 
-        Unless overridden will just return the identity.
-        :param link_attr:
-        :return:
+        Example:
+            Exercise BaseLinkAttributeTable. property adapter through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param link_attr: Value supplied for link attr under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return link_attr
 
@@ -872,9 +1173,16 @@ class BaseLinkAttributeTable(Generic[T]):
         """
         Return the property for a given title_id and object_id.
 
-        :param main_id:
-        :param auxiliary_id:
-        :return:
+        Example:
+            Exercise BaseLinkAttributeTable.get property through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param main_id: Value supplied for main id under the utility contract.
+        :param auxiliary_id: Value supplied for auxiliary id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError("Need to specify to a cache type")
 
@@ -882,10 +1190,15 @@ class BaseLinkAttributeTable(Generic[T]):
         """
         Return a set of right ids sorted in some way.
 
-        The exact form this takes can depend on the nature of the property. By default it's just a sort by the value of
-        the property.
-        :param main_id:
-        :return:
+        Example:
+            Exercise BaseLinkAttributeTable.get sorted auxiliary vals through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param main_id: Value supplied for main id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError("Need to specify to a cache type")
 
@@ -893,10 +1206,15 @@ class BaseLinkAttributeTable(Generic[T]):
         """
         Return a set of left ids sorted in some way.
 
-        The exact form this takes can depend on the nature of the property.
-        By default it's just a sort by the value of the property.
-        :param auxiliary_id:
-        :return:
+        Example:
+            Exercise BaseLinkAttributeTable.get sorted main values through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param auxiliary_id: Value supplied for auxiliary id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError("Need to specify to a cache type")
 

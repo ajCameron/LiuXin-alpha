@@ -1,4 +1,14 @@
-"""HTML renderers for Calibre-shaped metadata objects."""
+"""
+Render metadata using retained Calibre-compatible conventions.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise calibre metadata through a consuming regression::
+
+        python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+"""
 
 from __future__ import annotations
 
@@ -37,10 +47,16 @@ def field_sort(metadata: object, name: str):
     """
     Return a stable display ordering key for a metadata field.
 
+    Example:
+        Exercise field sort through a consuming regression::
 
-    :param metadata:
-    :param name:
-    :return:
+            python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+    :param metadata: Value supplied for metadata under the utility contract.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     try:
         title = metadata.metadata_for_field(name)["name"]  # type: ignore[attr-defined]
@@ -56,9 +72,14 @@ def displayable_field_keys(metadata: object):
     """
     Return Calibre metadata keys suitable for human-facing rendering.
 
+    Example:
+        Exercise displayable field keys through a consuming regression::
 
-    :param metadata:
-    :return:
+            python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+    :param metadata: Value supplied for metadata under the utility contract.
+    :return: An iterator yielding the normalized values described above.
     """
     for key in metadata.all_field_keys():  # type: ignore[attr-defined]
         try:
@@ -79,9 +100,14 @@ def get_field_list(metadata: object):
     """
     Build the displayable field list for a metadata object.
 
+    Example:
+        Exercise get field list through a consuming regression::
 
-    :param metadata:
-    :return:
+            python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+    :param metadata: Value supplied for metadata under the utility contract.
+    :return: An iterator yielding the normalized values described above.
     """
     for field in sorted(
         displayable_field_keys(metadata),
@@ -94,10 +120,16 @@ def search_href(search_term: str, value: str) -> str:
     """
     Build a catalogue-search link for a rendered metadata value.
 
+    Example:
+        Exercise search href through a consuming regression::
 
-    :param search_term:
-    :param value:
-    :return:
+            python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+    :param search_term: Value supplied for search term under the utility contract.
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     search = '%s:"=%s"' % (search_term, value.replace('"', '\\"'))
     return prepare_string_for_xml(
@@ -113,7 +145,25 @@ def mi_to_html(
     use_roman_numbers=True,
     rating_font="Liberation Serif",
 ):
-    """Render a Calibre-style metadata object as a detailed HTML field table."""
+    """
+    Render a Calibre-style metadata object as a detailed HTML field table.
+
+    Example:
+        Exercise mi to html through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+    :param metadata: Value supplied for metadata under the utility contract.
+    :param field_list: Value supplied for field list under the utility contract.
+    :param default_author_link: Value supplied for default author link under the utility
+        contract.
+    :param use_roman_numbers: Value supplied for use roman numbers under the utility
+        contract.
+    :param rating_font: Value supplied for rating font under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     if field_list is None:
         field_list = get_field_list(metadata)
@@ -347,6 +397,19 @@ def mi_to_html(
         rows.append(("device_collections", row % (_("Collections") + ":", device_collections)))
 
     def classname(field):
+        """
+        Perform the classname operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise mi to html.classname through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             datatype = metadata.metadata_for_field(field)["datatype"]  # type: ignore[attr-defined]
         except Exception:
@@ -361,7 +424,19 @@ def mi_to_html(
 
 
 def calibre_metadata_to_html(metadata: object) -> str:
-    """Render a Calibre-compatible metadata object as a simple HTML table."""
+    """
+    Render a Calibre-compatible metadata object as a simple HTML table.
+
+    Example:
+        Exercise calibre metadata to html through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+    :param metadata: Value supplied for metadata under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     from LiuXin_alpha.metadata.ebook_metadata_tools import authors_to_string
     from LiuXin_alpha.utils.date import isoformat

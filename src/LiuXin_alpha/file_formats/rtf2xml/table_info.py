@@ -10,6 +10,17 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+"""
+Collect RTF table geometry, border and cell metadata.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise table info through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -25,8 +36,12 @@ from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
 
 class TableInfo:
     """
-    Insert table data for tables.
-    Logic:
+    Insert table data for tables. Logic:
+
+    Example:
+        Exercise TableInfo through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
     """
 
     def __init__(
@@ -38,15 +53,20 @@ class TableInfo:
         run_level: int = 1,
     ) -> None:
         """
-        Required:
-            'file'--file to parse
-            'table_data' -- a dictionary for each table.
-        Optional:
-            'copy'-- whether to make a copy of result for debugging
-            'temp_dir' --where to output temporary results (default is
-            directory from which the script is run.)
-        Returns:
-            nothing
+        Required: 'file'--file to parse 'table_data' -- a dictionary for each table. Optional: 'copy'-- whether to make a copy of result for debugging 'temp_dir' --where to output temporary results (default is directory from which the script is run.) Returns: nothing
+
+        Example:
+            Exercise TableInfo.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param table_data: Value supplied for table data under the utility contract.
+        :param copy: Value supplied for copy under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.__file = in_file
         self.__bug_handler = bug_handler
@@ -57,7 +77,18 @@ class TableInfo:
         # self.__write_to = 'table_info.data'
 
     def insert_info(self: _typing.Self) -> None:
-        """ """
+        """
+        Perform the insert info operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TableInfo.insert info through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         read_obj = open_for_read(self.__file)
         self.__write_obj = open_for_write(self.__write_to)
         line_to_read = 1

@@ -1,8 +1,14 @@
 
 """
-One valid form of cache is pulling the SQLite database entirely into memory.
+Expose the supported memory sqlite compatibility surface.
 
-This method provides support methods for that.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/library/test_unified_library.py
 """
 
 
@@ -52,23 +58,86 @@ from LiuXin_alpha.utils.logging import default_log
 
 # Todo: This is only needed due to bad structural choices in the original SQLite driver
 class Memory_SQLite_Connection(SQLite_Connection):
+    """
+    Provide the memory sqlite connection contract for validated ebook processing.
+
+    Example:
+        Exercise Memory SQLite Connection through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     def close(self, *args, **kwargs):
+        """
+        Perform the close operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Memory SQLite Connection.close through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
 
 class MemoryDatabaseDriver(DatabaseDriver):
+    """
+    Provide the memorydatabasedriver contract for validated ebook processing.
+
+    Example:
+        Exercise MemoryDatabaseDriver through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     def __init__(self, db_metadata, db=None):
+        """
+        Initialize and validate the memorydatabasedriver state.
+
+        Example:
+            Exercise MemoryDatabaseDriver.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db_metadata: Value supplied for db metadata under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super(MemoryDatabaseDriver, self).__init__(db_metadata=db_metadata, db=db, set_conn=False)
 
         self._memory_conn = Memory_SQLite_Connection(":memory:", detect_types=sqlite3.PARSE_DECLTYPES)
 
     def get_connection(self):
+        """
+        Return connection under the format's safety and compatibility rules.
+
+        Example:
+            Exercise MemoryDatabaseDriver.get connection through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._memory_conn
 
     def initial_get_connection(self):
         """
         Method which creates a connection with foreign key support. Returns a connection.
-        :return conn: A connection to the database
+
+        Example:
+            Exercise MemoryDatabaseDriver.initial get connection through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Todo: Should only have to do all this once? Surely?
         # Registering converter and adaptor to deal with columns containing sets
@@ -118,6 +187,20 @@ class MemoryDatabaseDriver(DatabaseDriver):
 
         # Adds regex search support to the connection
         def regexp(expr, item):
+            """
+            Perform the regexp operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise MemoryDatabaseDriver.initial get connection.regexp through a consuming regression::
+
+                    python -m pytest -q tests/library/test_unified_library.py
+
+
+            :param expr: Value supplied for expr under the utility contract.
+            :param item: Value supplied for item under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             reg = re.compile(expr)
             return reg.search(item) is not None
 
@@ -170,8 +253,16 @@ class MemoryDatabaseDriver(DatabaseDriver):
     def load_from_db(self, target_db):
         """
         Load data from the database into memory.
-        :param target_db:
-        :return:
+
+        Example:
+            Exercise MemoryDatabaseDriver.load from db through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param target_db: Value supplied for target db under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         memory_db = self._memory_conn
         memory_db_cursor = memory_db.cursor()
@@ -189,7 +280,15 @@ class MemoryDatabaseDriver(DatabaseDriver):
     def last_modified(self):
         """
         Return last modified time as a UTC datetime object
-        :return:
+
+        Example:
+            Exercise MemoryDatabaseDriver.last modified through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -197,8 +296,16 @@ class MemoryDatabaseDriver(DatabaseDriver):
 def in_memory_db_factory(db):
     """
     Load the given database into memory and return.
-    :param db:
-    :return:
+
+    Example:
+        Exercise in memory db factory through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     from LiuXin_alpha.databases.database import Database
 

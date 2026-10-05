@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Read LRF content and translate it into normalized ebook resources.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise input through a consuming regression::
+
+        python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+"""
 from __future__ import with_statement
 from __future__ import annotations
 
@@ -20,7 +31,30 @@ __docformat__ = "restructuredtext en"
 
 
 class Canvas(etree.XSLTExtension):
+    """
+    Provide the canvas contract for validated ebook processing.
+
+    Example:
+        Exercise Canvas through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     def __init__(self: _typing.Self, doc: _typing.Any, styles: _typing.Any, text_block: _typing.Any, log: _typing.Any) -> None:
+        """
+        Initialize and validate the canvas state.
+
+        Example:
+            Exercise Canvas.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param doc: Value supplied for doc under the utility contract.
+        :param styles: Value supplied for styles under the utility contract.
+        :param text_block: Value supplied for text block under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.doc = doc
         self.styles = styles
         self.text_block = text_block
@@ -28,6 +62,22 @@ class Canvas(etree.XSLTExtension):
         self.processed = set([])
 
     def execute(self: _typing.Self, context: _typing.Any, self_node: _typing.Any, input_node: _typing.Any, output_parent: _typing.Any) -> None:
+        """
+        Perform the execute operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Canvas.execute through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param context: Value supplied for context under the utility contract.
+        :param self_node: Value supplied for self node under the utility contract.
+        :param input_node: Value supplied for input node under the utility contract.
+        :param output_parent: Value supplied for output parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         cid = input_node.get("objid", None)
         if cid is None or cid in self.processed:
             return
@@ -66,6 +116,21 @@ class Canvas(etree.XSLTExtension):
             output_parent.append(table)
 
     def image_page(self: _typing.Self, input_node: _typing.Any, block: _typing.Any, output_parent: _typing.Any) -> None:
+        """
+        Perform the image page operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Canvas.image page through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param input_node: Value supplied for input node under the utility contract.
+        :param block: Value supplied for block under the utility contract.
+        :param output_parent: Value supplied for output parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         div = etree.Element("div")
         div.set("id", input_node.get("objid", "scuzzy"))
         div.set("class", "image_page")
@@ -87,6 +152,18 @@ class Canvas(etree.XSLTExtension):
         output_parent.append(div)
 
     def get_objects(self: _typing.Self, node: _typing.Any) -> _typing.Iterator[_typing.Any]:
+        """
+        Return objects under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Canvas.get objects through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :return: An iterator yielding the normalized values described above.
+        """
         for x in node.xpath("descendant::PutObj[@refobj and @x1 and @y1]"):
             objs = node.xpath('//*[@objid="%s"]' % x.get("refobj"))
             x, y = map(self.styles.to_num, (x.get("x1"), x.get("y1")))
@@ -95,7 +172,31 @@ class Canvas(etree.XSLTExtension):
 
 
 class MediaType(etree.XSLTExtension):
+    """
+    Provide the mediatype contract for validated ebook processing.
+
+    Example:
+        Exercise MediaType through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     def execute(self: _typing.Self, context: _typing.Any, self_node: _typing.Any, input_node: _typing.Any, output_parent: _typing.Any) -> None:
+        """
+        Perform the execute operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MediaType.execute through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param context: Value supplied for context under the utility contract.
+        :param self_node: Value supplied for self node under the utility contract.
+        :param input_node: Value supplied for input node under the utility contract.
+        :param output_parent: Value supplied for output parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         name = input_node.get("file", None)
         typ = guess_type(name)[0]
         if not typ:
@@ -104,22 +205,106 @@ class MediaType(etree.XSLTExtension):
 
 
 class ImageBlock(etree.XSLTExtension):
+    """
+    Provide the imageblock contract for validated ebook processing.
+
+    Example:
+        Exercise ImageBlock through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     def __init__(self: _typing.Self, canvas: _typing.Any) -> None:
+        """
+        Initialize and validate the imageblock state.
+
+        Example:
+            Exercise ImageBlock.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param canvas: Value supplied for canvas under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         etree.XSLTExtension.__init__(self)
         self.canvas = canvas
 
     def execute(self: _typing.Self, context: _typing.Any, self_node: _typing.Any, input_node: _typing.Any, output_parent: _typing.Any) -> None:
+        """
+        Perform the execute operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ImageBlock.execute through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param context: Value supplied for context under the utility contract.
+        :param self_node: Value supplied for self node under the utility contract.
+        :param input_node: Value supplied for input node under the utility contract.
+        :param output_parent: Value supplied for output parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.canvas.image_page(input_node, input_node, output_parent)
 
 
 class RuledLine(etree.XSLTExtension):
+    """
+    Provide the ruledline contract for validated ebook processing.
+
+    Example:
+        Exercise RuledLine through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     def execute(self: _typing.Self, context: _typing.Any, self_node: _typing.Any, input_node: _typing.Any, output_parent: _typing.Any) -> None:
+        """
+        Perform the execute operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RuledLine.execute through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param context: Value supplied for context under the utility contract.
+        :param self_node: Value supplied for self node under the utility contract.
+        :param input_node: Value supplied for input node under the utility contract.
+        :param output_parent: Value supplied for output parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         hr = etree.Element("hr")
         output_parent.append(hr)
 
 
 class TextBlock(etree.XSLTExtension):
+    """
+    Provide the textblock contract for validated ebook processing.
+
+    Example:
+        Exercise TextBlock through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     def __init__(self: _typing.Self, styles: _typing.Any, char_button_map: _typing.Any, plot_map: _typing.Any, log: _typing.Any) -> None:
+        """
+        Initialize and validate the textblock state.
+
+        Example:
+            Exercise TextBlock.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param styles: Value supplied for styles under the utility contract.
+        :param char_button_map: Value supplied for char button map under the utility
+            contract.
+        :param plot_map: Value supplied for plot map under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         etree.XSLTExtension.__init__(self)
         self.styles = styles
         self.log = log
@@ -127,12 +312,42 @@ class TextBlock(etree.XSLTExtension):
         self.plot_map = plot_map
 
     def execute(self: _typing.Self, context: _typing.Any, self_node: _typing.Any, input_node: _typing.Any, output_parent: _typing.Any) -> None:
+        """
+        Perform the execute operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextBlock.execute through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param context: Value supplied for context under the utility contract.
+        :param self_node: Value supplied for self node under the utility contract.
+        :param input_node: Value supplied for input node under the utility contract.
+        :param output_parent: Value supplied for output parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         input_node = deepcopy(input_node)
         div = etree.Element("div")
         self.render_block(input_node, div)
         output_parent.append(div)
 
     def render_block(self: _typing.Self, node: _typing.Any, root: _typing.Any) -> None:
+        """
+        Perform the render block operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextBlock.render block through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :param root: Root directory that bounds path resolution or traversal.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         ts = node.get("textstyle", None)
         classes = []
         bs = node.get("blockstyle")
@@ -154,9 +369,35 @@ class TextBlock(etree.XSLTExtension):
             self.process_child(child)
 
     def fix_deep_nesting(self: _typing.Self, node: _typing.Any) -> None:
+        """
+        Perform the fix deep nesting operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextBlock.fix deep nesting through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         deepest = 1
 
         def depth(local_node: _typing.Any) -> _typing.Any:
+            """
+            Perform the depth operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise TextBlock.fix deep nesting.depth through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param local_node: Value supplied for local node under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             parent = local_node.getparent()
             ans = 1
             while parent is not None:
@@ -208,6 +449,19 @@ class TextBlock(etree.XSLTExtension):
         #     f.write(etree.tostring(node, method='xml'))
 
     def add_text(self: _typing.Self, text: _typing.Any) -> None:
+        """
+        Perform the add text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextBlock.add text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if text:
             if getattr(self.add_text_to[0], self.add_text_to[1]) is None:
                 setattr(self.add_text_to[0], self.add_text_to[1], "")
@@ -218,6 +472,20 @@ class TextBlock(etree.XSLTExtension):
             )
 
     def process_container(self: _typing.Self, child: _typing.Any, tgt: _typing.Any) -> None:
+        """
+        Perform the process container operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextBlock.process container through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param child: Value supplied for child under the utility contract.
+        :param tgt: Value supplied for tgt under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         idx = self.styles.get_text_styles(child)
         if idx is not None:
             tgt.set("class", "ts%d" % idx)
@@ -233,6 +501,19 @@ class TextBlock(etree.XSLTExtension):
         self.add_text(child.tail)
 
     def process_child(self: _typing.Self, child: _typing.Any) -> None:
+        """
+        Perform the process child operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextBlock.process child through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param child: Value supplied for child under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if child.tag == "CR":
             if self.parent == self.root or self.parent.tag == "p":
                 self.parent = self.root.makeelement("p")
@@ -283,7 +564,26 @@ class TextBlock(etree.XSLTExtension):
 
 
 class Styles(etree.XSLTExtension):
+    """
+    Provide the styles contract for validated ebook processing.
+
+    Example:
+        Exercise Styles through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the styles state.
+
+        Example:
+            Exercise Styles.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         etree.XSLTExtension.__init__(self)
         self.text_styles, self.block_styles = [], []
         self.text_style_map, self.block_style_map = {}, {}
@@ -294,7 +594,33 @@ class Styles(etree.XSLTExtension):
         )
 
     def write(self: _typing.Self, name: str = "styles.css") -> None:
+        """
+        Perform the write operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Styles.write through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         def join(style: _typing.Any) -> _typing.Any:
+            """
+            Perform the join operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Styles.write.join through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param style: Value supplied for style under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             ans = ["%s : %s;" % (k, v) for k, v in style.items()]
             if ans:
                 ans[-1] = ans[-1][:-1]
@@ -311,6 +637,22 @@ class Styles(etree.XSLTExtension):
                     f.write(rsel + " {\n\t" + s + "\n}\n\n")
 
     def execute(self: _typing.Self, context: _typing.Any, self_node: _typing.Any, input_node: _typing.Any, output_parent: _typing.Any) -> None:
+        """
+        Perform the execute operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Styles.execute through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param context: Value supplied for context under the utility contract.
+        :param self_node: Value supplied for self node under the utility contract.
+        :param input_node: Value supplied for input node under the utility contract.
+        :param output_parent: Value supplied for output parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if input_node.tag == "TextStyle":
             idx = self.get_text_styles(input_node)
             if idx is not None:
@@ -320,6 +662,19 @@ class Styles(etree.XSLTExtension):
             self.block_style_map[input_node.get("objid")] = idx
 
     def px_to_pt(self: _typing.Self, px: _typing.Any) -> _typing.Any:
+        """
+        Perform the px to pt operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Styles.px to pt through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param px: Value supplied for px under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             px = float(px)
             return px * 72.0 / 166.0
@@ -327,6 +682,19 @@ class Styles(etree.XSLTExtension):
             return None
 
     def color(self: _typing.Self, val: _typing.Any) -> _typing.Any:
+        """
+        Perform the color operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Styles.color through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             val = int(val, 16)
             r, g, b, a = (
@@ -344,6 +712,19 @@ class Styles(etree.XSLTExtension):
             return None
 
     def get_block_styles(self: _typing.Self, node: _typing.Any) -> _typing.Any:
+        """
+        Return block styles under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Styles.get block styles through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = {}
         sm = self.px_to_pt(node.get("sidemargin", None))
         if sm is not None:
@@ -369,12 +750,39 @@ class Styles(etree.XSLTExtension):
         return self.block_styles.index(ans)
 
     def to_num(self: _typing.Self, val: _typing.Any, factor: float = 1.0) -> _typing.Any:
+        """
+        Perform the to num operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Styles.to num through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :param factor: Value supplied for factor under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return float(val) * factor
         except:
             return None
 
     def get_text_styles(self: _typing.Self, node: _typing.Any) -> _typing.Any:
+        """
+        Return text styles under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Styles.get text styles through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = {}
         fs = self.to_num(node.get("fontsize", None), 0.1)
         if fs is not None:

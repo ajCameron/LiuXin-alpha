@@ -1,3 +1,14 @@
+"""
+Verify Topaz metadata and cover extraction.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test topaz metadata source through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+"""
 from __future__ import annotations
 
 import io
@@ -10,6 +21,18 @@ from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
 
 def _values(raw):
+    """
+    Perform the values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise values through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, Mapping):
@@ -23,11 +46,35 @@ def _values(raw):
 
 
 def _first(raw):
+    """
+    Perform the first test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise first through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     vals = _values(raw)
     return vals[0] if vals else None
 
 
 def _snapshot(md) -> dict:
+    """
+    Perform the snapshot test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise snapshot through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+    :param md: Value supplied for md in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return {
         "title": _first(getattr(md, "title", None)),
         "authors": sorted(_values(getattr(md, "authors", None))),
@@ -35,6 +82,18 @@ def _snapshot(md) -> dict:
 
 
 def _encode_vwi(value: int) -> bytes:
+    """
+    Perform the encode vwi test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise encode vwi through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+    :param value: Value stored, compared or projected by the operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if value < 0:
         raise ValueError("negative values are not supported")
     parts = [value & 0x7F]
@@ -52,6 +111,21 @@ def _build_topaz_bytes(
     extra_fields: dict[str, bytes] | None = None,
     trailing: bytes = b"",
 ) -> bytes:
+    """
+    Perform the build topaz bytes test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise build topaz bytes through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+    :param title: Value supplied for title in the focused test operation.
+    :param authors: Value supplied for authors in the focused test operation.
+    :param extra_fields: Value supplied for extra fields in the focused test operation.
+    :param trailing: Value supplied for trailing in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     fields = [
         ("Title", title.encode("utf-8", "replace")),
         ("Authors", authors.encode("utf-8", "replace")),
@@ -91,12 +165,34 @@ def _build_topaz_bytes(
 
 
 def test_topaz_metadata_module_import_smoke() -> None:
+    """
+    Verify topaz metadata module import smoke.
+
+    Example:
+        Exercise test topaz metadata module import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.topaz as topaz_md
 
     assert topaz_md is not None
 
 
 def test_topaz_reader_plugin_is_available_and_preserves_stream_position() -> None:
+    """
+    Verify topaz reader plugin remains available and preserves stream position.
+
+    Example:
+        Exercise test topaz reader plugin is available and preserves stream position through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
 
     stream = io.BytesIO(_build_topaz_bytes(title="Plugin Title", authors="Alice; Bob"))
@@ -115,6 +211,17 @@ def test_topaz_reader_plugin_is_available_and_preserves_stream_position() -> Non
 
 
 def test_topaz_get_metadata_parses_unicode_and_multiauthor() -> None:
+    """
+    Verify topaz get metadata parses unicode and multiauthor.
+
+    Example:
+        Exercise test topaz get metadata parses unicode and multiauthor through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.topaz import get_metadata
 
     payload = _build_topaz_bytes(title="Καλημέρα こんにちは 😀", authors="Renée; 李白; Alice & Bob")
@@ -125,6 +232,18 @@ def test_topaz_get_metadata_parses_unicode_and_multiauthor() -> None:
 
 
 def test_topaz_get_metadata_pathlike_input(tmp_path: Path) -> None:
+    """
+    Verify topaz get metadata pathlike input.
+
+    Example:
+        Exercise test topaz get metadata pathlike input through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.topaz import get_metadata
 
     path = tmp_path / "sample.tpz"
@@ -136,6 +255,17 @@ def test_topaz_get_metadata_pathlike_input(tmp_path: Path) -> None:
 
 
 def test_topaz_set_metadata_roundtrip_unicode() -> None:
+    """
+    Verify topaz set metadata roundtrip unicode.
+
+    Example:
+        Exercise test topaz set metadata roundtrip unicode through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.topaz import get_metadata, set_metadata
 
     stream = io.BytesIO(_build_topaz_bytes(title="Before", authors="Old One; Old Two", trailing=b"TAIL"))
@@ -153,6 +283,17 @@ def test_topaz_set_metadata_roundtrip_unicode() -> None:
 
 
 def test_topaz_set_metadata_sanitizes_hostile_text_and_preserves_payload() -> None:
+    """
+    Verify topaz set metadata sanitizes hostile text and preserves payload.
+
+    Example:
+        Exercise test topaz set metadata sanitizes hostile text and preserves payload through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.topaz import get_metadata, set_metadata
 
     stream = io.BytesIO(
@@ -184,6 +325,17 @@ def test_topaz_set_metadata_sanitizes_hostile_text_and_preserves_payload() -> No
 
 
 def test_topaz_set_metadata_invalid_payload_raises_clean_error() -> None:
+    """
+    Verify topaz set metadata invalid payload raises clean error.
+
+    Example:
+        Exercise test topaz set metadata invalid payload raises clean error through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.topaz import set_metadata
 
     stream = io.BytesIO(b"not-a-topaz-file")
@@ -194,6 +346,17 @@ def test_topaz_set_metadata_invalid_payload_raises_clean_error() -> None:
 
 
 def test_topaz_invalid_payload_raises_by_default_and_can_opt_into_fallback() -> None:
+    """
+    Verify topaz invalid payload raises by default and can opt into fallback.
+
+    Example:
+        Exercise test topaz invalid payload raises by default and can opt into fallback through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.topaz import TopazFormatError, get_metadata
 
     with pytest.raises(TopazFormatError):
@@ -205,6 +368,17 @@ def test_topaz_invalid_payload_raises_by_default_and_can_opt_into_fallback() -> 
 
 
 def test_topaz_metadata_deterministic_for_same_payload() -> None:
+    """
+    Verify topaz metadata deterministic for same payload.
+
+    Example:
+        Exercise test topaz metadata deterministic for same payload through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.topaz import get_metadata
 
     payload = _build_topaz_bytes(

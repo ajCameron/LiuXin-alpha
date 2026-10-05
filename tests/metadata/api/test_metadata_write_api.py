@@ -1,3 +1,14 @@
+"""
+Verify metadata writer construction and public mutation contract.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test metadata write api through its owning regression module::
+
+        python -m pytest -q tests/metadata/api/test_metadata_write_api.py
+"""
 from __future__ import annotations
 
 from LiuXin_alpha.metadata.api import (
@@ -9,11 +20,33 @@ from LiuXin_alpha.metadata.containers import LiuXinWEMIMetadataWriteReport
 
 
 def test_metadata_write_report_contract_is_exported_from_api_root() -> None:
+    """
+    Verify metadata write report contract remains exported from api root.
+
+    Example:
+        Exercise test metadata write report contract is exported from api root through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_metadata_write_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     assert "MetadataWriteReportAPI" in metadata_api_all
     assert "MetadataWriteReportMapping" in metadata_api_all
 
 
 def test_concrete_wemi_write_report_satisfies_public_protocol() -> None:
+    """
+    Verify concrete wemi write report satisfies public protocol.
+
+    Example:
+        Exercise test concrete wemi write report satisfies public protocol through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_metadata_write_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     report: MetadataWriteReportAPI = LiuXinWEMIMetadataWriteReport(
         item_id=7,
         target_level="work",

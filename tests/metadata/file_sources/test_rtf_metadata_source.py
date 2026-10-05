@@ -1,3 +1,14 @@
+"""
+Verify RTF metadata and encoding cleanup.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test rtf metadata source through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+"""
 from __future__ import annotations
 
 import io
@@ -10,6 +21,18 @@ from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
 
 def _values(raw):
+    """
+    Perform the values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise values through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, Mapping):
@@ -23,11 +46,35 @@ def _values(raw):
 
 
 def _first(raw):
+    """
+    Perform the first test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise first through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     vals = _values(raw)
     return vals[0] if vals else None
 
 
 def _snapshot(md) -> dict:
+    """
+    Perform the snapshot test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise snapshot through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :param md: Value supplied for md in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     identifiers = {}
     try:
         identifiers = {str(k): sorted(str(v) for v in vals) for k, vals in (md.get_identifiers() or {}).items()}
@@ -44,16 +91,50 @@ def _snapshot(md) -> dict:
 
 
 def _rtf_payload(info_block: bytes) -> bytes:
+    """
+    Perform the rtf payload test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise rtf payload through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :param info_block: Value supplied for info block in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return b"{\\rtf1\\ansi\\ansicpg1252" + info_block + b"\\n\\sect\\nBody\\n}"
 
 
 def test_rtf_metadata_module_import_smoke() -> None:
+    """
+    Verify rtf metadata module import smoke.
+
+    Example:
+        Exercise test rtf metadata module import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.rtf as rtf_md
 
     assert rtf_md is not None
 
 
 def test_rtf_reader_plugin_is_available_and_preserves_stream_position() -> None:
+    """
+    Verify rtf reader plugin remains available and preserves stream position.
+
+    Example:
+        Exercise test rtf reader plugin is available and preserves stream position through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
 
     payload = _rtf_payload(b"{\\info{\\title Plugin Title}{\\author Plugin Author}}")
@@ -73,6 +154,17 @@ def test_rtf_reader_plugin_is_available_and_preserves_stream_position() -> None:
 
 
 def test_rtf_get_metadata_parses_unicode_and_cp1252_escapes() -> None:
+    """
+    Verify rtf get metadata parses unicode and cp1252 escapes.
+
+    Example:
+        Exercise test rtf get metadata parses unicode and cp1252 escapes through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.rtf import get_metadata
 
     info = (
@@ -99,6 +191,18 @@ def test_rtf_get_metadata_parses_unicode_and_cp1252_escapes() -> None:
 
 
 def test_rtf_get_metadata_pathlike_input(tmp_path: Path) -> None:
+    """
+    Verify rtf get metadata pathlike input.
+
+    Example:
+        Exercise test rtf get metadata pathlike input through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.rtf import get_metadata
 
     path = tmp_path / "sample.rtf"
@@ -111,6 +215,17 @@ def test_rtf_get_metadata_pathlike_input(tmp_path: Path) -> None:
 
 
 def test_rtf_invalid_payload_raises_by_default_and_can_opt_into_fallback() -> None:
+    """
+    Verify rtf invalid payload raises by default and can opt into fallback.
+
+    Example:
+        Exercise test rtf invalid payload raises by default and can opt into fallback through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.rtf import RtfFormatError, get_metadata
 
     with pytest.raises(RtfFormatError):
@@ -122,6 +237,17 @@ def test_rtf_invalid_payload_raises_by_default_and_can_opt_into_fallback() -> No
 
 
 def test_rtf_set_metadata_roundtrip_unicode() -> None:
+    """
+    Verify rtf set metadata roundtrip unicode.
+
+    Example:
+        Exercise test rtf set metadata roundtrip unicode through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.rtf import get_metadata, set_metadata
 
     stream = io.BytesIO(b"{\\rtf1\\ansi\\ansicpg1252\\deff0 {\\fonttbl{\\f0 Arial;}}\\n\\par body\\n}")
@@ -144,6 +270,17 @@ def test_rtf_set_metadata_roundtrip_unicode() -> None:
 
 
 def test_rtf_set_metadata_escapes_hostile_markup_without_mutating_input() -> None:
+    """
+    Verify rtf set metadata escapes hostile markup without mutating input.
+
+    Example:
+        Exercise test rtf set metadata escapes hostile markup without mutating input through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.rtf import get_document_info, get_metadata, set_metadata
 
     stream = io.BytesIO(_rtf_payload(b"{\\info{\\title Old}{\\author Old}}"))
@@ -176,6 +313,17 @@ def test_rtf_set_metadata_escapes_hostile_markup_without_mutating_input() -> Non
 
 
 def test_rtf_set_metadata_salvages_malformed_info_block() -> None:
+    """
+    Verify rtf set metadata salvages malformed info block.
+
+    Example:
+        Exercise test rtf set metadata salvages malformed info block through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.rtf import get_metadata, set_metadata
 
     # Existing info block contains invalid bytes and malformed structure.
@@ -199,6 +347,19 @@ def test_rtf_set_metadata_salvages_malformed_info_block() -> None:
 
 
 def test_rtf_md_fixture_smoke_and_deterministic(md_test_fixture) -> None:
+    """
+    Verify rtf md fixture smoke and deterministic.
+
+    Example:
+        Exercise test rtf md fixture smoke and deterministic through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.rtf import get_metadata
 
     fixture = md_test_fixture(file_ext="rtf", file_num=1, verify_hash=True)

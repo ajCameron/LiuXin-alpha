@@ -1,6 +1,14 @@
 
 """
-Properties for test db 20.
+Provide test db 20 properties utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test db 20 properties through a consuming regression::
+
+        python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
 """
 
 
@@ -15,6 +23,11 @@ from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
 class TestDB20Properties(CommonDBProperties):
     """
     Properties for the test_db_20 test database.
+
+    Example:
+        Exercise TestDB20Properties through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
     """
 
     theo_main_tables = {

@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
 
+"""
+Convert HTMLZ content from the normalized ebook conversion pipeline.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise htmlz output through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -24,6 +35,14 @@ __docformat__ = "restructuredtext en"
 
 class HTMLZOutput(OutputFormatPlugin):
 
+    """
+    Provide the htmlzoutput contract for validated ebook processing.
+
+    Example:
+        Exercise HTMLZOutput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     name = "HTMLZ Output"
     author = "John Schember"
     file_type = "htmlz"
@@ -65,6 +84,23 @@ class HTMLZOutput(OutputFormatPlugin):
     }
 
     def convert(self: _typing.Self, oeb_book: _typing.Any, output_path: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
+        """
+        Convert the supplied source into the stage's normalized output representation.
+
+        Example:
+            Exercise HTMLZOutput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param output_path: Value supplied for output path under the utility contract.
+        :param input_plugin: Value supplied for input plugin under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.file_formats.oeb.base import OEB_IMAGES, SVG_MIME
         from LiuXin_alpha.file_formats.opf.opf2 import OPF, metadata_to_opf
 

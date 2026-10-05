@@ -1,4 +1,13 @@
-"""Writer for values stored in destination rows owned one-to-one."""
+"""
+Build and apply one-to-one owned-row catalog updates.
+
+The module keeps validation, normalization and host mutation boundaries explicit.
+
+Example:
+    Exercise owned row writer through its owning regression module::
+
+        python -m pytest -q tests/catalog/test_owned_row_writer.py
+"""
 
 from __future__ import annotations
 
@@ -27,15 +36,10 @@ class CatalogOwnedRowOneToOneWriter[RawValueT, ValueT](
     """
     Write values to destination rows owned by one source row each.
 
-    This writer models a distinct one-to-one storage policy rather than a
-    cardinality-only link operation. Existing destination rows retain their
-    identity while their value changes. Missing rows are created and linked
-    atomically, and ``None`` unlinks without performing implicit cleanup.
+    Example:
+        Exercise CatalogOwnedRowOneToOneWriter through its owning regression module::
 
-    :param catalog: Catalog facade used to apply normalized owned-row updates.
-    :param link_spec: Directed one-to-one link specification.
-    :param destination_table: Table containing each owned destination row.
-    :param destination_column: Value column to update or populate.
+            python -m pytest -q tests/catalog/test_owned_row_writer.py
     """
 
     def __init__(
@@ -48,11 +52,19 @@ class CatalogOwnedRowOneToOneWriter[RawValueT, ValueT](
         """
         Validate and store the owned-row writer configuration.
 
-        :param catalog: Catalog facade used to apply normalized updates.
-        :param link_spec: Directed one-to-one link specification.
-        :param destination_table: Table containing each owned destination row.
-        :param destination_column: Value column to update or populate.
-        :return: None.
+        Example:
+            Exercise CatalogOwnedRowOneToOneWriter.init through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_owned_row_writer.py
+
+
+        :param catalog: Catalog host or facade supplying metadata and mutation services.
+        :param link_spec: Value supplied for link spec under the catalog contract.
+        :param destination_table: Value supplied for destination table under the catalog
+            contract.
+        :param destination_column: Value supplied for destination column under the catalog
+            contract.
+        :return: None; the function records state or raises through its assertions.
         """
 
         if not callable(getattr(catalog, "write_owned_row_update", None)):
@@ -72,7 +84,13 @@ class CatalogOwnedRowOneToOneWriter[RawValueT, ValueT](
         """
         Return the directed one-to-one storage route.
 
-        :return: Configured link specification.
+        Example:
+            Exercise CatalogOwnedRowOneToOneWriter.link spec through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_owned_row_writer.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         return self._link_spec
@@ -82,7 +100,13 @@ class CatalogOwnedRowOneToOneWriter[RawValueT, ValueT](
         """
         Return the owned destination-table specification.
 
-        :return: Configured destination-table specification.
+        Example:
+            Exercise CatalogOwnedRowOneToOneWriter.destination table through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_owned_row_writer.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         return self._destination_table
@@ -92,7 +116,13 @@ class CatalogOwnedRowOneToOneWriter[RawValueT, ValueT](
         """
         Return the owned destination value-column specification.
 
-        :return: Configured destination-column specification.
+        Example:
+            Exercise CatalogOwnedRowOneToOneWriter.destination column through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_owned_row_writer.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         return self._destination_column
@@ -101,8 +131,14 @@ class CatalogOwnedRowOneToOneWriter[RawValueT, ValueT](
         """
         Preserve one raw value by default.
 
-        :param raw_value: Raw metadata value supplied by the caller.
-        :return: Unchanged value, typed for the concrete writer.
+        Example:
+            Exercise CatalogOwnedRowOneToOneWriter.adapt through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_owned_row_writer.py
+
+
+        :param raw_value: Value supplied for raw value under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         return cast(ValueT, raw_value)
@@ -114,11 +150,14 @@ class CatalogOwnedRowOneToOneWriter[RawValueT, ValueT](
         """
         Build an immutable normalized owned-row update.
 
-        ``None`` is the explicit unlink instruction and therefore bypasses
-        field adaptation and validation.
+        Example:
+            Exercise CatalogOwnedRowOneToOneWriter.build update through its owning regression module::
 
-        :param values: Raw replacement values keyed by source-table ID.
-        :return: Immutable normalized owned-row update.
+                python -m pytest -q tests/catalog/test_owned_row_writer.py
+
+
+        :param values: Values to normalize, compare or write in stable order.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         if not isinstance(values, Mapping):
@@ -146,11 +185,16 @@ class CatalogOwnedRowOneToOneWriter[RawValueT, ValueT](
         """
         Build one owned-row replacement or unlink instruction.
 
-        :param src_id: Source-table ID whose owned value should change.
-        :param dst_value: Raw replacement value, or ``None`` to unlink.
-        :param kwargs: Unsupported additional update options.
-        :return: Immutable normalized owned-row update.
-        :raises TypeError: If additional update options are supplied.
+        Example:
+            Exercise CatalogOwnedRowOneToOneWriter.build one update through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_owned_row_writer.py
+
+
+        :param src_id: Value supplied for src id under the catalog contract.
+        :param dst_value: Value supplied for dst value under the catalog contract.
+        :param kwargs: Value supplied for kwargs under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         if kwargs:
@@ -167,10 +211,14 @@ class CatalogOwnedRowOneToOneWriter[RawValueT, ValueT](
         """
         Apply one normalized owned-row update through the catalog.
 
-        :param update: Immutable normalized owned-row update.
-        :return: Complete written link rows keyed by source-table ID.
-        :raises TypeError: If ``update`` is not an owned-row update.
-        :raises ValueError: If the update targets another storage route.
+        Example:
+            Exercise CatalogOwnedRowOneToOneWriter.apply update through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_owned_row_writer.py
+
+
+        :param update: Prepared catalog update to validate or apply.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         if not isinstance(update, CatalogOwnedRowUpdate):

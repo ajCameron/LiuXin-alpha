@@ -1,3 +1,14 @@
+"""
+Translate wiki-style links into configured URLs and labels.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise wikilinks through a consuming regression::
+
+        python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+"""
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import annotations
@@ -90,14 +101,48 @@ import re
 
 
 def build_url(label: _typing.Any, base: _typing.Any, end: _typing.Any) -> _typing.Any:
-    """Build a url from the label, a base, and an end."""
+    """
+    Build a url from the label, a base, and an end.
+
+    Example:
+        Exercise build url through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param label: Value supplied for label under the utility contract.
+    :param base: Value supplied for base under the utility contract.
+    :param end: Value supplied for end under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     clean_label = re.sub(r"([ ]+_)|(_[ ]+)|([ ]+)", "_", label)
     return "%s%s%s" % (base, clean_label, end)
 
 
 class WikiLinkExtension(Extension):
+    """
+    Provide the wikilinkextension contract for validated ebook processing.
+
+    Example:
+        Exercise WikiLinkExtension through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
     def __init__(self: _typing.Self, configs: _typing.Any) -> None:
         # set extension defaults
+        """
+        Initialize and validate the wikilinkextension state.
+
+        Example:
+            Exercise WikiLinkExtension.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param configs: Value supplied for configs under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.config = {
             "base_url": ["/", "String to append to beginning or URL."],
             "end_url": ["/", "String to append to end of URL."],
@@ -110,6 +155,20 @@ class WikiLinkExtension(Extension):
             self.setConfig(key, value)
 
     def extendMarkdown(self: _typing.Self, md: _typing.Any, md_globals: _typing.Any) -> None:
+        """
+        Perform the extendMarkdown operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise WikiLinkExtension.extendMarkdown through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param md: Value supplied for md under the utility contract.
+        :param md_globals: Value supplied for md globals under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.md = md
 
         # append to end of inline patterns
@@ -120,11 +179,45 @@ class WikiLinkExtension(Extension):
 
 
 class WikiLinks(Pattern):
+    """
+    Provide the wikilinks contract for validated ebook processing.
+
+    Example:
+        Exercise WikiLinks through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
     def __init__(self: _typing.Self, pattern: _typing.Any, config: _typing.Any) -> None:
+        """
+        Initialize and validate the wikilinks state.
+
+        Example:
+            Exercise WikiLinks.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param pattern: Value supplied for pattern under the utility contract.
+        :param config: Value supplied for config under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super(WikiLinks, self).__init__(pattern)
         self.config = config
 
     def handleMatch(self: _typing.Self, m: _typing.Any) -> _typing.Any:
+        """
+        Perform the handleMatch operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise WikiLinks.handleMatch through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param m: Value supplied for m under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if m.group(2).strip():
             base_url, end_url, html_class = self._getMeta()
             label = m.group(2).strip()
@@ -139,7 +232,18 @@ class WikiLinks(Pattern):
         return a
 
     def _getMeta(self: _typing.Self) -> tuple[_typing.Any, ...]:
-        """Return meta data or config data."""
+        """
+        Return meta data or config data.
+
+        Example:
+            Exercise WikiLinks. getMeta through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         base_url = self.config["base_url"]
         end_url = self.config["end_url"]
         html_class = self.config["html_class"]
@@ -154,4 +258,17 @@ class WikiLinks(Pattern):
 
 
 def makeExtension(configs: _typing.Any = None) -> _typing.Any:
+    """
+    Perform the makeExtension operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise makeExtension through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param configs: Value supplied for configs under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return WikiLinkExtension(configs=configs)

@@ -1,3 +1,14 @@
+"""
+Verify HTML title, author, identifier and cover extraction.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test html metadata source through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+"""
 from __future__ import annotations
 
 import io
@@ -8,6 +19,18 @@ import pytest
 
 
 def _values(raw):
+    """
+    Perform the values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise values through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, Mapping):
@@ -21,11 +44,36 @@ def _values(raw):
 
 
 def _first(raw):
+    """
+    Perform the first test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise first through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     vals = _values(raw)
     return vals[0] if vals else None
 
 
 def _series_index_for(md, series_name: str):
+    """
+    Perform the series index for test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise series index for through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :param md: Value supplied for md in the focused test operation.
+    :param series_name: Value supplied for series name in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     raw = getattr(md, "series_index", None)
     if isinstance(raw, Mapping):
         return raw.get(series_name)
@@ -33,12 +81,36 @@ def _series_index_for(md, series_name: str):
 
 
 def test_html_metadata_module_import_smoke() -> None:
+    """
+    Verify html metadata module import smoke.
+
+    Example:
+        Exercise test html metadata module import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.html as html_md
 
     assert html_md is not None
 
 
 def test_html_hashed_fixture_reader_smoke(md_test_fixtures_for_ext) -> None:
+    """
+    Verify html hashed fixture reader smoke.
+
+    Example:
+        Exercise test html hashed fixture reader smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :param md_test_fixtures_for_ext: Value supplied for md test fixtures for ext in the
+        focused test operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.html import get_metadata
 
     # Fixtures include both .html and .htm.
@@ -53,6 +125,19 @@ def test_html_hashed_fixture_reader_smoke(md_test_fixtures_for_ext) -> None:
 
 
 def test_html_legacy_fixture1_expectations(md_test_fixture) -> None:
+    """
+    Verify html legacy fixture1 expectations.
+
+    Example:
+        Exercise test html legacy fixture1 expectations through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.html import get_metadata
 
     fixture = md_test_fixture(file_ext="html", file_num=1, verify_hash=True)
@@ -64,6 +149,19 @@ def test_html_legacy_fixture1_expectations(md_test_fixture) -> None:
 
 
 def test_html_reader_plugin_is_available(md_test_fixture) -> None:
+    """
+    Verify html reader plugin remains available.
+
+    Example:
+        Exercise test html reader plugin is available through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
 
     fixture = md_test_fixture(file_ext="html", file_num=1, verify_hash=True)
@@ -81,6 +179,17 @@ def test_html_reader_plugin_is_available(md_test_fixture) -> None:
 
 
 def test_html_meta_and_comment_precedence_and_rich_fields() -> None:
+    """
+    Verify html meta and comment precedence and rich fields.
+
+    Example:
+        Exercise test html meta and comment precedence and rich fields through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.html import get_metadata_
 
     src = """
@@ -129,6 +238,17 @@ def test_html_meta_and_comment_precedence_and_rich_fields() -> None:
 
 
 def test_html_title_fallback_when_no_comment_or_meta_title() -> None:
+    """
+    Verify html title fallback when no comment or meta title.
+
+    Example:
+        Exercise test html title fallback when no comment or meta title through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.html import get_metadata_
 
     md = get_metadata_("<html><head><title>Title Only</title></head><body></body></html>")
@@ -138,6 +258,17 @@ def test_html_title_fallback_when_no_comment_or_meta_title() -> None:
 
 
 def test_html_parse_meta_and_comment_helpers() -> None:
+    """
+    Verify html parse meta and comment helpers.
+
+    Example:
+        Exercise test html parse meta and comment helpers through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.html import parse_comment_tags, parse_meta_tags
 
     src = """
@@ -159,6 +290,17 @@ def test_html_parse_meta_and_comment_helpers() -> None:
 
 
 def test_html_handles_malformed_input_gracefully() -> None:
+    """
+    Verify html handles malformed input gracefully.
+
+    Example:
+        Exercise test html handles malformed input gracefully through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.html import get_metadata_
 
     src = "<html><head><meta name='title' content='Broken'><title>X"
@@ -168,6 +310,17 @@ def test_html_handles_malformed_input_gracefully() -> None:
 
 
 def test_html_reads_stream_and_rewinds() -> None:
+    """
+    Verify html reads stream and rewinds.
+
+    Example:
+        Exercise test html reads stream and rewinds through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.html import get_metadata
 
     stream = io.BytesIO(b"<html><head><title>Stream Title</title></head><body></body></html>")
@@ -178,6 +331,17 @@ def test_html_reads_stream_and_rewinds() -> None:
 
 
 def test_html_handles_cp1251_bytes() -> None:
+    """
+    Verify html handles cp1251 bytes.
+
+    Example:
+        Exercise test html handles cp1251 bytes through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.html import get_metadata_
 
     src = "<html><head><meta name='title' content='Привет мир'/><meta name='author' content='Иван Петров'/></head></html>"
@@ -189,6 +353,18 @@ def test_html_handles_cp1251_bytes() -> None:
 
 
 def test_html_pathlike_input(tmp_path: Path) -> None:
+    """
+    Verify html pathlike input.
+
+    Example:
+        Exercise test html pathlike input through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.html import get_metadata
 
     path = tmp_path / "demo.html"
@@ -199,6 +375,17 @@ def test_html_pathlike_input(tmp_path: Path) -> None:
 
 
 def test_html_unicode_torture_multiscript_roundtrip() -> None:
+    """
+    Verify html unicode torture multiscript roundtrip.
+
+    Example:
+        Exercise test html unicode torture multiscript roundtrip through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.html import get_metadata_
 
     src = """
@@ -223,6 +410,17 @@ def test_html_unicode_torture_multiscript_roundtrip() -> None:
 
 
 def test_html_comment_parser_handles_multiple_pairs_and_mixed_quotes() -> None:
+    """
+    Verify html comment parser handles multiple pairs and mixed quotes.
+
+    Example:
+        Exercise test html comment parser handles multiple pairs and mixed quotes through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.html import get_metadata_
 
     src = """
@@ -239,6 +437,17 @@ def test_html_comment_parser_handles_multiple_pairs_and_mixed_quotes() -> None:
 
 
 def test_html_identifier_variants_are_extracted() -> None:
+    """
+    Verify html identifier variants remain extracted.
+
+    Example:
+        Exercise test html identifier variants are extracted through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.html import get_metadata_
 
     src = """
@@ -259,6 +468,17 @@ def test_html_identifier_variants_are_extracted() -> None:
 
 
 def test_html_rating_normalization_ranges() -> None:
+    """
+    Verify html rating normalization ranges.
+
+    Example:
+        Exercise test html rating normalization ranges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.html import get_metadata_
 
     low = get_metadata_("<html><head><meta name='rating' content='-2'/></head></html>")
@@ -271,6 +491,17 @@ def test_html_rating_normalization_ranges() -> None:
 
 
 def test_html_series_index_from_separate_meta_field() -> None:
+    """
+    Verify html series index from separate meta field.
+
+    Example:
+        Exercise test html series index from separate meta field through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.html import get_metadata_
 
     md = get_metadata_(
@@ -287,6 +518,17 @@ def test_html_series_index_from_separate_meta_field() -> None:
 
 
 def test_html_authors_split_and_stable_dedupe() -> None:
+    """
+    Verify html authors split and stable dedupe.
+
+    Example:
+        Exercise test html authors split and stable dedupe through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.html import get_metadata_
 
     md = get_metadata_(
@@ -303,6 +545,17 @@ def test_html_authors_split_and_stable_dedupe() -> None:
 
 
 def test_html_invalid_dates_are_ignored() -> None:
+    """
+    Verify html invalid dates remain ignored.
+
+    Example:
+        Exercise test html invalid dates are ignored through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.html import get_metadata_
 
     md = get_metadata_(
@@ -319,6 +572,17 @@ def test_html_invalid_dates_are_ignored() -> None:
 
 
 def test_html_stream_rewinds_to_original_nonzero_position() -> None:
+    """
+    Verify html stream rewinds to original nonzero position.
+
+    Example:
+        Exercise test html stream rewinds to original nonzero position through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.html import get_metadata
 
     payload = b"<html><head><title>Original Position</title></head><body></body></html>"
@@ -331,6 +595,17 @@ def test_html_stream_rewinds_to_original_nonzero_position() -> None:
 
 
 def test_html_title_fallback_decodes_entities_and_charrefs() -> None:
+    """
+    Verify html title fallback decodes entities and charrefs.
+
+    Example:
+        Exercise test html title fallback decodes entities and charrefs through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.html import get_metadata_
 
     md = get_metadata_("<html><head><title>A &amp; B &#169; &#x1F600;</title></head></html>")
@@ -338,6 +613,17 @@ def test_html_title_fallback_decodes_entities_and_charrefs() -> None:
 
 
 def test_html_mixed_case_meta_names_and_identifier_scheme() -> None:
+    """
+    Verify html mixed case meta names and identifier scheme.
+
+    Example:
+        Exercise test html mixed case meta names and identifier scheme through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.html import get_metadata_
 
     md = get_metadata_(
@@ -355,6 +641,17 @@ def test_html_mixed_case_meta_names_and_identifier_scheme() -> None:
 
 
 def test_html_date_parsing_supports_compact_and_year_only_formats() -> None:
+    """
+    Verify html date parsing supports compact and year only formats.
+
+    Example:
+        Exercise test html date parsing supports compact and year only formats through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.html import get_metadata_
 
     md = get_metadata_(
@@ -371,6 +668,17 @@ def test_html_date_parsing_supports_compact_and_year_only_formats() -> None:
 
 
 def test_html_invalid_utf8_bytes_are_replaced_without_crashing() -> None:
+    """
+    Verify html invalid utf8 bytes remain replaced without crashing.
+
+    Example:
+        Exercise test html invalid utf8 bytes are replaced without crashing through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.html import get_metadata_
 
     raw = (
@@ -386,6 +694,17 @@ def test_html_invalid_utf8_bytes_are_replaced_without_crashing() -> None:
 
 
 def test_html_get_metadata_accepts_bytes_payload_directly() -> None:
+    """
+    Verify html get metadata accepts bytes payload directly.
+
+    Example:
+        Exercise test html get metadata accepts bytes payload directly through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.html import get_metadata
 
     raw = "<html><head><title>Bytes Payload — 世界</title></head></html>".encode("utf-8")
@@ -395,6 +714,17 @@ def test_html_get_metadata_accepts_bytes_payload_directly() -> None:
 
 
 def test_html_binary_signatures_return_safe_default() -> None:
+    """
+    Verify html binary signatures return safe default.
+
+    Example:
+        Exercise test html binary signatures return safe default through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.html import get_metadata_
 
     for payload in (
@@ -408,18 +738,62 @@ def test_html_binary_signatures_return_safe_default() -> None:
 
 
 def test_html_parser_internal_errors_return_safe_default(monkeypatch) -> None:
+    """
+    Verify html parser internal errors return safe default.
+
+    Example:
+        Exercise test html parser internal errors return safe default through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.html as html_md
 
     class _BrokenParser:
+        """
+        Provide the BrokenParser test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test html parser internal errors return safe default.BrokenParser through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+        """
         comment_tags = {}
         meta_tags = {}
         meta_identifiers = {}
         title_text = ""
 
         def feed(self, _src):
+            """
+            Perform the feed test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test html parser internal errors return safe default.BrokenParser.feed through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+            :param _src: Value supplied for src in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             raise RuntimeError("parser failed")
 
         def close(self):
+            """
+            Mark the cache double closed for lifecycle assertions.
+
+            Example:
+                Exercise test html parser internal errors return safe default.BrokenParser.close through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+            :return: None; the function records state or raises through its assertions.
+            """
             raise AssertionError("unreachable")
 
     monkeypatch.setattr(html_md, "_HTMLMetadataParser", _BrokenParser)
@@ -431,6 +805,17 @@ def test_html_parser_internal_errors_return_safe_default(monkeypatch) -> None:
 
 
 def test_html_input_scan_limit_is_predictable() -> None:
+    """
+    Verify html input scan limit remains predictable.
+
+    Example:
+        Exercise test html input scan limit is predictable through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.html import get_metadata_
 
     late_metadata = "<html><head>" + (" " * 260000) + "<meta name='title' content='Late' /></head></html>"
@@ -444,6 +829,17 @@ def test_html_input_scan_limit_is_predictable() -> None:
 
 
 def test_html_rejects_non_path_non_stream_inputs() -> None:
+    """
+    Verify html rejects non path non stream inputs.
+
+    Example:
+        Exercise test html rejects non path non stream inputs through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.html import get_metadata
 
     with pytest.raises(TypeError):

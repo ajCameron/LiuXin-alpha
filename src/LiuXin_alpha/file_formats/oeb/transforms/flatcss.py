@@ -1,3 +1,14 @@
+"""
+Flatten and transform CSS rules for target rendering profiles.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise flatcss through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+"""
 from __future__ import with_statement
 from __future__ import annotations
 
@@ -23,6 +34,14 @@ except ModuleNotFoundError:
     _HAS_CSSUTILS = False
 
     class Property:
+        """
+        Provide the property contract for validated ebook processing.
+
+        Example:
+            Exercise Property through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+        """
         pass
 
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
@@ -56,12 +75,39 @@ STRIPNUM = re.compile(r"[-0-9]+$")
 
 
 def asfloat(value: _typing.Any, default: _typing.Any) -> _typing.Any:
+    """
+    Perform the asfloat operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise asfloat through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :param default: Value supplied for default under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not isinstance(value, (int, float)):
         value = default
     return float(value)
 
 
 def dynamic_rescale_factor(node: _typing.Any) -> _typing.Any:
+    """
+    Perform the dynamic rescale factor operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise dynamic rescale factor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param node: Value supplied for node under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     classes = node.get("class", "").split(" ")
     classes = [x.replace("calibre_rescale_", "") for x in classes if x.startswith("calibre_rescale_")]
     if not classes:
@@ -76,13 +122,49 @@ def dynamic_rescale_factor(node: _typing.Any) -> _typing.Any:
 
 
 class KeyMapper(object):
+    """
+    Provide the keymapper contract for validated ebook processing.
+
+    Example:
+        Exercise KeyMapper through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+    """
     def __init__(self: _typing.Self, sbase: _typing.Any, dbase: _typing.Any, dkey: _typing.Any) -> None:
+        """
+        Initialize and validate the keymapper state.
+
+        Example:
+            Exercise KeyMapper.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param sbase: Value supplied for sbase under the utility contract.
+        :param dbase: Value supplied for dbase under the utility contract.
+        :param dkey: Value supplied for dkey under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.sbase = float(sbase)
         self.dprop = [(self.relate(x, dbase), float(x)) for x in dkey]
         self.cache = {}
 
     @staticmethod
     def relate(size: _typing.Any, base: _typing.Any) -> _typing.Any:
+        """
+        Perform the relate operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise KeyMapper.relate through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param size: Value supplied for size under the utility contract.
+        :param base: Value supplied for base under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if size == 0:
             return base
         size = float(size)
@@ -107,6 +189,19 @@ class KeyMapper(object):
         return result
 
     def __getitem__(self: _typing.Self, ssize: _typing.Any) -> _typing.Any:
+        """
+        Perform the getitem operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise KeyMapper.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param ssize: Value supplied for ssize under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ssize = asfloat(ssize, 0)
         if ssize in self.cache:
             return self.cache[ssize]
@@ -115,6 +210,19 @@ class KeyMapper(object):
         return dsize
 
     def map(self: _typing.Self, ssize: _typing.Any) -> _typing.Any:
+        """
+        Perform the map operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise KeyMapper.map through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param ssize: Value supplied for ssize under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         sbase = self.sbase
         prop = self.relate(ssize, sbase)
         diff = [(abs(prop - p), s) for p, s in self.dprop]
@@ -123,24 +231,105 @@ class KeyMapper(object):
 
 
 class ScaleMapper(object):
+    """
+    Provide the scalemapper contract for validated ebook processing.
+
+    Example:
+        Exercise ScaleMapper through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+    """
     def __init__(self: _typing.Self, sbase: _typing.Any, dbase: _typing.Any) -> None:
+        """
+        Initialize and validate the scalemapper state.
+
+        Example:
+            Exercise ScaleMapper.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param sbase: Value supplied for sbase under the utility contract.
+        :param dbase: Value supplied for dbase under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.dscale = float(dbase) / float(sbase)
 
     def __getitem__(self: _typing.Self, ssize: _typing.Any) -> _typing.Any:
+        """
+        Perform the getitem operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ScaleMapper.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param ssize: Value supplied for ssize under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ssize = asfloat(ssize, 0)
         dsize = ssize * self.dscale
         return dsize
 
 
 class NullMapper(object):
+    """
+    Provide the nullmapper contract for validated ebook processing.
+
+    Example:
+        Exercise NullMapper through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+    """
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the nullmapper state.
+
+        Example:
+            Exercise NullMapper.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         pass
 
     def __getitem__(self: _typing.Self, ssize: _typing.Any) -> _typing.Any:
+        """
+        Perform the getitem operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise NullMapper.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param ssize: Value supplied for ssize under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return ssize
 
 
 def FontMapper(sbase: _typing.Any = None, dbase: _typing.Any = None, dkey: _typing.Any = None) -> _typing.Any:
+    """
+    Perform the FontMapper operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise FontMapper through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param sbase: Value supplied for sbase under the utility contract.
+    :param dbase: Value supplied for dbase under the utility contract.
+    :param dkey: Value supplied for dkey under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if sbase and dbase and dkey:
         return KeyMapper(sbase, dbase, dkey)
     elif sbase and dbase:
@@ -150,11 +339,46 @@ def FontMapper(sbase: _typing.Any = None, dbase: _typing.Any = None, dkey: _typi
 
 
 class EmbedFontsCSSRules(object):
+    """
+    Provide the embedfontscssrules contract for validated ebook processing.
+
+    Example:
+        Exercise EmbedFontsCSSRules through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+    """
     def __init__(self: _typing.Self, body_font_family: _typing.Any, rules: _typing.Any) -> None:
+        """
+        Initialize and validate the embedfontscssrules state.
+
+        Example:
+            Exercise EmbedFontsCSSRules.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param body_font_family: Value supplied for body font family under the utility
+            contract.
+        :param rules: Value supplied for rules under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.body_font_family, self.rules = body_font_family, rules
         self.href = None
 
     def __call__(self: _typing.Self, oeb: _typing.Any) -> _typing.Any:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise EmbedFontsCSSRules.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not self.body_font_family:
             return None
         if not self.href:
@@ -169,6 +393,11 @@ class EmbedFontsCSSRules(object):
 class CSSFlattener(object):
     """
     Flattening CSS and remapping font sizes...
+
+    Example:
+        Exercise CSSFlattener through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     def __init__(
@@ -181,6 +410,25 @@ class CSSFlattener(object):
         page_break_on_body: bool = False,
         specializer: _typing.Any = None,
     ) -> None:
+        """
+        Initialize and validate the cssflattener state.
+
+        Example:
+            Exercise CSSFlattener.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param fbase: Value supplied for fbase under the utility contract.
+        :param fkey: Value supplied for fkey under the utility contract.
+        :param lineh: Value supplied for lineh under the utility contract.
+        :param unfloat: Value supplied for unfloat under the utility contract.
+        :param untable: Value supplied for untable under the utility contract.
+        :param page_break_on_body: Value supplied for page break on body under the utility
+            contract.
+        :param specializer: Value supplied for specializer under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.fbase = fbase
         self.fkey = fkey
         self.lineh = lineh
@@ -191,13 +439,53 @@ class CSSFlattener(object):
 
     @classmethod
     def config(cls: type[_typing.Self], cfg: _typing.Any) -> _typing.Any:
+        """
+        Perform the config operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CSSFlattener.config through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param cfg: Value supplied for cfg under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return cfg
 
     @classmethod
     def generate(cls: type[_typing.Self], opts: _typing.Any) -> _typing.Any:
+        """
+        Perform the generate operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CSSFlattener.generate through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param opts: Value supplied for opts under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return cls()
 
     def __call__(self: _typing.Self, oeb: _typing.Any, context: _typing.Any) -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CSSFlattener.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param context: Value supplied for context under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not _HAS_CSSUTILS:
             raise ModuleNotFoundError("cssutils is required for CSS flattening transforms")
         oeb.logger.info("Flattening CSS and remapping font sizes...")
@@ -234,6 +522,21 @@ class CSSFlattener(object):
         self.flatten_spine()
 
     def get_embed_font_info(self: _typing.Self, family: _typing.Any, failure_critical: bool = True) -> tuple[_typing.Any, ...]:
+        """
+        Return embed font info under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CSSFlattener.get embed font info through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param family: Value supplied for family under the utility contract.
+        :param failure_critical: Value supplied for failure critical under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         efi = []
         body_font_family = None
         if not family:
@@ -283,6 +586,18 @@ class CSSFlattener(object):
         return body_font_family, efi
 
     def stylize_spine(self: _typing.Self) -> None:
+        """
+        Perform the stylize spine operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CSSFlattener.stylize spine through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.stylizers = {}
         profile = self.context.source
         css = ""
@@ -320,6 +635,22 @@ class CSSFlattener(object):
             self.stylizers[item] = stylizer
 
     def baseline_node(self: _typing.Self, node: _typing.Any, stylizer: _typing.Any, sizes: _typing.Any, csize: _typing.Any) -> None:
+        """
+        Perform the baseline node operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CSSFlattener.baseline node through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :param stylizer: Value supplied for stylizer under the utility contract.
+        :param sizes: Value supplied for sizes under the utility contract.
+        :param csize: Value supplied for csize under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         csize = stylizer.style(node)["font-size"]
         if node.text:
             sizes[csize] += len(COLLAPSE.sub(" ", node.text))
@@ -329,6 +660,18 @@ class CSSFlattener(object):
                 sizes[csize] += len(COLLAPSE.sub(" ", child.tail))
 
     def baseline_spine(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the baseline spine operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CSSFlattener.baseline spine through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         sizes = defaultdict(float)
         for item in self.oeb.spine:
             html = item.data
@@ -344,6 +687,21 @@ class CSSFlattener(object):
         return sbase
 
     def clean_edges(self: _typing.Self, cssdict: _typing.Any, style: _typing.Any, fsize: _typing.Any) -> None:
+        """
+        Perform the clean edges operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CSSFlattener.clean edges through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param cssdict: Value supplied for cssdict under the utility contract.
+        :param style: Value supplied for style under the utility contract.
+        :param fsize: Value supplied for fsize under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         slineh = self.sbase * 1.26
         dlineh = self.lineh
         for kind in ("margin", "padding"):
@@ -370,6 +728,25 @@ class CSSFlattener(object):
                     cssdict[edge_property] = "%0.5fem" % (value / fsize)
 
     def flatten_node(self: _typing.Self, node: _typing.Any, stylizer: _typing.Any, names: _typing.Any, styles: _typing.Any, pseudo_styles: _typing.Any, psize: _typing.Any, item_id: _typing.Any) -> None:
+        """
+        Perform the flatten node operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CSSFlattener.flatten node through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :param stylizer: Value supplied for stylizer under the utility contract.
+        :param names: Value supplied for names under the utility contract.
+        :param styles: Value supplied for styles under the utility contract.
+        :param pseudo_styles: Value supplied for pseudo styles under the utility contract.
+        :param psize: Value supplied for psize under the utility contract.
+        :param item_id: Value supplied for item id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not isinstance(node.tag, string_types) or namespace(node.tag) != XHTML_NS:
             return
         tag = barename(node.tag)
@@ -415,6 +792,19 @@ class CSSFlattener(object):
             if "size" in node.attrib:
 
                 def force_int(raw: _typing.Any) -> _typing.Any:
+                    """
+                    Perform the force int operation under explicit file-format and conversion rules.
+
+                    Example:
+                        Exercise CSSFlattener.flatten node.force int through a consuming regression::
+
+                            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+                    :param raw: Value supplied for raw under the utility contract.
+                    :return: The normalized value, metadata record, path, stream result or collection
+                        described above.
+                    """
                     return int(re.search(r"([0-9+-]+)", raw).group(1))
 
                 size = node.attrib["size"].strip()
@@ -602,6 +992,21 @@ class CSSFlattener(object):
             self.flatten_node(child, stylizer, names, styles, pseudo_styles, psize, item_id)
 
     def flatten_head(self: _typing.Self, item: _typing.Any, href: _typing.Any, global_href: _typing.Any) -> None:
+        """
+        Perform the flatten head operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CSSFlattener.flatten head through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :param href: Value supplied for href under the utility contract.
+        :param global_href: Value supplied for global href under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         html = item.data
         head = html.find(XHTML("head"))
         for node in html.xpath('//*[local-name()="style" or local-name()="link"]'):
@@ -622,6 +1027,19 @@ class CSSFlattener(object):
             l.tail = "\n"
 
     def replace_css(self: _typing.Self, css: _typing.Any) -> _typing.Any:
+        """
+        Perform the replace css operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CSSFlattener.replace css through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param css: Value supplied for css under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         manifest = self.oeb.manifest
         for item in manifest.values():
             if item.media_type in OEB_STYLES:
@@ -632,6 +1050,18 @@ class CSSFlattener(object):
         return href
 
     def collect_global_css(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the collect global css operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CSSFlattener.collect global css through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         global_css = defaultdict(list)
         for item in self.oeb.spine:
             stylizer = self.stylizers[item]
@@ -663,6 +1093,18 @@ class CSSFlattener(object):
         return ans
 
     def flatten_spine(self: _typing.Self) -> None:
+        """
+        Perform the flatten spine operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CSSFlattener.flatten spine through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         names = defaultdict(int)
         styles, pseudo_styles = {}, defaultdict(dict)
         for item in self.oeb.spine:

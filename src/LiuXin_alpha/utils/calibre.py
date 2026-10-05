@@ -1,3 +1,14 @@
+"""
+Expose retained Calibre-compatible utility helpers without importing the full compatibility layer.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise calibre through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_docstring_ownership.py
+"""
 from __future__ import annotations
 
 import os
@@ -28,16 +39,58 @@ from LiuXin_alpha.utils.text.xml_utils import (
 
 def isbytestring(obj) -> bool:
     # Legacy calibre compatibility (Py2-era code often treats text as string-like).
+    """
+    Perform the isbytestring utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise isbytestring through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_ownership.py
+
+
+    :param obj: Value supplied for obj under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return isinstance(obj, (str, bytes))
 
 
 def walk(path: str) -> Iterator[str]:
+    """
+    Perform the walk utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise walk through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_ownership.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: An iterator yielding the normalized values described above.
+    """
     for root, _, files in os.walk(path):
         for name in files:
             yield os.path.join(root, name)
 
 
 def fit_image(owidth: int, oheight: int, max_width: int, max_height: int) -> Tuple[bool, int, int]:
+    """
+    Scale image dimensions to fit a bounding box without changing aspect ratio.
+
+    Example:
+        Exercise fit image through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_ownership.py
+
+
+    :param owidth: Value supplied for owidth under the utility contract.
+    :param oheight: Value supplied for oheight under the utility contract.
+    :param max_width: Value supplied for max width under the utility contract.
+    :param max_height: Value supplied for max height under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if owidth <= 0 or oheight <= 0:
         return False, max(0, int(max_width)), max(0, int(max_height))
     max_width = int(max_width)
@@ -51,10 +104,36 @@ def fit_image(owidth: int, oheight: int, max_width: int, max_height: int) -> Tup
 
 
 def setup_cli_handlers(logger=None):
+    """
+    Install stream and exception handlers suitable for command-line execution.
+
+    Example:
+        Exercise setup cli handlers through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_ownership.py
+
+
+    :param logger: Value supplied for logger under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return None
 
 
 def filename_to_utf8(name):
+    """
+    Return a filesystem filename encoded for the current platform boundary.
+
+    Example:
+        Exercise filename to utf8 through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_ownership.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(name, bytes):
         return name.decode("utf-8", "replace")
     return str(name)

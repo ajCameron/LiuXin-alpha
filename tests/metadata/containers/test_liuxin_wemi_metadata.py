@@ -1,3 +1,14 @@
+"""
+Verify shared WEMI metadata values, aliases, relations and projections.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test liuxin wemi metadata through its owning regression module::
+
+        python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+"""
 from __future__ import annotations
 
 from copy import deepcopy
@@ -32,6 +43,17 @@ from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers import
 
 
 def _sample_metadata() -> LiuXinWEMIMetadata:
+    """
+    Perform the sample metadata test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise sample metadata through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return LiuXinWEMIMetadata(
         title="Legacy Title",
         authors=["Author One"],
@@ -69,11 +91,33 @@ def _sample_metadata() -> LiuXinWEMIMetadata:
 
 
 def test_liuxin_wemi_metadata_exports_from_public_container_surfaces() -> None:
+    """
+    Verify liuxin wemi metadata exports from public container surfaces.
+
+    Example:
+        Exercise test liuxin wemi metadata exports from public container surfaces through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     assert LiuXinWEMI is LiuXinWEMIMetadata
     assert MetadataContainersLiuXinWEMIMetadata is LiuXinWEMIMetadata
 
 
 def test_liuxin_wemi_metadata_keeps_inherited_liuxin_and_calibre_methods() -> None:
+    """
+    Verify liuxin wemi metadata keeps inherited liuxin and calibre methods.
+
+    Example:
+        Exercise test liuxin wemi metadata keeps inherited liuxin and calibre methods through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = _sample_metadata()
 
     metadata.set_identifier("isbn", "9780306406157")
@@ -85,6 +129,17 @@ def test_liuxin_wemi_metadata_keeps_inherited_liuxin_and_calibre_methods() -> No
 
 
 def test_liuxin_wemi_metadata_exposes_stack_and_database_ids() -> None:
+    """
+    Verify liuxin wemi metadata exposes stack and database ids.
+
+    Example:
+        Exercise test liuxin wemi metadata exposes stack and database ids through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = _sample_metadata()
 
     assert metadata.work is metadata.work_metadata.work
@@ -107,6 +162,17 @@ def test_liuxin_wemi_metadata_exposes_stack_and_database_ids() -> None:
 
 
 def test_liuxin_wemi_metadata_provides_title_convenience_without_flattening_stack() -> None:
+    """
+    Verify liuxin wemi metadata provides title convenience without flattening stack.
+
+    Example:
+        Exercise test liuxin wemi metadata provides title convenience without flattening stack through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = _sample_metadata()
 
     assert metadata.titles == (
@@ -127,6 +193,17 @@ def test_liuxin_wemi_metadata_provides_title_convenience_without_flattening_stac
 
 
 def test_liuxin_wemi_metadata_projection_views_combine_legacy_and_wemi_stack() -> None:
+    """
+    Verify liuxin wemi metadata projection views combine legacy and wemi stack.
+
+    Example:
+        Exercise test liuxin wemi metadata projection views combine legacy and wemi stack through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = _sample_metadata()
     metadata.tags = ["legacy-tag"]
     metadata.labels = ["legacy-label"]
@@ -197,6 +274,17 @@ def test_liuxin_wemi_metadata_projection_views_combine_legacy_and_wemi_stack() -
 
 
 def test_lazy_wemi_projection_raises_until_legacy_dependencies_are_loaded() -> None:
+    """
+    Verify lazy wemi projection raises until legacy dependencies remain loaded.
+
+    Example:
+        Exercise test lazy wemi projection raises until legacy dependencies are loaded through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = LazyLiuXinWEMIMetadata("Lazy Title", ["Author One"])
     metadata.install_lazy_value_to_id("tags", lambda: {"lazy-tag": 7})
 
@@ -212,6 +300,17 @@ def test_lazy_wemi_projection_raises_until_legacy_dependencies_are_loaded() -> N
 
 
 def test_lazy_wemi_projection_raises_until_relation_dependencies_are_loaded() -> None:
+    """
+    Verify lazy wemi projection raises until relation dependencies remain loaded.
+
+    Example:
+        Exercise test lazy wemi projection raises until relation dependencies are loaded through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = LazyLiuXinWEMIMetadata("Lazy Title", ["Author One"])
     metadata.install_lazy_relation_loader(
         "item",
@@ -230,6 +329,17 @@ def test_lazy_wemi_projection_raises_until_relation_dependencies_are_loaded() ->
 
 
 def test_lazy_wemi_load_without_fields_loads_all_pending_projection_dependencies() -> None:
+    """
+    Verify lazy wemi load without fields loads all pending projection dependencies.
+
+    Example:
+        Exercise test lazy wemi load without fields loads all pending projection dependencies through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = LazyLiuXinWEMIMetadata("Lazy Title", ["Author One"])
     metadata.install_lazy_value_to_id("labels", lambda: {"lazy-label": 11})
     metadata.install_lazy_relation_loader(
@@ -245,6 +355,17 @@ def test_lazy_wemi_load_without_fields_loads_all_pending_projection_dependencies
 
 
 def test_liuxin_wemi_projection_names_are_read_only() -> None:
+    """
+    Verify liuxin wemi projection names remain read only.
+
+    Example:
+        Exercise test liuxin wemi projection names are read only through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = _sample_metadata()
 
     with pytest.raises(AttributeError):
@@ -254,6 +375,17 @@ def test_liuxin_wemi_projection_names_are_read_only() -> None:
 
 
 def test_liuxin_wemi_metadata_routes_wemi_relation_link_access() -> None:
+    """
+    Verify liuxin wemi metadata routes wemi relation link access.
+
+    Example:
+        Exercise test liuxin wemi metadata routes wemi relation link access through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = _sample_metadata()
     link = ItemRelationLink(
         target={"scheme": "isbn", "value": "9780306406157"},
@@ -275,6 +407,17 @@ def test_liuxin_wemi_metadata_routes_wemi_relation_link_access() -> None:
 
 
 def test_wemi_primary_projection_prefers_primary_links_over_source_row_hints() -> None:
+    """
+    Verify wemi primary projection prefers primary links over source row hints.
+
+    Example:
+        Exercise test wemi primary projection prefers primary links over source row hints through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     expression = ExpressionMetadata(
         expression=ExpressionIdentity(expression_id=20, expression_work_id=10),
     )
@@ -315,6 +458,17 @@ def test_wemi_primary_projection_prefers_primary_links_over_source_row_hints() -
 
 
 def test_liuxin_wemi_metadata_routes_primary_relation_access() -> None:
+    """
+    Verify liuxin wemi metadata routes primary relation access.
+
+    Example:
+        Exercise test liuxin wemi metadata routes primary relation access through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = _sample_metadata()
     first = WorkRelationLink(target={"expression_id": 20}, primary=True)
     second = WorkRelationLink(target={"expression_id": 21})
@@ -333,6 +487,17 @@ def test_liuxin_wemi_metadata_routes_primary_relation_access() -> None:
 
 
 def test_liuxin_wemi_metadata_pretty_string_summarizes_slice() -> None:
+    """
+    Verify liuxin wemi metadata pretty string summarizes slice.
+
+    Example:
+        Exercise test liuxin wemi metadata pretty string summarizes slice through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = _sample_metadata()
     metadata.set_identifier("isbn", "9780306406157")
     metadata.add_wemi_relation_link(
@@ -369,6 +534,17 @@ def test_liuxin_wemi_metadata_pretty_string_summarizes_slice() -> None:
 
 
 def test_liuxin_wemi_metadata_sidecar_mapping_round_trips_slice() -> None:
+    """
+    Verify liuxin wemi metadata sidecar mapping round trips slice.
+
+    Example:
+        Exercise test liuxin wemi metadata sidecar mapping round trips slice through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = _sample_metadata()
     metadata.set_identifier("isbn", "9780306406157")
     metadata.add_wemi_relation_link(

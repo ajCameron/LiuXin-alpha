@@ -1,5 +1,16 @@
 # Parses a calibre test library and retrieves files for LiuXin tests
 
+"""
+Locate fixture source files.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise find test files through a consuming regression::
+
+        python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+"""
 import os
 import pprint
 import shutil
@@ -20,9 +31,17 @@ def gather_files(file_root: str, target_extensions: Optional[Container[str]] = N
     """
     Gather the files from the tree and move them into test_books.
 
-    :param file_root:
-    :param target_extensions:
-    :return:
+    Example:
+        Exercise gather files through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+    :param file_root: Value supplied for file root under the utility contract.
+    :param target_extensions: Value supplied for target extensions under the utility
+        contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     if target_extensions is None:
         target_extensions = deepcopy(BOOK_EXTENSIONS_DOTTED)

@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Benchmark cache loading and initialization internals in isolation."""
+"""
+Benchmark internal cache operations.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise benchmark cache internal through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+"""
 
 from __future__ import annotations
 
@@ -49,6 +59,18 @@ DEFAULT_SCENARIOS = (
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parse args under the format's safety and compatibility rules.
+
+    Example:
+        Exercise parse args through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = argparse.ArgumentParser(
         description="Benchmark storage-cache internals against an in-memory synthetic fake DB."
     )
@@ -74,10 +96,37 @@ def parse_args() -> argparse.Namespace:
 
 
 def _parse_csv(raw: str) -> list[str]:
+    """
+    Parse csv under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  parse csv through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return [one.strip() for one in str(raw or "").split(",") if one.strip()]
 
 
 def _expanded_ids(max_id: int, sample_size: int) -> tuple[int, ...]:
+    """
+    Perform the expanded ids operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  expanded ids through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param max_id: Value supplied for max id under the utility contract.
+    :param sample_size: Value supplied for sample size under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if max_id <= 0:
         return ()
     target = max(1, int(sample_size))
@@ -85,6 +134,21 @@ def _expanded_ids(max_id: int, sample_size: int) -> tuple[int, ...]:
 
 
 def _build_synthetic_cache_db(*, books: int, tag_pool: int, tags_per_book: int):
+    """
+    Perform the build synthetic cache db operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  build synthetic cache db through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param books: Value supplied for books under the utility contract.
+    :param tag_pool: Value supplied for tag pool under the utility contract.
+    :param tags_per_book: Value supplied for tags per book under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     books_table = make_table(
         "books",
         ("id", "title", "shared_code", "slug"),
@@ -204,11 +268,39 @@ def _build_synthetic_cache_db(*, books: int, tag_pool: int, tags_per_book: int):
 
 
 def _create_cache(db: Any, cache_type: str) -> Any:
+    """
+    Create cache under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  create cache through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     kwargs = dict(CACHE_PLUGIN_KWARGS.get(str(cache_type), {}))
     return create_storage_cache(db, cache_type, **kwargs)
 
 
 def _scenario_load_cache(db: Any, cache_type: str) -> dict[str, object]:
+    """
+    Perform the scenario load cache operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario load cache through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     cache = _create_cache(db, cache_type)
     cache.read()
     return {
@@ -221,6 +313,20 @@ def _scenario_load_cache(db: Any, cache_type: str) -> dict[str, object]:
 
 
 def _scenario_read_tables_only(db: Any, cache_type: str) -> dict[str, object]:
+    """
+    Perform the scenario read tables only operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario read tables only through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     cache = _create_cache(db, cache_type)
     cache.clear()
     cache.read_tables(db)
@@ -232,6 +338,20 @@ def _scenario_read_tables_only(db: Any, cache_type: str) -> dict[str, object]:
 
 
 def _scenario_initialize_tables_only(db: Any, cache_type: str) -> dict[str, object]:
+    """
+    Perform the scenario initialize tables only operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario initialize tables only through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     cache = _create_cache(db, cache_type)
     cache.clear()
     cache.read_tables(db)
@@ -246,6 +366,20 @@ def _scenario_initialize_tables_only(db: Any, cache_type: str) -> dict[str, obje
 
 
 def _scenario_read_fields_only(db: Any, cache_type: str) -> dict[str, object]:
+    """
+    Perform the scenario read fields only operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario read fields only through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     cache = _create_cache(db, cache_type)
     cache.clear()
     cache.read_tables(db)
@@ -258,6 +392,20 @@ def _scenario_read_fields_only(db: Any, cache_type: str) -> dict[str, object]:
 
 
 def _scenario_initialize_fields_only(db: Any, cache_type: str) -> dict[str, object]:
+    """
+    Perform the scenario initialize fields only operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario initialize fields only through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     cache = _create_cache(db, cache_type)
     cache.clear()
     cache.read_tables(db)
@@ -277,7 +425,24 @@ def _scenario_targeted_id_refresh(
     mutation_number: int,
     read_counts: dict[str, int],
 ) -> dict[str, object]:
-    """Measure the external-write path for one existing catalogue row."""
+    """
+    Measure the external-write path for one existing catalogue row.
+
+    Example:
+        Exercise  scenario targeted id refresh through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :param cache: Value supplied for cache under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :param mutation_number: Value supplied for mutation number under the utility
+        contract.
+    :param read_counts: Value supplied for read counts under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     target_id = (int(mutation_number) % len(db._rows_by_table["books"])) + 1
     title = f"Refreshed {mutation_number:06d}"
@@ -300,6 +465,21 @@ def _scenario_targeted_id_refresh(
 
 
 def _scenario_scalar_get_cached_value_loop(cache: Any, owner_ids: tuple[int, ...], cache_type: str) -> dict[str, object]:
+    """
+    Perform the scenario scalar get cached value loop operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario scalar get cached value loop through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param cache: Value supplied for cache under the utility contract.
+    :param owner_ids: Value supplied for owner ids under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     total_length = 0
     for owner_id in owner_ids:
         total_length += len(str(cache.get_cached_value(owner_id, "books.title", default_value="") or ""))
@@ -311,6 +491,21 @@ def _scenario_scalar_get_cached_value_loop(cache: Any, owner_ids: tuple[int, ...
 
 
 def _scenario_scalar_get_cached_row_values_loop(cache: Any, owner_ids: tuple[int, ...], cache_type: str) -> dict[str, object]:
+    """
+    Perform the scenario scalar get cached row values loop operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario scalar get cached row values loop through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param cache: Value supplied for cache under the utility contract.
+    :param owner_ids: Value supplied for owner ids under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     total_values = 0
     total_length = 0
     for owner_id in owner_ids:
@@ -326,6 +521,21 @@ def _scenario_scalar_get_cached_row_values_loop(cache: Any, owner_ids: tuple[int
 
 
 def _scenario_relation_single_get_value_loop(cache: Any, owner_ids: tuple[int, ...], cache_type: str) -> dict[str, object]:
+    """
+    Perform the scenario relation single get value loop operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario relation single get value loop through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param cache: Value supplied for cache under the utility contract.
+    :param owner_ids: Value supplied for owner ids under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     field = cache.get_field("books.covers.path")
     total_length = 0
     for owner_id in owner_ids:
@@ -338,6 +548,21 @@ def _scenario_relation_single_get_value_loop(cache: Any, owner_ids: tuple[int, .
 
 
 def _scenario_relation_multi_get_values_loop(cache: Any, owner_ids: tuple[int, ...], cache_type: str) -> dict[str, object]:
+    """
+    Perform the scenario relation multi get values loop operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario relation multi get values loop through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param cache: Value supplied for cache under the utility contract.
+    :param owner_ids: Value supplied for owner ids under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     field = cache.get_field("books.tags.tag_name")
     total_values = 0
     total_length = 0
@@ -354,6 +579,20 @@ def _scenario_relation_multi_get_values_loop(cache: Any, owner_ids: tuple[int, .
 
 
 def _scenario_numpy_scalar_arrays(cache: Any, cache_type: str) -> dict[str, object]:
+    """
+    Perform the scenario numpy scalar arrays operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario numpy scalar arrays through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param cache: Value supplied for cache under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     row_ids = cache.get_numpy_row_id_array("books")
     owner_ids = cache.get_numpy_field_owner_ids("books.title")
     values = cache.get_numpy_field_array("books.title")
@@ -366,6 +605,20 @@ def _scenario_numpy_scalar_arrays(cache: Any, cache_type: str) -> dict[str, obje
 
 
 def _scenario_numpy_relation_arrays(cache: Any, cache_type: str) -> dict[str, object]:
+    """
+    Perform the scenario numpy relation arrays operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario numpy relation arrays through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param cache: Value supplied for cache under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     owner_ids = cache.get_numpy_field_owner_ids("books.tags.tag_name")
     values = cache.get_numpy_field_array("books.tags.tag_name")
     return {
@@ -376,6 +629,21 @@ def _scenario_numpy_relation_arrays(cache: Any, cache_type: str) -> dict[str, ob
 
 
 def _skip_result(cache_type: str, scenario_name: str, reason: str) -> dict[str, object]:
+    """
+    Perform the skip result operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  skip result through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :param scenario_name: Value supplied for scenario name under the utility contract.
+    :param reason: Value supplied for reason under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return {
         "name": "{}.{}".format(cache_type, scenario_name),
         "cache_type": cache_type,
@@ -397,16 +665,66 @@ def run_internal_cache_benchmarks(
     warmups: int,
     progress: Optional[Callable[[str], None]] = None,
 ) -> dict[str, object]:
+    """
+    Perform the run internal cache benchmarks operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise run internal cache benchmarks through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param books: Value supplied for books under the utility contract.
+    :param tag_pool: Value supplied for tag pool under the utility contract.
+    :param tags_per_book: Value supplied for tags per book under the utility contract.
+    :param sample_size: Value supplied for sample size under the utility contract.
+    :param cache_types: Value supplied for cache types under the utility contract.
+    :param scenario_names: Value supplied for scenario names under the utility contract.
+    :param iterations: Value supplied for iterations under the utility contract.
+    :param warmups: Value supplied for warmups under the utility contract.
+    :param progress: Value supplied for progress under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db = _build_synthetic_cache_db(books=books, tag_pool=tag_pool, tags_per_book=tags_per_book)
     read_counts = {"rows": 0, "tables": 0}
     original_get_row = db.get_row_from_id
     original_get_all_rows = db.get_all_rows
 
     def counted_get_row(table: str, row_id: int):
+        """
+        Perform the counted get row operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise run internal cache benchmarks.counted get row through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :param table: Value supplied for table under the utility contract.
+        :param row_id: Value supplied for row id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         read_counts["rows"] += 1
         return original_get_row(table, row_id)
 
     def counted_get_all_rows(table: str, iterator_return: bool = False):
+        """
+        Perform the counted get all rows operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise run internal cache benchmarks.counted get all rows through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :param table: Value supplied for table under the utility contract.
+        :param iterator_return: Value supplied for iterator return under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         read_counts["tables"] += 1
         return original_get_all_rows(table, iterator_return=iterator_return)
 
@@ -424,6 +742,19 @@ def run_internal_cache_benchmarks(
         mutation_number = [0]
 
         def targeted_id_refresh(cache_type: str = cache_type) -> dict[str, object]:
+            """
+            Perform the targeted id refresh operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise run internal cache benchmarks.targeted id refresh through a consuming regression::
+
+                    python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+            :param cache_type: Value supplied for cache type under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             mutation_number[0] += 1
             return _scenario_targeted_id_refresh(
                 db,
@@ -488,6 +819,19 @@ def run_internal_cache_benchmarks(
 
 
 def main(argv: Optional[list[str]] = None) -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     del argv
     args = parse_args()
     cache_types = _parse_csv(str(args.cache_types))

@@ -1,4 +1,14 @@
-"""Behavioral coverage for catalog numeric and date field searches."""
+"""
+Verify test field search operators behavior against the public catalog contracts.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test field search operators through its owning regression module::
+
+        python -m pytest -q tests/catalog/test_field_search_operators.py
+"""
 
 from __future__ import annotations
 
@@ -18,10 +28,33 @@ from LiuXin_alpha.utils.search_query_parser import ParseException
 def _field_iter(
     values: list[tuple[Any, set[int]]],
 ):
+    """
+    Perform the field iter test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise field iter through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+    :param values: Values to normalize, compare or write in stable order.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return lambda: iter(values)
 
 
 def test_boolean_search_rejects_unknown_query_values() -> None:
+    """
+    Verify boolean search rejects unknown query values.
+
+    Example:
+        Exercise test boolean search rejects unknown query values through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     with pytest.raises(ParseException, match="Invalid boolean query"):
         BooleanSearch()("perhaps", _field_iter([]), bools_are_tristate=False)
 
@@ -42,6 +75,19 @@ def test_boolean_search_two_state_semantics(
     query: str,
     expected: set[int],
 ) -> None:
+    """
+    Verify boolean search two state semantics.
+
+    Example:
+        Exercise test boolean search two state semantics through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+    :param query: Parsed or textual catalog query to evaluate.
+    :param expected: Value supplied for expected under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     values = [
         (None, {1}),
         (False, {2}),
@@ -74,6 +120,19 @@ def test_boolean_search_tristate_semantics(
     query: str,
     expected: set[int],
 ) -> None:
+    """
+    Verify boolean search tristate semantics.
+
+    Example:
+        Exercise test boolean search tristate semantics through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+    :param query: Parsed or textual catalog query to evaluate.
+    :param expected: Value supplied for expected under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     values = [
         (None, {1}),
         (False, {2}),
@@ -104,6 +163,20 @@ def test_numeric_search_presence_queries(
     location: str,
     expected: set[int],
 ) -> None:
+    """
+    Verify numeric search presence queries.
+
+    Example:
+        Exercise test numeric search presence queries through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+    :param query: Parsed or textual catalog query to evaluate.
+    :param location: Value supplied for location under the catalog contract.
+    :param expected: Value supplied for expected under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     values = [(None, {1}), (0, {2}), (3, {3}), ("present", {4})]
 
     assert (
@@ -119,6 +192,17 @@ def test_numeric_search_presence_queries(
 
 
 def test_numeric_search_many_value_presence_and_rating_semantics() -> None:
+    """
+    Verify numeric search many value presence and rating semantics.
+
+    Example:
+        Exercise test numeric search many value presence and rating semantics through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     values = [(0, {1}), (2, {2}), (5, {3})]
     search = NumericSearch()
 
@@ -174,6 +258,19 @@ def test_numeric_search_relational_operators(
     query: str,
     expected: set[int],
 ) -> None:
+    """
+    Verify numeric search relational operators.
+
+    Example:
+        Exercise test numeric search relational operators through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+    :param query: Parsed or textual catalog query to evaluate.
+    :param expected: Value supplied for expected under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     values = [
         (0, {0}),
         (1, {1}),
@@ -197,6 +294,17 @@ def test_numeric_search_relational_operators(
 
 
 def test_numeric_search_casts_float_rating_and_binary_suffix_values() -> None:
+    """
+    Verify numeric search casts float rating and binary suffix values.
+
+    Example:
+        Exercise test numeric search casts float rating and binary suffix values through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     search = NumericSearch()
 
     assert search(
@@ -224,6 +332,18 @@ def test_numeric_search_casts_float_rating_and_binary_suffix_values() -> None:
 
 @pytest.mark.parametrize("query", ["not-a-number", ">=oops"])
 def test_numeric_search_rejects_non_numeric_queries(query: str) -> None:
+    """
+    Verify numeric search rejects non numeric queries.
+
+    Example:
+        Exercise test numeric search rejects non numeric queries through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+    :param query: Parsed or textual catalog query to evaluate.
+    :return: None; the function records state or raises through its assertions.
+    """
     with pytest.raises(ParseException, match="Non-numeric value"):
         NumericSearch()(
             query,
@@ -265,15 +385,56 @@ def test_date_search_comparison_precision(
     field_count: int,
     expected: bool,
 ) -> None:
+    """
+    Verify date search comparison precision.
+
+    Example:
+        Exercise test date search comparison precision through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+    :param method: Value supplied for method under the catalog contract.
+    :param dbdate: Value supplied for dbdate under the catalog contract.
+    :param query: Parsed or textual catalog query to evaluate.
+    :param field_count: Value supplied for field count under the catalog contract.
+    :param expected: Value supplied for expected under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     assert getattr(DateSearch(), method)(dbdate, query, field_count) is expected
 
 
 def test_date_search_presence_queries_parse_string_values(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """
+    Verify date search presence queries parse string values.
+
+    Example:
+        Exercise test date search presence queries parse string values through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     parsed = datetime(2024, 5, 6, tzinfo=timezone.utc)
 
     def fake_parse_date(value: str, **_kwargs: Any) -> datetime:
+        """
+        Perform the fake parse date test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test date search presence queries parse string values.fake parse date through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+        :param value: Public or stored value to normalize, compare or write.
+        :param _kwargs: Value supplied for kwargs under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         assert value == "published"
         return parsed
 
@@ -291,6 +452,17 @@ def test_date_search_presence_queries_parse_string_values(
 
 
 def test_date_search_short_queries_are_empty() -> None:
+    """
+    Verify date search short queries remain empty.
+
+    Example:
+        Exercise test date search short queries are empty through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     assert DateSearch()("", _field_iter([])) == set()
     assert DateSearch()("1", _field_iter([])) == set()
 
@@ -311,7 +483,34 @@ def test_date_search_relational_operators(
     expected: set[int],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """
+    Verify date search relational operators.
+
+    Example:
+        Exercise test date search relational operators through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+    :param query: Parsed or textual catalog query to evaluate.
+    :param expected: Value supplied for expected under the catalog contract.
+    :param monkeypatch: Value supplied for monkeypatch under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     def fake_parse_date(value: str, **_kwargs: Any) -> datetime:
+        """
+        Perform the fake parse date test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test date search relational operators.fake parse date through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+        :param value: Public or stored value to normalize, compare or write.
+        :param _kwargs: Value supplied for kwargs under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         parts = [int(part) for part in value.split("-")]
         return datetime(
             parts[0],
@@ -334,6 +533,18 @@ def test_date_search_relational_operators(
 def test_date_search_relative_date_aliases(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """
+    Verify date search relative date aliases.
+
+    Example:
+        Exercise test date search relative date aliases through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     fixed_now = datetime(2024, 5, 6, 12, 0)
     monkeypatch.setattr(date_search, "now", lambda: fixed_now)
     monkeypatch.setattr(date_search, "dt_as_local", lambda value: value)
@@ -352,6 +563,17 @@ def test_date_search_relative_date_aliases(
 
 
 def test_date_search_reports_relative_day_conversion_errors() -> None:
+    """
+    Verify date search reports relative day conversion errors.
+
+    Example:
+        Exercise test date search reports relative day conversion errors through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     with pytest.raises(ParseException, match="Number conversion error"):
         DateSearch()("manydaysago", _field_iter([]))
 
@@ -359,7 +581,32 @@ def test_date_search_reports_relative_day_conversion_errors() -> None:
 def test_date_search_reports_date_conversion_errors(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """
+    Verify date search reports date conversion errors.
+
+    Example:
+        Exercise test date search reports date conversion errors through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     def invalid_date(_value: str, **_kwargs: Any) -> datetime:
+        """
+        Perform the invalid date test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test date search reports date conversion errors.invalid date through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+        :param _value: Value supplied for value under the catalog contract.
+        :param _kwargs: Value supplied for kwargs under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise ValueError("invalid date")
 
     monkeypatch.setattr(date_search, "parse_date", invalid_date)

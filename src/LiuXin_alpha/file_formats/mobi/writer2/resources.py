@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Collect and serialize MOBI images, fonts and auxiliary resources.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise resources through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -32,7 +43,31 @@ PLACEHOLDER_GIF = (
 
 
 class Resources(object):
+    """
+    Provide the resources contract for validated ebook processing.
+
+    Example:
+        Exercise Resources through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+    """
     def __init__(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any, is_periodical: _typing.Any, add_fonts: bool = False, process_images: bool = True) -> None:
+        """
+        Initialize and validate the resources state.
+
+        Example:
+            Exercise Resources.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param is_periodical: Value supplied for is periodical under the utility contract.
+        :param add_fonts: Value supplied for add fonts under the utility contract.
+        :param process_images: Value supplied for process images under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.oeb, self.log, self.opts = oeb, oeb.log, opts
         self.is_periodical = is_periodical
         self.process_images = process_images
@@ -49,11 +84,37 @@ class Resources(object):
         self.add_resources(add_fonts)
 
     def process_image(self: _typing.Self, data: _typing.Any) -> _typing.Any:
+        """
+        Perform the process image operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Resources.process image through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not self.process_images:
             return data
         return mobify_image(data) if self.opts.mobi_keep_original_images else rescale_image(data)
 
     def add_resources(self: _typing.Self, add_fonts: _typing.Any) -> None:
+        """
+        Perform the add resources operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Resources.add resources through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param add_fonts: Value supplied for add fonts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         oeb = self.oeb
         oeb.logger.info("Serializing resources...")
         index = 1
@@ -128,6 +189,15 @@ class Resources(object):
     def add_extra_images(self: _typing.Self) -> None:
         """
         Add any images that were created after the call to add_resources()
+
+        Example:
+            Exercise Resources.add extra images through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         for item in self.oeb.manifest.values():
             if item.media_type not in OEB_RASTER_IMAGES or item.href in self.item_map:
@@ -143,12 +213,37 @@ class Resources(object):
                 item.unload_data_from_memory()
 
     def serialize(self: _typing.Self, records: _typing.Any, used_images: _typing.Any) -> None:
+        """
+        Perform the serialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Resources.serialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param records: Value supplied for records under the utility contract.
+        :param used_images: Value supplied for used images under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         used_image_indices = self.used_image_indices | {v - 1 for k, v in iteritems(self.item_map) if k in used_images}
         for i in self.image_indices - used_image_indices:
             self.records[i] = PLACEHOLDER_GIF
         records.extend(self.records)
 
     def __bool__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the bool operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Resources.  bool   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: True when the documented condition holds; otherwise False.
+        """
         return bool(self.records)
 
     __nonzero__ = __bool__

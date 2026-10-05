@@ -12,13 +12,28 @@
 #########################################################################
 
 
+"""
+Parse RTF list and override tables into normalized definitions.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise list table through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+"""
 from __future__ import annotations
 
 import typing as _typing
 class ListTable:
     """
-    Parse the list table line. Make a string. Form a dictionary.
-    Return the string and the dictionary.
+    Parse the list table line. Make a string. Form a dictionary. Return the string and the dictionary.
+
+    Example:
+        Exercise ListTable through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
     """
 
     def __init__(
@@ -26,11 +41,36 @@ class ListTable:
         bug_handler: _typing.Any,
         run_level: int = 1,
     ) -> None:
+        """
+        Initialize and validate the listtable state.
+
+        Example:
+            Exercise ListTable.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.__bug_handler = bug_handler
         self.__initiate_values()
         self.__run_level = run_level
 
     def __initiate_values(self: _typing.Self) -> None:
+        """
+        Perform the initiate values operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ListTable.  initiate values through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__list_table_final = ""
         self.__state = "default"
         self.__final_dict = {}
@@ -82,11 +122,17 @@ class ListTable:
 
     def __parse_lines(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required : line --line to parse
-        Returns:  nothing
-        Logic:
-            Split the lines into a list by a new line. Process the line
-            according to the state.
+        Required : line --line to parse Returns: nothing Logic: Split the lines into a list by a new line. Process the line according to the state.
+
+        Example:
+            Exercise ListTable.  parse lines through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lines = line.split("\n")
         self.__ob_count = 0
@@ -109,28 +155,34 @@ class ListTable:
 
     def __default_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires: line --line to process
-        Return: nothing
-        Logic:
-            This state is used at the start and end of a list. Look for an
-            opening bracket, which marks the change of state.
+        Requires: line --line to process Return: nothing Logic: This state is used at the start and end of a list. Look for an opening bracket, which marks the change of state.
+
+        Example:
+            Exercise ListTable.  default func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "ob<nu<open-brack":
             self.__state = "unsure_ob"
 
     def __found_list_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires: line -- line to process
-        Returns: nothing
-        Logic:
-            I have found \\list.
-            Change the state to list
-            Get the open bracket count so you know when this state ends.
-            Append an empty list to all lists.
-            Create a temporary dictionary. This dictionary has the key of
-            "list-id" and the value of an empty list. Later, this empty list
-            will be filled with all the ids for which the formatting is valid.
-            Append the temporary dictionary to the new list.
+        Perform the found list func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ListTable.  found list func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__state = "list"
         self.__list_ob_count = self.__ob_count
@@ -140,12 +192,17 @@ class ListTable:
 
     def __list_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires: line --line to process
-        Returns: nothing
-        Logic:
-            This method is called when you are in a list, but outside of a level.
-            Check for the end of the list. Otherwise, use the self.__mainlist_dict
-            to determine if you need to add a lines values to the main list.
+        Requires: line --line to process Returns: nothing Logic: This method is called when you are in a list, but outside of a level. Check for the end of the list. Otherwise, use the self.__mainlist_dict to determine if you need to add a lines values to the main list.
+
+        Example:
+            Exercise ListTable.  list func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "cb<nu<clos-brack" and self.__cb_count == self.__list_ob_count:
             self.__state = "default"
@@ -161,24 +218,17 @@ class ListTable:
 
     def __found_level_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires: line -- line to process
-        Returns: nothing
-        Logic:
-            I have found \\listlevel.
-            Change the state to level
-            Get the open bracket count so you know when this state ends.
-            Append an empty list to the last list inside all lists.
-            Create a temporary dictionary.
-            Append the temporary dictionary to the new list.
-            self.__all_lists now looks like:
-                [[{list-id:[]}, [{}]]]
-                Where:
-                    self.__all_lists[-1] => a list. The first item is a dictionary.
-                    The second item is a list containing a dictionary:
-                    [{list-id:[]}, [{}]]
-                    self.__all_lists[-1][0] => a dictionary of the list attributes
-                    self.__all_lists[-1][-1] => a list with just a dictionary
-                    self.__all_lists[-1][-1][0] => the dictionary of level attributes
+        Perform the found level func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ListTable.  found level func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__state = "level"
         self.__level_ob_count = self.__ob_count
@@ -189,14 +239,17 @@ class ListTable:
 
     def __level_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line -- line to parse
-        Returns:
-            nothing
-        Logic:
-            Look for the end of the this group.
-            Change states if an open bracket is found.
-            Add attributes to all_dicts if an appropriate token is found.
+        Requires: line -- line to parse Returns: nothing Logic: Look for the end of the this group. Change states if an open bracket is found. Add attributes to all_dicts if an appropriate token is found.
+
+        Example:
+            Exercise ListTable.  level func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "cb<nu<clos-brack" and self.__cb_count == self.__level_ob_count:
             self.__state = "list"
@@ -210,17 +263,17 @@ class ListTable:
 
     def __level_number_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line -- line to process
-        Returns:
-            nothing
-        Logic:
-            Check for the end of the group.
-            Otherwise, if the token is hexadecimal, create an attribute.
-            Do so by finding the base-10 value of the number. Then divide
-            this by 2 and round it. Remove the ".0". Sandwwhich the result to
-            give you something like level1-show-level.
-            The show-level attribute means the numbering for this level.
+        Requires: line -- line to process Returns: nothing Logic: Check for the end of the group. Otherwise, if the token is hexadecimal, create an attribute. Do so by finding the base-10 value of the number. Then divide this by 2 and round it. Remove the ".0". Sandwwhich the result to give you something like level1-show-level. The show-level attribute means the numbering for this level.
+
+        Example:
+            Exercise ListTable.  level number func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "cb<nu<clos-brack" and self.__cb_count == self.__level_number_ob_count:
             self.__state = "level"
@@ -241,18 +294,17 @@ class ListTable:
 
     def __level_text_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --line to process
-        Returns:
-            nothing
-        Logic:
-            Check for the end of the group.
-            Otherwise, if the text is hexadecimal, call on the method
-            __parse_level_text_length.
-            Otherwise, if the text is regular text, create an attribute.
-            This attribute indicates the puncuation after a certain level.
-            An example is "level1-marker = '.'"
-            Otherwise, check for a level-template-id.
+        Requires: line --line to process Returns: nothing Logic: Check for the end of the group. Otherwise, if the text is hexadecimal, call on the method __parse_level_text_length. Otherwise, if the text is regular text, create an attribute. This attribute indicates the puncuation after a certain level. An example is "level1-marker = '.'" Otherwise, check for a level-template-id.
+
+        Example:
+            Exercise ListTable.  level text func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "cb<nu<clos-brack" and self.__cb_count == self.__level_text_ob_count:
             if self.__prefix_string:
@@ -279,12 +331,17 @@ class ListTable:
 
     def __parse_level_text_length(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --line with hexadecimal number
-        Returns:
-            nothing
-        Logic:
-            Method is used for to parse text in the \\leveltext group.
+        Perform the parse level text length operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ListTable.  parse level text length through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         num = line[18:]
         the_num = int(num, 16)
@@ -305,27 +362,34 @@ class ListTable:
 
     def __list_name_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --line to process
-        Returns:
-            nothing
-        Logic:
-            Simply check for the end of the group and change states.
+        Requires: line --line to process Returns: nothing Logic: Simply check for the end of the group and change states.
+
+        Example:
+            Exercise ListTable.  list name func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "cb<nu<clos-brack" and self.__cb_count == self.__list_name_ob_count:
             self.__state = "list"
 
     def __after_bracket_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --line to parse
-        Returns:
-            nothing.
-        Logic:
-            The last token found was "{". This method determines what group
-            you are now in.
-            WARNING: this could cause problems. If no group is found, the state will remain
-            unsure_ob, which means no other text will be parsed.
+        Requires: line --line to parse Returns: nothing. Logic: The last token found was "{". This method determines what group you are now in. WARNING: this could cause problems. If no group is found, the state will remain unsure_ob, which means no other text will be parsed.
+
+        Example:
+            Exercise ListTable.  after bracket func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "cw<ls<level-text":
             self.__state = "level_text"
@@ -349,6 +413,15 @@ class ListTable:
     def __add_to_final_line(self: _typing.Self) -> None:
         """
         Method no longer used.
+
+        Example:
+            Exercise ListTable.  add to final line through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__list_table_final = "mi<mk<listabbeg_\n"
         self.__list_table_final += "mi<tg<open______<list-table\n" + "mi<mk<listab-beg\n" + self.__list_table_final
@@ -357,18 +430,16 @@ class ListTable:
 
     def __write_final_string(self: _typing.Self) -> None:
         """
-        Requires:
-            nothing
-        Returns:
-            nothing
-        Logic:
-            Write out the list-table start tag.
-            Iterate through self.__all_lists. For each list, write out
-            a list-in-table tag. Get the dictionary of this list
-            (the first item). Print out the key => value pair.
-            Remove the first item (the dictionary) form this list. Now iterate
-            through what is left in the list. Each list will contain one item,
-            a dictionary. Get this dictionary and print out key => value pair.
+        Requires: nothing Returns: nothing Logic: Write out the list-table start tag. Iterate through self.__all_lists. For each list, write out a list-in-table tag. Get the dictionary of this list (the first item). Print out the key => value pair. Remove the first item (the dictionary) form this list. Now iterate through what is left in the list. Each list will contain one item, a dictionary. Get this dictionary and print out key => value pair.
+
+        Example:
+            Exercise ListTable.  write final string through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         not_allow = [
             "list-id",
@@ -429,13 +500,17 @@ class ListTable:
 
     def parse_list_table(self: _typing.Self, line: _typing.Any) -> tuple[_typing.Any, ...]:
         """
-        Requires:
-            line -- line with border definition in it
-        Returns:
-            A string and the dictionary of list-table values and attributes.
-        Logic:
-            Call on the __parse_lines method, which splits the text string into
-            lines (which will be tokens) and processes them.
+        Requires: line -- line with border definition in it Returns: A string and the dictionary of list-table values and attributes. Logic: Call on the __parse_lines method, which splits the text string into lines (which will be tokens) and processes them.
+
+        Example:
+            Exercise ListTable.parse list table through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self.__parse_lines(line)
         return self.__list_table_final, self.__all_lists

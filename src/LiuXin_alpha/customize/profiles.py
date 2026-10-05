@@ -1,5 +1,16 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Define conversion input/output device profiles and capabilities.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise profiles through a consuming regression::
+
+        python -m pytest -q tests/customize/test_customize_base.py
+"""
 from __future__ import with_statement
 
 from LiuXin_alpha.utils.localization import trans as _
@@ -28,7 +39,10 @@ class IOProfilePluginBase(BasePlugin):
     """
     Base plugin for all file format Inputs and Outputs.
 
-    Includes default values for screen sizes, font sizes e.t.c.
+    Example:
+        Exercise IOProfilePluginBase through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     fbase = 12  # Base font size.
@@ -37,6 +51,19 @@ class IOProfilePluginBase(BasePlugin):
     dpi = 100
 
     def __init__(self, *args, **kwargs) -> None:
+        """
+        Initialize and validate the ioprofilepluginbase state.
+
+        Example:
+            Exercise IOProfilePluginBase.  init   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; validated state is stored on the receiving object.
+        """
         BasePlugin.__init__(self, *args, **kwargs)
         self.width, self.height = self.screen_size
         fsizes = list(self.fsizes)
@@ -55,8 +82,10 @@ class InputProfile(IOProfilePluginBase):
     """
     Default options for Input Profiles - used when converting ebooks to OEB as part of the conversion pipeline.
 
-    If you know a file has been optimized for a particular device, this can help you get a better conversion.
-    However, this profile tries to provide sane defaults and is useful if you know nothing about the input document.
+    Example:
+        Exercise InputProfile through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     author = "Kovid Goyal"
@@ -75,6 +104,11 @@ class InputProfile(IOProfilePluginBase):
 class SonyReaderInput(InputProfile):
     """
     This profile is intended for the SONY PRS line. The 500/505/600/700 etc.
+
+    Example:
+        Exercise SonyReaderInput through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "Sony Reader"
@@ -90,6 +124,11 @@ class SonyReaderInput(InputProfile):
 class SonyReader300Input(SonyReaderInput):
     """
     This profile is intended for the SONY PRS 300.
+
+    Example:
+        Exercise SonyReader300Input through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "Sony Reader 300"
@@ -102,6 +141,11 @@ class SonyReader300Input(SonyReaderInput):
 class SonyReader900Input(SonyReaderInput):
     """
     This profile is intended for the SONY PRS-900.
+
+    Example:
+        Exercise SonyReader900Input through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     author = "John Schember"
@@ -115,6 +159,11 @@ class SonyReader900Input(SonyReaderInput):
 class MSReaderInput(InputProfile):
     """
     This profile is intended for the Microsoft Reader.
+
+    Example:
+        Exercise MSReaderInput through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "Microsoft Reader"
@@ -131,7 +180,10 @@ class MobipocketInput(InputProfile):
     """
     This profile is intended for the Mobipocket books.
 
-    Unfortunately MOBI books are not narrowly targeted, so this information is quite likely to be spurious
+    Example:
+        Exercise MobipocketInput through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "Mobipocket Books"
@@ -149,6 +201,11 @@ class MobipocketInput(InputProfile):
 class HanlinV3Input(InputProfile):
     """
     This profile is intended for the Hanlin V3 and its clones.
+
+    Example:
+        Exercise HanlinV3Input through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "Hanlin V3"
@@ -165,6 +222,11 @@ class HanlinV3Input(InputProfile):
 class HanlinV5Input(HanlinV3Input):
     """
     This profile is intended for the Hanlin V5 and its clones.
+
+    Example:
+        Exercise HanlinV5Input through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "Hanlin V5"
@@ -179,6 +241,11 @@ class HanlinV5Input(HanlinV3Input):
 class CybookG3Input(InputProfile):
     """
     This profile is intended for the Cybook G3.
+
+    Example:
+        Exercise CybookG3Input through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "Cybook G3"
@@ -195,6 +262,11 @@ class CybookG3Input(InputProfile):
 class CybookOpusInput(InputProfile):
     """
     This profile is intended for the Cybook Opus.
+
+    Example:
+        Exercise CybookOpusInput through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     author = "John Schember"
@@ -212,6 +284,11 @@ class CybookOpusInput(InputProfile):
 class KindleInput(InputProfile):
     """
     This profile is intended for the Amazon Kindle.
+
+    Example:
+        Exercise KindleInput through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "Kindle"
@@ -228,6 +305,11 @@ class KindleInput(InputProfile):
 class IlliadInput(InputProfile):
     """
     This profile is intended for the Irex Illiad.
+
+    Example:
+        Exercise IlliadInput through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "Illiad"
@@ -243,6 +325,11 @@ class IlliadInput(InputProfile):
 class IRexDR1000Input(InputProfile):
     """
     This profile is intended for the IRex Digital Reader 1000.
+
+    Example:
+        Exercise IRexDR1000Input through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     author = "John Schember"
@@ -260,6 +347,11 @@ class IRexDR1000Input(InputProfile):
 class IRexDR800Input(InputProfile):
     """
     This profile is intended for the IRex Digital Reader 800.
+
+    Example:
+        Exercise IRexDR800Input through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     author = "Eric Cronin"
@@ -276,6 +368,11 @@ class IRexDR800Input(InputProfile):
 class NookInput(InputProfile):
     """
     This profile is intended for the B&N Nook.
+
+    Example:
+        Exercise NookInput through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     author = "John Schember"
@@ -318,8 +415,10 @@ class OutputProfile(IOProfilePluginBase):
     """
     Output Profiles are for when you're producing documents for a specific device.
 
-    This profile tries to provide sane defaults.
-    It is useful if you want to produce a document intended to be read at a computer or on a range of devices.
+    Example:
+        Exercise OutputProfile through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     author = "Kovid Goyal"
@@ -368,7 +467,10 @@ class iPadOutput(OutputProfile):
     """
     Output profile for the apple iPad.
 
-    Considering the age of this code base, probably the iPad 1.0.
+    Example:
+        Exercise iPadOutput through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "iPad"
@@ -533,6 +635,11 @@ class iPadOutput(OutputProfile):
 class iPad3Output(iPadOutput):
     """
     Intended for the iPad 3 and similar devices with a resolution of 1536x2048.
+
+    Example:
+        Exercise iPad3Output through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     screen_size = comic_screen_size = (2048, 1536)
@@ -545,6 +652,11 @@ class iPad3Output(iPadOutput):
 class TabletOutput(iPadOutput):
     """
     Intended for generic tablet devices, does no resizing of images.
+
+    Example:
+        Exercise TabletOutput through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "Tablet"
@@ -559,7 +671,10 @@ class SamsungGalaxy(TabletOutput):
     """
     Intended for the Samsung Galaxy and similar tablet devices with a resolution of 600x1280.
 
-    At this point (2023) this is probably quite an archaic tablet!
+    Example:
+        Exercise SamsungGalaxy through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "Samsung Galaxy"
@@ -571,6 +686,11 @@ class SamsungGalaxy(TabletOutput):
 class NookHD(TabletOutput):
     """
     Intended for the Nook HD+ and similar tablet devices with a resolution of 1280x1920.
+
+    Example:
+        Exercise NookHD through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "Nook HD+"
@@ -582,6 +702,11 @@ class NookHD(TabletOutput):
 class SonyReaderOutput(OutputProfile):
     """
     This profile is intended for the SONY PRS line. The 500/505/600/700 etc.
+
+    Example:
+        Exercise SonyReaderOutput through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "Sony Reader"
@@ -601,6 +726,11 @@ class SonyReaderOutput(OutputProfile):
 class KoboReaderOutput(OutputProfile):
     """
     This profile is intended for the Kobo Reader.
+
+    Example:
+        Exercise KoboReaderOutput through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "Kobo Reader"
@@ -618,6 +748,11 @@ class KoboReaderOutput(OutputProfile):
 class SonyReader300Output(SonyReaderOutput):
     """
     This profile is intended for the SONY PRS-300.
+
+    Example:
+        Exercise SonyReader300Output through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     author = "John Schember"
@@ -631,6 +766,11 @@ class SonyReader300Output(SonyReaderOutput):
 class SonyReader900Output(SonyReaderOutput):
     """
     This profile is intended for the SONY PRS-900.
+
+    Example:
+        Exercise SonyReader900Output through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     author = "John Schember"
@@ -645,6 +785,11 @@ class SonyReader900Output(SonyReaderOutput):
 class SonyReaderT3Output(SonyReaderOutput):
     """
     This profile is intended for the SONY PRS-T3.
+
+    Example:
+        Exercise SonyReaderT3Output through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     author = "Kovid Goyal"
@@ -660,7 +805,10 @@ class GenericEink(SonyReaderOutput):
     """
     Suitable for use with any e-ink device.
 
-    However, because it's so generic, will not produce great results for any of them.
+    Example:
+        Exercise GenericEink through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "Generic e-ink"
@@ -672,6 +820,11 @@ class GenericEink(SonyReaderOutput):
 class GenericEinkLarge(GenericEink):
     """
     Suitable for use with any large screen e-ink device.
+
+    Example:
+        Exercise GenericEinkLarge through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "Generic e-ink large"
@@ -685,6 +838,11 @@ class GenericEinkLarge(GenericEink):
 class JetBook5Output(OutputProfile):
     """
     This profile is intended for the 5-inch JetBook.
+
+    Example:
+        Exercise JetBook5Output through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "JetBook 5-inch"
@@ -699,7 +857,10 @@ class SonyReaderLandscapeOutput(SonyReaderOutput):
     """
     This profile is intended for the SONY PRS line - 500/505/700 etc, in landscape mode.
 
-    Mainly useful for comics.
+    Example:
+        Exercise SonyReaderLandscapeOutput through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "Sony Reader Landscape"
@@ -717,6 +878,11 @@ class SonyReaderLandscapeOutput(SonyReaderOutput):
 class MSReaderOutput(OutputProfile):
     """
     This profile is intended for the Microsoft Reader.
+
+    Example:
+        Exercise MSReaderOutput through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "Microsoft Reader"
@@ -732,6 +898,11 @@ class MSReaderOutput(OutputProfile):
 class MobipocketOutput(OutputProfile):
     """
     This profile is intended for the Mobipocket books.
+
+    Example:
+        Exercise MobipocketOutput through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "Mobipocket Books"
@@ -747,6 +918,11 @@ class MobipocketOutput(OutputProfile):
 class HanlinV3Output(OutputProfile):
     """
     This profile is intended for the Hanlin V3 and its clones.
+
+    Example:
+        Exercise HanlinV3Output through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "Hanlin V3"
@@ -763,6 +939,11 @@ class HanlinV3Output(OutputProfile):
 class HanlinV5Output(HanlinV3Output):
     """
     This profile is intended for the Hanlin V5 and its clones.
+
+    Example:
+        Exercise HanlinV5Output through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "Hanlin V5"
@@ -775,6 +956,11 @@ class HanlinV5Output(HanlinV3Output):
 class CybookG3Output(OutputProfile):
     """
     This profile is intended for the Cybook G3.
+
+    Example:
+        Exercise CybookG3Output through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "Cybook G3"
@@ -792,6 +978,11 @@ class CybookG3Output(OutputProfile):
 class CybookOpusOutput(SonyReaderOutput):
     """
     This profile is intended for the Cybook Opus.
+
+    Example:
+        Exercise CybookOpusOutput through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     author = "John Schember"
@@ -811,7 +1002,10 @@ class KindleOutput(OutputProfile):
     """
     This profile is intended for the Amazon Kindle.
 
-    (Probably the OG one).
+    Example:
+        Exercise KindleOutput through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "Kindle"
@@ -835,6 +1029,11 @@ class KindleOutput(OutputProfile):
 class KindleDXOutput(OutputProfile):
     """
     This profile is intended for the Amazon Kindle DX.
+
+    Example:
+        Exercise KindleDXOutput through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "Kindle DX"
@@ -856,6 +1055,11 @@ class KindleDXOutput(OutputProfile):
 class KindlePaperWhiteOutput(KindleOutput):
     """
     This profile is intended for the Amazon Kindle PaperWhite.
+
+    Example:
+        Exercise KindlePaperWhiteOutput through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "Kindle PaperWhite"
@@ -871,6 +1075,11 @@ class KindlePaperWhiteOutput(KindleOutput):
 class KindleVoyageOutput(KindleOutput):
     """
     This profile is intended for the Amazon Kindle Voyage.
+
+    Example:
+        Exercise KindleVoyageOutput through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "Kindle Voyage"
@@ -887,6 +1096,11 @@ class KindleVoyageOutput(KindleOutput):
 class KindleFireOutput(KindleDXOutput):
     """
     This profile is intended for the Amazon Kindle Fire.
+
+    Example:
+        Exercise KindleFireOutput through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "Kindle Fire"
@@ -901,6 +1115,11 @@ class KindleFireOutput(KindleDXOutput):
 class IlliadOutput(OutputProfile):
     """
     This profile is intended for the Irex Illiad.
+
+    Example:
+        Exercise IlliadOutput through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "Illiad"
@@ -917,6 +1136,11 @@ class IlliadOutput(OutputProfile):
 class IRexDR1000Output(OutputProfile):
     """
     This profile is intended for the IRex Digital Reader 1000.
+
+    Example:
+        Exercise IRexDR1000Output through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     author = "John Schember"
@@ -935,6 +1159,11 @@ class IRexDR1000Output(OutputProfile):
 class IRexDR800Output(OutputProfile):
     """
     This profile is intended for the IRex Digital Reader 800.
+
+    Example:
+        Exercise IRexDR800Output through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     author = "Eric Cronin"
@@ -953,6 +1182,11 @@ class IRexDR800Output(OutputProfile):
 class NookOutput(OutputProfile):
     """
     This profile is intended for the B&N Nook.
+
+    Example:
+        Exercise NookOutput through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     author = "John Schember"
@@ -971,6 +1205,11 @@ class NookOutput(OutputProfile):
 class NookColorOutput(NookOutput):
     """
     This profile is intended for the B&N Nook Color.
+
+    Example:
+        Exercise NookColorOutput through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     name = "Nook Color"
@@ -985,6 +1224,11 @@ class NookColorOutput(NookOutput):
 class BambookOutput(OutputProfile):
     """
     This profile is intended for the Sanda Bambook.
+
+    Example:
+        Exercise BambookOutput through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     author = "Li Fanxi"
@@ -1004,6 +1248,11 @@ class BambookOutput(OutputProfile):
 class PocketBook900Output(OutputProfile):
     """
     This profile is intended for the PocketBook Pro 900 series of devices.
+
+    Example:
+        Exercise PocketBook900Output through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     author = "Chris Lockfort"
@@ -1019,6 +1268,11 @@ class PocketBook900Output(OutputProfile):
 class PocketBookPro912Output(OutputProfile):
     """
     This profile is intended for the PocketBook Pro 912 series of devices.
+
+    Example:
+        Exercise PocketBookPro912Output through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     author = "Daniele Pizzolli"

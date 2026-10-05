@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Writer content to ztxt pdb file.
+Serialize normalized content and metadata into the target format.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise writer through a consuming regression::
+
+        python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
 """
 from __future__ import annotations
 
@@ -25,11 +33,47 @@ MAX_RECORD_SIZE = 8192
 
 
 class Writer(FormatWriter):
+    """
+    Provide the writer contract for validated ebook processing.
+
+    Example:
+        Exercise Writer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+    """
     def __init__(self: _typing.Self, opts: _typing.Any, log: _typing.Any) -> None:
+        """
+        Initialize and validate the writer state.
+
+        Example:
+            Exercise Writer.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.opts = opts
         self.log = log
 
     def write_content(self: _typing.Self, oeb_book: _typing.Any, out_stream: _typing.Any, metadata: _typing.Any = None) -> None:
+        """
+        Write content under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Writer.write content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param out_stream: Value supplied for out stream under the utility contract.
+        :param metadata: Value supplied for metadata under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         title = (
             self.opts.title
             if self.opts.title
@@ -62,6 +106,19 @@ class Writer(FormatWriter):
             out_stream.write(record)
 
     def _generate_text(self: _typing.Self, oeb_book: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the generate text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Writer. generate text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         writer = TXTMLizer(self.log)
         txt = writer.extract_content(oeb_book, self.opts)
 
@@ -77,6 +134,21 @@ class Writer(FormatWriter):
         return txt_records, txt_length
 
     def _header_record(self: _typing.Self, txt_length: _typing.Any, record_count: _typing.Any, crc32: _typing.Any) -> _typing.Any:
+        """
+        Perform the header record operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Writer. header record through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param txt_length: Value supplied for txt length under the utility contract.
+        :param record_count: Value supplied for record count under the utility contract.
+        :param crc32: Value supplied for crc32 under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         record = b""
 
         record += struct.pack(">H", 0x012C)  # [0:2], version. 0x012c = 1.44

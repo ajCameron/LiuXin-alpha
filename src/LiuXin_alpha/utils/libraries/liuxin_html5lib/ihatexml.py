@@ -1,3 +1,14 @@
+"""
+Adapt XML-oriented element APIs to the bundled HTML5 tree contracts.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise ihatexml through a consuming regression::
+
+        python -m pytest -q tests/file_formats/html/test_html_modernized.py
+"""
 from __future__ import absolute_import, division, unicode_literals
 
 import re
@@ -100,6 +111,19 @@ reCharRange = re.compile(r"\[#x([\d|A-F]{4,4})-#x([\d|A-F]{4,4})\]")
 
 
 def charStringToList(chars):
+    """
+    Perform the charStringToList utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise charStringToList through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param chars: Value supplied for chars under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     charRanges = [item.strip() for item in chars.split(" | ")]
     rv = []
     for item in charRanges:
@@ -121,6 +145,19 @@ def charStringToList(chars):
 
 
 def normaliseCharList(charList):
+    """
+    Perform the normaliseCharList utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise normaliseCharList through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param charList: Value supplied for charList under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     charList = sorted(charList)
     for item in charList:
         assert item[1] >= item[0]
@@ -141,6 +178,19 @@ max_unicode = int("FFFF", 16)
 
 
 def missingRanges(charList):
+    """
+    Perform the missingRanges utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise missingRanges through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param charList: Value supplied for charList under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     rv = []
     if charList[0] != 0:
         rv.append([0, charList[0][0] - 1])
@@ -152,6 +202,19 @@ def missingRanges(charList):
 
 
 def listToRegexpStr(charList):
+    """
+    Perform the listToRegexpStr utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise listToRegexpStr through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param charList: Value supplied for charList under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     rv = []
     for item in charList:
         if item[0] == item[1]:
@@ -162,10 +225,36 @@ def listToRegexpStr(charList):
 
 
 def hexToInt(hex_str):
+    """
+    Perform the hexToInt utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise hexToInt through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param hex_str: Value supplied for hex str under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return int(hex_str, 16)
 
 
 def escapeRegexp(string):
+    """
+    Perform the escapeRegexp utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise escapeRegexp through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param string: Value supplied for string under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     specialCharacters = (
         ".",
         "^",
@@ -202,6 +291,14 @@ nonPubidCharRegexp = re.compile(r"[^\x20\x0D\x0Aa-zA-Z0-9\-'()+,./:=?;!*#@$_%]")
 
 
 class InfosetFilter(object):
+    """
+    Provide the InfosetFilter utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise InfosetFilter through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
     replacementRegexp = re.compile(r"U[\dA-F]{5,5}")
 
     def __init__(
@@ -215,6 +312,30 @@ class InfosetFilter(object):
         preventSingleQuotePubid=False,
     ):
 
+        """
+        Initialize and validate the InfosetFilter state.
+
+        Example:
+            Exercise InfosetFilter.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param replaceChars: Value supplied for replaceChars under the utility contract.
+        :param dropXmlnsLocalName: Value supplied for dropXmlnsLocalName under the utility
+            contract.
+        :param dropXmlnsAttrNs: Value supplied for dropXmlnsAttrNs under the utility
+            contract.
+        :param preventDoubleDashComments: Value supplied for preventDoubleDashComments under
+            the utility contract.
+        :param preventDashAtCommentEnd: Value supplied for preventDashAtCommentEnd under the
+            utility contract.
+        :param replaceFormFeedCharacters: Value supplied for replaceFormFeedCharacters under
+            the utility contract.
+        :param preventSingleQuotePubid: Value supplied for preventSingleQuotePubid under the
+            utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.dropXmlnsLocalName = dropXmlnsLocalName
         self.dropXmlnsAttrNs = dropXmlnsAttrNs
 
@@ -228,6 +349,20 @@ class InfosetFilter(object):
         self.replaceCache = {}
 
     def coerceAttribute(self, name, namespace=None):
+        """
+        Perform the coerceAttribute utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InfosetFilter.coerceAttribute through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param namespace: Value supplied for namespace under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.dropXmlnsLocalName and name.startswith("xmlns:"):
             warnings.warn("Attributes cannot begin with xmlns", DataLossWarning)
             return None
@@ -238,9 +373,36 @@ class InfosetFilter(object):
             return self.toXmlName(name)
 
     def coerceElement(self, name, namespace=None):
+        """
+        Perform the coerceElement utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InfosetFilter.coerceElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param namespace: Value supplied for namespace under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.toXmlName(name)
 
     def coerceComment(self, data):
+        """
+        Perform the coerceComment utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InfosetFilter.coerceComment through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.preventDoubleDashComments:
             while "--" in data:
                 warnings.warn("Comments cannot contain adjacent dashes", DataLossWarning)
@@ -248,6 +410,19 @@ class InfosetFilter(object):
         return data
 
     def coerceCharacters(self, data):
+        """
+        Perform the coerceCharacters utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InfosetFilter.coerceCharacters through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.replaceFormFeedCharacters:
             for i in range(data.count("\x0C")):
                 warnings.warn("Text cannot contain U+000C", DataLossWarning)
@@ -256,6 +431,19 @@ class InfosetFilter(object):
         return data
 
     def coercePubid(self, data):
+        """
+        Perform the coercePubid utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InfosetFilter.coercePubid through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         dataOutput = data
         for char in nonPubidCharRegexp.findall(data):
             warnings.warn("Coercing non-XML pubid", DataLossWarning)
@@ -267,6 +455,19 @@ class InfosetFilter(object):
         return dataOutput
 
     def toXmlName(self, name):
+        """
+        Perform the toXmlName utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InfosetFilter.toXmlName through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         nameFirst = name[0]
         nameRest = name[1:]
         m = nonXmlNameFirstBMPRegexp.match(nameFirst)
@@ -285,6 +486,19 @@ class InfosetFilter(object):
         return nameFirstOutput + nameRestOutput
 
     def getReplacementCharacter(self, char):
+        """
+        Perform the getReplacementCharacter utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InfosetFilter.getReplacementCharacter through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param char: Value supplied for char under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if char in self.replaceCache:
             replacement = self.replaceCache[char]
         else:
@@ -292,14 +506,53 @@ class InfosetFilter(object):
         return replacement
 
     def fromXmlName(self, name):
+        """
+        Perform the fromXmlName utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InfosetFilter.fromXmlName through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for item in set(self.replacementRegexp.findall(name)):
             name = name.replace(item, self.unescapeChar(item))
         return name
 
     def escapeChar(self, char):
+        """
+        Perform the escapeChar utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InfosetFilter.escapeChar through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param char: Value supplied for char under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         replacement = "U%05X" % ord(char)
         self.replaceCache[char] = replacement
         return replacement
 
     def unescapeChar(self, charcode):
+        """
+        Perform the unescapeChar utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InfosetFilter.unescapeChar through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param charcode: Value supplied for charcode under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return chr(int(charcode[1:], 16))

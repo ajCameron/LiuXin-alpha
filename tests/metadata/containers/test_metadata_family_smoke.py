@@ -1,3 +1,14 @@
+"""
+Smoke-test construction and shared behavior across the metadata family.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test metadata family smoke through its owning regression module::
+
+        python -m pytest -q tests/metadata/containers/test_metadata_family_smoke.py
+"""
 from __future__ import annotations
 
 from LiuXin_alpha.databases.db_types import IdentifierScheme
@@ -73,6 +84,17 @@ from LiuXin_alpha.metadata.metadata_types import AgentTypes, CreditSource, WorkA
 
 
 def test_titles_container_smoke_round_trip() -> None:
+    """
+    Verify titles container smoke round trip.
+
+    Example:
+        Exercise test titles container smoke round trip through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_family_smoke.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     title = WorkTitle(title_kind=TitleKind.MAIN, text="The Book", work_id=1)
     container = WorkTitlesContainer(work_id=1)
     container.add_title(title)
@@ -85,6 +107,17 @@ def test_titles_container_smoke_round_trip() -> None:
 
 
 def test_notes_container_smoke_round_trip() -> None:
+    """
+    Verify notes container smoke round trip.
+
+    Example:
+        Exercise test notes container smoke round trip through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_family_smoke.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     note = WorkNote(note_kind=NoteKind.DESCRIPTION, body="A concise note.", work_id=1)
     container = WorkNotesContainer(work_id=1)
     container.add_note(note)
@@ -97,6 +130,17 @@ def test_notes_container_smoke_round_trip() -> None:
 
 
 def test_labels_container_smoke_round_trip() -> None:
+    """
+    Verify labels container smoke round trip.
+
+    Example:
+        Exercise test labels container smoke round trip through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_family_smoke.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     label = WorkLabel(label_kind=LabelKind.TAG, text="favourite", work_id=1)
     container = WorkLabelsContainer(work_id=1)
     container.add_label(label)
@@ -109,6 +153,17 @@ def test_labels_container_smoke_round_trip() -> None:
 
 
 def test_genres_container_smoke_round_trip() -> None:
+    """
+    Verify genres container smoke round trip.
+
+    Example:
+        Exercise test genres container smoke round trip through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_family_smoke.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     genre = WorkGenre(text="Space opera", genre_kind=GenreKind.GENRE, work_id=1)
     container = WorkGenresContainer(work_id=1)
     container.add_genre(genre)
@@ -121,6 +176,17 @@ def test_genres_container_smoke_round_trip() -> None:
 
 
 def test_subjects_container_smoke_round_trip() -> None:
+    """
+    Verify subjects container smoke round trip.
+
+    Example:
+        Exercise test subjects container smoke round trip through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_family_smoke.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     subject = WorkSubject(subject_kind=SubjectKind.TOPIC, text="Navigation", work_id=1)
     container = WorkSubjectsContainer(work_id=1)
     container.add_subject(subject)
@@ -133,6 +199,17 @@ def test_subjects_container_smoke_round_trip() -> None:
 
 
 def test_identifiers_container_smoke_round_trip() -> None:
+    """
+    Verify identifiers container smoke round trip.
+
+    Example:
+        Exercise test identifiers container smoke round trip through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_family_smoke.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     identifier = WorkIdentifier(
         scheme=IdentifierScheme.UUID,
         value="123e4567-e89b-12d3-a456-426614174000",
@@ -149,6 +226,17 @@ def test_identifiers_container_smoke_round_trip() -> None:
 
 
 def test_languages_container_smoke_round_trip() -> None:
+    """
+    Verify languages container smoke round trip.
+
+    Example:
+        Exercise test languages container smoke round trip through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_family_smoke.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     language = WorkLanguage(language_kind=LanguageKind.CONTENT, language_code="en", language_name="English", work_id=1)
     container = WorkLanguagesContainer(work_id=1)
     container.add_language(language)
@@ -161,6 +249,17 @@ def test_languages_container_smoke_round_trip() -> None:
 
 
 def test_dates_container_smoke_round_trip() -> None:
+    """
+    Verify dates container smoke round trip.
+
+    Example:
+        Exercise test dates container smoke round trip through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_family_smoke.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     date = WorkDate(date_kind=DateKind.CREATED, display_text="1899", work_id=1)
     container = WorkDatesContainer(work_id=1)
     container.add_date(date)
@@ -173,6 +272,17 @@ def test_dates_container_smoke_round_trip() -> None:
 
 
 def test_ratings_container_smoke_round_trip() -> None:
+    """
+    Verify ratings container smoke round trip.
+
+    Example:
+        Exercise test ratings container smoke round trip through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_family_smoke.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     rating = WorkRating(rating_kind=RatingKind.OVERALL, value=4.5, scale_max=5.0, work_id=1)
     container = WorkRatingsContainer(work_id=1)
     container.add_rating(rating)
@@ -185,6 +295,17 @@ def test_ratings_container_smoke_round_trip() -> None:
 
 
 def test_series_entries_container_smoke_round_trip() -> None:
+    """
+    Verify series entries container smoke round trip.
+
+    Example:
+        Exercise test series entries container smoke round trip through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_family_smoke.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     entry = WorkSeriesEntry(series_kind=SeriesKind.SERIES, name="Chronicles", numbering_text="2", work_id=1)
     container = WorkSeriesEntriesContainer(work_id=1)
     container.add_entry(entry)
@@ -197,6 +318,17 @@ def test_series_entries_container_smoke_round_trip() -> None:
 
 
 def test_resources_container_smoke_round_trip() -> None:
+    """
+    Verify resources container smoke round trip.
+
+    Example:
+        Exercise test resources container smoke round trip through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_family_smoke.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     resource = WorkResource(resource_kind=ResourceKind.FULL_TEXT, uri="https://example.invalid/book", label="Full text", work_id=1)
     container = WorkResourcesContainer(work_id=1)
     container.add_resource(resource)
@@ -209,6 +341,17 @@ def test_resources_container_smoke_round_trip() -> None:
 
 
 def test_agent_credit_container_smoke_round_trip() -> None:
+    """
+    Verify agent credit container smoke round trip.
+
+    Example:
+        Exercise test agent credit container smoke round trip through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_family_smoke.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     credit = WorkAgentCredit(
         agent_id=10,
         credited_as="Ada Example",
@@ -227,6 +370,17 @@ def test_agent_credit_container_smoke_round_trip() -> None:
 
 
 def test_item_wemi_title_slice_smoke() -> None:
+    """
+    Verify item wemi title slice smoke.
+
+    Example:
+        Exercise test item wemi title slice smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_family_smoke.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     work_titles = WorkTitlesContainer(work_id=1)
     work_titles.add_title(WorkTitle(title_kind=TitleKind.MAIN, text="The Book", work_id=1))
     item_titles = ItemTitlesContainer(item_id=4)
@@ -242,6 +396,17 @@ def test_item_wemi_title_slice_smoke() -> None:
 
 
 def test_agent_participation_snapshot_smoke() -> None:
+    """
+    Verify agent participation snapshot smoke.
+
+    Example:
+        Exercise test agent participation snapshot smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_family_smoke.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     snapshot = AgentParticipationSnapshot(
         agent=AgentProfileSummary(
             agent_id=10,

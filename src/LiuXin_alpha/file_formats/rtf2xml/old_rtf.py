@@ -10,6 +10,17 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+"""
+Recognize and normalize control words from older RTF dialects.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise old rtf through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -20,10 +31,12 @@ from . import open_for_read
 
 class OldRtf:
     """
-    Check to see if the RTF is an older version
-    Logic:
-    If allowable control word/properties happen in text without being enclosed
-    in brackets the file will be considered old rtf
+    Check to see if the RTF is an older version Logic: If allowable control word/properties happen in text without being enclosed in brackets the file will be considered old rtf
+
+    Example:
+        Exercise OldRtf through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
     """
 
     def __init__(
@@ -33,15 +46,18 @@ class OldRtf:
         run_level: _typing.Any,
     ) -> None:
         """
-        Required:
-            'file'--file to parse
-            'table_data' -- a dictionary for each table.
-        Optional:
-            'copy'-- whether to make a copy of result for debugging
-            'temp_dir' --where to output temporary results (default is
-            directory from which the script is run.)
-        Returns:
-            nothing
+        Required: 'file'--file to parse 'table_data' -- a dictionary for each table. Optional: 'copy'-- whether to make a copy of result for debugging 'temp_dir' --where to output temporary results (default is directory from which the script is run.) Returns: nothing
+
+        Example:
+            Exercise OldRtf.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.__file = in_file
         self.__bug_handler = bug_handler
@@ -80,12 +96,37 @@ class OldRtf:
         }
 
     def __initiate_values(self: _typing.Self) -> None:
+        """
+        Perform the initiate values operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OldRtf.  initiate values through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__previous_token = ""
         self.__state = "before_body"
         self.__found_new = 0
         self.__ob_group = 0
 
     def __check_tokens_func(self: _typing.Self, line: _typing.Any) -> str:
+        """
+        Perform the check tokens func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OldRtf.  check tokens func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.__inline_info in self.__allowable:
             if self.__ob_group == self.__base_ob_count:
                 return "old_rtf"
@@ -95,21 +136,52 @@ class OldRtf:
             self.__state = "after_pard"
 
     def __before_body_func(self: _typing.Self, line: _typing.Any) -> None:
+        """
+        Perform the before body func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OldRtf.  before body func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.__token_info == "mi<mk<body-open_":
             self.__state = "in_body"
             self.__base_ob_count = self.__ob_group
 
     def __after_pard_func(self: _typing.Self, line: _typing.Any) -> None:
+        """
+        Perform the after pard func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OldRtf.  after pard func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if line[0:2] != "cw":
             self.__state = "in_body"
 
     def check_if_old_rtf(self: _typing.Self) -> bool:
         """
-        Requires:
-            nothing
-        Returns:
-            True if file is older RTf
-            False if file is newer RTF
+        Requires: nothing Returns: True if file is older RTf False if file is newer RTF
+
+        Example:
+            Exercise OldRtf.check if old rtf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self.__initiate_values()
         line_num = 0

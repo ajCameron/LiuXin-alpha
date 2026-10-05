@@ -1,10 +1,13 @@
 """
-PriorityTypedManyToManyTables have both a priority and a type - so entries are in a certain order and with a type.
+Model typed priority many-to-many relations.
 
-E.g. "titles" linked to "creators"
-Two pieces of information need to be recorded
- - what type of creator is linked to the title
- - what order should the creator appear in the title
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise priority typed many to many table through a consuming regression::
+
+        python -m pytest -q tests/library/test_unified_library.py
 """
 
 from collections import defaultdict
@@ -39,7 +42,10 @@ class CalibrePriorityTypedManyToManyTable(CalibreManyToManyTable):
     """
     ManyToMany table with a priority for ordering the items the books are linked to and a type to that link.
 
-    This partitions the results down into categories.
+    Example:
+        Exercise CalibrePriorityTypedManyToManyTable through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     _priority: bool = True
@@ -51,12 +57,17 @@ class CalibrePriorityTypedManyToManyTable(CalibreManyToManyTable):
         """
         Initialize this table.
 
-        Load is not preformed at this point.
-        The table is also not associated with a database.
-        :param name:
-        :param metadata:
-        :param link_table:
-        :param custom:
+        Example:
+            Exercise CalibrePriorityTypedManyToManyTable.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param metadata: Value supplied for metadata under the utility contract.
+        :param link_table: Value supplied for link table under the utility contract.
+        :param custom: Value supplied for custom under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         super(CalibrePriorityTypedManyToManyTable, self).__init__(
             name=name, metadata=metadata, link_table=link_table, custom=custom
@@ -68,7 +79,14 @@ class CalibrePriorityTypedManyToManyTable(CalibreManyToManyTable):
         """
         Returns a set of all the types which have been read into the cache.
 
-        :return:
+        Example:
+            Exercise CalibrePriorityTypedManyToManyTable.seen types through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return set(self.col_book_map.keys())
 
@@ -77,19 +95,32 @@ class CalibrePriorityTypedManyToManyTable(CalibreManyToManyTable):
         """
         Returns a set of all the types which have been read into the cache.
 
-        :return:
+        Example:
+            Exercise CalibrePriorityTypedManyToManyTable.seen link types through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.seen_types
 
     # Todo: type_filter should be one of the permitted types in the main table - implement that
     def get_priority_subtable(self, db, type_filter) -> CalibrePriorityManyToManyTable:
         """
-        Returns a subtable of the current table with data restricted to a specific type filter.
-        Table returned would be a ManyToManyTable - with no type information stored (as that has already been filtered
-        out).
-        :param db: The database which is currently being operated on
-        :param type_filter: Used to construct the PriorityManyToMany by applying a filter for this type.
-        :return:
+        Returns a subtable of the current table with data restricted to a specific type filter. Table returned would be a ManyToManyTable - with no type information stored (as that has already been filtered out).
+
+        Example:
+            Exercise CalibrePriorityTypedManyToManyTable.get priority subtable through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :param type_filter: Value supplied for type filter under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return CalibrePriorityManyToManyTable.from_typed_priority_table(
             db=db, original_table=self, type_filter=type_filter
@@ -99,7 +130,14 @@ class CalibrePriorityTypedManyToManyTable(CalibreManyToManyTable):
         """
         Needed to trick default dicts into producing the right container.
 
-        :return:
+        Example:
+            Exercise CalibrePriorityTypedManyToManyTable. book col map factory through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return defaultdict(self._default_dict_list_container)
 
@@ -107,7 +145,14 @@ class CalibrePriorityTypedManyToManyTable(CalibreManyToManyTable):
         """
         Needed to trick default dicts into producing the right container.
 
-        :return:
+        Example:
+            Exercise CalibrePriorityTypedManyToManyTable. col book map factory through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return defaultdict(self._default_dict_list_container)
 
@@ -116,7 +161,14 @@ class CalibrePriorityTypedManyToManyTable(CalibreManyToManyTable):
         """
         Trick needed to construct nested defualtdicts.
 
-        :return:
+        Example:
+            Exercise CalibrePriorityTypedManyToManyTable. default dict list container through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return defaultdict(list)
 
@@ -124,9 +176,16 @@ class CalibrePriorityTypedManyToManyTable(CalibreManyToManyTable):
         """
         Returns the book data for the given record.
 
-        :param book_id: The id of the book to retrieve the data for
-        :param type_filter: A string type filter - must be in the known types for the table
-        :return:
+        Example:
+            Exercise CalibrePriorityTypedManyToManyTable.book data through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param type_filter: Value supplied for type filter under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if type_filter is None:
             book_data_dict = dict()
@@ -141,9 +200,16 @@ class CalibrePriorityTypedManyToManyTable(CalibreManyToManyTable):
         """
         Returns the book data for the given record - in the form of vals. If you want ids then use book_data
 
-        :param book_id:
-        :param type_filter:
-        :return:
+        Example:
+            Exercise CalibrePriorityTypedManyToManyTable.vals book data through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param type_filter: Value supplied for type filter under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if type_filter is None:
             book_data_dict = dict()
@@ -158,9 +224,16 @@ class CalibrePriorityTypedManyToManyTable(CalibreManyToManyTable):
         """
         Returns the book data for the given record.
 
-        :param item_id:
-        :param type_filter:
-        :return:
+        Example:
+            Exercise CalibrePriorityTypedManyToManyTable.item data through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :param type_filter: Value supplied for type filter under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if type_filter is None:
             book_data_dict = dict()
@@ -177,8 +250,15 @@ class CalibrePriorityTypedManyToManyTable(CalibreManyToManyTable):
         """
         Takes a container of val ids and turns it into a container of vals.
 
-        :param ids_container: In this case a list
-        :return:
+        Example:
+            Exercise CalibrePriorityTypedManyToManyTable. ids to vals through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param ids_container: Value supplied for ids container under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return [self.id_map[id_] for id_ in ids_container]
 
@@ -187,9 +267,16 @@ class CalibrePriorityTypedManyToManyTable(CalibreManyToManyTable):
         """
         Preform a read into the internal caches.
 
-        :param db:
-        :param type_filter: Optional string to serve as a type filter when preforming the read.
-        :return:
+        Example:
+            Exercise CalibrePriorityTypedManyToManyTable.read maps through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :param type_filter: Value supplied for type filter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         assert type_filter is None, "type_filter is no longer in use"
 
@@ -236,9 +323,18 @@ class CalibrePriorityTypedManyToManyTable(CalibreManyToManyTable):
         """
         Processes the book_id_item_id_map to bring it into a useful form to write an update out to the db and the cache.
 
-        :param book_id_item_id_map:
-        :param id_map_update:
-        :return:
+        Example:
+            Exercise CalibrePriorityTypedManyToManyTable.update preflight through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :param dirtied: Value supplied for dirtied under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         dirtied = set() if dirtied is None else dirtied
 
@@ -278,9 +374,17 @@ class CalibrePriorityTypedManyToManyTable(CalibreManyToManyTable):
         """
         It sometimes makes sense to do an update to the cache to gather information before updating the database.
 
-        :param book_id_item_id_map:
-        :param id_map_update:
-        :return:
+        Example:
+            Exercise CalibrePriorityTypedManyToManyTable.internal update cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self.id_map.update(id_map_update)
 
@@ -377,14 +481,19 @@ class CalibrePriorityTypedManyToManyTable(CalibreManyToManyTable):
 
     def update_precheck(self, book_id_item_id_map, id_map_update):
         """
-        Check that an update is of a valid form before writing it out to the cache and the database.
-        Called when you know the ids you want to assign to the book after the update. Checks those ids are valid.
-        No changes will be made to the :param book_id_item_id_map: (e.g. if the map is valued with tuples - not lists
-        as expected - this will not be corrected.
-        Raised InvalidCacheUpdate if the cache update is invalid in some way.
-        :param book_id_item_id_map: Keyed with the ids of the books to update and valued with the
-        :param id_map_update:
-        :return:
+        Check that an update is of a valid form before writing it out to the cache and the database. Called when you know the ids you want to assign to the book after the update. Checks those ids are valid. No changes will be made to the :param book_id_item_id_map: (e.g. if the map is valued with tuples - not lists as expected - this will not be corrected. Raised InvalidCacheUpdate if the cache update is invalid in some way.
+
+        Example:
+            Exercise CalibrePriorityTypedManyToManyTable.update precheck through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         for book_id, book_vals in iteritems(book_id_item_id_map):
 
@@ -435,9 +544,18 @@ class CalibrePriorityTypedManyToManyTable(CalibreManyToManyTable):
     def update_cache(self, book_id_val_map, id_map=None):
         """
         Preforms a cache update on the internal maps stored in the database.
-        :param book_id_val_map:
-        :param id_map:
-        :return:
+
+        Example:
+            Exercise CalibrePriorityTypedManyToManyTable.update cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_val_map: Value supplied for book id val map under the utility
+            contract.
+        :param id_map: Value supplied for id map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.update_precheck(book_id_val_map, id_map_update=id_map)
 

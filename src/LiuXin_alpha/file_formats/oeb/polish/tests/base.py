@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 
+"""
+Provide shared fixtures and assertions for OEB polishing regressions.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise base through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -27,6 +38,18 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 def get_cache() -> _typing.Any:
+    """
+    Return cache under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get cache through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.constants import cache_dir
 
     cache = os.path.join(cache_dir(), "polish-test")
@@ -35,6 +58,20 @@ def get_cache() -> _typing.Any:
 
 
 def needs_recompile(obj: _typing.Any, srcs: _typing.Any) -> bool:
+    """
+    Perform the needs recompile operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise needs recompile through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param obj: Value supplied for obj under the utility contract.
+    :param srcs: Value supplied for srcs under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(srcs, type("")):
         srcs = [srcs]
     try:
@@ -48,12 +85,41 @@ def needs_recompile(obj: _typing.Any, srcs: _typing.Any) -> bool:
 
 
 def build_book(src: _typing.Any, dest: _typing.Any, args: tuple[_typing.Any, ...] = ()) -> None:
+    """
+    Perform the build book operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise build book through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param src: Value supplied for src under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :param args: Positional values forwarded to the compatibility implementation.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.cli import main
 
     main(["ebook-convert", src, dest] + list(args))
 
 
 def add_resources(raw: _typing.Any, rmap: _typing.Any) -> _typing.Any:
+    """
+    Perform the add resources operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise add resources through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param rmap: Value supplied for rmap under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     for placeholder, path in iteritems(rmap):
         if not path:
             raise RuntimeError("Missing required polish test resource for placeholder: %s" % placeholder)
@@ -64,6 +130,19 @@ def add_resources(raw: _typing.Any, rmap: _typing.Any) -> _typing.Any:
 
 
 def _existing_path(*paths: _typing.Any) -> _typing.Any:
+    """
+    Perform the existing path operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  existing path through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param paths: Value supplied for paths under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     for path in paths:
         if path and os.path.exists(path):
             return path
@@ -71,6 +150,18 @@ def _existing_path(*paths: _typing.Any) -> _typing.Any:
 
 
 def _find_any_ttf_font() -> _typing.Any:
+    """
+    Find any ttf font under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  find any ttf font through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     for pattern in (
         "/usr/share/fonts/**/*.ttf",
         "/usr/local/share/fonts/**/*.ttf",
@@ -82,6 +173,19 @@ def _find_any_ttf_font() -> _typing.Any:
 
 
 def get_simple_book(fmt: str = "epub") -> _typing.Any:
+    """
+    Return simple book under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get simple book through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param fmt: Date, number or template format specification.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     cache = get_cache()
     ans = os.path.join(cache, "simple." + fmt)
     src = os.path.join(os.path.dirname(__file__), "simple.html")
@@ -124,6 +228,19 @@ def get_simple_book(fmt: str = "epub") -> _typing.Any:
 
 
 def get_split_book(fmt: str = "epub") -> _typing.Any:
+    """
+    Return split book under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get split book through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param fmt: Date, number or template format specification.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     cache = get_cache()
     ans = os.path.join(cache, "split." + fmt)
     src = os.path.join(os.path.dirname(__file__), "split.html")
@@ -148,10 +265,45 @@ def get_split_book(fmt: str = "epub") -> _typing.Any:
 
 
 class DevNull(object):
+    """
+    Provide the devnull contract for validated ebook processing.
+
+    Example:
+        Exercise DevNull through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     def __call__(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DevNull.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return None
 
     def __getattr__(self: _typing.Self, name: _typing.Any) -> _typing.Any:
+        """
+        Perform the getattr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DevNull.  getattr   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self
 
 
@@ -160,18 +312,63 @@ devnull = DevNull()
 
 class BaseTest(unittest.TestCase):
 
+    """
+    Provide the basetest contract for validated ebook processing.
+
+    Example:
+        Exercise BaseTest through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     longMessage = True
     maxDiff = None
 
     def setUp(self: _typing.Self) -> None:
+        """
+        Perform the setUp operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BaseTest.setUp through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pc.default_log = devnull
         self.tdir = PersistentTemporaryDirectory(suffix="-polish-test")
 
     def tearDown(self: _typing.Self) -> None:
+        """
+        Perform the tearDown operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BaseTest.tearDown through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         shutil.rmtree(self.tdir, ignore_errors=True)
         del self.tdir
 
     def check_links(self: _typing.Self, container: _typing.Any) -> None:
+        """
+        Perform the check links operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BaseTest.check links through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param container: Value supplied for container under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for name in container.name_path_map:
             for link in container.iterlinks(name, get_line_numbers=False):
                 dest = container.href_to_name(link, name)

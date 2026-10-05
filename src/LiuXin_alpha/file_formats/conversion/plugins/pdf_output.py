@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Convert OEB ebook format to PDF.
+Convert PDF content from the normalized ebook conversion pipeline.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise pdf output through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
 """
 from __future__ import annotations
 
@@ -59,7 +67,27 @@ PAPER_SIZES = [
 
 
 class PDFMetadata(object):  # {{{
+    """
+    Provide the pdfmetadata contract for validated ebook processing.
+
+    Example:
+        Exercise PDFMetadata through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     def __init__(self: _typing.Self, mi: _typing.Any = None) -> None:
+        """
+        Initialize and validate the pdfmetadata state.
+
+        Example:
+            Exercise PDFMetadata.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param mi: Metadata object exposed to the template function.
+        :return: None; validated state is stored on the receiving object.
+        """
         from LiuXin_alpha.utils.calibre import force_unicode
         from LiuXin_alpha.metadata.ebook_metadata_tools import authors_to_string
 
@@ -85,6 +113,14 @@ class PDFMetadata(object):  # {{{
 
 class PDFOutput(OutputFormatPlugin):
 
+    """
+    Provide the pdfoutput contract for validated ebook processing.
+
+    Example:
+        Exercise PDFOutput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     name = "PDF Output"
     author = "Kovid Goyal"
     file_type = "pdf"
@@ -238,6 +274,18 @@ class PDFOutput(OutputFormatPlugin):
     }
 
     def _qt_pdf_available(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the qt pdf available operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PDFOutput. qt pdf available through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             from LiuXin_alpha.file_formats.pdf import writer as qt_pdf_writer
         except Exception:
@@ -245,6 +293,18 @@ class PDFOutput(OutputFormatPlugin):
         return bool(getattr(qt_pdf_writer, "_HAS_QT", False))
 
     def _select_text_writer(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the select text writer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PDFOutput. select text writer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         mode = str(getattr(self.opts, "pdf_engine_mode", "auto") or "auto").lower()
         if mode == "qt":
             from LiuXin_alpha.file_formats.pdf.writer import PDFWriter
@@ -263,6 +323,18 @@ class PDFOutput(OutputFormatPlugin):
         return HeadlessPDFWriter
 
     def _select_image_writer(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the select image writer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PDFOutput. select image writer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         mode = str(getattr(self.opts, "pdf_engine_mode", "auto") or "auto").lower()
         if mode == "headless":
             raise ConversionError("Headless PDF engine does not support image-collection PDF output yet.")
@@ -274,6 +346,23 @@ class PDFOutput(OutputFormatPlugin):
 
     def convert(self: _typing.Self, oeb_book: _typing.Any, output_path: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
 
+        """
+        Convert the supplied source into the stage's normalized output representation.
+
+        Example:
+            Exercise PDFOutput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param output_path: Value supplied for output path under the utility contract.
+        :param input_plugin: Value supplied for input plugin under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from io import BytesIO
 
         from lxml import etree
@@ -312,12 +401,32 @@ class PDFOutput(OutputFormatPlugin):
     def convert_images(self: _typing.Self, images: _typing.Any) -> None:
         """
         Convert images into PDF format.
-        :param images:
-        :return:
+
+        Example:
+            Exercise PDFOutput.convert images through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param images: Value supplied for images under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.write(self._select_image_writer(), images, None)
 
     def get_cover_data(self: _typing.Self) -> None:
+        """
+        Return cover data under the format's safety and compatibility rules.
+
+        Example:
+            Exercise PDFOutput.get cover data through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         oeb = self.oeb
         if oeb.metadata.cover and six_unicode(oeb.metadata.cover[0]) in oeb.manifest.ids:
             cover_id = six_unicode(oeb.metadata.cover[0])
@@ -326,10 +435,16 @@ class PDFOutput(OutputFormatPlugin):
 
     def handle_embedded_fonts(self: _typing.Self) -> None:
         """
-        On windows, Qt uses GDI which does not support OpenType (CFF) fonts, so we need to nuke references to OpenType
-        fonts.
-        Qt's directwrite text backend is not mature.
-        Also make sure all fonts are embeddable.
+        On windows, Qt uses GDI which does not support OpenType (CFF) fonts, so we need to nuke references to OpenType fonts. Qt's directwrite text backend is not mature. Also make sure all fonts are embeddable.
+
+        Example:
+            Exercise PDFOutput.handle embedded fonts through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         from LiuXin_alpha.file_formats.oeb.base import urlnormalize
         from LiuXin_alpha.utils.fonts.utils import remove_embed_restriction
@@ -378,6 +493,19 @@ class PDFOutput(OutputFormatPlugin):
                 item.data.cssRules.pop(i)
 
     def convert_text(self: _typing.Self, oeb_book: _typing.Any) -> None:
+        """
+        Convert text under the format's safety and compatibility rules.
+
+        Example:
+            Exercise PDFOutput.convert text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.file_formats.opf.opf2 import OPF
 
         writer_cls = self._select_text_writer()
@@ -404,6 +532,21 @@ class PDFOutput(OutputFormatPlugin):
             self.write(writer_cls, [s.path for s in opf.spine], getattr(opf, "toc", None))
 
     def write(self: _typing.Self, Writer: _typing.Any, items: _typing.Any, toc: _typing.Any) -> None:
+        """
+        Perform the write operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PDFOutput.write through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param Writer: Value supplied for Writer under the utility contract.
+        :param items: Value supplied for items under the utility contract.
+        :param toc: Value supplied for toc under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         writer = Writer(self.opts, self.log, cover_data=self.cover_data, toc=toc)
         writer.report_progress = self.report_progress
 
@@ -440,19 +583,20 @@ class PDFOutput(OutputFormatPlugin):
 
     def specialize_css_for_output(self: _typing.Self, log: _typing.Any, opts: _typing.Any, item: _typing.Any, stylizer: _typing.Any) -> None:
         """
-        Qt WebKit (4.8.x) cannot handle font-variant: small-caps. It tries to fake the small caps,
-        which is ok, but the faking continues on to subsequent text that should not be in small-caps.
-        So we workaround the problem by faking small caps ourselves. A minimal example that Qt chokes on:
-        <html><body>
-        <p style="font-variant:small-caps">Some Small-caps Text</p>
-        <p style="text-align:justify">Some non small-caps text with enough text for at least one
-        full line and justification enabled. Both of these are needed for the example to work.</p>
-        </body></html>
-        :param log:
-        :param opts:
-        :param item:
-        :param stylizer:
-        :return:
+        Qt WebKit (4.8.x) cannot handle font-variant: small-caps. It tries to fake the small caps, which is ok, but the faking continues on to subsequent text that should not be in small-caps. So we workaround the problem by faking small caps ourselves. A minimal example that Qt chokes on: <html><body> <p style="font-variant:small-caps">Some Small-caps Text</p> <p style="text-align:justify">Some non small-caps text with enough text for at least one full line and justification enabled. Both of these are needed for the example to work.</p> </body></html>
+
+        Example:
+            Exercise PDFOutput.specialize css for output through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param log: Value supplied for log under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param item: Value supplied for item under the utility contract.
+        :param stylizer: Value supplied for stylizer under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         from LiuXin_alpha.file_formats.oeb.base import XHTML
         import itertools
@@ -463,6 +607,19 @@ class PDFOutput(OutputFormatPlugin):
         ws = six_unicode(string.whitespace)
 
         def fake_small_caps(elem: _typing.Any) -> None:
+            """
+            Perform the fake small caps operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise PDFOutput.specialize css for output.fake small caps through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+            :param elem: Value supplied for elem under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             spans = []
             for lowercase, textiter in itertools.groupby(elem.text, lambda x: x not in ws and icu_lower(x) == x):
                 text = "".join(textiter)
@@ -478,6 +635,20 @@ class PDFOutput(OutputFormatPlugin):
             elem[0:] = spans
 
         def process_elem(elem: _typing.Any, parent_fv: _typing.Any = None) -> None:
+            """
+            Perform the process elem operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise PDFOutput.specialize css for output.process elem through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+            :param elem: Value supplied for elem under the utility contract.
+            :param parent_fv: Value supplied for parent fv under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             children = tuple(elem)
             style = stylizer.style(elem)
             fv = style.drop("font-variant")

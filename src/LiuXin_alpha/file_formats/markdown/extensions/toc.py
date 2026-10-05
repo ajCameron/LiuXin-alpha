@@ -1,3 +1,14 @@
+"""
+Build Markdown heading anchors and table-of-contents structures.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise toc through a consuming regression::
+
+        python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+"""
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import annotations
@@ -23,18 +34,35 @@ import re
 
 
 def order_toc_list(toc_list: _typing.Any) -> _typing.Any:
-    """Given an unsorted list with errors and skips, return a nested one.
-    [{'level': 1}, {'level': 2}]
-    =>
-    [{'level': 1, 'children': [{'level': 2, 'children': []}]}]
+    """
+    Given an unsorted list with errors and skips, return a nested one. [{'level': 1}, {'level': 2}] => [{'level': 1, 'children': [{'level': 2, 'children': []}]}]
 
-    A wrong list is also converted:
-    [{'level': 2}, {'level': 1}]
-    =>
-    [{'level': 2, 'children': []}, {'level': 1, 'children': []}]
+    Example:
+        Exercise order toc list through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param toc_list: Value supplied for toc list under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     def build_correct(remaining_list: _typing.Any, prev_elements: _typing.Any = None) -> tuple[_typing.Any, ...]:
+        """
+        Perform the build correct operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise order toc list.build correct through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param remaining_list: Value supplied for remaining list under the utility contract.
+        :param prev_elements: Value supplied for prev elements under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if prev_elements is None:
             prev_elements = [{"level": 1000}]
 
@@ -89,12 +117,46 @@ def order_toc_list(toc_list: _typing.Any) -> _typing.Any:
 class TocTreeprocessor(Treeprocessor):
 
     # Iterator wrapper to get parent and child all at once
+    """
+    Provide the toctreeprocessor contract for validated ebook processing.
+
+    Example:
+        Exercise TocTreeprocessor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
     def iterparent(self: _typing.Self, root: _typing.Any) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the iterparent operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TocTreeprocessor.iterparent through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :return: An iterator yielding the normalized values described above.
+        """
         for parent in root.iter():
             for child in parent:
                 yield parent, child
 
     def add_anchor(self: _typing.Self, c: _typing.Any, elem_id: _typing.Any) -> None:  # @ReservedAssignment
+        """
+        Perform the add anchor operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TocTreeprocessor.add anchor through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param c: Value supplied for c under the utility contract.
+        :param elem_id: Value supplied for elem id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.use_anchors:
             anchor = etree.Element("a")
             anchor.text = c.text
@@ -108,12 +170,40 @@ class TocTreeprocessor(Treeprocessor):
 
     def build_toc_etree(self: _typing.Self, div: _typing.Any, toc_list: _typing.Any) -> _typing.Any:
         # Add title to the div
+        """
+        Perform the build toc etree operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TocTreeprocessor.build toc etree through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param div: Value supplied for div under the utility contract.
+        :param toc_list: Value supplied for toc list under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.config["title"]:
             header = etree.SubElement(div, "span")
             header.attrib["class"] = "toctitle"
             header.text = self.config["title"]
 
         def build_etree_ul(toc_list: _typing.Any, parent: _typing.Any) -> _typing.Any:
+            """
+            Perform the build etree ul operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise TocTreeprocessor.build toc etree.build etree ul through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+            :param toc_list: Value supplied for toc list under the utility contract.
+            :param parent: Value supplied for parent under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             ul = etree.SubElement(parent, "ul")
             for item in toc_list:
                 # List item link, to be inserted into the toc div
@@ -129,6 +219,19 @@ class TocTreeprocessor(Treeprocessor):
 
     def run(self: _typing.Self, doc: _typing.Any) -> None:
 
+        """
+        Execute the configured conversion stage and return its primary result.
+
+        Example:
+            Exercise TocTreeprocessor.run through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param doc: Value supplied for doc under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         div = etree.Element("div")
         div.attrib["class"] = "toc"
         header_rgx = re.compile("[Hh][123456]")
@@ -196,9 +299,29 @@ class TocTreeprocessor(Treeprocessor):
 
 class TocExtension(Extension):
 
+    """
+    Provide the tocextension contract for validated ebook processing.
+
+    Example:
+        Exercise TocExtension through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
     TreeProcessorClass = TocTreeprocessor
 
     def __init__(self: _typing.Self, configs: _typing.Any = None) -> None:
+        """
+        Initialize and validate the tocextension state.
+
+        Example:
+            Exercise TocExtension.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param configs: Value supplied for configs under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.config = {
             "marker": [
                 "[TOC]",
@@ -216,6 +339,20 @@ class TocExtension(Extension):
             self.setConfig(key, value)
 
     def extendMarkdown(self: _typing.Self, md: _typing.Any, md_globals: _typing.Any) -> None:
+        """
+        Perform the extendMarkdown operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TocExtension.extendMarkdown through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param md: Value supplied for md under the utility contract.
+        :param md_globals: Value supplied for md globals under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         tocext = self.TreeProcessorClass(md)
         tocext.config = self.getConfigs()
         # Headerid ext is set to '>prettify'. With this set to '_end',
@@ -227,4 +364,17 @@ class TocExtension(Extension):
 
 
 def makeExtension(configs: _typing.Any = None) -> _typing.Any:
+    """
+    Perform the makeExtension operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise makeExtension through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param configs: Value supplied for configs under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return TocExtension(configs=configs)

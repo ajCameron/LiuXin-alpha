@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Represent and traverse EPUB periodical sections and articles.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise periodical through a consuming regression::
+
+        python -m pytest -q tests/file_formats/epub/test_epub_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -88,6 +99,19 @@ SONY_ATOM_ENTRY = """\
 
 
 def sony_metadata(oeb: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Perform the sony metadata operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise sony metadata through a consuming regression::
+
+            python -m pytest -q tests/file_formats/epub/test_epub_modernized.py
+
+
+    :param oeb: Value supplied for oeb under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     m = oeb.metadata
     title = short_title = six_unicode(m.title[0])
     publisher = __appname__ + " " + __version__
@@ -118,6 +142,19 @@ def sony_metadata(oeb: _typing.Any) -> tuple[_typing.Any, ...]:
     updated = strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
     def cal_id(local_x: _typing.Any) -> bool:
+        """
+        Perform the cal id operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise sony metadata.cal id through a consuming regression::
+
+                python -m pytest -q tests/file_formats/epub/test_epub_modernized.py
+
+
+        :param local_x: Value supplied for local x under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for k, v in local_x.attrib.items():
             if k.endswith("scheme") and v == "uuid":
                 return True

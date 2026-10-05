@@ -1,11 +1,13 @@
-"""Tests for LiuXin_alpha.utils.libraries.calibre_zipfile.
+"""
+Provide test calibre zipfile utility behavior.
 
-These tests are intentionally more aggressive than typical zipfile tests:
-- exercise replace/delete/safe_replace semantics
-- validate raw compressed byte access
-- ensure extract sanitizes dangerous member names (zip-slip style)
-- include malformed archives
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
+Example:
+    Exercise test calibre zipfile through a consuming regression::
+
+        python -m pytest -q tests/utils/test_calibre_zipfile.py
 """
 
 from __future__ import annotations
@@ -22,6 +24,20 @@ from LiuXin_alpha.utils.libraries import calibre_zipfile as cz
 
 
 def _make_zip_bytes(entries: list[tuple[str, bytes]], *, compression: int = cz.ZIP_DEFLATED) -> bytes:
+    """
+    Perform the make zip bytes utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  make zip bytes through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :param entries: Value supplied for entries under the utility contract.
+    :param compression: Value supplied for compression under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     bio = io.BytesIO()
     z = cz.ZipFile(bio, "w", compression=compression)
     try:
@@ -33,12 +49,40 @@ def _make_zip_bytes(entries: list[tuple[str, bytes]], *, compression: int = cz.Z
 
 
 def _corrupt_first(data: bytes, needle: bytes, replacement: bytes) -> bytes:
+    """
+    Perform the corrupt first utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  corrupt first through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :param needle: Value supplied for needle under the utility contract.
+    :param replacement: Value supplied for replacement under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     idx = data.find(needle)
     assert idx >= 0, "needle not found in test fixture"
     return data[:idx] + replacement + data[idx + len(needle) :]
 
 
 def test_is_zipfile_path_and_fileobj(tmp_path: Path) -> None:
+    """
+    Perform the test is zipfile path and fileobj utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test is zipfile path and fileobj through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     p = tmp_path / "t.zip"
     p.write_bytes(_make_zip_bytes([("a.txt", b"hello")]))
 
@@ -58,12 +102,39 @@ def test_is_zipfile_path_and_fileobj(tmp_path: Path) -> None:
     ],
 )
 def test_is_zipfile_false_for_obvious_invalid(payload: bytes, tmp_path: Path) -> None:
+    """
+    Perform the test is zipfile false for obvious invalid utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test is zipfile false for obvious invalid through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :param payload: Value supplied for payload under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     p = tmp_path / "bad.zip"
     p.write_bytes(payload)
     assert cz.is_zipfile(p) is False
 
 
 def test_open_invalid_raises(tmp_path: Path) -> None:
+    """
+    Perform the test open invalid raises utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test open invalid raises through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     p = tmp_path / "bad.zip"
     p.write_bytes(b"definitely not zip")
 
@@ -72,6 +143,19 @@ def test_open_invalid_raises(tmp_path: Path) -> None:
 
 
 def test_open_truncated_valid_archive_raises(tmp_path: Path) -> None:
+    """
+    Perform the test open truncated valid archive raises utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test open truncated valid archive raises through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     good = _make_zip_bytes([("a.txt", b"hello"), ("b.txt", b"world")])
     truncated = good[:-20]
 
@@ -84,6 +168,19 @@ def test_open_truncated_valid_archive_raises(tmp_path: Path) -> None:
 
 
 def test_open_bad_central_directory_signature_raises(tmp_path: Path) -> None:
+    """
+    Perform the test open bad central directory signature raises utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test open bad central directory signature raises through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     good = _make_zip_bytes([("a.txt", b"hello")])
     corrupted = _corrupt_first(good, b"PK\x01\x02", b"PX\x01\x02")
 
@@ -95,6 +192,18 @@ def test_open_bad_central_directory_signature_raises(tmp_path: Path) -> None:
 
 
 def test_write_read_roundtrip_bytesio() -> None:
+    """
+    Perform the test write read roundtrip bytesio utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test write read roundtrip bytesio through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     bio = io.BytesIO()
     z = cz.ZipFile(bio, "w")
     z.writestr("hello.txt", b"world")
@@ -110,6 +219,19 @@ def test_write_read_roundtrip_bytesio() -> None:
 
 
 def test_unicode_filename_roundtrip_and_flag(tmp_path: Path) -> None:
+    """
+    Perform the test unicode filename roundtrip and flag utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test unicode filename roundtrip and flag through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     p = tmp_path / "u.zip"
 
     z = cz.ZipFile(p, "w")
@@ -125,6 +247,19 @@ def test_unicode_filename_roundtrip_and_flag(tmp_path: Path) -> None:
 
 
 def test_read_raw_deflated_roundtrip(tmp_path: Path) -> None:
+    """
+    Perform the test read raw deflated roundtrip utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test read raw deflated roundtrip through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     p = tmp_path / "raw.zip"
 
     original = b"A" * 10000 + b"B" * 10000
@@ -142,6 +277,19 @@ def test_read_raw_deflated_roundtrip(tmp_path: Path) -> None:
 
 
 def test_read_raw_stored_matches_original(tmp_path: Path) -> None:
+    """
+    Perform the test read raw stored matches original utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test read raw stored matches original through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     p = tmp_path / "raw_store.zip"
 
     original = b"no compression please"
@@ -156,6 +304,19 @@ def test_read_raw_stored_matches_original(tmp_path: Path) -> None:
 
 
 def test_open_returns_stream_and_reads_in_chunks(tmp_path: Path) -> None:
+    """
+    Perform the test open returns stream and reads in chunks utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test open returns stream and reads in chunks through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     p = tmp_path / "chunks.zip"
 
     payload = b"0123456789" * 1000
@@ -179,6 +340,19 @@ def test_open_returns_stream_and_reads_in_chunks(tmp_path: Path) -> None:
 
 
 def test_open_universal_newlines_translates(tmp_path: Path) -> None:
+    """
+    Perform the test open universal newlines translates utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test open universal newlines translates through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     p = tmp_path / "nl.zip"
     payload = b"1\r\n2\r3\n4"
 
@@ -199,6 +373,19 @@ def test_open_universal_newlines_translates(tmp_path: Path) -> None:
 
 
 def test_replace_and_replacestr(tmp_path: Path) -> None:
+    """
+    Perform the test replace and replacestr utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test replace and replacestr through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     zpath = tmp_path / "rep.zip"
     z = cz.ZipFile(zpath, "w")
     z.writestr("a.txt", b"old")
@@ -228,6 +415,19 @@ def test_replace_and_replacestr(tmp_path: Path) -> None:
 
 
 def test_delete_removes_first_duplicate_instance(tmp_path: Path) -> None:
+    """
+    Perform the test delete removes first duplicate instance utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test delete removes first duplicate instance through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     zpath = tmp_path / "dupe.zip"
 
     z = cz.ZipFile(zpath, "w")
@@ -248,6 +448,19 @@ def test_delete_removes_first_duplicate_instance(tmp_path: Path) -> None:
 
 
 def test_append_mode_preserves_old_and_adds_new(tmp_path: Path) -> None:
+    """
+    Perform the test append mode preserves old and adds new utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test append mode preserves old and adds new through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     zpath = tmp_path / "append.zip"
 
     z = cz.ZipFile(zpath, "w")
@@ -268,6 +481,19 @@ def test_append_mode_preserves_old_and_adds_new(tmp_path: Path) -> None:
 # Todo: stdlib zipfile tests to here
 
 def test_extractall_sanitizes_path_traversal(tmp_path: Path) -> None:
+    """
+    Perform the test extractall sanitizes path traversal utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test extractall sanitizes path traversal through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     zpath = tmp_path / "slip.zip"
     out = tmp_path / "out"
 
@@ -291,6 +517,19 @@ def test_extractall_sanitizes_path_traversal(tmp_path: Path) -> None:
 
 
 def test_extract_rejects_empty_sanitized_name(tmp_path: Path) -> None:
+    """
+    Perform the test extract rejects empty sanitized name utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test extract rejects empty sanitized name through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     zpath = tmp_path / "badname.zip"
     out = tmp_path / "out"
 
@@ -305,6 +544,18 @@ def test_extract_rejects_empty_sanitized_name(tmp_path: Path) -> None:
 
 
 def test_safe_replace_updates_zipstream_in_place() -> None:
+    """
+    Perform the test safe replace updates zipstream in place utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test safe replace updates zipstream in place through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     bio = io.BytesIO()
     z = cz.ZipFile(bio, "w")
     z.writestr("a.txt", b"aaa")
@@ -322,6 +573,19 @@ def test_safe_replace_updates_zipstream_in_place() -> None:
 
 
 def test_safe_replace_add_missing(tmp_path: Path) -> None:
+    """
+    Perform the test safe replace add missing utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test safe replace add missing through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     bio = io.BytesIO()
     z = cz.ZipFile(bio, "w")
     z.writestr("a.txt", b"aaa")
@@ -338,6 +602,19 @@ def test_safe_replace_add_missing(tmp_path: Path) -> None:
 
 
 def test_add_dir_recursive(tmp_path: Path) -> None:
+    """
+    Perform the test add dir recursive utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test add dir recursive through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     root = tmp_path / "src"
     root.mkdir()
     (root / "a.txt").write_text("A", encoding="utf-8")
@@ -361,6 +638,18 @@ def test_add_dir_recursive(tmp_path: Path) -> None:
 
 def test_pack_format_signatures_are_bytes() -> None:
     # Smoke test: core signatures should be bytes-like, otherwise struct.pack will fail.
+    """
+    Perform the test pack format signatures are bytes utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test pack format signatures are bytes through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     assert isinstance(cz.stringFileHeader, (bytes, bytearray))
     assert isinstance(cz.stringCentralDir, (bytes, bytearray))
     assert isinstance(cz.stringEndArchive, (bytes, bytearray))
@@ -368,5 +657,17 @@ def test_pack_format_signatures_are_bytes() -> None:
 
 def test_struct_end_record_can_be_packed() -> None:
     # Another smoke: ensure the struct format and signature remain coherent.
+    """
+    Perform the test struct end record can be packed utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test struct end record can be packed through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     packed = struct.pack(cz.structEndArchive, cz.stringEndArchive, 0, 0, 0, 0, 0, 0, 0)
     assert packed.startswith(cz.stringEndArchive)

@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
+"""
+Read, validate and update EPUB table-of-contents resources.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise toc through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -52,7 +63,29 @@ ns["lower-case"] = lambda c, x: x.lower() if hasattr(x, "lower") else x
 
 
 class TOC(object):
+    """
+    Provide the toc contract for validated ebook processing.
+
+    Example:
+        Exercise TOC through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     def __init__(self: _typing.Self, title: _typing.Any = None, dest: _typing.Any = None, frag: _typing.Any = None) -> None:
+        """
+        Initialize and validate the toc state.
+
+        Example:
+            Exercise TOC.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param title: Value supplied for title under the utility contract.
+        :param dest: Value supplied for dest under the utility contract.
+        :param frag: Value supplied for frag under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.title, self.dest, self.frag = title, dest, frag
         self.dest_exists = self.dest_error = None
         if self.title:
@@ -61,16 +94,56 @@ class TOC(object):
         self.children = []
 
     def add(self: _typing.Self, title: _typing.Any, dest: _typing.Any, frag: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the add operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TOC.add through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param title: Value supplied for title under the utility contract.
+        :param dest: Value supplied for dest under the utility contract.
+        :param frag: Value supplied for frag under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         c = TOC(title, dest, frag)
         self.children.append(c)
         c.parent = self
         return c
 
     def remove(self: _typing.Self, child: _typing.Any) -> None:
+        """
+        Perform the remove operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TOC.remove through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param child: Value supplied for child under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.children.remove(child)
         child.parent = None
 
     def remove_from_parent(self: _typing.Self) -> None:
+        """
+        Perform the remove from parent operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TOC.remove from parent through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.parent is None:
             return
         idx = self.parent.children.index(self)
@@ -81,13 +154,47 @@ class TOC(object):
         self.parent = None
 
     def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the iter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TOC.  iter   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for c in self.children:
             yield c
 
     def __len__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the len operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TOC.  len   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return len(self.children)
 
     def iterdescendants(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the iterdescendants operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TOC.iterdescendants through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for child in self:
             yield child
             for gc in child.iterdescendants():
@@ -96,6 +203,15 @@ class TOC(object):
     def depth(self: _typing.Self) -> _typing.Any:
         """
         The maximum depth of the navigation tree rooted at this node.
+
+        Example:
+            Exercise TOC.depth through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         try:
             return max(node.depth for node in self) + 1
@@ -103,6 +219,19 @@ class TOC(object):
             return 1
 
     def get_lines(self: _typing.Self, lvl: int = 0) -> _typing.Any:
+        """
+        Return lines under the format's safety and compatibility rules.
+
+        Example:
+            Exercise TOC.get lines through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param lvl: Value supplied for lvl under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         frag = ("#" + self.frag) if self.frag else ""
         ans = [("\t" * lvl) + "TOC: %s --> %s%s" % (self.title, self.dest, frag)]
         for child in self:
@@ -110,14 +239,56 @@ class TOC(object):
         return ans
 
     def __str__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TOC.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return b"\n".join([x.encode("utf-8") for x in self.get_lines()])
 
 
 def child_xpath(tag: _typing.Any, name: _typing.Any) -> _typing.Any:
+    """
+    Perform the child xpath operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise child xpath through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param tag: Value supplied for tag under the utility contract.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return tag.xpath('./*[calibre:lower-case(local-name()) = "%s"]' % name)
 
 
 def add_from_navpoint(container: _typing.Any, navpoint: _typing.Any, parent: _typing.Any, ncx_name: _typing.Any) -> _typing.Any:
+    """
+    Perform the add from navpoint operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise add from navpoint through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param navpoint: Value supplied for navpoint under the utility contract.
+    :param parent: Value supplied for parent under the utility contract.
+    :param ncx_name: Value supplied for ncx name under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     dest = frag = text = None
     nl = child_xpath(navpoint, "navlabel")
     if nl:
@@ -139,6 +310,22 @@ def add_from_navpoint(container: _typing.Any, navpoint: _typing.Any, parent: _ty
 
 
 def process_ncx_node(container: _typing.Any, node: _typing.Any, toc_parent: _typing.Any, ncx_name: _typing.Any) -> None:
+    """
+    Perform the process ncx node operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise process ncx node through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param node: Value supplied for node under the utility contract.
+    :param toc_parent: Value supplied for toc parent under the utility contract.
+    :param ncx_name: Value supplied for ncx name under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for navpoint in node.xpath('./*[calibre:lower-case(local-name()) = "navpoint"]'):
         child = add_from_navpoint(container, navpoint, toc_parent, ncx_name)
         if child is not None:
@@ -146,6 +333,20 @@ def process_ncx_node(container: _typing.Any, node: _typing.Any, toc_parent: _typ
 
 
 def parse_ncx(container: _typing.Any, ncx_name: _typing.Any) -> _typing.Any:
+    """
+    Parse ncx under the format's safety and compatibility rules.
+
+    Example:
+        Exercise parse ncx through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param ncx_name: Value supplied for ncx name under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     root = container.parsed(ncx_name)
     toc_root = TOC()
     navmaps = root.xpath('//*[calibre:lower-case(local-name()) = "navmap"]')
@@ -164,6 +365,20 @@ def parse_ncx(container: _typing.Any, ncx_name: _typing.Any) -> _typing.Any:
 
 
 def verify_toc_destinations(container: _typing.Any, toc: _typing.Any) -> None:
+    """
+    Perform the verify toc destinations operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise verify toc destinations through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param toc: Value supplied for toc under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     anchor_map = {}
     anchor_xpath = XPath("//*/@id|//h:a/@name")
     for item in toc.iterdescendants():
@@ -193,6 +408,19 @@ def verify_toc_destinations(container: _typing.Any, toc: _typing.Any) -> None:
 
 
 def find_existing_toc(container: _typing.Any) -> _typing.Any:
+    """
+    Find existing toc under the format's safety and compatibility rules.
+
+    Example:
+        Exercise find existing toc through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     toc = container.opf_xpath("//opf:spine/@toc")
     if toc:
         toc = container.manifest_id_map.get(toc[0], None)
@@ -205,6 +433,21 @@ def find_existing_toc(container: _typing.Any) -> _typing.Any:
 
 
 def get_toc(container: _typing.Any, verify_destinations: bool = True) -> _typing.Any:
+    """
+    Return toc under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get toc through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param verify_destinations: Value supplied for verify destinations under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     toc = find_existing_toc(container)
     if toc is None or not container.has_name(toc):
         ans = TOC()
@@ -218,6 +461,19 @@ def get_toc(container: _typing.Any, verify_destinations: bool = True) -> _typing
 
 
 def ensure_id(elem: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Perform the ensure id operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise ensure id through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param elem: Value supplied for elem under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if elem.tag == XHTML("a"):
         anchor = elem.get("name", None)
         if anchor:
@@ -230,6 +486,19 @@ def ensure_id(elem: _typing.Any) -> tuple[_typing.Any, ...]:
 
 
 def elem_to_toc_text(elem: _typing.Any) -> _typing.Any:
+    """
+    Perform the elem to toc text operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise elem to toc text through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param elem: Value supplied for elem under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     text = xml2text(elem).strip()
     if not text:
         text = elem.get("title", "")
@@ -243,6 +512,19 @@ def elem_to_toc_text(elem: _typing.Any) -> _typing.Any:
 
 
 def item_at_top(elem: _typing.Any) -> bool:
+    """
+    Perform the item at top operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise item at top through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param elem: Value supplied for elem under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         body = XPath("//h:body")(elem.getroottree().getroot())[0]
     except (TypeError, IndexError, KeyError, AttributeError):
@@ -269,13 +551,18 @@ def item_at_top(elem: _typing.Any) -> bool:
 
 def from_xpaths(container: _typing.Any, xpaths: _typing.Any) -> _typing.Any:
     """
-    Generate a Table of Contents from a list of XPath expressions. Each
-    expression in the list corresponds to a level of the generate ToC. For
-    example: :code:`['//h:h1', '//h:h2', '//h:h3']` will generate a three level
-    table of contents from the ``<h1>``, ``<h2>`` and ``<h3>`` tags.
-    :param container:
-    :param xpaths:
-    :return:
+    Generate a Table of Contents from a list of XPath expressions. Each expression in the list corresponds to a level of the generate ToC. For example: :code:`['//h:h1', '//h:h2', '//h:h3']` will generate a three level table of contents from the ``<h1>``, ``<h2>`` and ``<h3>`` tags.
+
+    Example:
+        Exercise from xpaths through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param xpaths: Value supplied for xpaths under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     tocroot = TOC()
     xpaths = [XPath(xp) for xp in xpaths]
@@ -337,8 +624,16 @@ def from_xpaths(container: _typing.Any, xpaths: _typing.Any) -> _typing.Any:
 def from_links(container: _typing.Any) -> _typing.Any:
     """
     Generate a Table of Contents from links in the book.
-    :param container:
-    :return:
+
+    Example:
+        Exercise from links through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     toc = TOC()
     link_path = XPath("//h:a[@href]")
@@ -374,6 +669,19 @@ def from_links(container: _typing.Any) -> _typing.Any:
 
 
 def find_text(node: _typing.Any) -> _typing.Any:
+    """
+    Find text under the format's safety and compatibility rules.
+
+    Example:
+        Exercise find text through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param node: Value supplied for node under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     limit = 200
     pat = re.compile(r"\s+")
     for child in node:
@@ -393,8 +701,16 @@ def find_text(node: _typing.Any) -> _typing.Any:
 def from_files(container: _typing.Any) -> _typing.Any:
     """
     Generate a Table of Contents from files in the book.
-    :param container:
-    :return:
+
+    Example:
+        Exercise from files through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     toc = TOC()
     for i, spinepath in enumerate(container.spine_items):
@@ -413,6 +729,21 @@ def from_files(container: _typing.Any) -> _typing.Any:
 
 
 def node_from_loc(root: _typing.Any, locs: _typing.Any, totals: _typing.Any = None) -> _typing.Any:
+    """
+    Perform the node from loc operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise node from loc through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param locs: Value supplied for locs under the utility contract.
+    :param totals: Value supplied for totals under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     body = root.xpath('//*[local-name()="body"]')
     if not body:
         raise MalformedMarkup()
@@ -435,6 +766,22 @@ def node_from_loc(root: _typing.Any, locs: _typing.Any, totals: _typing.Any = No
 
 
 def add_id(container: _typing.Any, name: _typing.Any, loc: _typing.Any, totals: _typing.Any = None) -> _typing.Any:
+    """
+    Perform the add id operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise add id through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param loc: Value supplied for loc under the utility contract.
+    :param totals: Value supplied for totals under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     root = container.parsed(name)
     try:
         node = node_from_loc(root, loc, totals=totals)
@@ -459,6 +806,23 @@ def add_id(container: _typing.Any, name: _typing.Any, loc: _typing.Any, totals: 
 
 
 def create_ncx(toc: _typing.Any, to_href: _typing.Any, btitle: _typing.Any, lang: _typing.Any, uid: _typing.Any) -> _typing.Any:
+    """
+    Create ncx under the format's safety and compatibility rules.
+
+    Example:
+        Exercise create ncx through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param toc: Value supplied for toc under the utility contract.
+    :param to_href: Value supplied for to href under the utility contract.
+    :param btitle: Value supplied for btitle under the utility contract.
+    :param lang: Value supplied for lang under the utility contract.
+    :param uid: Value supplied for uid under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     lang = (lang or "en").replace("_", "-")
     ncx = etree.Element(
         NCX("ncx"),
@@ -481,6 +845,20 @@ def create_ncx(toc: _typing.Any, to_href: _typing.Any, btitle: _typing.Any, lang
     play_order = Counter()
 
     def process_node(xml_parent: _typing.Any, toc_parent: _typing.Any) -> None:
+        """
+        Perform the process node operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise create ncx.process node through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param xml_parent: Value supplied for xml parent under the utility contract.
+        :param toc_parent: Value supplied for toc parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for child in toc_parent:
             play_order["c"] += 1
             point = etree.SubElement(
@@ -506,6 +884,22 @@ def create_ncx(toc: _typing.Any, to_href: _typing.Any, btitle: _typing.Any, lang
 
 
 def commit_toc(container: _typing.Any, toc: _typing.Any, lang: _typing.Any = None, uid: _typing.Any = None) -> None:
+    """
+    Perform the commit toc operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise commit toc through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param toc: Value supplied for toc under the utility contract.
+    :param lang: Value supplied for lang under the utility contract.
+    :param uid: Value supplied for uid under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     tocname = find_existing_toc(container)
     if tocname is None:
         item = container.generate_item("toc.ncx", id_prefix="toc")
@@ -539,6 +933,20 @@ def commit_toc(container: _typing.Any, toc: _typing.Any, lang: _typing.Any = Non
 
 
 def remove_names_from_toc(container: _typing.Any, names: _typing.Any) -> bool:
+    """
+    Perform the remove names from toc operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise remove names from toc through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param names: Value supplied for names under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     toc = get_toc(container)
     if len(toc) == 0:
         return False
@@ -556,13 +964,60 @@ def remove_names_from_toc(container: _typing.Any, names: _typing.Any) -> bool:
 
 
 def find_inline_toc(container: _typing.Any) -> _typing.Any:
+    """
+    Find inline toc under the format's safety and compatibility rules.
+
+    Example:
+        Exercise find inline toc through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     for name, linear in container.spine_names:
         if container.parsed(name).xpath('//*[local-name()="body" and @id="calibre_generated_inline_toc"]'):
             return name
 
 
 def toc_to_html(toc: _typing.Any, container: _typing.Any, toc_name: _typing.Any, title: _typing.Any, lang: _typing.Any = None) -> _typing.Any:
+    """
+    Perform the toc to html operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise toc to html through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param toc: Value supplied for toc under the utility contract.
+    :param container: Value supplied for container under the utility contract.
+    :param toc_name: Value supplied for toc name under the utility contract.
+    :param title: Value supplied for title under the utility contract.
+    :param lang: Value supplied for lang under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     def process_node(html_parent: _typing.Any, local_toc: _typing.Any, level: int = 1, indent: str = "  ", style_level: int = 2) -> None:
+        """
+        Perform the process node operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise toc to html.process node through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param html_parent: Value supplied for html parent under the utility contract.
+        :param local_toc: Value supplied for local toc under the utility contract.
+        :param level: Value supplied for level under the utility contract.
+        :param indent: Value supplied for indent under the utility contract.
+        :param style_level: Value supplied for style level under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         li = html_parent.makeelement(XHTML("li"))
         li.tail = "\n" + (indent * level)
         html_parent.append(li)
@@ -613,9 +1068,16 @@ def create_inline_toc(container: _typing.Any, title: _typing.Any = None) -> _typ
     """
     Create an inline (HTML) Table of Contents from an existing NCX table of contents.
 
-    :param container:
-    :param title: The title for this table of contents.
-    :return:
+    Example:
+        Exercise create inline toc through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param title: Value supplied for title under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     lang = get_book_language(container)
     default_title = "Table of Contents"

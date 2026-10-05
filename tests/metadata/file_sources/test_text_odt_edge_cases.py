@@ -1,3 +1,14 @@
+"""
+Exercise text and ODT metadata edge cases.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test text odt edge cases through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_text_odt_edge_cases.py
+"""
 from __future__ import annotations
 
 import io
@@ -13,6 +24,18 @@ from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
 
 def _values(raw):
+    """
+    Perform the values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise values through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_text_odt_edge_cases.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, dict):
@@ -26,41 +49,164 @@ def _values(raw):
 
 
 class _BadIterable:
+    """
+    Provide the BadIterable test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise BadIterable through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_text_odt_edge_cases.py
+    """
     def __iter__(self):
+        """
+        Perform the iter test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise BadIterable.iter through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_text_odt_edge_cases.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise TypeError("cannot iterate")
 
 
 class _TextReadStream(io.StringIO):
+    """
+    Provide the TextReadStream test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise TextReadStream through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_text_odt_edge_cases.py
+    """
     name = "string-stream.txtz"
 
 
 class _TellSeekBroken:
+    """
+    Provide the TellSeekBroken test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise TellSeekBroken through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_text_odt_edge_cases.py
+    """
     name = "broken.txtz"
 
     def __init__(self, payload):
+        """
+        Initialize the TellSeekBroken test double.
+
+        Example:
+            Exercise TellSeekBroken.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_text_odt_edge_cases.py
+
+
+        :param payload: Value supplied for payload in the focused test operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self.payload = payload
 
     def tell(self):
+        """
+        Perform the tell test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise TellSeekBroken.tell through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_text_odt_edge_cases.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise OSError("tell unavailable")
 
     def seek(self, _pos):
+        """
+        Perform the seek test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise TellSeekBroken.seek through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_text_odt_edge_cases.py
+
+
+        :param _pos: Value supplied for pos in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise OSError("seek unavailable")
 
     def read(self):
+        """
+        Perform the read test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise TellSeekBroken.read through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_text_odt_edge_cases.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return self.payload
 
 
 class _AuthorsSetterFallback:
+    """
+    Provide the AuthorsSetterFallback test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise AuthorsSetterFallback through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_text_odt_edge_cases.py
+    """
     def __init__(self):
+        """
+        Initialize the AuthorsSetterFallback test double.
+
+        Example:
+            Exercise AuthorsSetterFallback.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_text_odt_edge_cases.py
+
+
+        :return: None; the function records state or raises through its assertions.
+        """
         self.values = []
         self.calls = 0
 
     @property
     def authors(self):
+        """
+        Perform the authors test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise AuthorsSetterFallback.authors through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_text_odt_edge_cases.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return self.values
 
     @authors.setter
     def authors(self, value):
+        """
+        Perform the authors test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise AuthorsSetterFallback.authors through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_text_odt_edge_cases.py
+
+
+        :param value: Value stored, compared or projected by the operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.calls += 1
         if isinstance(value, list):
             raise RuntimeError("list assignment unavailable")
@@ -68,6 +214,18 @@ class _AuthorsSetterFallback:
 
 
 def _zip_bytes(entries: dict[str, bytes]) -> bytes:
+    """
+    Perform the zip bytes test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise zip bytes through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_text_odt_edge_cases.py
+
+
+    :param entries: Value supplied for entries in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w") as zf:
         for name, payload in entries.items():
@@ -76,6 +234,19 @@ def _zip_bytes(entries: dict[str, bytes]) -> bytes:
 
 
 def _content_xml_with_cover(href: str = "Pictures/cover.png", frame_name: str = "opf.cover") -> bytes:
+    """
+    Perform the content xml with cover test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise content xml with cover through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_text_odt_edge_cases.py
+
+
+    :param href: Value supplied for href in the focused test operation.
+    :param frame_name: Value supplied for frame name in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return f"""<?xml version="1.0" encoding="utf-8"?>
 <office:document-content
     xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
@@ -91,6 +262,18 @@ def _content_xml_with_cover(href: str = "Pictures/cover.png", frame_name: str = 
 
 
 def test_txt_private_parsers_and_source_edges(tmp_path: Path) -> None:
+    """
+    Verify txt private parsers and source edges.
+
+    Example:
+        Exercise test txt private parsers and source edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_text_odt_edge_cases.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.txt as txt
 
     assert txt._source_name(tmp_path / "名字.txt").endswith("名字.txt")
@@ -117,6 +300,20 @@ def test_txt_private_parsers_and_source_edges(tmp_path: Path) -> None:
 
 
 def test_txtz_private_helpers_fallbacks_and_reader_edges(monkeypatch, tmp_path: Path) -> None:
+    """
+    Verify txtz private helpers fallbacks and reader edges.
+
+    Example:
+        Exercise test txtz private helpers fallbacks and reader edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_text_odt_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.txtz as txtz
 
     assert txtz._values(None) == []
@@ -174,6 +371,20 @@ def test_txtz_private_helpers_fallbacks_and_reader_edges(monkeypatch, tmp_path: 
 
 
 def test_odt_helper_edges_cover_fallback_and_errors(monkeypatch, tmp_path: Path) -> None:
+    """
+    Verify odt helper edges cover fallback and errors.
+
+    Example:
+        Exercise test odt helper edges cover fallback and errors through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_text_odt_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.odt as odt
 
     assert odt._normalize_text(None) == ""
@@ -224,6 +435,20 @@ def test_odt_helper_edges_cover_fallback_and_errors(monkeypatch, tmp_path: Path)
 
 
 def test_odt_beta_helper_edges_cover_fallback_and_errors(monkeypatch, tmp_path: Path) -> None:
+    """
+    Verify odt beta helper edges cover fallback and errors.
+
+    Example:
+        Exercise test odt beta helper edges cover fallback and errors through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_text_odt_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.odt_beta as beta
 
     assert beta._normalize(None) == ""

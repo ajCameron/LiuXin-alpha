@@ -5,6 +5,17 @@
 # on a specific device - represents a column on the database
 # Fields hold a reference to the table object the field is in - so multiple fields can be assigned to a table.
 
+"""
+Model cached library fields and their value mappings.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise fields through a consuming regression::
+
+        python -m pytest -q tests/library/test_unified_library.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 
 from collections import defaultdict, Counter
@@ -106,6 +117,11 @@ __docformat__ = "restructuredtext en"
 class CalibreField(BaseField):
     """
     Represents a field on the books table - here for calibre emulation.
+
+    Example:
+        Exercise CalibreField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     _complex_update = False
@@ -115,8 +131,14 @@ class CalibreField(BaseField):
         """
         Get the complex_update status of the field.
 
-        :param val:
-        :return:
+        Example:
+            Exercise CalibreField.complex update through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self._complex_update
 
@@ -125,27 +147,65 @@ class CalibreField(BaseField):
         """
         Refuse to set the complex_update of the field.
 
-        :param val:
-        :return:
+        Example:
+            Exercise CalibreField.complex update through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise AttributeError("complex_update cannot be dynamically set.")
 
     # Used to update the write in the table when changes are made to the writer here
     @property
     def writer(self):
+        """
+        Perform the writer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreField.writer through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._writer
 
     @writer.setter
     def writer(self, new_writer):
+        """
+        Perform the writer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreField.writer through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param new_writer: Value supplied for new writer under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._writer = new_writer
         self.table.writer = self._writer
 
     def startup_link_attr_fields(self):
         """
-        Startup the link attribute fields - which additionally characterizes the link between the main and auxiliary
-        table.
+        Startup the link attribute fields - which additionally characterizes the link between the main and auxiliary table.
 
-        :return:
+        Example:
+            Exercise CalibreField.startup link attr fields through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # In the null case where no attributes need to be loaded.
         if self.link_attributes is None:
@@ -162,35 +222,82 @@ class CalibreField(BaseField):
 
     def _change_update_cache_method(self, new_method):
         """
-        Change the currently in use update_cache method - used to bind a new method with new behavior over the top of
-        the old.
-        :param new_method:
-        :return:
+        Change the currently in use update_cache method - used to bind a new method with new behavior over the top of the old.
+
+        Example:
+            Exercise CalibreField. change update cache method through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param new_method: Value supplied for new method under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         object.__setattr__(self, "update_cache", new_method)
 
     def _change_ids_for_book_method(self, new_method):
         """
-        Change the currently in use ids_for_book method - which binds a new method with new behavior (suited to the
-        particular backend in use) over the top of the currently in use method.
-        :param new_method:
-        :return:
+        Change the currently in use ids_for_book method - which binds a new method with new behavior (suited to the particular backend in use) over the top of the currently in use method.
+
+        Example:
+            Exercise CalibreField. change ids for book method through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param new_method: Value supplied for new method under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         object.__setattr__(self, "ids_for_book", new_method)
 
     def _change_for_book_method(self, new_method):
         """
-        Change the currently in use for_book method - which binds a new method with new behavior (suited to the
-        particular backend in use) over the top of the currently in use method.
-        :param new_method:
-        :return:
+        Change the currently in use for_book method - which binds a new method with new behavior (suited to the particular backend in use) over the top of the currently in use method.
+
+        Example:
+            Exercise CalibreField. change for book method through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param new_method: Value supplied for new method under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         object.__setattr__(self, "for_book", new_method)
 
     def _change_books_for_method(self, new_method):
+        """
+        Perform the change books for method operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreField. change books for method through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param new_method: Value supplied for new method under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         object.__setattr__(self, "books_for", new_method)
 
     def _change_iter_searchable_values(self, new_method):
+        """
+        Perform the change iter searchable values operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreField. change iter searchable values through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param new_method: Value supplied for new method under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         object.__setattr__(self, "iter_searchable_values", new_method)
 
     #
@@ -199,11 +306,20 @@ class CalibreField(BaseField):
     def get_categories(self, tag_class, book_rating_map, lang_map, book_ids=None):
         """
         Still not 100% sure what this is supposed to do. It's probably broken though.
-        :param tag_class:
-        :param book_rating_map:
-        :param lang_map:
-        :param book_ids:
-        :return:
+
+        Example:
+            Exercise CalibreField.get categories through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param tag_class: Value supplied for tag class under the utility contract.
+        :param book_rating_map: Value supplied for book rating map under the utility
+            contract.
+        :param lang_map: Value supplied for lang map under the utility contract.
+        :param book_ids: Book identities included in the batched read operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         ans = []
         if not self.is_many:
@@ -245,10 +361,20 @@ class CalibreField(BaseField):
     def update(self, book_id_to_val_map, db, allow_case_change=False):
         """
         Preforms a update to the database.
-        :param book_id_to_val_map:
-        :param db:
-        :param allow_case_change:
-        :return:
+
+        Example:
+            Exercise CalibreField.update through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_to_val_map: Value supplied for book id to val map under the utility
+            contract.
+        :param db: Value supplied for db under the utility contract.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self.table.update_precheck(book_id_item_id_map=book_id_to_val_map, id_map_update=dict())
 
@@ -306,20 +432,37 @@ class CalibreField(BaseField):
     def update_preflight(self, book_id_item_id_map, id_map_update, dirtied=None):
         """
         Gives the table a chance to bring the :param book_id_item_id_map:
-        :param book_id_item_id_map: The update map to preform the preflight on
-        :param id_map_update: Also needed to fully define the update
-        :return:
+
+        Example:
+            Exercise CalibreField.update preflight through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :param dirtied: Value supplied for dirtied under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.table.update_preflight(book_id_item_id_map, id_map_update, dirtied=dirtied)
 
     def update_precheck(self, book_id_item_id_map, id_map_update):
         """
-        Preform validation that the update is correctly formatted (refers to ids which exist).
-        As the details of what constitutes a valid update depends on how the data is ordered, this check should be
-        preformed at the table level.
-        :param book_id_item_id_map:
-        :param id_map_update:
-        :return:
+        Preform validation that the update is correctly formatted (refers to ids which exist). As the details of what constitutes a valid update depends on how the data is ordered, this check should be preformed at the table level.
+
+        Example:
+            Exercise CalibreField.update precheck through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.table.update_precheck(book_id_item_id_map, id_map_update)
 
@@ -327,10 +470,19 @@ class CalibreField(BaseField):
         """
         Preforms a update to the database.
 
-        :param book_id_to_val_map:
-        :param db:
-        :param allow_case_change:
-        :return:
+        Example:
+            Exercise CalibreField.update db through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_to_val_map: Value supplied for book id to val map under the utility
+            contract.
+        :param db: Value supplied for db under the utility contract.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         try:
             return self.table.update_db(book_id_to_val_map, db, allow_case_change=allow_case_change)
@@ -341,11 +493,17 @@ class CalibreField(BaseField):
         """
         Preforms an update of the cache.
 
-        THIS CLASS HAS AN INTERNAL_UPDATE_CACHE METHOD CALLED AS PART OF THE UPDATE PROCESS. ARE YOU SURE YOU WANT TO
-        USE THIS METHOD?
-        :param book_id_val_map:
-        :param id_map:
-        :return:
+        Example:
+            Exercise CalibreField.update cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_val_map: Value supplied for book id val map under the utility
+            contract.
+        :param id_map: Value supplied for id map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.table.update_cache(book_id_val_map, id_map)
 
@@ -353,10 +511,17 @@ class CalibreField(BaseField):
         """
         Update cache with some additional information provided
 
-        Used in write when it needs to know some info about the cache before writing out to the database.
-        :param book_id_item_id_map:
-        :param id_map_update: Dictionary used to directly update the id_map
-        :return:
+        Example:
+            Exercise CalibreField.internal update cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.table.internal_update_cache(book_id_item_id_map, id_map_update)
 
@@ -369,18 +534,30 @@ class CalibreField(BaseField):
 class CalibreOneToOneField(BaseOneToOneField, CalibreField):
     """
     A 1-1 mapping must exist between books and these fields. (E.g. The uuid of a book).
+
+    Example:
+        Exercise CalibreOneToOneField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     table_type: int = ONE_ONE
 
     def __init__(self, name, table, bools_are_tristate):
         """
-        Preforms custom startup - depending on the type of table different behavior is required to emulate a OneToOne
-        table.
-        :param name: Name of the field
-        :param table: The table the field is in
-        :param bools_are_tristate: If True then bools are permitted to take three values - True, False and None
-        :return:
+        Preforms custom startup - depending on the type of table different behavior is required to emulate a OneToOne table.
+
+        Example:
+            Exercise CalibreOneToOneField.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param table: Value supplied for table under the utility contract.
+        :param bools_are_tristate: Value supplied for bools are tristate under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
         """
         super(CalibreOneToOneField, self).__init__(name, table, bools_are_tristate)
 
@@ -415,10 +592,35 @@ class CalibreOneToOneField(BaseOneToOneField, CalibreField):
     # Used to update the write in the table when changes are made to the writer here
     @property
     def writer(self):
+        """
+        Perform the writer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreOneToOneField.writer through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._writer
 
     @writer.setter
     def writer(self, new_writer):
+        """
+        Perform the writer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreOneToOneField.writer through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param new_writer: Value supplied for new writer under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._writer = new_writer
         self.table.writer = self._writer
 
@@ -427,10 +629,17 @@ class CalibreOneToOneField(BaseOneToOneField, CalibreField):
     # - BACKEND ACCESS METHODS
     def _to_many_ids_for_book(self, book_id):
         """
-        ids_for_book method suitable for the case where many items are linked to each book with only a priority for
-        sorting and not a type for sub-typing.
-        :param book_id:
-        :return:
+        ids_for_book method suitable for the case where many items are linked to each book with only a priority for sorting and not a type for sub-typing.
+
+        Example:
+            Exercise CalibreOneToOneField. to many ids for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if book_id not in self.table.book_col_map:
             return None
@@ -440,9 +649,17 @@ class CalibreOneToOneField(BaseOneToOneField, CalibreField):
     def _to_many_for_book(self, book_id, default_value=None):
         """
         Return the primary value string for the book.
-        :param book_id:
-        :param default_value:
-        :return:
+
+        Example:
+            Exercise CalibreOneToOneField. to many for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if book_id not in self.table.book_col_map:
             return default_value
@@ -453,11 +670,37 @@ class CalibreOneToOneField(BaseOneToOneField, CalibreField):
         return self.table.id_map[book_val_id]
 
     def _one_to_many_books_for(self, item_id):
+        """
+        Perform the one to many books for operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreOneToOneField. one to many books for through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if item_id not in self.table.col_book_map:
             raise NotInCache
         return self.table.col_book_map[item_id]
 
     def _many_to_many_books_for(self, item_id):
+        """
+        Perform the many to many books for operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreOneToOneField. many to many books for through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if item_id not in self.table.col_book_map:
             raise NotInCache
         item_ids = self.table.col_book_map[item_id]
@@ -471,18 +714,36 @@ class CalibreOneToOneField(BaseOneToOneField, CalibreField):
     def _use_table_update_cache(self, book_id_val_map, id_map=None):
         """
         Use the update_cache method from the table to preform updates to it's internal data stores.
-        :param book_id_val_map:
-        :param id_map:
-        :return:
+
+        Example:
+            Exercise CalibreOneToOneField. use table update cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_val_map: Value supplied for book id val map under the utility
+            contract.
+        :param id_map: Value supplied for id map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.table.update_cache(book_id_val_map=book_id_val_map, id_map=id_map)
 
     def _use_table_otm_update_cache(self, book_id_val_map, id_map=None):
         """
         Preform an update - with a preflight.
-        :param book_id_val_map:
-        :param id_map:
-        :return:
+
+        Example:
+            Exercise CalibreOneToOneField. use table otm update cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_val_map: Value supplied for book id val map under the utility
+            contract.
+        :param id_map: Value supplied for id map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         book_id_val_map, id_map = self.table.update_preflight(book_id_val_map, id_map)
         return self.table.update_cache(book_id_val_map=book_id_val_map, id_map=id_map)
@@ -490,9 +751,18 @@ class CalibreOneToOneField(BaseOneToOneField, CalibreField):
     def _use_table_mto_update_cache(self, book_id_val_map, id_map=None):
         """
         Preform an update - with a preflight.
-        :param book_id_val_map:
-        :param id_map:
-        :return:
+
+        Example:
+            Exercise CalibreOneToOneField. use table mto update cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_val_map: Value supplied for book id val map under the utility
+            contract.
+        :param id_map: Value supplied for id map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         book_id_val_map, id_map = self.table.update_preflight(book_id_val_map, id_map)
         return self.table.update_cache(book_id_val_map=book_id_val_map, id_map=id_map)
@@ -503,27 +773,49 @@ class CalibreOneToOneField(BaseOneToOneField, CalibreField):
     def book_in_cache(self, book_id):
         """
         Return True if the book is in the cache and False otherwise.
-        :param book_id:
-        :return:
+
+        Example:
+            Exercise CalibreOneToOneField.book in cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return book_id in self.table.book_col_map
 
     def item_in_cache(self, item_id):
         """
-        Return True if the book is in the cache and False otherwise.
-        If the table and the backend are OneToOne then the id of the item is assumed to be the id of the title.
-        :param item_id:
-        :return:
+        Return True if the book is in the cache and False otherwise. If the table and the backend are OneToOne then the id of the item is assumed to be the id of the title.
+
+        Example:
+            Exercise CalibreOneToOneField.item in cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return item_id in self.table.book_col_map
 
     def for_book(self, book_id, default_value=None):
         """
-        Returns the cached value for the book, or the default value if that evaluates to None.
-        Raises NotInCache if there is no value in the cache for the given title.
-        :param book_id:
-        :param default_value:
-        :return:
+        Returns the cached value for the book, or the default value if that evaluates to None. Raises NotInCache if there is no value in the cache for the given title.
+
+        Example:
+            Exercise CalibreOneToOneField.for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if book_id not in self.table.book_col_map:
             raise NotInCache
@@ -535,11 +827,17 @@ class CalibreOneToOneField(BaseOneToOneField, CalibreField):
 
     def books_for(self, item_id):
         """
-        Returns the books for the given item id.
-        By default this is assumed to be a one to one field - so the id of the item is the same as the id of the book.
-        If this is not the case (as for when the table is pseudo) other logic needs to be substituted and used.
-        :param item_id:
-        :return:
+        Returns the books for the given item id. By default this is assumed to be a one to one field - so the id of the item is the same as the id of the book. If this is not the case (as for when the table is pseudo) other logic needs to be substituted and used.
+
+        Example:
+            Exercise CalibreOneToOneField.books for through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Checks that the id of the item - which is the same as the id of the title - is known to the system
         if item_id not in self.table.book_col_map:
@@ -553,18 +851,35 @@ class CalibreOneToOneField(BaseOneToOneField, CalibreField):
         """
         Iterates through the book_col_map - returning all the book ids in it.
 
-        Thus, only books which have values set will be read.
-        :return:
+        Example:
+            Exercise CalibreOneToOneField.  iter   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return iterkeys(self.table.book_col_map)
 
     def update_db(self, book_id_to_val_map, db, dirtied=None, allow_case_change=False):
         """
         Preforms a update to the database.
-        :param book_id_to_val_map:
-        :param db:
-        :param allow_case_change:
-        :return:
+
+        Example:
+            Exercise CalibreOneToOneField.update db through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_to_val_map: Value supplied for book id to val map under the utility
+            contract.
+        :param db: Value supplied for db under the utility contract.
+        :param dirtied: Value supplied for dirtied under the utility contract.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.table.update_db(book_id_to_val_map, db, allow_case_change=allow_case_change)
 
@@ -572,12 +887,36 @@ class CalibreOneToOneField(BaseOneToOneField, CalibreField):
     def update_cache(self, book_id_val_map, id_map=None):
         """
         Preform an update of the book_col_map (also the col_book_map, if required).
-        :param book_id_val_map:
-        :return:
+
+        Example:
+            Exercise CalibreOneToOneField.update cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_val_map: Value supplied for book id val map under the utility
+            contract.
+        :param id_map: Value supplied for id map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.table.book_col_map.update(book_id_val_map)
 
     def sort_keys_for_books(self, get_metadata, lang_map):
+        """
+        Perform the sort keys for books operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreOneToOneField.sort keys for books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param lang_map: Value supplied for lang map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         bcmg = self.table.book_col_map.get
         dk = self._default_sort_key
         sk = self._sort_key
@@ -586,11 +925,39 @@ class CalibreOneToOneField(BaseOneToOneField, CalibreField):
         return lambda book_id: sk(bcmg(book_id, dk))
 
     def iter_searchable_values(self, get_metadata, candidates, default_value=None):
+        """
+        Iterate over searchable values under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CalibreOneToOneField.iter searchable values through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param candidates: Value supplied for candidates under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: An iterator yielding the normalized values described above.
+        """
         cbm = self.table.book_col_map
         for book_id in candidates:
             yield cbm.get(book_id, default_value), {book_id}
 
     def _many_to_many_iter_searchable_values(self, get_metadata, candidates, default_value=None):
+        """
+        Perform the many to many iter searchable values operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreOneToOneField. many to many iter searchable values through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param candidates: Value supplied for candidates under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: An iterator yielding the normalized values described above.
+        """
         cbm = self.table.book_col_map
         idm = self.table.id_map
         for book_id in candidates:
@@ -601,19 +968,29 @@ class CalibreOneToOneField(BaseOneToOneField, CalibreField):
 
 class CalibreCompositeField(BaseCompositeField, CalibreField):
     """
-    Composite fields are meta-fields produced using data from a number of other fields.
-    Rendering composite fields can be an expensive operaiton - this field caches the results of those renders for later,
-    easy retrieval.
-    Most of the cached data is stored over in the table object - this is one of the few exceptions.
+    Composite fields are meta-fields produced using data from a number of other fields. Rendering composite fields can be an expensive operaiton - this field caches the results of those renders for later, easy retrieval. Most of the cached data is stored over in the table object - this is one of the few exceptions.
+
+    Example:
+        Exercise CalibreCompositeField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def __init__(self, name, table, bools_are_tristate):
         """
-        Construct the field to represent the cache.
-        The formatter which does the work of following the template is stored over in metadata as mi.formatter
-        :param name: Name of the composite field
-        :param table: Table
-        :param bools_are_tristate:
+        Construct the field to represent the cache. The formatter which does the work of following the template is stored over in metadata as mi.formatter
+
+        Example:
+            Exercise CalibreCompositeField.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param table: Value supplied for table under the utility contract.
+        :param bools_are_tristate: Value supplied for bools are tristate under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
         """
         BaseCompositeField.__init__(self, name=name, table=table, bools_are_tristate=bools_are_tristate)
 
@@ -623,11 +1000,19 @@ class CalibreCompositeField(BaseCompositeField, CalibreField):
     def __render_composite(self, book_id, mi, formatter, template_cache):
         """
         INTERNAL USE ONLY. DO NOT USE THIS OUTSIDE THIS CLASS!
-        :param book_id:
-        :param mi:
-        :param formatter:
-        :param template_cache:
-        :return:
+
+        Example:
+            Exercise CalibreCompositeField.  render composite through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param mi: Metadata object exposed to the template function.
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param template_cache: Value supplied for template cache under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         ans = formatter.safe_format(
             self.metadata.get("display", {}).get("composite_template", ""),
@@ -643,14 +1028,20 @@ class CalibreCompositeField(BaseCompositeField, CalibreField):
 
     def _render_composite_with_cache(self, book_id, mi, formatter, template_cache):
         """
-        INTERNAL USE ONLY. DO NOT USE METHOD DIRECTLY. INSTEAD USE
-        db.composite_for() OR mi.get(). Those methods make sure there is no risk of infinite recursion when evaluating
-        templates that refer to themselves.
-        :param book_id:
-        :param mi:
-        :param formatter:
-        :param template_cache:
-        :return:
+        INTERNAL USE ONLY. DO NOT USE METHOD DIRECTLY. INSTEAD USE db.composite_for() OR mi.get(). Those methods make sure there is no risk of infinite recursion when evaluating templates that refer to themselves.
+
+        Example:
+            Exercise CalibreCompositeField. render composite with cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param mi: Metadata object exposed to the template function.
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param template_cache: Value supplied for template cache under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         with self._lock:
             ans = self._render_cache.get(book_id, None)
@@ -659,6 +1050,19 @@ class CalibreCompositeField(BaseCompositeField, CalibreField):
         return ans
 
     def clear_caches(self, book_ids=None):
+        """
+        Perform the clear caches operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreCompositeField.clear caches through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         with self._lock:
             if book_ids is None:
                 self._render_cache.clear()
@@ -667,6 +1071,20 @@ class CalibreCompositeField(BaseCompositeField, CalibreField):
                     self._render_cache.pop(book_id, None)
 
     def get_value_with_cache(self, book_id, get_metadata):
+        """
+        Return value with cache under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CalibreCompositeField.get value with cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         with self._lock:
             ans = self._render_cache.get(book_id, None)
         if ans is None:
@@ -675,6 +1093,20 @@ class CalibreCompositeField(BaseCompositeField, CalibreField):
         return ans
 
     def sort_keys_for_books(self, get_metadata, lang_map):
+        """
+        Perform the sort keys for books operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreCompositeField.sort keys for books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param lang_map: Value supplied for lang map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         gv = self.get_value_with_cache
         sk = self._sort_key
         if sk is IDENTITY:
@@ -682,6 +1114,20 @@ class CalibreCompositeField(BaseCompositeField, CalibreField):
         return lambda book_id: sk(gv(book_id, get_metadata))
 
     def iter_searchable_values(self, get_metadata, candidates, default_value=None):
+        """
+        Iterate over searchable values under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CalibreCompositeField.iter searchable values through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param candidates: Value supplied for candidates under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: An iterator yielding the normalized values described above.
+        """
         val_map = defaultdict(set)
         splitter = self.splitter
         for book_id in candidates:
@@ -694,6 +1140,24 @@ class CalibreCompositeField(BaseCompositeField, CalibreField):
             yield val, book_ids
 
     def get_composite_categories(self, tag_class, book_rating_map, book_ids, is_multiple, get_metadata):
+        """
+        Return composite categories under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CalibreCompositeField.get composite categories through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param tag_class: Value supplied for tag class under the utility contract.
+        :param book_rating_map: Value supplied for book rating map under the utility
+            contract.
+        :param book_ids: Book identities included in the batched read operation.
+        :param is_multiple: Value supplied for is multiple under the utility contract.
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = []
         id_map = defaultdict(set)
         for book_id in book_ids:
@@ -717,6 +1181,21 @@ class CalibreCompositeField(BaseCompositeField, CalibreField):
         return ans
 
     def get_books_for_val(self, value, get_metadata, book_ids):
+        """
+        Return books for val under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CalibreCompositeField.get books for val through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param book_ids: Book identities included in the batched read operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         is_multiple = self.table.metadata["is_multiple"].get("cache_to_list", None)
         ans = set()
         for book_id in book_ids:
@@ -728,8 +1207,31 @@ class CalibreCompositeField(BaseCompositeField, CalibreField):
 
 
 class CalibreOnDeviceField(BaseOnDeviceField, CalibreField):
+    """
+    Provide the calibreondevicefield contract for validated ebook processing.
+
+    Example:
+        Exercise CalibreOnDeviceField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     def __init__(self, name, table, bools_are_tristate):
 
+        """
+        Initialize and validate the calibreondevicefield state.
+
+        Example:
+            Exercise CalibreOnDeviceField.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param table: Value supplied for table under the utility contract.
+        :param bools_are_tristate: Value supplied for bools are tristate under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super(CalibreOnDeviceField, self).__init__(name, table, bools_are_tristate)
 
         self.table = CalibreVirtualTable(name="ondevice", datatype="bool")
@@ -739,13 +1241,51 @@ class CalibreOnDeviceField(BaseOnDeviceField, CalibreField):
 
     @property
     def writer(self):
+        """
+        Perform the writer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreOnDeviceField.writer through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._writer
 
     @writer.setter
     def writer(self, new_writer):
+        """
+        Perform the writer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreOnDeviceField.writer through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param new_writer: Value supplied for new writer under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._writer = new_writer
 
     def clear_caches(self, book_ids=None):
+        """
+        Perform the clear caches operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreOnDeviceField.clear caches through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         with self._lock:
             if book_ids is None:
                 self.cache.clear()
@@ -754,6 +1294,19 @@ class CalibreOnDeviceField(BaseOnDeviceField, CalibreField):
                     self.cache.pop(book_id, None)
 
     def book_on_device(self, book_id):
+        """
+        Perform the book on device operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreOnDeviceField.book on device through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         with self._lock:
             ans = self.cache.get(book_id, null)
         if ans is null and callable(self.book_on_device_func):
@@ -763,9 +1316,36 @@ class CalibreOnDeviceField(BaseOnDeviceField, CalibreField):
         return None if ans is null else ans
 
     def set_book_on_device_func(self, func):
+        """
+        Set book on device func under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CalibreOnDeviceField.set book on device func through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param func: Value supplied for func under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.book_on_device_func = func
 
     def for_book(self, book_id, default_value=None):
+        """
+        Perform the for book operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreOnDeviceField.for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         loc = []
         count = 0
         on = self.book_on_device(book_id)
@@ -780,6 +1360,20 @@ class CalibreOnDeviceField(BaseOnDeviceField, CalibreField):
         return ", ".join(loc) + ((" (%s books)" % count) if count > 1 else "")
 
     def iter_searchable_values(self, get_metadata, candidates, default_value=None):
+        """
+        Iterate over searchable values under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CalibreOnDeviceField.iter searchable values through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param candidates: Value supplied for candidates under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: An iterator yielding the normalized values described above.
+        """
         val_map = defaultdict(set)
         for book_id in candidates:
             val_map[self.for_book(book_id, default_value=default_value)].add(book_id)
@@ -789,8 +1383,12 @@ class CalibreOnDeviceField(BaseOnDeviceField, CalibreField):
 
 class CalibreOneToManyField(BaseOneToManyField, CalibreField):
     """
-    A 1-Many field is for the case where one book is linked to many targets - but no other books are linked to any of
-    the items linked to (e.g. comments - one book is linked to many targets).
+    A 1-Many field is for the case where one book is linked to many targets - but no other books are linked to any of the items linked to (e.g. comments - one book is linked to many targets).
+
+    Example:
+        Exercise CalibreOneToManyField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     table_type: int = ONE_MANY
@@ -799,6 +1397,21 @@ class CalibreOneToManyField(BaseOneToManyField, CalibreField):
 
         # Set the global default for val_unique
         # Todo: This should not be done here
+        """
+        Initialize and validate the calibreonetomanyfield state.
+
+        Example:
+            Exercise CalibreOneToManyField.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param table: Value supplied for table under the utility contract.
+        :param bools_are_tristate: Value supplied for bools are tristate under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         if not hasattr(table, "val_unique"):
             table.val_unique = False
 
@@ -838,10 +1451,35 @@ class CalibreOneToManyField(BaseOneToManyField, CalibreField):
     # Used to update the write in the table when changes are made to the writer here
     @property
     def writer(self):
+        """
+        Perform the writer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreOneToManyField.writer through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._writer
 
     @writer.setter
     def writer(self, new_writer):
+        """
+        Perform the writer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreOneToManyField.writer through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param new_writer: Value supplied for new writer under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._writer = new_writer
         self.table.writer = self._writer
 
@@ -852,9 +1490,17 @@ class CalibreOneToManyField(BaseOneToManyField, CalibreField):
     def for_book(self, book_id, default_value=None):
         """
         Return either the single value for the given book_id or all the comments linked to the book
-        :param book_id:
-        :param default_value:
-        :return:
+
+        Example:
+            Exercise CalibreOneToManyField.for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         ids = self.table.book_col_map.get(book_id, None)
         id_ = ids[0] if ids is not None and len(ids) != 0 else None
@@ -867,9 +1513,17 @@ class CalibreOneToManyField(BaseOneToManyField, CalibreField):
     def _otm_for_book(self, book_id, default_value=None):
         """
         Replacement for_book method for when the backend table is of default CalibreOneToMany type.
-        :param book_id:
-        :param default_value:
-        :return:
+
+        Example:
+            Exercise CalibreOneToManyField. otm for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if book_id not in self.table.seen_book_ids:
             raise NotInCache("book_id not found in the cache")
@@ -881,9 +1535,17 @@ class CalibreOneToManyField(BaseOneToManyField, CalibreField):
     def _totm_for_book(self, book_id, default_value=None):
         """
         Replacement for_book method for when the backend table is of CalibrePriorityTypedOneToMany type.
-        :param book_id:
-        :param default_value:
-        :return:
+
+        Example:
+            Exercise CalibreOneToManyField. totm for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if book_id not in self.table.seen_book_ids:
             raise NotInCache
@@ -896,9 +1558,17 @@ class CalibreOneToManyField(BaseOneToManyField, CalibreField):
     def _potm_for_book(self, book_id, default_value=None):
         """
         Replacement for_book method for when the backend table is of CalibrePriorityOneToMany type.
-        :param book_id:
-        :param default_value:
-        :return:
+
+        Example:
+            Exercise CalibreOneToManyField. potm for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if book_id not in self.table.seen_book_ids:
             raise NotInCache("book_id not found in cache")
@@ -911,9 +1581,17 @@ class CalibreOneToManyField(BaseOneToManyField, CalibreField):
     def _ptotm_for_book(self, book_id, default_value=None):
         """
         Replacement for_book method for when the backend table is of CalibrePriorityTypedOneToMany type.
-        :param book_id:
-        :param default_value:
-        :return:
+
+        Example:
+            Exercise CalibreOneToManyField. ptotm for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if book_id not in self.table.seen_book_ids:
             raise NotInCache
@@ -926,8 +1604,16 @@ class CalibreOneToManyField(BaseOneToManyField, CalibreField):
     def _is_data_null(self, data_map):
         """
         Returns True if the given data map has no content and False otherwise.
-        :param data_map:
-        :return:
+
+        Example:
+            Exercise CalibreOneToManyField. is data null through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param data_map: Value supplied for data map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         for link_type, link_vals in iteritems(data_map):
             if link_vals:
@@ -941,17 +1627,33 @@ class CalibreOneToManyField(BaseOneToManyField, CalibreField):
     def ids_for_book(self, book_id):
         """
         Returns the ids for the given book
-        :param book_id:
-        :return:
+
+        Example:
+            Exercise CalibreOneToManyField.ids for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return deepcopy(self.table.book_col_map.get(book_id, None))
 
     def _otm_ids_for_book(self, book_id, default_value=None):
         """
         Replacement for_book method for when the backend table is of default CalibreOneToMany type.
-        :param book_id:
-        :param default_value:
-        :return:
+
+        Example:
+            Exercise CalibreOneToManyField. otm ids for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if book_id not in self.table.seen_book_ids:
             raise NotInCache("book_id not found in the cache")
@@ -963,9 +1665,17 @@ class CalibreOneToManyField(BaseOneToManyField, CalibreField):
     def _potm_ids_for_book(self, book_id, default_value=None):
         """
         Replacement for_book method for when the backend table is of CalibrePriorityOneToMany type.
-        :param book_id:
-        :param default_value:
-        :return:
+
+        Example:
+            Exercise CalibreOneToManyField. potm ids for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if book_id not in self.table.seen_book_ids:
             raise NotInCache("book_id not found in cache")
@@ -978,8 +1688,17 @@ class CalibreOneToManyField(BaseOneToManyField, CalibreField):
     def _totm_ids_for_book(self, book_id, default_value=None):
         """
         Returns the ids for the given book when the map is of TypedOneToMany form
-        :param book_id:
-        :return:
+
+        Example:
+            Exercise CalibreOneToManyField. totm ids for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if book_id not in self.table.seen_book_ids:
             raise NotInCache
@@ -992,8 +1711,17 @@ class CalibreOneToManyField(BaseOneToManyField, CalibreField):
     def _ptotm_ids_for_book(self, book_id, default_value=None):
         """
         Returns the ids for the given book when the map is of PriorityTypedOneToMany form
-        :param book_id:
-        :return:
+
+        Example:
+            Exercise CalibreOneToManyField. ptotm ids for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if book_id not in self.table.seen_book_ids:
             raise NotInCache
@@ -1009,6 +1737,20 @@ class CalibreOneToManyField(BaseOneToManyField, CalibreField):
         # considered
         # Also allows certain tables - like notes - to be reused to provide notes for multiple different entities -
         # which makes searching easier
+        """
+        Perform the books for operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreOneToManyField.books for through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if item_id not in self.table.col_book_map:
             raise NotInCache
         return self.table.col_book_map.get(item_id, default_value)
@@ -1018,6 +1760,20 @@ class CalibreOneToManyField(BaseOneToManyField, CalibreField):
         # considered
         # Also allows certain tables - like notes - to be reused to provide notes for multiple different entities -
         # which makes searching easier
+        """
+        Perform the ptotm books for operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreOneToManyField. ptotm books for through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if item_id not in self.table.col_book_map:
             raise NotInCache
         book_data = self.table.col_book_map.get(item_id, default_value)
@@ -1030,6 +1786,20 @@ class CalibreOneToManyField(BaseOneToManyField, CalibreField):
             return book_data
 
     def unique_books_for(self, item_id, default_value=None):
+        """
+        Perform the unique books for operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreOneToManyField.unique books for through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if item_id not in self.table.id_map:
             raise NotInCache
         return self.table.col_book_map.get(item_id, default_value)
@@ -1039,6 +1809,20 @@ class CalibreOneToManyField(BaseOneToManyField, CalibreField):
         # considered
         # Also allows certain tables - like notes - to be reused to provide notes for multiple different entities -
         # which makes searching easier
+        """
+        Perform the potm unique books for operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreOneToManyField. potm unique books for through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if item_id not in self.table.id_map:
             raise NotInCache
         book_data = self.table.col_book_map.get(item_id, default_value)
@@ -1055,6 +1839,20 @@ class CalibreOneToManyField(BaseOneToManyField, CalibreField):
         # considered
         # Also allows certain tables - like notes - to be reused to provide notes for multiple different entities -
         # which makes searching easier
+        """
+        Perform the totm unique books for operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreOneToManyField. totm unique books for through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if item_id not in self.table.id_map:
             raise NotInCache
         book_data = self.table.col_book_map.get(item_id, default_value)
@@ -1070,14 +1868,54 @@ class CalibreOneToManyField(BaseOneToManyField, CalibreField):
             return book_data
 
     def __iter__(self):
+        """
+        Perform the iter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreOneToManyField.  iter   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return iterkeys(self.table.id_map)
 
     def sort_keys_for_books(self, get_metadata, lang_map):
+        """
+        Perform the sort keys for books operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreOneToManyField.sort keys for books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param lang_map: Value supplied for lang map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         sk_map = LazySortMap(self._default_sort_key, self._sort_key, self.table.id_map)
         bcmg = self.table.book_col_map.get
         return lambda book_id: sk_map(bcmg(book_id, None))
 
     def iter_searchable_values(self, get_metadata, candidates, default_value=None):
+        """
+        Iterate over searchable values under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CalibreOneToManyField.iter searchable values through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param candidates: Value supplied for candidates under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: An iterator yielding the normalized values described above.
+        """
         cbm = self.table.col_book_map
         empty = set()
         for item_id, val in iteritems(self.table.id_map):
@@ -1088,9 +1926,16 @@ class CalibreOneToManyField(BaseOneToManyField, CalibreField):
     @property
     def book_value_map(self):
         """
+        Perform the book value map operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreOneToManyField.book value map through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
 
 
-        :return:
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         try:
             return {book_id: self.table.id_map[item_id] for book_id, item_id in iteritems(self.table.book_col_map)}
@@ -1101,10 +1946,19 @@ class CalibreOneToManyField(BaseOneToManyField, CalibreField):
         """
         Preforms an update to the database.
 
-        :param book_id_to_val_map:
-        :param db:
-        :param allow_case_change:
-        :return:
+        Example:
+            Exercise CalibreOneToManyField.update db through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_to_val_map: Value supplied for book id to val map under the utility
+            contract.
+        :param db: Value supplied for db under the utility contract.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.table.update_db(book_id_to_val_map, db, allow_case_change=allow_case_change)
 
@@ -1115,9 +1969,18 @@ class CalibreOneToManyField(BaseOneToManyField, CalibreField):
     def update_cache(self, book_id_val_map, id_map=None):
         """
         Preforms an update of the internal cache.
-        :param book_id_val_map:
-        :param id_map:
-        :return:
+
+        Example:
+            Exercise CalibreOneToManyField.update cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_val_map: Value supplied for book id val map under the utility
+            contract.
+        :param id_map: Value supplied for id map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.table.update_cache(book_id_val_map, id_map)
 
@@ -1128,9 +1991,32 @@ class CalibreOneToManyField(BaseOneToManyField, CalibreField):
 # Todo: We need an index field which does something clever to keep the index data in line
 class CalibreManyToOneField(BaseManyToOneField, CalibreField):
 
+    """
+    Provide the calibremanytoonefield contract for validated ebook processing.
+
+    Example:
+        Exercise CalibreManyToOneField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     table_type: int = MANY_ONE
 
     def __init__(self, name, table, bools_are_tristate=False):
+        """
+        Initialize and validate the calibremanytoonefield state.
+
+        Example:
+            Exercise CalibreManyToOneField.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param table: Value supplied for table under the utility contract.
+        :param bools_are_tristate: Value supplied for bools are tristate under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super(CalibreManyToOneField, self).__init__(name=name, table=table, bools_are_tristate=bools_are_tristate)
 
         if isinstance(table, CalibreTypedManyToOneTable):
@@ -1145,22 +2031,36 @@ class CalibreManyToOneField(BaseManyToOneField, CalibreField):
     def update_cache(self, book_id_val_map, id_map=None):
         """
         Update the book_col_map - indicating if we're using a cover or not.
-        :param book_id_val_map:
-        :return:
+
+        Example:
+            Exercise CalibreManyToOneField.update cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_val_map: Value supplied for book id val map under the utility
+            contract.
+        :param id_map: Value supplied for id map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.table.update_cache(book_id_val_map, id_map)
 
     # Todo: Need a compatible parameter - for getting at the full data when we're a pseudo-table
     def for_book(self, book_id, default_value=None):
         """
-        Returns the value of the target table for the given "book" (actually the primary table of the pair - which is
-        books by default but could be something else if you've - for example - made a field representing the links
-        between series and tags - for example)
-        Note that there is an asymmetry here between this and books_for - books_for returns the ids of the books in
-        question - this returns the values for the given book.
-        :param book_id:
-        :param default_value:
-        :return:
+        Returns the value of the target table for the given "book" (actually the primary table of the pair - which is books by default but could be something else if you've - for example - made a field representing the links between series and tags - for example) Note that there is an asymmetry here between this and books_for - books_for returns the ids of the books in question - this returns the values for the given book.
+
+        Example:
+            Exercise CalibreManyToOneField.for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if book_id not in self.table.seen_book_ids:
             raise NotInCache
@@ -1175,9 +2075,17 @@ class CalibreManyToOneField(BaseManyToOneField, CalibreField):
     def ids_for_book(self, book_id, default_value=None):
         """
         Return the id associated with a given book (there should only ever be one - as this is a ManyToOne table)
-        :param book_id:
-        :param default_value: To return if the item has no entries
-        :return:
+
+        Example:
+            Exercise CalibreManyToOneField.ids for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if book_id not in self.table.seen_book_ids:
             raise NotInCache
@@ -1190,12 +2098,40 @@ class CalibreManyToOneField(BaseManyToOneField, CalibreField):
     # Todo: Should optionally only work with primary items - but not in this method
     # Todo: Souldn't throw NotInCache when the item is on the database - NotPrimary or NotInUse?
     def books_for(self, item_id, default_value=None):
+        """
+        Perform the books for operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreManyToOneField.books for through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if item_id not in self.table.id_map:
             raise NotInCache
         item_data = self.table.col_book_map.get(item_id, set())
         return item_data if item_data else default_value
 
     def _ptmto_books_for(self, item_id, default_value=None):
+        """
+        Perform the ptmto books for operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreManyToOneField. ptmto books for through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if item_id not in self.table.id_map:
             raise NotInCache
         item_data = self.table.item_data(item_id)
@@ -1204,8 +2140,16 @@ class CalibreManyToOneField(BaseManyToOneField, CalibreField):
     def _is_data_null(self, data_map):
         """
         Returns True if the given data map has no content and False otherwise.
-        :param data_map:
-        :return:
+
+        Example:
+            Exercise CalibreManyToOneField. is data null through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param data_map: Value supplied for data map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         for link_type, link_vals in iteritems(data_map):
             if link_vals:
@@ -1213,14 +2157,54 @@ class CalibreManyToOneField(BaseManyToOneField, CalibreField):
         return True
 
     def __iter__(self):
+        """
+        Perform the iter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreManyToOneField.  iter   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return iterkeys(self.table.id_map)
 
     def sort_keys_for_books(self, get_metadata, lang_map):
+        """
+        Perform the sort keys for books operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreManyToOneField.sort keys for books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param lang_map: Value supplied for lang map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         sk_map = LazySortMap(self._default_sort_key, self._sort_key, self.table.id_map)
         bcmg = self.table.book_col_map.get
         return lambda book_id: sk_map(bcmg(book_id, None))
 
     def iter_searchable_values(self, get_metadata, candidates, default_value=None):
+        """
+        Iterate over searchable values under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CalibreManyToOneField.iter searchable values through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param candidates: Value supplied for candidates under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: An iterator yielding the normalized values described above.
+        """
         cbm = self.table.col_book_map
         empty = set()
         for item_id, val in iteritems(self.table.id_map):
@@ -1230,6 +2214,18 @@ class CalibreManyToOneField(BaseManyToOneField, CalibreField):
 
     @property
     def book_value_map(self):
+        """
+        Perform the book value map operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreManyToOneField.book value map through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return {book_id: self.table.id_map[item_id] for book_id, item_id in iteritems(self.table.book_col_map)}
         except KeyError:
@@ -1238,17 +2234,52 @@ class CalibreManyToOneField(BaseManyToOneField, CalibreField):
     def update_db(self, book_id_to_val_map, db, allow_case_change=False):
         """
         Preforms a update to the database.
-        :param book_id_to_val_map:
-        :param db:
-        :param allow_case_change:
-        :return:
+
+        Example:
+            Exercise CalibreManyToOneField.update db through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_to_val_map: Value supplied for book id to val map under the utility
+            contract.
+        :param db: Value supplied for db under the utility contract.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.table.update_db(book_id_to_val_map, db, allow_case_change=allow_case_change)
 
 
 class CalibreManyToOneFieldCustom(CalibreManyToOneField):
+    """
+    Provide the calibremanytoonefieldcustom contract for validated ebook processing.
+
+    Example:
+        Exercise CalibreManyToOneFieldCustom through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     def update(self, book_id_to_val_map, db, allow_case_change=False):
 
+        """
+        Perform the update operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreManyToOneFieldCustom.update through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_to_val_map: Value supplied for book id to val map under the utility
+            contract.
+        :param db: Value supplied for db under the utility contract.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return super(CalibreManyToOneFieldCustom, self).update(
             book_id_to_val_map=book_id_to_val_map,
             db=db,
@@ -1257,7 +2288,30 @@ class CalibreManyToOneFieldCustom(CalibreManyToOneField):
 
 
 class CalibreRatingField(CalibreManyToOneField):
+    """
+    Provide the calibreratingfield contract for validated ebook processing.
+
+    Example:
+        Exercise CalibreRatingField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     def __init__(self, name, table, bools_are_tristate=False):
+        """
+        Initialize and validate the calibreratingfield state.
+
+        Example:
+            Exercise CalibreRatingField.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param table: Value supplied for table under the utility contract.
+        :param bools_are_tristate: Value supplied for bools are tristate under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super(CalibreRatingField, self).__init__(name=name, table=table, bools_are_tristate=bools_are_tristate)
 
         self._change_books_for_method(self._ratings_books_for)
@@ -1266,9 +2320,17 @@ class CalibreRatingField(CalibreManyToOneField):
     def _ratings_for_book(self, book_id, default_value=None):
         """
         Custom method - which ignores all but the calibre ratings and returns them
-        :param book_id:
-        :param default_value:
-        :return:
+
+        Example:
+            Exercise CalibreRatingField. ratings for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         rating_val = self.table.book_col_map.get(book_id, None)
         if rating_val is None:
@@ -1279,9 +2341,17 @@ class CalibreRatingField(CalibreManyToOneField):
     def _ratings_books_for(self, item_id, default_value=None):
         """
         Custom method - which ignores all but the calibre ratings and returns that as a set.
-        :param item_id:
-        :param default_value:
-        :return:
+
+        Example:
+            Exercise CalibreRatingField. ratings books for through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if item_id not in self.table.id_map:
             raise NotInCache
@@ -1295,10 +2365,33 @@ class CalibreRatingField(CalibreManyToOneField):
 
 class CalibreManyToManyField(BaseManyToManyField, CalibreField):
 
+    """
+    Provide the calibremanytomanyfield contract for validated ebook processing.
+
+    Example:
+        Exercise CalibreManyToManyField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     table_type: int = MANY_MANY
 
     def __init__(self, name, table, bools_are_tristate=False):
 
+        """
+        Initialize and validate the calibremanytomanyfield state.
+
+        Example:
+            Exercise CalibreManyToManyField.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param table: Value supplied for table under the utility contract.
+        :param bools_are_tristate: Value supplied for bools are tristate under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super(CalibreManyToManyField, self).__init__(name=name, table=table, bools_are_tristate=bools_are_tristate)
 
         # In some cases it makes sense to let the Writer preform an update to the cache using the internal_update_cache
@@ -1333,23 +2426,55 @@ class CalibreManyToManyField(BaseManyToManyField, CalibreField):
     def get_subfield(self, type_filter=None):
         """
         Returns a subfield of items of the given type.
-        :return:
+
+        Example:
+            Exercise CalibreManyToManyField.get subfield through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param type_filter: Value supplied for type filter under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         sub_table = self.table.get_subtable(type_filter=type_filter)
         return CalibreManyToManyField(name=self.name, table=sub_table)
 
     def internal_update_cache(self, book_id_item_id_map, id_map_update):
         """
-        Update cache with some additional information provided - used in write when it needs to know some info about the
-        cache before writing out to the database.
-        :param book_id_item_id_map:
-        :param id_map_update: Dictionary used to directly update the id_map
-        :return:
+        Update cache with some additional information provided - used in write when it needs to know some info about the cache before writing out to the database.
+
+        Example:
+            Exercise CalibreManyToManyField.internal update cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.table.internal_update_cache(book_id_item_id_map, id_map_update)
 
     def _pmtm_for_book(self, book_id, default_value=None, as_tuple=False):
 
+        """
+        Perform the pmtm for book operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreManyToManyField. pmtm for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :param as_tuple: Value supplied for as tuple under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if book_id not in self.table.seen_book_ids:
             raise NotInCache
 
@@ -1364,6 +2489,21 @@ class CalibreManyToManyField(BaseManyToManyField, CalibreField):
 
     def _pmtm_ids_for_book(self, book_id, default_value=None, as_tuple=False):
 
+        """
+        Perform the pmtm ids for book operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreManyToManyField. pmtm ids for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :param as_tuple: Value supplied for as tuple under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if book_id not in self.table.seen_book_ids:
             raise NotInCache
 
@@ -1379,8 +2519,16 @@ class CalibreManyToManyField(BaseManyToManyField, CalibreField):
     def _is_data_null(self, data_map):
         """
         Returns True if the given data map has no content and False otherwise.
-        :param data_map:
-        :return:
+
+        Example:
+            Exercise CalibreManyToManyField. is data null through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param data_map: Value supplied for data map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         for link_type, link_vals in iteritems(data_map):
             if link_vals:
@@ -1391,10 +2539,18 @@ class CalibreManyToManyField(BaseManyToManyField, CalibreField):
     def _ptmtm_ids_for_book(self, book_id, default_value=None, as_tuple=False):
         """
         PriorityTyped ids_for_book method
-        :param book_id:
-        :param default_value:
-        :param as_tuple:
-        :return:
+
+        Example:
+            Exercise CalibreManyToManyField. ptmtm ids for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :param as_tuple: Value supplied for as tuple under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if book_id not in self.table.seen_book_ids:
             raise NotInCache
@@ -1407,11 +2563,18 @@ class CalibreManyToManyField(BaseManyToManyField, CalibreField):
     def for_book(self, book_id, default_value=None, as_tuple=False):
         """
         Return the cache value for the given book_id
-        :param book_id:
-        :param default_value:
-        :param as_tuple: Will return the values as a tuple - should always be used if sort_alpha is set - otherwise it
-                         will be effectively ignored.
-        :return:
+
+        Example:
+            Exercise CalibreManyToManyField.for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :param as_tuple: Value supplied for as tuple under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # If the book_id is not known, then raise NotInCache - as the book is unknown to the system
         if book_id not in self.table.seen_book_ids:
@@ -1439,10 +2602,18 @@ class CalibreManyToManyField(BaseManyToManyField, CalibreField):
     def _ptmtm_for_book(self, book_id, default_value=None, as_tuple=False):
         """
         PriorityTyped for_book method.
-        :param book_id:
-        :param default_value:
-        :param as_tuple:
-        :return:
+
+        Example:
+            Exercise CalibreManyToManyField. ptmtm for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :param as_tuple: Value supplied for as tuple under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if book_id not in self.table.seen_book_ids:
             raise NotInCache
@@ -1453,6 +2624,20 @@ class CalibreManyToManyField(BaseManyToManyField, CalibreField):
             return table_data
 
     def ids_for_book(self, book_id, default_value=None):
+        """
+        Perform the ids for book operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreManyToManyField.ids for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if book_id not in self.table.seen_book_ids:
             raise NotInCache
         table_data = self.table.book_col_map.get(book_id, default_value)
@@ -1462,6 +2647,20 @@ class CalibreManyToManyField(BaseManyToManyField, CalibreField):
             return set(table_data)
 
     def books_for(self, item_id, default_value=()):
+        """
+        Perform the books for operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreManyToManyField.books for through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if item_id not in self.table.id_map:
             raise NotInCache
         return self.table.col_book_map.get(item_id, default_value)
@@ -1469,9 +2668,17 @@ class CalibreManyToManyField(BaseManyToManyField, CalibreField):
     def _pmtm_books_for(self, item_id, default_value=None):
         """
         Priority books_for method.
-        :param item_id:
-        :param default_value:
-        :return:
+
+        Example:
+            Exercise CalibreManyToManyField. pmtm books for through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if item_id not in self.table.id_map:
             raise NotInCache
@@ -1485,9 +2692,17 @@ class CalibreManyToManyField(BaseManyToManyField, CalibreField):
     def _tmtm_books_for(self, item_id, default_value=None):
         """
         Priority books_for method.
-        :param item_id:
-        :param default_value:
-        :return:
+
+        Example:
+            Exercise CalibreManyToManyField. tmtm books for through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if item_id not in self.table.id_map:
             raise NotInCache
@@ -1501,9 +2716,17 @@ class CalibreManyToManyField(BaseManyToManyField, CalibreField):
     def _ptmtm_books_for(self, item_id, default_value=None):
         """
         Priority books_for method.
-        :param item_id:
-        :param default_value:
-        :return:
+
+        Example:
+            Exercise CalibreManyToManyField. ptmtm books for through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if item_id not in self.table.id_map:
             raise NotInCache
@@ -1515,20 +2738,72 @@ class CalibreManyToManyField(BaseManyToManyField, CalibreField):
         return item_data
 
     def __iter__(self):
+        """
+        Perform the iter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreManyToManyField.  iter   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return iterkeys(self.table.id_map)
 
     def sort_keys_for_books(self, get_metadata, lang_map):
+        """
+        Perform the sort keys for books operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreManyToManyField.sort keys for books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param lang_map: Value supplied for lang map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         sk_map = LazySortMap(self._default_sort_key, self._sort_key, self.table.id_map)
         bcmg = self.table.book_col_map.get
         dsk = (self._default_sort_key,)
         if self.sort_sort_key:
 
             def sk(book_id):
+                """
+                Perform the sk operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise CalibreManyToManyField.sort keys for books.sk through a consuming regression::
+
+                        python -m pytest -q tests/library/test_unified_library.py
+
+
+                :param book_id: Value supplied for book id under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 return tuple(sorted(sk_map(x) for x in bcmg(book_id, ()))) or dsk
 
         else:
 
             def sk(book_id):
+                """
+                Perform the sk operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise CalibreManyToManyField.sort keys for books.sk through a consuming regression::
+
+                        python -m pytest -q tests/library/test_unified_library.py
+
+
+                :param book_id: Value supplied for book id under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 return tuple(sk_map(x) for x in bcmg(book_id, ())) or dsk
 
         return sk
@@ -1537,10 +2812,16 @@ class CalibreManyToManyField(BaseManyToManyField, CalibreField):
         """
         Used to preform a search on this field - iterates through and yields matches with the ids of the search items.
 
-        :param get_metadata:
-        :param candidates:
-        :param default_value:
-        :return:
+        Example:
+            Exercise CalibreManyToManyField.iter searchable values through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param candidates: Value supplied for candidates under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: An iterator yielding the normalized values described above.
         """
         try:
             cbm = self.table.col_book_map
@@ -1556,11 +2837,16 @@ class CalibreManyToManyField(BaseManyToManyField, CalibreField):
 
     def iter_counts(self, candidates: int):
         """
-        Generator which yields the count - the number of tags a book has and a set of book ids all of which have that
-        number of tags.
+        Generator which yields the count - the number of tags a book has and a set of book ids all of which have that number of tags.
 
-        :param candidates:
-        :return:
+        Example:
+            Exercise CalibreManyToManyField.iter counts through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param candidates: Value supplied for candidates under the utility contract.
+        :return: An iterator yielding the normalized values described above.
         """
         val_map = defaultdict(set)
         cbm = self.table.book_col_map
@@ -1571,6 +2857,18 @@ class CalibreManyToManyField(BaseManyToManyField, CalibreField):
 
     @property
     def book_value_map(self):
+        """
+        Perform the book value map operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreManyToManyField.book value map through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return {
                 book_id: tuple(self.table.id_map[item_id] for item_id in item_ids)
@@ -1582,19 +2880,38 @@ class CalibreManyToManyField(BaseManyToManyField, CalibreField):
     def update_cache(self, book_id_val_map, id_map=None):
         """
         Preforms an update of the cache - via the update_cache method of the table.
-        :param book_id_val_map:
-        :param id_map:
-        :return:
+
+        Example:
+            Exercise CalibreManyToManyField.update cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_val_map: Value supplied for book id val map under the utility
+            contract.
+        :param id_map: Value supplied for id map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.table.update_cache(book_id_val_map=book_id_val_map, id_map=id_map)
 
     def update_db(self, book_id_to_val_map, db, allow_case_change=False):
         """
         Preforms a update to the database.
-        :param book_id_to_val_map:
-        :param db:
-        :param allow_case_change:
-        :return:
+
+        Example:
+            Exercise CalibreManyToManyField.update db through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_to_val_map: Value supplied for book id to val map under the utility
+            contract.
+        :param db: Value supplied for db under the utility contract.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.table.update_db(book_id_to_val_map, db, allow_case_change=allow_case_change)
 
@@ -1603,11 +2920,19 @@ class CalibreManyToManyField(BaseManyToManyField, CalibreField):
     # raised if it fails
     def update_precheck(self, book_id_item_id_map, id_map_update):
         """
-        Checks that an update is valid before it's preformed.
-        Calls out to the table method - as the exact form of the needed update depends on the table.
-        :param book_id_item_id_map:
-        :param id_map_update:
-        :return:
+        Checks that an update is valid before it's preformed. Calls out to the table method - as the exact form of the needed update depends on the table.
+
+        Example:
+            Exercise CalibreManyToManyField.update precheck through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         try:
             return self.table.update_precheck(book_id_item_id_map, id_map_update)
@@ -1625,15 +2950,48 @@ class CalibreManyToManyField(BaseManyToManyField, CalibreField):
     def update_preflight(self, book_id_item_id_map, id_map_update, dirtied=None):
         """
         Gives the table a chance to bring the :param book_id_item_id_map: into a standard form.
-        :param book_id_item_id_map: The update map to preform the preflight on
-        :param id_map_update: Also needed to fully define the update
-        :return:
+
+        Example:
+            Exercise CalibreManyToManyField.update preflight through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :param dirtied: Value supplied for dirtied under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.table.update_preflight(book_id_item_id_map, id_map_update, dirtied=dirtied)
 
 
 class CalibreIdentifiersField(CalibreManyToManyField, BaseIdentifiersField, CalibreField):
+    """
+    Provide the calibreidentifiersfield contract for validated ebook processing.
+
+    Example:
+        Exercise CalibreIdentifiersField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     def for_book(self, book_id, default_value=None, compatible=True):
+        """
+        Perform the for book operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreIdentifiersField.for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :param compatible: Value supplied for compatible under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ids = self.table.book_col_map[book_id]["isbn"]
         if not ids:
             try:
@@ -1648,10 +3006,18 @@ class CalibreIdentifiersField(CalibreManyToManyField, BaseIdentifiersField, Cali
     def set_identifier(self, book_id, typ, val):
         """
         Set an identifier for a given book
-        :param book_id:
-        :param typ:
-        :param val:
-        :return:
+
+        Example:
+            Exercise CalibreIdentifiersField.set identifier through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param typ: Value supplied for typ under the utility contract.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         val = (
             [
@@ -1667,13 +3033,19 @@ class CalibreIdentifiersField(CalibreManyToManyField, BaseIdentifiersField, Cali
 
     def set_identifiers_from_set_dict(self, book_id, set_dict, db):
         """
-        Set all the identifiers for a given book. All identifiers will be replaced with the ids specified in the new
-        set.
-        Currently expects a dictionary keyed with the type of the id and valued with a set of the new identifiers.
-        :param book_id:
-        :param set_dict:
-        :param db: The database to write the update out to
-        :return:
+        Set all the identifiers for a given book. All identifiers will be replaced with the ids specified in the new set. Currently expects a dictionary keyed with the type of the id and valued with a set of the new identifiers.
+
+        Example:
+            Exercise CalibreIdentifiersField.set identifiers from set dict through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param set_dict: Value supplied for set dict under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         for typ, val_set in iteritems(set_dict):
             self.table.book_col_map[book_id][typ] = val_set
@@ -1686,15 +3058,37 @@ class CalibreIdentifiersField(CalibreManyToManyField, BaseIdentifiersField, Cali
     def sort_keys_for_books(self, get_metadata, lang_map):
         """
         Sort by identifier keys
-        :param get_metadata:
-        :param lang_map:
-        :return:
+
+        Example:
+            Exercise CalibreIdentifiersField.sort keys for books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param lang_map: Value supplied for lang map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         bcmg = self.table.book_col_map.get
         dv = {self._default_sort_key: None}
         return lambda book_id: tuple(sorted(iterkeys(bcmg(book_id, dv))))
 
     def iter_searchable_values(self, get_metadata, candidates, default_value=()):
+        """
+        Iterate over searchable values under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CalibreIdentifiersField.iter searchable values through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param candidates: Value supplied for candidates under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: An iterator yielding the normalized values described above.
+        """
         bcm = self.table.book_col_map
         for book_id in candidates:
             val = bcm.get(book_id, default_value)
@@ -1702,6 +3096,23 @@ class CalibreIdentifiersField(CalibreManyToManyField, BaseIdentifiersField, Cali
                 yield val, {book_id}
 
     def get_categories(self, tag_class, book_rating_map, lang_map, book_ids=None):
+        """
+        Return categories under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CalibreIdentifiersField.get categories through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param tag_class: Value supplied for tag class under the utility contract.
+        :param book_rating_map: Value supplied for book rating map under the utility
+            contract.
+        :param lang_map: Value supplied for lang map under the utility contract.
+        :param book_ids: Book identities included in the batched read operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = []
 
         for id_key, item_book_ids in iteritems(self.table.col_book_map):
@@ -1715,43 +3126,120 @@ class CalibreIdentifiersField(CalibreManyToManyField, BaseIdentifiersField, Cali
     def update_cache(self, book_id_val_map, id_map=None):
         """
         Preforms an update of the cache.
-        :param book_id_val_map:
-        :param id_map:
-        :return:
+
+        Example:
+            Exercise CalibreIdentifiersField.update cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_val_map: Value supplied for book id val map under the utility
+            contract.
+        :param id_map: Value supplied for id map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.table.update_cache(book_id_val_map=book_id_val_map, id_map=id_map)
 
     def update_db(self, book_id_val_map, db, allow_case_change=False):
         """
         Preforms a update to the database.
-        :param book_id_val_map:
-        :param db:
-        :param allow_case_change:
-        :return:
+
+        Example:
+            Exercise CalibreIdentifiersField.update db through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_val_map: Value supplied for book id val map under the utility
+            contract.
+        :param db: Value supplied for db under the utility contract.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.table.update_db(book_id_val_map, db, allow_case_change=allow_case_change)
 
     def write_to_db(self, book_id, db):
         """
         Preform a write out to the database from the contents of the cache.
-        :param book_id:
-        :param db:
-        :return:
+
+        Example:
+            Exercise CalibreIdentifiersField.write to db through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.table.write_to_db(book_id=book_id, db=db)
 
 
 class CalibreAuthorsField(CalibreManyToManyField, BaseAuthorsField, CalibreField):
+    """
+    Provide the calibreauthorsfield contract for validated ebook processing.
+
+    Example:
+        Exercise CalibreAuthorsField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     def for_book(self, book_id, default_value=None, as_tuple=False):
+        """
+        Perform the for book operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreAuthorsField.for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :param as_tuple: Value supplied for as tuple under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not self.book_in_cache(book_id):
             raise NotInCache
         author_ids = self.table.book_col_map[book_id]
         return tuple([self.table.id_map[author_id] for author_id in author_ids])
 
     def book_in_cache(self, book_id):
+        """
+        Perform the book in cache operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreAuthorsField.book in cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return book_id in self.table.book_col_map
 
     def ids_for_book(self, book_id, default_value=None):
+        """
+        Perform the ids for book operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreAuthorsField.ids for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if book_id not in self.table.seen_book_ids:
             raise NotInCache
         table_data = self.table.book_col_map.get(book_id, default_value)
@@ -1763,8 +3251,16 @@ class CalibreAuthorsField(CalibreManyToManyField, BaseAuthorsField, CalibreField
     def books_for(self, item_id):
         """
         Returns the books linked to the given item.
-        :param item_id:
-        :return:
+
+        Example:
+            Exercise CalibreAuthorsField.books for through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if item_id in self.table.book_col_map:
             return self.table.col_book_map[item_id]
@@ -1774,8 +3270,16 @@ class CalibreAuthorsField(CalibreManyToManyField, BaseAuthorsField, CalibreField
     def author_data(self, author_id):
         """
         Returns all the author information for a specific author id.
-        :param author_id:
-        :return:
+
+        Example:
+            Exercise CalibreAuthorsField.author data through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param author_id: Value supplied for author id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return {
             "name": self.table.id_map[author_id],
@@ -1784,23 +3288,75 @@ class CalibreAuthorsField(CalibreManyToManyField, BaseAuthorsField, CalibreField
         }
 
     def category_sort_value(self, item_id, book_ids, lang_map):
+        """
+        Perform the category sort value operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreAuthorsField.category sort value through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :param book_ids: Book identities included in the batched read operation.
+        :param lang_map: Value supplied for lang map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.table.asort_map[item_id]
 
     def db_author_sort_for_book(self, book_id):
         """
         Returns the author sort value for the specific book from the database.
 
-        :param book_id:
-        :return:
+        Example:
+            Exercise CalibreAuthorsField.db author sort for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.author_sort_field.for_book(book_id)
 
     def author_sort_for_book(self, book_id):
+        """
+        Perform the author sort for book operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreAuthorsField.author sort for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return " & ".join(self.table.asort_map[k] for k in self.table.book_col_map[book_id])
 
     def update(self, book_id_to_val_map, db, allow_case_change=False):
 
         # Apply a special update - to deal with calibre compatibility
+        """
+        Perform the update operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreAuthorsField.update through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_to_val_map: Value supplied for book id to val map under the utility
+            contract.
+        :param db: Value supplied for db under the utility contract.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         new_book_id_to_val_map = dict()
         for book_id, book_val in iteritems(book_id_to_val_map):
 
@@ -1819,10 +3375,20 @@ class CalibreAuthorsField(CalibreManyToManyField, BaseAuthorsField, CalibreField
     def update_db(self, book_id_to_val_map, db, allow_case_change=False):
         """
         Preforms a update to the database.
-        :param book_id_to_val_map:
-        :param db:
-        :param allow_case_change:
-        :return:
+
+        Example:
+            Exercise CalibreAuthorsField.update db through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_to_val_map: Value supplied for book id to val map under the utility
+            contract.
+        :param db: Value supplied for db under the utility contract.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.table.update_db(book_id_to_val_map, db, allow_case_change=allow_case_change)
 
@@ -1831,9 +3397,27 @@ class CalibreAuthorsField(CalibreManyToManyField, BaseAuthorsField, CalibreField
 class CalibreFormatsField(CalibreManyToManyField, BaseFormatsField):
     """
     Provides a front end to the information stored in the Formats table.
+
+    Example:
+        Exercise CalibreFormatsField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def __init__(self, *args, **kwargs):
+        """
+        Initialize and validate the calibreformatsfield state.
+
+        Example:
+            Exercise CalibreFormatsField.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; validated state is stored on the receiving object.
+        """
         CalibreManyToManyField.__init__(self, *args, **kwargs)
 
         self.check_fmt_is_priority_fmt = self.table.check_fmt_is_priority_fmt
@@ -1841,9 +3425,37 @@ class CalibreFormatsField(CalibreManyToManyField, BaseFormatsField):
         self.prep_base_fmt = self.table.prep_base_fmt
 
     def for_book(self, book_id, default_value=None):
+        """
+        Perform the for book operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreFormatsField.for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.table.book_col_map.get(book_id, default_value)
 
     def format_fname(self, book_id, fmt):
+        """
+        Perform the format fname operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreFormatsField.format fname through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return self.table.fname_map[book_id][fmt.upper()]
         except KeyError:
@@ -1852,9 +3464,17 @@ class CalibreFormatsField(CalibreManyToManyField, BaseFormatsField):
     def format_floc(self, book_id, fmt):
         """
         Returns the format location for the given book.
-        :param book_id:
-        :param fmt:
-        :return:
+
+        Example:
+            Exercise CalibreFormatsField.format floc through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         try:
             return self.table.book_file_loc_map[book_id][fmt.upper()]
@@ -1864,9 +3484,16 @@ class CalibreFormatsField(CalibreManyToManyField, BaseFormatsField):
     def has_format(self, book_id, fmt):
         """
         Does the book have any instances of the given format
-        :param book_id: Check that the format is in the given book
-        :param fmt: a non priority format
-        :return:
+
+        Example:
+            Exercise CalibreFormatsField.has format through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: True when the documented condition holds; otherwise False.
         """
         if book_id not in self.table.book_fmts_map:
             raise NoSuchBook
@@ -1875,9 +3502,16 @@ class CalibreFormatsField(CalibreManyToManyField, BaseFormatsField):
     def has_priority_fmt(self, book_id, priority_fmt):
         """
         Check to see if the given book has the given format.
-        :param book_id:
-        :param priority_fmt:
-        :return:
+
+        Example:
+            Exercise CalibreFormatsField.has priority fmt through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param priority_fmt: Value supplied for priority fmt under the utility contract.
+        :return: True when the documented condition holds; otherwise False.
         """
         if book_id not in self.table.book_fmts_map:
             raise NoSuchBook
@@ -1885,11 +3519,19 @@ class CalibreFormatsField(CalibreManyToManyField, BaseFormatsField):
 
     def add_format(self, book_id, fmt, fmt_loc):
         """
-        Note that a format has been added to a book.
-        FMT must include the priority of that FMT in the book (e.g. not EPUB, but EPUB_1).
-        Note - If you want to add an ORIGINAL_FMT - call this function with the full FMT string, including priority.
-        This function will reject any FMT which is not a priority fmt - that is to say something of the form EPUB_1
-        :return:
+        Note that a format has been added to a book. FMT must include the priority of that FMT in the book (e.g. not EPUB, but EPUB_1). Note - If you want to add an ORIGINAL_FMT - call this function with the full FMT string, including priority. This function will reject any FMT which is not a priority fmt - that is to say something of the form EPUB_1
+
+        Example:
+            Exercise CalibreFormatsField.add format through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param fmt_loc: Value supplied for fmt loc under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         book_id = int(book_id)
         fmt = self.stand_fmt(fmt)
@@ -1947,9 +3589,17 @@ class CalibreFormatsField(CalibreManyToManyField, BaseFormatsField):
     def remove_fmt(self, book_id, fmt):
         """
         Remove a fmt from the cache.
-        :param book_id:
-        :param fmt:
-        :return:
+
+        Example:
+            Exercise CalibreFormatsField.remove fmt through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         book_id = int(book_id)
         fmt = self.stand_fmt(fmt)
@@ -2002,11 +3652,18 @@ class CalibreFormatsField(CalibreManyToManyField, BaseFormatsField):
 
     def calculate_rekey_map(self, old_fmts, remove_fmt):
         """
-        Calculates a rekey map - keyed with the old name of the fmt and valued with the new.
-        Used when a middling priority fmt is remove to calculate how the designations of the fmts have to change.
-        :param old_fmts:
-        :param remove_fmt:
-        :return:
+        Calculates a rekey map - keyed with the old name of the fmt and valued with the new. Used when a middling priority fmt is remove to calculate how the designations of the fmts have to change.
+
+        Example:
+            Exercise CalibreFormatsField.calculate rekey map through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param old_fmts: Value supplied for old fmts under the utility contract.
+        :param remove_fmt: Value supplied for remove fmt under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # We're simply removing a backup - remove it and return
         if remove_fmt.startswith("ORIGINAL"):
@@ -2044,10 +3701,18 @@ class CalibreFormatsField(CalibreManyToManyField, BaseFormatsField):
     def rekey_dict(old_dict, rekey_map, new_dict=None):
         """
         Preforms the actual rekey for a dictionary.
-        :param old_dict:
-        :param rekey_map:
-        :param new_dict: Data will be loaded from the old_dict into the new_dict
-        :return:
+
+        Example:
+            Exercise CalibreFormatsField.rekey dict through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param old_dict: Value supplied for old dict under the utility contract.
+        :param rekey_map: Value supplied for rekey map under the utility contract.
+        :param new_dict: Value supplied for new dict under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if new_dict is None:
             new_dict = dict()
@@ -2061,14 +3726,36 @@ class CalibreFormatsField(CalibreManyToManyField, BaseFormatsField):
     def reload_book_from_db(self, db, book_id):
         """
         Reload all the information from a book from the database.
-        :param db:
-        :param book_id:
-        :return:
+
+        Example:
+            Exercise CalibreFormatsField.reload book from db through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.table.reload_book_from_db(db=db, book_id=book_id)
 
     def iter_searchable_values(self, get_metadata, candidates, default_value=None):
 
+        """
+        Iterate over searchable values under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CalibreFormatsField.iter searchable values through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param candidates: Value supplied for candidates under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: An iterator yielding the normalized values described above.
+        """
         val_map = defaultdict(set)
         cbm = self.table.book_col_map
         for book_id in candidates:
@@ -2080,6 +3767,23 @@ class CalibreFormatsField(CalibreManyToManyField, BaseFormatsField):
             yield val, book_ids
 
     def get_categories(self, tag_class, book_rating_map, lang_map, book_ids=None):
+        """
+        Return categories under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CalibreFormatsField.get categories through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param tag_class: Value supplied for tag class under the utility contract.
+        :param book_rating_map: Value supplied for book rating map under the utility
+            contract.
+        :param lang_map: Value supplied for lang map under the utility contract.
+        :param book_ids: Book identities included in the batched read operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = []
 
         for fmt, item_book_ids in iteritems(self.table.col_book_map):
@@ -2093,10 +3797,20 @@ class CalibreFormatsField(CalibreManyToManyField, BaseFormatsField):
     def update_db(self, book_id_to_val_map, db, allow_case_change=False):
         """
         Preforms a update to the database.
-        :param book_id_to_val_map:
-        :param db:
-        :param allow_case_change:
-        :return:
+
+        Example:
+            Exercise CalibreFormatsField.update db through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_to_val_map: Value supplied for book id to val map under the utility
+            contract.
+        :param db: Value supplied for db under the utility contract.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.table.update_db(book_id_to_val_map, db, allow_case_change=allow_case_change)
 
@@ -2104,17 +3818,27 @@ class CalibreFormatsField(CalibreManyToManyField, BaseFormatsField):
 # Todo: Make this actually true - does not talk to the covers cache at the moment
 class CalibreCoversField(CalibreManyToManyField, BaseCoverField):
     """
-    Provides a front end to the information stored in the Covers table.
-    Provides information as to if the book has a cover.
-    Also provides options to access (through the cover cache) more detailed information about the multiple covers
-    available to the book - including their locations and which of them is primary for the given title.
+    Provides a front end to the information stored in the Covers table. Provides information as to if the book has a cover. Also provides options to access (through the cover cache) more detailed information about the multiple covers available to the book - including their locations and which of them is primary for the given title.
+
+    Example:
+        Exercise CalibreCoversField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def __init__(self, *args, **kwargs):
         """
         Startup for the cache.
-        :param args:
-        :param kwargs:
+
+        Example:
+            Exercise CalibreCoversField.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; validated state is stored on the receiving object.
         """
         super(CalibreCoversField, self).__init__(*args, **kwargs)
 
@@ -2127,17 +3851,34 @@ class CalibreCoversField(CalibreManyToManyField, BaseCoverField):
     def update_cache(self, book_col_map, id_map=None):
         """
         Update the book_col_map - indicating if we're using a cover or not.
-        :param book_col_map:
-        :return:
+
+        Example:
+            Exercise CalibreCoversField.update cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_col_map: Value supplied for book col map under the utility contract.
+        :param id_map: Value supplied for id map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.table.book_col_map.update(book_col_map)
 
     def for_book(self, book_id, default_value=None):
         """
         Returns True if the book has a cover - false otherwise
-        :param book_id:
-        :param default_value:
-        :return:
+
+        Example:
+            Exercise CalibreCoversField.for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if book_id not in self.table.book_col_map:
             return default_value
@@ -2146,18 +3887,34 @@ class CalibreCoversField(CalibreManyToManyField, BaseCoverField):
     def path_for_book(self, book_id, default_value=None):
         """
         Return a path to a cover in the cover cache.
-        :param book_id:
-        :param default_value:
-        :return:
+
+        Example:
+            Exercise CalibreCoversField.path for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.table.fsm.cover_cache.get_book_cover(book_id=book_id)
 
     def cover_id(self, book_id, default_value=None):
         """
         Returns the id of the cover which is primary for the book.
-        :param book_id:
-        :param default_value:
-        :return:
+
+        Example:
+            Exercise CalibreCoversField.cover id through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         try:
             book_cover_id = self.table.book_cover_map.book_cover_map[book_id]
@@ -2168,9 +3925,17 @@ class CalibreCoversField(CalibreManyToManyField, BaseCoverField):
     def cover_loc(self, book_id, default_value=None):
         """
         Returns the loc of the cover that is primary for that book.
-        :param book_id:
-        :param default_value:
-        :return:
+
+        Example:
+            Exercise CalibreCoversField.cover loc through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Retrieve the id_loc map for the individual book - return the loc of the first entry in that map
         try:
@@ -2188,15 +3953,52 @@ class CalibreCoversField(CalibreManyToManyField, BaseCoverField):
 
 class LazySeriesSortMap(object):
 
+    """
+    Provide the lazyseriessortmap contract for validated ebook processing.
+
+    Example:
+        Exercise LazySeriesSortMap through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     __slots__ = ("default_sort_key", "sort_key_func", "id_map", "cache")
 
     def __init__(self, default_sort_key, sort_key_func, id_map):
+        """
+        Initialize and validate the lazyseriessortmap state.
+
+        Example:
+            Exercise LazySeriesSortMap.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param default_sort_key: Value supplied for default sort key under the utility
+            contract.
+        :param sort_key_func: Value supplied for sort key func under the utility contract.
+        :param id_map: Value supplied for id map under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.default_sort_key = default_sort_key
         self.sort_key_func = sort_key_func
         self.id_map = id_map
         self.cache = {}
 
     def __call__(self, item_id, lang):
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LazySeriesSortMap.  call   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :param lang: Value supplied for lang under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return self.cache[(item_id, lang)]
         except KeyError:
@@ -2209,7 +4011,30 @@ class LazySeriesSortMap(object):
 
 # Todo: Need to write a CalibrePriorityManyToManyField object
 class CalibreSeriesField(CalibreManyToManyField, BaseSeriesField):
+    """
+    Provide the calibreseriesfield contract for validated ebook processing.
+
+    Example:
+        Exercise CalibreSeriesField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     def __init__(self, name, table, bools_are_tristate=False):
+        """
+        Initialize and validate the calibreseriesfield state.
+
+        Example:
+            Exercise CalibreSeriesField.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param table: Value supplied for table under the utility contract.
+        :param bools_are_tristate: Value supplied for bools are tristate under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super(CalibreSeriesField, self).__init__(name=name, table=table, bools_are_tristate=bools_are_tristate)
 
         # Put the for_book method back - as it was overridden in the base method
@@ -2217,11 +4042,18 @@ class CalibreSeriesField(CalibreManyToManyField, BaseSeriesField):
 
     def _series_for_book(self, book_id, default_value=None):
         """
-        In compatible mode returns the primary series for the work - otherwise returns a list of all the ids linked to
-        the book.
-        :param book_id:
-        :param default_value:
-        :return:
+        In compatible mode returns the primary series for the work - otherwise returns a list of all the ids linked to the book.
+
+        Example:
+            Exercise CalibreSeriesField. series for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         book_series_ids = self.table.book_col_map[book_id]
         if not book_series_ids:
@@ -2230,11 +4062,39 @@ class CalibreSeriesField(CalibreManyToManyField, BaseSeriesField):
         return self.table.id_map[series_id]
 
     def sort_keys_for_books(self, get_metadata, lang_map):
+        """
+        Perform the sort keys for books operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreSeriesField.sort keys for books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param lang_map: Value supplied for lang map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         sso = tweaks["title_series_sorting"]
         ssk = self._sort_key
         ts = title_sort
 
         def sk(val, lang):
+            """
+            Perform the sk operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise CalibreSeriesField.sort keys for books.sk through a consuming regression::
+
+                    python -m pytest -q tests/library/test_unified_library.py
+
+
+            :param val: Template or metadata value evaluated by the operation.
+            :param lang: Value supplied for lang under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return ssk(ts(val, order=sso, lang=lang))
 
         sk_map = LazySeriesSortMap(self._default_sort_key, sk, self.table.id_map)
@@ -2242,12 +4102,40 @@ class CalibreSeriesField(CalibreManyToManyField, BaseSeriesField):
         lang_map = {k: v[0] if v else None for k, v in iteritems(lang_map)}
 
         def key(book_id):
+            """
+            Perform the key operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise CalibreSeriesField.sort keys for books.key through a consuming regression::
+
+                    python -m pytest -q tests/library/test_unified_library.py
+
+
+            :param book_id: Value supplied for book id under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             lang = lang_map.get(book_id, None)
             return sk_map(bcmg(book_id, None), lang)
 
         return key
 
     def category_sort_value(self, item_id, book_ids, lang_map):
+        """
+        Perform the category sort value operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreSeriesField.category sort value through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :param book_ids: Book identities included in the batched read operation.
+        :param lang_map: Value supplied for lang map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         lang = None
         tss = tweaks["title_series_sorting"]
         if tss != "strictly_alphabetic":
@@ -2267,34 +4155,85 @@ class CalibreSeriesField(CalibreManyToManyField, BaseSeriesField):
     def update_cache(self, book_id_val_map, id_map=None):
         """
         Preform an update of the cache.
-        :param book_id_val_map:
-        :param id_map:
-        :return:
+
+        Example:
+            Exercise CalibreSeriesField.update cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_val_map: Value supplied for book id val map under the utility
+            contract.
+        :param id_map: Value supplied for id map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.table.update_cache(book_id_val_map, id_map)
 
     def update_preflight(self, book_id_item_id_map, id_map_update, dirted=None):
         """
+        Perform the update preflight operation under explicit file-format and conversion rules.
 
-        :param book_id_item_id_map:
-        :param id_map_update:
-        :return:
+        Example:
+            Exercise CalibreSeriesField.update preflight through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :param dirted: Value supplied for dirted under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return super(CalibreSeriesField, self).update_preflight(book_id_item_id_map, id_map_update, dirtied=dirted)
 
     def update_db(self, book_id_to_val_map, db, allow_case_change=False):
         """
         Preform updates of the series index of the table.
-        :param book_id_to_val_map:
-        :param db:
-        :param allow_case_change:
-        :return:
+
+        Example:
+            Exercise CalibreSeriesField.update db through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_to_val_map: Value supplied for book id to val map under the utility
+            contract.
+        :param db: Value supplied for db under the utility contract.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return super(CalibreSeriesField, self).update_db(book_id_to_val_map, db, allow_case_change)
 
 
 class CalibreTagsField(CalibreManyToManyField, BaseTagsField):
+    """
+    Provide the calibretagsfield contract for validated ebook processing.
+
+    Example:
+        Exercise CalibreTagsField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     def for_book(self, book_id, default_value=None):
+        """
+        Perform the for book operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreTagsField.for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ids = self.table.book_col_map.get(
             book_id,
         )
@@ -2308,18 +4247,36 @@ class CalibreTagsField(CalibreManyToManyField, BaseTagsField):
     def update_preflight(self, book_id_item_id_map, id_map_update, dirtied=None):
         """
         Gives the table a chance to bring the :param book_id_item_id_map:
-        :param book_id_item_id_map: The update map to preform the preflight on
-        :param id_map_update: Also needed to fully define the update
-        :return:
+
+        Example:
+            Exercise CalibreTagsField.update preflight through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :param dirtied: Value supplied for dirtied under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.table.update_preflight(book_id_item_id_map, id_map_update, dirtied=dirtied)
 
     def update_cache(self, book_col_map, id_map):
         """
         Preform an update on the tags field.
-        :param book_col_map:
-        :param id_map:
-        :return:
+
+        Example:
+            Exercise CalibreTagsField.update cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_col_map: Value supplied for book col map under the utility contract.
+        :param id_map: Value supplied for id map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.table.book_col_map.update(book_col_map)
         if id_map is not None:
@@ -2328,13 +4285,36 @@ class CalibreTagsField(CalibreManyToManyField, BaseTagsField):
     def internal_update_cache(self, book_id_item_id_map, id_map_update):
         """
         Preform an internal update of the cache.
-        :param book_id_item_id_map:
-        :param id_map_update:
-        :return:
+
+        Example:
+            Exercise CalibreTagsField.internal update cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.table.internal_update_cache(book_id_item_id_map, id_map_update)
 
     def get_news_category(self, tag_class, book_ids=None):
+        """
+        Return news category under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CalibreTagsField.get news category through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param tag_class: Value supplied for tag class under the utility contract.
+        :param book_ids: Book identities included in the batched read operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = []
 
         # Seek the new tags
@@ -2372,9 +4352,29 @@ class CalibreTagsField(CalibreManyToManyField, BaseTagsField):
 class CalibreLanguagesField(CalibreManyToManyField):
     """
     Represents the language field.
+
+    Example:
+        Exercise CalibreLanguagesField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def __init__(self, name, table, bools_are_tristate=False):
+        """
+        Initialize and validate the calibrelanguagesfield state.
+
+        Example:
+            Exercise CalibreLanguagesField.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param table: Value supplied for table under the utility contract.
+        :param bools_are_tristate: Value supplied for bools are tristate under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super(CalibreLanguagesField, self).__init__(name=name, table=table, bools_are_tristate=bools_are_tristate)
 
         self._change_for_book_method(self._langs_for_book)
@@ -2382,9 +4382,17 @@ class CalibreLanguagesField(CalibreManyToManyField):
     def _langs_for_book(self, book_id, default_value=None):
         """
         Value for the language field of the book - should be the string corresponding to the primary language.
-        :param book_id:
-        :param default_value:
-        :return:
+
+        Example:
+            Exercise CalibreLanguagesField. langs for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         try:
             lang_id_set = self.table.book_col_map["primary"][book_id]
@@ -2405,9 +4413,19 @@ class CalibreLanguagesField(CalibreManyToManyField):
     def update_preflight(self, book_id_item_id_map, id_map_update, dirtied=None):
         """
         Gives the table a chance to bring the :param book_id_item_id_map:
-        :param book_id_item_id_map: The update map to preform the preflight on
-        :param id_map_update: Also needed to fully define the update
-        :return:
+
+        Example:
+            Exercise CalibreLanguagesField.update preflight through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :param dirtied: Value supplied for dirtied under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         new_book_id_item_id_dict = dict()
         for book_id, book_val in iteritems(book_id_item_id_map):
@@ -2432,8 +4450,17 @@ class CalibreLanguagesField(CalibreManyToManyField):
     def update_db_preflight(self, book_id_val_map):
         """
         Does preflight work to bring the update dict into a standard form before it's applied to the database.
-        :param book_id_val_map:
-        :return:
+
+        Example:
+            Exercise CalibreLanguagesField.update db preflight through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_val_map: Value supplied for book id val map under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         new_update_dict = dict()
         for book_id, type_dict in iteritems(book_id_val_map):
@@ -2452,11 +4479,18 @@ class CalibreLanguagesField(CalibreManyToManyField):
 
     def update_db_precheck(self, book_id_val_map):
         """
-        Preform a precheck of the update book_id_val_map before trying to write it out to the database.
-        This allows for calling an abort on a malformed update before trying to update the database at all.
-        No changes are made to the book_id_val_map by this method - just errors out of the update is not valid.
-        :param book_id_val_map:
-        :return update_status:
+        Preform a precheck of the update book_id_val_map before trying to write it out to the database. This allows for calling an abort on a malformed update before trying to update the database at all. No changes are made to the book_id_val_map by this method - just errors out of the update is not valid.
+
+        Example:
+            Exercise CalibreLanguagesField.update db precheck through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_val_map: Value supplied for book id val map under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         assert isinstance(book_id_val_map, dict)
 
@@ -2486,12 +4520,21 @@ class CalibreLanguagesField(CalibreManyToManyField):
 
     def update_db(self, book_id_to_val_map, db, allow_case_change=False):
         """
-        Preform an update of the languages data stored on the database.
-        Prechecks are run to ensure that the update is valid.
-        :param book_id_to_val_map:
-        :param db:
-        :param allow_case_change:
-        :return:
+        Preform an update of the languages data stored on the database. Prechecks are run to ensure that the update is valid.
+
+        Example:
+            Exercise CalibreLanguagesField.update db through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_to_val_map: Value supplied for book id to val map under the utility
+            contract.
+        :param db: Value supplied for db under the utility contract.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Deal with the cases where the map is just valued with a string - these are indicators to set the string as
         # the primary language code for the title - process these and then remove them
@@ -2525,9 +4568,18 @@ class CalibreLanguagesField(CalibreManyToManyField):
     def update_cache(self, book_id_val_map, id_map=None):
         """
         Preform an update of the cache using the provided book_id_val_map
-        :param book_id_val_map: Keyed with the book id and valued with details of how to update that particular book.
-        :param id_map:
-        :return:
+
+        Example:
+            Exercise CalibreLanguagesField.update cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_val_map: Value supplied for book id val map under the utility
+            contract.
+        :param id_map: Value supplied for id map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Todo: This needs to be cache_update_preflight
         book_id_val_map = self.update_preflight(book_id_item_id_map=book_id_val_map, id_map_update=None)
@@ -2538,6 +4590,11 @@ class CalibreLanguagesField(CalibreManyToManyField):
 class CalibreLinkAttributeField(BaseLinkAttributeField, CalibreField):
     """
     Provides a consistent interface to the underlying data stored in the link table filed
+
+    Example:
+        Exercise CalibreLinkAttributeField through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def __init__(
@@ -2551,12 +4608,24 @@ class CalibreLinkAttributeField(BaseLinkAttributeField, CalibreField):
     ):
         """
         Set the basic properties of the field and the link.
-        :param name:
-        :param link_table_name:
-        :param link_field:
-        :param link_attribute_table:
-        :param main_table_name:
-        :param auxiliary_table_name:
+
+        Example:
+            Exercise CalibreLinkAttributeField.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param link_table_name: Value supplied for link table name under the utility
+            contract.
+        :param link_field: Value supplied for link field under the utility contract.
+        :param link_attribute_table: Value supplied for link attribute table under the
+            utility contract.
+        :param main_table_name: Value supplied for main table name under the utility
+            contract.
+        :param auxiliary_table_name: Value supplied for auxiliary table name under the
+            utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         # Stores the
         super(CalibreLinkAttributeField, self).__init__(
@@ -2578,17 +4647,51 @@ class CalibreLinkAttributeField(BaseLinkAttributeField, CalibreField):
     # For reasons of presenting a consistent interface with the table, passing through the methods - so that the
     # interface matches
     def book_in_cache(self, book_id):
+        """
+        Perform the book in cache operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreLinkAttributeField.book in cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.link_field.book_in_cache(book_id)
 
     def item_in_cache(self, item_id):
+        """
+        Perform the item in cache operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreLinkAttributeField.item in cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.link_field.item_in_cache(item_id)
 
     def _one_to_one_for_book(self, book_id, default_value=None):
         """
         Return the
-        :param book_id
-        :param default_value:
-        :return:
+
+        Example:
+            Exercise CalibreLinkAttributeField. one to one for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         aux_id = self.link_field.ids_for_book(book_id=book_id)[0]
         return self.link_attribute_table.get_property(main_id=book_id, auxiliary_id=aux_id)
@@ -2599,12 +4702,20 @@ class CalibreLinkAttributeField(BaseLinkAttributeField, CalibreField):
 
 def calibre_create_field(name, table, bools_are_tristate):
     """
-
     Takes a table field and the other properties needed to instantiate it - constructs the Table object and returns it.
-    :param name:
-    :param table:
-    :param bools_are_tristate:
-    :return:
+
+    Example:
+        Exercise calibre create field through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param table: Value supplied for table under the utility contract.
+    :param bools_are_tristate: Value supplied for bools are tristate under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     cls = {
         ONE_ONE: CalibreOneToOneField,
@@ -2642,10 +4753,18 @@ def calibre_create_custom_column_field(name, table, bools_are_tristate):
     """
     Takes a custom column table and returns a field wrapped around it.
 
-    :param name:
-    :param table:
-    :param bools_are_tristate:
-    :return:
+    Example:
+        Exercise calibre create custom column field through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param table: Value supplied for table under the utility contract.
+    :param bools_are_tristate: Value supplied for bools are tristate under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     cls = {
         ONE_ONE: CalibreOneToOneField,
@@ -2659,13 +4778,20 @@ def calibre_create_custom_column_field(name, table, bools_are_tristate):
 
 def calibre_create_link_attribute_field(name, field, bools_are_tristate=False):
     """
-    A link attribute field is a sub-field of a main field which contains additional information about the link joining
-    the main and auxiliary tables.
-    These are created associated with a field.
-    :param name:
-    :param field:
-    :param bools_are_tristate:
-    :return:
+    A link attribute field is a sub-field of a main field which contains additional information about the link joining the main and auxiliary tables. These are created associated with a field.
+
+    Example:
+        Exercise calibre create link attribute field through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param field: Metadata or template field addressed by the operation.
+    :param bools_are_tristate: Value supplied for bools are tristate under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     link_table = create_link_attribute_table(link_field=field, attribute_name=name)
     return CalibreLinkAttributeField(

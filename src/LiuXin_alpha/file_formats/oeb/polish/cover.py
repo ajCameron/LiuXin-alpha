@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
+"""
+Discover, replace and normalize cover resources in EPUB/OEB containers.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise cover through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -25,11 +36,38 @@ except ModuleNotFoundError:
     from LiuXin_alpha.utils.plugins.fallbacks.magick import Image as _FallbackImage
 
     def identify(path: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the identify operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise identify through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         with _FallbackImage(path) as img:
             meta = img.identify()
         return meta.get("width", -1), meta.get("height", -1), meta.get("format")
 
     def identify_data(data: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the identify data operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise identify data through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         with _FallbackImage(data) as img:
             meta = img.identify()
         return meta.get("width", -1), meta.get("height", -1), meta.get("format")
@@ -43,6 +81,22 @@ __docformat__ = "restructuredtext en"
 
 
 def set_azw3_cover(container: _typing.Any, cover_path: _typing.Any, report: _typing.Any, options: _typing.Any = None) -> None:
+    """
+    Set azw3 cover under the format's safety and compatibility rules.
+
+    Example:
+        Exercise set azw3 cover through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param cover_path: Value supplied for cover path under the utility contract.
+    :param report: Value supplied for report under the utility contract.
+    :param options: Value supplied for options under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     existing_image = options is not None and options.get("existing_image", False)
     name = None
     found = True
@@ -69,6 +123,19 @@ def set_azw3_cover(container: _typing.Any, cover_path: _typing.Any, report: _typ
 
 
 def get_azw3_raster_cover_name(container: _typing.Any) -> _typing.Any:
+    """
+    Return azw3 raster cover name under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get azw3 raster cover name through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     items = container.opf_xpath('//opf:guide/opf:reference[@href and contains(@type, "cover")]')
     if items:
         try:
@@ -78,6 +145,20 @@ def get_azw3_raster_cover_name(container: _typing.Any) -> _typing.Any:
 
 
 def mark_as_cover_azw3(container: _typing.Any, name: _typing.Any) -> None:
+    """
+    Perform the mark as cover azw3 operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise mark as cover azw3 through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     href = container.name_to_href(name, container.opf_name)
     found = False
     for item in container.opf_xpath('//opf:guide/opf:reference[@href and contains(@type, "cover")]'):
@@ -90,12 +171,38 @@ def mark_as_cover_azw3(container: _typing.Any, name: _typing.Any) -> None:
 
 
 def get_raster_cover_name(container: _typing.Any) -> _typing.Any:
+    """
+    Return raster cover name under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get raster cover name through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if container.book_type == "azw3":
         return get_azw3_raster_cover_name(container)
     return find_cover_image(container, strict=True)
 
 
 def get_cover_page_name(container: _typing.Any) -> _typing.Any:
+    """
+    Return cover page name under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get cover page name through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if container.book_type == "azw3":
         return
     return find_cover_page(container)
@@ -105,17 +212,18 @@ def set_cover(container: _typing.Any, cover_path: _typing.Any, report: _typing.A
     """
     Set the cover of the book to the image pointed to by cover_path.
 
-    :param container:
-    :param cover_path: Either the absolute path to an image file or the
-        canonical name of an image in the book. When using an image in the book,
-        you must also set options, see below.
-    :param report: An optional callable that takes a single argument. It will
-        be called with information about the tasks being processed.
-    :param options: None or a dictionary that controls how the cover is set. The dictionary can have entries:
-        **keep_aspect**: True or False  (Preserve aspect ratio of covers in EPUB)
-        **no_svg**: True or False  (Use an SVG cover wrapper in the EPUB titlepage)
-        **existing**: True or False  (``cover_path`` refers to an existing image in the book)
-    :return:
+    Example:
+        Exercise set cover through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param cover_path: Value supplied for cover path under the utility contract.
+    :param report: Value supplied for report under the utility contract.
+    :param options: Value supplied for options under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     report = report or (lambda x: x)
     if container.book_type == "azw3":
@@ -127,9 +235,17 @@ def set_cover(container: _typing.Any, cover_path: _typing.Any, report: _typing.A
 def mark_as_cover(container: _typing.Any, name: _typing.Any) -> None:
     """
     Mark the specified image as the cover image.
-    :param container:
-    :param name:
-    :return:
+
+    Example:
+        Exercise mark as cover through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     if name not in container.mime_map:
         raise ValueError("Cannot mark %s as cover as it does not exist" % name)
@@ -147,6 +263,18 @@ def mark_as_cover(container: _typing.Any, name: _typing.Any) -> None:
 
 
 def is_raster_image(media_type: _typing.Any) -> bool:
+    """
+    Return whether is raster image holds for the supplied ebook data.
+
+    Example:
+        Exercise is raster image through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param media_type: Value supplied for media type under the utility contract.
+    :return: True when the documented condition holds; otherwise False.
+    """
     return media_type and media_type.lower() in {
         "image/png",
         "image/jpeg",
@@ -171,9 +299,17 @@ COVER_TYPES = {
 def find_cover_image(container: _typing.Any, strict: bool = False) -> _typing.Any:
     """
     Find a raster image marked as a cover in the OPF.
-    :param container:
-    :param strict:
-    :return:
+
+    Example:
+        Exercise find cover image through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param strict: Value supplied for strict under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     manifest_id_map = container.manifest_id_map
     mm = container.mime_map
@@ -211,6 +347,19 @@ def find_cover_image(container: _typing.Any, strict: bool = False) -> _typing.An
 
 
 def get_guides(container: _typing.Any) -> _typing.Any:
+    """
+    Return guides under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get guides through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     guides = container.opf_xpath("//opf:guide")
     if not guides:
         container.insert_into_xml(container.opf, container.opf.makeelement(OPF("guide")))
@@ -221,9 +370,17 @@ def get_guides(container: _typing.Any) -> _typing.Any:
 def mark_as_cover_epub(container: _typing.Any, name: _typing.Any) -> None:
     """
     Mark an object as the cover of an epub book.
-    :param container:
-    :param name:
-    :return:
+
+    Example:
+        Exercise mark as cover epub through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     mmap = {v: k for k, v in iteritems(container.manifest_id_map)}
     if name not in mmap:
@@ -266,10 +423,17 @@ def mark_as_titlepage(container: _typing.Any, name: _typing.Any, move_to_start: 
     """
     Mark the specified HTML file as the titlepage of the EPUB.
 
-    :param container:
-    :param name:
-    :param move_to_start: If True the HTML file is moved to the start of the spine
-    :return:
+    Example:
+        Exercise mark as titlepage through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param move_to_start: Value supplied for move to start under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     item = None
     linear = None
@@ -299,8 +463,16 @@ def mark_as_titlepage(container: _typing.Any, name: _typing.Any, move_to_start: 
 def find_cover_page(container: _typing.Any) -> _typing.Any:
     """
     Find a document marked as a cover in the OPF
-    :param container:
-    :return:
+
+    Example:
+        Exercise find cover page through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     mm = container.mime_map
     guide_type_map = container.guide_type_map
@@ -310,6 +482,20 @@ def find_cover_page(container: _typing.Any) -> _typing.Any:
 
 
 def find_cover_image_in_page(container: _typing.Any, cover_page: _typing.Any) -> _typing.Any:
+    """
+    Find cover image in page under the format's safety and compatibility rules.
+
+    Example:
+        Exercise find cover image in page through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param cover_page: Value supplied for cover page under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     root = container.parsed(cover_page)
     body = XPath("//h:body")(root)
     if len(body) != 1:
@@ -335,8 +521,15 @@ def find_cover_image_in_page(container: _typing.Any, cover_page: _typing.Any) ->
 def clean_opf(container: _typing.Any) -> _typing.Iterator[_typing.Any]:
     """
     Remove all references to covers from the OPF
-    :param container:
-    :return:
+
+    Example:
+        Exercise clean opf through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :return: An iterator yielding the normalized values described above.
     """
     manifest_id_map = container.manifest_id_map
     for meta in container.opf_xpath('//opf:meta[@name="cover" and @content]'):
@@ -360,11 +553,19 @@ def clean_opf(container: _typing.Any) -> _typing.Iterator[_typing.Any]:
 def create_epub_cover(container: _typing.Any, cover_path: _typing.Any, existing_image: _typing.Any, options: _typing.Any = None) -> tuple[_typing.Any, ...]:
     """
     Create a cover suitable for an
-    :param container:
-    :param cover_path:
-    :param existing_image:
-    :param options:
-    :return:
+
+    Example:
+        Exercise create epub cover through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param cover_path: Value supplied for cover path under the utility contract.
+    :param existing_image: Value supplied for existing image under the utility contract.
+    :param options: Value supplied for options under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     from LiuXin_alpha.file_formats.conversion.config import load_defaults
     from LiuXin_alpha.file_formats.oeb.transforms.cover import CoverManager
@@ -458,6 +659,21 @@ def create_epub_cover(container: _typing.Any, cover_path: _typing.Any, existing_
 
 
 def remove_cover_image_in_page(container: _typing.Any, page: _typing.Any, cover_images: _typing.Any) -> None:
+    """
+    Perform the remove cover image in page operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise remove cover image in page through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param page: Value supplied for page under the utility contract.
+    :param cover_images: Value supplied for cover images under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for img in container.parsed(page).xpath('//*[local-name()="img" and @src]'):
         href = img.get("src")
         try:
@@ -470,6 +686,22 @@ def remove_cover_image_in_page(container: _typing.Any, page: _typing.Any, cover_
 
 
 def set_epub_cover(container: _typing.Any, cover_path: _typing.Any, report: _typing.Any, options: _typing.Any = None) -> None:
+    """
+    Set epub cover under the format's safety and compatibility rules.
+
+    Example:
+        Exercise set epub cover through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param cover_path: Value supplied for cover path under the utility contract.
+    :param report: Value supplied for report under the utility contract.
+    :param options: Value supplied for options under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     existing_image = options is not None and options.get("existing_image", False)
     if existing_image:
         existing_image = cover_path

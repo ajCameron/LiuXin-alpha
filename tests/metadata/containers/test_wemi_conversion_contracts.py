@@ -1,3 +1,14 @@
+"""
+Verify WEMI conversion helpers preserve identities, values and relations.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test wemi conversion contracts through its owning regression module::
+
+        python -m pytest -q tests/metadata/containers/test_wemi_conversion_contracts.py
+"""
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -18,6 +29,18 @@ from LiuXin_alpha.metadata.opf_tools import metadata_from_opf, metadata_to_opf_b
 
 
 def _values(raw: object) -> tuple[str, ...]:
+    """
+    Perform the values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise values through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_wemi_conversion_contracts.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return ()
     if isinstance(raw, Mapping):
@@ -31,11 +54,35 @@ def _values(raw: object) -> tuple[str, ...]:
 
 
 def _identifier_values(metadata: object, scheme: str) -> tuple[str, ...]:
+    """
+    Return normalized identifier values used to compare hydrated projections.
+
+    Example:
+        Exercise identifier values through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_wemi_conversion_contracts.py
+
+
+    :param metadata: Metadata container or mapping supplied to the assertion helper.
+    :param scheme: Value supplied for scheme in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     identifiers = metadata.get_identifiers()  # type: ignore[attr-defined]
     return tuple(sorted(_values(identifiers.get(scheme, ()))))
 
 
 def test_direct_wemi_relations_project_to_calibre_without_mutating_legacy_fields() -> None:
+    """
+    Verify direct wemi relations project to calibre without mutating legacy fields.
+
+    Example:
+        Exercise test direct wemi relations project to calibre without mutating legacy fields through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_wemi_conversion_contracts.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = LiuXinWEMIMetadata(
         title="Legacy Projection Title",
         authors=["Ada Lovelace"],
@@ -90,6 +137,17 @@ def test_direct_wemi_relations_project_to_calibre_without_mutating_legacy_fields
 
 
 def test_wemi_opf_round_trip_preserves_supported_flat_values_not_graph_links() -> None:
+    """
+    Verify wemi opf round trip preserves supported flat values not graph links.
+
+    Example:
+        Exercise test wemi opf round trip preserves supported flat values not graph links through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_wemi_conversion_contracts.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = LiuXinWEMIMetadata(
         work_metadata=WorkMetadata(
             work=WorkIdentity(
@@ -133,6 +191,17 @@ def test_wemi_opf_round_trip_preserves_supported_flat_values_not_graph_links() -
 
 
 def test_lazy_wemi_conversion_materializes_projection_dependencies() -> None:
+    """
+    Verify lazy wemi conversion materializes projection dependencies.
+
+    Example:
+        Exercise test lazy wemi conversion materializes projection dependencies through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_wemi_conversion_contracts.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = LazyLiuXinWEMIMetadata("Lazy Conversion", ["Lazy Author"])
     metadata.install_lazy_value_to_id("tags", lambda: {"legacy-lazy-tag": 5})
     metadata.install_lazy_relation_loader(

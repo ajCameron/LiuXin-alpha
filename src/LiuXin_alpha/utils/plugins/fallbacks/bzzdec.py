@@ -1,13 +1,14 @@
 # src/LiuXin_alpha/utils/plugins/fallbacks/bzzdec.py
 """
-Pure-Python fallback for calibre/LiuXin's `bzzdec` compiled extension.
+Provide bzzdec utility behavior.
 
-Implements: decompress(data: bytes) -> bytes
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-This is a direct port of calibre's `bzzdecoder.c` (Kovid Goyal),
-which decodes DjVu BZZ-compressed byte strings.
+Example:
+    Exercise bzzdec through a consuming regression::
 
-Performance: significantly slower than the C extension, but intended to be correct.
+        python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
 """
 
 from __future__ import annotations
@@ -44,6 +45,19 @@ del _i, _j, _c
 
 def _ffz16(x: int) -> int:
     # Port of: ffz(ffzt, x) ((x>=0xff00) ? (ffzt[x&0xff]+8) : (ffzt[(x>>8)&0xff]))
+    """
+    Perform the ffz16 utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  ffz16 through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     x &= 0xFFFF
     if x >= 0xFF00:
         return _FFZT[x & 0xFF] + 8
@@ -59,6 +73,14 @@ _MIN_TRUSTED_BLOCK_SIZE = 64 * 1024
 
 @dataclass
 class _State:
+    """
+    Provide the State utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise  State through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+    """
     raw: bytes
     end: int
     pos: int = 0
@@ -88,6 +110,19 @@ class _State:
 
 
 def _read_byte(st: _State) -> bool:
+    """
+    Read byte under the documented compatibility and safety rules.
+
+    Example:
+        Exercise  read byte through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param st: Value supplied for st under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if st.pos <= st.end:
         st.byte = st.raw[st.pos]
         st.pos += 1
@@ -96,6 +131,19 @@ def _read_byte(st: _State) -> bool:
 
 
 def _preload(st: _State) -> None:
+    """
+    Perform the preload utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  preload through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param st: Value supplied for st under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     while st.scount <= 24:
         if not _read_byte(st):
             st.byte = 0xFF
@@ -107,6 +155,19 @@ def _preload(st: _State) -> None:
 
 
 def _init_state(st: _State) -> None:
+    """
+    Perform the init state utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  init state through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param st: Value supplied for st under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     st.p = _P
     st.m = _M
     st.up = _UP
@@ -134,6 +195,21 @@ def _init_state(st: _State) -> None:
 
 def _decode_sub_simple(st: _State, mps: int, z: int) -> int:
     # Test MPS/LPS
+    """
+    Perform the decode sub simple utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  decode sub simple through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param st: Value supplied for st under the utility contract.
+    :param mps: Value supplied for mps under the utility contract.
+    :param z: Value supplied for z under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if z > st.code:
         # LPS branch
         z = 0x10000 - z
@@ -161,10 +237,37 @@ def _decode_sub_simple(st: _State, mps: int, z: int) -> int:
 
 
 def _zpcodec_decoder(st: _State) -> int:
+    """
+    Perform the zpcodec decoder utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  zpcodec decoder through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param st: Value supplied for st under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return _decode_sub_simple(st, 0, 0x8000 + (st.a >> 1))
 
 
 def _decode_raw(st: _State, bits: int) -> int:
+    """
+    Perform the decode raw utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  decode raw through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param st: Value supplied for st under the utility contract.
+    :param bits: Value supplied for bits under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     n = 1
     m = 1 << bits
     while n < m:
@@ -174,6 +277,22 @@ def _decode_raw(st: _State, bits: int) -> int:
 
 
 def _decode_sub(st: _State, ctx: bytearray, index: int, z: int) -> int:
+    """
+    Perform the decode sub utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  decode sub through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param st: Value supplied for st under the utility contract.
+    :param ctx: Value supplied for ctx under the utility contract.
+    :param index: Value supplied for index under the utility contract.
+    :param z: Value supplied for z under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     bit = ctx[index] & 1
 
     # Avoid interval reversion
@@ -214,6 +333,21 @@ def _decode_sub(st: _State, ctx: bytearray, index: int, z: int) -> int:
 
 
 def _zpcodec_decode(st: _State, ctx: bytearray, index: int) -> int:
+    """
+    Perform the zpcodec decode utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  zpcodec decode through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param st: Value supplied for st under the utility contract.
+    :param ctx: Value supplied for ctx under the utility contract.
+    :param index: Value supplied for index under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     z = st.a + st.p[ctx[index]]
     if z <= st.fence:
         st.a = z
@@ -222,6 +356,22 @@ def _zpcodec_decode(st: _State, ctx: bytearray, index: int) -> int:
 
 
 def _decode_binary(st: _State, ctx: bytearray, index: int, bits: int) -> int:
+    """
+    Perform the decode binary utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  decode binary through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param st: Value supplied for st under the utility contract.
+    :param ctx: Value supplied for ctx under the utility contract.
+    :param index: Value supplied for index under the utility contract.
+    :param bits: Value supplied for bits under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     n = 1
     m = 1 << bits
     while n < m:
@@ -231,6 +381,20 @@ def _decode_binary(st: _State, ctx: bytearray, index: int, bits: int) -> int:
 
 
 def _decode_block(st: _State, ctx: bytearray) -> bool:
+    """
+    Perform the decode block utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  decode block through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param st: Value supplied for st under the utility contract.
+    :param ctx: Value supplied for ctx under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     mtf = list(range(256))
     freq = [0, 0, 0, 0]
     fadd = 4
@@ -349,7 +513,19 @@ def _decode_block(st: _State, ctx: bytearray) -> bool:
 
 
 def decompress(data: bytes) -> bytes:
-    """Decompress a DjVu BZZ compressed byte string."""
+    """
+    Decompress a DjVu BZZ compressed byte string.
+
+    Example:
+        Exercise decompress through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not isinstance(data, (bytes, bytearray, memoryview)):
         raise TypeError("decompress() expects a bytes-like object")
     raw = bytes(data)

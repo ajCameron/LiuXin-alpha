@@ -1,13 +1,42 @@
+"""
+Expose the supported test db 21 compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+"""
 from LiuXin_tests.test_databases.test_db_19 import TestDB19Builder
 
 
 class TestDB21Builer(TestDB19Builder):
     """
     Preforms build for test db 21 - which has a table almost identical to series - but with a different name.
+
+    Example:
+        Exercise TestDB21Builer through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
     """
 
     def add_new_main_tables(self, scatch_db):
 
+        """
+        Perform the add new main tables operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TestDB21Builer.add new main tables through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scatch_db: Value supplied for scatch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.build_not_series_table(scatch_db)
 
         super(TestDB21Builer, self).add_new_main_tables(scatch_db)
@@ -24,25 +53,25 @@ class TestDB21Builer(TestDB19Builder):
         right_crosslink=True,
     ):
         """
-        Build the "not_series" table - which has all the properties of the series table, but is not (intended to bypass
-        the custom stuff existing for the series field).
-        Many elements in :param linked_to: can be linked to up to one element in the new table that will be generated.
-        Elements from :param linked_to: will be linked to elements in the newly created table with the mode
-        :param add_mode: - default is "all" where every element in the new table (control element count in the new table
-        with :param other_table_count:) will be linked to between 0 and :param add_limit: elements from the
-        :param linked_to: table.
+        Build the "not_series" table - which has all the properties of the series table, but is not (intended to bypass the custom stuff existing for the series field). Many elements in :param linked_to: can be linked to up to one element in the new table that will be generated. Elements from :param linked_to: will be linked to elements in the newly created table with the mode
 
-        :param scratch_db: The database to operate on
-        :param linked_to: The table which the new table will be linked to
-        :param add_mode: Mode to add links between the two table
-        :param other_table_count: How many elements should be generated in the other table
-        :param add_limit: Maximum number of links between the old table and the new one
-        :param count_multiplier: Entries equal to this times the total number of entries on the linked to table will be
-                                 produced (e.g. if this is linked to the titles table - and this is set to 10 - 10 * the
-                                 number of entries on the titles table will be produced
-        :param left_crosslink:
-        :param right_crosslink:
-        :return:
+        Example:
+            Exercise TestDB21Builer.build not series table through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :param linked_to: Value supplied for linked to under the utility contract.
+        :param add_mode: Value supplied for add mode under the utility contract.
+        :param add_limit: Value supplied for add limit under the utility contract.
+        :param count_multiplier: Value supplied for count multiplier under the utility
+            contract.
+        :param left_crosslink: Value supplied for left crosslink under the utility contract.
+        :param right_crosslink: Value supplied for right crosslink under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         from utils.lx_libraries.liuxin_random import LiuXinBadPseudoRandomGenerator
 
@@ -151,12 +180,22 @@ def build_test_db(
     test_asset_version=None,
 ):
     """
-    Construct the test database specified by this module.
-    In this case a blank database is constructed and filled with data - before being copied into the test_databases
-    folder.
-    :param dst_file_path: The file to write the database to after it's been built.
-    :param dump: HERE IGNORED
-    :return:
+    Construct the test database specified by this module. In this case a blank database is constructed and filled with data - before being copied into the test_databases folder.
+
+    Example:
+        Exercise build test db through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+    :param dst_file_path: Value supplied for dst file path under the utility contract.
+    :param dump: Value supplied for dump under the utility contract.
+    :param plugin_name: Value supplied for plugin name under the utility contract.
+    :param new_db_uuid: Value supplied for new db uuid under the utility contract.
+    :param test_asset_version: Value supplied for test asset version under the utility
+        contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     test_db_builder = TestDB21Builer(
         dst_file_path=dst_file_path,

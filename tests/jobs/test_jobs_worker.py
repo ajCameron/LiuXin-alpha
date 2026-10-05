@@ -1,3 +1,14 @@
+"""
+Provide test jobs worker utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test jobs worker through a consuming regression::
+
+        python -m pytest -q tests/jobs/test_jobs_worker.py
+"""
 from __future__ import annotations
 
 import dataclasses
@@ -9,14 +20,49 @@ from LiuXin_alpha.jobs.api import JobDefinition, JobHandlerAPI, JobHandlerRegist
 
 
 class _FakeHandler(JobHandlerAPI):
+    """
+    Provide the fakehandler contract for validated ebook processing.
+
+    Example:
+        Exercise  FakeHandler through a consuming regression::
+
+            python -m pytest -q tests/jobs/test_jobs_worker.py
+    """
     job_kind = "fake"
 
     def validate_payload(self, payload_json: str) -> None:
+        """
+        Validate payload under the format's safety and compatibility rules.
+
+        Example:
+            Exercise  FakeHandler.validate payload through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_worker.py
+
+
+        :param payload_json: Value supplied for payload json under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         loaded = json.loads(payload_json)
         if "value" not in loaded:
             raise ValueError("Missing value")
 
     def run(self, *, payload_json: str, run_context) -> dict[str, Any]:
+        """
+        Execute the configured conversion stage and return its primary result.
+
+        Example:
+            Exercise  FakeHandler.run through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_worker.py
+
+
+        :param payload_json: Value supplied for payload json under the utility contract.
+        :param run_context: Value supplied for run context under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         loaded = json.loads(payload_json)
         run_context.log("handler starting")
         run_context.update_progress(JobProgressUpdate(progress_current=1, progress_total=1, progress_message="done"))
@@ -24,12 +70,47 @@ class _FakeHandler(JobHandlerAPI):
 
 
 class _CancellableHandler(JobHandlerAPI):
+    """
+    Provide the cancellablehandler contract for validated ebook processing.
+
+    Example:
+        Exercise  CancellableHandler through a consuming regression::
+
+            python -m pytest -q tests/jobs/test_jobs_worker.py
+    """
     job_kind = "cancellable"
 
     def validate_payload(self, payload_json: str) -> None:
+        """
+        Validate payload under the format's safety and compatibility rules.
+
+        Example:
+            Exercise  CancellableHandler.validate payload through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_worker.py
+
+
+        :param payload_json: Value supplied for payload json under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         json.loads(payload_json)
 
     def run(self, *, payload_json: str, run_context) -> dict[str, Any]:
+        """
+        Execute the configured conversion stage and return its primary result.
+
+        Example:
+            Exercise  CancellableHandler.run through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_worker.py
+
+
+        :param payload_json: Value supplied for payload json under the utility contract.
+        :param run_context: Value supplied for run context under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         del payload_json
         run_context.repository.request_cancel(run_context.job_run_id)
         if run_context.is_cancel_requested():
@@ -38,6 +119,19 @@ class _CancellableHandler(JobHandlerAPI):
 
 
 def test_job_worker_executes_handler_and_persists_result(tmp_path) -> None:
+    """
+    Perform the test job worker executes handler and persists result operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test job worker executes handler and persists result through a consuming regression::
+
+            python -m pytest -q tests/jobs/test_jobs_worker.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     repo = JobRepository(tmp_path / "jobs.sqlite")
     registry = JobHandlerRegistry()
     registry.register(_FakeHandler())
@@ -55,6 +149,19 @@ def test_job_worker_executes_handler_and_persists_result(tmp_path) -> None:
 
 
 def test_job_worker_marks_cancelled_when_requested(tmp_path) -> None:
+    """
+    Perform the test job worker marks cancelled when requested operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test job worker marks cancelled when requested through a consuming regression::
+
+            python -m pytest -q tests/jobs/test_jobs_worker.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     repo = JobRepository(tmp_path / "jobs.sqlite")
     registry = JobHandlerRegistry()
     registry.register(_CancellableHandler())

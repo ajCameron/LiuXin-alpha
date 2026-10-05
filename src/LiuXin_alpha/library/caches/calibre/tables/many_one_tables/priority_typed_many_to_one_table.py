@@ -1,10 +1,13 @@
 """
-PriorityTypedManyToOne tables are for instances where many titles could be linked to one - and only one - object.
+Model typed priority many-to-one relations.
 
-With both the concept of a priority and a type.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-These are slightly rare in LiuXin - mostly ManyToMany are used instead.
-But it's included for completeness - you might want to define one for yourself, after all.
+Example:
+    Exercise priority typed many to one table through a consuming regression::
+
+        python -m pytest -q tests/library/test_unified_library.py
 """
 
 
@@ -28,10 +31,10 @@ class CalibrePriorityTypedManyToOneTable(CalibreManyToOneTable[T]):
     """
     many-to-one table with both priority and type information
 
-    The entries are ordered and have a type - thus they will be stored as a dictionary (for the type informaiton) of
-    lists (for the priority information).
-    You can thus ask "what books of what type of what order are associated with this item?" - the priority gives you
-    an ordering and the type gives you subtypes to that order.
+    Example:
+        Exercise CalibrePriorityTypedManyToOneTable through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     _priority: bool = True
@@ -43,11 +46,17 @@ class CalibrePriorityTypedManyToOneTable(CalibreManyToOneTable[T]):
         """
         Initialise a PriorityTypedManyToMany table.
 
-        No data is loaded - call :meth read: to do that.
-        :param name: The name of the PriorityTypesManyToOne table.
-        :param metadata: Metadata for the table - in the form
-        :param link_table:
-        :param custom:
+        Example:
+            Exercise CalibrePriorityTypedManyToOneTable.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param metadata: Value supplied for metadata under the utility contract.
+        :param link_table: Value supplied for link table under the utility contract.
+        :param custom: Value supplied for custom under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         super(CalibrePriorityTypedManyToOneTable, self).__init__(
             name=name, metadata=metadata, link_table=link_table, custom=custom
@@ -61,7 +70,14 @@ class CalibrePriorityTypedManyToOneTable(CalibreManyToOneTable[T]):
         """
         Part of a hack to produce a nested default dict.
 
-        :return:
+        Example:
+            Exercise CalibrePriorityTypedManyToOneTable. col book map factory through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return defaultdict(self._type_list_container)
 
@@ -70,7 +86,14 @@ class CalibrePriorityTypedManyToOneTable(CalibreManyToOneTable[T]):
         """
         Part of a hack to produce a nested default dict.
 
-        :return:
+        Example:
+            Exercise CalibrePriorityTypedManyToOneTable. book col map factory through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return dict()
 
@@ -79,7 +102,14 @@ class CalibrePriorityTypedManyToOneTable(CalibreManyToOneTable[T]):
         """
         Part of a hack to produce a nested default dict.
 
-        :return:
+        Example:
+            Exercise CalibrePriorityTypedManyToOneTable. type list container through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return defaultdict(list)
 
@@ -87,9 +117,16 @@ class CalibrePriorityTypedManyToOneTable(CalibreManyToOneTable[T]):
         """
         Preform a read out of the database and into the internal cache.
 
-        :param db:
-        :param type_filter:
-        :return status: Did the read go through?
+        Example:
+            Exercise CalibrePriorityTypedManyToOneTable.read maps through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :param type_filter: Value supplied for type filter under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         assert type_filter is None, "type_filter is no longer in use"
 
@@ -132,9 +169,17 @@ class CalibrePriorityTypedManyToOneTable(CalibreManyToOneTable[T]):
         """
         Preforms checks that the given update is valid before applying it to the cache.
 
-        :param book_id_val_map:
-        :param id_map:
-        :return None: Throws an error if the update is not correct
+        Example:
+            Exercise CalibrePriorityTypedManyToOneTable.cache update precheck through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_val_map: Value supplied for book id val map under the utility
+            contract.
+        :param id_map: Value supplied for id map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         for book_id, book_val in iteritems(book_id_val_map):
             if book_id not in self.seen_book_ids:
@@ -153,7 +198,15 @@ class CalibrePriorityTypedManyToOneTable(CalibreManyToOneTable[T]):
         """
         Err msg
 
-        :return:
+        Example:
+            Exercise CalibrePriorityTypedManyToOneTable. book id not known through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         err_msg = [
             "book_id was not known to the system",
@@ -170,9 +223,17 @@ class CalibrePriorityTypedManyToOneTable(CalibreManyToOneTable[T]):
         """
         Actually preform an update of the cache.
 
-        :param book_id_val_map:
-        :param id_map:
-        :return:
+        Example:
+            Exercise CalibrePriorityTypedManyToOneTable.update cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_val_map: Value supplied for book id val map under the utility
+            contract.
+        :param id_map: Value supplied for id map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         self.cache_update_precheck(book_id_val_map, id_map)
@@ -187,13 +248,17 @@ class CalibrePriorityTypedManyToOneTable(CalibreManyToOneTable[T]):
         """
         Check that an update is of a valid form before writing it out to the cache and the database.
 
-        Called when you know the ids you want to assign to the book after the update. Checks those ids are valid.
-        No changes will be made to the :param book_id_item_id_map: (e.g. if the map is valued with tuples - not lists
-        as expected - this will not be corrected.
-        Raised InvalidCacheUpdate if the cache update is invalid in some way.
-        :param book_id_item_id_map: Keyed with the ids of the books to update and valued with the
-        :param id_map_update:
-        :return None: No return will be made - an error will be raised if the update is not valid
+        Example:
+            Exercise CalibrePriorityTypedManyToOneTable.update precheck through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         for book_id, book_val in iteritems(book_id_item_id_map):
 
@@ -231,9 +296,17 @@ class CalibrePriorityTypedManyToOneTable(CalibreManyToOneTable[T]):
         """
         Update cache with additional info - used in write when we need some info about the cache before db write.
 
-        :param book_id_item_id_map:
-        :param id_map_update: Dictionary used to directly update the id_map
-        :return:
+        Example:
+            Exercise CalibrePriorityTypedManyToOneTable.internal update cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self.id_map.update(id_map_update)
 
@@ -332,6 +405,16 @@ class CalibrePriorityTypedManyToOneTable(CalibreManyToOneTable[T]):
     def _is_type_dict_null(type_dict: dict[Any, Any]) -> bool:
         """
         Checks to see if a type dict has any content
+
+        Example:
+            Exercise CalibrePriorityTypedManyToOneTable. is type dict null through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param type_dict: Value supplied for type dict under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         for item_id, item_vals in iteritems(type_dict):
             if item_vals:
@@ -344,9 +427,16 @@ class CalibrePriorityTypedManyToOneTable(CalibreManyToOneTable[T]):
         """
         Returns the item data for the given book - returns dict keyed with link_types and valued with sets of book_ids
 
-        :param book_id:
-        :param type_filter:
-        :return:
+        Example:
+            Exercise CalibrePriorityTypedManyToOneTable.item data through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param type_filter: Value supplied for type filter under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if type_filter is None:
             item_data_dict = dict()

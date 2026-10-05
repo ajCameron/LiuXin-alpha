@@ -1,3 +1,14 @@
+"""
+Parse command-line configuration values and expose compatibility option helpers.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise config tools through a consuming regression::
+
+        python -m pytest -q tests/utils/config/test_config_base.py
+"""
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
@@ -73,19 +84,44 @@ if False:  # pragma: no cover
 
 
 def check_config_write_access() -> bool:
+    """
+    Perform the check config write access utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise check config write access through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return os.access(config_dir, os.W_OK) and os.access(config_dir, os.X_OK)
 
 
 class DynamicConfig(dict):
-    """Dynamic config for keys not declared via OptionSet.
+    """
+    Dynamic config for keys not declared via OptionSet.
 
-    The on-disk representation is JSON in ``<name>.pickle.json``.
+    Example:
+        Exercise DynamicConfig through a consuming regression::
 
-    For migration, we will *read* legacy pickled data from ``<name>.pickle``
-    if the JSON file is missing.
+            python -m pytest -q tests/utils/config/test_config_base.py
     """
 
     def __init__(self, name: str = "dynamic") -> None:
+        """
+        Initialize and validate the DynamicConfig state.
+
+        Example:
+            Exercise DynamicConfig.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: None; validated state is stored on the receiving object.
+        """
         dict.__init__(self, {})
         self.name = name
         self.defaults: dict[str, object] = {}
@@ -93,17 +129,66 @@ class DynamicConfig(dict):
 
     @property
     def file_path(self) -> str:
+        """
+        Perform the file path utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise DynamicConfig.file path through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return os.path.join(config_dir, self.name + ".pickle.json")
 
     def decouple(self, prefix: str) -> None:
+        """
+        Perform the decouple utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise DynamicConfig.decouple through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param prefix: Text prepended to the formatted or selected result.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.name = prefix + self.name
         self.refresh()
 
     def _legacy_pickle_path(self) -> str:
         # Strip the trailing '.json'
+        """
+        Perform the legacy pickle path utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise DynamicConfig. legacy pickle path through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.file_path.rpartition(".")[0]
 
     def read_old_serialized_representation(self) -> dict:
+        """
+        Read old serialized representation under the documented compatibility and safety rules.
+
+        Example:
+            Exercise DynamicConfig.read old serialized representation through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         import pickle
 
         path = self._legacy_pickle_path()
@@ -121,6 +206,19 @@ class DynamicConfig(dict):
         return {}
 
     def refresh(self, clear_current: bool = True) -> None:
+        """
+        Perform the refresh utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise DynamicConfig.refresh through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param clear_current: Value supplied for clear current under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         d: dict = {}
         migrate = False
         if clear_current:
@@ -151,25 +249,92 @@ class DynamicConfig(dict):
         self.update(d)
 
     def __getitem__(self, key):
+        """
+        Expose getitem behavior for the compatibility container.
+
+        Example:
+            Exercise DynamicConfig.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return dict.__getitem__(self, key)
         except KeyError:
             return self.defaults.get(key, None)
 
     def get(self, key, default=None):
+        """
+        Perform the get utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise DynamicConfig.get through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :param default: Value supplied for default under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return dict.__getitem__(self, key)
         except KeyError:
             return self.defaults.get(key, default)
 
     def __setitem__(self, key, val):
+        """
+        Perform the setitem utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise DynamicConfig.  setitem   through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         dict.__setitem__(self, key, val)
         self.commit()
 
     def set(self, key, val):
+        """
+        Perform the set utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise DynamicConfig.set through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__setitem__(key, val)
 
     def commit(self) -> None:
+        """
+        Perform the commit utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise DynamicConfig.commit through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not getattr(self, "name", None):
             return
         commit_data(self.file_path, json_dumps(self))
@@ -179,16 +344,33 @@ dynamic = DynamicConfig()
 
 
 class XMLConfig(dict):
-    """Plist-backed config.
+    """
+    Plist-backed config.
 
-    Uses :mod:`plistlib` and writes atomically.
+    Example:
+        Exercise XMLConfig through a consuming regression::
 
-    Supported value types: see Python's plistlib documentation.
+            python -m pytest -q tests/utils/config/test_config_base.py
     """
 
     EXTENSION = ".plist"
 
     def __init__(self, rel_path_to_cf_file: str, base_path: str = config_dir, permissions: int = 0o666):
+        """
+        Initialize and validate the XMLConfig state.
+
+        Example:
+            Exercise XMLConfig.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param rel_path_to_cf_file: Value supplied for rel path to cf file under the utility
+            contract.
+        :param base_path: Value supplied for base path under the utility contract.
+        :param permissions: Value supplied for permissions under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         dict.__init__(self)
         self.file_permissions = permissions
         self.no_commit = False
@@ -202,30 +384,105 @@ class XMLConfig(dict):
         self.refresh()
 
     def mtime(self) -> float:
+        """
+        Perform the mtime utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise XMLConfig.mtime through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return os.path.getmtime(self.file_path)
         except OSError:
             return 0.0
 
     def touch(self) -> None:
+        """
+        Perform the touch utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise XMLConfig.touch through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         with suppress(OSError):
             os.utime(self.file_path, None)
 
     def raw_to_object(self, raw: bytes):
+        """
+        Perform the raw to object utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise XMLConfig.raw to object through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from plistlib import loads
 
         return loads(raw)
 
     def to_raw(self) -> bytes:
+        """
+        Perform the to raw utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise XMLConfig.to raw through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from plistlib import dumps
 
         return dumps(self)
 
     def decouple(self, prefix: str) -> None:
+        """
+        Perform the decouple utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise XMLConfig.decouple through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param prefix: Text prepended to the formatted or selected result.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.file_path = os.path.join(os.path.dirname(self.file_path), prefix + os.path.basename(self.file_path))
         self.refresh()
 
     def refresh(self, clear_current: bool = True) -> None:
+        """
+        Perform the refresh utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise XMLConfig.refresh through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param clear_current: Value supplied for clear current under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         d: dict = {}
         try:
             raw = read_data(self.file_path)
@@ -247,28 +504,108 @@ class XMLConfig(dict):
         self.update(d)
 
     def has_key(self, key) -> bool:  # noqa: A003
+        """
+        Return or update whether has key holds for the compatibility value.
+
+        Example:
+            Exercise XMLConfig.has key through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :return: True when the documented condition holds; otherwise False.
+        """
         return dict.__contains__(self, key)
 
     def __getitem__(self, key):
+        """
+        Expose getitem behavior for the compatibility container.
+
+        Example:
+            Exercise XMLConfig.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return dict.__getitem__(self, key)
         except KeyError:
             return self.defaults.get(key, None)
 
     def get(self, key, default=None):
+        """
+        Perform the get utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise XMLConfig.get through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :param default: Value supplied for default under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return dict.__getitem__(self, key)
         except KeyError:
             return self.defaults.get(key, default)
 
     def __setitem__(self, key, val):
+        """
+        Perform the setitem utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise XMLConfig.  setitem   through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         dict.__setitem__(self, key, val)
         self.commit()
 
     def set(self, key, val):
+        """
+        Perform the set utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise XMLConfig.set through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__setitem__(key, val)
 
     def __delitem__(self, key):
+        """
+        Perform the delitem utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise XMLConfig.  delitem   through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         try:
             dict.__delitem__(self, key)
         except KeyError:
@@ -277,6 +614,18 @@ class XMLConfig(dict):
             self.commit()
 
     def commit(self) -> None:
+        """
+        Perform the commit utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise XMLConfig.commit through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.no_commit:
             return
         path = getattr(self, "file_path", None)
@@ -286,50 +635,194 @@ class XMLConfig(dict):
         commit_data(path, self.to_raw(), self.file_permissions)
 
     def __enter__(self):
+        """
+        Implement the resource's enter lifecycle operation.
+
+        Example:
+            Exercise XMLConfig.  enter   through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.no_commit = True
 
     def __exit__(self, *args):
+        """
+        Implement the resource's exit lifecycle operation.
+
+        Example:
+            Exercise XMLConfig.  exit   through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.no_commit = False
         self.commit()
 
 
 class JSONConfig(XMLConfig):
-    """JSON-backed config."""
+    """
+    JSON-backed config.
+
+    Example:
+        Exercise JSONConfig through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+    """
 
     EXTENSION = ".json"
 
     def raw_to_object(self, raw: bytes):
+        """
+        Perform the raw to object utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise JSONConfig.raw to object through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return json_loads(raw)
 
     def to_raw(self) -> bytes:
+        """
+        Perform the to raw utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise JSONConfig.to raw through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return json_dumps(self)
 
     def __getitem__(self, key):
+        """
+        Expose getitem behavior for the compatibility container.
+
+        Example:
+            Exercise JSONConfig.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return dict.__getitem__(self, key)
         except KeyError:
             return self.defaults[key]
 
     def get(self, key, default=None):
+        """
+        Perform the get utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise JSONConfig.get through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :param default: Value supplied for default under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return dict.__getitem__(self, key)
         except KeyError:
             return self.defaults.get(key, default)
 
     def __setitem__(self, key, val):
+        """
+        Perform the setitem utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise JSONConfig.  setitem   through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         dict.__setitem__(self, key, val)
         self.commit()
 
 
 class DevicePrefs:
+    """
+    Provide the DevicePrefs utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise DevicePrefs through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+    """
     def __init__(self, global_prefs):
+        """
+        Initialize and validate the DevicePrefs state.
+
+        Example:
+            Exercise DevicePrefs.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param global_prefs: Value supplied for global prefs under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.global_prefs = global_prefs
         self.overrides: dict[str, object] = {}
 
     def set_overrides(self, **kwargs):
+        """
+        Set overrides under the documented compatibility and safety rules.
+
+        Example:
+            Exercise DevicePrefs.set overrides through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.overrides = kwargs.copy()
 
     def __getitem__(self, key):
+        """
+        Expose getitem behavior for the compatibility container.
+
+        Example:
+            Exercise DevicePrefs.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.overrides.get(key, self.global_prefs[key])
 
 

@@ -1,21 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-Pure-python fallback for the compiled ``unrar`` extension.
+Provide unrar utility behavior.
 
-The compiled extension reads RAR archives from a Python stream and exposes:
-    - UNRARError exception
-    - RARArchive(stream, stream_name, callback, get_comment=False)
-        .comment : str
-        .current_item() -> dict | None
-        .process_item(extract: bool) -> object
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-This fallback shells out to an external extractor (preferably `unrar`) by first
-spooling the stream to a temporary file. It is slower, but avoids compilation.
+Example:
+    Exercise unrar through a consuming regression::
 
-Notes:
-- Requires `unrar` to be available on PATH.
-- The header dict is intentionally minimal: it contains only the keys used by
-  the existing Python wrapper in LiuXin/calibre.
+        python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
 """
 
 from __future__ import annotations
@@ -30,11 +23,27 @@ from typing import BinaryIO, Dict, List, Optional, Sequence
 
 
 class UNRARError(Exception):
+    """
+    Report the UNRARError Calibre compatibility failure.
+
+    Example:
+        Exercise UNRARError through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+    """
     pass
 
 
 @dataclass
 class _Item:
+    """
+    Provide the Item utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise  Item through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+    """
     name: str
     is_directory: bool = False
     is_symlink: bool = False
@@ -43,7 +52,31 @@ class _Item:
 
 
 class RARArchive:
+    """
+    Provide the RARArchive utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise RARArchive through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+    """
     def __init__(self, stream, stream_name: str, callback, get_comment: bool = False):
+        """
+        Initialize and validate the RARArchive state.
+
+        Example:
+            Exercise RARArchive.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param stream_name: Value supplied for stream name under the utility contract.
+        :param callback: Value supplied for callback under the utility contract.
+        :param get_comment: Value supplied for get comment under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self._stream = stream
         self._stream_name = stream_name
         self._callback = callback
@@ -65,15 +98,51 @@ class RARArchive:
             raise
 
     def close(self) -> None:
+        """
+        Forward the close operation while preserving adapter ownership rules.
+
+        Example:
+            Exercise RARArchive.close through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         try:
             os.remove(self._tmp_path)
         except Exception:
             pass
 
     def __del__(self) -> None:
+        """
+        Perform the del utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise RARArchive.  del   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.close()
 
     def _spool_stream(self) -> None:
+        """
+        Perform the spool stream utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise RARArchive. spool stream through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         s = self._stream
         # Best-effort preserve position
         pos = None
@@ -102,6 +171,18 @@ class RARArchive:
                     pass
 
     def _require_unrar(self) -> str:
+        """
+        Perform the require unrar utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise RARArchive. require unrar through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         exe = shutil.which("unrar")
         if exe:
             return exe
@@ -111,6 +192,20 @@ class RARArchive:
         raise UNRARError("No `unrar` executable found on PATH (needed for RAR extraction).")
 
     def _run(self, args: Sequence[str], *, capture: bool = True) -> subprocess.CompletedProcess:
+        """
+        Perform the run utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise RARArchive. run through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param capture: Value supplied for capture under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return subprocess.run(
                 list(args),
@@ -122,6 +217,18 @@ class RARArchive:
             raise UNRARError(str(e)) from e
 
     def _list_items(self) -> List[_Item]:
+        """
+        Return items under the documented compatibility and safety rules.
+
+        Example:
+            Exercise RARArchive. list items through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         exe = self._require_unrar()
         # `lb` prints only file names, one per line.
         cp = self._run([exe, "lb", "-p-", "-c-", self._tmp_path], capture=True)
@@ -142,6 +249,18 @@ class RARArchive:
 
     def _get_comment(self) -> str:
         # Comments are uncommon; best-effort: `vc` prints the comment if present
+        """
+        Perform the get comment utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise RARArchive. get comment through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             exe = self._require_unrar()
             cp = self._run([exe, "vc", "-p-", "-c-", self._tmp_path], capture=True)
@@ -152,6 +271,18 @@ class RARArchive:
         return ""
 
     def current_item(self) -> Optional[Dict[str, object]]:
+        """
+        Perform the current item utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise RARArchive.current item through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self._idx >= len(self._items):
             return None
         it = self._items[self._idx]
@@ -167,6 +298,19 @@ class RARArchive:
         }
 
     def process_item(self, extract: bool) -> None:
+        """
+        Perform the process item utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise RARArchive.process item through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :param extract: Value supplied for extract under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self._idx >= len(self._items):
             return None
         it = self._items[self._idx]

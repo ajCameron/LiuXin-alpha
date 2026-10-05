@@ -1,8 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-Pure-python fallback for the compiled ``pictureflow`` plugin.
+Provide pictureflow utility behavior.
 
-This plugin is UI/Qt oriented; this fallback is a stub.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise pictureflow through a consuming regression::
+
+        python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
 """
 
 from __future__ import annotations

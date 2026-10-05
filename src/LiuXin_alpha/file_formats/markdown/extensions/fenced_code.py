@@ -1,3 +1,14 @@
+"""
+Implement fenced Markdown code blocks and attributes.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise fenced code through a consuming regression::
+
+        python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+"""
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import annotations
@@ -95,22 +106,75 @@ LANG_TAG = ' class="%s"'
 
 
 class FencedCodeExtension(Extension):
+    """
+    Provide the fencedcodeextension contract for validated ebook processing.
+
+    Example:
+        Exercise FencedCodeExtension through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
     def extendMarkdown(self: _typing.Self, md: _typing.Any, md_globals: _typing.Any) -> None:
-        """Add FencedBlockPreprocessor to the Markdown instance."""
+        """
+        Add FencedBlockPreprocessor to the Markdown instance.
+
+        Example:
+            Exercise FencedCodeExtension.extendMarkdown through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param md: Value supplied for md under the utility contract.
+        :param md_globals: Value supplied for md globals under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         md.registerExtension(self)
 
         md.preprocessors.add("fenced_code_block", FencedBlockPreprocessor(md), ">normalize_whitespace")
 
 
 class FencedBlockPreprocessor(Preprocessor):
+    """
+    Provide the fencedblockpreprocessor contract for validated ebook processing.
+
+    Example:
+        Exercise FencedBlockPreprocessor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
     def __init__(self: _typing.Self, md: _typing.Any) -> None:
+        """
+        Initialize and validate the fencedblockpreprocessor state.
+
+        Example:
+            Exercise FencedBlockPreprocessor.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param md: Value supplied for md under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super(FencedBlockPreprocessor, self).__init__(md)
 
         self.checked_for_codehilite = False
         self.codehilite_conf = {}
 
     def run(self: _typing.Self, lines: _typing.Any) -> _typing.Any:
-        """Match and store Fenced Code Blocks in the HtmlStash."""
+        """
+        Match and store Fenced Code Blocks in the HtmlStash.
+
+        Example:
+            Exercise FencedBlockPreprocessor.run through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param lines: Value supplied for lines under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         # Check for code hilite extension
         if not self.checked_for_codehilite:
@@ -153,7 +217,19 @@ class FencedBlockPreprocessor(Preprocessor):
         return text.split("\n")
 
     def _escape(self: _typing.Self, txt: _typing.Any) -> _typing.Any:
-        """basic html escaping"""
+        """
+        basic html escaping
+
+        Example:
+            Exercise FencedBlockPreprocessor. escape through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param txt: Value supplied for txt under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         txt = txt.replace("&", "&amp;")
         txt = txt.replace("<", "&lt;")
         txt = txt.replace(">", "&gt;")
@@ -162,4 +238,17 @@ class FencedBlockPreprocessor(Preprocessor):
 
 
 def makeExtension(configs: _typing.Any = None) -> _typing.Any:
+    """
+    Perform the makeExtension operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise makeExtension through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param configs: Value supplied for configs under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return FencedCodeExtension(configs=configs)

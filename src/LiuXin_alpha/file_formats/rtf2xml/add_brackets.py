@@ -11,6 +11,17 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+"""
+Insert structural bracket markers into tokenized RTF data.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise add brackets through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -28,11 +39,12 @@ from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
 
 class AddBrackets:
     """
-    Add brackets for old RTF.
-    Logic:
-    When control words without their own brackets are encountered
-    and in the list of allowed words, this will add brackets
-    to facilitate the treatment of the file
+    Add brackets for old RTF. Logic: When control words without their own brackets are encountered and in the list of allowed words, this will add brackets to facilitate the treatment of the file
+
+    Example:
+        Exercise AddBrackets through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
     """
 
     def __init__(
@@ -43,14 +55,19 @@ class AddBrackets:
         run_level: int = 1,
     ) -> None:
         """
-        Required:
-            'file'--file to parse
-        Optional:
-            'copy'-- whether to make a copy of result for debugging
-            'temp_dir' --where to output temporary results (default is
-            directory from which the script is run.)
-        Returns:
-            nothing
+        Required: 'file'--file to parse Optional: 'copy'-- whether to make a copy of result for debugging 'temp_dir' --where to output temporary results (default is directory from which the script is run.) Returns: nothing
+
+        Example:
+            Exercise AddBrackets.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param copy: Value supplied for copy under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.__file = in_file
         self.__bug_handler = bug_handler
@@ -96,6 +113,15 @@ class AddBrackets:
     def __initiate_values(self: _typing.Self) -> None:
         """
         Init temp values
+
+        Example:
+            Exercise AddBrackets.  initiate values through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__state = "before_body"
         self.__inline = {}
@@ -106,6 +132,16 @@ class AddBrackets:
     def __before_body_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         If we are before the body, not interest in changing anything
+
+        Example:
+            Exercise AddBrackets.  before body func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "mi<mk<body-open_":
             self.__state = "in_body"
@@ -113,14 +149,17 @@ class AddBrackets:
 
     def __in_body_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Select what action to take in body:
-            1-At the end of the file close the braket if a bracket was opened
-            This happens if there is achange
-            2-If an open bracket is found the code inside is ignore
-            (written without modifications)
-            3-If an accepted control word is found put the line
-            in a buffer then change state to after cw
-            4-Else simply write the line
+        Select what action to take in body: 1-At the end of the file close the braket if a bracket was opened This happens if there is achange 2-If an open bracket is found the code inside is ignore (written without modifications) 3-If an accepted control word is found put the line in a buffer then change state to after cw 4-Else simply write the line
+
+        Example:
+            Exercise AddBrackets.  in body func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if line == "cb<nu<clos-brack<0001\n" and self.__open_bracket:
             self.__write_obj.write("cb<nu<clos-brack<0003\n")
@@ -138,10 +177,17 @@ class AddBrackets:
 
     def __after_control_word_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        After a cw either add next allowed cw to temporary list or
-        change group and write it.
-        If the token leading to an exit is an open bracket go to
-        ignore otherwise goto in body
+        After a cw either add next allowed cw to temporary list or change group and write it. If the token leading to an exit is an open bracket go to ignore otherwise goto in body
+
+        Example:
+            Exercise AddBrackets.  after control word func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info in self.__accept:
             self.__temp_group.append(line)
@@ -157,11 +203,16 @@ class AddBrackets:
 
     def __write_group(self: _typing.Self) -> None:
         """
-        Write a temporary group after accepted control words end
-        But this is mostly useless in my opinion as there is no list of rejected cw
-        This may be a way to implement future old rtf processing for cw
-        Utility: open a group to just put brackets but why be so complicated?
-        Scheme: open brackets, write cw then go to body and back with cw after
+        Write a temporary group after accepted control words end But this is mostly useless in my opinion as there is no list of rejected cw This may be a way to implement future old rtf processing for cw Utility: open a group to just put brackets but why be so complicated? Scheme: open brackets, write cw then go to body and back with cw after
+
+        Example:
+            Exercise AddBrackets.  write group through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__open_bracket:
             self.__write_obj.write("cb<nu<clos-brack<0003\n")
@@ -175,10 +226,16 @@ class AddBrackets:
 
     def __change_permanent_group(self: _typing.Self) -> None:
         """
-        Use temp group to change permanent group
-        If the control word is not accepted remove it
-        What is the interest as it is build to accept only accepted cw
-        in __after_control_word_func?
+        Use temp group to change permanent group If the control word is not accepted remove it What is the interest as it is build to accept only accepted cw in __after_control_word_func?
+
+        Example:
+            Exercise AddBrackets.  change permanent group through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__inline = {
             line[:16]: line[20:-1]
@@ -189,6 +246,16 @@ class AddBrackets:
     def __ignore_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Just copy data inside of RTF brackets already here.
+
+        Example:
+            Exercise AddBrackets.  ignore func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__write_obj.write(line)
         if self.__token_info == "cb<nu<clos-brack" and self.__cb_count == self.__ignore_count:
@@ -197,12 +264,33 @@ class AddBrackets:
     def __check_brackets(self: _typing.Self, in_file: _typing.Any) -> _typing.Any:
         """
         Return True if brackets match
+
+        Example:
+            Exercise AddBrackets.  check brackets through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         check_brack_obj = check_brackets.CheckBrackets(file=in_file)
         return check_brack_obj.check_brackets()[0]
 
     def add_brackets(self: _typing.Self) -> None:
-        """ """
+        """
+        Perform the add brackets operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise AddBrackets.add brackets through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__initiate_values()
         with open_for_read(self.__file) as read_obj:
             with open_for_write(self.__write_to) as self.__write_obj:

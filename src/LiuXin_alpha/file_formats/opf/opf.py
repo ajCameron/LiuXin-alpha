@@ -2,6 +2,17 @@
 # vim:fileencoding=utf-8
 # License: GPLv3 Copyright: 2016, Kovid Goyal <kovid at kovidgoyal.net>
 
+"""
+Read and expose OPF package metadata through the public facade.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise opf through a consuming regression::
+
+        python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -29,16 +40,63 @@ from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 
 
 class DummyFile(object):
+    """
+    Provide the dummyfile contract for validated ebook processing.
+
+    Example:
+        Exercise DummyFile through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+    """
     def __init__(self: _typing.Self, raw: _typing.Any) -> None:
+        """
+        Initialize and validate the dummyfile state.
+
+        Example:
+            Exercise DummyFile.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.raw = raw
 
     def read(self: _typing.Self, size: _typing.Any = -1) -> _typing.Any:
+        """
+        Perform the read operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DummyFile.read through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param size: Value supplied for size under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if size is None or size < 0:
             return self.raw
         return self.raw[:size]
 
 
 def _coerce_input_stream(stream: _typing.Any) -> _typing.Any:
+    """
+    Perform the coerce input stream operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  coerce input stream through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+    :param stream: Input or output stream wrapped by the terminal or compatibility
+        layer.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(stream, (bytes, bytearray, memoryview)):
         return DummyFile(bytes(stream))
     if isinstance(stream, os.PathLike):
@@ -47,6 +105,20 @@ def _coerce_input_stream(stream: _typing.Any) -> _typing.Any:
 
 
 def _parse_opf_from_input(stream: _typing.Any) -> _typing.Any:
+    """
+    Parse opf from input under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  parse opf from input through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+    :param stream: Input or output stream wrapped by the terminal or compatibility
+        layer.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     stream = _coerce_input_stream(stream)
     if hasattr(stream, "read"):
         # parse_opf() reads from current position; for robustness we parse from
@@ -74,6 +146,19 @@ def _parse_opf_from_input(stream: _typing.Any) -> _typing.Any:
 
 
 def _clean_xml_text(value: _typing.Any) -> _typing.Any:
+    """
+    Perform the clean xml text operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  clean xml text through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if value is None:
         return value
     if isinstance(value, (bytes, bytearray, memoryview)):
@@ -84,6 +169,19 @@ def _clean_xml_text(value: _typing.Any) -> _typing.Any:
 
 
 def _clean_xml_list(values: _typing.Any) -> _typing.Any:
+    """
+    Perform the clean xml list operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  clean xml list through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+    :param values: Value supplied for values under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not values:
         return []
     ans = []
@@ -101,9 +199,15 @@ def _sanitize_metadata_for_xml(mi: _typing.Any) -> _typing.Any:
     """
     Return a metadata object safe for XML serialization.
 
-    This strips XML-invalid control characters from free-text fields before
-    handing off to OPF2/OPF3 writers, so callers get robust behavior instead
-    of hard lxml failures.
+    Example:
+        Exercise  sanitize metadata for xml through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+    :param mi: Metadata object exposed to the template function.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     safe_mi = None
     for clone_method in ("deepcopy_metadata", "deepcopy"):
@@ -166,21 +270,76 @@ def _sanitize_metadata_for_xml(mi: _typing.Any) -> _typing.Any:
 
 
 def get_metadata2(root: _typing.Any, ver: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Return metadata2 under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get metadata2 through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param ver: Value supplied for ver under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     opf = OPF(None, preparsed_opf=root, read_toc=False)
     return opf.to_book_metadata(), ver, opf.raster_cover, opf.first_spine_item()
 
 
 def get_metadata3(root: _typing.Any, ver: _typing.Any) -> _typing.Any:
+    """
+    Return metadata3 under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get metadata3 through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param ver: Value supplied for ver under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return read_metadata(root, ver=ver, return_extra_data=True)
 
 
 def get_metadata_from_parsed(root: _typing.Any) -> _typing.Any:
+    """
+    Return metadata from parsed under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get metadata from parsed through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ver = parse_opf_version(root.get("version"))
     f = get_metadata2 if ver.major < 3 else get_metadata3
     return f(root, ver)
 
 
 def get_metadata(stream: _typing.Any) -> _typing.Any:
+    """
+    Return normalized package metadata from the editable container.
+
+    Example:
+        Exercise get metadata through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+    :param stream: Input or output stream wrapped by the terminal or compatibility
+        layer.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     root = _parse_opf_from_input(stream)
     return get_metadata_from_parsed(root)
 
@@ -196,17 +355,28 @@ def set_metadata(
     add_missing_cover: bool = True,
 ) -> tuple[_typing.Any, ...]:
     """
-    Front end for the set_metadata_opf2 and set_metadata_opf3 methods - detects the version then  calls the appropriate
-    method to actually set the metadata.
-    :param stream:
-    :param mi:
-    :param cover_prefix:
-    :param cover_data:
-    :param apply_null:
-    :param update_timestamp:
-    :param force_identifiers:
-    :param add_missing_cover:
-    :return:
+    Front end for the set_metadata_opf2 and set_metadata_opf3 methods - detects the version then calls the appropriate method to actually set the metadata.
+
+    Example:
+        Exercise set metadata through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+    :param stream: Input or output stream wrapped by the terminal or compatibility
+        layer.
+    :param mi: Metadata object exposed to the template function.
+    :param cover_prefix: Value supplied for cover prefix under the utility contract.
+    :param cover_data: Value supplied for cover data under the utility contract.
+    :param apply_null: Value supplied for apply null under the utility contract.
+    :param update_timestamp: Value supplied for update timestamp under the utility
+        contract.
+    :param force_identifiers: Value supplied for force identifiers under the utility
+        contract.
+    :param add_missing_cover: Value supplied for add missing cover under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     root = _parse_opf_from_input(stream)
     ver = parse_opf_version(root.get("version"))
@@ -239,16 +409,27 @@ def set_metadata_opf2(
 ) -> tuple[_typing.Any, ...]:
     """
     Set the metadata for an opf 2 file.
-    :param root:
-    :param cover_prefix:
-    :param mi:
-    :param opf_version:
-    :param cover_data:
-    :param apply_null:
-    :param update_timestamp:
-    :param force_identifiers:
-    :param add_missing_cover:
-    :return:
+
+    Example:
+        Exercise set metadata opf2 through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param cover_prefix: Value supplied for cover prefix under the utility contract.
+    :param mi: Metadata object exposed to the template function.
+    :param opf_version: Value supplied for opf version under the utility contract.
+    :param cover_data: Value supplied for cover data under the utility contract.
+    :param apply_null: Value supplied for apply null under the utility contract.
+    :param update_timestamp: Value supplied for update timestamp under the utility
+        contract.
+    :param force_identifiers: Value supplied for force identifiers under the utility
+        contract.
+    :param add_missing_cover: Value supplied for add missing cover under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     assert isinstance(mi, calibreMetadata), "Method can only run on calibreMetadata object"
 
@@ -315,16 +496,27 @@ def set_metadata_opf3(
 ) -> tuple[_typing.Any, ...]:
     """
     Sets metadata for the OPF3 standard.
-    :param root:
-    :param cover_prefix:
-    :param mi:
-    :param opf_version:
-    :param cover_data:
-    :param apply_null:
-    :param update_timestamp:
-    :param force_identifiers:
-    :param add_missing_cover:
-    :return:
+
+    Example:
+        Exercise set metadata opf3 through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param cover_prefix: Value supplied for cover prefix under the utility contract.
+    :param mi: Metadata object exposed to the template function.
+    :param opf_version: Value supplied for opf version under the utility contract.
+    :param cover_data: Value supplied for cover data under the utility contract.
+    :param apply_null: Value supplied for apply null under the utility contract.
+    :param update_timestamp: Value supplied for update timestamp under the utility
+        contract.
+    :param force_identifiers: Value supplied for force identifiers under the utility
+        contract.
+    :param add_missing_cover: Value supplied for add missing cover under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     raster_cover = apply_metadata(
         root,

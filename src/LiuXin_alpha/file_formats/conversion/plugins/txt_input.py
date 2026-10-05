@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
 
+"""
+Convert TXT content into the normalized ebook conversion pipeline.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise txt input through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+"""
 from __future__ import annotations
 
 import os
@@ -35,6 +46,22 @@ MD_EXTENSIONS = {
 
 
 def _decode_text_payload(raw: _typing.Any, encoding: _typing.Any, options: _typing.Any, source_format: _typing.Any) -> _typing.Any:
+    """
+    Perform the decode text payload operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  decode text payload through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param options: Value supplied for options under the utility contract.
+    :param source_format: Value supplied for source format under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     decoded = raw.decode(encoding, "replace")
     try:
         raw.decode(encoding, "strict")
@@ -64,6 +91,14 @@ def _decode_text_payload(raw: _typing.Any, encoding: _typing.Any, options: _typi
 
 class TXTInput(InputFormatPlugin):
 
+    """
+    Convert txtinput sources into the normalized OEB pipeline model.
+
+    Example:
+        Exercise TXTInput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     name = "TXT Input"
     author = "John Schember"
     description = "Convert TXT files to HTML"
@@ -137,6 +172,24 @@ class TXTInput(InputFormatPlugin):
 
     def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
 
+        """
+        Convert the supplied source into the stage's normalized output representation.
+
+        Example:
+            Exercise TXTInput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param options: Value supplied for options under the utility contract.
+        :param file_ext: Value supplied for file ext under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param accelerators: Value supplied for accelerators under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         import codecs
 
         from LiuXin_alpha.file_formats.conversion.preprocess import (
@@ -356,6 +409,21 @@ class TXTInput(InputFormatPlugin):
             return oeb
 
     def postprocess_book(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
+        """
+        Perform the postprocess book operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TXTInput.postprocess book through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for item in oeb.spine:
             if hasattr(item.data, "xpath"):
                 for title in item.data.xpath('//*[local-name()="title"]'):

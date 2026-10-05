@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
 
+"""
+Convert PDF content into the normalized ebook conversion pipeline.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise pdf input through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -20,6 +31,14 @@ __docformat__ = "restructuredtext en"
 
 class PDFInput(InputFormatPlugin):
 
+    """
+    Convert pdfinput sources into the normalized OEB pipeline model.
+
+    Example:
+        Exercise PDFInput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     name = "PDF Input"
     author = "Kovid Goyal and John Schember"
     description = "Convert PDF files to HTML"
@@ -48,6 +67,21 @@ class PDFInput(InputFormatPlugin):
     }
 
     def convert_new(self: _typing.Self, stream: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
+        """
+        Convert new under the format's safety and compatibility rules.
+
+        Example:
+            Exercise PDFInput.convert new through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param accelerators: Value supplied for accelerators under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.pdf.pdftohtml import pdftohtml
         from LiuXin_alpha.utils.libraries.cleantext import clean_ascii_chars
         from LiuXin_alpha.file_formats.pdf.reflow import PDFDocument
@@ -61,12 +95,21 @@ class PDFInput(InputFormatPlugin):
     def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
         """
         Should always be run as part of a fork job - as pdftohtml (which is used here) has to change the cwd.
-        :param stream: File to be converted (opened as rb)
-        :param options:
-        :param file_ext: Not used at this level
-        :param log: Logs the conversion
-        :param accelerators: Are not currently used
-        :return:
+
+        Example:
+            Exercise PDFInput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param options: Value supplied for options under the utility contract.
+        :param file_ext: Value supplied for file ext under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param accelerators: Value supplied for accelerators under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
         from LiuXin_alpha.file_formats.pdf.pdftohtml import pdftohtml

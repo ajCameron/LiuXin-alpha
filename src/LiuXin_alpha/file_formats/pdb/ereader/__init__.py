@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
 
+"""
+Expose the supported ereader compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -13,10 +24,32 @@ __docformat__ = "restructuredtext en"
 
 
 class EreaderError(Exception):
+    """
+    Report a ereadererror encountered while processing an ebook format.
+
+    Example:
+        Exercise EreaderError through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+    """
     pass
 
 
 def image_name(name: _typing.Any, taken_names: tuple[_typing.Any, ...] = ()) -> _typing.Any:
+    """
+    Perform the image name operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise image name through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param taken_names: Value supplied for taken names under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(name, bytes):
         name = name.decode("ascii", "ignore")
     elif not isinstance(name, six_string_types):

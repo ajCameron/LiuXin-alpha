@@ -1,3 +1,14 @@
+"""
+Verify agent metadata profiles and role-specific projections.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test agent profiles through its owning regression module::
+
+        python -m pytest -q tests/metadata/containers/test_agent_profiles.py
+"""
 from __future__ import annotations
 
 from LiuXin_alpha.metadata.api import (
@@ -14,6 +25,17 @@ from LiuXin_alpha.metadata.containers import (
 
 
 def test_human_agent_profile_uses_agents_and_human_sidecar_columns() -> None:
+    """
+    Verify human agent profile uses agents and human sidecar columns.
+
+    Example:
+        Exercise test human agent profile uses agents and human sidecar columns through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_agent_profiles.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     profile = AgentProfile.from_mapping(
         {
             "agent_id": 7,
@@ -58,6 +80,17 @@ def test_human_agent_profile_uses_agents_and_human_sidecar_columns() -> None:
 
 
 def test_organisation_agent_profile_uses_agents_and_org_sidecar_columns() -> None:
+    """
+    Verify organisation agent profile uses agents and org sidecar columns.
+
+    Example:
+        Exercise test organisation agent profile uses agents and org sidecar columns through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_agent_profiles.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     profile = AgentProfile.from_mapping(
         {
             "agent_id": 12,
@@ -100,6 +133,17 @@ def test_organisation_agent_profile_uses_agents_and_org_sidecar_columns() -> Non
 
 
 def test_base_agent_profile_keeps_shared_agent_table_data() -> None:
+    """
+    Verify base agent profile keeps shared agent table data.
+
+    Example:
+        Exercise test base agent profile keeps shared agent table data through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_agent_profiles.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     profile = AgentProfile(
         agent=AgentIdentity(
             agent_id=99,

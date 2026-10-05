@@ -1,3 +1,14 @@
+"""
+Map named HTML colors to LRF-compatible color values.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise color map through a consuming regression::
+
+        python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -105,6 +116,19 @@ rgb_pat = re.compile(r"rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)", re.IGNORECAS
 
 
 def lrs_color(html_color: _typing.Any) -> _typing.Any:
+    """
+    Perform the lrs color operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise lrs color through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+    :param html_color: Value supplied for html color under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     hcol = html_color.lower()
     match = hex_pat.search(hcol)
     if match:

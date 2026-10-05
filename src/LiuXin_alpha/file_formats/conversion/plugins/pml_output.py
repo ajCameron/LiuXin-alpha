@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
 
+"""
+Convert PML content from the normalized ebook conversion pipeline.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise pml output through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -22,6 +33,14 @@ __docformat__ = "restructuredtext en"
 
 class PMLOutput(OutputFormatPlugin):
 
+    """
+    Provide the pmloutput contract for validated ebook processing.
+
+    Example:
+        Exercise PMLOutput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     name = "PML Output"
     author = "John Schember"
     file_type = "pmlz"
@@ -53,6 +72,23 @@ class PMLOutput(OutputFormatPlugin):
     }
 
     def convert(self: _typing.Self, oeb_book: _typing.Any, output_path: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
+        """
+        Convert the supplied source into the stage's normalized output representation.
+
+        Example:
+            Exercise PMLOutput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param output_path: Value supplied for output path under the utility contract.
+        :param input_plugin: Value supplied for input plugin under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.file_formats.pml.pmlml import PMLMLizer
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
@@ -86,11 +122,19 @@ class PMLOutput(OutputFormatPlugin):
     def write_images(self: _typing.Self, manifest: _typing.Any, image_hrefs: _typing.Any, out_dir: _typing.Any, opts: _typing.Any) -> None:
         """
         Write images out to the file.
-        :param manifest:
-        :param image_hrefs:
-        :param out_dir:
-        :param opts:
-        :return:
+
+        Example:
+            Exercise PMLOutput.write images through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param manifest: Value supplied for manifest under the utility contract.
+        :param image_hrefs: Value supplied for image hrefs under the utility contract.
+        :param out_dir: Value supplied for out dir under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         try:
             from PIL import Image as PILImage

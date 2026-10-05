@@ -1,3 +1,14 @@
+"""
+Verify PML/RocketBook metadata parsing and fallbacks.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test pml metadata source through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+"""
 from __future__ import annotations
 
 import io
@@ -9,6 +20,18 @@ import pytest
 
 
 def _values(raw):
+    """
+    Perform the values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise values through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, Mapping):
@@ -22,11 +45,35 @@ def _values(raw):
 
 
 def _first(raw):
+    """
+    Perform the first test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise first through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     vals = _values(raw)
     return vals[0] if vals else None
 
 
 def _snapshot(md) -> dict:
+    """
+    Perform the snapshot test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise snapshot through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :param md: Value supplied for md in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     identifiers = {}
     try:
         identifiers = {str(k): sorted(str(v) for v in vals) for k, vals in (md.get_identifiers() or {}).items()}
@@ -44,11 +91,35 @@ def _snapshot(md) -> dict:
 
 
 def _build_pml_comment(**fields: str) -> bytes:
+    """
+    Perform the build pml comment test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise build pml comment through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :param fields: Value supplied for fields in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     inner = " ".join(f'{key}="{value}"' for key, value in fields.items())
     return f"\\v{inner}\\v".encode("utf-8")
 
 
 def _zip_bytes(entries: dict[str, bytes]) -> bytes:
+    """
+    Perform the zip bytes test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise zip bytes through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :param entries: Value supplied for entries in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for name, payload in entries.items():
@@ -57,12 +128,34 @@ def _zip_bytes(entries: dict[str, bytes]) -> bytes:
 
 
 def test_pml_metadata_module_import_smoke() -> None:
+    """
+    Verify pml metadata module import smoke.
+
+    Example:
+        Exercise test pml metadata module import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.pml as pml_md
 
     assert pml_md is not None
 
 
 def test_pml_reader_plugin_is_available_and_preserves_stream_position() -> None:
+    """
+    Verify pml reader plugin remains available and preserves stream position.
+
+    Example:
+        Exercise test pml reader plugin is available and preserves stream position through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
 
     payload = _build_pml_comment(TITLE="Plugin Title", AUTHOR="Plugin Author")
@@ -83,6 +176,17 @@ def test_pml_reader_plugin_is_available_and_preserves_stream_position() -> None:
 
 
 def test_pml_get_metadata_parses_cp1252_and_sanitizes_xml_controls() -> None:
+    """
+    Verify pml get metadata parses cp1252 and sanitizes xml controls.
+
+    Example:
+        Exercise test pml get metadata parses cp1252 and sanitizes xml controls through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pml import get_metadata
 
     payload = (
@@ -99,6 +203,17 @@ def test_pml_get_metadata_parses_cp1252_and_sanitizes_xml_controls() -> None:
 
 
 def test_pml_get_metadata_parses_utf8_unicode_torture() -> None:
+    """
+    Verify pml get metadata parses utf8 unicode torture.
+
+    Example:
+        Exercise test pml get metadata parses utf8 unicode torture through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pml import get_metadata
 
     payload = _build_pml_comment(
@@ -114,6 +229,17 @@ def test_pml_get_metadata_parses_utf8_unicode_torture() -> None:
 
 
 def test_plain_pml_binaryish_payload_returns_safe_default() -> None:
+    """
+    Verify plain pml binaryish payload returns safe default.
+
+    Example:
+        Exercise test plain pml binaryish payload returns safe default through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pml import get_metadata
 
     for payload in (
@@ -127,6 +253,17 @@ def test_plain_pml_binaryish_payload_returns_safe_default() -> None:
 
 
 def test_plain_pml_malformed_comments_are_ignored_safely() -> None:
+    """
+    Verify plain pml malformed comments remain ignored safely.
+
+    Example:
+        Exercise test plain pml malformed comments are ignored safely through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pml import get_metadata
 
     payload = b'\\vTITLE="Good Title" AUTHOR="Alice and Bob"\\v \\vTITLE="unterminated AUTHOR=Ignored\\v'
@@ -137,6 +274,17 @@ def test_plain_pml_malformed_comments_are_ignored_safely() -> None:
 
 
 def test_plain_pml_control_characters_do_not_leak_from_fields() -> None:
+    """
+    Verify plain pml control characters do not leak from fields.
+
+    Example:
+        Exercise test plain pml control characters do not leak from fields through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pml import get_metadata
 
     payload = _build_pml_comment(TITLE="A\x00B\x01C", PUBLISHER="Pub\x02 & Co", AUTHOR="Renée & 李白")
@@ -148,6 +296,17 @@ def test_plain_pml_control_characters_do_not_leak_from_fields() -> None:
 
 
 def test_pmlz_metadata_extracts_from_embedded_pml_and_index_cover() -> None:
+    """
+    Verify pmlz metadata extracts from embedded pml and index cover.
+
+    Example:
+        Exercise test pmlz metadata extracts from embedded pml and index cover through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pml import get_metadata
 
     payload = _zip_bytes(
@@ -168,6 +327,17 @@ def test_pmlz_metadata_extracts_from_embedded_pml_and_index_cover() -> None:
 
 
 def test_pmlz_metadata_works_for_nameless_stream_via_zip_detection() -> None:
+    """
+    Verify pmlz metadata works for nameless stream via zip detection.
+
+    Example:
+        Exercise test pmlz metadata works for nameless stream via zip detection through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pml import get_metadata
 
     payload = _zip_bytes({"book.pml": _build_pml_comment(TITLE="No Name Stream")})
@@ -178,6 +348,17 @@ def test_pmlz_metadata_works_for_nameless_stream_via_zip_detection() -> None:
 
 
 def test_pmlz_invalid_archive_raises_by_default_and_can_opt_into_fallback() -> None:
+    """
+    Verify pmlz invalid archive raises by default and can opt into fallback.
+
+    Example:
+        Exercise test pmlz invalid archive raises by default and can opt into fallback through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pml import PmlFormatError, get_metadata
 
     stream = io.BytesIO(b"not-a-zip")
@@ -191,6 +372,18 @@ def test_pmlz_invalid_archive_raises_by_default_and_can_opt_into_fallback() -> N
 
 
 def test_pml_pathlike_cover_lookup_uses_name_img_folder(tmp_path: Path) -> None:
+    """
+    Verify pml pathlike cover lookup uses name img folder.
+
+    Example:
+        Exercise test pml pathlike cover lookup uses name img folder through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pml import get_metadata
 
     pml_path = tmp_path / "sample.pml"
@@ -206,6 +399,19 @@ def test_pml_pathlike_cover_lookup_uses_name_img_folder(tmp_path: Path) -> None:
 
 
 def test_pml_md_fixtures_read_smoke_and_deterministic(md_test_fixture) -> None:
+    """
+    Verify pml md fixtures read smoke and deterministic.
+
+    Example:
+        Exercise test pml md fixtures read smoke and deterministic through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pml import get_metadata_inplace
 
     pml_path = md_test_fixture(file_ext="pml", file_num=1, verify_hash=True)

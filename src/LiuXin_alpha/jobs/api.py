@@ -1,13 +1,13 @@
-"""Public application-level jobs API.
+"""
+Expose managed-job creation, scheduling and inspection operations.
 
-Jobs are intentionally a layer above the low-level `utils.jobs` helpers.
-The durable model is:
-- job definitions describe what should run
-- job runs describe one concrete execution attempt
-- handlers implement one job kind
-- the repository persists definitions, runs, progress, and events
-- the scheduler materialises due runs
-- workers lease and execute queued runs in the background
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise api through a consuming regression::
+
+        python -m pytest -q tests/jobs/test_jobs_repository.py
 """
 
 from LiuXin_alpha.jobs.handler_api import JobHandlerAPI, JobHandlerRegistry, JobRunContext

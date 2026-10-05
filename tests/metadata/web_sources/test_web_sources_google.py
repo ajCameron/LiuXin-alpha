@@ -1,3 +1,14 @@
+"""
+Verify Google Books query, JSON/feed parsing, caching and covers.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test web sources google through its owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+"""
 from __future__ import annotations
 
 import hashlib
@@ -11,39 +22,182 @@ from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
 
 class _Log:
+    """
+    Provide the Log test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise Log through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+    """
     def __init__(self) -> None:
+        """
+        Initialize the Log test double.
+
+        Example:
+            Exercise Log.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :return: None; the function records state or raises through its assertions.
+        """
         self.events = []
 
     def __call__(self, *parts):
+        """
+        Perform the call test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.call through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("call", parts))
 
     def info(self, *parts):
+        """
+        Perform the info test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.info through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("info", parts))
 
     def warning(self, *parts):
+        """
+        Perform the warning test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.warning through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("warning", parts))
 
     def error(self, *parts):
+        """
+        Perform the error test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.error through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("error", parts))
 
     def exception(self, *parts):
+        """
+        Perform the exception test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.exception through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("exception", parts))
 
 
 class _Response:
+    """
+    Provide the Response test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise Response through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+    """
     def __init__(self, payload: bytes) -> None:
+        """
+        Initialize the Response test double.
+
+        Example:
+            Exercise Response.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param payload: Value supplied for payload in the focused test operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self.payload = payload
 
     def read(self) -> bytes:
+        """
+        Perform the read test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Response.read through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return self.payload
 
 
 class _Browser:
+    """
+    Provide the Browser test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise Browser through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+    """
     def __init__(self, payloads):
+        """
+        Initialize the Browser test double.
+
+        Example:
+            Exercise Browser.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param payloads: Value supplied for payloads in the focused test operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self.payloads = list(payloads)
         self.requests = []
 
     def open_novisit(self, url, timeout=30):
+        """
+        Perform the open novisit test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Browser.open novisit through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param url: Value supplied for url in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.requests.append((url, timeout))
         payload = self.payloads.pop(0)
         if isinstance(payload, Exception):
@@ -52,6 +206,18 @@ class _Browser:
 
 
 def _sample_item(google_id: str = "gid-1") -> dict:
+    """
+    Perform the sample item test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise sample item through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :param google_id: Value supplied for google id in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return {
         "id": google_id,
         "volumeInfo": {
@@ -76,6 +242,18 @@ def _sample_item(google_id: str = "gid-1") -> dict:
 
 
 def _sample_feed_payload(google_id: str = "gid-feed") -> str:
+    """
+    Perform the sample feed payload test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise sample feed payload through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :param google_id: Value supplied for google id in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return f"""<?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/terms">
   <entry>
@@ -98,16 +276,59 @@ def _sample_feed_payload(google_id: str = "gid-feed") -> str:
 
 
 def test_web_sources_google_import_smoke() -> None:
+    """
+    Verify web sources google import smoke.
+
+    Example:
+        Exercise test web sources google import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.google as google
 
     assert google is not None
 
 
 def test_google_helper_edges_and_comment_formatting(monkeypatch) -> None:
+    """
+    Verify google helper edges and comment formatting.
+
+    Example:
+        Exercise test google helper edges and comment formatting through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.google as google
 
     class BadString:
+        """
+        Provide the BadString test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test google helper edges and comment formatting.BadString through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+        """
         def __str__(self):
+            """
+            Perform the str test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test google helper edges and comment formatting.BadString.str through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             raise RuntimeError("broken")
 
     assert google._as_text(b"hello") == "hello"
@@ -130,6 +351,17 @@ def test_google_helper_edges_and_comment_formatting(monkeypatch) -> None:
 
 
 def test_google_get_book_url_and_id_from_url() -> None:
+    """
+    Verify google get book url and id from url.
+
+    Example:
+        Exercise test google get book url and id from url through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google import GoogleBooks
 
     plugin = GoogleBooks()
@@ -147,6 +379,19 @@ def test_google_get_book_url_and_id_from_url() -> None:
 
 
 def test_google_id_from_url_handles_parse_errors(monkeypatch) -> None:
+    """
+    Verify google id from url handles parse errors.
+
+    Example:
+        Exercise test google id from url handles parse errors through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.google as google
 
     monkeypatch.setattr(google, "urlparse", lambda raw: (_ for _ in ()).throw(RuntimeError("bad url")))
@@ -154,6 +399,17 @@ def test_google_id_from_url_handles_parse_errors(monkeypatch) -> None:
 
 
 def test_google_create_query_prefers_isbn_and_handles_iterable_identifiers() -> None:
+    """
+    Verify google create query prefers isbn and handles iterable identifiers.
+
+    Example:
+        Exercise test google create query prefers isbn and handles iterable identifiers through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google import GoogleBooks
 
     plugin = GoogleBooks()
@@ -177,6 +433,19 @@ def test_google_create_query_prefers_isbn_and_handles_iterable_identifiers() -> 
 
 
 def test_google_api_url_request_and_retry_helpers(monkeypatch) -> None:
+    """
+    Verify google api url request and retry helpers.
+
+    Example:
+        Exercise test google api url request and retry helpers through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.google as google
 
     monkeypatch.setenv("GOOGLE_BOOKS_API_KEY", "KEY")
@@ -204,6 +473,19 @@ def test_google_api_url_request_and_retry_helpers(monkeypatch) -> None:
 
 
 def test_google_item_to_metadata_parses_volume_info(monkeypatch) -> None:
+    """
+    Verify google item to metadata parses volume info.
+
+    Example:
+        Exercise test google item to metadata parses volume info through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.google as google
 
     plugin = google.GoogleBooks()
@@ -224,6 +506,19 @@ def test_google_item_to_metadata_parses_volume_info(monkeypatch) -> None:
 
 
 def test_google_item_to_metadata_fallbacks_and_sparse_values(monkeypatch) -> None:
+    """
+    Verify google item to metadata fallbacks and sparse values.
+
+    Example:
+        Exercise test google item to metadata fallbacks and sparse values through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.google as google
 
     plugin = google.GoogleBooks()
@@ -256,6 +551,19 @@ def test_google_item_to_metadata_fallbacks_and_sparse_values(monkeypatch) -> Non
 
 
 def test_google_legacy_feed_helpers_parse_metadata(monkeypatch) -> None:
+    """
+    Verify google legacy feed helpers parse metadata.
+
+    Example:
+        Exercise test google legacy feed helpers parse metadata through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.google as google
 
     plugin = google.GoogleBooks()
@@ -278,6 +586,17 @@ def test_google_legacy_feed_helpers_parse_metadata(monkeypatch) -> None:
 
 
 def test_google_cover_url_priority_and_missing_links() -> None:
+    """
+    Verify google cover url priority and missing links.
+
+    Example:
+        Exercise test google cover url priority and missing links through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google import GoogleBooks
 
     plugin = GoogleBooks()
@@ -291,6 +610,17 @@ def test_google_cover_url_priority_and_missing_links() -> None:
 
 
 def test_google_postprocess_caches_cover_and_isbn_mappings() -> None:
+    """
+    Verify google postprocess caches cover and isbn mappings.
+
+    Example:
+        Exercise test google postprocess caches cover and isbn mappings through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google import GoogleBooks
 
     plugin = GoogleBooks()
@@ -309,6 +639,17 @@ def test_google_postprocess_caches_cover_and_isbn_mappings() -> None:
 
 
 def test_google_postprocess_handles_none_and_sparse_metadata() -> None:
+    """
+    Verify google postprocess handles none and sparse metadata.
+
+    Example:
+        Exercise test google postprocess handles none and sparse metadata through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google import GoogleBooks
 
     plugin = GoogleBooks()
@@ -328,6 +669,19 @@ def test_google_postprocess_handles_none_and_sparse_metadata() -> None:
 
 
 def test_google_identify_uses_google_identifier_lookup(monkeypatch) -> None:
+    """
+    Verify google identify uses google identifier lookup.
+
+    Example:
+        Exercise test google identify uses google identifier lookup through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google import GoogleBooks
 
     plugin = GoogleBooks()
@@ -347,12 +701,38 @@ def test_google_identify_uses_google_identifier_lookup(monkeypatch) -> None:
 
 
 def test_google_identify_guard_and_empty_payload_paths(monkeypatch) -> None:
+    """
+    Verify google identify guard and empty payload paths.
+
+    Example:
+        Exercise test google identify guard and empty payload paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google import GoogleBooks
 
     plugin = GoogleBooks()
     called = {"request": False}
 
     def _request_json(*args, **kwargs):
+        """
+        Perform the request json test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test google identify guard and empty payload paths.request json through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param args: Positional values forwarded by the test double.
+        :param kwargs: Keyword values forwarded by the test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         called["request"] = True
         return {"items": [_sample_item()]}
 
@@ -385,6 +765,19 @@ def test_google_identify_guard_and_empty_payload_paths(monkeypatch) -> None:
 
 
 def test_google_identify_retry_query_none_and_parse_failures(monkeypatch) -> None:
+    """
+    Verify google identify retry query none and parse failures.
+
+    Example:
+        Exercise test google identify retry query none and parse failures through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google import GoogleBooks
 
     plugin = GoogleBooks()
@@ -406,6 +799,20 @@ def test_google_identify_retry_query_none_and_parse_failures(monkeypatch) -> Non
     calls = []
 
     def _create_query(title=None, authors=None, identifiers=None):
+        """
+        Perform the create query test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test google identify retry query none and parse failures.create query through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param title: Value supplied for title in the focused test operation.
+        :param authors: Value supplied for authors in the focused test operation.
+        :param identifiers: Value supplied for identifiers in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         calls.append(dict(identifiers or {}))
         return "isbn:9780306406157" if identifiers else None
 
@@ -435,6 +842,19 @@ def test_google_identify_retry_query_none_and_parse_failures(monkeypatch) -> Non
 
 
 def test_google_identify_uses_legacy_feed_after_json_miss(monkeypatch) -> None:
+    """
+    Verify google identify uses legacy feed after json miss.
+
+    Example:
+        Exercise test google identify uses legacy feed after json miss through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google import GoogleBooks
 
     plugin = GoogleBooks()
@@ -442,6 +862,18 @@ def test_google_identify_uses_legacy_feed_after_json_miss(monkeypatch) -> None:
     monkeypatch.setattr(plugin, "_request_json_with_backoff", lambda **kwargs: {"items": []})
 
     def _feed(**kwargs):
+        """
+        Perform the feed test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test google identify uses legacy feed after json miss.feed through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param kwargs: Keyword values forwarded by the test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         calls.append(kwargs)
         return plugin._feed_entries_from_payload(_sample_feed_payload("gid-feed"))
 
@@ -463,6 +895,19 @@ def test_google_identify_uses_legacy_feed_after_json_miss(monkeypatch) -> None:
 
 
 def test_google_identify_abort_between_items_and_postprocess_none(monkeypatch) -> None:
+    """
+    Verify google identify abort between items and postprocess none.
+
+    Example:
+        Exercise test google identify abort between items and postprocess none through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google import GoogleBooks
 
     plugin = GoogleBooks()
@@ -470,6 +915,18 @@ def test_google_identify_abort_between_items_and_postprocess_none(monkeypatch) -
     items = [_sample_item("gid-one"), _sample_item("gid-two")]
 
     def _item_to_metadata(item):
+        """
+        Perform the item to metadata test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test google identify abort between items and postprocess none.item to metadata through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param item: Value supplied for item in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         mi = calibreMetaInformation(item["id"], ["Author"])
         mi.set_identifier("google", item["id"])
         abort.set()
@@ -491,12 +948,39 @@ def test_google_identify_abort_between_items_and_postprocess_none(monkeypatch) -
 
 
 def test_google_identify_retries_text_query_after_empty_isbn_query(monkeypatch) -> None:
+    """
+    Verify google identify retries text query after empty isbn query.
+
+    Example:
+        Exercise test google identify retries text query after empty isbn query through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google import GoogleBooks
 
     plugin = GoogleBooks()
     calls = []
 
     def _fake_request_json(path="", timeout=30, **params):
+        """
+        Perform the fake request json test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test google identify retries text query after empty isbn query.fake request json through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param path: Value supplied for path in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :param params: Value supplied for params in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del timeout
         calls.append((path, params))
         if params.get("q", "").startswith("isbn:"):
@@ -523,12 +1007,37 @@ def test_google_identify_retries_text_query_after_empty_isbn_query(monkeypatch) 
 
 
 def test_google_identify_retries_text_query_after_request_failure(monkeypatch) -> None:
+    """
+    Verify google identify retries text query after request failure.
+
+    Example:
+        Exercise test google identify retries text query after request failure through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google import GoogleBooks
 
     plugin = GoogleBooks()
     contexts = []
 
     def _fake_request(**kwargs):
+        """
+        Perform the fake request test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test google identify retries text query after request failure.fake request through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param kwargs: Keyword values forwarded by the test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         contexts.append(kwargs["context"])
         if kwargs["context"] == "GoogleBooks identify query":
             raise RuntimeError("rate limited")
@@ -555,6 +1064,17 @@ def test_google_identify_retries_text_query_after_request_failure(monkeypatch) -
 
 
 def test_google_get_cached_cover_url_uses_isbn_cache_with_iterables() -> None:
+    """
+    Verify google get cached cover url uses isbn cache with iterables.
+
+    Example:
+        Exercise test google get cached cover url uses isbn cache with iterables through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google import GoogleBooks
 
     plugin = GoogleBooks()
@@ -563,6 +1083,17 @@ def test_google_get_cached_cover_url_uses_isbn_cache_with_iterables() -> None:
 
 
 def test_google_get_cached_cover_url_edges() -> None:
+    """
+    Verify google get cached cover url edges.
+
+    Example:
+        Exercise test google get cached cover url edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google import GoogleBooks
 
     plugin = GoogleBooks()
@@ -573,21 +1104,86 @@ def test_google_get_cached_cover_url_edges() -> None:
 
 
 def test_google_download_cover_ignores_dummy_and_uses_next_zoom(monkeypatch) -> None:
+    """
+    Verify google download cover ignores dummy and uses next zoom.
+
+    Example:
+        Exercise test google download cover ignores dummy and uses next zoom through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google import GoogleBooks
 
     class _Resp:
+        """
+        Provide the Resp test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test google download cover ignores dummy and uses next zoom.Resp through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+        """
         def __init__(self, payload):
+            """
+            Initialize the Resp test double.
+
+            Example:
+                Exercise test google download cover ignores dummy and uses next zoom.Resp.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+            :param payload: Value supplied for payload in the focused test operation.
+            :return: None; the function records state or raises through its assertions.
+            """
             self.payload = payload
 
         def read(self):
+            """
+            Perform the read test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test google download cover ignores dummy and uses next zoom.Resp.read through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return self.payload
 
     payloads = [b"dummy", b"real-cover"]
     seen_urls = []
 
     class _Browser:
+        """
+        Provide the Browser test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test google download cover ignores dummy and uses next zoom.Browser through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+        """
         @staticmethod
         def open_novisit(url, timeout=30):
+            """
+            Perform the open novisit test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test google download cover ignores dummy and uses next zoom.Browser.open novisit through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+            :param url: Value supplied for url in the focused test operation.
+            :param timeout: Value supplied for timeout in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             del timeout
             seen_urls.append(url)
             return _Resp(payloads.pop(0))
@@ -608,12 +1204,43 @@ def test_google_download_cover_ignores_dummy_and_uses_next_zoom(monkeypatch) -> 
 
 
 def test_google_download_cover_identify_abort_and_multi_result_scan(monkeypatch) -> None:
+    """
+    Verify google download cover identify abort and multi result scan.
+
+    Example:
+        Exercise test google download cover identify abort and multi result scan through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google import GoogleBooks
 
     plugin = GoogleBooks()
     abort = Event()
 
     def _abort_identify(log, result_queue, abort, title=None, authors=None, identifiers=None, timeout=30):
+        """
+        Perform the abort identify test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test google download cover identify abort and multi result scan.abort identify through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param result_queue: Value supplied for result queue in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param title: Value supplied for title in the focused test operation.
+        :param authors: Value supplied for authors in the focused test operation.
+        :param identifiers: Value supplied for identifiers in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         abort.set()
 
     monkeypatch.setattr(plugin, "identify", _abort_identify)
@@ -625,6 +1252,24 @@ def test_google_download_cover_identify_abort_and_multi_result_scan(monkeypatch)
     calls = []
 
     def _identify(log, result_queue, abort, title=None, authors=None, identifiers=None, timeout=30):
+        """
+        Perform the identify test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test google download cover identify abort and multi result scan.identify through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param result_queue: Value supplied for result queue in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param title: Value supplied for title in the focused test operation.
+        :param authors: Value supplied for authors in the focused test operation.
+        :param identifiers: Value supplied for identifiers in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del log, abort, title, authors, identifiers, timeout
         first = calibreMetaInformation("No Cover", ["Author"])
         first.set_identifier("google", "missing")
@@ -634,6 +1279,18 @@ def test_google_download_cover_identify_abort_and_multi_result_scan(monkeypatch)
         result_queue.put(second)
 
     def _cached(identifiers):
+        """
+        Perform the cached test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test google download cover identify abort and multi result scan.cached through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param identifiers: Value supplied for identifiers in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         calls.append(dict(identifiers))
         if identifiers.get("google") == "covered":
             return "https://covers.example/covered.jpg"
@@ -649,23 +1306,94 @@ def test_google_download_cover_identify_abort_and_multi_result_scan(monkeypatch)
 
 
 def test_google_download_cover_runs_identify_when_cache_misses(monkeypatch) -> None:
+    """
+    Verify google download cover runs identify when cache misses.
+
+    Example:
+        Exercise test google download cover runs identify when cache misses through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google import GoogleBooks
 
     class _Resp:
+        """
+        Provide the Resp test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test google download cover runs identify when cache misses.Resp through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+        """
         @staticmethod
         def read():
+            """
+            Perform the read test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test google download cover runs identify when cache misses.Resp.read through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return b"cover-bytes"
 
     seen = {}
 
     class _Browser:
+        """
+        Provide the Browser test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test google download cover runs identify when cache misses.Browser through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+        """
         @staticmethod
         def open_novisit(url, timeout=30):
+            """
+            Perform the open novisit test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test google download cover runs identify when cache misses.Browser.open novisit through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+            :param url: Value supplied for url in the focused test operation.
+            :param timeout: Value supplied for timeout in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             del timeout
             seen["url"] = url
             return _Resp()
 
     def _identify(log, result_queue, abort, title=None, authors=None, identifiers=None, timeout=30):
+        """
+        Perform the identify test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test google download cover runs identify when cache misses.identify through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param result_queue: Value supplied for result queue in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param title: Value supplied for title in the focused test operation.
+        :param authors: Value supplied for authors in the focused test operation.
+        :param identifiers: Value supplied for identifiers in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del log, abort, title, authors, identifiers, timeout
         mi = calibreMetaInformation("Title", ["Author"])
         mi.set_identifier("google", "gid-identify")
@@ -687,6 +1415,19 @@ def test_google_download_cover_runs_identify_when_cache_misses(monkeypatch) -> N
 
 
 def test_google_download_cover_abort_empty_exception_and_existing_zoom(monkeypatch) -> None:
+    """
+    Verify google download cover abort empty exception and existing zoom.
+
+    Example:
+        Exercise test google download cover abort empty exception and existing zoom through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google import GoogleBooks
 
     plugin = GoogleBooks()
@@ -703,6 +1444,18 @@ def test_google_download_cover_abort_empty_exception_and_existing_zoom(monkeypat
     seen = []
 
     def _open(**kwargs):
+        """
+        Perform the open test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test google download cover abort empty exception and existing zoom.open through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param kwargs: Keyword values forwarded by the test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         seen.append(kwargs["url"])
         payload = next(payloads)
         if isinstance(payload, Exception):
@@ -724,9 +1477,40 @@ def test_google_download_cover_abort_empty_exception_and_existing_zoom(monkeypat
 
 
 def test_google_download_cover_no_results_logs_and_returns(monkeypatch) -> None:
+    """
+    Verify google download cover no results logs and returns.
+
+    Example:
+        Exercise test google download cover no results logs and returns through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google import GoogleBooks
 
     def _identify(log, result_queue, abort, title=None, authors=None, identifiers=None, timeout=30):
+        """
+        Perform the identify test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test google download cover no results logs and returns.identify through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param result_queue: Value supplied for result queue in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param title: Value supplied for title in the focused test operation.
+        :param authors: Value supplied for authors in the focused test operation.
+        :param identifiers: Value supplied for identifiers in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del log, result_queue, abort, title, authors, identifiers, timeout
 
     plugin = GoogleBooks()
@@ -741,11 +1525,43 @@ def test_google_download_cover_no_results_logs_and_returns(monkeypatch) -> None:
 
 
 def test_google_request_json_with_backoff_retries_transient_errors(monkeypatch) -> None:
+    """
+    Verify google request json with backoff retries transient errors.
+
+    Example:
+        Exercise test google request json with backoff retries transient errors through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google import GoogleBooks
 
     class _Transient(Exception):
+        """
+        Provide the Transient test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test google request json with backoff retries transient errors.Transient through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+        """
         @staticmethod
         def getcode():
+            """
+            Perform the getcode test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test google request json with backoff retries transient errors.Transient.getcode through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return 503
 
     plugin = GoogleBooks()
@@ -753,6 +1569,20 @@ def test_google_request_json_with_backoff_retries_transient_errors(monkeypatch) 
     delays = []
 
     def _fake_request_json(path="", timeout=30, **params):
+        """
+        Perform the fake request json test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test google request json with backoff retries transient errors.fake request json through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param path: Value supplied for path in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :param params: Value supplied for params in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del path, timeout, params
         attempts["n"] += 1
         if attempts["n"] < 3:
@@ -774,11 +1604,45 @@ def test_google_request_json_with_backoff_retries_transient_errors(monkeypatch) 
 
 
 def test_google_open_with_backoff_non_retryable_raises_and_logs(monkeypatch) -> None:
+    """
+    Verify google open with backoff non retryable raises and logs.
+
+    Example:
+        Exercise test google open with backoff non retryable raises and logs through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google import GoogleBooks
 
     class _Browser:
+        """
+        Provide the Browser test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test google open with backoff non retryable raises and logs.Browser through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+        """
         @staticmethod
         def open_novisit(url, timeout=30):
+            """
+            Perform the open novisit test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test google open with backoff non retryable raises and logs.Browser.open novisit through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+            :param url: Value supplied for url in the focused test operation.
+            :param timeout: Value supplied for timeout in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             del url, timeout
             raise ValueError("bad payload")
 

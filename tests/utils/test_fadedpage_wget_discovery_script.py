@@ -1,3 +1,14 @@
+"""
+Provide test fadedpage wget discovery script utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test fadedpage wget discovery script through a consuming regression::
+
+        python -m pytest -q tests/utils/test_fadedpage_wget_discovery_script.py
+"""
 from __future__ import annotations
 
 import importlib.util
@@ -11,6 +22,18 @@ import pytest
 
 
 def _load_script():
+    """
+    Perform the load script utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  load script through a consuming regression::
+
+            python -m pytest -q tests/utils/test_fadedpage_wget_discovery_script.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     script_path = Path(__file__).resolve().parents[2] / "scripts" / "fadedpage_wget_discovery.py"
     spec = importlib.util.spec_from_file_location("fadedpage_wget_discovery", script_path)
     assert spec is not None
@@ -22,7 +45,36 @@ def _load_script():
 
 
 def _fake_runner(module, lines: list[str], *, raise_after: int | None = None):
+    """
+    Perform the fake runner utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  fake runner through a consuming regression::
+
+            python -m pytest -q tests/utils/test_fadedpage_wget_discovery_script.py
+
+
+    :param module: Value supplied for module under the utility contract.
+    :param lines: Value supplied for lines under the utility contract.
+    :param raise_after: Value supplied for raise after under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     def _run(args, **kwargs):
+        """
+        Perform the run utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  fake runner. run through a consuming regression::
+
+                python -m pytest -q tests/utils/test_fadedpage_wget_discovery_script.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         del args
         line_callback = kwargs.get("line_callback")
         emitted: list[str] = []
@@ -38,11 +90,43 @@ def _fake_runner(module, lines: list[str], *, raise_after: int | None = None):
 
 
 class _FakeTty(io.StringIO):
+    """
+    Provide the FakeTty utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise  FakeTty through a consuming regression::
+
+            python -m pytest -q tests/utils/test_fadedpage_wget_discovery_script.py
+    """
     def isatty(self) -> bool:
+        """
+        Perform the isatty utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  FakeTty.isatty through a consuming regression::
+
+                python -m pytest -q tests/utils/test_fadedpage_wget_discovery_script.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return True
 
 
 def test_classify_fadedpage_candidate_supports_query_file_and_path() -> None:
+    """
+    Perform the test classify fadedpage candidate supports query file and path utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test classify fadedpage candidate supports query file and path through a consuming regression::
+
+            python -m pytest -q tests/utils/test_fadedpage_wget_discovery_script.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     script = _load_script()
 
     html_candidate = script.classify_fadedpage_candidate("https://www.fadedpage.com/link.php?file=20240507.html")
@@ -63,6 +147,18 @@ def test_classify_fadedpage_candidate_supports_query_file_and_path() -> None:
 
 
 def test_build_wget_args_is_verbose_by_default() -> None:
+    """
+    Perform the test build wget args is verbose by default utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test build wget args is verbose by default through a consuming regression::
+
+            python -m pytest -q tests/utils/test_fadedpage_wget_discovery_script.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     script = _load_script()
 
     args = script.build_wget_args(
@@ -82,6 +178,19 @@ def test_build_wget_args_is_verbose_by_default() -> None:
 
 
 def test_wget_discovery_exports_full_urls_to_json(tmp_path: Path) -> None:
+    """
+    Perform the test wget discovery exports full urls to json utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test wget discovery exports full urls to json through a consuming regression::
+
+            python -m pytest -q tests/utils/test_fadedpage_wget_discovery_script.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     script = _load_script()
     state_db = tmp_path / "fadedpage.sqlite3"
     output_path = tmp_path / "fadedpage.json"
@@ -148,6 +257,19 @@ def test_wget_discovery_exports_full_urls_to_json(tmp_path: Path) -> None:
 
 
 def test_fadedpage_grouping_collapses_known_variant_suffixes(tmp_path: Path) -> None:
+    """
+    Perform the test fadedpage grouping collapses known variant suffixes utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test fadedpage grouping collapses known variant suffixes through a consuming regression::
+
+            python -m pytest -q tests/utils/test_fadedpage_wget_discovery_script.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     script = _load_script()
     state_db = tmp_path / "variants.sqlite3"
     output_path = tmp_path / "variants.json"
@@ -189,6 +311,20 @@ def test_fadedpage_grouping_collapses_known_variant_suffixes(tmp_path: Path) -> 
 
 
 def test_wget_discovery_echoes_raw_wget_lines_by_default(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """
+    Perform the test wget discovery echoes raw wget lines by default utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test wget discovery echoes raw wget lines by default through a consuming regression::
+
+            python -m pytest -q tests/utils/test_fadedpage_wget_discovery_script.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param capsys: Value supplied for capsys under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     script = _load_script()
     state_db = tmp_path / "chatty.sqlite3"
     output_path = tmp_path / "chatty.json"
@@ -210,6 +346,20 @@ def test_wget_discovery_echoes_raw_wget_lines_by_default(tmp_path: Path, capsys:
 
 
 def test_wget_discovery_renders_live_progress_footer_on_tty(monkeypatch, tmp_path: Path) -> None:
+    """
+    Perform the test wget discovery renders live progress footer on tty utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test wget discovery renders live progress footer on tty through a consuming regression::
+
+            python -m pytest -q tests/utils/test_fadedpage_wget_discovery_script.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     script = _load_script()
     state_db = tmp_path / "progress.sqlite3"
     output_path = tmp_path / "progress.json"
@@ -248,6 +398,19 @@ def test_wget_discovery_renders_live_progress_footer_on_tty(monkeypatch, tmp_pat
 
 
 def test_fadedpage_text_report_surfaces_reason_counts_and_suspicious_books(tmp_path: Path) -> None:
+    """
+    Perform the test fadedpage text report surfaces reason counts and suspicious books utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test fadedpage text report surfaces reason counts and suspicious books through a consuming regression::
+
+            python -m pytest -q tests/utils/test_fadedpage_wget_discovery_script.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     script = _load_script()
     state_db = tmp_path / "report.sqlite3"
     output_path = tmp_path / "report.json"
@@ -284,6 +447,19 @@ def test_fadedpage_text_report_surfaces_reason_counts_and_suspicious_books(tmp_p
 
 
 def test_build_export_payload_refilters_stale_candidates_from_state_db(tmp_path: Path) -> None:
+    """
+    Perform the test build export payload refilters stale candidates from state db utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test build export payload refilters stale candidates from state db through a consuming regression::
+
+            python -m pytest -q tests/utils/test_fadedpage_wget_discovery_script.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     script = _load_script()
     db = script.DiscoveryStateDB(tmp_path / "stale.sqlite3", root_url="https://www.fadedpage.com/")
     try:
@@ -326,6 +502,20 @@ def test_build_export_payload_refilters_stale_candidates_from_state_db(tmp_path:
 
 
 def test_main_export_only_text_report_prints_summary(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """
+    Perform the test main export only text report prints summary utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test main export only text report prints summary through a consuming regression::
+
+            python -m pytest -q tests/utils/test_fadedpage_wget_discovery_script.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param capsys: Value supplied for capsys under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     script = _load_script()
     state_db = tmp_path / "main.sqlite3"
     output_path = tmp_path / "main.json"
@@ -360,6 +550,19 @@ def test_main_export_only_text_report_prints_summary(tmp_path: Path, capsys: pyt
 
 
 def test_wget_discovery_resumes_after_failure_without_duplicate_candidates(tmp_path: Path) -> None:
+    """
+    Perform the test wget discovery resumes after failure without duplicate candidates utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test wget discovery resumes after failure without duplicate candidates through a consuming regression::
+
+            python -m pytest -q tests/utils/test_fadedpage_wget_discovery_script.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     script = _load_script()
     state_db = tmp_path / "resume.sqlite3"
     output_path = tmp_path / "resume.json"

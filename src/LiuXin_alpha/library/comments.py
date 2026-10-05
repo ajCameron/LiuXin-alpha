@@ -1,3 +1,14 @@
+"""
+Convert, sanitize and render book comments.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise comments through a consuming regression::
+
+        python -m pytest -q tests/library/test_unified_library.py
+"""
 from __future__ import annotations
 
 from html import escape
@@ -7,7 +18,15 @@ def comments_to_html(text: str | None) -> str:
     """
     Convert plain-text comments to a minimal HTML fragment.
 
-    If the input already looks like HTML, return it unchanged.
+    Example:
+        Exercise comments to html through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if not text:
         return ""

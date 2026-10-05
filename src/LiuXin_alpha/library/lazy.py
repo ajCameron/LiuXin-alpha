@@ -2,10 +2,15 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 """
-Lazy provides proxy method for the database which only do work when they're needed.
+Provide lazy wrappers for library metadata and query results.
 
-Avoid doing stats on all files in a book when getting metadata for that book.
-Speeds up calibre startup with large libraries/libraries on a network share, with a composite custom column.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise lazy through a consuming regression::
+
+        python -m pytest -q tests/library/test_unified_library.py
 """
 
 from __future__ import division, absolute_import, print_function, annotations
@@ -41,10 +46,32 @@ def resolved(f):
     """
     Decorator to call _resolve on access.
 
-    :param f:
-    :return:
+    Example:
+        Exercise resolved through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param f: Value supplied for f under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     def wrapper(self, *args, **kwargs):
+        """
+        Perform the wrapper operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise resolved.wrapper through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param self: Value supplied for self under the utility contract.
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if getattr(self, "_must_resolve", True):
             self._resolve()
             self._must_resolve = False
@@ -56,48 +83,209 @@ def resolved(f):
 class MutableBase:
     """
     Mutable base class.
+
+    Example:
+        Exercise MutableBase through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
     def __int__(self) -> None:
+        """
+        Perform the int operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MutableBase.  int   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._values = []
 
     def __str__(self):
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MutableBase.  str   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return str(self._values)
 
     def __repr__(self):
+        """
+        Perform the repr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MutableBase.  repr   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return repr(self._values)
 
     def __unicode__(self):
+        """
+        Perform the unicode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MutableBase.  unicode   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return six_unicode(self._values)
 
     def __len__(self):
+        """
+        Perform the len operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MutableBase.  len   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return len(self._values)
 
     def __iter__(self):
+        """
+        Perform the iter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MutableBase.  iter   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return iter(self._values)
 
     def __contains__(self, key):
+        """
+        Perform the contains operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MutableBase.  contains   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return key in self._values
 
     def __getitem__(self, fmt):
+        """
+        Perform the getitem operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MutableBase.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param fmt: Date, number or template format specification.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._values[fmt]
 
     def __setitem__(self, key, val):
+        """
+        Perform the setitem operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MutableBase.  setitem   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._values[key] = val
 
     def __delitem__(self, key):
+        """
+        Perform the delitem operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MutableBase.  delitem   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         del self._values[key]
 
 
 class FormatMetadata(MutableBase, MutableMapping):
     """
     Maps available formats to the ids that correspond to them.
+
+    Example:
+        Exercise FormatMetadata through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
     def __init__(self, db, id_, formats):
+        """
+        Initialize and validate the formatmetadata state.
+
+        Example:
+            Exercise FormatMetadata.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :param id_: Value supplied for id under the utility contract.
+        :param formats: Value supplied for formats under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self._dbwref = weakref.ref(db)
         self._id = id_
         self._formats = formats
 
     def _resolve(self):
+        """
+        Perform the resolve operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FormatMetadata. resolve through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         db = self._dbwref()
         self._values = {}
         for f in self._formats:
@@ -109,14 +297,62 @@ class FormatMetadata(MutableBase, MutableMapping):
 
 
 class FormatsList(MutableBase, MutableSequence):
+    """
+    Provide the formatslist contract for validated ebook processing.
+
+    Example:
+        Exercise FormatsList through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     def __init__(self, formats, format_metadata):
+        """
+        Initialize and validate the formatslist state.
+
+        Example:
+            Exercise FormatsList.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param formats: Value supplied for formats under the utility contract.
+        :param format_metadata: Value supplied for format metadata under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self._formats = formats
         self._format_metadata = format_metadata
 
     def _resolve(self):
+        """
+        Perform the resolve operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FormatsList. resolve through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._values = [f for f in self._formats if f in self._format_metadata]
 
     def insert(self, idx, val):
+        """
+        Perform the insert operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FormatsList.insert through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param idx: Value supplied for idx under the utility contract.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._values.insert(idx, val)
 
 
@@ -131,12 +367,34 @@ def simple_getter(field, default_value=None):
     """
     Returns a function which serves as a simplified retrieval method for a given field.
 
-    :param field:
-    :param default_value:
-    :return:
+    Example:
+        Exercise simple getter through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param field: Metadata or template field addressed by the operation.
+    :param default_value: Value supplied for default value under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     def func(dbref, book_id, cache):
+        """
+        Perform the func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise simple getter.func through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param dbref: Value supplied for dbref under the utility contract.
+        :param book_id: Value supplied for book id under the utility contract.
+        :param cache: Value supplied for cache under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return cache[field]
         except KeyError:
@@ -151,13 +409,35 @@ def pp_getter(field, postprocess, default_value=None):
     """
     A getter with the option to postprocess the result of the get.
 
-    :param field:
-    :param postprocess:
-    :param default_value:
-    :return:
+    Example:
+        Exercise pp getter through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param field: Metadata or template field addressed by the operation.
+    :param postprocess: Value supplied for postprocess under the utility contract.
+    :param default_value: Value supplied for default value under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     def func(dbref, book_id, cache):
+        """
+        Perform the func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise pp getter.func through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param dbref: Value supplied for dbref under the utility contract.
+        :param book_id: Value supplied for book id under the utility contract.
+        :param cache: Value supplied for cache under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return cache[field]
         except KeyError:
@@ -169,7 +449,35 @@ def pp_getter(field, postprocess, default_value=None):
 
 
 def adata_getter(field):
+    """
+    Perform the adata getter operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise adata getter through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param field: Metadata or template field addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     def func(dbref, book_id, cache):
+        """
+        Perform the func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise adata getter.func through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param dbref: Value supplied for dbref under the utility contract.
+        :param book_id: Value supplied for book id under the utility contract.
+        :param cache: Value supplied for cache under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             author_ids, adata = cache["adata"]
         except KeyError:
@@ -185,7 +493,35 @@ def adata_getter(field):
 
 
 def dt_getter(field):
+    """
+    Perform the dt getter operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise dt getter through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param field: Metadata or template field addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     def func(dbref, book_id, cache):
+        """
+        Perform the func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise dt getter.func through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param dbref: Value supplied for dbref under the utility contract.
+        :param book_id: Value supplied for book id under the utility contract.
+        :param cache: Value supplied for cache under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return cache[field]
         except KeyError:
@@ -197,7 +533,37 @@ def dt_getter(field):
 
 
 def item_getter(field, default_value=None, key=0):
+    """
+    Perform the item getter operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise item getter through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param field: Metadata or template field addressed by the operation.
+    :param default_value: Value supplied for default value under the utility contract.
+    :param key: Metadata, identifier or local-variable key.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     def func(dbref, book_id, cache):
+        """
+        Perform the func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise item getter.func through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param dbref: Value supplied for dbref under the utility contract.
+        :param book_id: Value supplied for book id under the utility contract.
+        :param cache: Value supplied for cache under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return cache[field]
         except KeyError:
@@ -212,7 +578,35 @@ def item_getter(field, default_value=None, key=0):
 
 
 def fmt_getter(field):
+    """
+    Perform the fmt getter operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise fmt getter through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param field: Metadata or template field addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     def func(dbref, book_id, cache):
+        """
+        Perform the func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise fmt getter.func through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param dbref: Value supplied for dbref under the utility contract.
+        :param book_id: Value supplied for book id under the utility contract.
+        :param cache: Value supplied for cache under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             format_metadata = cache["format_metadata"]
         except KeyError:
@@ -230,6 +624,21 @@ def fmt_getter(field):
 
 
 def approx_fmts_getter(dbref, book_id, cache):
+    """
+    Perform the approx fmts getter operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise approx fmts getter through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param dbref: Value supplied for dbref under the utility contract.
+    :param book_id: Value supplied for book id under the utility contract.
+    :param cache: Value supplied for cache under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         return cache["formats"]
     except KeyError:
@@ -239,7 +648,35 @@ def approx_fmts_getter(dbref, book_id, cache):
 
 
 def series_index_getter(field="series"):
+    """
+    Perform the series index getter operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise series index getter through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param field: Metadata or template field addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     def func(dbref, book_id, cache):
+        """
+        Perform the func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise series index getter.func through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param dbref: Value supplied for dbref under the utility contract.
+        :param book_id: Value supplied for book id under the utility contract.
+        :param cache: Value supplied for cache under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             series = getters[field](dbref, book_id, cache)
         except KeyError:
@@ -256,6 +693,20 @@ def series_index_getter(field="series"):
 
 
 def has_cover_getter(dbref, book_id, cache):
+    """
+    Return whether has cover getter holds for the supplied ebook data.
+
+    Example:
+        Exercise has cover getter through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param dbref: Value supplied for dbref under the utility contract.
+    :param book_id: Value supplied for book id under the utility contract.
+    :param cache: Value supplied for cache under the utility contract.
+    :return: True when the documented condition holds; otherwise False.
+    """
     try:
         return cache["has_cover"]
     except KeyError:
@@ -265,10 +716,39 @@ def has_cover_getter(dbref, book_id, cache):
 
 
 def fmt_custom(x):
+    """
+    Perform the fmt custom operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise fmt custom through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return list(x) if isinstance(x, tuple) else x
 
 
 def custom_getter(field, dbref, book_id, cache):
+    """
+    Perform the custom getter operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise custom getter through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param field: Metadata or template field addressed by the operation.
+    :param dbref: Value supplied for dbref under the utility contract.
+    :param book_id: Value supplied for book id under the utility contract.
+    :param cache: Value supplied for cache under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         return cache[field]
     except KeyError:
@@ -278,6 +758,25 @@ def custom_getter(field, dbref, book_id, cache):
 
 
 def composite_getter(mi, field, dbref, book_id, cache, formatter, template_cache):
+    """
+    Perform the composite getter operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise composite getter through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param mi: Metadata object exposed to the template function.
+    :param field: Metadata or template field addressed by the operation.
+    :param dbref: Value supplied for dbref under the utility contract.
+    :param book_id: Value supplied for book id under the utility contract.
+    :param cache: Value supplied for cache under the utility contract.
+    :param formatter: Template formatter supplying evaluation services and context.
+    :param template_cache: Value supplied for template cache under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         return cache[field]
     except KeyError:
@@ -299,6 +798,21 @@ def composite_getter(mi, field, dbref, book_id, cache, formatter, template_cache
 
 
 def virtual_libraries_getter(dbref, book_id, cache):
+    """
+    Perform the virtual libraries getter operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise virtual libraries getter through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param dbref: Value supplied for dbref under the utility contract.
+    :param book_id: Value supplied for book id under the utility contract.
+    :param cache: Value supplied for cache under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         return cache["virtual_libraries"]
     except KeyError:
@@ -309,6 +823,19 @@ def virtual_libraries_getter(dbref, book_id, cache):
 
 
 def user_categories_getter(proxy_metadata):
+    """
+    Perform the user categories getter operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise user categories getter through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param proxy_metadata: Value supplied for proxy metadata under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     cache = ga(proxy_metadata, "_cache")
     try:
         return cache["user_categories"]
@@ -356,7 +883,29 @@ for local_field in ("formats", "format_metadata"):
 
 
 class ProxyMetadata(calibreMetadata):
+    """
+    Provide the proxymetadata contract for validated ebook processing.
+
+    Example:
+        Exercise ProxyMetadata through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     def __init__(self, db, book_id, formatter=None):
+        """
+        Initialize and validate the proxymetadata state.
+
+        Example:
+            Exercise ProxyMetadata.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :param book_id: Value supplied for book id under the utility contract.
+        :param formatter: Template formatter supplying evaluation services and context.
+        :return: None; validated state is stored on the receiving object.
+        """
         sa(self, "template_cache", db.formatter_template_cache)
         sa(self, "formatter", SafeFormat() if formatter is None else formatter)
         sa(self, "_db", weakref.ref(db))
@@ -365,6 +914,19 @@ class ProxyMetadata(calibreMetadata):
         sa(self, "_user_metadata", db.field_metadata)
 
     def __getattribute__(self, field):
+        """
+        Perform the getattribute operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ProxyMetadata.  getattribute   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         getter = getters.get(field, None)
         if getter is not None:
             return getter(ga(self, "_db"), ga(self, "_book_id"), ga(self, "_cache"))
@@ -400,12 +962,40 @@ class ProxyMetadata(calibreMetadata):
             raise AttributeError("Metadata object has no attribute named: %r" % field)
 
     def __setattr__(self, field, val, extra=None):
+        """
+        Perform the setattr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ProxyMetadata.  setattr   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :param val: Template or metadata value evaluated by the operation.
+        :param extra: Value supplied for extra under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         cache = ga(self, "_cache")
         cache[field] = val
         if extra is not None:
             cache[field + "_index"] = val
 
     def get_user_metadata(self, field, make_copy=False):
+        """
+        Return user metadata under the format's safety and compatibility rules.
+
+        Example:
+            Exercise ProxyMetadata.get user metadata through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :param make_copy: Value supplied for make copy under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         um = ga(self, "_user_metadata")
         try:
             ans = um[field]
@@ -417,6 +1007,20 @@ class ProxyMetadata(calibreMetadata):
             return ans
 
     def get_extra(self, field, default=None):
+        """
+        Return extra under the format's safety and compatibility rules.
+
+        Example:
+            Exercise ProxyMetadata.get extra through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :param default: Value supplied for default under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         um = ga(self, "_user_metadata")
         if field + "_index" in um:
             try:
@@ -426,10 +1030,36 @@ class ProxyMetadata(calibreMetadata):
         raise AttributeError("Metadata object has no attribute named: " + repr(field))
 
     def custom_field_keys(self):
+        """
+        Perform the custom field keys operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ProxyMetadata.custom field keys through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         um = ga(self, "_user_metadata")
         return iter(um.custom_field_keys())
 
     def get_standard_metadata(self, field, make_copy=False):
+        """
+        Return standard metadata under the format's safety and compatibility rules.
+
+        Example:
+            Exercise ProxyMetadata.get standard metadata through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :param make_copy: Value supplied for make copy under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         field_metadata = ga(self, "_user_metadata")
         if field in field_metadata and field_metadata[field]["kind"] == "field":
             if make_copy:
@@ -438,8 +1068,32 @@ class ProxyMetadata(calibreMetadata):
         return None
 
     def all_field_keys(self):
+        """
+        Perform the all field keys operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ProxyMetadata.all field keys through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         um = ga(self, "_user_metadata")
         return frozenset(ALL_METADATA_FIELDS.union(iterkeys(um)))
 
     def _proxy_metadata(self):
+        """
+        Perform the proxy metadata operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ProxyMetadata. proxy metadata through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self

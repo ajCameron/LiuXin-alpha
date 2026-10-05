@@ -1,3 +1,14 @@
+"""
+Convert EPUB content into the normalized ebook conversion pipeline.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise epub input through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -27,6 +38,21 @@ IDPF_OBFUSCATION = "http://www.idpf.org/2008/embedding"
 
 
 def decrypt_font_data(key: _typing.Any, data: _typing.Any, algorithm: _typing.Any) -> _typing.Any:
+    """
+    Perform the decrypt font data operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise decrypt font data through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+    :param key: Metadata, identifier or local-variable key.
+    :param data: Value supplied for data under the utility contract.
+    :param algorithm: Value supplied for algorithm under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     is_adobe = algorithm == ADOBE_OBFUSCATION
     crypt_len = 1024 if is_adobe else 1040
     crypt = bytearray(data[:crypt_len])
@@ -36,17 +62,54 @@ def decrypt_font_data(key: _typing.Any, data: _typing.Any, algorithm: _typing.An
 
 
 def decrypt_font(key: _typing.Any, path: _typing.Any, algorithm: _typing.Any) -> None:
+    """
+    Perform the decrypt font operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise decrypt font through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+    :param key: Metadata, identifier or local-variable key.
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param algorithm: Value supplied for algorithm under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     with open(path, "r+b") as f:
         data = decrypt_font_data(key, f.read(), algorithm)
         f.seek(0), f.truncate(), f.write(data)
 
 
 def _local_name(tag: _typing.Any) -> _typing.Any:
+    """
+    Perform the local name operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  local name through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+    :param tag: Value supplied for tag under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return str(tag).rsplit("}", 1)[-1]
 
 
 class EPUBInput(InputFormatPlugin):
 
+    """
+    Convert epubinput sources into the normalized OEB pipeline model.
+
+    Example:
+        Exercise EPUBInput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     name = "EPUB Input"
     author = "Kovid Goyal"
     description = "Convert EPUB files (.epub) to HTML"
@@ -65,11 +128,38 @@ class EPUBInput(InputFormatPlugin):
     min_compression_ratio_check_size = 1024 * 1024
 
     def xml_attr(self: _typing.Self, node: _typing.Any, name: _typing.Any) -> _typing.Any:
+        """
+        Perform the xml attr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise EPUBInput.xml attr through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for key, value in node.attrib.items():
             if _local_name(key) == name:
                 return value
 
     def normalized_archive_member_name(self: _typing.Self, name: _typing.Any) -> _typing.Any:
+        """
+        Perform the normalized archive member name operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise EPUBInput.normalized archive member name through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return normalized_zip_member_name(
             name,
             member_label="EPUB archive",
@@ -77,6 +167,20 @@ class EPUBInput(InputFormatPlugin):
         )
 
     def validate_container_members(self: _typing.Self, stream: _typing.Any) -> None:
+        """
+        Validate container members under the format's safety and compatibility rules.
+
+        Example:
+            Exercise EPUBInput.validate container members through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
         from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
@@ -165,6 +269,22 @@ class EPUBInput(InputFormatPlugin):
             stream.seek(0)
 
     def warn_preflight_rejection(self: _typing.Self, stream: _typing.Any, log: _typing.Any, error: _typing.Any) -> None:
+        """
+        Perform the warn preflight rejection operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise EPUBInput.warn preflight rejection through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param log: Value supplied for log under the utility contract.
+        :param error: Value supplied for error under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         warn = getattr(log, "warning", None) or getattr(log, "warn", None)
         if warn is None:
             return
@@ -176,6 +296,21 @@ class EPUBInput(InputFormatPlugin):
             default_log.warning("EPUB preflight rejected %s: %s", path, error)
 
     def process_encryption(self: _typing.Self, encfile: _typing.Any, opf: _typing.Any, log: _typing.Any) -> bool:
+        """
+        Perform the process encryption operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise EPUBInput.process encryption through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param encfile: Value supplied for encfile under the utility contract.
+        :param opf: Value supplied for opf under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.utils.libraries.liuxin_etree import etree
         import uuid
         import hashlib
@@ -221,11 +356,18 @@ class EPUBInput(InputFormatPlugin):
 
     def rationalize_cover(self: _typing.Self, opf: _typing.Any, log: _typing.Any) -> _typing.Any:
         """
-        Ensure that the cover information in the guide is correct. That means, at most one entry with type="cover" that
-        points to a raster cover and at most one entry with type="titlepage" that points to an HTML titlepage.
-        :param opf: OPF to be parsed
-        :param log: A log object for notes to be written to
-        :return:
+        Ensure that the cover information in the guide is correct. That means, at most one entry with type="cover" that points to a raster cover and at most one entry with type="titlepage" that points to an HTML titlepage.
+
+        Example:
+            Exercise EPUBInput.rationalize cover through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param opf: Value supplied for opf under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         removed = None
         from LiuXin_alpha.utils.libraries.liuxin_etree import etree
@@ -309,9 +451,35 @@ class EPUBInput(InputFormatPlugin):
         return removed
 
     def find_opf(self: _typing.Self) -> _typing.Any:
+        """
+        Find opf under the format's safety and compatibility rules.
+
+        Example:
+            Exercise EPUBInput.find opf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
         def attr(n: _typing.Any, attr: _typing.Any) -> _typing.Any:
+            """
+            Perform the attr operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise EPUBInput.find opf.attr through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+            :param n: Value supplied for n under the utility contract.
+            :param attr: Value supplied for attr under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             for k, v in n.attrib.items():
                 if k.endswith(attr):
                     return v
@@ -336,12 +504,21 @@ class EPUBInput(InputFormatPlugin):
     def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
         """
         Run
-        :param stream:
-        :param options:
-        :param file_ext:
-        :param log:
-        :param accelerators:
-        :return:
+
+        Example:
+            Exercise EPUBInput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param options: Value supplied for options under the utility contract.
+        :param file_ext: Value supplied for file ext under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param accelerators: Value supplied for accelerators under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
         from LiuXin_alpha.utils.calibre import walk, CurrentDir
@@ -435,6 +612,21 @@ class EPUBInput(InputFormatPlugin):
             return os.path.abspath("content.opf")
 
     def postprocess_book(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
+        """
+        Perform the postprocess book operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise EPUBInput.postprocess book through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         rc = getattr(self, "removed_cover", None)
         if rc:
             cover_toc_item = None

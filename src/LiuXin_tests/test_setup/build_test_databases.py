@@ -1,6 +1,14 @@
 
 """
-Constructs all the test databases.
+Build retained fixture databases.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise build test databases through a consuming regression::
+
+        python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
 """
 
 import argparse
@@ -33,29 +41,21 @@ def build_all_test_databases(
     parallel=False,
 ):
     """
-    Constructs all specified test databases - test database are built from submodules in the test_databases modules -
-    each test database should present a build_self method at the root of the module which can be used to construct the
-    test database.
-    Unless an override is provided test database will be copied into the test_databases folder in LiuXin_data once they
-    have been built.
-    :param dump: If True then the test_db files will be written out in the form of csv files.
-                 These files will be written into the corresponding db folder in the test_data folder in test.
-    :type dump: bool
+    Constructs all specified test databases - test database are built from submodules in the test_databases modules - each test database should present a build_self method at the root of the module which can be used to construct the test database. Unless an override is provided test database will be copied into the test_databases folder in LiuXin_data once they have been built.
 
-    :param only_build_new: If True, then the data folder containing the output databases will be examined.
-                           Only test databases not already in the test_databases folder will be built.
-    :type only_build_new: bool
+    Example:
+        Exercise build all test databases through a consuming regression::
 
-    :param specific_build: Allows you to specify a single database to build
-    :type specific_build: str
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
 
-    :param fsm_build: Do you also want the test database to have a folder store manager (containing a single empty
-                        folder) built for them as well? This will be stored with the rest in the test_fsms folder
 
-    :param parallel: If False, then the build will be run with a single process
-                     If an integer, then the build will be run with that number of processes
-
-    :return:
+    :param dump: Value supplied for dump under the utility contract.
+    :param only_build_new: Value supplied for only build new under the utility contract.
+    :param specific_build: Value supplied for specific build under the utility contract.
+    :param fsm_build: Value supplied for fsm build under the utility contract.
+    :param parallel: Value supplied for parallel under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     # Ensure the existence of the test database folder
     test_db_dir = os.path.join(LiuXin_data_folder, "test_databases")
@@ -108,14 +108,23 @@ def do_test_db_build(
 ):
     """
     Do the actual work of building a db.
-    :param test_db_dir:
-    :param test_fsm_dir:
-    :param test_db_name:
-    :param fsm_build: If True, then the database will have a blank fsm built for it
-    :param suppress_exceptions: If True then exceptions will not halt the program - instead the status dict will be
-                                returned
 
-    :return status_dict: The results of running the build
+    Example:
+        Exercise do test db build through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+    :param test_db_name: Value supplied for test db name under the utility contract.
+    :param test_db_dir: Value supplied for test db dir under the utility contract.
+    :param test_fsm_dir: Value supplied for test fsm dir under the utility contract.
+    :param fsm_build: Value supplied for fsm build under the utility contract.
+    :param suppress_exceptions: Value supplied for suppress exceptions under the utility
+        contract.
+    :param local_test_asset_version: Value supplied for local test asset version under
+        the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     status_dict = {
         "build_complete": False,
@@ -212,6 +221,21 @@ def do_test_db_build(
 def get_data_packages(test_db_dir=None, only_build_new=False, specific_build=None):
 
     # Introspect to find the test databases to load
+    """
+    Return data packages under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get data packages through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+    :param test_db_dir: Value supplied for test db dir under the utility contract.
+    :param only_build_new: Value supplied for only build new under the utility contract.
+    :param specific_build: Value supplied for specific build under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     keep_re = r"test_db_[0-9]+"
     test_data_packages = sorted([mn for mn in get_folders(test_data_folder) if re.match(keep_re, mn)])
 
@@ -249,8 +273,17 @@ def get_data_packages(test_db_dir=None, only_build_new=False, specific_build=Non
 def package_good_sort(package_name_list):
     """
     Preforms an actually helpful sorting of the package names.
-    :param package_name_list:
-    :return:
+
+    Example:
+        Exercise package good sort through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+    :param package_name_list: Value supplied for package name list under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     pos_name_map = dict()
     for package_name in package_name_list:

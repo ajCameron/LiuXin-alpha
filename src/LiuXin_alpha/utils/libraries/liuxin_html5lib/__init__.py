@@ -1,14 +1,13 @@
 """
-HTML parsing library based on the WHATWG "HTML5"
-specification. The parser is designed to be compatible with existing
-HTML found in the wild and implements well-defined error recovery that
-is largely compatible with modern desktop web browsers.
+Expose the supported liuxin html5lib compatibility surface.
 
-Example usage:
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-import html5lib
-f = open("my_document.html")
-tree = html5lib.parse(f)
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/file_formats/html/test_html_modernized.py
 """
 
 from __future__ import absolute_import, division, unicode_literals

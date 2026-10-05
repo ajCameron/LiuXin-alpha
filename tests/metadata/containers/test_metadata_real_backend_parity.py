@@ -1,3 +1,14 @@
+"""
+Verify metadata contracts retain parity across configured database backends.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test metadata real backend parity through its owning regression module::
+
+        python -m pytest -q tests/metadata/containers/test_metadata_real_backend_parity.py
+"""
 from __future__ import annotations
 
 import importlib.util
@@ -30,6 +41,17 @@ _FORCED_RELATION_FIELDS = (
 
 
 def _load_isfdb_builder_script() -> Any:
+    """
+    Perform the load isfdb builder script test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise load isfdb builder script through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_real_backend_parity.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     script_path = Path(__file__).resolve().parents[3] / "scripts" / "build_isfdb_test_db.py"
     spec = importlib.util.spec_from_file_location("build_isfdb_test_db", script_path)
     assert spec is not None
@@ -41,6 +63,18 @@ def _load_isfdb_builder_script() -> Any:
 
 
 def _new_stage_conn(module: Any) -> sqlite3.Connection:
+    """
+    Perform the new stage conn test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise new stage conn through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_real_backend_parity.py
+
+
+    :param module: Value supplied for module in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     conn = sqlite3.connect(":memory:")
     for spec in module.STAGE_SPECS.values():
         conn.execute(spec.create_sql)
@@ -48,6 +82,18 @@ def _new_stage_conn(module: Any) -> sqlite3.Connection:
 
 
 def _build_small_isfdb_backed_test_db(output_db: Path) -> None:
+    """
+    Perform the build small isfdb backed test db test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise build small isfdb backed test db through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_real_backend_parity.py
+
+
+    :param output_db: Value supplied for output db in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     module = _load_isfdb_builder_script()
     stage_conn = _new_stage_conn(module)
     try:
@@ -151,6 +197,19 @@ def _build_small_isfdb_backed_test_db(output_db: Path) -> None:
 
 
 def _item_id_for_pub_scratch(db_path: Path, scratch: str) -> int:
+    """
+    Perform the item id for pub scratch test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise item id for pub scratch through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_real_backend_parity.py
+
+
+    :param db_path: Value supplied for db path in the focused test operation.
+    :param scratch: Value supplied for scratch in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     conn = sqlite3.connect(str(db_path))
     try:
         row = conn.execute(
@@ -164,6 +223,18 @@ def _item_id_for_pub_scratch(db_path: Path, scratch: str) -> int:
 
 
 def _metadata_values(raw: Any) -> tuple[str, ...]:
+    """
+    Return a normalized snapshot of metadata values used in projection assertions.
+
+    Example:
+        Exercise metadata values through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_real_backend_parity.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return ()
     if isinstance(raw, Mapping):
@@ -179,6 +250,18 @@ def _metadata_values(raw: Any) -> tuple[str, ...]:
 
 
 def _identifier_snapshot(metadata: Any) -> dict[str, tuple[str, ...]]:
+    """
+    Perform the identifier snapshot test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise identifier snapshot through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_real_backend_parity.py
+
+
+    :param metadata: Metadata container or mapping supplied to the assertion helper.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return {
         str(scheme): _metadata_values(values)
         for scheme, values in sorted(metadata.get_identifiers().items())
@@ -186,6 +269,18 @@ def _identifier_snapshot(metadata: Any) -> dict[str, tuple[str, ...]]:
 
 
 def _metadata_snapshot(metadata: Any) -> dict[str, Any]:
+    """
+    Perform the metadata snapshot test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise metadata snapshot through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_real_backend_parity.py
+
+
+    :param metadata: Metadata container or mapping supplied to the assertion helper.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return {
         "title": getattr(metadata, "display_title", None) or getattr(metadata, "title", None),
         "tags": _metadata_values(metadata.tags),
@@ -198,6 +293,19 @@ def _metadata_snapshot(metadata: Any) -> dict[str, Any]:
 
 
 def _cache_metadata(db: Any, item_id: int) -> Any:
+    """
+    Perform the cache metadata test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise cache metadata through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_real_backend_parity.py
+
+
+    :param db: Value supplied for db in the focused test operation.
+    :param item_id: Value supplied for item id in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     cache = create_storage_cache(db, "schema_backed")
     cache.read()
     cache = Cache.from_storage(cache)
@@ -210,6 +318,19 @@ def _cache_metadata(db: Any, item_id: int) -> Any:
 
 
 def _lazy_metadata(db: Any, item_id: int) -> Any:
+    """
+    Perform the lazy metadata test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise lazy metadata through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_real_backend_parity.py
+
+
+    :param db: Value supplied for db in the focused test operation.
+    :param item_id: Value supplied for item id in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     metadata = LazyLiuXinWEMIMetadataHydrator(db).get_lazy_liuxin_wemi_metadata(
         item_id=item_id,
     )
@@ -226,6 +347,23 @@ def _facade_metadata(
     lazy: bool = False,
     cache: Any = None,
 ) -> Any:
+    """
+    Perform the facade metadata test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise facade metadata through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_real_backend_parity.py
+
+
+    :param db: Value supplied for db in the focused test operation.
+    :param item_id: Value supplied for item id in the focused test operation.
+    :param kind: Value supplied for kind in the focused test operation.
+    :param source: Source object or row used by the tested adapter.
+    :param lazy: Value supplied for lazy in the focused test operation.
+    :param cache: Cache double or adapter under test.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return metadata_facade.metadata_from_database(
         db,
         item_id=item_id,
@@ -239,6 +377,18 @@ def _facade_metadata(
 
 
 def _calibre_snapshot(metadata: Any) -> dict[str, Any]:
+    """
+    Perform the calibre snapshot test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise calibre snapshot through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_real_backend_parity.py
+
+
+    :param metadata: Metadata container or mapping supplied to the assertion helper.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return {
         "title": getattr(metadata, "title", None),
         "tags": _metadata_values(getattr(metadata, "tags", None)),
@@ -248,6 +398,18 @@ def _calibre_snapshot(metadata: Any) -> dict[str, Any]:
 
 
 def _flatten_identifier_values(snapshot: dict[str, Any]) -> set[str]:
+    """
+    Perform the flatten identifier values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise flatten identifier values through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_real_backend_parity.py
+
+
+    :param snapshot: Value supplied for snapshot in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     identifiers = snapshot.get("identifiers", {})
     if not isinstance(identifiers, Mapping):
         return set()
@@ -261,6 +423,18 @@ def _flatten_identifier_values(snapshot: dict[str, Any]) -> set[str]:
 def test_isfdb_backed_metadata_database_cache_lazy_parity_and_write_back(
     tmp_path: Path,
 ) -> None:
+    """
+    Verify isfdb backed metadata database cache lazy parity and write back.
+
+    Example:
+        Exercise test isfdb backed metadata database cache lazy parity and write back through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_real_backend_parity.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     db_path = tmp_path / "isfdb_metadata_parity.test_db"
     _build_small_isfdb_backed_test_db(db_path)
     item_id = _item_id_for_pub_scratch(db_path, "isfdb:pub:100")
@@ -315,6 +489,19 @@ def test_isfdb_backed_metadata_database_cache_lazy_parity_and_write_back(
 def test_metadata_rich_fixture_operational_round_trip_contract(
     provision_test_database,
 ) -> None:
+    """
+    Verify metadata rich fixture operational round trip contract.
+
+    Example:
+        Exercise test metadata rich fixture operational round trip contract through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_real_backend_parity.py
+
+
+    :param provision_test_database: Value supplied for provision test database in the
+        focused test operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     provisioned = provision_test_database("metadata_rich_db_1")
     item_id = 1
 

@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
-"""Run a named LiuXin pytest stream.
+"""
+Run a configured project test stream.
 
-The default remains the complete test suite.  The smaller streams provide
-quieter, faster feedback while working in an isolated part of the codebase;
-they are not replacements for the external full-suite merge gate.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise run test stream through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
 """
 
 from __future__ import annotations
@@ -53,15 +58,47 @@ STREAM_DESCRIPTIONS = {
 
 
 class StreamConfigurationError(RuntimeError):
-    """Raised when a configured stream points outside the available test tree."""
+    """
+    Raised when a configured stream points outside the available test tree.
+
+    Example:
+        Exercise StreamConfigurationError through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+    """
 
 
 def _deduplicate(paths: Sequence[str]) -> list[str]:
+    """
+    Perform the deduplicate operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  deduplicate through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param paths: Value supplied for paths under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return list(dict.fromkeys(paths))
 
 
 def discover_smoke_test_files(repo_root: Path) -> list[str]:
-    """Discover smoke-named tests outside the database suite."""
+    """
+    Discover smoke-named tests outside the database suite.
+
+    Example:
+        Exercise discover smoke test files through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     tests_root = repo_root / "tests"
     discovered: list[str] = []
@@ -74,7 +111,21 @@ def discover_smoke_test_files(repo_root: Path) -> list[str]:
 
 
 def resolve_stream_files(repo_root: Path, stream: str) -> list[str]:
-    """Resolve and validate the pytest paths for ``stream``."""
+    """
+    Resolve and validate the pytest paths for ``stream``.
+
+    Example:
+        Exercise resolve stream files through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :param stream: Input or output stream wrapped by the terminal or compatibility
+        layer.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     if stream not in STREAM_DESCRIPTIONS:
         raise StreamConfigurationError(f"unknown test stream: {stream!r}")
@@ -115,7 +166,23 @@ def build_pytest_command(
     stream: str,
     extra_pytest_args: Sequence[str] = (),
 ) -> list[str]:
-    """Build the quiet pytest command used by the named stream."""
+    """
+    Build the quiet pytest command used by the named stream.
+
+    Example:
+        Exercise build pytest command through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :param stream: Input or output stream wrapped by the terminal or compatibility
+        layer.
+    :param extra_pytest_args: Value supplied for extra pytest args under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     selected = resolve_stream_files(repo_root, stream)
     extras = list(extra_pytest_args)
@@ -135,6 +202,18 @@ def build_pytest_command(
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """
+    Perform the build parser operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise build parser through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = argparse.ArgumentParser(
         description="Run a named test stream; the default stream is the complete suite."
     )
@@ -168,6 +247,19 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = build_parser()
     args = parser.parse_args(argv)
     repo_root = Path(__file__).resolve().parents[1]

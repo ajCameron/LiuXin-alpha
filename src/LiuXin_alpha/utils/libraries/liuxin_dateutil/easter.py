@@ -1,8 +1,13 @@
 """
-Copyright (c) 2003-2007  Gustavo Niemeyer <gustavo@niemeyer.net>
+Calculate Easter dates using the selected calendar method.
 
-This module offers extensions to the standard python 2.3+
-datetime module.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise easter through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_docstring_migration.py
 """
 __author__ = "Gustavo Niemeyer <gustavo@niemeyer.net>"
 __license__ = "PSF License"
@@ -18,38 +23,18 @@ EASTER_WESTERN = 3
 
 def easter(year, method=EASTER_WESTERN):
     """
-    This method was ported from the work done by GM Arts,
-    on top of the algorithm by Claus Tondering, which was
-    based in part on the algorithm of Ouding (1940), as
-    quoted in "Explanatory Supplement to the Astronomical
-    Almanac", P.  Kenneth Seidelmann, editor.
+    This method was ported from the work done by GM Arts, on top of the algorithm by Claus Tondering, which was based in part on the algorithm of Ouding (1940), as quoted in "Explanatory Supplement to the Astronomical Almanac", P. Kenneth Seidelmann, editor.
 
-    This algorithm implements three different easter
-    calculation methods:
+    Example:
+        Exercise easter through a consuming regression::
 
-    1 - Original calculation in Julian calendar, valid in
-        dates after 326 AD
-    2 - Original method, with date converted to Gregorian
-        calendar, valid in years 1583 to 4099
-    3 - Revised method, in Gregorian calendar, valid in
-        years 1583 to 4099 as well
+            python -m pytest -q tests/scripts/test_docstring_migration.py
 
-    These methods are represented by the constants:
 
-    EASTER_JULIAN   = 1
-    EASTER_ORTHODOX = 2
-    EASTER_WESTERN  = 3
-
-    The default method is method 3.
-
-    More about the algorithm may be found at:
-
-    http://users.chariot.net.au/~gmarts/eastalg.htm
-
-    and
-
-    http://www.tondering.dk/claus/calendar.html
-
+    :param year: Value supplied for year under the utility contract.
+    :param method: Value supplied for method under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     if not (1 <= method <= 3):

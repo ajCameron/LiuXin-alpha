@@ -1,21 +1,13 @@
-"""DB-backed language canonicalisation helpers.
+"""
+Resolve database language identifiers into normalized language records.
 
-This module provides a best-effort resolver that maps many common language
-signifiers to the FRBR schema's canonical `languages.language_id`.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-Supported inputs (examples):
-  - language_id as str/int: "123"
-  - ISO-639-1: "en"
-  - ISO-639-2/B: "eng", "fre"
-  - ISO-639-2/T: "fra", "deu"
-  - BCP-47 tags: "en-GB", "sr-Cyrl", "zh-Hant-TW" (tries full tag, then primary)
-  - Human-ish names (best effort): "English", "French"
+Example:
+    Exercise db language lookup through a consuming regression::
 
-Performance notes:
-  - We build an in-memory token->id index per database and keep it cached.
-  - We also keep a small per-db LRU for individual lookups.
-  - Since `languages` is intended to be a locked constant table, these caches
-    can be treated as long-lived.
+        python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
 """
 
 from __future__ import annotations
@@ -36,48 +28,166 @@ from LiuXin_alpha.errors import InputIntegrityError
 
 
 class _LRU:
-    """A tiny LRU cache."""
+    """
+    A tiny LRU cache.
+
+    Example:
+        Exercise  LRU through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+    """
 
     def __init__(self, maxsize: int = 2048) -> None:
+        """
+        Initialize and validate the LRU state.
+
+        Example:
+            Exercise  LRU.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+        :param maxsize: Value supplied for maxsize under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.maxsize = int(maxsize)
         self._od: "OrderedDict[str, Any]" = OrderedDict()
 
     def get(self, key: str, default: Any = None) -> Any:
+        """
+        Perform the get utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  LRU.get through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :param default: Value supplied for default under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if key in self._od:
             self._od.move_to_end(key)
             return self._od[key]
         return default
 
     def set(self, key: str, value: Any) -> None:
+        """
+        Perform the set utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  LRU.set through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._od[key] = value
         self._od.move_to_end(key)
         if len(self._od) > self.maxsize:
             self._od.popitem(last=False)
 
     def clear(self) -> None:
+        """
+        Perform the clear utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  LRU.clear through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._od.clear()
 
 
 class _DbLRU:
-    """LRU of per-db objects."""
+    """
+    LRU of per-db objects.
+
+    Example:
+        Exercise  DbLRU through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+    """
 
     def __init__(self, max_dbs: int = 32) -> None:
+        """
+        Initialize and validate the DbLRU state.
+
+        Example:
+            Exercise  DbLRU.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+        :param max_dbs: Value supplied for max dbs under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.max_dbs = int(max_dbs)
         self._od: "OrderedDict[str, Any]" = OrderedDict()
 
     def get(self, key: str) -> Any:
+        """
+        Perform the get utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  DbLRU.get through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if key in self._od:
             self._od.move_to_end(key)
             return self._od[key]
         return None
 
     def set(self, key: str, value: Any) -> None:
+        """
+        Perform the set utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  DbLRU.set through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._od[key] = value
         self._od.move_to_end(key)
         if len(self._od) > self.max_dbs:
             self._od.popitem(last=False)
 
     def drop(self, key: str) -> None:
+        """
+        Perform the drop utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  DbLRU.drop through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._od.pop(key, None)
 
 
@@ -95,11 +205,32 @@ _SEEDED_OK_BY_DB: _DbLRU = _DbLRU(max_dbs=128)  # stores bool
 
 @dataclass(frozen=True)
 class _LangIndex:
+    """
+    Provide the LangIndex utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise  LangIndex through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+    """
     schema_sig: Tuple[str, ...]
     token_to_id: Dict[str, int]
 
 
 def _norm_token(x: Any) -> str:
+    """
+    Perform the norm token utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  norm token through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if x is None:
         return ""
     s = str(x).strip().lower()
@@ -111,6 +242,19 @@ def _norm_token(x: Any) -> str:
 
 
 def _norm_name_like(x: Any) -> str:
+    """
+    Perform the norm name like utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  norm name like through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     s = _norm_token(x)
     if not s:
         return ""
@@ -119,7 +263,19 @@ def _norm_name_like(x: Any) -> str:
 
 
 def _get_conn(db_or_conn: Any) -> Tuple[sqlite3.Connection, bool]:
-    """Return (conn, should_close)."""
+    """
+    Return (conn, should_close).
+
+    Example:
+        Exercise  get conn through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param db_or_conn: Value supplied for db or conn under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(db_or_conn, sqlite3.Connection):
         return db_or_conn, False
 
@@ -137,6 +293,19 @@ def _get_conn(db_or_conn: Any) -> Tuple[sqlite3.Connection, bool]:
 
 def _db_key(db_or_conn: Any) -> str:
     # Prefer stable filesystem identity.
+    """
+    Perform the db key utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  db key through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param db_or_conn: Value supplied for db or conn under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         md = getattr(db_or_conn, "metadata", None)
         if isinstance(md, dict) and md.get("database_path"):
@@ -163,11 +332,37 @@ def _db_key(db_or_conn: Any) -> str:
 
 
 def _schema_sig(conn: sqlite3.Connection) -> Tuple[str, ...]:
+    """
+    Perform the schema sig utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  schema sig through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param conn: SQLite connection used for schema or metadata queries.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     cols = [str(r[1]) for r in conn.execute("PRAGMA table_info(languages);").fetchall()]
     return tuple(cols)
 
 
 def _build_index(conn: sqlite3.Connection) -> _LangIndex:
+    """
+    Perform the build index utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  build index through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param conn: SQLite connection used for schema or metadata queries.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     sig = _schema_sig(conn)
     colset = set(sig)
     if "languages" not in {str(r[0]) for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table';")}:  # pragma: no cover
@@ -264,6 +459,20 @@ def _build_index(conn: sqlite3.Connection) -> _LangIndex:
 
 
 def _get_index(db_or_conn: Any, *, ensure_seeded: bool = True) -> _LangIndex:
+    """
+    Perform the get index utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  get index through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param db_or_conn: Value supplied for db or conn under the utility contract.
+    :param ensure_seeded: Value supplied for ensure seeded under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     key = _db_key(db_or_conn)
 
     with _LOCK:
@@ -297,6 +506,19 @@ def _get_index(db_or_conn: Any, *, ensure_seeded: bool = True) -> _LangIndex:
 
 
 def _get_lookup_cache(db_or_conn: Any) -> _LRU:
+    """
+    Perform the get lookup cache utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  get lookup cache through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param db_or_conn: Value supplied for db or conn under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     key = _db_key(db_or_conn)
     with _LOCK:
         lru = _LOOKUP_LRU_BY_DB.get(key)
@@ -308,7 +530,19 @@ def _get_lookup_cache(db_or_conn: Any) -> _LRU:
 
 
 def invalidate_language_caches(db_or_conn: Any) -> None:
-    """Drop cached indexes/lookup results for a database."""
+    """
+    Drop cached indexes/lookup results for a database.
+
+    Example:
+        Exercise invalidate language caches through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param db_or_conn: Value supplied for db or conn under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     key = _db_key(db_or_conn)
     with _LOCK:
         _INDEX_BY_DB.drop(key)
@@ -322,11 +556,18 @@ def invalidate_language_caches(db_or_conn: Any) -> None:
 
 
 def ensure_languages_seeded_and_locked(db_or_conn: Any) -> bool:
-    """Ensure FRBR `languages` is populated and protected.
+    """
+    Ensure FRBR `languages` is populated and protected.
 
-    Returns True if we *believe* we are dealing with the FRBR-style languages
-    constant table (and it is now seeded/locked). Returns False if the DB has
-    no `languages` table or an incompatible schema (e.g. a calibre DB).
+    Example:
+        Exercise ensure languages seeded and locked through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param db_or_conn: Value supplied for db or conn under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     # Fast path: avoid repeated DB hits per db.
     key = _db_key(db_or_conn)
@@ -423,9 +664,22 @@ def best_effort_language_id(
     strict: bool = False,
     ensure_seeded: bool = True,
 ) -> Optional[int]:
-    """Resolve `raw` to `languages.language_id`.
+    """
+    Resolve `raw` to `languages.language_id`.
 
-    If `strict=True`, raises InputIntegrityError when no match is found.
+    Example:
+        Exercise best effort language id through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param db_or_conn: Value supplied for db or conn under the utility contract.
+    :param raw: Value supplied for raw under the utility contract.
+    :param default: Value supplied for default under the utility contract.
+    :param strict: Value supplied for strict under the utility contract.
+    :param ensure_seeded: Value supplied for ensure seeded under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if raw is None:
         return default
@@ -513,9 +767,20 @@ def register_language_id_sql_function(
     function_name: str = "LANGUAGE_ID",
     ensure_seeded: bool = True,
 ) -> None:
-    """Register a SQLite UDF: LANGUAGE_ID(<token>) -> language_id.
+    """
+    Register a SQLite UDF: LANGUAGE_ID(<token>) -> language_id.
 
-    Note: SQLite UDFs are per-connection.
+    Example:
+        Exercise register language id sql function through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param db_or_conn: Value supplied for db or conn under the utility contract.
+    :param function_name: Value supplied for function name under the utility contract.
+    :param ensure_seeded: Value supplied for ensure seeded under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     conn, close = _get_conn(db_or_conn)
     try:

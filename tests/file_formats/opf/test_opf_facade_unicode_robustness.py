@@ -1,3 +1,14 @@
+"""
+Provide test opf facade unicode robustness utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test opf facade unicode robustness through a consuming regression::
+
+        python -m pytest -q tests/file_formats/opf/test_opf_facade_unicode_robustness.py
+"""
 from __future__ import annotations
 
 import io
@@ -58,15 +69,57 @@ OPF3_UNICODE = b"""<?xml version='1.0' encoding='utf-8'?>
 
 @pytest.fixture()
 def opf_mod(legacy_liuxin_alias):
+    """
+    Perform the opf mod operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise opf mod through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf_facade_unicode_robustness.py
+
+
+    :param legacy_liuxin_alias: Value supplied for legacy liuxin alias under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return importlib.import_module("LiuXin_alpha.file_formats.opf.opf")
 
 
 def _dc_text(root: etree._Element, tag: str) -> str | None:
+    """
+    Perform the dc text operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  dc text through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf_facade_unicode_robustness.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param tag: Value supplied for tag under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     el = root.find(f".//{{{DC_NS}}}{tag}")
     return el.text if el is not None else None
 
 
 def test_get_metadata_accepts_pathlike_and_byteslike(opf_mod, tmp_path: Path) -> None:
+    """
+    Perform the test get metadata accepts pathlike and byteslike operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test get metadata accepts pathlike and byteslike through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf_facade_unicode_robustness.py
+
+
+    :param opf_mod: Value supplied for opf mod under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     p = tmp_path / "unicode.opf"
     p.write_bytes(OPF2_UNICODE)
 
@@ -84,6 +137,19 @@ def test_get_metadata_accepts_pathlike_and_byteslike(opf_mod, tmp_path: Path) ->
 
 
 def test_get_metadata_restores_stream_position(opf_mod) -> None:
+    """
+    Perform the test get metadata restores stream position operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test get metadata restores stream position through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf_facade_unicode_robustness.py
+
+
+    :param opf_mod: Value supplied for opf mod under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     stream = io.BytesIO(OPF2_UNICODE)
     stream.seek(11)
     pos = stream.tell()
@@ -94,6 +160,19 @@ def test_get_metadata_restores_stream_position(opf_mod) -> None:
 
 
 def test_set_metadata_accepts_memoryview_and_preserves_unicode(opf_mod) -> None:
+    """
+    Perform the test set metadata accepts memoryview and preserves unicode operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test set metadata accepts memoryview and preserves unicode through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf_facade_unicode_robustness.py
+
+
+    :param opf_mod: Value supplied for opf mod under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     mi, ver, *_ = opf_mod.get_metadata(OPF2_UNICODE)
     mi.title = "Updated — café κόσμε 😀"
     opf_bytes, ver2, _ = opf_mod.set_metadata(memoryview(OPF2_UNICODE), mi)
@@ -104,6 +183,19 @@ def test_set_metadata_accepts_memoryview_and_preserves_unicode(opf_mod) -> None:
 
 
 def test_set_metadata_restores_stream_position(opf_mod) -> None:
+    """
+    Perform the test set metadata restores stream position operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test set metadata restores stream position through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf_facade_unicode_robustness.py
+
+
+    :param opf_mod: Value supplied for opf mod under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     stream = io.BytesIO(OPF2_UNICODE)
     stream.seek(7)
     pos = stream.tell()
@@ -113,6 +205,20 @@ def test_set_metadata_restores_stream_position(opf_mod) -> None:
 
 
 def test_set_metadata_opf3_with_pathlike_unicode_title(opf_mod, tmp_path: Path) -> None:
+    """
+    Perform the test set metadata opf3 with pathlike unicode title operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test set metadata opf3 with pathlike unicode title through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf_facade_unicode_robustness.py
+
+
+    :param opf_mod: Value supplied for opf mod under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     p = tmp_path / "unicode3.opf"
     p.write_bytes(OPF3_UNICODE)
 

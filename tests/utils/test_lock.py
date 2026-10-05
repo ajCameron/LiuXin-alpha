@@ -1,10 +1,13 @@
-"""Tests for :mod:`LiuXin_alpha.utils.lock`.
+"""
+Provide test lock utility behavior.
 
-The module provides cross-process file locking helpers.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-We primarily test the POSIX implementation (the normal case for CI here).
-For the Windows branch of ``singleinstance`` we use small fakes so the logic
-is exercised without requiring pywin32.
+Example:
+    Exercise test lock through a consuming regression::
+
+        python -m pytest -q tests/utils/test_lock.py
 """
 
 from __future__ import annotations
@@ -21,10 +24,17 @@ import pytest
 
 
 def _import_lock_module():
-    """Import helper.
+    """
+    Import helper.
 
-    On Windows without pywin32, the module can raise at import-time.
-    We skip rather than failing the entire suite.
+    Example:
+        Exercise  import lock module through a consuming regression::
+
+            python -m pytest -q tests/utils/test_lock.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     try:
@@ -36,6 +46,20 @@ def _import_lock_module():
 
 @pytest.mark.skipif(sys.platform.startswith("win"), reason="Uses POSIX fcntl semantics")
 def test_unix_open_sets_cloexec_via_fcntl_when_no_speedup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Perform the test unix open sets cloexec via fcntl when no speedup utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test unix open sets cloexec via fcntl when no speedup through a consuming regression::
+
+            python -m pytest -q tests/utils/test_lock.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     lock = _import_lock_module()
 
     # Force the code-path where speedup provides no O_CLOEXEC.
@@ -44,6 +68,20 @@ def test_unix_open_sets_cloexec_via_fcntl_when_no_speedup(tmp_path: Path, monkey
     orig_getitem = type(plugins_mod.plugins).__getitem__
 
     def fake_getitem(self: Any, name: str):
+        """
+        Perform the fake getitem utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise test unix open sets cloexec via fcntl when no speedup.fake getitem through a consuming regression::
+
+                python -m pytest -q tests/utils/test_lock.py
+
+
+        :param self: Value supplied for self under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         assert name == "speedup"
         return None, "no-speedup"
 
@@ -53,6 +91,21 @@ def test_unix_open_sets_cloexec_via_fcntl_when_no_speedup(tmp_path: Path, monkey
     real_fcntl = lock.fcntl.fcntl
 
     def spy_fcntl(fd: int, op: int, arg: int):
+        """
+        Perform the spy fcntl utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise test unix open sets cloexec via fcntl when no speedup.spy fcntl through a consuming regression::
+
+                python -m pytest -q tests/utils/test_lock.py
+
+
+        :param fd: Value supplied for fd under the utility contract.
+        :param op: Value supplied for op under the utility contract.
+        :param arg: Value supplied for arg under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         calls.append((fd, op, arg))
         return real_fcntl(fd, op, arg)
 
@@ -74,17 +127,53 @@ def test_unix_open_sets_cloexec_via_fcntl_when_no_speedup(tmp_path: Path, monkey
 
 @pytest.mark.skipif(sys.platform.startswith("win"), reason="Uses POSIX fcntl semantics")
 def test_unix_open_uses_speedup_o_cloexec_when_available(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Perform the test unix open uses speedup o cloexec when available utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test unix open uses speedup o cloexec when available through a consuming regression::
+
+            python -m pytest -q tests/utils/test_lock.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     lock = _import_lock_module()
 
     from LiuXin_alpha.utils import plugins as plugins_mod
 
     class Speedup:
         # Use the platform constant when present; otherwise pick a plausible bit.
+        """
+        Provide the Speedup utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise test unix open uses speedup o cloexec when available.Speedup through a consuming regression::
+
+                python -m pytest -q tests/utils/test_lock.py
+        """
         O_CLOEXEC = getattr(os, "O_CLOEXEC", 0x80000)
 
     orig_getitem = type(plugins_mod.plugins).__getitem__
 
     def fake_getitem(self: Any, name: str):
+        """
+        Perform the fake getitem utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise test unix open uses speedup o cloexec when available.fake getitem through a consuming regression::
+
+                python -m pytest -q tests/utils/test_lock.py
+
+
+        :param self: Value supplied for self under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         assert name == "speedup"
         return Speedup(), None
 
@@ -94,6 +183,21 @@ def test_unix_open_uses_speedup_o_cloexec_when_available(tmp_path: Path, monkeyp
     real_fcntl = lock.fcntl.fcntl
 
     def spy_fcntl(fd: int, op: int, arg: int):
+        """
+        Perform the spy fcntl utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise test unix open uses speedup o cloexec when available.spy fcntl through a consuming regression::
+
+                python -m pytest -q tests/utils/test_lock.py
+
+
+        :param fd: Value supplied for fd under the utility contract.
+        :param op: Value supplied for op under the utility contract.
+        :param arg: Value supplied for arg under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         calls.append((fd, op, arg))
         return real_fcntl(fd, op, arg)
 
@@ -113,11 +217,33 @@ def test_unix_open_uses_speedup_o_cloexec_when_available(tmp_path: Path, monkeyp
 
 @pytest.mark.skipif(sys.platform.startswith("win"), reason="Uses POSIX fcntl semantics")
 def test_unix_open_falls_back_when_kernel_rejects_o_cloexec(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Perform the test unix open falls back when kernel rejects o cloexec utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test unix open falls back when kernel rejects o cloexec through a consuming regression::
+
+            python -m pytest -q tests/utils/test_lock.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     lock = _import_lock_module()
 
     from LiuXin_alpha.utils import plugins as plugins_mod
 
     class Speedup:
+        """
+        Provide the Speedup utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise test unix open falls back when kernel rejects o cloexec.Speedup through a consuming regression::
+
+                python -m pytest -q tests/utils/test_lock.py
+        """
         O_CLOEXEC = getattr(os, "O_CLOEXEC", 0x80000)
 
     orig_getitem = type(plugins_mod.plugins).__getitem__
@@ -128,6 +254,22 @@ def test_unix_open_falls_back_when_kernel_rejects_o_cloexec(tmp_path: Path, monk
 
     def flaky_open(path: str, flags: int, mode: int):
         # First call (with O_CLOEXEC) fails with EINVAL, subsequent call succeeds.
+        """
+        Perform the flaky open utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise test unix open falls back when kernel rejects o cloexec.flaky open through a consuming regression::
+
+                python -m pytest -q tests/utils/test_lock.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param flags: Value supplied for flags under the utility contract.
+        :param mode: Open or adapter mode controlling read/write behavior.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         seen.append(flags)
         if len(seen) == 1 and (flags & Speedup.O_CLOEXEC):
             raise OSError(errno.EINVAL, "EINVAL")
@@ -152,6 +294,19 @@ def test_unix_open_falls_back_when_kernel_rejects_o_cloexec(tmp_path: Path, monk
 
 @pytest.mark.skipif(sys.platform.startswith("win"), reason="Uses POSIX fcntl semantics")
 def test_exclusivefile_allows_basic_read_write_and_reacquire(tmp_path: Path) -> None:
+    """
+    Perform the test exclusivefile allows basic read write and reacquire utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test exclusivefile allows basic read write and reacquire through a consuming regression::
+
+            python -m pytest -q tests/utils/test_lock.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     lock = _import_lock_module()
     p = tmp_path / "data.bin"
 
@@ -167,6 +322,20 @@ def test_exclusivefile_allows_basic_read_write_and_reacquire(tmp_path: Path) -> 
 
 @pytest.mark.skipif(sys.platform.startswith("win"), reason="Uses POSIX fcntl semantics")
 def test_exclusivefile_prevents_reentrant_lock_in_same_process(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Perform the test exclusivefile prevents reentrant lock in same process utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test exclusivefile prevents reentrant lock in same process through a consuming regression::
+
+            python -m pytest -q tests/utils/test_lock.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     lock = _import_lock_module()
     p = tmp_path / "reentrant.bin"
 
@@ -181,6 +350,20 @@ def test_exclusivefile_prevents_reentrant_lock_in_same_process(tmp_path: Path, m
 
 @pytest.mark.skipif(sys.platform.startswith("win"), reason="Uses POSIX fork-based locking semantics")
 def test_exclusivefile_prevents_lock_in_other_process(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Perform the test exclusivefile prevents lock in other process utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test exclusivefile prevents lock in other process through a consuming regression::
+
+            python -m pytest -q tests/utils/test_lock.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     lock = _import_lock_module()
     p = tmp_path / "xproc.bin"
 
@@ -189,6 +372,18 @@ def test_exclusivefile_prevents_lock_in_other_process(tmp_path: Path, monkeypatc
     release = ctx.Event()
 
     def child() -> None:
+        """
+        Perform the child utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise test exclusivefile prevents lock in other process.child through a consuming regression::
+
+                python -m pytest -q tests/utils/test_lock.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.utils.lock import ExclusiveFile
 
         with ExclusiveFile(str(p), timeout=1):
@@ -215,6 +410,20 @@ def test_exclusivefile_prevents_lock_in_other_process(tmp_path: Path, monkeypatc
 
 @pytest.mark.skipif(sys.platform.startswith("win"), reason="Uses POSIX fcntl semantics")
 def test_singleinstance_posix_across_processes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Perform the test singleinstance posix across processes utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test singleinstance posix across processes through a consuming regression::
+
+            python -m pytest -q tests/utils/test_lock.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     lock = _import_lock_module()
 
     # Ensure the lock file lives under tmp_path rather than the user's home.
@@ -227,6 +436,18 @@ def test_singleinstance_posix_across_processes(tmp_path: Path, monkeypatch: pyte
     q = ctx.Queue()
 
     def child() -> None:
+        """
+        Perform the child utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise test singleinstance posix across processes.child through a consuming regression::
+
+                python -m pytest -q tests/utils/test_lock.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.utils.lock import singleinstance
 
         q.put(singleinstance("pytest"))
@@ -243,6 +464,19 @@ def test_singleinstance_posix_across_processes(tmp_path: Path, monkeypatch: pyte
 
 
 def test_clean_lock_file_is_best_effort(tmp_path: Path) -> None:
+    """
+    Perform the test clean lock file is best effort utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test clean lock file is best effort through a consuming regression::
+
+            python -m pytest -q tests/utils/test_lock.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     lock = _import_lock_module()
 
     p = tmp_path / "cleanme"
@@ -260,9 +494,18 @@ def test_clean_lock_file_is_best_effort(tmp_path: Path) -> None:
 
 
 def test_singleinstance_windows_branch_with_fakes(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Exercise Windows singleinstance logic without pywin32.
+    """
+    Exercise Windows singleinstance logic without pywin32.
 
-    This is purely a unit test of control flow.
+    Example:
+        Exercise test singleinstance windows branch with fakes through a consuming regression::
+
+            python -m pytest -q tests/utils/test_lock.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     lock = _import_lock_module()
@@ -274,21 +517,95 @@ def test_singleinstance_windows_branch_with_fakes(monkeypatch: pytest.MonkeyPatc
     registered: List[tuple] = []
 
     class FakeWinError:
+        """
+        Report the FakeWinError Calibre compatibility failure.
+
+        Example:
+            Exercise test singleinstance windows branch with fakes.FakeWinError through a consuming regression::
+
+                python -m pytest -q tests/utils/test_lock.py
+        """
         ERROR_ALREADY_EXISTS = 183
         ERROR_INVALID_HANDLE = 6
 
     class FakeWin32API:
+        """
+        Provide the FakeWin32API utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise test singleinstance windows branch with fakes.FakeWin32API through a consuming regression::
+
+                python -m pytest -q tests/utils/test_lock.py
+        """
         def __init__(self) -> None:
+            """
+            Initialize and validate the FakeWin32API state.
+
+            Example:
+                Exercise test singleinstance windows branch with fakes.FakeWin32API.  init   through a consuming regression::
+
+                    python -m pytest -q tests/utils/test_lock.py
+
+
+            :return: None; validated state is stored on the receiving object.
+            """
             self._err = 0
 
         def GetLastError(self) -> int:
+            """
+            Perform the GetLastError utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise test singleinstance windows branch with fakes.FakeWin32API.GetLastError through a consuming regression::
+
+                    python -m pytest -q tests/utils/test_lock.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self._err
 
         def CloseHandle(self, h: Any) -> None:
+            """
+            Perform the CloseHandle utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise test singleinstance windows branch with fakes.FakeWin32API.CloseHandle through a consuming regression::
+
+                    python -m pytest -q tests/utils/test_lock.py
+
+
+            :param h: Value supplied for h under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             closed.append(h)
 
     class FakeWin32Event:
+        """
+        Carry normalized FakeWin32Event data across the Calibre compatibility boundary.
+
+        Example:
+            Exercise test singleinstance windows branch with fakes.FakeWin32Event through a consuming regression::
+
+                python -m pytest -q tests/utils/test_lock.py
+        """
         def CreateMutex(self, *_args: Any, **_kwargs: Any) -> str:
+            """
+            Perform the CreateMutex utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise test singleinstance windows branch with fakes.FakeWin32Event.CreateMutex through a consuming regression::
+
+                    python -m pytest -q tests/utils/test_lock.py
+
+
+            :param _args: Value supplied for args under the utility contract.
+            :param _kwargs: Value supplied for kwargs under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return "mutex"
 
     api = FakeWin32API()

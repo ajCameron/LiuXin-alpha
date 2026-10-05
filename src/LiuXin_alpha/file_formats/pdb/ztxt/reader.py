@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Read content from ztxt pdb file.
+Read the package format into normalized text, metadata and resources.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise reader through a consuming regression::
+
+        python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
 """
 from __future__ import annotations
 
@@ -23,17 +31,48 @@ ZTXT_HEADER_RECORD_SIZE = 32
 
 
 def _require_bytes(raw: _typing.Any, size: _typing.Any, context: _typing.Any) -> None:
+    """
+    Perform the require bytes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  require bytes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param size: Value supplied for size under the utility contract.
+    :param context: Value supplied for context under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if len(raw) < size:
         raise zTXTError("Truncated zTXT %s" % context)
 
 
 class HeaderRecord(object):
     """
-    The first record in the file is always the header record. It holds information related to the location of text,
-    images, and so on in the file. This is used in conjunction with the sections defined in the file header.
+    The first record in the file is always the header record. It holds information related to the location of text, images, and so on in the file. This is used in conjunction with the sections defined in the file header.
+
+    Example:
+        Exercise HeaderRecord through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
     """
 
     def __init__(self: _typing.Self, raw: _typing.Any) -> None:
+        """
+        Initialize and validate the headerrecord state.
+
+        Example:
+            Exercise HeaderRecord.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         _require_bytes(raw, ZTXT_HEADER_RECORD_SIZE, "header record")
         (self.version,) = struct.unpack(">H", raw[0:2])
         (self.num_records,) = struct.unpack(">H", raw[2:4])
@@ -43,7 +82,31 @@ class HeaderRecord(object):
 
 
 class Reader(FormatReader):
+    """
+    Parse reader data into normalized ebook structures.
+
+    Example:
+        Exercise Reader through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+    """
     def __init__(self: _typing.Self, header: _typing.Any, stream: _typing.Any, log: _typing.Any, options: _typing.Any) -> None:
+        """
+        Initialize and validate the reader state.
+
+        Example:
+            Exercise Reader.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param header: Value supplied for header under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param log: Value supplied for log under the utility contract.
+        :param options: Value supplied for options under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.stream = stream
         self.log = log
         self.options = options
@@ -77,6 +140,19 @@ class Reader(FormatReader):
             raise zTXTError("zTXT decompression failed for section 1: %s" % err) from err
 
     def section_data(self: _typing.Self, number: _typing.Any) -> _typing.Any:
+        """
+        Perform the section data operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Reader.section data through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param number: Value supplied for number under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if number < 0 or number >= len(self.sections):
             raise zTXTError("zTXT section %i is outside the PDB section table" % number)
         return self.sections[number]
@@ -84,8 +160,16 @@ class Reader(FormatReader):
     def decompress_text(self: _typing.Self, number: _typing.Any) -> _typing.Any:
         """
         Decompress the text from a particular section.
-        :param number:
-        :return:
+
+        Example:
+            Exercise Reader.decompress text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param number: Value supplied for number under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if number == 1:
             self.uncompressor = zlib.decompressobj()
@@ -97,8 +181,16 @@ class Reader(FormatReader):
     def extract_content(self: _typing.Self, output_dir: _typing.Any) -> _typing.Any:
         """
         Extract the entire file.
-        :param output_dir: All files ccontained in this archive will be dumped here.
-        :return:
+
+        Example:
+            Exercise Reader.extract content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param output_dir: Value supplied for output dir under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         raw_txt = b""
 

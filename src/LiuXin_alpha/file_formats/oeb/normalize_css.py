@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 
+"""
+Normalize CSS property values for OEB rendering and conversion.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise normalize css through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -16,16 +27,73 @@ except ImportError:
     _HAS_CSSUTILS = False
 
     class _NoCSSProfiles:
+        """
+        Provide the nocssprofiles contract for validated ebook processing.
+
+        Example:
+            Exercise  NoCSSProfiles through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+        """
         @staticmethod
         def validate(*args: _typing.Any, **kwargs: _typing.Any) -> bool:
+            """
+            Perform the validate operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise  NoCSSProfiles.validate through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param args: Positional values forwarded to the compatibility implementation.
+            :param kwargs: Keyword values forwarded to the compatibility implementation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return False
 
         @staticmethod
         def validateWithProfile(*args: _typing.Any, **kwargs: _typing.Any) -> tuple[_typing.Any, ...]:
+            """
+            Perform the validateWithProfile operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise  NoCSSProfiles.validateWithProfile through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param args: Positional values forwarded to the compatibility implementation.
+            :param kwargs: Keyword values forwarded to the compatibility implementation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return (None, False)
 
     class CSSParser:
+        """
+        Parse cssparser data into normalized ebook structures.
+
+        Example:
+            Exercise CSSParser through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+        """
         def __init__(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> None:
+            """
+            Initialize and validate the cssparser state.
+
+            Example:
+                Exercise CSSParser.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param args: Positional values forwarded to the compatibility implementation.
+            :param kwargs: Keyword values forwarded to the compatibility implementation.
+            :return: None; validated state is stored on the receiving object.
+            """
             raise ModuleNotFoundError("cssutils is required for CSS shorthand normalization")
 
     cssprofiles = _NoCSSProfiles()
@@ -145,6 +213,20 @@ BORDER_PROPS = ("color", "style", "width")
 
 
 def normalize_edge(name: _typing.Any, cssvalue: _typing.Any) -> _typing.Any:
+    """
+    Normalize edge under the format's safety and compatibility rules.
+
+    Example:
+        Exercise normalize edge through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param cssvalue: Value supplied for cssvalue under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     style = {}
     if isinstance(cssvalue, PropertyValue):
         primitives = [v.cssText for v in cssvalue]
@@ -172,15 +254,60 @@ def normalize_edge(name: _typing.Any, cssvalue: _typing.Any) -> _typing.Any:
 
 
 def simple_normalizer(prefix: _typing.Any, names: _typing.Any, check_inherit: bool = True) -> _typing.Any:
+    """
+    Perform the simple normalizer operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise simple normalizer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param prefix: Text prepended to the formatted or selected result.
+    :param names: Value supplied for names under the utility contract.
+    :param check_inherit: Value supplied for check inherit under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     composition = tuple("%s-%s" % (prefix, n) for n in names)
 
     def wrapper(local_name: _typing.Any, cssvalue: _typing.Any) -> _typing.Any:
+        """
+        Perform the wrapper operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise simple normalizer.wrapper through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param local_name: Value supplied for local name under the utility contract.
+        :param cssvalue: Value supplied for cssvalue under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return normalize_simple_composition(local_name, cssvalue, composition, check_inherit=check_inherit)
 
     return wrapper
 
 
 def normalize_simple_composition(name: _typing.Any, cssvalue: _typing.Any, composition: _typing.Any, check_inherit: bool = True) -> _typing.Any:
+    """
+    Normalize simple composition under the format's safety and compatibility rules.
+
+    Example:
+        Exercise normalize simple composition through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param cssvalue: Value supplied for cssvalue under the utility contract.
+    :param composition: Value supplied for composition under the utility contract.
+    :param check_inherit: Value supplied for check inherit under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if check_inherit and cssvalue.cssText == "inherit":
         style = {k: "inherit" for k in composition}
     else:
@@ -210,6 +337,21 @@ font_composition = (
 
 def normalize_font(cssvalue: _typing.Any, font_family_as_list: bool = False) -> _typing.Any:
     # See https://developer.mozilla.org/en-US/docs/Web/CSS/font
+    """
+    Normalize font under the format's safety and compatibility rules.
+
+    Example:
+        Exercise normalize font through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param cssvalue: Value supplied for cssvalue under the utility contract.
+    :param font_family_as_list: Value supplied for font family as list under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     composition = font_composition
     val = cssvalue.cssText
     if val == "inherit":
@@ -262,6 +404,20 @@ def normalize_font(cssvalue: _typing.Any, font_family_as_list: bool = False) -> 
 
 
 def normalize_border(name: _typing.Any, cssvalue: _typing.Any) -> _typing.Any:
+    """
+    Normalize border under the format's safety and compatibility rules.
+
+    Example:
+        Exercise normalize border through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param cssvalue: Value supplied for cssvalue under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     style = normalizers["border-" + EDGES[0]]("border-" + EDGES[0], cssvalue)
     vals = style.copy()
     for edge in EDGES[1:]:
@@ -299,6 +455,19 @@ SHORTHAND_DEFAULTS = {
 
 
 def normalize_filter_css(props: _typing.Any) -> _typing.Any:
+    """
+    Normalize filter css under the format's safety and compatibility rules.
+
+    Example:
+        Exercise normalize filter css through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param props: Value supplied for props under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     import logging
 
     if not _HAS_CSSUTILS:
@@ -319,6 +488,19 @@ def normalize_filter_css(props: _typing.Any) -> _typing.Any:
 
 def condense_edge(vals: _typing.Any) -> _typing.Any:
 
+    """
+    Perform the condense edge operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise condense edge through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param vals: Value supplied for vals under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     edges = {x_val.name.rpartition("-")[-1]: x_val.value for x_val in vals}
     if len(edges) != 4 or set(edges) != {"left", "top", "right", "bottom"}:
         return
@@ -345,7 +527,35 @@ def condense_edge(vals: _typing.Any) -> _typing.Any:
 
 
 def simple_condenser(prefix: _typing.Any, func: _typing.Any) -> _typing.Any:
+    """
+    Perform the simple condenser operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise simple condenser through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param prefix: Text prepended to the formatted or selected result.
+    :param func: Value supplied for func under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     def condense_simple(style: _typing.Any, props: _typing.Any) -> None:
+        """
+        Perform the condense simple operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise simple condenser.condense simple through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param style: Value supplied for style under the utility contract.
+        :param props: Value supplied for props under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         cp = func(props)
         if cp is not None:
             for prop in props:
@@ -356,6 +566,20 @@ def simple_condenser(prefix: _typing.Any, func: _typing.Any) -> _typing.Any:
 
 
 def condense_border(style: _typing.Any, props: _typing.Any) -> None:
+    """
+    Perform the condense border operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise condense border through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param style: Value supplied for style under the utility contract.
+    :param props: Value supplied for props under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     prop_map = {p.name: p for p in props}
     edge_vals = []
 
@@ -389,6 +613,19 @@ condensers = {
 
 
 def condense_rule(style: _typing.Any) -> None:
+    """
+    Perform the condense rule operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise condense rule through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param style: Value supplied for style under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     expanded = {"margin-": [], "padding-": [], "border-": []}
     for prop in style.getProperties():
         for local_x in expanded:
@@ -401,22 +638,80 @@ def condense_rule(style: _typing.Any) -> None:
 
 
 def condense_sheet(sheet: _typing.Any) -> None:
+    """
+    Perform the condense sheet operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise condense sheet through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param sheet: Value supplied for sheet under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for rule in sheet.cssRules:
         if rule.type == rule.STYLE_RULE:
             condense_rule(rule.style)
 
 
 def test_normalization() -> None:  # {{{
+    """
+    Perform the test normalization operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test normalization through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     import unittest
     from cssutils import parseStyle
     from itertools import product
 
     class TestNormalization(unittest.TestCase):
+        """
+        Provide the testnormalization contract for validated ebook processing.
+
+        Example:
+            Exercise test normalization.TestNormalization through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+        """
         longMessage = True
         maxDiff = None
 
         def test_font_normalization(self: _typing.Self) -> None:
+            """
+            Perform the test font normalization operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test normalization.TestNormalization.test font normalization through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             def font_dict(local_expected: _typing.Any) -> _typing.Any:
+                """
+                Perform the font dict operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise test normalization.TestNormalization.test font normalization.font dict through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+                :param local_expected: Value supplied for local expected under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 ans = {k: DEFAULTS[k] for k in font_composition} if local_expected else {}
                 ans.update(local_expected)
                 return ans
@@ -464,7 +759,33 @@ def test_normalization() -> None:  # {{{
                 self.assertDictEqual(font_dict(expected), style, raw)
 
         def test_border_normalization(self: _typing.Self) -> None:
+            """
+            Perform the test border normalization operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test normalization.TestNormalization.test border normalization through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             def border_edge_dict(local_expected: _typing.Any, local_edge: str = "right") -> _typing.Any:
+                """
+                Perform the border edge dict operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise test normalization.TestNormalization.test border normalization.border edge dict through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+                :param local_expected: Value supplied for local expected under the utility contract.
+                :param local_edge: Value supplied for local edge under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 ans = {
                     "border-%s-%s" % (local_edge, edge_x): DEFAULTS["border-%s-%s" % (local_edge, edge_x)]
                     for edge_x in ("style", "width", "color")
@@ -474,12 +795,39 @@ def test_normalization() -> None:  # {{{
                 return ans
 
             def border_dict(local_expected: _typing.Any) -> _typing.Any:
+                """
+                Perform the border dict operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise test normalization.TestNormalization.test border normalization.border dict through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+                :param local_expected: Value supplied for local expected under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 ans = {}
                 for local_edge in EDGES:
                     ans.update(border_edge_dict(local_expected, local_edge))
                 return ans
 
             def border_val_dict(local_expected: _typing.Any, local_val: str = "color") -> _typing.Any:
+                """
+                Perform the border val dict operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise test normalization.TestNormalization.test border normalization.border val dict through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+                :param local_expected: Value supplied for local expected under the utility contract.
+                :param local_val: Value supplied for local val under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 ans = {
                     "border-%s-%s" % (local_edge, local_val): DEFAULTS["border-%s-%s" % (local_edge, local_val)]
                     for local_edge in EDGES
@@ -526,7 +874,33 @@ def test_normalization() -> None:  # {{{
                 )
 
         def test_edge_normalization(self: _typing.Self) -> None:
+            """
+            Perform the test edge normalization operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test normalization.TestNormalization.test edge normalization through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             def edge_dict(local_prefix: _typing.Any, local_expected: _typing.Any) -> _typing.Any:
+                """
+                Perform the edge dict operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise test normalization.TestNormalization.test edge normalization.edge dict through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+                :param local_prefix: Value supplied for local prefix under the utility contract.
+                :param local_expected: Value supplied for local expected under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 return {"%s-%s" % (local_prefix, edge): local_x for edge, local_x in six_zip(EDGES, local_expected)}
 
             for raw, expected in iteritems(
@@ -543,7 +917,32 @@ def test_normalization() -> None:  # {{{
                     self.assertDictEqual(edge_dict(prefix, expected), normalizers[prefix](prefix, cval))
 
         def test_list_style_normalization(self: _typing.Self) -> None:
+            """
+            Perform the test list style normalization operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test normalization.TestNormalization.test list style normalization through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             def ls_dict(local_expected: _typing.Any) -> _typing.Any:
+                """
+                Perform the ls dict operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise test normalization.TestNormalization.test list style normalization.ls dict through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+                :param local_expected: Value supplied for local expected under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 ans = {
                     "list-style-%s" % local_x: DEFAULTS["list-style-%s" % local_x]
                     for local_x in ("type", "image", "position")
@@ -569,6 +968,18 @@ def test_normalization() -> None:  # {{{
                 self.assertDictEqual(ls_dict(expected), normalizers["list-style"]("list-style", cval))
 
         def test_filter_css_normalization(self: _typing.Self) -> None:
+            """
+            Perform the test filter css normalization operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test normalization.TestNormalization.test filter css normalization through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             ae = self.assertEqual
             ae({"font"} | set(font_composition), normalize_filter_css({"font"}))
             for p in ("margin", "padding"):
@@ -601,6 +1012,18 @@ def test_normalization() -> None:  # {{{
             )
 
         def test_edge_condensation(self: _typing.Self) -> None:
+            """
+            Perform the test edge condensation operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test normalization.TestNormalization.test edge condensation through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             for s, v in iteritems(
                 {
                     (1, 1, 3): None,
@@ -634,6 +1057,18 @@ def test_normalization() -> None:  # {{{
                             )
 
         def test_border_condensation(self: _typing.Self) -> None:
+            """
+            Perform the test border condensation operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test normalization.TestNormalization.test border condensation through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             vals = "red solid 5px"
             css = "; ".join(
                 "border-%s-%s: %s" % (edge, p, v) for edge in EDGES for p, v in six_zip(BORDER_PROPS, vals.split())

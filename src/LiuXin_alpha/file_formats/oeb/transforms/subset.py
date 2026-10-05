@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
+"""
+Subset embedded fonts to glyphs used by OEB content.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise subset through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -20,9 +31,25 @@ except ModuleNotFoundError:
     _HAS_FONT_SUBSETTER = False
 
     class NoGlyphs(Exception):
+        """
+        Provide the noglyphs contract for validated ebook processing.
+
+        Example:
+            Exercise NoGlyphs through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+        """
         pass
 
     class UnsupportedFont(Exception):
+        """
+        Provide the unsupportedfont contract for validated ebook processing.
+
+        Example:
+            Exercise UnsupportedFont through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+        """
         pass
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
@@ -36,12 +63,18 @@ __docformat__ = "restructuredtext en"
 
 def get_font_properties(rule: _typing.Any, default: _typing.Any = None) -> _typing.Any:
     """
-    Given a CSS rule, extract normalized font properties from
-    it. Note that shorthand font property should already have been expanded
-    by the CSS flattening code.
-    :param rule:
-    :param default:
-    :return:
+    Given a CSS rule, extract normalized font properties from it. Note that shorthand font property should already have been expanded by the CSS flattening code.
+
+    Example:
+        Exercise get font properties through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param rule: Value supplied for rule under the utility contract.
+    :param default: Value supplied for default under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     props = {}
     s = rule.style
@@ -105,11 +138,18 @@ def get_font_properties(rule: _typing.Any, default: _typing.Any = None) -> _typi
 
 def find_font_face_rules(sheet: _typing.Any, oeb: _typing.Any) -> _typing.Any:
     """
-    Find all @font-face rules in the given sheet and extract the relevant info from them.
-    sheet can be either a ManifestItem or a CSSStyleSheet.
-    :param sheet:
-    :param oeb:
-    :return:
+    Find all @font-face rules in the given sheet and extract the relevant info from them. sheet can be either a ManifestItem or a CSSStyleSheet.
+
+    Example:
+        Exercise find font face rules through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param sheet: Value supplied for sheet under the utility contract.
+    :param oeb: Value supplied for oeb under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     ans = []
     try:
@@ -145,10 +185,19 @@ def find_font_face_rules(sheet: _typing.Any, oeb: _typing.Any) -> _typing.Any:
 def elem_style(style_rules: _typing.Any, cls: _typing.Any, inherited_style: _typing.Any) -> _typing.Any:
     """
     Find the effective style for the given element.
-    :param style_rules:
-    :param cls:
-    :param inherited_style:
-    :return:
+
+    Example:
+        Exercise elem style through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param style_rules: Value supplied for style rules under the utility contract.
+    :param cls: Value supplied for cls under the utility contract.
+    :param inherited_style: Value supplied for inherited style under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     classes = cls.split()
     style = inherited_style.copy()
@@ -178,11 +227,30 @@ def elem_style(style_rules: _typing.Any, cls: _typing.Any, inherited_style: _typ
 class SubsetFonts(object):
 
     """
-    Subset all embedded fonts. Must be run after CSS flattening, as it requires
-    CSS normalization and flattening to work.
+    Subset all embedded fonts. Must be run after CSS flattening, as it requires CSS normalization and flattening to work.
+
+    Example:
+        Exercise SubsetFonts through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     def __call__(self: _typing.Self, oeb: _typing.Any, log: _typing.Any, opts: _typing.Any) -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SubsetFonts.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.oeb, self.log, self.opts = oeb, log, opts
         if not _HAS_FONT_SUBSETTER or subset is None:
             self.log.warn("Font subsetter is unavailable; skipping embedded font subsetting.")
@@ -198,6 +266,19 @@ class SubsetFonts(object):
         totals = [0, 0]
 
         def remove(local_font: _typing.Any) -> None:
+            """
+            Perform the remove operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise SubsetFonts.  call  .remove through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param local_font: Value supplied for local font under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             totals[1] += len(local_font["item"].data)
             self.oeb.manifest.remove(local_font["item"])
             local_font["rule"].parentStyleSheet.deleteRule(local_font["rule"])
@@ -242,7 +323,15 @@ class SubsetFonts(object):
     def find_embedded_fonts(self: _typing.Self) -> None:
         """
         Find all @font-face rules and extract the relevant info from them.
-        :return None:
+
+        Example:
+            Exercise SubsetFonts.find embedded fonts through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.embedded_fonts = []
         for item in self.oeb.manifest:
@@ -252,10 +341,16 @@ class SubsetFonts(object):
 
     def find_style_rules(self: _typing.Self) -> None:
         """
-        Extract all font related style information from all stylesheets into a
-        dict mapping classes to font properties specified by that class. All
-        the heavy lifting has already been done by the CSS flattening code.
-        :return:
+        Extract all font related style information from all stylesheets into a dict mapping classes to font properties specified by that class. All the heavy lifting has already been done by the CSS flattening code.
+
+        Example:
+            Exercise SubsetFonts.find style rules through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         rules = defaultdict(dict)
         for item in self.oeb.manifest:
@@ -279,6 +374,18 @@ class SubsetFonts(object):
         self.style_rules = dict(rules)
 
     def find_font_usage(self: _typing.Self) -> None:
+        """
+        Find font usage under the format's safety and compatibility rules.
+
+        Example:
+            Exercise SubsetFonts.find font usage through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for item in self.oeb.manifest:
             if not hasattr(item.data, "xpath"):
                 continue
@@ -293,10 +400,17 @@ class SubsetFonts(object):
 
     def used_font(self: _typing.Self, style: _typing.Any) -> _typing.Any:
         """
-        Given a style find the embedded font that matches it. Returns None if
-        no match is found (can happen if no family matches).
-        :param style:
-        :return:
+        Given a style find the embedded font that matches it. Returns None if no match is found (can happen if no family matches).
+
+        Example:
+            Exercise SubsetFonts.used font through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param style: Value supplied for style under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         ff = style.get("font-family", [])
         lnames = {six_unicode(x).lower() for x in ff}
@@ -369,6 +483,19 @@ class SubsetFonts(object):
                 return matches[0]
 
     def find_chars(self: _typing.Self, elem: _typing.Any) -> _typing.Any:
+        """
+        Find chars under the format's safety and compatibility rules.
+
+        Example:
+            Exercise SubsetFonts.find chars through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = set()
         if elem.text:
             ans |= set(elem.text)
@@ -378,6 +505,21 @@ class SubsetFonts(object):
         return ans
 
     def find_usage_in(self: _typing.Self, elem: _typing.Any, inherited_style: _typing.Any) -> None:
+        """
+        Find usage in under the format's safety and compatibility rules.
+
+        Example:
+            Exercise SubsetFonts.find usage in through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :param inherited_style: Value supplied for inherited style under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         style = elem_style(self.style_rules, elem.get("class", "") or "", inherited_style)
         for child in elem:
             self.find_usage_in(child, style)

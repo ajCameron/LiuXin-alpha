@@ -1,10 +1,40 @@
+"""
+Provide optionaltags utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise optionaltags through a consuming regression::
+
+        python -m pytest -q tests/file_formats/html/test_html_modernized.py
+"""
 from __future__ import absolute_import, division, unicode_literals
 
 from LiuXin_alpha.utils.libraries.liuxin_html5lib.filters import _base
 
 
 class Filter(_base.Filter):
+    """
+    Provide the Filter utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise Filter through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
     def slider(self):
+        """
+        Perform the slider utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Filter.slider through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         previous1 = previous2 = None
         for token in self.source:
             if previous1 is not None:
@@ -14,6 +44,17 @@ class Filter(_base.Filter):
         yield previous2, previous1, None
 
     def __iter__(self):
+        """
+        Expose iter behavior for the compatibility container.
+
+        Example:
+            Exercise Filter.  iter   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for previous, token, next in self.slider():
             type = token["type"]
             if type == "StartTag":
@@ -26,6 +67,20 @@ class Filter(_base.Filter):
                 yield token
 
     def is_optional_start(self, tagname, previous, next):
+        """
+        Return or update whether is optional start holds for the compatibility value.
+
+        Example:
+            Exercise Filter.is optional start through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param tagname: Value supplied for tagname under the utility contract.
+        :param previous: Value supplied for previous under the utility contract.
+        :param next: Value supplied for next under the utility contract.
+        :return: True when the documented condition holds; otherwise False.
+        """
         type = next and next["type"] or None
         if tagname in "html":
             # An html element's start tag may be omitted if the first thing
@@ -82,6 +137,19 @@ class Filter(_base.Filter):
         return False
 
     def is_optional_end(self, tagname, next):
+        """
+        Return or update whether is optional end holds for the compatibility value.
+
+        Example:
+            Exercise Filter.is optional end through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param tagname: Value supplied for tagname under the utility contract.
+        :param next: Value supplied for next under the utility contract.
+        :return: True when the documented condition holds; otherwise False.
+        """
         type = next and next["type"] or None
         if tagname in ("html", "head", "body"):
             # An html element's end tag may be omitted if the html element

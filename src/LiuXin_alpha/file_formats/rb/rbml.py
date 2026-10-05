@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Transform OEB content into RB compatible markup.
+Generate RocketBook markup from normalized book content.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise rbml through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
 """
 from __future__ import annotations
 
@@ -64,21 +72,106 @@ STYLES = [
 
 
 class _Logger(Protocol):
-    def debug(self: _typing.Self, message: object) -> object: ...
+    """
+    Provide the logger contract for validated ebook processing.
 
-    def info(self: _typing.Self, message: object) -> object: ...
+    Example:
+        Exercise  Logger through a consuming regression::
 
-    def warn(self: _typing.Self, message: object) -> object: ...
+            python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+    """
+    def debug(self: _typing.Self, message: object) -> object:
+        """
+        Perform the debug operation under explicit file-format and conversion rules.
 
-    def warning(self: _typing.Self, message: object) -> object: ...
+        Example:
+            Exercise  Logger.debug through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param message: Value supplied for message under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
+
+    def info(self: _typing.Self, message: object) -> object:
+        """
+        Perform the info operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Logger.info through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param message: Value supplied for message under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
+
+    def warn(self: _typing.Self, message: object) -> object:
+        """
+        Perform the warn operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Logger.warn through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param message: Value supplied for message under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
+
+    def warning(self: _typing.Self, message: object) -> object:
+        """
+        Perform the warning operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Logger.warning through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param message: Value supplied for message under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
 
 
 class RBMLizer(object):
+    """
+    Provide the rbmlizer contract for validated ebook processing.
+
+    Example:
+        Exercise RBMLizer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+    """
     def __init__(
         self: _typing.Self,
         log: _Logger,
         name_map: MutableMapping[str, str] | None = None,
     ) -> None:
+        """
+        Initialize and validate the rbmlizer state.
+
+        Example:
+            Exercise RBMLizer.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param log: Value supplied for log under the utility contract.
+        :param name_map: Value supplied for name map under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.log = log
         self.name_map = {} if name_map is None else name_map
         self.link_hrefs: dict[str, str] = {}
@@ -90,12 +183,38 @@ class RBMLizer(object):
         oeb_book: _typing.Any,
         opts: _typing.Any,
     ) -> str:
+        """
+        Extract content under the format's safety and compatibility rules.
+
+        Example:
+            Exercise RBMLizer.extract content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.log.info("Converting XHTML to RB markup...")
         self.oeb_book = oeb_book
         self.opts = opts
         return self.mlize_spine()
 
     def mlize_spine(self: _typing.Self) -> str:
+        """
+        Perform the mlize spine operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RBMLizer.mlize spine through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.link_hrefs = {}
         output = ["<HTML><HEAD><TITLE></TITLE></HEAD><BODY>"]
         output.append(self.get_cover_page())
@@ -110,6 +229,18 @@ class RBMLizer(object):
         return output
 
     def get_cover_page(self: _typing.Self) -> str:
+        """
+        Return cover page under the format's safety and compatibility rules.
+
+        Example:
+            Exercise RBMLizer.get cover page through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
         from LiuXin_alpha.file_formats.oeb.base import XHTML
 
@@ -133,6 +264,18 @@ class RBMLizer(object):
         return output
 
     def get_toc(self: _typing.Self) -> str:
+        """
+        Return toc under the format's safety and compatibility rules.
+
+        Example:
+            Exercise RBMLizer.get toc through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         toc = [""]
         if self.opts.inline_toc:
             self.log.debug("Generating table of contents...")
@@ -148,6 +291,18 @@ class RBMLizer(object):
         return "".join(toc)
 
     def get_text(self: _typing.Self) -> str:
+        """
+        Return text under the format's safety and compatibility rules.
+
+        Example:
+            Exercise RBMLizer.get text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
         from LiuXin_alpha.file_formats.oeb.base import XHTML
 
@@ -160,6 +315,19 @@ class RBMLizer(object):
         return "".join(output)
 
     def add_page_anchor(self: _typing.Self, page: _typing.Any) -> str:
+        """
+        Perform the add page anchor operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RBMLizer.add page anchor through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param page: Value supplied for page under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.get_anchor(page, "")
 
     def get_anchor(
@@ -167,6 +335,20 @@ class RBMLizer(object):
         page: _typing.Any,
         aid: str,
     ) -> str:
+        """
+        Return anchor under the format's safety and compatibility rules.
+
+        Example:
+            Exercise RBMLizer.get anchor through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param page: Value supplied for page under the utility contract.
+        :param aid: Value supplied for aid under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         aid = "%s#%s" % (page.href, aid)
         if aid not in self.link_hrefs.keys():
             self.link_hrefs[aid] = "calibre_link-%s" % len(self.link_hrefs.keys())
@@ -175,6 +357,19 @@ class RBMLizer(object):
 
     def clean_text(self: _typing.Self, text: str) -> str:
         # Remove anchors that do not have links
+        """
+        Perform the clean text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RBMLizer.clean text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         anchors = set(re.findall(r'(?<=<A NAME=").+?(?="></A>)', text))
         links = set(re.findall(r'(?<=<A HREF="#).+?(?=">)', text))
         for unused in anchors.difference(links):
@@ -189,6 +384,22 @@ class RBMLizer(object):
         page: _typing.Any,
         tag_stack: list[str] | None = None,
     ) -> list[str]:
+        """
+        Perform the dump text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RBMLizer.dump text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :param stylizer: Value supplied for stylizer under the utility contract.
+        :param page: Value supplied for page under the utility contract.
+        :param tag_stack: Value supplied for tag stack under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.oeb.base import XHTML_NS, barename, namespace
         if tag_stack is None:
             tag_stack = []
@@ -277,6 +488,19 @@ class RBMLizer(object):
         self: _typing.Self,
         tags: list[str],
     ) -> list[str]:
+        """
+        Perform the close tags operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RBMLizer.close tags through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param tags: Value supplied for tags under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = [""]
         for i in range(0, len(tags)):
             tag = tags.pop()

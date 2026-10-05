@@ -1,3 +1,14 @@
+"""
+Exercise legacy metadata dispatcher and worker compatibility edge cases.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test legacy dispatcher worker edge cases through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+"""
 from __future__ import annotations
 
 import io
@@ -12,6 +23,18 @@ from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
 
 def _values(raw):
+    """
+    Perform the values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise values through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, dict):
@@ -25,16 +48,52 @@ def _values(raw):
 
 
 def _first(raw):
+    """
+    Perform the first test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise first through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     vals = _values(raw)
     return vals[0] if vals else None
 
 
 def _pml_comment(**fields: str) -> bytes:
+    """
+    Perform the pml comment test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise pml comment through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+    :param fields: Value supplied for fields in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     inner = " ".join(f'{key}="{value}"' for key, value in fields.items())
     return f"\\v{inner}\\v".encode("utf-8")
 
 
 def _zip_bytes(entries: dict[str, bytes]) -> bytes:
+    """
+    Perform the zip bytes test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise zip bytes through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+    :param entries: Value supplied for entries in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for name, payload in entries.items():
@@ -43,29 +102,118 @@ def _zip_bytes(entries: dict[str, bytes]) -> bytes:
 
 
 class _SeekTellBroken(io.BytesIO):
+    """
+    Provide the SeekTellBroken test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise SeekTellBroken through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+    """
     def tell(self):
+        """
+        Perform the tell test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise SeekTellBroken.tell through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise OSError("tell unavailable")
 
     def seek(self, *args, **kwargs):
+        """
+        Perform the seek test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise SeekTellBroken.seek through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+        :param args: Positional values forwarded by the test double.
+        :param kwargs: Keyword values forwarded by the test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise OSError("seek unavailable")
 
 
 def test_lit_private_helpers_and_cover_resolution_edges(monkeypatch) -> None:
+    """
+    Verify lit private helpers and cover resolution edges.
+
+    Example:
+        Exercise test lit private helpers and cover resolution edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.lit as lit_md
 
     events: list[tuple[str, str]] = []
 
     class _Logger:
+        """
+        Provide the Logger test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test lit private helpers and cover resolution edges.Logger through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+        """
         @staticmethod
         def warning(message):
+            """
+            Perform the warning test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test lit private helpers and cover resolution edges.Logger.warning through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+            :param message: Value supplied for message in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             events.append(("warning", message))
 
         @staticmethod
         def info(message):
+            """
+            Perform the info test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test lit private helpers and cover resolution edges.Logger.info through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+            :param message: Value supplied for message in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             events.append(("info", message))
 
         @staticmethod
         def debug(message):
+            """
+            Perform the debug test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test lit private helpers and cover resolution edges.Logger.debug through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+            :param message: Value supplied for message in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             events.append(("debug", message))
 
     monkeypatch.setattr(lit_md, "default_log", _Logger())
@@ -91,11 +239,40 @@ def test_lit_private_helpers_and_cover_resolution_edges(monkeypatch) -> None:
     assert lit_md._guess_cover_format("", b"not-image") == "jpg"
 
     class _ManifestItem:
+        """
+        Provide the ManifestItem test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test lit private helpers and cover resolution edges.ManifestItem through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+        """
         def __init__(self, path: str, internal: str | None) -> None:
+            """
+            Initialize the ManifestItem test double.
+
+            Example:
+                Exercise test lit private helpers and cover resolution edges.ManifestItem.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+            :param path: Value supplied for path in the focused test operation.
+            :param internal: Value supplied for internal in the focused test operation.
+            :return: None; the function records state or raises through its assertions.
+            """
             self.path = path
             self.internal = internal
 
     class _LitFile:
+        """
+        Provide the LitFile test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test lit private helpers and cover resolution edges.LitFile through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+        """
         manifest = {
             "blank": _ManifestItem("", "ignored"),
             "missing-internal": _ManifestItem("missing-internal.jpg", None),
@@ -106,6 +283,18 @@ def test_lit_private_helpers_and_cover_resolution_edges(monkeypatch) -> None:
 
         @staticmethod
         def get_file(path: str):
+            """
+            Return file from deterministic test state.
+
+            Example:
+                Exercise test lit private helpers and cover resolution edges.LitFile.get file through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+            :param path: Value supplied for path in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             if path.endswith("cover-internal"):
                 return bytearray(b"cover-bytes")
             if path.endswith("empty"):
@@ -128,17 +317,62 @@ def test_lit_private_helpers_and_cover_resolution_edges(monkeypatch) -> None:
 
 
 def test_lit_reader_fallbacks_type_error_and_stream_position(monkeypatch) -> None:
+    """
+    Verify lit reader fallbacks type error and stream position.
+
+    Example:
+        Exercise test lit reader fallbacks type error and stream position through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.lit as lit_md
 
     with pytest.raises(TypeError, match="target_file"):
         lit_md.get_metadata(123)  # type: ignore[arg-type]
 
     class _Container:
+        """
+        Provide the Container test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test lit reader fallbacks type error and stream position.Container through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+        """
         def __init__(self, _stream, _log) -> None:
+            """
+            Initialize the Container test double.
+
+            Example:
+                Exercise test lit reader fallbacks type error and stream position.Container.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+            :param _stream: Value supplied for stream in the focused test operation.
+            :param _log: Value supplied for log in the focused test operation.
+            :return: None; the function records state or raises through its assertions.
+            """
             pass
 
         @staticmethod
         def get_metadata() -> bytes:
+            """
+            Return metadata from deterministic test state.
+
+            Example:
+                Exercise test lit reader fallbacks type error and stream position.Container.get metadata through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return (
                 b'<package xmlns="http://www.idpf.org/2007/opf" '
                 b'xmlns:dc="http://purl.org/dc/elements/1.1/" version="2.0">'
@@ -152,12 +386,53 @@ def test_lit_reader_fallbacks_type_error_and_stream_position(monkeypatch) -> Non
     assert _first(md.title) in {"fallback-name", "Unknown"}
 
     class _NoLogException:
+        """
+        Provide the NoLogException test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test lit reader fallbacks type error and stream position.NoLogException through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+        """
         @staticmethod
         def warning(message):
+            """
+            Perform the warning test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test lit reader fallbacks type error and stream position.NoLogException.warning through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+            :param message: Value supplied for message in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             assert "Failed to read metadata from LIT file" in message
 
     class _BrokenContainer:
+        """
+        Provide the BrokenContainer test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test lit reader fallbacks type error and stream position.BrokenContainer through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+        """
         def __init__(self, _stream, _log) -> None:
+            """
+            Initialize the BrokenContainer test double.
+
+            Example:
+                Exercise test lit reader fallbacks type error and stream position.BrokenContainer.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+            :param _stream: Value supplied for stream in the focused test operation.
+            :param _log: Value supplied for log in the focused test operation.
+            :return: None; the function records state or raises through its assertions.
+            """
             raise RuntimeError("broken")
 
     monkeypatch.setattr(lit_md, "default_log", _NoLogException())
@@ -174,6 +449,20 @@ def test_lit_reader_fallbacks_type_error_and_stream_position(monkeypatch) -> Non
 
 
 def test_pml_private_helpers_sources_and_author_fallbacks(tmp_path: Path, monkeypatch) -> None:
+    """
+    Verify pml private helpers sources and author fallbacks.
+
+    Example:
+        Exercise test pml private helpers sources and author fallbacks through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.pml as pml_md
 
     assert pml_md._source_name(tmp_path / "sample.pml") == str(tmp_path / "sample.pml")
@@ -201,15 +490,57 @@ def test_pml_private_helpers_sources_and_author_fallbacks(tmp_path: Path, monkey
     assert pml_md._is_probable_pmlz("book.zip", b"PK\x03\x04broken") is False
 
     class _AuthorSetter:
+        """
+        Provide the AuthorSetter test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test pml private helpers sources and author fallbacks.AuthorSetter through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+        """
         def __init__(self) -> None:
+            """
+            Initialize the AuthorSetter test double.
+
+            Example:
+                Exercise test pml private helpers sources and author fallbacks.AuthorSetter.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+            :return: None; the function records state or raises through its assertions.
+            """
             self.calls: list[str] = []
 
         @property
         def authors(self):
+            """
+            Perform the authors test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test pml private helpers sources and author fallbacks.AuthorSetter.authors through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             raise RuntimeError("current unavailable")
 
         @authors.setter
         def authors(self, value):
+            """
+            Perform the authors test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test pml private helpers sources and author fallbacks.AuthorSetter.authors through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+            :param value: Value stored, compared or projected by the operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             self.calls.append(value)
             if value == "Stop":
                 raise RuntimeError("stop")
@@ -221,22 +552,77 @@ def test_pml_private_helpers_sources_and_author_fallbacks(tmp_path: Path, monkey
     assert target.calls == [[], "Alice", "Stop"]
 
     class _DataBroken:
+        """
+        Provide the DataBroken test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test pml private helpers sources and author fallbacks.DataBroken through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+        """
         @property
         def _data(self):
+            """
+            Perform the data test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test pml private helpers sources and author fallbacks.DataBroken.data through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             raise RuntimeError("no raw data")
 
         @property
         def authors(self):
+            """
+            Perform the authors test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test pml private helpers sources and author fallbacks.DataBroken.authors through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return ("Unknown",)
 
         @authors.setter
         def authors(self, _value):
+            """
+            Perform the authors test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test pml private helpers sources and author fallbacks.DataBroken.authors through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+            :param _value: Value supplied for value in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             raise RuntimeError("cannot set")
 
     pml_md._clear_default_authors(_DataBroken())
 
 
 def test_pml_zip_cover_payload_and_parse_error_edges(monkeypatch) -> None:
+    """
+    Verify pml zip cover payload and parse error edges.
+
+    Example:
+        Exercise test pml zip cover payload and parse error edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.pml as pml_md
 
     payload = _zip_bytes(
@@ -262,14 +648,56 @@ def test_pml_zip_cover_payload_and_parse_error_edges(monkeypatch) -> None:
     ) == (b"", None)
 
     class _FakeZip:
+        """
+        Provide the FakeZip test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test pml zip cover payload and parse error edges.FakeZip through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+        """
         def __init__(self) -> None:
+            """
+            Initialize the FakeZip test double.
+
+            Example:
+                Exercise test pml zip cover payload and parse error edges.FakeZip.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+            :return: None; the function records state or raises through its assertions.
+            """
             self.calls = 0
 
         @staticmethod
         def namelist():
+            """
+            Perform the namelist test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test pml zip cover payload and parse error edges.FakeZip.namelist through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return ["main_img/cover.png", "z/cover.png"]
 
         def read(self, name):
+            """
+            Perform the read test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test pml zip cover payload and parse error edges.FakeZip.read through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+            :param name: Value supplied for name in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             self.calls += 1
             if self.calls == 1:
                 raise RuntimeError("first read fails")
@@ -278,17 +706,56 @@ def test_pml_zip_cover_payload_and_parse_error_edges(monkeypatch) -> None:
     assert pml_md._read_cover_from_zip(_FakeZip(), source_name="main.pmlz", pml_entries=[]) == b"fallback-cover"
 
     class _BadZip:
+        """
+        Provide the BadZip test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test pml zip cover payload and parse error edges.BadZip through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+        """
         @staticmethod
         def namelist():
+            """
+            Perform the namelist test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test pml zip cover payload and parse error edges.BadZip.namelist through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return ["book.pml", "cover.png"]
 
         @staticmethod
         def read(_name):
+            """
+            Perform the read test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test pml zip cover payload and parse error edges.BadZip.read through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+            :param _name: Value supplied for name in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             raise RuntimeError("always fails")
 
     assert pml_md._read_cover_from_zip(_BadZip(), source_name="", pml_entries=["book.pml"]) is None
 
     class _BrokenGetCover:
+        """
+        Provide the BrokenGetCover test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test pml zip cover payload and parse error edges.BrokenGetCover through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+        """
         pass
 
     monkeypatch.setattr(pml_md, "get_cover", lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("cover fail")))
@@ -301,6 +768,19 @@ def test_pml_zip_cover_payload_and_parse_error_edges(monkeypatch) -> None:
 
 
 def test_haodoo_author_normalization_and_reader_edges(monkeypatch) -> None:
+    """
+    Verify haodoo author normalization and reader edges.
+
+    Example:
+        Exercise test haodoo author normalization and reader edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.pdb.haodoo as haodoo_md
 
     assert haodoo_md._normalize_authors(["Alice", "", "Bob"]) == ["Alice", "Bob"]
@@ -311,17 +791,59 @@ def test_haodoo_author_normalization_and_reader_edges(monkeypatch) -> None:
     assert haodoo_md._normalize_authors(None) == []
 
     class _Header:
+        """
+        Provide the Header test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test haodoo author normalization and reader edges.Header through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+        """
         ident = "BOOKMTIT"
         title = "Header Title"
 
     class _Reader:
+        """
+        Provide the Reader test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test haodoo author normalization and reader edges.Reader through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+        """
         def __init__(self, pheader, stream, log, extra) -> None:
+            """
+            Initialize the Reader test double.
+
+            Example:
+                Exercise test haodoo author normalization and reader edges.Reader.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+            :param pheader: Value supplied for pheader in the focused test operation.
+            :param stream: Value supplied for stream in the focused test operation.
+            :param log: Value supplied for log in the focused test operation.
+            :param extra: Value supplied for extra in the focused test operation.
+            :return: None; the function records state or raises through its assertions.
+            """
             assert pheader.ident == b"BOOKMTIT"
             assert stream.tell() == 0
             assert extra is None
 
         @staticmethod
         def get_metadata():
+            """
+            Return metadata from deterministic test state.
+
+            Example:
+                Exercise test haodoo author normalization and reader edges.Reader.get metadata through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return SimpleNamespace(title="", authors={"Ada": 1, "李白": 2}, language="ZH_CN")
 
     monkeypatch.setattr(haodoo_md, "PdbHeaderReader", lambda _stream: _Header())
@@ -333,7 +855,28 @@ def test_haodoo_author_normalization_and_reader_edges(monkeypatch) -> None:
     assert _first(md.language) == "ZH_CN"
 
     class _BrokenReader:
+        """
+        Provide the BrokenReader test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test haodoo author normalization and reader edges.BrokenReader through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+        """
         def __init__(self, *_args, **_kwargs) -> None:
+            """
+            Initialize the BrokenReader test double.
+
+            Example:
+                Exercise test haodoo author normalization and reader edges.BrokenReader.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+            :param _args: Value supplied for args in the focused test operation.
+            :param _kwargs: Value supplied for kwargs in the focused test operation.
+            :return: None; the function records state or raises through its assertions.
+            """
             raise RuntimeError("reader fail")
 
     monkeypatch.setattr(haodoo_md, "Reader", _BrokenReader)
@@ -343,6 +886,20 @@ def test_haodoo_author_normalization_and_reader_edges(monkeypatch) -> None:
 
 
 def test_dispatcher_plugin_adapter_and_failure_edges(tmp_path: Path, monkeypatch) -> None:
+    """
+    Verify dispatcher plugin adapter and failure edges.
+
+    Example:
+        Exercise test dispatcher plugin adapter and failure edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources as dispatcher
 
     assert dispatcher._normalize_ext(".XHTML") == "html"
@@ -355,15 +912,48 @@ def test_dispatcher_plugin_adapter_and_failure_edges(tmp_path: Path, monkeypatch
     assert dispatcher._is_path_like(b"bytes-path") is True
 
     class _InplacePlugin:
+        """
+        Provide the InplacePlugin test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test dispatcher plugin adapter and failure edges.InplacePlugin through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+        """
         file_types = ["txt", "html"]
         inplace_run_cost = "medium"
         __module__ = "fake.plugins"
 
         def __init__(self, _context) -> None:
+            """
+            Initialize the InplacePlugin test double.
+
+            Example:
+                Exercise test dispatcher plugin adapter and failure edges.InplacePlugin.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+            :param _context: Value supplied for context in the focused test operation.
+            :return: None; the function records state or raises through its assertions.
+            """
             pass
 
         @staticmethod
         def get_metadata_inplace(path, ftype):
+            """
+            Return metadata inplace from deterministic test state.
+
+            Example:
+                Exercise test dispatcher plugin adapter and failure edges.InplacePlugin.get metadata inplace through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+            :param path: Value supplied for path in the focused test operation.
+            :param ftype: Value supplied for ftype in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return ("inplace", path, ftype)
 
     adapter = dispatcher.MetaDataReaderPlugin(_InplacePlugin)
@@ -378,13 +968,46 @@ def test_dispatcher_plugin_adapter_and_failure_edges(tmp_path: Path, monkeypatch
     assert adapter.get_metadata(txt_path, force_type="txt") == ("inplace", str(txt_path), "txt")
 
     class _StreamPlugin:
+        """
+        Provide the StreamPlugin test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test dispatcher plugin adapter and failure edges.StreamPlugin through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+        """
         file_types = ["bin"]
 
         def __init__(self, _context) -> None:
+            """
+            Initialize the StreamPlugin test double.
+
+            Example:
+                Exercise test dispatcher plugin adapter and failure edges.StreamPlugin.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+            :param _context: Value supplied for context in the focused test operation.
+            :return: None; the function records state or raises through its assertions.
+            """
             pass
 
         @staticmethod
         def get_metadata(stream=None, ftype=None):
+            """
+            Return metadata from deterministic test state.
+
+            Example:
+                Exercise test dispatcher plugin adapter and failure edges.StreamPlugin.get metadata through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+            :param stream: Value supplied for stream in the focused test operation.
+            :param ftype: Value supplied for ftype in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return ("stream", stream.read(), ftype)
 
     stream_path = tmp_path / "stream.bin"
@@ -399,6 +1022,14 @@ def test_dispatcher_plugin_adapter_and_failure_edges(tmp_path: Path, monkeypatch
         dispatcher._run_metadata_reader(_StreamPlugin, object(), ftype="bin")
 
     class _BadCost:
+        """
+        Provide the BadCost test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test dispatcher plugin adapter and failure edges.BadCost through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+        """
         RUN_COST = ["WEIRD"]
         module_name = "Bad"
 
@@ -415,19 +1046,61 @@ def test_dispatcher_plugin_adapter_and_failure_edges(tmp_path: Path, monkeypatch
     assert dispatcher.get_plugins_for_extension("xhtml")[0].module_name == "_InplacePlugin"
 
     class _NoneAdapter:
+        """
+        Provide the NoneAdapter test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test dispatcher plugin adapter and failure edges.NoneAdapter through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+        """
         module_name = "NoneAdapter"
         file_path = "none.py"
 
         @staticmethod
         def get_metadata(_target, force_type=None):
+            """
+            Return metadata from deterministic test state.
+
+            Example:
+                Exercise test dispatcher plugin adapter and failure edges.NoneAdapter.get metadata through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+            :param _target: Value supplied for target in the focused test operation.
+            :param force_type: Value supplied for force type in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return None
 
     class _FailAdapter:
+        """
+        Provide the FailAdapter test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test dispatcher plugin adapter and failure edges.FailAdapter through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+        """
         module_name = "FailAdapter"
         file_path = "fail.py"
 
         @staticmethod
         def get_metadata(_target, force_type=None):
+            """
+            Return metadata from deterministic test state.
+
+            Example:
+                Exercise test dispatcher plugin adapter and failure edges.FailAdapter.get metadata through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+            :param _target: Value supplied for target in the focused test operation.
+            :param force_type: Value supplied for force type in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             raise RuntimeError("reader failed")
 
     monkeypatch.setattr(dispatcher, "get_plugins_for_extension", lambda _ext: [_NoneAdapter()])
@@ -438,6 +1111,20 @@ def test_dispatcher_plugin_adapter_and_failure_edges(tmp_path: Path, monkeypatch
 
 
 def test_worker_helpers_metadata_merge_and_import_edges(tmp_path: Path, monkeypatch) -> None:
+    """
+    Verify worker helpers metadata merge and import edges.
+
+    Example:
+        Exercise test worker helpers metadata merge and import edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.worker as worker
 
     assert worker._values(None) == []
@@ -473,6 +1160,19 @@ def test_worker_helpers_metadata_merge_and_import_edges(tmp_path: Path, monkeypa
     }
 
     def fake_get_file_metadata(path, force_type=False):
+        """
+        Perform the fake get file metadata test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test worker helpers metadata merge and import edges.fake get file metadata through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+        :param path: Value supplied for path in the focused test operation.
+        :param force_type: Value supplied for force type in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         response = responses[str(force_type)]
         if isinstance(response, Exception):
             raise response
@@ -484,6 +1184,14 @@ def test_worker_helpers_metadata_merge_and_import_edges(tmp_path: Path, monkeypa
     assert _values(out.authors) == ["TXT Author"]
 
     class _SmartUpdateBroken:
+        """
+        Provide the SmartUpdateBroken test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test worker helpers metadata merge and import edges.SmartUpdateBroken through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+        """
         title = "Fallback Title"
         authors = ("Fallback Author",)
 
@@ -528,12 +1236,45 @@ def test_worker_helpers_metadata_merge_and_import_edges(tmp_path: Path, monkeypa
 
 
 def test_worker_job_wrappers(monkeypatch) -> None:
+    """
+    Verify worker job wrappers.
+
+    Example:
+        Exercise test worker job wrappers through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.worker as worker
     import LiuXin_alpha.utils.ipc.simple_worker as simple_worker
 
     calls = []
 
     def fake_fork_job(module, function_name, *, args, timeout, no_output, heartbeat, abort, backend):
+        """
+        Perform the fake fork job test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test worker job wrappers.fake fork job through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+        :param module: Value supplied for module in the focused test operation.
+        :param function_name: Value supplied for function name in the focused test
+            operation.
+        :param args: Positional values forwarded by the test double.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :param no_output: Value supplied for no output in the focused test operation.
+        :param heartbeat: Value supplied for heartbeat in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param backend: Value supplied for backend in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         calls.append((module, function_name, args, timeout, no_output, heartbeat, abort, backend))
         return {"result": ("job-result", function_name, args)}
 

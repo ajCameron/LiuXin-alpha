@@ -1,7 +1,15 @@
 # tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
 
 """
-Core tests for the CalibreLikeBookMetadata class.
+Verify core Calibre-like metadata fields, copying and smart updates.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test metadata core through its owning regression module::
+
+        python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
 """
 
 from __future__ import annotations
@@ -19,18 +27,71 @@ from LiuXin_alpha.errors import InputIntegrityError
 
 
 class _CloseTracker:
+    """
+    Provide the CloseTracker test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise CloseTracker through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+    """
     def __init__(self) -> None:
+        """
+        Initialize the CloseTracker test double.
+
+        Example:
+            Exercise CloseTracker.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :return: None; the function records state or raises through its assertions.
+        """
         self.closed = False
 
     def close(self) -> None:
+        """
+        Mark the cache double closed for lifecycle assertions.
+
+        Example:
+            Exercise CloseTracker.close through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :return: None; the function records state or raises through its assertions.
+        """
         self.closed = True
 
 
 def _raw_data(md: CalibreLikeLiuXinBookMetaData) -> dict:
+    """
+    Perform the raw data test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise raw data through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+    :param md: Value supplied for md in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return object.__getattribute__(md, "_data")
 
 
 def test_init_defaults_deepcopy_and_basic_truthiness() -> None:
+    """
+    Verify init defaults deepcopy and basic truthiness.
+
+    Example:
+        Exercise test init defaults deepcopy and basic truthiness through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     md = CalibreLikeLiuXinBookMetaData()
     assert md is not None
 
@@ -53,6 +114,18 @@ def test_init_defaults_deepcopy_and_basic_truthiness() -> None:
     ],
 )
 def test_init_title_and_authors_variants(authors) -> None:
+    """
+    Verify init title and authors variants.
+
+    Example:
+        Exercise test init title and authors variants through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+    :param authors: Value supplied for authors in the focused test operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     md = CalibreLikeLiuXinBookMetaData(title="My Title", authors=authors)
     assert md.title == "My Title"
 
@@ -72,6 +145,17 @@ def test_init_title_and_authors_variants(authors) -> None:
 
 
 def test_init_with_other_overwrites_title_and_authors() -> None:
+    """
+    Verify init with other overwrites title and authors.
+
+    Example:
+        Exercise test init with other overwrites title and authors through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     base = CalibreLikeLiuXinBookMetaData(title="Base", authors=["Base Author"])
     base.tag = "oldtag"
     base.comment = "old comment"
@@ -85,6 +169,17 @@ def test_init_with_other_overwrites_title_and_authors() -> None:
 
 
 def test_forbidden_direct_setting_of_creators_and_identifiers_raises() -> None:
+    """
+    Verify forbidden direct setting of creators and identifiers raises.
+
+    Example:
+        Exercise test forbidden direct setting of creators and identifiers raises through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     md = CalibreLikeLiuXinBookMetaData()
 
     with pytest.raises(AttributeError):
@@ -99,6 +194,17 @@ def test_forbidden_direct_setting_of_creators_and_identifiers_raises() -> None:
 
 
 def test_comments_are_deduped_and_trimmed() -> None:
+    """
+    Verify comments remain deduped and trimmed.
+
+    Example:
+        Exercise test comments are deduped and trimmed through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     md = CalibreLikeLiuXinBookMetaData()
     md.comment = "  hello  "
     md.comments = "hello"  # should dedupe
@@ -106,6 +212,17 @@ def test_comments_are_deduped_and_trimmed() -> None:
 
 
 def test_cover_data_requires_len_2_tuple() -> None:
+    """
+    Verify cover data requires len 2 tuple.
+
+    Example:
+        Exercise test cover data requires len 2 tuple through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     md = CalibreLikeLiuXinBookMetaData()
 
     with pytest.raises(InputIntegrityError):
@@ -116,6 +233,17 @@ def test_cover_data_requires_len_2_tuple() -> None:
 
 
 def test_languages_accept_str_and_list_and_reject_weird() -> None:
+    """
+    Verify languages accept str and list and reject weird.
+
+    Example:
+        Exercise test languages accept str and list and reject weird through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     md = CalibreLikeLiuXinBookMetaData()
 
     md.languages = "en"
@@ -129,6 +257,17 @@ def test_languages_accept_str_and_list_and_reject_weird() -> None:
 
 
 def test_publisher_accepts_str_and_list() -> None:
+    """
+    Verify publisher accepts str and list.
+
+    Example:
+        Exercise test publisher accepts str and list through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     md = CalibreLikeLiuXinBookMetaData()
 
     md.publisher = "PubA"
@@ -139,12 +278,34 @@ def test_publisher_accepts_str_and_list() -> None:
 
 
 def test_unknown_attribute_can_be_hung_on_object() -> None:
+    """
+    Verify unknown attribute can be hung on object.
+
+    Example:
+        Exercise test unknown attribute can be hung on object through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     md = CalibreLikeLiuXinBookMetaData()
     md.some_weird_field = 123  # should not crash
     assert md.some_weird_field == 123
 
 
 def test_get_getitem_direct_get_default_behavior() -> None:
+    """
+    Verify get getitem direct get default behavior.
+
+    Example:
+        Exercise test get getitem direct get default behavior through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     md = CalibreLikeLiuXinBookMetaData(title="T", authors=["A"])
     assert md.get("title") == "T"
     assert md["title"] == "T"
@@ -156,6 +317,17 @@ def test_get_getitem_direct_get_default_behavior() -> None:
 
 
 def test_nullify_is_null_and_all_field_helpers() -> None:
+    """
+    Verify nullify remains null and all field helpers.
+
+    Example:
+        Exercise test nullify is null and all field helpers through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     md = CalibreLikeLiuXinBookMetaData()
     md.tag = "t1"
     assert not md.is_null("tags")
@@ -174,6 +346,17 @@ def test_nullify_is_null_and_all_field_helpers() -> None:
 
 
 def test_direct_add_key_check_and_nonchecked_path() -> None:
+    """
+    Verify direct add key check and nonchecked path.
+
+    Example:
+        Exercise test direct add key check and nonchecked path through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     md = CalibreLikeLiuXinBookMetaData()
 
     # key_check=True should reject unknown keys (exact exception depends on implementation)
@@ -186,6 +369,17 @@ def test_direct_add_key_check_and_nonchecked_path() -> None:
 
 
 def test_dict_add_get_all_attr_get_data_copy_semantics() -> None:
+    """
+    Verify dict add get all attr get data copy semantics.
+
+    Example:
+        Exercise test dict add get all attr get data copy semantics through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     md = CalibreLikeLiuXinBookMetaData()
     md.dict_add(CalibreLikeLiuXinBookMetaData(title="T2", authors=["A2"]))
 
@@ -201,6 +395,17 @@ def test_dict_add_get_all_attr_get_data_copy_semantics() -> None:
 
 
 def test_deepcopy_metadata_and_magic_repr_str_unicode_iter() -> None:
+    """
+    Verify deepcopy metadata and magic repr str unicode iter.
+
+    Example:
+        Exercise test deepcopy metadata and magic repr str unicode iter through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     md = CalibreLikeLiuXinBookMetaData(title="T", authors=["A"])
     md.tag = "x"
 
@@ -227,6 +432,17 @@ def test_deepcopy_metadata_and_magic_repr_str_unicode_iter() -> None:
 
 
 def test_smart_update_replace_vs_merge() -> None:
+    """
+    Verify smart update replace vs merge.
+
+    Example:
+        Exercise test smart update replace vs merge through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     a = CalibreLikeLiuXinBookMetaData(title="A", authors=["AA"])
     b = CalibreLikeLiuXinBookMetaData(title="B", authors=["BB"])
     a.tag = "tag_a"
@@ -247,6 +463,17 @@ def test_smart_update_replace_vs_merge() -> None:
 
 
 def test_clean_finalize_metadata_renderer_and_del_cleanup() -> None:
+    """
+    Verify clean finalize metadata renderer and del cleanup.
+
+    Example:
+        Exercise test clean finalize metadata renderer and del cleanup through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     md = CalibreLikeLiuXinBookMetaData(title="T", authors=["A"])
     md.tag = "  Tag With Spaces  "
     md.clean()

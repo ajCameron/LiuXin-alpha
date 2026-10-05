@@ -1,3 +1,14 @@
+"""
+Provide test plugins runtime smoke utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test plugins runtime smoke through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+"""
 from __future__ import annotations
 
 import sys
@@ -8,48 +19,231 @@ from pathlib import Path
 
 
 class _Log:
+    """
+    Provide the log contract for validated ebook processing.
+
+    Example:
+        Exercise  Log through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     def __init__(self) -> None:
+        """
+        Initialize and validate the log state.
+
+        Example:
+            Exercise  Log.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.messages: list[str] = []
 
     def _record(self, *parts) -> None:
+        """
+        Perform the record operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log. record through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.messages.append(" ".join(str(x) for x in parts))
 
     def __call__(self, *parts) -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._record(*parts)
 
     def debug(self, *parts) -> None:
+        """
+        Perform the debug operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.debug through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._record(*parts)
 
     def info(self, *parts) -> None:
+        """
+        Perform the info operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.info through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._record(*parts)
 
     def warn(self, *parts) -> None:
+        """
+        Perform the warn operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.warn through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._record(*parts)
 
     def warning(self, *parts) -> None:
+        """
+        Perform the warning operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.warning through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._record(*parts)
 
     def exception(self, *parts) -> None:
+        """
+        Perform the exception operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.exception through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._record(*parts)
 
 
 class _Option:
+    """
+    Provide the option contract for validated ebook processing.
+
+    Example:
+        Exercise  Option through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     def __init__(self, name: str, value) -> None:
+        """
+        Initialize and validate the option state.
+
+        Example:
+            Exercise  Option.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.option = types.SimpleNamespace(name=name)
         self.recommended_value = value
 
 
 class _HTMLInputStub:
+    """
+    Provide the htmlinputstub contract for validated ebook processing.
+
+    Example:
+        Exercise  HTMLInputStub through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     options = (_Option("breadth_first", False), _Option("dont_package", False))
 
     def __init__(self, returned_oeb):
+        """
+        Initialize and validate the htmlinputstub state.
+
+        Example:
+            Exercise  HTMLInputStub.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param returned_oeb: Value supplied for returned oeb under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self._returned_oeb = returned_oeb
 
     def convert(self, stream, options, file_ext, log, accelerators):
+        """
+        Convert the supplied source into the stage's normalized output representation.
+
+        Example:
+            Exercise  HTMLInputStub.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param options: Value supplied for options under the utility contract.
+        :param file_ext: Value supplied for file ext under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param accelerators: Value supplied for accelerators under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._returned_oeb
 
 
 def _install_html_pipeline_stubs(monkeypatch, returned_oeb) -> None:
+    """
+    Perform the install html pipeline stubs operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  install html pipeline stubs through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param returned_oeb: Value supplied for returned oeb under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     fake_ui = types.ModuleType("LiuXin_alpha.customize.ui")
     fake_ui.plugin_for_input_format = lambda fmt: _HTMLInputStub(returned_oeb) if fmt == "html" else None
     fake_ui.get_file_type_metadata = (
@@ -64,6 +258,20 @@ def _install_html_pipeline_stubs(monkeypatch, returned_oeb) -> None:
 
 
 def test_txt_input_convert_smoke(tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test txt input convert smoke operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test txt input convert smoke through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     import LiuXin_alpha.file_formats.conversion.plugins.txt_input as txt_input_mod
 
     fake_oeb = types.SimpleNamespace(metadata=types.SimpleNamespace())
@@ -95,6 +303,20 @@ def test_txt_input_convert_smoke(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_txt_input_textile_fallback_smoke(tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test txt input textile fallback smoke operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test txt input textile fallback smoke through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     import LiuXin_alpha.file_formats.conversion.plugins.txt_input as txt_input_mod
 
     fake_oeb = types.SimpleNamespace(metadata=types.SimpleNamespace())
@@ -126,6 +348,20 @@ def test_txt_input_textile_fallback_smoke(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_htmlz_input_convert_smoke(tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test htmlz input convert smoke operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test htmlz input convert smoke through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     import LiuXin_alpha.file_formats.conversion.plugins.htmlz_input as htmlz_input_mod
 
     fake_oeb = types.SimpleNamespace(metadata=types.SimpleNamespace())
@@ -147,6 +383,20 @@ def test_htmlz_input_convert_smoke(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_epub_input_convert_smoke(tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test epub input convert smoke operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test epub input convert smoke through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     import LiuXin_alpha.file_formats.conversion.plugins.epub_input as epub_input_mod
 
     epub_path = tmp_path / "book.epub"

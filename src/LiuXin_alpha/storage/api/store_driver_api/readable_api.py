@@ -149,6 +149,7 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
         """
         ...
 
+    # Todo: we want try_* for all methods
     def try_stat(
         self,
         object_address: DriverObjectAddressT,

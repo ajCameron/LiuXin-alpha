@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
 
+"""
+Expose the supported pml compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -179,6 +190,19 @@ U_CHARS = (
 
 
 def unipmlcode(char: _typing.Any) -> _typing.Any:
+    """
+    Perform the unipmlcode operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise unipmlcode through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+    :param char: Value supplied for char under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         val = ord(char.encode("cp1252"))
         if val in A_CHARS:

@@ -1,3 +1,14 @@
+"""
+Verify Plucker metadata and embedded-image extraction.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test plucker metadata source through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_plucker_metadata_source.py
+"""
 from __future__ import annotations
 
 import io
@@ -8,6 +19,20 @@ from LiuXin_alpha.file_formats.pdb.plucker.reader import DATATYPE_METADATA
 
 
 def _build_pdb(identity: str, title: str, sections: list[bytes]) -> io.BytesIO:
+    """
+    Perform the build pdb test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise build pdb through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_plucker_metadata_source.py
+
+
+    :param identity: Value supplied for identity in the focused test operation.
+    :param title: Value supplied for title in the focused test operation.
+    :param sections: Value supplied for sections in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     stream = io.BytesIO()
     PdbHeaderBuilder(identity, title).build_header([len(s) for s in sections], stream)
     for section in sections:
@@ -17,6 +42,19 @@ def _build_pdb(identity: str, title: str, sections: list[bytes]) -> io.BytesIO:
 
 
 def _make_plucker_record(rtype: int, payload: bytes) -> bytes:
+    """
+    Perform the make plucker record test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise make plucker record through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_plucker_metadata_source.py
+
+
+    :param rtype: Value supplied for rtype in the focused test operation.
+    :param payload: Value supplied for payload in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if len(payload) % 2:
         payload += b"\x00"
     length_words = (4 + len(payload)) // 2
@@ -24,12 +62,39 @@ def _make_plucker_record(rtype: int, payload: bytes) -> bytes:
 
 
 def _plucker_metadata_section_from_records(records: list[bytes]) -> bytes:
+    """
+    Perform the plucker metadata section from records test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise plucker metadata section from records through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_plucker_metadata_source.py
+
+
+    :param records: Value supplied for records in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     payload = struct.pack(">H", len(records)) + b"".join(records)
     section_header = struct.pack(">HHHBB", 1, 0, len(payload), DATATYPE_METADATA, 0)
     return section_header + payload
 
 
 def _plucker_metadata_section(*, title_bytes: bytes, author_bytes: bytes, mibnum: int, pubdate: int) -> bytes:
+    """
+    Perform the plucker metadata section test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise plucker metadata section through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_plucker_metadata_source.py
+
+
+    :param title_bytes: Value supplied for title bytes in the focused test operation.
+    :param author_bytes: Value supplied for author bytes in the focused test operation.
+    :param mibnum: Value supplied for mibnum in the focused test operation.
+    :param pubdate: Value supplied for pubdate in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     records = [
         _make_plucker_record(1, struct.pack(">H", mibnum)),
         _make_plucker_record(4, author_bytes),
@@ -40,6 +105,17 @@ def _plucker_metadata_section(*, title_bytes: bytes, author_bytes: bytes, mibnum
 
 
 def test_plucker_module_import_smoke() -> None:
+    """
+    Verify plucker module import smoke.
+
+    Example:
+        Exercise test plucker module import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_plucker_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.plucker as legacy_plucker
     import LiuXin_alpha.metadata.file_sources.pdb.plucker as modern_plucker
 
@@ -48,6 +124,17 @@ def test_plucker_module_import_smoke() -> None:
 
 
 def test_plucker_metadata_utf8_unicode_torture() -> None:
+    """
+    Verify plucker metadata utf8 unicode torture.
+
+    Example:
+        Exercise test plucker metadata utf8 unicode torture through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_plucker_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pdb.plucker import get_metadata
 
     section = _plucker_metadata_section(
@@ -65,6 +152,17 @@ def test_plucker_metadata_utf8_unicode_torture() -> None:
 
 
 def test_plucker_metadata_utf16be_charset_decode() -> None:
+    """
+    Verify plucker metadata utf16be charset decode.
+
+    Example:
+        Exercise test plucker metadata utf16be charset decode through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_plucker_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pdb.plucker import get_metadata
 
     title = "UTF16 題名 🚀"
@@ -83,6 +181,17 @@ def test_plucker_metadata_utf16be_charset_decode() -> None:
 
 
 def test_plucker_metadata_unknown_mibnum_falls_back_to_latin1() -> None:
+    """
+    Verify plucker metadata unknown mibnum falls back to latin1.
+
+    Example:
+        Exercise test plucker metadata unknown mibnum falls back to latin1 through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_plucker_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pdb.plucker import get_metadata
 
     title = "Le père Goriot"
@@ -101,6 +210,17 @@ def test_plucker_metadata_unknown_mibnum_falls_back_to_latin1() -> None:
 
 
 def test_plucker_corrupt_metadata_section_falls_back_cleanly() -> None:
+    """
+    Verify plucker corrupt metadata section falls back cleanly.
+
+    Example:
+        Exercise test plucker corrupt metadata section falls back cleanly through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_plucker_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pdb.plucker import get_metadata
 
     # Declares one record, but only contains a truncated record header.
@@ -116,6 +236,17 @@ def test_plucker_corrupt_metadata_section_falls_back_cleanly() -> None:
 
 
 def test_plucker_pubdate_zero_is_ignored() -> None:
+    """
+    Verify plucker pubdate zero remains ignored.
+
+    Example:
+        Exercise test plucker pubdate zero is ignored through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_plucker_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pdb.plucker import get_metadata
 
     section = _plucker_metadata_section(
@@ -133,6 +264,17 @@ def test_plucker_pubdate_zero_is_ignored() -> None:
 
 
 def test_plucker_get_metadata_preserves_stream_position() -> None:
+    """
+    Verify plucker get metadata preserves stream position.
+
+    Example:
+        Exercise test plucker get metadata preserves stream position through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_plucker_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pdb.plucker import get_metadata
 
     section = _plucker_metadata_section(
@@ -150,6 +292,17 @@ def test_plucker_get_metadata_preserves_stream_position() -> None:
 
 
 def test_legacy_plucker_forwarder_matches_modern_output() -> None:
+    """
+    Verify legacy plucker forwarder matches modern output.
+
+    Example:
+        Exercise test legacy plucker forwarder matches modern output through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_plucker_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources import plucker as legacy_plucker
     from LiuXin_alpha.metadata.file_sources.pdb import plucker as modern_plucker
 

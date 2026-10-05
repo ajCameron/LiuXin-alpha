@@ -1,9 +1,13 @@
 """
-cleantext.py - small text-cleaning helpers (Python 3)
+Normalize markup-derived text, whitespace and character entities.
 
-- clean_ascii_chars: remove ASCII control characters (except \t, \n, \r) + DEL (0x7F)
-- clean_xml_chars: remove characters not allowed in XML 1.0
-- unescape: unescape HTML/XML character references and named entities
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise cleantext through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_docstring_migration.py
 """
 
 from __future__ import annotations
@@ -38,6 +42,21 @@ def _coerce_text(
     encoding: str = "utf-8",
     errors: str = "replace",
 ) -> str:
+    """
+    Coerce text under the documented compatibility and safety rules.
+
+    Example:
+        Exercise  coerce text through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param txt: Value supplied for txt under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param errors: Value supplied for errors under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(txt, str):
         return txt
     return bytes(txt).decode(encoding, errors)
@@ -45,8 +64,16 @@ def _coerce_text(
 
 def _build_default_ascii_delete_trans() -> dict[int, None]:
     """
-    Build translation map removing all ASCII control chars except \\t, \\n, \\r,
-    plus DEL (0x7F). Matches the original module's intent.
+    Perform the build default ascii delete trans utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  build default ascii delete trans through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     chars = set(range(32))
     chars.add(127)
@@ -62,13 +89,21 @@ def clean_ascii_chars(
     encoding: str = "utf-8",
     errors: str = "replace",
 ) -> str:
-    r"""
-    Remove ASCII control chars.
-    This is all control chars except \t, \n and \r (and also removes DEL 0x7F).
+    """
+    Perform the clean ascii chars utility operation under explicit compatibility rules.
 
-    If `charlist` is provided, remove exactly those codepoints instead.
+    Example:
+        Exercise clean ascii chars through a consuming regression::
 
-    Accepts `str` or bytes-like; bytes are decoded using `encoding`/`errors`.
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param txt: Value supplied for txt under the utility contract.
+    :param charlist: Value supplied for charlist under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param errors: Value supplied for errors under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if not txt:
         return ""
@@ -96,11 +131,16 @@ def allowed_xml_char(ch: str, *, remove_del: bool = True) -> bool:
     """
     Returns True if `ch` is allowed by XML 1.0 character rules.
 
-    XML 1.0 allowed ranges:
-      #x9 | #xA | #xD | [#x20-#xD7FF] | [#xE000-#xFFFD] | [#x10000-#x10FFFF]
+    Example:
+        Exercise allowed xml char through a consuming regression::
 
-    `remove_del=True` preserves the original library's behavior of excluding 0x7F
-    even though XML 1.0 permits it.
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param ch: Value supplied for ch under the utility contract.
+    :param remove_del: Value supplied for remove del under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     cp = ord(ch)
     if remove_del and cp == 0x7F:
@@ -123,8 +163,18 @@ def clean_xml_chars(
     """
     Remove characters that are not allowed in XML 1.0.
 
-    `remove_del=True` keeps legacy behavior (filters out 0x7F).
-    Set `remove_del=False` for strict XML 1.0 compliance.
+    Example:
+        Exercise clean xml chars through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param unicode_string: Value supplied for unicode string under the utility contract.
+    :param remove_del: Value supplied for remove del under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param errors: Value supplied for errors under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if not unicode_string:
         return ""
@@ -143,16 +193,36 @@ def unescape(
     """
     Removes HTML/XML character references and entities from a text string.
 
-    - Converts numeric references: &#123; and &#x1F4A9;
-    - Converts named entities: &nbsp; (when known to html.entities.name2codepoint)
-    - If `rm=True`, unknown/unhandled entities are replaced with `rchar`,
-      otherwise they are left as-is (legacy behavior).
+    Example:
+        Exercise unescape through a consuming regression::
 
-    Accepts `str` or bytes-like; bytes are decoded using `encoding`/`errors`.
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :param rm: Value supplied for rm under the utility contract.
+    :param rchar: Value supplied for rchar under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param errors: Value supplied for errors under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     s = _coerce_text(text, encoding=encoding, errors=errors)
 
     def fixup(m: re.Match[str]) -> str:
+        """
+        Perform the fixup utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise unescape.fixup through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+        :param m: Value supplied for m under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ent = m.group(0)
         if ent.startswith("&#"):
             try:

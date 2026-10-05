@@ -1,3 +1,14 @@
+"""
+Build and run command-line ebook conversion operations.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise cli through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+"""
 from __future__ import with_statement
 from __future__ import annotations
 
@@ -78,14 +89,57 @@ DEFAULT_TRUE_OPTIONS = HEURISTIC_OPTIONS + ["remove_fake_margins"]
 
 
 def patheq(path_a: _typing.Any, path_b: _typing.Any) -> bool:
+    """
+    Perform the patheq operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise patheq through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+    :param path_a: Value supplied for path a under the utility contract.
+    :param path_b: Value supplied for path b under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return os.path.normcase(os.path.abspath(path_a)) == os.path.normcase(os.path.abspath(path_b))
 
 
 def print_help(parser: _typing.Any, log: _typing.Any) -> None:
+    """
+    Perform the print help operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise print help through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+    :param parser: Value supplied for parser under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     parser.print_help()
 
 
 def check_command_line_options(parser: _typing.Any, args: _typing.Any, log: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Perform the check command line options operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise check command line options through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+    :param parser: Value supplied for parser under the utility contract.
+    :param args: Positional values forwarded to the compatibility implementation.
+    :param log: Value supplied for log under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if len(args) < 3 or args[1].startswith("-") or args[2].startswith("-"):
         print_help(parser, log)
         log.error("\n\nYou must specify the input AND output files")
@@ -111,6 +165,20 @@ def check_command_line_options(parser: _typing.Any, args: _typing.Any, log: _typ
 
 
 def option_recommendation_to_cli_option(add_option: _typing.Any, rec: _typing.Any) -> None:
+    """
+    Perform the option recommendation to cli option operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise option recommendation to cli option through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+    :param add_option: Value supplied for add option under the utility contract.
+    :param rec: Value supplied for rec under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     opt = rec.option
     switches = ["-" + opt.short_switch] if opt.short_switch else []
     switches.append("--" + opt.long_switch)
@@ -135,14 +203,55 @@ def option_recommendation_to_cli_option(add_option: _typing.Any, rec: _typing.An
 
 
 def group_titles() -> tuple[_typing.Any, ...]:
+    """
+    Perform the group titles operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise group titles through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return _("INPUT OPTIONS"), _("OUTPUT OPTIONS")
 
 
 def recipe_test(option: _typing.Any, opt_str: _typing.Any, value: _typing.Any, parser: _typing.Any) -> None:
+    """
+    Perform the recipe test operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise recipe test through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+    :param option: Value supplied for option under the utility contract.
+    :param opt_str: Value supplied for opt str under the utility contract.
+    :param value: Value normalized, stored, formatted or returned.
+    :param parser: Value supplied for parser under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     assert value is None
     value = []
 
     def floatable(str_for_conv: _typing.Any) -> bool:
+        """
+        Perform the floatable operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise recipe test.floatable through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :param str_for_conv: Value supplied for str for conv under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             float(str_for_conv)
             return True
@@ -171,9 +280,37 @@ def recipe_test(option: _typing.Any, opt_str: _typing.Any, value: _typing.Any, p
 
 
 def add_input_output_options(parser: _typing.Any, plumber: _typing.Any) -> None:
+    """
+    Perform the add input output options operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise add input output options through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+    :param parser: Value supplied for parser under the utility contract.
+    :param plumber: Value supplied for plumber under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     input_options, output_options = plumber.input_options, plumber.output_options
 
     def add_options(group: _typing.Any, options: _typing.Any) -> None:
+        """
+        Perform the add options operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise add input output options.add options through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :param group: Value supplied for group under the utility contract.
+        :param options: Value supplied for options under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for opt in options:
             if plumber.input_fmt == "recipe" and opt.option.long_switch == "test":
                 group(Option("--test", dest="test", action="callback", callback=recipe_test))
@@ -202,6 +339,20 @@ def add_input_output_options(parser: _typing.Any, plumber: _typing.Any) -> None:
 
 
 def add_pipeline_options(parser: _typing.Any, plumber: _typing.Any) -> None:
+    """
+    Perform the add pipeline options operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise add pipeline options through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+    :param parser: Value supplied for parser under the utility contract.
+    :param plumber: Value supplied for plumber under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     groups = OrderedDict(
         (
             (
@@ -344,6 +495,18 @@ def add_pipeline_options(parser: _typing.Any, plumber: _typing.Any) -> None:
 
 
 def option_parser() -> _typing.Any:
+    """
+    Perform the option parser operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise option parser through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = OptionParser(usage=USAGE)
     parser.add_option(
         "--list-recipes",
@@ -359,16 +522,64 @@ def option_parser() -> _typing.Any:
 
 
 class ProgressBar(object):
+    """
+    Provide the progressbar contract for validated ebook processing.
+
+    Example:
+        Exercise ProgressBar through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+    """
     def __init__(self: _typing.Self, log: _typing.Any) -> None:
+        """
+        Initialize and validate the progressbar state.
+
+        Example:
+            Exercise ProgressBar.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :param log: Value supplied for log under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.log = log
 
     def __call__(self: _typing.Self, frac: _typing.Any, msg: str = "") -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ProgressBar.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :param frac: Value supplied for frac under the utility contract.
+        :param msg: Value supplied for msg under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if msg:
             percent = int(frac * 100)
             self.log("%d%% %s" % (percent, msg))
 
 
 def create_option_parser(args: _typing.Any, log: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Create option parser under the format's safety and compatibility rules.
+
+    Example:
+        Exercise create option parser through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+    :param args: Positional values forwarded to the compatibility implementation.
+    :param log: Value supplied for log under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if "--version" in args:
         from LiuXin_alpha.constants import __appname__, __version__, __author__
 
@@ -409,6 +620,19 @@ def create_option_parser(args: _typing.Any, log: _typing.Any) -> tuple[_typing.A
 
 
 def abspath(x: _typing.Any) -> _typing.Any:
+    """
+    Perform the abspath operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise abspath through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if x.startswith("http:") or x.startswith("https:"):
         return x
     return os.path.abspath(os.path.expanduser(x))
@@ -416,6 +640,21 @@ def abspath(x: _typing.Any) -> _typing.Any:
 
 def read_sr_patterns(path: _typing.Any, log: _typing.Any = None) -> _typing.Any:
 
+    """
+    Read sr patterns under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read sr patterns through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param log: Value supplied for log under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     import json
     import re
     import codecs
@@ -447,6 +686,19 @@ def read_sr_patterns(path: _typing.Any, log: _typing.Any = None) -> _typing.Any:
 
 
 def main(args: _typing.Any = sys.argv) -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+    :param args: Positional values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     log = Log()
     parser, plumber = create_option_parser(args, log)
     opts, leftover_args = parser.parse_args(args)
@@ -480,6 +732,18 @@ def main(args: _typing.Any = sys.argv) -> int:
 
 
 def manual_index_strings() -> _typing.Any:
+    """
+    Perform the manual index strings operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise manual index strings through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return _(
         """\
 The options and default values for the options change depending on both the

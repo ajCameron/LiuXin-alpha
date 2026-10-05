@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Coordinate MOBI/KF8 writer stages and final container assembly.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise main through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -45,6 +56,19 @@ FLIS = b"FLIS\0\0\0\x08\0\x41\0\0\0\0\0\0\xff\xff\xff\xff\0\x01\0\x03\0\0\0\x03\
 
 
 def fcis(text_length: _typing.Any) -> _typing.Any:
+    """
+    Perform the fcis operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise fcis through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+    :param text_length: Value supplied for text length under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     local_fcis = b"FCIS\x00\x00\x00\x14\x00\x00\x00\x10\x00\x00\x00\x01\x00\x00\x00\x00"
     local_fcis += pack(b">I", text_length)
     local_fcis += b"\x00\x00\x00\x00\x00\x00\x00\x20\x00\x00\x00\x08\x00\x01\x00\x01\x00\x00\x00\x00"
@@ -52,7 +76,31 @@ def fcis(text_length: _typing.Any) -> _typing.Any:
 
 
 class MobiWriter(object):
+    """
+    Provide the mobiwriter contract for validated ebook processing.
+
+    Example:
+        Exercise MobiWriter through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+    """
     def __init__(self: _typing.Self, opts: _typing.Any, resources: _typing.Any, kf8: _typing.Any, write_page_breaks_after_item: bool = True) -> None:
+        """
+        Initialize and validate the mobiwriter state.
+
+        Example:
+            Exercise MobiWriter.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param opts: Value supplied for opts under the utility contract.
+        :param resources: Value supplied for resources under the utility contract.
+        :param kf8: Value supplied for kf8 under the utility contract.
+        :param write_page_breaks_after_item: Value supplied for write page breaks after item
+            under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.opts = opts
         self.resources = resources
         self.kf8 = kf8
@@ -63,6 +111,20 @@ class MobiWriter(object):
         self.last_text_record_idx = 1
 
     def __call__(self: _typing.Self, oeb: _typing.Any, path_or_stream: _typing.Any) -> _typing.Any:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MobiWriter.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param path_or_stream: Value supplied for path or stream under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.log = oeb.log
         pt = None
         if oeb.metadata.publication_type:
@@ -77,13 +139,53 @@ class MobiWriter(object):
             return self.dump_stream(oeb, stream)
 
     def write(self: _typing.Self, *args: _typing.Any) -> None:
+        """
+        Perform the write operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MobiWriter.write through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for datum in args:
             self.stream.write(datum)
 
     def tell(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the tell operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MobiWriter.tell through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.stream.tell()
 
     def dump_stream(self: _typing.Self, oeb: _typing.Any, stream: _typing.Any) -> None:
+        """
+        Perform the dump stream operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MobiWriter.dump stream through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.oeb = oeb
         self.stream = stream
         self.records = [None]
@@ -93,6 +195,18 @@ class MobiWriter(object):
         self.write_content()
 
     def generate_content(self: _typing.Self) -> None:
+        """
+        Perform the generate content operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MobiWriter.generate content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.is_periodical = detect_periodical(self.oeb.toc, self.oeb.log)
         # Image records are stored in their own list, they are merged into the
         # main record list at the end
@@ -106,6 +220,18 @@ class MobiWriter(object):
 
     # Indexing {{{
     def generate_index(self: _typing.Self) -> None:
+        """
+        Perform the generate index operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MobiWriter.generate index through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.primary_index_record_idx = None
         if self.oeb.toc.count() < 1:
             self.log.warn("No TOC, MOBI index not generated")
@@ -137,9 +263,16 @@ class MobiWriter(object):
 
     def write_uncrossable_breaks(self: _typing.Self) -> None:  # {{{
         """
-        Write information about uncrossable breaks (non linear items in
-        the spine.
-        :return:
+        Write information about uncrossable breaks (non linear items in the spine.
+
+        Example:
+            Exercise MobiWriter.write uncrossable breaks through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if not WRITE_UNCROSSABLE_BREAKS:
             return
@@ -166,6 +299,18 @@ class MobiWriter(object):
     # Images {{{
 
     def generate_images(self: _typing.Self) -> None:
+        """
+        Perform the generate images operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MobiWriter.generate images through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         resources = self.resources
         image_records = resources.records
         self.image_map = resources.item_map
@@ -179,6 +324,18 @@ class MobiWriter(object):
     # }}}
 
     def generate_text(self: _typing.Self) -> None:  # {{{
+        """
+        Perform the generate text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MobiWriter.generate text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.oeb.logger.info("Serializing markup content...")
         self.serializer = Serializer(
             self.oeb,
@@ -217,6 +374,18 @@ class MobiWriter(object):
     # }}}
 
     def generate_record0(self: _typing.Self) -> None:  # MOBI header {{{
+        """
+        Perform the generate record0 operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MobiWriter.generate record0 through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         metadata = self.oeb.metadata
         bt = 0x002
         if self.primary_index_record_idx is not None:
@@ -411,6 +580,18 @@ class MobiWriter(object):
     # }}}
 
     def generate_joint_record0(self: _typing.Self) -> None:  # {{{
+        """
+        Perform the generate joint record0 operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MobiWriter.generate joint record0 through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.file_formats.mobi.writer8.mobi import MOBIHeader, HEADER_FIELDS
         from LiuXin_alpha.file_formats.mobi.writer8.exth import build_exth
 
@@ -498,6 +679,15 @@ class MobiWriter(object):
     def write_header(self: _typing.Self) -> None:  # PalmDB header {{{
         """
         Write the PalmDB header
+
+        Example:
+            Exercise MobiWriter.write header through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         title = ascii_filename(six_unicode(self.oeb.metadata.title[0])).replace(" ", "_")[:31]
         if isinstance(title, str):
@@ -525,5 +715,17 @@ class MobiWriter(object):
     # }}}
 
     def write_content(self: _typing.Self) -> None:
+        """
+        Write content under the format's safety and compatibility rules.
+
+        Example:
+            Exercise MobiWriter.write content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for record in self.records:
             self.write(record)

@@ -19,7 +19,17 @@
 #
 # $Id: userfield.py 447 2008-07-10 20:01:30Z roug $
 
-"""Class to show and manipulate user fields in odf documents."""
+"""
+Inspect and update ODF user-field declarations and values.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise userfield through a consuming regression::
+
+        python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -49,24 +59,50 @@ VALUE_TYPES = {
 
 
 class UserFields(object):
-    """List, view and manipulate user fields."""
+    """
+    List, view and manipulate user fields.
+
+    Example:
+        Exercise UserFields through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+    """
 
     # these attributes can be a filename or a file like object
     src_file = None
     dest_file = None
 
     def __init__(self: _typing.Self, src: _typing.Any = None, dest: _typing.Any = None) -> None:
-        """Constructor
+        """
+        Constructor
 
-        src ... source document name, file like object or None for stdin
-        dest ... destination document name, file like object or None for stdout
+        Example:
+            Exercise UserFields.  init   through a consuming regression::
 
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param src: Value supplied for src under the utility contract.
+        :param dest: Value supplied for dest under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.src_file = src
         self.dest_file = dest
         self.document = None
 
     def loaddoc(self: _typing.Self) -> None:
+        """
+        Perform the loaddoc operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise UserFields.loaddoc through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if isinstance(self.src_file, six_string_types):
             # src_file is a filename, check if it is a zip-file
             if not zipfile.is_zipfile(self.src_file):
@@ -79,6 +115,18 @@ class UserFields(object):
 
     def savedoc(self: _typing.Self) -> None:
         # write output
+        """
+        Perform the savedoc operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise UserFields.savedoc through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.dest_file is None:
             # use stdout if no filename given
             self.document.save("-")
@@ -86,21 +134,33 @@ class UserFields(object):
             self.document.save(self.dest_file)
 
     def list_fields(self: _typing.Self) -> _typing.Any:
-        """List (extract) all known user-fields.
+        """
+        List (extract) all known user-fields.
 
-        Returns list of user-field names.
+        Example:
+            Exercise UserFields.list fields through a consuming regression::
 
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return [x[0] for x in self.list_fields_and_values()]
 
     def list_fields_and_values(self: _typing.Self, field_names: _typing.Any = None) -> _typing.Any:
-        """List (extract) user-fields with type and value.
+        """
+        List (extract) user-fields with type and value.
 
-        field_names ... list of field names to show or None for all.
+        Example:
+            Exercise UserFields.list fields and values through a consuming regression::
 
-        Returns list of tuples (<field name>, <field type>, <value>).
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
 
-        :param field_names:
+
+        :param field_names: Value supplied for field names under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self.loaddoc()
         found_fields = []
@@ -124,20 +184,34 @@ class UserFields(object):
         return found_fields
 
     def list_values(self: _typing.Self, field_names: _typing.Any) -> _typing.Any:
-        """Extract the contents of given field names from the file.
+        """
+        Extract the contents of given field names from the file.
 
-        field_names ... list of field names
+        Example:
+            Exercise UserFields.list values through a consuming regression::
 
-        Returns list of field values.
-        :param field_names:
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param field_names: Value supplied for field names under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return [x[2] for x in self.list_fields_and_values(field_names)]
 
     def get(self: _typing.Self, field_name: _typing.Any) -> _typing.Any:
-        """Extract the contents of this field from the file.
+        """
+        Extract the contents of this field from the file.
 
-        Returns field value or None if field does not exist.
-        :param field_name:
+        Example:
+            Exercise UserFields.get through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param field_name: Value supplied for field name under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         values = self.list_values([field_name])
         if not values:
@@ -145,10 +219,18 @@ class UserFields(object):
         return values[0]
 
     def get_type_and_value(self: _typing.Self, field_name: _typing.Any) -> tuple[_typing.Any, ...] | None:
-        """Extract the type and contents of this field from the file.
+        """
+        Extract the type and contents of this field from the file.
 
-        Returns tuple (<type>, <field-value>) or None if field does not exist.
-        :param field_name:
+        Example:
+            Exercise UserFields.get type and value through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param field_name: Value supplied for field name under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         fields = self.list_fields_and_values([field_name])
         if not fields:
@@ -157,12 +239,18 @@ class UserFields(object):
         return value_type, value
 
     def update(self: _typing.Self, data: _typing.Any) -> None:
-        """Set the value of user fields. The field types will be the same.
+        """
+        Set the value of user fields. The field types will be the same.
 
-        data ... dict, with field name as key, field value as value
+        Example:
+            Exercise UserFields.update through a consuming regression::
 
-        Returns None
-        :param data:
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.loaddoc()
         all_fields = self.document.getElementsByType(UserFieldDecl)

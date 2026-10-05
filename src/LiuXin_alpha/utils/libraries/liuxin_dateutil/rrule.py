@@ -1,8 +1,13 @@
 """
-Copyright (c) 2003-2010  Gustavo Niemeyer <gustavo@niemeyer.net>
+Generate recurring datetime sequences from RFC-style recurrence rules.
 
-This module offers extensions to the standard python 2.3+
-datetime module.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise rrule through a consuming regression::
+
+        python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
 """
 __author__ = "Gustavo Niemeyer <gustavo@niemeyer.net>"
 __license__ = "PSF License"
@@ -73,21 +78,68 @@ parser = None
 
 
 class weekday(object):
+    """
+    Provide the weekday utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise weekday through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+    """
     __slots__ = ["weekday", "n"]
 
     def __init__(self, weekday, n=None):
+        """
+        Initialize and validate the weekday state.
+
+        Example:
+            Exercise weekday.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param weekday: Value supplied for weekday under the utility contract.
+        :param n: Value supplied for n under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         if n == 0:
             raise ValueError("Can't create weekday with n == 0")
         self.weekday = weekday
         self.n = n
 
     def __call__(self, n):
+        """
+        Perform the call utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise weekday.  call   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param n: Value supplied for n under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if n == self.n:
             return self
         else:
             return self.__class__(self.weekday, n)
 
     def __eq__(self, other):
+        """
+        Perform the eq utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise weekday.  eq   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             if self.weekday != other.weekday or self.n != other.n:
                 return False
@@ -96,6 +148,18 @@ class weekday(object):
         return True
 
     def __repr__(self):
+        """
+        Perform the repr utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise weekday.  repr   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         s = ("MO", "TU", "WE", "TH", "FR", "SA", "SU")[self.weekday]
         if not self.n:
             return s
@@ -107,7 +171,27 @@ MO, TU, WE, TH, FR, SA, SU = weekdays = tuple([weekday(x) for x in range(7)])
 
 
 class rrulebase:
+    """
+    Provide the rrulebase utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise rrulebase through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+    """
     def __init__(self, cache=False):
+        """
+        Initialize and validate the rrulebase state.
+
+        Example:
+            Exercise rrulebase.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param cache: Value supplied for cache under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         if cache:
             self._cache = []
             self._cache_lock = _thread.allocate_lock()
@@ -119,6 +203,18 @@ class rrulebase:
         self._len = None
 
     def __iter__(self):
+        """
+        Expose iter behavior for the compatibility container.
+
+        Example:
+            Exercise rrulebase.  iter   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self._cache_complete:
             return iter(self._cache)
         elif self._cache is None:
@@ -127,6 +223,17 @@ class rrulebase:
             return self._iter_cached()
 
     def _iter_cached(self):
+        """
+        Iterate cached under the documented compatibility and safety rules.
+
+        Example:
+            Exercise rrulebase. iter cached through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         i = 0
         gen = self._cache_gen
         cache = self._cache
@@ -152,6 +259,19 @@ class rrulebase:
             i += 1
 
     def __getitem__(self, item):
+        """
+        Expose getitem behavior for the compatibility container.
+
+        Example:
+            Exercise rrulebase.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self._cache_complete:
             return self._cache[item]
         elif isinstance(item, slice):
@@ -171,6 +291,19 @@ class rrulebase:
             return list(iter(self))[item]
 
     def __contains__(self, item):
+        """
+        Perform the contains utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise rrulebase.  contains   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self._cache_complete:
             return item in self._cache
         else:
@@ -183,12 +316,38 @@ class rrulebase:
 
     # __len__() introduces a large performance penality.
     def count(self):
+        """
+        Perform the count utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise rrulebase.count through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self._len is None:
             for x in self:
                 pass
         return self._len
 
     def before(self, dt, inc=False):
+        """
+        Perform the before utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise rrulebase.before through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt: Date or datetime value parsed, normalized or rendered.
+        :param inc: Value supplied for inc under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self._cache_complete:
             gen = self._cache
         else:
@@ -207,6 +366,20 @@ class rrulebase:
         return last
 
     def after(self, dt, inc=False):
+        """
+        Perform the after utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise rrulebase.after through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt: Date or datetime value parsed, normalized or rendered.
+        :param inc: Value supplied for inc under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self._cache_complete:
             gen = self._cache
         else:
@@ -222,6 +395,21 @@ class rrulebase:
         return None
 
     def between(self, after, before, inc=False):
+        """
+        Perform the between utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise rrulebase.between through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param after: Value supplied for after under the utility contract.
+        :param before: Value supplied for before under the utility contract.
+        :param inc: Value supplied for inc under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self._cache_complete:
             gen = self._cache
         else:
@@ -252,6 +440,14 @@ class rrulebase:
 
 
 class rrule(rrulebase):
+    """
+    Provide the rrule utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise rrule through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+    """
     def __init__(
         self,
         freq,
@@ -272,6 +468,34 @@ class rrule(rrulebase):
         bysecond=None,
         cache=False,
     ):
+        """
+        Initialize and validate the rrule state.
+
+        Example:
+            Exercise rrule.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param freq: Value supplied for freq under the utility contract.
+        :param dtstart: Value supplied for dtstart under the utility contract.
+        :param interval: Value supplied for interval under the utility contract.
+        :param wkst: Value supplied for wkst under the utility contract.
+        :param count: Value supplied for count under the utility contract.
+        :param until: Value supplied for until under the utility contract.
+        :param bysetpos: Value supplied for bysetpos under the utility contract.
+        :param bymonth: Value supplied for bymonth under the utility contract.
+        :param bymonthday: Value supplied for bymonthday under the utility contract.
+        :param byyearday: Value supplied for byyearday under the utility contract.
+        :param byeaster: Value supplied for byeaster under the utility contract.
+        :param byweekno: Value supplied for byweekno under the utility contract.
+        :param byweekday: Value supplied for byweekday under the utility contract.
+        :param byhour: Value supplied for byhour under the utility contract.
+        :param byminute: Value supplied for byminute under the utility contract.
+        :param bysecond: Value supplied for bysecond under the utility contract.
+        :param cache: Value supplied for cache under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         rrulebase.__init__(self, cache)
         global easter
         if not dtstart:
@@ -432,6 +656,17 @@ class rrule(rrulebase):
             self._timeset = tuple(self._timeset)
 
     def _iter(self):
+        """
+        Perform the iter utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise rrule. iter through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         (
             year,
             month,
@@ -683,6 +918,14 @@ class rrule(rrulebase):
 
 
 class _iterinfo(object):
+    """
+    Provide the iterinfo utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise  iterinfo through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+    """
     __slots__ = [
         "rrule",
         "lastyear",
@@ -702,12 +945,38 @@ class _iterinfo(object):
     ]
 
     def __init__(self, rrule):
+        """
+        Initialize and validate the iterinfo state.
+
+        Example:
+            Exercise  iterinfo.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param rrule: Value supplied for rrule under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         for attr in self.__slots__:
             setattr(self, attr, None)
         self.rrule = rrule
 
     def rebuild(self, year, month):
         # Every mask is 7 days longer to handle cross-year weekly periods.
+        """
+        Perform the rebuild utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  iterinfo.rebuild through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param year: Value supplied for year under the utility contract.
+        :param month: Value supplied for month under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         rr = self.rrule
         if year != self.lastyear:
             self.yearlen = 365 + calendar.isleap(year)
@@ -835,9 +1104,39 @@ class _iterinfo(object):
         self.lastmonth = month
 
     def ydayset(self, year, month, day):
+        """
+        Perform the ydayset utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  iterinfo.ydayset through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param year: Value supplied for year under the utility contract.
+        :param month: Value supplied for month under the utility contract.
+        :param day: Value supplied for day under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return list(range(self.yearlen)), 0, self.yearlen
 
     def mdayset(self, year, month, day):
+        """
+        Perform the mdayset utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  iterinfo.mdayset through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param year: Value supplied for year under the utility contract.
+        :param month: Value supplied for month under the utility contract.
+        :param day: Value supplied for day under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         set = [None] * self.yearlen
         start, end = self.mrange[month - 1 : month + 1]
         for i in range(start, end):
@@ -846,6 +1145,21 @@ class _iterinfo(object):
 
     def wdayset(self, year, month, day):
         # We need to handle cross-year weeks here.
+        """
+        Perform the wdayset utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  iterinfo.wdayset through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param year: Value supplied for year under the utility contract.
+        :param month: Value supplied for month under the utility contract.
+        :param day: Value supplied for day under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         set = [None] * (self.yearlen + 7)
         i = datetime.date(year, month, day).toordinal() - self.yearordinal
         start = i
@@ -860,12 +1174,42 @@ class _iterinfo(object):
         return set, start, i
 
     def ddayset(self, year, month, day):
+        """
+        Perform the ddayset utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  iterinfo.ddayset through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param year: Value supplied for year under the utility contract.
+        :param month: Value supplied for month under the utility contract.
+        :param day: Value supplied for day under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         set = [None] * self.yearlen
         i = datetime.date(year, month, day).toordinal() - self.yearordinal
         set[i] = i
         return set, i, i + 1
 
     def htimeset(self, hour, minute, second):
+        """
+        Perform the htimeset utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  iterinfo.htimeset through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param hour: Value supplied for hour under the utility contract.
+        :param minute: Value supplied for minute under the utility contract.
+        :param second: Value supplied for second under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         set = []
         rr = self.rrule
         for minute in rr._byminute:
@@ -875,6 +1219,21 @@ class _iterinfo(object):
         return set
 
     def mtimeset(self, hour, minute, second):
+        """
+        Perform the mtimeset utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  iterinfo.mtimeset through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param hour: Value supplied for hour under the utility contract.
+        :param minute: Value supplied for minute under the utility contract.
+        :param second: Value supplied for second under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         set = []
         rr = self.rrule
         for second in rr._bysecond:
@@ -883,12 +1242,56 @@ class _iterinfo(object):
         return set
 
     def stimeset(self, hour, minute, second):
+        """
+        Perform the stimeset utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  iterinfo.stimeset through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param hour: Value supplied for hour under the utility contract.
+        :param minute: Value supplied for minute under the utility contract.
+        :param second: Value supplied for second under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return (datetime.time(hour, minute, second, tzinfo=self.rrule._tzinfo),)
 
 
 class rruleset(rrulebase):
+    """
+    Provide the rruleset utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise rruleset through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+    """
     class _genitem:
+        """
+        Provide the genitem utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise rruleset. genitem through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+        """
         def __init__(self, genlist, gen):
+            """
+            Initialize and validate the genitem state.
+
+            Example:
+                Exercise rruleset. genitem.  init   through a consuming regression::
+
+                    python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+            :param genlist: Value supplied for genlist under the utility contract.
+            :param gen: Value supplied for gen under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             try:
                 self.dt = gen()
                 genlist.append(self)
@@ -898,15 +1301,52 @@ class rruleset(rrulebase):
             self.gen = gen
 
         def __next__(self):
+            """
+            Perform the next utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise rruleset. genitem.  next   through a consuming regression::
+
+                    python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             try:
                 self.dt = self.gen()
             except StopIteration:
                 self.genlist.remove(self)
 
         def __cmp__(self, other):
+            """
+            Perform the cmp utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise rruleset. genitem.  cmp   through a consuming regression::
+
+                    python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+            :param other: Value supplied for other under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return cmp(self.dt, other.dt)
 
     def __init__(self, cache=False):
+        """
+        Initialize and validate the rruleset state.
+
+        Example:
+            Exercise rruleset.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param cache: Value supplied for cache under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         rrulebase.__init__(self, cache)
         self._rrule = []
         self._rdate = []
@@ -914,18 +1354,81 @@ class rruleset(rrulebase):
         self._exdate = []
 
     def rrule(self, rrule):
+        """
+        Perform the rrule utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise rruleset.rrule through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param rrule: Value supplied for rrule under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._rrule.append(rrule)
 
     def rdate(self, rdate):
+        """
+        Perform the rdate utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise rruleset.rdate through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param rdate: Value supplied for rdate under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._rdate.append(rdate)
 
     def exrule(self, exrule):
+        """
+        Perform the exrule utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise rruleset.exrule through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param exrule: Value supplied for exrule under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._exrule.append(exrule)
 
     def exdate(self, exdate):
+        """
+        Perform the exdate utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise rruleset.exdate through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param exdate: Value supplied for exdate under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._exdate.append(exdate)
 
     def _iter(self):
+        """
+        Perform the iter utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise rruleset. iter through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         rlist = []
         self._rdate.sort()
         self._genitem(rlist, iter(self._rdate).__next__)
@@ -957,6 +1460,14 @@ class rruleset(rrulebase):
 
 class _rrulestr:
 
+    """
+    Provide the rrulestr utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise  rrulestr through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+    """
     _freq_map = {
         "YEARLY": YEARLY,
         "MONTHLY": MONTHLY,
@@ -970,9 +1481,41 @@ class _rrulestr:
     _weekday_map = {"MO": 0, "TU": 1, "WE": 2, "TH": 3, "FR": 4, "SA": 5, "SU": 6}
 
     def _handle_int(self, rrkwargs, name, value, **kwargs):
+        """
+        Perform the handle int utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  rrulestr. handle int through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param rrkwargs: Value supplied for rrkwargs under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param value: Value normalized, stored, formatted or returned.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         rrkwargs[name.lower()] = int(value)
 
     def _handle_int_list(self, rrkwargs, name, value, **kwargs):
+        """
+        Perform the handle int list utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  rrulestr. handle int list through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param rrkwargs: Value supplied for rrkwargs under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param value: Value normalized, stored, formatted or returned.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         rrkwargs[name.lower()] = [int(x) for x in value.split(",")]
 
     _handle_INTERVAL = _handle_int
@@ -988,9 +1531,41 @@ class _rrulestr:
     _handle_BYSECOND = _handle_int_list
 
     def _handle_FREQ(self, rrkwargs, name, value, **kwargs):
+        """
+        Perform the handle FREQ utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  rrulestr. handle FREQ through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param rrkwargs: Value supplied for rrkwargs under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param value: Value normalized, stored, formatted or returned.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         rrkwargs["freq"] = self._freq_map[value]
 
     def _handle_UNTIL(self, rrkwargs, name, value, **kwargs):
+        """
+        Perform the handle UNTIL utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  rrulestr. handle UNTIL through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param rrkwargs: Value supplied for rrkwargs under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param value: Value normalized, stored, formatted or returned.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         global parser
         if not parser:
             from dateutil import parser
@@ -1000,9 +1575,41 @@ class _rrulestr:
             raise ValueError("invalid until date")
 
     def _handle_WKST(self, rrkwargs, name, value, **kwargs):
+        """
+        Perform the handle WKST utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  rrulestr. handle WKST through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param rrkwargs: Value supplied for rrkwargs under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param value: Value normalized, stored, formatted or returned.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         rrkwargs["wkst"] = self._weekday_map[value]
 
     def _handle_BYWEEKDAY(self, rrkwargs, name, value, **kwarsg):
+        """
+        Perform the handle BYWEEKDAY utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  rrulestr. handle BYWEEKDAY through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param rrkwargs: Value supplied for rrkwargs under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param value: Value normalized, stored, formatted or returned.
+        :param kwarsg: Value supplied for kwarsg under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         l = []
         for wday in value.split(","):
             for i in range(len(wday)):
@@ -1018,6 +1625,23 @@ class _rrulestr:
     _handle_BYDAY = _handle_BYWEEKDAY
 
     def _parse_rfc_rrule(self, line, dtstart=None, cache=False, ignoretz=False, tzinfos=None):
+        """
+        Parse rfc rrule under the documented compatibility and safety rules.
+
+        Example:
+            Exercise  rrulestr. parse rfc rrule through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :param dtstart: Value supplied for dtstart under the utility contract.
+        :param cache: Value supplied for cache under the utility contract.
+        :param ignoretz: Value supplied for ignoretz under the utility contract.
+        :param tzinfos: Value supplied for tzinfos under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if line.find(":") != -1:
             name, value = line.split(":")
             if name != "RRULE":
@@ -1048,6 +1672,26 @@ class _rrulestr:
         ignoretz=False,
         tzinfos=None,
     ):
+        """
+        Parse rfc under the documented compatibility and safety rules.
+
+        Example:
+            Exercise  rrulestr. parse rfc through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param s: Value supplied for s under the utility contract.
+        :param dtstart: Value supplied for dtstart under the utility contract.
+        :param cache: Value supplied for cache under the utility contract.
+        :param unfold: Value supplied for unfold under the utility contract.
+        :param forceset: Value supplied for forceset under the utility contract.
+        :param compatible: Value supplied for compatible under the utility contract.
+        :param ignoretz: Value supplied for ignoretz under the utility contract.
+        :param tzinfos: Value supplied for tzinfos under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         global parser
         if compatible:
             forceset = True
@@ -1148,6 +1792,20 @@ class _rrulestr:
                 )
 
     def __call__(self, s, **kwargs):
+        """
+        Perform the call utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  rrulestr.  call   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param s: Value supplied for s under the utility contract.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._parse_rfc(s, **kwargs)
 
 

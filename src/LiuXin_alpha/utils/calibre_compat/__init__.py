@@ -1,7 +1,13 @@
-"""Calibre metadata implementations and import diagnostics.
+"""
+Expose the supported calibre compat compatibility surface.
 
-Import implementations from LiuXin_alpha.utils.calibre_compat directly. This
-package does not install aliases under the external calibre namespace.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
 """
 
 from __future__ import annotations

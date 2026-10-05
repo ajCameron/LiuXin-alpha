@@ -316,6 +316,7 @@ class DriverObjectInfo(Generic[DriverObjectAddressT]):
         _require_aware_datetime(self.modified_at, "modified_at")
 
 
+# Todo: What does a discovery hint mean in this context?
 @dataclasses.dataclass(slots=True, frozen=True)
 class DriverInventoryEntry(Generic[DriverObjectAddressT]):
     """
@@ -336,7 +337,6 @@ class DriverInventoryEntry(Generic[DriverObjectAddressT]):
         ... )
         >>> (entry.hints.suggested_filename, entry.size)
         ('book.epub', 4)
-
 
     :ivar object_address: Listed concrete address requiring caller/driver ownership checks.
     :ivar size: Cheap byte-length observation, or None when unknown.
@@ -377,6 +377,7 @@ class DriverInventoryEntry(Generic[DriverObjectAddressT]):
         _require_aware_datetime(self.modified_at, "modified_at")
 
 
+# Todo: Emphasize that this is only used for some drivers
 @dataclasses.dataclass(slots=True, frozen=True)
 class DriverInventoryPage(Generic[DriverObjectAddressT]):
     """
@@ -416,7 +417,7 @@ class DriverInventoryPage(Generic[DriverObjectAddressT]):
 
         :return: None after rejecting exact empty cursor/snapshot strings and duplicate addresses within this page.
         """
-
+        # Todo: Also check if explicitly None?
         if self.next_cursor == "":
             raise ValueError("driver inventory cursor must not be empty.")
         if self.snapshot_token == "":
@@ -536,7 +537,6 @@ class DriverCapabilities:
         >>> capabilities.create
         False
 
-
     :ivar range_reads: Whether nondefault offset/length reads are supported.
     :ivar enumeration: Declared inventory completeness, including UNAVAILABLE.
     :ivar stat_digest_authoritative: Whether stat may supply a digest authoritative for the described version.
@@ -558,6 +558,7 @@ class DriverCapabilities:
     :ivar conditional_read: Whether reads can pin an opaque version token.
     :ivar paged_enumeration: Whether resumable bounded inventory pages are supported.
     :ivar concurrency: Declared instance concurrency guarantees, conservative by default.
+
     """
 
     range_reads: bool
@@ -569,17 +570,22 @@ class DriverCapabilities:
     delete: bool = False
     conditional_delete: bool = False
     atomic_publish: bool = False
+
     native_copy: bool = False
     native_move: bool = False
+
     capacity_reporting: bool = False
     object_address_allocation: bool = False
     hierarchical_object_addresses: bool = False
     write_metadata: bool = False
+
     external_uri_parsing: bool = False
     external_uri_rendering: bool = False
+
     prefix_enumeration: bool = False
     conditional_read: bool = False
     paged_enumeration: bool = False
+
     concurrency: DriverConcurrencyCapabilities = dataclasses.field(
         default_factory=DriverConcurrencyCapabilities
     )
@@ -697,6 +703,7 @@ class DriverStatus:
         _require_unique_metadata(self.details)
 
 
+# Todo: Again, should be in utils. Not here.
 def _require_unique_metadata(metadata: tuple[tuple[str, str], ...]) -> None:
     """
     Reject duplicate native metadata keys.

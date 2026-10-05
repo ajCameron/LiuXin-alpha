@@ -3,6 +3,17 @@
 # License: GPL v3 Copyright: 2018, Kovid Goyal <kovid at kovidgoyal.net>
 
 
+"""
+Expose normalized URL parsing, quoting and request helpers.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise urllib through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_docstring_migration.py
+"""
 from urllib.request import (
     build_opener,
     getproxies,
@@ -58,6 +69,21 @@ __all__ = [
 
 
 def unquote(x, encoding="utf-8", errors="replace"):
+    """
+    Perform the unquote utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise unquote through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param errors: Value supplied for errors under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     binary = isinstance(x, bytes)
     if binary:
         x = x.decode(encoding, errors)
@@ -68,6 +94,21 @@ def unquote(x, encoding="utf-8", errors="replace"):
 
 
 def unquote_plus(x, encoding="utf-8", errors="replace"):
+    """
+    Perform the unquote plus utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise unquote plus through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param errors: Value supplied for errors under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     q, repl = (b"+", b" ") if isinstance(x, bytes) else ("+", " ")
     x = x.replace(q, repl)
     return unquote(x, encoding=encoding, errors=errors)

@@ -1,3 +1,14 @@
+"""
+Verify FB2 bibliographic metadata and cover extraction.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test fb2 metadata source through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+"""
 from __future__ import annotations
 
 import io
@@ -13,6 +24,18 @@ from tests.support.file_format_zip import write_zip_archive
 
 
 def _values(raw):
+    """
+    Perform the values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise values through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, Mapping):
@@ -26,11 +49,35 @@ def _values(raw):
 
 
 def _first_value(raw) -> str:
+    """
+    Perform the first value test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise first value through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     values = _values(raw)
     return str(values[0]) if values else ""
 
 
 def _cover_pair(raw):
+    """
+    Perform the cover pair test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise cover pair through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if isinstance(raw, tuple) and len(raw) == 2:
         return raw
     if isinstance(raw, Mapping):
@@ -41,6 +88,18 @@ def _cover_pair(raw):
 
 
 def _contains_forbidden_xml_char(text: str) -> bool:
+    """
+    Perform the contains forbidden xml char test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise contains forbidden xml char through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param text: Value supplied for text in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     for ch in text:
         cp = ord(ch)
         if cp == 0x7F:
@@ -58,6 +117,21 @@ def _contains_forbidden_xml_char(text: str) -> bool:
 
 
 def _build_fb2_xml(*, title: str, first_name: str, last_name: str, encoding: str = "UTF-8") -> str:
+    """
+    Perform the build fb2 xml test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise build fb2 xml through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param title: Value supplied for title in the focused test operation.
+    :param first_name: Value supplied for first name in the focused test operation.
+    :param last_name: Value supplied for last name in the focused test operation.
+    :param encoding: Value supplied for encoding in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return (
         f'<?xml version="1.0" encoding="{encoding}"?>'
         '<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0">'
@@ -73,12 +147,36 @@ def _build_fb2_xml(*, title: str, first_name: str, last_name: str, encoding: str
 
 
 def test_fb2_metadata_module_import_smoke() -> None:
+    """
+    Verify fb2 metadata module import smoke.
+
+    Example:
+        Exercise test fb2 metadata module import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.fb2 as fb2_md
 
     assert fb2_md is not None
 
 
 def test_fb2_all_hashed_fixtures_reader_smoke(md_test_fixtures_for_ext) -> None:
+    """
+    Verify fb2 all hashed fixtures reader smoke.
+
+    Example:
+        Exercise test fb2 all hashed fixtures reader smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param md_test_fixtures_for_ext: Value supplied for md test fixtures for ext in the
+        focused test operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.fb2 import get_metadata, get_metadata_inplace
 
     fixtures = md_test_fixtures_for_ext(file_ext="fb2", verify_hash=True)
@@ -100,6 +198,19 @@ def test_fb2_all_hashed_fixtures_reader_smoke(md_test_fixtures_for_ext) -> None:
 
 
 def test_fb2_legacy_fixture1_expectations(md_test_fixture) -> None:
+    """
+    Verify fb2 legacy fixture1 expectations.
+
+    Example:
+        Exercise test fb2 legacy fixture1 expectations through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.fb2 import get_metadata
 
     fixture = md_test_fixture(file_ext="fb2", file_num=1, verify_hash=True)
@@ -112,6 +223,19 @@ def test_fb2_legacy_fixture1_expectations(md_test_fixture) -> None:
 
 
 def test_fb2_reader_plugin_is_available(md_test_fixture) -> None:
+    """
+    Verify fb2 reader plugin remains available.
+
+    Example:
+        Exercise test fb2 reader plugin is available through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
 
     fixture = md_test_fixture(file_ext="fb2", file_num=1, verify_hash=True)
@@ -132,6 +256,19 @@ def test_fb2_reader_plugin_is_available(md_test_fixture) -> None:
 
 
 def test_fb2_cover_extracts_binary_from_fixture(md_test_fixture) -> None:
+    """
+    Verify fb2 cover extracts binary from fixture.
+
+    Example:
+        Exercise test fb2 cover extracts binary from fixture through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.fb2 import get_metadata
 
     fixture = md_test_fixture(file_ext="fb2", file_num=3, verify_hash=True)
@@ -145,6 +282,20 @@ def test_fb2_cover_extracts_binary_from_fixture(md_test_fixture) -> None:
 
 
 def test_fb2_set_metadata_roundtrip_path(tmp_path: Path, md_test_fixture) -> None:
+    """
+    Verify fb2 set metadata roundtrip path.
+
+    Example:
+        Exercise test fb2 set metadata roundtrip path through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.fb2 import get_metadata, set_metadata
 
     source = md_test_fixture(file_ext="fb2", file_num=1, verify_hash=True)
@@ -177,6 +328,20 @@ def test_fb2_set_metadata_roundtrip_path(tmp_path: Path, md_test_fixture) -> Non
 
 
 def test_fb2_set_metadata_roundtrip_stream(tmp_path: Path, md_test_fixture) -> None:
+    """
+    Verify fb2 set metadata roundtrip stream.
+
+    Example:
+        Exercise test fb2 set metadata roundtrip stream through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.fb2 import get_metadata, set_metadata
 
     source = md_test_fixture(file_ext="fb2", file_num=3, verify_hash=True)
@@ -195,6 +360,20 @@ def test_fb2_set_metadata_roundtrip_stream(tmp_path: Path, md_test_fixture) -> N
 
 
 def test_fb2_writer_plugin_is_available(tmp_path: Path, md_test_fixture) -> None:
+    """
+    Verify fb2 writer plugin remains available.
+
+    Example:
+        Exercise test fb2 writer plugin is available through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.customize.builtins.metadata_writers import get_metadata_set_plugins
     from LiuXin_alpha.metadata.file_sources.fb2 import get_metadata
 
@@ -219,6 +398,20 @@ def test_fb2_writer_plugin_is_available(tmp_path: Path, md_test_fixture) -> None
 
 
 def test_fb2_unicode_torture_roundtrip(tmp_path: Path, md_test_fixture) -> None:
+    """
+    Verify fb2 unicode torture roundtrip.
+
+    Example:
+        Exercise test fb2 unicode torture roundtrip through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.fb2 import get_metadata, set_metadata
 
     source = md_test_fixture(file_ext="fb2", file_num=1, verify_hash=True)
@@ -253,6 +446,20 @@ def test_fb2_set_metadata_sanitizes_hostile_xml_without_mutating_input(
     tmp_path: Path,
     md_test_fixture,
 ) -> None:
+    """
+    Verify fb2 set metadata sanitizes hostile xml without mutating input.
+
+    Example:
+        Exercise test fb2 set metadata sanitizes hostile xml without mutating input through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.fb2 import get_metadata, set_metadata
     from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
@@ -292,11 +499,39 @@ def test_fb2_set_metadata_sanitizes_hostile_xml_without_mutating_input(
 
 
 def test_fb2_malformed_payload_raises_by_default_and_can_opt_into_fallback(monkeypatch) -> None:
+    """
+    Verify fb2 malformed payload raises by default and can opt into fallback.
+
+    Example:
+        Exercise test fb2 malformed payload raises by default and can opt into fallback through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.fb2 as fb2
 
     calls: list[tuple[str, str]] = []
 
     def _record(message, _err, level, *args):
+        """
+        Perform the record test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test fb2 malformed payload raises by default and can opt into fallback.record through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+        :param message: Value supplied for message in the focused test operation.
+        :param _err: Value supplied for err in the focused test operation.
+        :param level: Value supplied for level in the focused test operation.
+        :param args: Positional values forwarded by the test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         calls.append((message, level))
 
     monkeypatch.setattr(fb2.default_log, "log_exception", _record)
@@ -315,11 +550,39 @@ def test_fb2_malformed_payload_raises_by_default_and_can_opt_into_fallback(monke
 
 
 def test_fb2_set_metadata_on_malformed_payload_logs_and_raises(monkeypatch) -> None:
+    """
+    Verify fb2 set metadata on malformed payload logs and raises.
+
+    Example:
+        Exercise test fb2 set metadata on malformed payload logs and raises through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.fb2 as fb2
 
     events: list[tuple[str, str]] = []
 
     def _record(message, err, level, *pairs):
+        """
+        Perform the record test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test fb2 set metadata on malformed payload logs and raises.record through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+        :param message: Value supplied for message in the focused test operation.
+        :param err: Value supplied for err in the focused test operation.
+        :param level: Value supplied for level in the focused test operation.
+        :param pairs: Value supplied for pairs in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         events.append((str(message), str(err)))
 
     monkeypatch.setattr(fb2.default_log, "log_exception", _record)
@@ -333,6 +596,17 @@ def test_fb2_set_metadata_on_malformed_payload_logs_and_raises(monkeypatch) -> N
 
 
 def test_fb2_reads_windows1251_encoded_payload() -> None:
+    """
+    Verify fb2 reads windows1251 encoded payload.
+
+    Example:
+        Exercise test fb2 reads windows1251 encoded payload through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.fb2 import get_metadata
 
     xml_text = _build_fb2_xml(
@@ -350,6 +624,17 @@ def test_fb2_reads_windows1251_encoded_payload() -> None:
 
 
 def test_fb2_handles_declared_encoding_mismatch_without_crashing() -> None:
+    """
+    Verify fb2 handles declared encoding mismatch without crashing.
+
+    Example:
+        Exercise test fb2 handles declared encoding mismatch without crashing through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.fb2 import get_metadata
 
     xml_text = _build_fb2_xml(
@@ -372,6 +657,20 @@ def test_fb2_reads_and_writes_fb2_inside_zip_container_preserving_other_members(
     tmp_path: Path,
     md_test_fixture,
 ) -> None:
+    """
+    Verify fb2 reads and writes fb2 inside zip container preserving other members.
+
+    Example:
+        Exercise test fb2 reads and writes fb2 inside zip container preserving other members through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.fb2 import get_metadata, set_metadata
 
     source = md_test_fixture(file_ext="fb2", file_num=1, verify_hash=True)
@@ -426,6 +725,21 @@ def test_fb2_metadata_rejects_hostile_zip_payloads(
     members: dict[str, bytes],
     match: str,
 ) -> None:
+    """
+    Verify fb2 metadata rejects hostile zip payloads.
+
+    Example:
+        Exercise test fb2 metadata rejects hostile zip payloads through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param case_id: Value supplied for case id in the focused test operation.
+    :param members: Value supplied for members in the focused test operation.
+    :param match: Value supplied for match in the focused test operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.fb2 as fb2
 
     archive = tmp_path / f"{case_id}.fbz"

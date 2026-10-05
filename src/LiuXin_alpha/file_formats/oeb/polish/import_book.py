@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 
+"""
+Import source books into editable EPUB/OEB containers.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise import book through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -24,6 +35,19 @@ IMPORTABLE = {"htm", "xhtml", "html", "xhtm", "docx"}
 
 
 def auto_fill_manifest(container: _typing.Any) -> None:
+    """
+    Perform the auto fill manifest operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise auto fill manifest through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     manifest_id_map = container.manifest_id_map
     manifest_name_map = {v: k for k, v in iteritems(manifest_id_map)}
 
@@ -40,6 +64,21 @@ def auto_fill_manifest(container: _typing.Any) -> None:
 
 
 def import_book_as_epub(srcpath: _typing.Any, destpath: _typing.Any, log: _typing.Any = default_log) -> None:
+    """
+    Perform the import book as epub operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise import book as epub through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param srcpath: Value supplied for srcpath under the utility contract.
+    :param destpath: Value supplied for destpath under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plumber import Plumber
     from LiuXin_alpha.file_formats.epub import initialize_container
 

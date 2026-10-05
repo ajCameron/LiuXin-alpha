@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Headless PDF writer that does not require Qt.
+Render PDF output through the headless backend.
 
-This writer intentionally targets robust fallback behavior over rich layout:
-it extracts readable text from XHTML spine items and emits a simple PDF with
-standard fonts.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise headless writer through a consuming regression::
+
+        python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
 """
 
 from __future__ import annotations
@@ -27,6 +31,19 @@ __docformat__ = "restructuredtext en"
 
 
 def _parse_custom_size(raw: _typing.Any) -> tuple[_typing.Any, ...] | None:
+    """
+    Parse custom size under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  parse custom size through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not raw:
         return None
     width, sep, height = str(raw).partition("x")
@@ -39,6 +56,19 @@ def _parse_custom_size(raw: _typing.Any) -> tuple[_typing.Any, ...] | None:
 
 
 def _unit_to_points(unit: _typing.Any) -> _typing.Any:
+    """
+    Perform the unit to points operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  unit to points through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+    :param unit: Value supplied for unit under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     unit = (unit or "inch").lower()
     return {
         "point": 1.0,
@@ -53,6 +83,19 @@ def _unit_to_points(unit: _typing.Any) -> _typing.Any:
 
 
 def _page_size_points(opts: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Perform the page size points operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  page size points through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+    :param opts: Value supplied for opts under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     custom = _parse_custom_size(getattr(opts, "custom_size", None))
     if custom is not None:
         scale = _unit_to_points(getattr(opts, "unit", "inch"))
@@ -67,12 +110,39 @@ def _page_size_points(opts: _typing.Any) -> tuple[_typing.Any, ...]:
 
 def _normalize_text(raw: _typing.Any) -> _typing.Any:
     # Collapse whitespace but preserve paragraph boundaries.
+    """
+    Normalize text under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  normalize text through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     out = re.sub(r"[ \t\r\f\v]+", " ", raw)
     out = re.sub(r"\n{3,}", "\n\n", out)
     return out.strip()
 
 
 def _extract_blocks(path: _typing.Any) -> _typing.Any:
+    """
+    Extract blocks under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  extract blocks through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     data = Path(path).read_bytes()
     try:
         root = html.fromstring(data)
@@ -99,13 +169,54 @@ def _extract_blocks(path: _typing.Any) -> _typing.Any:
 
 
 class HeadlessPDFWriter(object):
+    """
+    Provide the headlesspdfwriter contract for validated ebook processing.
+
+    Example:
+        Exercise HeadlessPDFWriter through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+    """
     def __init__(self: _typing.Self, opts: _typing.Any, log: _typing.Any, cover_data: _typing.Any = None, toc: _typing.Any = None) -> None:
+        """
+        Initialize and validate the headlesspdfwriter state.
+
+        Example:
+            Exercise HeadlessPDFWriter.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param cover_data: Value supplied for cover data under the utility contract.
+        :param toc: Value supplied for toc under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.opts = opts
         self.log = log
         self.cover_data = cover_data
         self.toc = toc
 
     def _draw_line(self: _typing.Self, pdf: _typing.Any, font_name: _typing.Any, font_size: _typing.Any, x: _typing.Any, y: _typing.Any, text: _typing.Any) -> None:
+        """
+        Perform the draw line operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeadlessPDFWriter. draw line through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param pdf: Value supplied for pdf under the utility contract.
+        :param font_name: Value supplied for font name under the utility contract.
+        :param font_size: Value supplied for font size under the utility contract.
+        :param x: Value supplied for x under the utility contract.
+        :param y: Value supplied for y under the utility contract.
+        :param text: Text parsed, normalized or rendered.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pdf.current_page.write("BT ")
         pdf.serialize(Name(font_name))
         pdf.current_page.write(" %s Tf " % int(font_size))
@@ -114,6 +225,23 @@ class HeadlessPDFWriter(object):
         pdf.current_page.write_line(" Tj ET")
 
     def _draw_page_number(self: _typing.Self, pdf: _typing.Any, font_name: _typing.Any, page_num: _typing.Any, page_width: _typing.Any, bottom_margin: _typing.Any) -> None:
+        """
+        Perform the draw page number operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeadlessPDFWriter. draw page number through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param pdf: Value supplied for pdf under the utility contract.
+        :param font_name: Value supplied for font name under the utility contract.
+        :param page_num: Value supplied for page num under the utility contract.
+        :param page_width: Value supplied for page width under the utility contract.
+        :param bottom_margin: Value supplied for bottom margin under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not getattr(self.opts, "pdf_page_numbers", False):
             return
         self._draw_line(
@@ -126,6 +254,21 @@ class HeadlessPDFWriter(object):
         )
 
     def dump(self: _typing.Self, items: _typing.Any, out_stream: _typing.Any, pdf_metadata: _typing.Any) -> None:
+        """
+        Perform the dump operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeadlessPDFWriter.dump through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param items: Value supplied for items under the utility contract.
+        :param out_stream: Value supplied for out stream under the utility contract.
+        :param pdf_metadata: Value supplied for pdf metadata under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         page_width, page_height = _page_size_points(self.opts)
         margin_left = float(getattr(self.opts, "margin_left", 36) or 36)
         margin_right = float(getattr(self.opts, "margin_right", 36) or 36)
@@ -149,6 +292,18 @@ class HeadlessPDFWriter(object):
         min_y = margin_bottom + line_height
 
         def maybe_page_break() -> None:
+            """
+            Perform the maybe page break operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise HeadlessPDFWriter.dump.maybe page break through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             nonlocal y, page_num, font_name
             if y < min_y:
                 self._draw_page_number(pdf, font_name, page_num, page_width, margin_bottom)

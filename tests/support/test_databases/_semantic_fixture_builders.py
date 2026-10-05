@@ -1,3 +1,14 @@
+"""
+Build deterministic test-database semantic fixture builders data and relationships.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise  semantic fixture builders through a consuming regression::
+
+        python -m pytest -q tests/databases/test_test_resources_manager.py
+"""
 from __future__ import annotations
 
 import re
@@ -26,6 +37,22 @@ JPEG_FAKE_BYTES = b"\xff\xd8\xff\xe0FAKEJPEG\xff\xd9"
 
 
 def build_base_profiled_db(*, bundle_dir: Path, db_name: str, books: int) -> Path:
+    """
+    Build base profiled db for deterministic fixture consumers.
+
+    Example:
+        Exercise build base profiled db through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param bundle_dir: Value supplied for bundle dir under the deterministic fixture
+        contract.
+    :param db_name: Registered test-database profile name.
+    :param books: Value supplied for books under the deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     db_path = Path(bundle_dir) / f"{db_name}.test_db"
     trm.build_profiled_test_database(
         db_path=db_path,
@@ -45,6 +72,19 @@ def build_base_profiled_db(*, bundle_dir: Path, db_name: str, books: int) -> Pat
 
 
 def open_fixture_db(db_path: Path) -> sqlite3.Connection:
+    """
+    Perform the open fixture db step with deterministic fixture inputs.
+
+    Example:
+        Exercise open fixture db through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param db_path: Value supplied for db path under the deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     conn = sqlite3.connect(str(db_path))
     conn.execute("PRAGMA foreign_keys = ON;")
     trm._register_sqlite_test_functions(conn)
@@ -52,6 +92,21 @@ def open_fixture_db(db_path: Path) -> sqlite3.Connection:
 
 
 def open_fixture_database(db_path: Path, *, storage_startup_on_add: bool = False) -> Database:
+    """
+    Perform the open fixture database step with deterministic fixture inputs.
+
+    Example:
+        Exercise open fixture database through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param db_path: Value supplied for db path under the deterministic fixture contract.
+    :param storage_startup_on_add: Value supplied for storage startup on add under the
+        deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     db = Database(
         metadata={"database_path": str(db_path)},
         storage_startup_on_add=storage_startup_on_add,
@@ -61,10 +116,39 @@ def open_fixture_database(db_path: Path, *, storage_startup_on_add: bool = False
 
 
 def ordered_ids(conn: sqlite3.Connection, table: str, pk_col: str) -> list[int]:
+    """
+    Perform the ordered ids step with deterministic fixture inputs.
+
+    Example:
+        Exercise ordered ids through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param conn: SQLite connection used to create or inspect fixture state.
+    :param table: Database table addressed by the fixture operation.
+    :param pk_col: Value supplied for pk col under the deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     return [int(row[0]) for row in conn.execute(f"SELECT {pk_col} FROM {table} WHERE {pk_col} > 0 ORDER BY {pk_col};")]
 
 
 def lookup_language_id(conn: sqlite3.Connection, code: str) -> int:
+    """
+    Perform the lookup language id step with deterministic fixture inputs.
+
+    Example:
+        Exercise lookup language id through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param conn: SQLite connection used to create or inspect fixture state.
+    :param code: Value supplied for code under the deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     row = conn.execute(
         "SELECT language_id FROM languages "
         "WHERE language_code = ? OR language_iso639_2_b = ? OR language_iso639_2_t = ? OR language_iso639_1 = ? "
@@ -77,10 +161,36 @@ def lookup_language_id(conn: sqlite3.Connection, code: str) -> int:
 
 
 def norm_text(value: str) -> str:
+    """
+    Perform the norm text step with deterministic fixture inputs.
+
+    Example:
+        Exercise norm text through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param value: Fixture value normalized, encoded, stored or returned.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     return re.sub(r"[^a-z0-9]+", "-", str(value).strip().lower()).strip("-")
 
 
 def bundle_token_path(*parts: str) -> str:
+    """
+    Perform the bundle token path step with deterministic fixture inputs.
+
+    Example:
+        Exercise bundle token path through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param parts: Message fragments joined for the test logger.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     return str(Path(_BUNDLE_ROOT_TOKEN, *parts))
 
 
@@ -95,6 +205,29 @@ def create_custom_column(
     display: dict | None = None,
     make_category: bool | None = None,
 ) -> tuple[int, str, str | None]:
+    """
+    Create custom column for deterministic fixture consumers.
+
+    Example:
+        Exercise create custom column through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param db: Database connection, wrapper or fixture addressed by the operation.
+    :param label: Value supplied for label under the deterministic fixture contract.
+    :param name: Stable fixture, profile, member or field name.
+    :param datatype: Value supplied for datatype under the deterministic fixture
+        contract.
+    :param is_multiple: Value supplied for is multiple under the deterministic fixture
+        contract.
+    :param table: Database table addressed by the fixture operation.
+    :param display: Value supplied for display under the deterministic fixture contract.
+    :param make_category: Value supplied for make category under the deterministic
+        fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     cc = CustomColumns(db=db, field_metadata=db.field_metadata, table=table)
     num = int(
         cc.create_custom_column(
@@ -118,10 +251,39 @@ def create_custom_column(
 
 
 def table_columns(conn: sqlite3.Connection, table: str) -> list[str]:
+    """
+    Perform the table columns step with deterministic fixture inputs.
+
+    Example:
+        Exercise table columns through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param conn: SQLite connection used to create or inspect fixture state.
+    :param table: Database table addressed by the fixture operation.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     return [str(row[1]) for row in conn.execute(f"PRAGMA table_info('{table}')").fetchall()]
 
 
 def insert_row(conn: sqlite3.Connection, table: str, values: dict[str, object]) -> int:
+    """
+    Insert row for deterministic fixture consumers.
+
+    Example:
+        Exercise insert row through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param conn: SQLite connection used to create or inspect fixture state.
+    :param table: Database table addressed by the fixture operation.
+    :param values: Value supplied for values under the deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     columns = list(values)
     placeholders = ", ".join("?" for _ in columns)
     sql = f"INSERT INTO {table} ({', '.join(columns)}) VALUES ({placeholders});"
@@ -138,6 +300,27 @@ def insert_custom_normalized_value(
     value: object,
     extra: object = None,
 ) -> int:
+    """
+    Insert custom normalized value for deterministic fixture consumers.
+
+    Example:
+        Exercise insert custom normalized value through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param conn: SQLite connection used to create or inspect fixture state.
+    :param cc_table: Value supplied for cc table under the deterministic fixture
+        contract.
+    :param link_table: Value supplied for link table under the deterministic fixture
+        contract.
+    :param target_id: Value supplied for target id under the deterministic fixture
+        contract.
+    :param value: Fixture value normalized, encoded, stored or returned.
+    :param extra: Value supplied for extra under the deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     value_column = next(column for column in table_columns(conn, cc_table) if column.endswith("_value"))
     id_column = next(column for column in table_columns(conn, cc_table) if column.endswith("_id"))
     existing = conn.execute(
@@ -176,6 +359,24 @@ def insert_custom_scalar_value(
     target_id: int,
     value: object,
 ) -> int:
+    """
+    Insert custom scalar value for deterministic fixture consumers.
+
+    Example:
+        Exercise insert custom scalar value through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param conn: SQLite connection used to create or inspect fixture state.
+    :param cc_table: Value supplied for cc table under the deterministic fixture
+        contract.
+    :param target_id: Value supplied for target id under the deterministic fixture
+        contract.
+    :param value: Fixture value normalized, encoded, stored or returned.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     columns = table_columns(conn, cc_table)
     target_column = next(
         column
@@ -189,6 +390,19 @@ def insert_custom_scalar_value(
 
 
 def finalize_fixture(conn: sqlite3.Connection, *, db_name: str) -> None:
+    """
+    Perform the finalize fixture step with deterministic fixture inputs.
+
+    Example:
+        Exercise finalize fixture through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param conn: SQLite connection used to create or inspect fixture state.
+    :param db_name: Registered test-database profile name.
+    :return: None; fixture state or the supplied destination is updated in place.
+    """
     trm._normalize_test_db_for_determinism(conn, db_name=db_name)
     conn.commit()
 

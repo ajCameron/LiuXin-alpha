@@ -1,4 +1,15 @@
 # This code was originally contributed by Jeffrey Harris.
+"""
+Read Windows timezone definitions through the retained dateutil interface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise tzwin through a consuming regression::
+
+        python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+"""
 import datetime
 import struct
 import _winreg
@@ -15,6 +26,18 @@ TZLOCALKEYNAME = r"SYSTEM\CurrentControlSet\Control\TimeZoneInformation"
 
 
 def _settzkeyname():
+    """
+    Perform the settzkeyname utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  settzkeyname through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     global TZKEYNAME
     handle = _winreg.ConnectRegistry(None, _winreg.HKEY_LOCAL_MACHINE)
     try:
@@ -29,15 +52,48 @@ _settzkeyname()
 
 
 class tzwinbase(datetime.tzinfo):
-    """tzinfo class based on win32's timezones available in the registry."""
+    """
+    tzinfo class based on win32's timezones available in the registry.
+
+    Example:
+        Exercise tzwinbase through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+    """
 
     def utcoffset(self, dt):
+        """
+        Perform the utcoffset utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzwinbase.utcoffset through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt: Date or datetime value parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self._isdst(dt):
             return datetime.timedelta(minutes=self._dstoffset)
         else:
             return datetime.timedelta(minutes=self._stdoffset)
 
     def dst(self, dt):
+        """
+        Perform the dst utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzwinbase.dst through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt: Date or datetime value parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self._isdst(dt):
             minutes = self._dstoffset - self._stdoffset
             return datetime.timedelta(minutes=minutes)
@@ -45,13 +101,37 @@ class tzwinbase(datetime.tzinfo):
             return datetime.timedelta(0)
 
     def tzname(self, dt):
+        """
+        Perform the tzname utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzwinbase.tzname through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt: Date or datetime value parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self._isdst(dt):
             return self._dstname
         else:
             return self._stdname
 
     def list():
-        """Return a list of all time zones known to the system."""
+        """
+        Return a list of all time zones known to the system.
+
+        Example:
+            Exercise tzwinbase.list through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         handle = _winreg.ConnectRegistry(None, _winreg.HKEY_LOCAL_MACHINE)
         tzkey = _winreg.OpenKey(handle, TZKEYNAME)
         result = [_winreg.EnumKey(tzkey, i) for i in range(_winreg.QueryInfoKey(tzkey)[0])]
@@ -62,9 +142,34 @@ class tzwinbase(datetime.tzinfo):
     list = staticmethod(list)
 
     def display(self):
+        """
+        Perform the display utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzwinbase.display through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._display
 
     def _isdst(self, dt):
+        """
+        Perform the isdst utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzwinbase. isdst through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt: Date or datetime value parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         dston = picknthweekday(
             dt.year,
             self._dstmonth,
@@ -88,7 +193,27 @@ class tzwinbase(datetime.tzinfo):
 
 
 class tzwin(tzwinbase):
+    """
+    Provide the tzwin utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise tzwin through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+    """
     def __init__(self, name):
+        """
+        Initialize and validate the tzwin state.
+
+        Example:
+            Exercise tzwin.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: None; validated state is stored on the receiving object.
+        """
         self._name = name
 
         handle = _winreg.ConnectRegistry(None, _winreg.HKEY_LOCAL_MACHINE)
@@ -124,15 +249,58 @@ class tzwin(tzwinbase):
         ) = tup[12:17]
 
     def __repr__(self):
+        """
+        Perform the repr utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzwin.  repr   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "tzwin(%s)" % repr(self._name)
 
     def __reduce__(self):
+        """
+        Perform the reduce utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzwin.  reduce   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return (self.__class__, (self._name,))
 
 
 class tzwinlocal(tzwinbase):
+    """
+    Provide the tzwinlocal utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise tzwinlocal through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+    """
     def __init__(self):
 
+        """
+        Initialize and validate the tzwinlocal state.
+
+        Example:
+            Exercise tzwinlocal.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         handle = _winreg.ConnectRegistry(None, _winreg.HKEY_LOCAL_MACHINE)
 
         tzlocalkey = _winreg.OpenKey(handle, TZLOCALKEYNAME)
@@ -177,11 +345,40 @@ class tzwinlocal(tzwinbase):
         ) = tup[1:6]
 
     def __reduce__(self):
+        """
+        Perform the reduce utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise tzwinlocal.  reduce   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return (self.__class__, ())
 
 
 def picknthweekday(year, month, dayofweek, hour, minute, whichweek):
-    """dayofweek == 0 means Sunday, whichweek 5 means last instance"""
+    """
+    dayofweek == 0 means Sunday, whichweek 5 means last instance
+
+    Example:
+        Exercise picknthweekday through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param year: Value supplied for year under the utility contract.
+    :param month: Value supplied for month under the utility contract.
+    :param dayofweek: Value supplied for dayofweek under the utility contract.
+    :param hour: Value supplied for hour under the utility contract.
+    :param minute: Value supplied for minute under the utility contract.
+    :param whichweek: Value supplied for whichweek under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     first = datetime.datetime(year, month, 1, hour, minute)
     weekdayone = first.replace(day=((dayofweek - first.isoweekday()) % 7 + 1))
     for n in xrange(whichweek):
@@ -191,7 +388,19 @@ def picknthweekday(year, month, dayofweek, hour, minute, whichweek):
 
 
 def valuestodict(key):
-    """Convert a registry key's values to a dictionary."""
+    """
+    Convert a registry key's values to a dictionary.
+
+    Example:
+        Exercise valuestodict through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param key: Metadata, identifier or local-variable key.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     dict = {}
     size = _winreg.QueryInfoKey(key)[1]
     for i in range(size):

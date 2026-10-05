@@ -1,10 +1,14 @@
 # D-range documentation pass — 2026-09-14
 
-Current continuation: [M157–M176 complete](project-docstrings-m157-m176-2026-10-04.md),
-2026-10-04. D remains archived complete at 232/232 units, 5,685 declarations and
-374 files. The latest twenty metadata units complete 599 declarations across
-twenty-two web-source files. M177 is next; all 34 declarations across its four
-metadata test files remain unchanged. The D completion proof
+Current continuation: [A complete through A040](project-docstrings-a021-a040-2026-10-05.md),
+2026-10-05. D remains archived complete at 232/232 units, 5,685 declarations and
+374 files. T is complete at 66/66 units, 1,023 declarations and 116 files. C
+remains complete at 52/52 units, 1,120 declarations and 83 files, and M remains
+complete at 274/274 units, 7,198 declarations and 344 files. U is complete at
+208/208 units, 5,046 declarations and 313 files. F is complete at 347/347 units,
+9,099 declarations and 574 files. A is underway at 40/128 units, 1,007/3,247
+declarations and 40/133 files. The authorized remaining-programme campaign
+continues at A041. The D completion proof
 is retained in the [D229–M006 checkpoint](project-docstrings-d229-m006-2026-09-25.md).
 The older D095 status below is historical.
 

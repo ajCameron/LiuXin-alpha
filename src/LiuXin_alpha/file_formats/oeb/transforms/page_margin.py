@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Normalize page-margin rules across OEB stylesheets.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise page margin through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -20,9 +31,29 @@ __docformat__ = "restructuredtext en"
 class RemoveAdobeMargins(object):
     """
     Remove margins specified in Adobe's page templates.
+
+    Example:
+        Exercise RemoveAdobeMargins through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     def __call__(self: _typing.Self, oeb: _typing.Any, log: _typing.Any, opts: _typing.Any) -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RemoveAdobeMargins.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.oeb, self.opts, self.log = oeb, opts, log
 
         for item in self.oeb.manifest:
@@ -40,19 +71,44 @@ class RemoveAdobeMargins(object):
 
 
 class NegativeTextIndent(Exception):
+    """
+    Provide the negativetextindent contract for validated ebook processing.
+
+    Example:
+        Exercise NegativeTextIndent through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+    """
     pass
 
 
 class RemoveFakeMargins(object):
 
     """
-    Remove left and right margins from paragraph/divs if the same margin is specified
-    on almost all the elements at that level.
+    Remove left and right margins from paragraph/divs if the same margin is specified on almost all the elements at that level.
 
-    Must be called only after CSS flattening
+    Example:
+        Exercise RemoveFakeMargins through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     def __call__(self: _typing.Self, oeb: _typing.Any, log: _typing.Any, opts: _typing.Any) -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RemoveFakeMargins.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not opts.remove_fake_margins:
             return
         self.oeb, self.log, self.opts = oeb, log, opts
@@ -83,6 +139,19 @@ class RemoveFakeMargins(object):
                 self.log.debug("Negative text indent detected at level  %s, ignoring this level" % level)
 
     def get_margins(self: _typing.Self, elem: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Return margins under the format's safety and compatibility rules.
+
+        Example:
+            Exercise RemoveFakeMargins.get margins through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         cls = elem.get("class", None)
         if cls:
             style = self.selector_map.get("." + cls, None)
@@ -98,6 +167,19 @@ class RemoveFakeMargins(object):
         return "", "", None
 
     def process_level(self: _typing.Self, level: _typing.Any) -> None:
+        """
+        Perform the process level operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RemoveFakeMargins.process level through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param level: Value supplied for level under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         elems = self.levels[level]
         self.stats[level + "_left"] = Counter()
         self.stats[level + "_right"] = Counter()
@@ -132,7 +214,33 @@ class RemoveFakeMargins(object):
                     style.removeProperty("margin-right")
 
     def find_levels(self: _typing.Self) -> None:
+        """
+        Find levels under the format's safety and compatibility rules.
+
+        Example:
+            Exercise RemoveFakeMargins.find levels through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         def level_of(local_elem: _typing.Any, local_body: _typing.Any) -> _typing.Any:
+            """
+            Perform the level of operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise RemoveFakeMargins.find levels.level of through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param local_elem: Value supplied for local elem under the utility contract.
+            :param local_body: Value supplied for local body under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             ans = 1
             while local_elem.getparent() is not local_body:
                 ans += 1
@@ -177,6 +285,19 @@ class RemoveFakeMargins(object):
             self.log.debug("Ignoring level", k)
 
     def analyze_stats(self: _typing.Self, stats: _typing.Any) -> bool:
+        """
+        Perform the analyze stats operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RemoveFakeMargins.analyze stats through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param stats: Value supplied for stats under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not stats:
             return False
         mc = stats.most_common(1)

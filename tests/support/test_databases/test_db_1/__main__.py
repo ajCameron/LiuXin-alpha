@@ -1,5 +1,16 @@
 # Build this test database in a scratch folder - just check that the database builds properly
 
+"""
+Build the deterministic test_db_1 database fixture and its declared content profile.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise   main   through a consuming regression::
+
+        python -m pytest -q tests/databases/test_test_resources_manager.py
+"""
 import os
 
 from . import build_test_db

@@ -1,7 +1,15 @@
 #!/usr/bin/env  python
 
 """
-lxml based OPF parser.
+Model and serialize OPF 2 metadata, manifests, spines and guides.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise opf2 through a consuming regression::
+
+        python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
 """
 
 from __future__ import print_function
@@ -94,13 +102,43 @@ pretty_print_opf = False
 class PrettyPrint:
     """
     Turns the pretty print OPF option on and off.
+
+    Example:
+        Exercise PrettyPrint through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
     """
 
     def __enter__(self: _typing.Self) -> None:
+        """
+        Implement the conversion resource's enter lifecycle operation.
+
+        Example:
+            Exercise PrettyPrint.  enter   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         global pretty_print_opf
         pretty_print_opf = True
 
     def __exit__(self: _typing.Self, *args: _typing.Any) -> None:
+        """
+        Implement the conversion resource's exit lifecycle operation.
+
+        Example:
+            Exercise PrettyPrint.  exit   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         global pretty_print_opf
         pretty_print_opf = False
 
@@ -112,16 +150,27 @@ class Resource(object):  # {{{
     """
     Represents a resource (usually a file on the filesystem or a URL pointing to the web.
 
-    Such resources are commonly referred to in OPF files.
+    Example:
+        Exercise Resource through a consuming regression::
 
-    They have the interface:
-
-    :member:`path`
-    :member:`mime_type`
-    :method:`href`
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
     """
 
     def __init__(self: _typing.Self, href_or_path: _typing.Any, basedir: _typing.Any = os.getcwd(), is_path: bool = True) -> None:
+        """
+        Initialize and validate the resource state.
+
+        Example:
+            Exercise Resource.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param href_or_path: Value supplied for href or path under the utility contract.
+        :param basedir: Value supplied for basedir under the utility contract.
+        :param is_path: Value supplied for is path under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.orig = href_or_path
         self._href = None
         self._basedir = basedir
@@ -158,10 +207,15 @@ class Resource(object):  # {{{
         """
         Return a URL pointing to this resource. If it is a file on the filesystem the URL is relative to `basedir`.
 
-        `basedir`: If None, the basedir of this resource is used (see :method:`set_basedir`).
-        If this resource has no basedir, then the current working directory is used as the basedir.
-        :param basedir:
-        :return:
+        Example:
+            Exercise Resource.href through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param basedir: Value supplied for basedir under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if basedir is None:
             if self._basedir:
@@ -183,12 +237,50 @@ class Resource(object):  # {{{
         return rpath.replace(os.sep, "/") + frag
 
     def set_basedir(self: _typing.Self, path: _typing.Any) -> None:
+        """
+        Set basedir under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Resource.set basedir through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._basedir = path
 
     def basedir(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the basedir operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Resource.basedir through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._basedir
 
     def __repr__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the repr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Resource.  repr   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "Resource(%s, %s)" % (repr(self.path), repr(self.href()))
 
 
@@ -196,48 +288,186 @@ class Resource(object):  # {{{
 
 
 class ResourceCollection(object):  # {{{
+    """
+    Provide the resourcecollection contract for validated ebook processing.
+
+    Example:
+        Exercise ResourceCollection through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+    """
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the resourcecollection state.
+
+        Example:
+            Exercise ResourceCollection.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self._resources = []
 
     def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the iter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ResourceCollection.  iter   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for r in self._resources:
             yield r
 
     def __len__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the len operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ResourceCollection.  len   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return len(self._resources)
 
     def __getitem__(self: _typing.Self, index: _typing.Any) -> _typing.Any:
+        """
+        Perform the getitem operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ResourceCollection.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._resources[index]
 
     def __bool__(self: _typing.Self) -> bool:
+        """
+        Perform the bool operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ResourceCollection.  bool   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: True when the documented condition holds; otherwise False.
+        """
         return len(self._resources) > 0
 
     def __str__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ResourceCollection.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         resources = map(repr, self)
         return "[%s]" % ", ".join(resources)
 
     def __repr__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the repr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ResourceCollection.  repr   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return str(self)
 
     def append(self: _typing.Self, resource: _typing.Any) -> None:
+        """
+        Perform the append operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ResourceCollection.append through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param resource: Value supplied for resource under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not isinstance(resource, Resource):
             raise ValueError("Can only append objects of type Resource")
         self._resources.append(resource)
 
     def remove(self: _typing.Self, resource: _typing.Any) -> None:
+        """
+        Perform the remove operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ResourceCollection.remove through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param resource: Value supplied for resource under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._resources.remove(resource)
 
     def replace(self: _typing.Self, start: _typing.Any, end: _typing.Any, items: _typing.Any) -> None:
-        "Same as list[start:end] = items"
+        """
+        Same as list[start:end] = items
+
+        Example:
+            Exercise ResourceCollection.replace through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param start: Value supplied for start under the utility contract.
+        :param end: Value supplied for end under the utility contract.
+        :param items: Value supplied for items under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._resources[start:end] = items
 
     @staticmethod
     def from_directory_contents(top: _typing.Any, topdown: bool = True) -> _typing.Any:
         """
         Makes and returns a ResourceCollection from the given starting position
-        :param top: Starting position
-        :param topdown: Passed throguh to os.walk
-        :return:
+
+        Example:
+            Exercise ResourceCollection.from directory contents through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param top: Value supplied for top under the utility contract.
+        :param topdown: Value supplied for topdown under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         collection = ResourceCollection()
         for spec in os.walk(top, topdown=topdown):
@@ -248,6 +478,20 @@ class ResourceCollection(object):  # {{{
         return collection
 
     def set_basedir(self: _typing.Self, path: _typing.Any) -> None:
+        """
+        Set basedir under the format's safety and compatibility rules.
+
+        Example:
+            Exercise ResourceCollection.set basedir through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for res in self:
             res.set_basedir(path)
 
@@ -256,8 +500,30 @@ class ResourceCollection(object):  # {{{
 
 
 class ManifestItem(Resource):  # {{{
+    """
+    Provide the manifestitem contract for validated ebook processing.
+
+    Example:
+        Exercise ManifestItem through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+    """
     @staticmethod
     def from_opf_manifest_item(item: _typing.Any, basedir: _typing.Any) -> _typing.Any:
+        """
+        Perform the from opf manifest item operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ManifestItem.from opf manifest item through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :param basedir: Value supplied for basedir under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         href = item.get("href", None)
         if href:
             res = ManifestItem(href, basedir=basedir, is_path=True)
@@ -268,13 +534,50 @@ class ManifestItem(Resource):  # {{{
 
     @property
     def media_type(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the media type operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ManifestItem.media type through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.mime_type
 
     @media_type.setter
     def media_type(self: _typing.Self, val: _typing.Any) -> None:
+        """
+        Perform the media type operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ManifestItem.media type through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.mime_type = val
 
     def __unicode__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the unicode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ManifestItem.  unicode   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return '<item id="%s" href="%s" media-type="%s" />' % (
             self.id,
             self.href(),
@@ -282,12 +585,49 @@ class ManifestItem(Resource):  # {{{
         )
 
     def __str__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ManifestItem.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return six_unicode(self).encode("utf-8")
 
     def __repr__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the repr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ManifestItem.  repr   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return six_unicode(self)
 
     def __getitem__(self: _typing.Self, index: _typing.Any) -> _typing.Any:
+        """
+        Perform the getitem operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ManifestItem.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if index == 0:
             return self.href()
         if index == 1:
@@ -299,7 +639,29 @@ class ManifestItem(Resource):  # {{{
 
 
 class Manifest(ResourceCollection):  # {{{
+    """
+    Provide the manifest contract for validated ebook processing.
+
+    Example:
+        Exercise Manifest through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+    """
     def append_from_opf_manifest_item(self: _typing.Self, item: _typing.Any, dir: _typing.Any) -> None:
+        """
+        Perform the append from opf manifest item operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Manifest.append from opf manifest item through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :param dir: Value supplied for dir under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.append(ManifestItem.from_opf_manifest_item(item, dir))
         item_id = item.get("id", "")
         if not item_id:
@@ -309,6 +671,20 @@ class Manifest(ResourceCollection):  # {{{
 
     @staticmethod
     def from_opf_manifest_element(items: _typing.Any, dir: _typing.Any) -> _typing.Any:
+        """
+        Perform the from opf manifest element operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Manifest.from opf manifest element through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param items: Value supplied for items under the utility contract.
+        :param dir: Value supplied for dir under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         m = Manifest()
         for item in items:
             try:
@@ -321,8 +697,16 @@ class Manifest(ResourceCollection):  # {{{
     def from_paths(entries: _typing.Any) -> _typing.Any:
         """
         `entries`: List of (path, mime-type) If mime-type is None it is autodetected
-        :param entries:
-        :return:
+
+        Example:
+            Exercise Manifest.from paths through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param entries: Value supplied for entries under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         m = Manifest()
         for path, mt in entries:
@@ -335,6 +719,21 @@ class Manifest(ResourceCollection):  # {{{
         return m
 
     def add_item(self: _typing.Self, path: _typing.Any, mime_type: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the add item operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Manifest.add item through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param mime_type: Value supplied for mime type under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         mi = ManifestItem(path, is_path=True)
         if mime_type:
             mi.mime_type = mime_type
@@ -344,26 +743,90 @@ class Manifest(ResourceCollection):  # {{{
         return mi.id
 
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the manifest state.
+
+        Example:
+            Exercise Manifest.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         ResourceCollection.__init__(self)
         self.next_id = 1
 
     def item(self: _typing.Self, id: _typing.Any) -> _typing.Any:
+        """
+        Perform the item operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Manifest.item through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param id: Value supplied for id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for i in self:
             if i.id == id:
                 return i
 
     def id_for_path(self: _typing.Self, path: _typing.Any) -> _typing.Any:
+        """
+        Perform the id for path operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Manifest.id for path through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         path = os.path.normpath(os.path.abspath(path))
         for i in self:
             if i.path and os.path.normpath(i.path) == path:
                 return i.id
 
     def path_for_id(self: _typing.Self, id: _typing.Any) -> _typing.Any:
+        """
+        Perform the path for id operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Manifest.path for id through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param id: Value supplied for id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for i in self:
             if i.id == id:
                 return i.path
 
     def type_for_id(self: _typing.Self, id: _typing.Any) -> _typing.Any:
+        """
+        Perform the type for id operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Manifest.type for id through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param id: Value supplied for id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for i in self:
             if i.id == id:
                 return i.mime_type
@@ -373,14 +836,56 @@ class Manifest(ResourceCollection):  # {{{
 
 
 class Spine(ResourceCollection):  # {{{
+    """
+    Provide the spine contract for validated ebook processing.
+
+    Example:
+        Exercise Spine through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+    """
     class Item(Resource):
+        """
+        Provide the item contract for validated ebook processing.
+
+        Example:
+            Exercise Spine.Item through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+        """
         def __init__(self: _typing.Self, idfunc: _typing.Any, *args: _typing.Any, **kwargs: _typing.Any) -> None:
+            """
+            Initialize and validate the item state.
+
+            Example:
+                Exercise Spine.Item.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+            :param idfunc: Value supplied for idfunc under the utility contract.
+            :param args: Positional values forwarded to the compatibility implementation.
+            :param kwargs: Keyword values forwarded to the compatibility implementation.
+            :return: None; validated state is stored on the receiving object.
+            """
             Resource.__init__(self, *args, **kwargs)
             self.is_linear = True
             self.id = idfunc(self.path)
             self.idref = None
 
         def __repr__(self: _typing.Self) -> _typing.Any:
+            """
+            Perform the repr operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Spine.Item.  repr   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return "Spine.Item(path=%r, id=%s, is_linear=%s)" % (
                 self.path,
                 self.id,
@@ -389,6 +894,20 @@ class Spine(ResourceCollection):  # {{{
 
     @staticmethod
     def from_opf_spine_element(itemrefs: _typing.Any, manifest: _typing.Any) -> _typing.Any:
+        """
+        Perform the from opf spine element operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Spine.from opf spine element through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param itemrefs: Value supplied for itemrefs under the utility contract.
+        :param manifest: Value supplied for manifest under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         s = Spine(manifest)
         seen = set()
         path_map = {i.id: i.path for i in s.manifest}
@@ -406,6 +925,20 @@ class Spine(ResourceCollection):  # {{{
 
     @staticmethod
     def from_paths(paths: _typing.Any, manifest: _typing.Any) -> _typing.Any:
+        """
+        Perform the from paths operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Spine.from paths through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param paths: Value supplied for paths under the utility contract.
+        :param manifest: Value supplied for manifest under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         s = Spine(manifest)
         for path in paths:
             try:
@@ -415,17 +948,36 @@ class Spine(ResourceCollection):  # {{{
         return s
 
     def __init__(self: _typing.Self, manifest: _typing.Any) -> None:
+        """
+        Initialize and validate the spine state.
+
+        Example:
+            Exercise Spine.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param manifest: Value supplied for manifest under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         ResourceCollection.__init__(self)
         self.manifest = manifest
 
     def replace(self: _typing.Self, start: _typing.Any, end: _typing.Any, ids: _typing.Any) -> None:
         """
-        Replace the items between start (inclusive) and end (not inclusive) with the items identified by ids. ids can
-        be a list of any length.
-        :param start:
-        :param end:
-        :param ids:
-        :return:
+        Replace the items between start (inclusive) and end (not inclusive) with the items identified by ids. ids can be a list of any length.
+
+        Example:
+            Exercise Spine.replace through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param start: Value supplied for start under the utility contract.
+        :param end: Value supplied for end under the utility contract.
+        :param ids: Value supplied for ids under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         items = []
         for local_id in ids:
@@ -436,16 +988,49 @@ class Spine(ResourceCollection):  # {{{
         ResourceCollection.replace(start, end, items)
 
     def linear_items(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the linear items operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Spine.linear items through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for r in self:
             if r.is_linear:
                 yield r.path
 
     def nonlinear_items(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the nonlinear items operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Spine.nonlinear items through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for r in self:
             if not r.is_linear:
                 yield r.path
 
     def items(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the items operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Spine.items through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for i in self:
             yield i.path
 
@@ -454,9 +1039,39 @@ class Spine(ResourceCollection):  # {{{
 
 
 class Guide(ResourceCollection):  # {{{
+    """
+    Provide the guide contract for validated ebook processing.
+
+    Example:
+        Exercise Guide through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+    """
     class Reference(Resource):
+        """
+        Provide the reference contract for validated ebook processing.
+
+        Example:
+            Exercise Guide.Reference through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+        """
         @staticmethod
         def from_opf_resource_item(ref: _typing.Any, basedir: _typing.Any) -> _typing.Any:
+            """
+            Perform the from opf resource item operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Guide.Reference.from opf resource item through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+            :param ref: Value supplied for ref under the utility contract.
+            :param basedir: Value supplied for basedir under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             title, href, type = ref.get("title", ""), ref.get("href"), ref.get("type")
             res = Guide.Reference(href, basedir, is_path=True)
             res.title = title
@@ -464,6 +1079,18 @@ class Guide(ResourceCollection):  # {{{
             return res
 
         def __repr__(self: _typing.Self) -> _typing.Any:
+            """
+            Perform the repr operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Guide.Reference.  repr   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             ans = '<reference type="%s" href="%s" ' % (self.type, self.href())
             if self.title:
                 ans += 'title="%s" ' % self.title
@@ -471,6 +1098,20 @@ class Guide(ResourceCollection):  # {{{
 
     @staticmethod
     def from_opf_guide(references: _typing.Any, base_dir: _typing.Any = os.getcwd()) -> _typing.Any:
+        """
+        Perform the from opf guide operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Guide.from opf guide through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param references: Value supplied for references under the utility contract.
+        :param base_dir: Value supplied for base dir under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         coll = Guide()
         for ref in references:
             try:
@@ -481,6 +1122,20 @@ class Guide(ResourceCollection):  # {{{
         return coll
 
     def set_cover(self: _typing.Self, path: _typing.Any) -> None:
+        """
+        Replace the container's cover while preserving required package references.
+
+        Example:
+            Exercise Guide.set cover through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         map(self.remove, [i for i in self if "cover" in i.type.lower()])
         for local_type in (
             "cover",
@@ -497,8 +1152,12 @@ class Guide(ResourceCollection):  # {{{
 
 class MetadataField(object):
     """
-    Descriptors for some common metadata fields with a predictable interface.
-    Descriptor for a field which has a single value.
+    Descriptors for some common metadata fields with a predictable interface. Descriptor for a field which has a single value.
+
+    Example:
+        Exercise MetadataField through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
     """
 
     def __init__(
@@ -511,11 +1170,19 @@ class MetadataField(object):
     ) -> None:
         """
         Provides various options for setting the behavior of the metadata field.
-        :param name:
-        :param is_dc: Is the metadata field part of the Dublin core metadata initiative
-        :param formatter:
-        :param none_is: Default value if the actual value of the element is None
-        :param renderer:
+
+        Example:
+            Exercise MetadataField.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param is_dc: Value supplied for is dc under the utility contract.
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param none_is: Value supplied for none is under the utility contract.
+        :param renderer: Value supplied for renderer under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.name = name
         self.is_dc = is_dc
@@ -526,9 +1193,17 @@ class MetadataField(object):
     def __real_get__(self: _typing.Self, obj: _typing.Any, type: _typing.Any = None) -> _typing.Any:
         """
         Preforms the actual retrieval from the OPF, according to the pre-set behavioral defaults.
-        :param obj:
-        :param type:
-        :return:
+
+        Example:
+            Exercise MetadataField.  real get   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :param type: Value supplied for type under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         ans = obj.get_metadata_element(self.name)
         if ans is None:
@@ -546,6 +1221,20 @@ class MetadataField(object):
         return ans
 
     def __get__(self: _typing.Self, obj: _typing.Any, type: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the get operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MetadataField.  get   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :param type: Value supplied for type under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = self.__real_get__(obj, type)
         if ans is None:
             ans = self.none_is
@@ -553,6 +1242,20 @@ class MetadataField(object):
 
     def __set__(self: _typing.Self, obj: _typing.Any, val: _typing.Any) -> None:
 
+        """
+        Perform the set operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MetadataField.  set   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         elem = obj.get_metadata_element(self.name)
 
         # If the value is None then remove the element, if it exists
@@ -570,15 +1273,28 @@ class MetadataField(object):
 class PluralMetadataField(object):
     """
     Represents a metadata field which has multiple entries.
+
+    Example:
+        Exercise PluralMetadataField through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
     """
 
     def __init__(self: _typing.Self, name: _typing.Any, is_dc: bool = True, none_is: _typing.Any = None, renderer: _typing.Callable[..., _typing.Any] = lambda x: six_unicode(x)) -> None:
         """
         Provides various options for setting the behavior of the metadata field.
-        :param name: The name of the metadata field - will
-        :param is_dc: Is the metadata field part of the Dublin core metadata initiative
-        :param none_is: Default value if there is no value to return
-        :param renderer: Apply this to all the values before they're returned
+
+        Example:
+            Exercise PluralMetadataField.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param is_dc: Value supplied for is dc under the utility contract.
+        :param none_is: Value supplied for none is under the utility contract.
+        :param renderer: Value supplied for renderer under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.name = name
         self.is_dc = is_dc
@@ -588,9 +1304,17 @@ class PluralMetadataField(object):
     def __real_get__(self: _typing.Self, obj: _typing.Any, type: _typing.Any = None) -> _typing.Any:
         """
         Preforms the actual retrieval from the OPF according to the pre-set behavioral defaults.
-        :param obj:
-        :param type:
-        :return:
+
+        Example:
+            Exercise PluralMetadataField.  real get   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :param type: Value supplied for type under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         ans = obj.get_metadata_elements(self.name)
         if not ans:
@@ -603,22 +1327,68 @@ class PluralMetadataField(object):
         return ans
 
     def __get__(self: _typing.Self, obj: _typing.Any, type: _typing.Any) -> _typing.Any:
+        """
+        Perform the get operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PluralMetadataField.  get   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :param type: Value supplied for type under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = self.__real_get__(obj, type)
         if ans is None:
             ans = self.none_is
         return ans
 
     def __set__(self: _typing.Self, instance: _typing.Any, value: _typing.Any) -> None:
+        """
+        Perform the set operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PluralMetadataField.  set   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param instance: Value supplied for instance under the utility contract.
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise NotImplementedError
 
 
 class PluralSeriesIndexField(PluralMetadataField):
     """
-    Represents the Series Index plural field - returns an OrderedDict keyed with the name of the series and valued with
-    the index of that series.
+    Represents the Series Index plural field - returns an OrderedDict keyed with the name of the series and valued with the index of that series.
+
+    Example:
+        Exercise PluralSeriesIndexField through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
     """
 
     def __get__(self: _typing.Self, obj: _typing.Any, type: _typing.Any) -> _typing.Any:
+        """
+        Perform the get operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PluralSeriesIndexField.  get   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :param type: Value supplied for type under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = obj.get_metadata_elements(self.name)
         if not ans:
             return None
@@ -634,15 +1404,49 @@ class PluralSeriesIndexField(PluralMetadataField):
 class PluralRatingField(PluralMetadataField):
     """
     Represents the rating field - returns an OrderedDict keyed with the name of the rating and valued with that rating.
+
+    Example:
+        Exercise PluralRatingField through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
     """
 
     def __init__(self: _typing.Self, name: _typing.Any, is_dc: bool = True, none_is: _typing.Any = None, renderer: _typing.Callable[..., _typing.Any] = lambda x: six_unicode(x)) -> None:
+        """
+        Initialize and validate the pluralratingfield state.
+
+        Example:
+            Exercise PluralRatingField.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param is_dc: Value supplied for is dc under the utility contract.
+        :param none_is: Value supplied for none is under the utility contract.
+        :param renderer: Value supplied for renderer under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         PluralMetadataField.__init__(self, name, is_dc, none_is, renderer)
         from LiuXin_alpha.file_formats.oeb.base import OPF as OPF_name
 
         self.opf_name = OPF_name
 
     def __get__(self: _typing.Self, obj: _typing.Any, type: _typing.Any) -> _typing.Any:
+        """
+        Perform the get operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PluralRatingField.  get   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :param type: Value supplied for type under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = obj.get_metadata_elements(self.name)
         if not ans:
             return None
@@ -659,7 +1463,29 @@ class PluralRatingField(PluralMetadataField):
 
 
 class TitleSortField(MetadataField):
+    """
+    Provide the titlesortfield contract for validated ebook processing.
+
+    Example:
+        Exercise TitleSortField through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+    """
     def __get__(self: _typing.Self, obj: _typing.Any, type: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the get operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TitleSortField.  get   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :param type: Value supplied for type under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         c = self.__real_get__(obj, type)
         if c is None:
             matches = obj.title_path(obj.metadata)
@@ -677,6 +1503,20 @@ class TitleSortField(MetadataField):
         return c
 
     def __set__(self: _typing.Self, obj: _typing.Any, val: _typing.Any) -> None:
+        """
+        Perform the set operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TitleSortField.  set   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         MetadataField.__set__(self, obj, val)
         matches = obj.title_path(obj.metadata)
         if matches:
@@ -692,6 +1532,22 @@ class TitleSortField(MetadataField):
 
 
 def serialize_user_metadata(metadata_elem: _typing.Any, all_user_metadata: _typing.Any, tail: _typing.Any = "\n" + (" " * 8)) -> None:
+    """
+    Serialize user metadata under the format's safety and compatibility rules.
+
+    Example:
+        Exercise serialize user metadata through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+    :param metadata_elem: Value supplied for metadata elem under the utility contract.
+    :param all_user_metadata: Value supplied for all user metadata under the utility
+        contract.
+    :param tail: Value supplied for tail under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.metadata.book.json_codec import object_to_unicode, encode_is_multiple
     from LiuXin_alpha.utils.config.config_tools import to_json
 
@@ -717,8 +1573,16 @@ def serialize_user_metadata(metadata_elem: _typing.Any, all_user_metadata: _typi
 def dump_dict(cats: _typing.Any) -> _typing.Any:
     """
     Serialize a dictionary for storage.
-    :param cats:
-    :return:
+
+    Example:
+        Exercise dump dict through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+    :param cats: Value supplied for cats under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if not cats:
         cats = {}
@@ -733,8 +1597,12 @@ def dump_dict(cats: _typing.Any) -> _typing.Any:
 
 class OPF(object):  # {{{
     """
-    Represents an OPF file object - used for parsing calibre .opf files, and extended to handle .lx files, as well as
-    supporting more information extraction from regular .opf files.
+    Represents an OPF file object - used for parsing calibre .opf files, and extended to handle .lx files, as well as supporting more information extraction from regular .opf files.
+
+    Example:
+        Exercise OPF through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
     """
 
     MIMETYPE = "application/oebps-package+xml"
@@ -911,18 +1779,35 @@ class OPF(object):  # {{{
     def get_contributor_marc_code(contributor_type: _typing.Any) -> _typing.Any:
         """
         Takes a contributor type and returns a contributor marc code - or KeyErrors out.
-        :param contributor_type:
-        :return:
+
+        Example:
+            Exercise OPF.get contributor marc code through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param contributor_type: Value supplied for contributor type under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return creator_to_marc(contributor_type)
 
     @classmethod
     def get_contributor_path(cls: type[_typing.Self], contributor_type: _typing.Any) -> _typing.Any:
         """
-        A contributor of a type recognized by LiuXin - i.e. a value in LiuXin.constants.creator_marc_roles_dict.
-        Allows support for contributors beyond the author type recognized by calibre.
-        :param contributor_type:
-        :return:
+        A contributor of a type recognized by LiuXin - i.e. a value in LiuXin.constants.creator_marc_roles_dict. Allows support for contributors beyond the author type recognized by calibre.
+
+        Example:
+            Exercise OPF.get contributor path through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param contributor_type: Value supplied for contributor type under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         contributor_marc_code = cls.get_contributor_marc_code(contributor_type)
 
@@ -945,15 +1830,22 @@ class OPF(object):  # {{{
         """
         Reads a stream and loads its data into the class.
 
-        The stream must have some data in it.
+        Example:
+            Exercise OPF.  init   through a consuming regression::
 
-        :param stream:
-        :param basedir:
-        :param unquote_urls:
-        :param populate_spine:
-        :param try_to_guess_cover:
-        :param preparsed_opf:
-        :param read_toc:
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param basedir: Value supplied for basedir under the utility contract.
+        :param unquote_urls: Value supplied for unquote urls under the utility contract.
+        :param populate_spine: Value supplied for populate spine under the utility contract.
+        :param try_to_guess_cover: Value supplied for try to guess cover under the utility
+            contract.
+        :param preparsed_opf: Value supplied for preparsed opf under the utility contract.
+        :param read_toc: Value supplied for read toc under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.root = parse_opf(stream) if preparsed_opf is None else preparsed_opf
         try:
@@ -999,7 +1891,15 @@ class OPF(object):  # {{{
     def read_user_metadata(self: _typing.Self) -> None:
         """
         Parse the file and read user information back out.
-        :return:
+
+        Example:
+            Exercise OPF.read user metadata through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self._user_metadata_ = {}
         try:
@@ -1033,7 +1933,16 @@ class OPF(object):  # {{{
     def to_book_metadata(self: _typing.Self, calibre: bool = True) -> _typing.Any:
         """
         Return the metadata of the opf document as a calibreMetadata object.
-        :return:
+
+        Example:
+            Exercise OPF.to book metadata through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param calibre: Value supplied for calibre under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # If the opf tree is of a version greater than 3, use the parser for that version
         if self.package_version >= 3.0:
@@ -1059,6 +1968,18 @@ class OPF(object):  # {{{
         return ans
 
     def write_user_metadata(self: _typing.Self) -> None:
+        """
+        Write user metadata under the format's safety and compatibility rules.
+
+        Example:
+            Exercise OPF.write user metadata through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         elems = self.root.xpath('//*[name() = "meta" and starts-with(@name,"calibre:user_metadata:") and @content]')
         for elem in elems:
             elem.getparent().remove(elem)
@@ -1069,6 +1990,18 @@ class OPF(object):  # {{{
             return
 
     def find_toc(self: _typing.Self) -> None:
+        """
+        Find toc under the format's safety and compatibility rules.
+
+        Example:
+            Exercise OPF.find toc through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.toc = None
         try:
             spine = self.XPath('descendant::*[re:match(name(), "spine", "i")]')(self.root)
@@ -1114,21 +2047,69 @@ class OPF(object):  # {{{
     def get_text(self: _typing.Self, elem: _typing.Any) -> _typing.Any:
         """
         If there is text in the element returns the text of the element - otherwise returns the content.
-        :param elem:
-        :return:
+
+        Example:
+            Exercise OPF.get text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return "".join(self.CONTENT(elem) or self.TEXT(elem))
 
     def set_text(self: _typing.Self, elem: _typing.Any, content: _typing.Any) -> None:
+        """
+        Set text under the format's safety and compatibility rules.
+
+        Example:
+            Exercise OPF.set text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :param content: Value supplied for content under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if elem.tag == self.META:
             elem.attrib["content"] = content
         else:
             elem.text = content
 
     def itermanifest(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the itermanifest operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.itermanifest through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.manifest_path(self.root)
 
     def create_manifest_item(self: _typing.Self, href: _typing.Any, media_type: _typing.Any) -> _typing.Any:
+        """
+        Create manifest item under the format's safety and compatibility rules.
+
+        Example:
+            Exercise OPF.create manifest item through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param href: Value supplied for href under the utility contract.
+        :param media_type: Value supplied for media type under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ids = [i.get("id", None) for i in self.itermanifest()]
         local_id = None
         for c in memory_range(1, sys.maxsize):
@@ -1145,6 +2126,20 @@ class OPF(object):  # {{{
         return ans
 
     def replace_manifest_item(self: _typing.Self, item: _typing.Any, items: _typing.Any) -> _typing.Any:
+        """
+        Perform the replace manifest item operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.replace manifest item through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :param items: Value supplied for items under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         items = [self.create_manifest_item(*i) for i in items]
         for i, item2 in enumerate(items):
             item2.set("id", item.get("id") + ".%d" % (i + 1))
@@ -1154,6 +2149,21 @@ class OPF(object):  # {{{
         return [i.get("id") for i in items]
 
     def add_path_to_manifest(self: _typing.Self, path: _typing.Any, media_type: _typing.Any) -> _typing.Any:
+        """
+        Perform the add path to manifest operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.add path to manifest through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param media_type: Value supplied for media type under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         path = os.path.abspath(path)
         for i in self.itermanifest():
             xpath = os.path.join(self.base_dir, *(i.get("href", "").split("/")))
@@ -1168,9 +2178,32 @@ class OPF(object):  # {{{
         return item.get("id")
 
     def iterspine(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the iterspine operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.iterspine through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.spine_path(self.root)
 
     def spine_items(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the spine items operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.spine items through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for item in self.iterspine():
             idref = item.get("idref", "")
             for x in self.itermanifest():
@@ -1178,6 +2211,18 @@ class OPF(object):  # {{{
                     yield x.get("href", "")
 
     def first_spine_item(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the first spine item operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.first spine item through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         items = self.iterspine()
         if not items:
             return None
@@ -1187,11 +2232,38 @@ class OPF(object):  # {{{
                 return x.get("href", None)
 
     def create_spine_item(self: _typing.Self, idref: _typing.Any) -> _typing.Any:
+        """
+        Create spine item under the format's safety and compatibility rules.
+
+        Example:
+            Exercise OPF.create spine item through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param idref: Value supplied for idref under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = etree.Element("{%s}itemref" % self.NAMESPACES["opf"], idref=idref)
         ans.tail = "\n\t\t"
         return ans
 
     def replace_spine_items_by_idref(self: _typing.Self, idref: _typing.Any, new_idrefs: _typing.Any) -> None:
+        """
+        Perform the replace spine items by idref operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.replace spine items by idref through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param idref: Value supplied for idref under the utility contract.
+        :param new_idrefs: Value supplied for new idrefs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         items = list(map(self.create_spine_item, new_idrefs))
         spine = self.XPath('/opf:package/*[re:match(name(), "spine", "i")]')(self.root)[0]
         old = [i for i in self.iterspine() if i.get("idref", None) == idref]
@@ -1200,12 +2272,36 @@ class OPF(object):  # {{{
             spine[i : i + 1] = items
 
     def create_guide_element(self: _typing.Self) -> _typing.Any:
+        """
+        Create guide element under the format's safety and compatibility rules.
+
+        Example:
+            Exercise OPF.create guide element through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         e = etree.SubElement(self.root, "{%s}guide" % self.NAMESPACES["opf"])
         e.text = "\n        "
         e.tail = "\n"
         return e
 
     def remove_guide(self: _typing.Self) -> None:
+        """
+        Perform the remove guide operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.remove guide through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.guide = None
         for g in self.root.xpath(
             './*[re:match(name(), "guide", "i")]',
@@ -1214,11 +2310,41 @@ class OPF(object):  # {{{
             self.root.remove(g)
 
     def create_guide_item(self: _typing.Self, type: _typing.Any, title: _typing.Any, href: _typing.Any) -> _typing.Any:
+        """
+        Create guide item under the format's safety and compatibility rules.
+
+        Example:
+            Exercise OPF.create guide item through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param type: Value supplied for type under the utility contract.
+        :param title: Value supplied for title under the utility contract.
+        :param href: Value supplied for href under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         e = etree.Element("{%s}reference" % self.NAMESPACES["opf"], type=type, title=title, href=href)
         e.tail = "\n"
         return e
 
     def add_guide_item(self: _typing.Self, type: _typing.Any, title: _typing.Any, href: _typing.Any) -> None:
+        """
+        Perform the add guide item operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.add guide item through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param type: Value supplied for type under the utility contract.
+        :param title: Value supplied for title under the utility contract.
+        :param href: Value supplied for href under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         g = self.root.xpath(
             './*[re:match(name(), "guide", "i")]',
             namespaces={"re": "http://exslt.org/regular-expressions"},
@@ -1226,10 +2352,47 @@ class OPF(object):  # {{{
         g.append(self.create_guide_item(type, title, href))
 
     def iterguide(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the iterguide operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.iterguide through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.guide_path(self.root)
 
     def unquote_urls(self: _typing.Self) -> None:
+        """
+        Perform the unquote urls operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.unquote urls through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         def get_href(local_item: _typing.Any) -> _typing.Any:
+            """
+            Return href under the format's safety and compatibility rules.
+
+            Example:
+                Exercise OPF.unquote urls.get href through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+            :param local_item: Value supplied for local item under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             raw = unquote(local_item.get("href", ""))
             if not isinstance(raw, unicode):
                 raw = raw.decode("utf-8")
@@ -1250,6 +2413,18 @@ class OPF(object):  # {{{
     # {{{
     @property
     def title(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the title operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.title through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for elem in self.title_path(self.metadata):
             title = self.get_text(elem)
             if title and title.strip():
@@ -1257,6 +2432,19 @@ class OPF(object):  # {{{
 
     @title.setter
     def title(self: _typing.Self, val: _typing.Any) -> None:
+        """
+        Perform the title operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.title through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         val = (val or "").strip()
         titles = self.title_path(self.metadata)
         if self.package_version < 3:
@@ -1276,7 +2464,15 @@ class OPF(object):  # {{{
     def authors(self: _typing.Self) -> _typing.Any:
         """
         Returns a list of all creators with the role of author, in the order they appear in the document.
-        :return:
+
+        Example:
+            Exercise OPF.authors through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         ans = []
 
@@ -1288,8 +2484,16 @@ class OPF(object):  # {{{
     def authors(self: _typing.Self, val: _typing.Any) -> None:
         """
         Sets the values for all the authors in the row.
-        :param val:
-        :return:
+
+        Example:
+            Exercise OPF.authors through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # To ensure a clean add remove all the author fields first - will add them back in later
         remove = list(self.authors_path(self.metadata))
@@ -1311,7 +2515,16 @@ class OPF(object):  # {{{
     def get_contributors(self: _typing.Self, role: _typing.Any) -> _typing.Any:
         """
         Returns all the contributors with a particular role in the opf.
-        :return:
+
+        Example:
+            Exercise OPF.get contributors through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param role: Value supplied for role under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         contributor_path = self.get_contributor_path(contributor_type=role)
         ans = []
@@ -1322,9 +2535,17 @@ class OPF(object):  # {{{
     def set_contributors(self: _typing.Self, role: _typing.Any, val: _typing.Any) -> None:
         """
         Set the contributors with a particular role in the opf.
-        :param role:
-        :param val:
-        :return:
+
+        Example:
+            Exercise OPF.set contributors through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param role: Value supplied for role under the utility contract.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         contributor_marc_code = self.get_contributor_marc_code(contributor_type=role)
         # Authors need special attention - they need to be set first
@@ -1353,7 +2574,15 @@ class OPF(object):  # {{{
     def author_sort(self: _typing.Self) -> _typing.Any:
         """
         The author sort field is just a string - reads the {OPF_NAMESPACE}file_as property and returns it
-        :return:
+
+        Example:
+            Exercise OPF.author sort through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         matches = self.authors_path(self.metadata)
         if matches:
@@ -1368,8 +2597,16 @@ class OPF(object):  # {{{
     def author_sort(self: _typing.Self, val: _typing.Any) -> None:
         """
         Updates the file-as property with the new author sort
-        :param val:
-        :return:
+
+        Example:
+            Exercise OPF.author sort through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         matches = self.authors_path(self.metadata)
         if matches:
@@ -1383,6 +2620,18 @@ class OPF(object):  # {{{
     # {{{
     @property
     def tags(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the tags operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.tags through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = []
         for tag in self.tags_path(self.metadata):
             text = self.get_text(tag)
@@ -1393,6 +2642,19 @@ class OPF(object):  # {{{
     @tags.setter
     def tags(self: _typing.Self, val: _typing.Any) -> None:
         # Purge the old tags, if any
+        """
+        Perform the tags operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.tags through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for tag in list(self.tags_path(self.metadata)):
             tag.getparent().remove(tag)
         for tag in val:
@@ -1404,6 +2666,18 @@ class OPF(object):  # {{{
     # {{{
     @property
     def pubdate(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the pubdate operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.pubdate through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = None
         for match in self.pubdate_path(self.metadata):
             try:
@@ -1417,6 +2691,19 @@ class OPF(object):  # {{{
 
     @pubdate.setter
     def pubdate(self: _typing.Self, val: _typing.Any) -> None:
+        """
+        Perform the pubdate operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.pubdate through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         least_val = least_elem = None
         for match in self.pubdate_path(self.metadata):
             try:
@@ -1441,11 +2728,36 @@ class OPF(object):  # {{{
     # {{{
     @property
     def isbn(self: _typing.Self) -> bool:
+        """
+        Perform the isbn operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.isbn through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for match in self.isbn_path(self.metadata):
             return self.get_text(match) or None
 
     @isbn.setter
     def isbn(self: _typing.Self, val: _typing.Any) -> None:
+        """
+        Perform the isbn operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.isbn through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         matches = self.isbn_path(self.metadata)
         if not val:
             for x in matches:
@@ -1460,9 +2772,16 @@ class OPF(object):  # {{{
 
     def get_all_identifiers(self: _typing.Self) -> _typing.Any:
         """
-        Returns all the identifiers in the document in the form of a dictionary keyed with the type of the identifier
-        and valued with a set containing all the instances of that identifier in the OPF object.
-        :return:
+        Returns all the identifiers in the document in the form of a dictionary keyed with the type of the identifier and valued with a set containing all the instances of that identifier in the OPF object.
+
+        Example:
+            Exercise OPF.get all identifiers through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         identifiers = defaultdict(set)
         for x in self.XPath('descendant::*[local-name() = "identifier" and text()]')(self.metadata):
@@ -1487,10 +2806,16 @@ class OPF(object):  # {{{
 
     def get_identifiers(self: _typing.Self) -> _typing.Any:
         """
-        Miantained for calibre compatability reasons - returns a dictionary keyed with the name of the identifiers and
-        valued with the first instance of that identifier type in the OPF object.
-        If you want all the identifiers, call get_all_identifiers
-        :return:
+        Miantained for calibre compatability reasons - returns a dictionary keyed with the name of the identifiers and valued with the first instance of that identifier type in the OPF object. If you want all the identifiers, call get_all_identifiers
+
+        Example:
+            Exercise OPF.get identifiers through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         identifiers = defaultdict(set)
         for x in self.XPath('descendant::*[local-name() = "identifier" and text()]')(self.metadata):
@@ -1514,6 +2839,19 @@ class OPF(object):  # {{{
         return identifiers
 
     def set_identifiers(self: _typing.Self, identifiers: _typing.Any) -> None:
+        """
+        Set identifiers under the format's safety and compatibility rules.
+
+        Example:
+            Exercise OPF.set identifiers through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param identifiers: Value supplied for identifiers under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         identifiers = identifiers.copy()
         uuid_id = None
         for attr in self.root.attrib:
@@ -1544,11 +2882,36 @@ class OPF(object):  # {{{
     @property
     def application_id(self: _typing.Self) -> bool:
 
+        """
+        Perform the application id operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.application id through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for match in self.application_id_path(self.metadata):
             return self.get_text(match) or None
 
     @application_id.setter
     def application_id(self: _typing.Self, val: _typing.Any) -> None:
+        """
+        Perform the application id operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.application id through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         removed_ids = set()
         for x in tuple(self.application_id_path(self.metadata)):
             removed_ids.add(x.get("id", None))
@@ -1570,11 +2933,36 @@ class OPF(object):  # {{{
     @property
     def uuid(self: _typing.Self) -> bool:
 
+        """
+        Perform the uuid operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.uuid through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for match in self.uuid_id_path(self.metadata):
             return self.get_text(match) or None
 
     @uuid.setter
     def uuid(self: _typing.Self, val: _typing.Any) -> None:
+        """
+        Perform the uuid operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.uuid through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         matches = self.uuid_id_path(self.metadata)
         if not matches:
             attrib = {"{%s}scheme" % self.NAMESPACES["opf"]: "uuid"}
@@ -1587,12 +2975,37 @@ class OPF(object):  # {{{
     @property
     def language(self: _typing.Self) -> _typing.Any:
 
+        """
+        Perform the language operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.language through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = self.languages
         if ans:
             return ans[0]
 
     @language.setter
     def language(self: _typing.Self, val: _typing.Any) -> None:
+        """
+        Perform the language operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.language through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.languages = [val]
 
     # }}}
@@ -1601,6 +3014,18 @@ class OPF(object):  # {{{
     @property
     def languages(self: _typing.Self) -> _typing.Any:
 
+        """
+        Perform the languages operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.languages through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = []
         for match in self.languages_path(self.metadata):
             t = self.get_text(match)
@@ -1614,6 +3039,19 @@ class OPF(object):  # {{{
     @languages.setter
     def languages(self: _typing.Self, val: _typing.Any) -> None:
 
+        """
+        Perform the languages operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.languages through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         matches = self.languages_path(self.metadata)
         for x in matches:
             x.getparent().remove(x)
@@ -1626,6 +3064,17 @@ class OPF(object):  # {{{
 
     @property
     def raw_languages(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the raw languages operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.raw languages through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for match in self.languages_path(self.metadata):
             t = self.get_text(match)
             if t and t.strip():
@@ -1635,11 +3084,36 @@ class OPF(object):  # {{{
     @property
     def book_producer(self: _typing.Self) -> bool:
 
+        """
+        Perform the book producer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.book producer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for match in self.bkp_path(self.metadata):
             return self.get_text(match) or None
 
     @book_producer.setter
     def book_producer(self: _typing.Self, val: _typing.Any) -> None:
+        """
+        Perform the book producer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.book producer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         matches = self.bkp_path(self.metadata)
         if not matches:
             matches = [self.create_metadata_element("contributor")]
@@ -1649,11 +3123,34 @@ class OPF(object):  # {{{
     # }}}
 
     def identifier_iter(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the identifier iter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.identifier iter through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for item in self.identifier_path(self.metadata):
             yield item
 
     @property
     def raw_unique_identifier(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the raw unique identifier operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.raw unique identifier through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         uuid_elem = None
         for attr in self.root.attrib:
             if attr.endswith("unique-identifier"):
@@ -1669,12 +3166,36 @@ class OPF(object):  # {{{
 
     @property
     def unique_identifier(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the unique identifier operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.unique identifier through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         raw = self.raw_unique_identifier
         if raw:
             return raw.rpartition(":")[-1]
 
     @property
     def page_progression_direction(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the page progression direction operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.page progression direction through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         spine = self.XPath('descendant::*[re:match(name(), "spine", "i")][1]')(self.root)
         if spine:
             for k, v in iteritems(spine[0].attrib):
@@ -1684,7 +3205,15 @@ class OPF(object):  # {{{
     def guess_cover(self: _typing.Self) -> _typing.Any:
         """
         Try to guess a cover. Needed for some old/badly formed OPF files.
-        :return:
+
+        Example:
+            Exercise OPF.guess cover through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if self.base_dir and os.path.exists(self.base_dir):
             for item in self.identifier_path(self.metadata):
@@ -1704,6 +3233,18 @@ class OPF(object):  # {{{
 
     @property
     def epub3_raster_cover(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the epub3 raster cover operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.epub3 raster cover through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for item in self.itermanifest():
             props = set((item.get("properties") or "").lower().split())
             if "cover-image" in props:
@@ -1713,6 +3254,18 @@ class OPF(object):  # {{{
 
     @property
     def raster_cover(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the raster cover operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.raster cover through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         covers = self.raster_cover_path(self.metadata)
         if covers:
             cover_id = covers[0].get("content")
@@ -1731,6 +3284,18 @@ class OPF(object):  # {{{
 
     @property
     def guide_raster_cover(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the guide raster cover operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.guide raster cover through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         covers = self.guide_cover_path(self.root)
         if covers:
             mt_map = {i.get("href"): i for i in self.itermanifest()}
@@ -1744,6 +3309,18 @@ class OPF(object):  # {{{
 
     @property
     def epub3_nav(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the epub3 nav operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.epub3 nav through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.package_version >= 3.0:
             for item in self.itermanifest():
                 props = (item.get("properties") or "").lower().split()
@@ -1760,6 +3337,18 @@ class OPF(object):  # {{{
     @property
     def cover(self: _typing.Self) -> _typing.Any:
 
+        """
+        Perform the cover operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.cover through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.guide is not None:
             for t in ("cover", "other.ms-coverimage-standard", "other.ms-coverimage"):
                 for item in self.guide:
@@ -1776,6 +3365,20 @@ class OPF(object):  # {{{
     @cover.setter
     def cover(self: _typing.Self, path: _typing.Any) -> None:
 
+        """
+        Perform the cover operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.cover through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.guide is not None:
             self.guide.set_cover(path)
             for item in list(self.iterguide()):
@@ -1807,18 +3410,33 @@ class OPF(object):  # {{{
     def get_metadata_elements(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         """
         Returns all the elements corresponding to a given metadata name.
-        :param name:
-        :return:
+
+        Example:
+            Exercise OPF.get metadata elements through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         matches = self.metadata_elem_path(self.metadata, name=name)
         return [m for m in matches]
 
     def get_metadata_element(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         """
-        Returns metadata matches corresponding to the given name - if there are multiple matches returns the first
-        one in the document.
-        :param name:
-        :return:
+        Returns metadata matches corresponding to the given name - if there are multiple matches returns the first one in the document.
+
+        Example:
+            Exercise OPF.get metadata element through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         matches = self.metadata_elem_path(self.metadata, name=name)
         if matches:
@@ -1827,10 +3445,18 @@ class OPF(object):  # {{{
     def create_metadata_element(self: _typing.Self, name: _typing.Any, attrib: _typing.Any = None, is_dc: bool = True) -> _typing.Any:
         """
         Make a metadata element.
-        :param name:
-        :param attrib:
-        :param is_dc: Is the metadata Dublin core
-        :return:
+
+        Example:
+            Exercise OPF.create metadata element through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param attrib: Value supplied for attrib under the utility contract.
+        :param is_dc: Value supplied for is dc under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if is_dc:
             name = "{%s}%s" % (self.NAMESPACES["dc"], name)
@@ -1848,6 +3474,19 @@ class OPF(object):  # {{{
 
     def render(self: _typing.Self, encoding: str = "utf-8") -> _typing.Any:
 
+        """
+        Perform the render operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OPF.render through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param encoding: Value supplied for encoding under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for meta in self.raster_cover_path(self.metadata):
             # Ensure that the name attribute occurs before the content
             # attribute. Needed for Nooks.
@@ -1868,6 +3507,19 @@ class OPF(object):  # {{{
             s, si = smap["calibre:series"][0], smap["calibre:series_index"][0]
 
             def swap(attr: _typing.Any) -> None:
+                """
+                Perform the swap operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise OPF.render.swap through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+                :param attr: Value supplied for attr under the utility contract.
+                :return: None; the operation mutates state, writes output or performs cleanup in
+                    place.
+                """
                 t = s.get(attr, "")
                 s.set(attr, si.get(attr, "")), si.set(attr, t)
 
@@ -1888,10 +3540,19 @@ class OPF(object):  # {{{
     def smart_update(self: _typing.Self, mi: _typing.Any, replace_metadata: bool = False, apply_null: bool = False) -> None:
         """
         Update the metadata in the opf file - optionally setting the metadata null.
-        :param mi: The metadata to
-        :param replace_metadata:
-        :param apply_null:
-        :return:
+
+        Example:
+            Exercise OPF.smart update through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param mi: Metadata object exposed to the template function.
+        :param replace_metadata: Value supplied for replace metadata under the utility
+            contract.
+        :param apply_null: Value supplied for apply null under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Validate the function input
         assert isinstance(mi, calibreMetadata), "Method can only run on calibreMetadata object"
@@ -1974,14 +3635,27 @@ class OPF(object):  # {{{
 
 
 class OPFCreator(calibreMetadata):
+    """
+    Provide the opfcreator contract for validated ebook processing.
+
+    Example:
+        Exercise OPFCreator through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+    """
     def __init__(self: _typing.Self, base_path: _typing.Any, other: _typing.Any) -> None:
         """
         Initialize.
-        :param base_path: An absolute path to the directory in which this OPF file
-        will eventually be. This is used by the L{create_manifest} method
-        to convert paths to files into relative paths.
-        :param other:
-        :return:
+
+        Example:
+            Exercise OPFCreator.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param base_path: Value supplied for base path under the utility contract.
+        :param other: Value supplied for other under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         if not isinstance(other, calibreMetadata):
             to_calibre = getattr(other, "to_calibre", None)
@@ -2039,8 +3713,16 @@ class OPFCreator(calibreMetadata):
     def create_manifest(self: _typing.Self, entries: _typing.Any) -> None:
         """
         Create <manifest>
-        :param entries: List of (path, mime-type) If mime-type is None it is autodetected
-        :return:
+
+        Example:
+            Exercise OPFCreator.create manifest through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param entries: Value supplied for entries under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         entries = map(
             lambda x: x if os.path.isabs(x[0]) else (os.path.abspath(os.path.join(self.base_path, x[0])), x[1]),
@@ -2050,9 +3732,36 @@ class OPFCreator(calibreMetadata):
         self.manifest.set_basedir(self.base_path)
 
     def create_manifest_from_files_in(self: _typing.Self, files_and_dirs: _typing.Any, exclude: _typing.Callable[..., _typing.Any] = lambda x: False) -> None:
+        """
+        Create manifest from files in under the format's safety and compatibility rules.
+
+        Example:
+            Exercise OPFCreator.create manifest from files in through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param files_and_dirs: Value supplied for files and dirs under the utility contract.
+        :param exclude: Value supplied for exclude under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         entries = []
 
         def dodir(local_dir: _typing.Any) -> None:
+            """
+            Perform the dodir operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise OPFCreator.create manifest from files in.dodir through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+            :param local_dir: Value supplied for local dir under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             for spec in os.walk(local_dir):
                 root, files = spec[0], spec[-1]
                 for name in files:
@@ -2071,8 +3780,16 @@ class OPFCreator(calibreMetadata):
     def create_spine(self: _typing.Self, entries: _typing.Any) -> None:
         """
         Create the <spine> element. Must first call :method:`create_manifest`.
-        :param entries: List of paths
-        :return:
+
+        Example:
+            Exercise OPFCreator.create spine through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param entries: Value supplied for entries under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         entries = map(
             lambda x: x if os.path.isabs(x) else os.path.abspath(os.path.join(self.base_path, x)),
@@ -2083,11 +3800,33 @@ class OPFCreator(calibreMetadata):
     def set_toc(self: _typing.Self, toc: _typing.Any) -> None:
         """
         Set the toc. You must call :method:`create_spine` before calling this method.
-        :param toc: A :class:`TOC` object
+
+        Example:
+            Exercise OPFCreator.set toc through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param toc: Value supplied for toc under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.toc = toc
 
     def create_guide(self: _typing.Self, guide_element: _typing.Any) -> None:
+        """
+        Create OPF guide references for recognized book landmarks.
+
+        Example:
+            Exercise OPFCreator.create guide through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param guide_element: Value supplied for guide element under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.guide = Guide.from_opf_guide(guide_element, self.base_path)
         self.guide.set_basedir(self.base_path)
 
@@ -2102,12 +3841,21 @@ class OPFCreator(calibreMetadata):
     ) -> None:
         """
         Render the OPF file to the given opf_stream.
-        :param opf_stream:
-        :param ncx_stream:
-        :param ncx_manifest_entry:
-        :param encoding:
-        :param process_guide:
-        :return:
+
+        Example:
+            Exercise OPFCreator.render through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param opf_stream: Value supplied for opf stream under the utility contract.
+        :param ncx_stream: Value supplied for ncx stream under the utility contract.
+        :param ncx_manifest_entry: Value supplied for ncx manifest entry under the utility
+            contract.
+        :param encoding: Value supplied for encoding under the utility contract.
+        :param process_guide: Value supplied for process guide under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if encoding is None:
             encoding = "utf-8"
@@ -2147,6 +3895,22 @@ class OPFCreator(calibreMetadata):
         DC = ElementMaker(namespace=DC11_NS)
 
         def DC_ELEM(tag: _typing.Any, text: _typing.Any, dc_attrs: dict[_typing.Any, _typing.Any] = {}, opf_attrs: dict[_typing.Any, _typing.Any] = {}) -> _typing.Any:
+            """
+            Perform the DC ELEM operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise OPFCreator.render.DC ELEM through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+            :param tag: Value supplied for tag under the utility contract.
+            :param text: Text parsed, normalized or rendered.
+            :param dc_attrs: Value supplied for dc attrs under the utility contract.
+            :param opf_attrs: Value supplied for opf attrs under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if text:
                 elem = getattr(DC, tag)(clean_ascii_chars(text), **dc_attrs)
             else:
@@ -2156,6 +3920,20 @@ class OPFCreator(calibreMetadata):
             return elem
 
         def CAL_ELEM(name: _typing.Any, content: _typing.Any) -> _typing.Any:
+            """
+            Perform the CAL ELEM operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise OPFCreator.render.CAL ELEM through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+            :param name: Field, file, function or resource name addressed by the operation.
+            :param content: Value supplied for content under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return M.meta(name=name, content=content)
 
         metadata = M.metadata()
@@ -2301,12 +4079,18 @@ class OPFCreator(calibreMetadata):
 def metadata_to_opf(mi: _typing.Any, as_string: bool = True, default_lang: _typing.Any = None) -> _typing.Any:
     """
     Take a calibreMetadata/Metadata object and serialize it to a string.
-    :param mi:
-    :type mi: LiuXin or calibre Metadata object
-    :param as_string: If True then serializes the object to a string and returns it - if False then returns the tree.
-    :type as_string: bool
-    :param default_lang:
-    :return:
+
+    Example:
+        Exercise metadata to opf through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+    :param mi: Metadata object exposed to the template function.
+    :param as_string: Value supplied for as string under the utility contract.
+    :param default_lang: Value supplied for default lang under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     import textwrap
     from LiuXin_alpha.file_formats.oeb.base import OPF, DC
@@ -2351,14 +4135,22 @@ def metadata_to_opf(mi: _typing.Any, as_string: bool = True, default_lang: _typi
     def factory(tag: _typing.Any, text: _typing.Any = None, sort: _typing.Any = None, role: _typing.Any = None, scheme: _typing.Any = None, name: _typing.Any = None, content: _typing.Any = None) -> None:
         """
         Adds an element to the OPF file.
-        :param tag:
-        :param text:
-        :param sort:
-        :param role:
-        :param scheme:
-        :param name:
-        :param content:
-        :return:
+
+        Example:
+            Exercise metadata to opf.factory through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param text: Text parsed, normalized or rendered.
+        :param sort: Value supplied for sort under the utility contract.
+        :param role: Value supplied for role under the utility contract.
+        :param scheme: Value supplied for scheme under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param content: Value supplied for content under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         attrib = {}
         if sort:
@@ -2651,12 +4443,18 @@ def metadata_to_opf(mi: _typing.Any, as_string: bool = True, default_lang: _typi
 def calibre_metadata_to_opf(mi: _typing.Any, as_string: bool = True, default_lang: _typing.Any = None) -> _typing.Any:
     """
     Write a calibre metadata instance out to an opf file.
-    :param mi:
-    :type mi: calibreMetadata object
-    :param as_string:
-    :type as_string: bool
-    :param default_lang:
-    :return:
+
+    Example:
+        Exercise calibre metadata to opf through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+    :param mi: Metadata object exposed to the template function.
+    :param as_string: Value supplied for as string under the utility contract.
+    :param default_lang: Value supplied for default lang under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     import textwrap
     from LiuXin_alpha.file_formats.oeb.base import OPF, DC
@@ -2695,14 +4493,22 @@ def calibre_metadata_to_opf(mi: _typing.Any, as_string: bool = True, default_lan
     def factory(tag: _typing.Any, text: _typing.Any = None, sort: _typing.Any = None, role: _typing.Any = None, scheme: _typing.Any = None, name: _typing.Any = None, content: _typing.Any = None) -> None:
         """
         Add an element to the opf.
-        :param tag:
-        :param text:
-        :param sort:
-        :param role:
-        :param scheme:
-        :param name:
-        :param content:
-        :return:
+
+        Example:
+            Exercise calibre metadata to opf.factory through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param text: Text parsed, normalized or rendered.
+        :param sort: Value supplied for sort under the utility contract.
+        :param role: Value supplied for role under the utility contract.
+        :param scheme: Value supplied for scheme under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param content: Value supplied for content under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         attrib = {}
         if sort:

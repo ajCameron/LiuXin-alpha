@@ -1,5 +1,12 @@
 """
-Schema-backed link writer for values stored in a destination-table column.
+Resolve table values into destination rows before linking catalog records.
+
+The module keeps validation, normalization and host mutation boundaries explicit.
+
+Example:
+    Exercise table value link writer through its owning regression module::
+
+        python -m pytest -q tests/catalog/test_link_writer.py
 """
 
 from __future__ import annotations
@@ -26,13 +33,32 @@ from LiuXin_alpha.databases.schema_specs import (
 
 @dataclass(frozen=True, slots=True)
 class _TableValueReference:
-    """Hashable, non-persistent reference to one raw destination value."""
+    """
+    Hashable, non-persistent reference to one raw destination value.
+
+    Example:
+        Exercise TableValueReference through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_link_writer.py
+    """
 
     identity: tuple[str, str, str]
     value: Any = field(compare=False, hash=False, repr=False)
 
     @classmethod
     def from_value(cls, value: Any) -> "_TableValueReference":
+        """
+        Construct a canonical link update from value.
+
+        Example:
+            Exercise TableValueReference.from value through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_writer.py
+
+
+        :param value: Public or stored value to normalize, compare or write.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         value_type = type(value)
         return cls(
             (
@@ -48,17 +74,10 @@ class CatalogTableValueLinkWriter(CatalogLinkWriter[Any, Any]):
     """
     Link source rows to values ensured in a destination-table column.
 
-    The database's column metadata owns matching and normalization. Missing
-    logical values in replacements and additions are created by
-    ``ensure_table_value``. Deletions use ``find_table_value`` so an unknown
-    value is a no-op rather than a newly created orphan. Field-specific
-    subclasses may override adaptation and validation while retaining this
-    operation-aware destination-resolution policy.
+    Example:
+        Exercise CatalogTableValueLinkWriter through its owning regression module::
 
-    :param catalog: Catalog facade used to apply normalized link updates.
-    :param link_spec: Directed source-to-destination link specification.
-    :param destination_table: Table containing the destination value.
-    :param destination_column: Column containing the destination value.
+            python -m pytest -q tests/catalog/test_link_writer.py
     """
 
     def __init__(
@@ -71,11 +90,19 @@ class CatalogTableValueLinkWriter(CatalogLinkWriter[Any, Any]):
         """
         Validate and store the schema-backed destination configuration.
 
-        :param catalog: Catalog facade used to apply normalized link updates.
-        :param link_spec: Directed source-to-destination link specification.
-        :param destination_table: Table containing the destination value.
-        :param destination_column: Column containing the destination value.
-        :return: None.
+        Example:
+            Exercise CatalogTableValueLinkWriter.init through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_writer.py
+
+
+        :param catalog: Catalog host or facade supplying metadata and mutation services.
+        :param link_spec: Value supplied for link spec under the catalog contract.
+        :param destination_table: Value supplied for destination table under the catalog
+            contract.
+        :param destination_column: Value supplied for destination column under the catalog
+            contract.
+        :return: None; the function records state or raises through its assertions.
         """
 
         if not isinstance(destination_table, StorageTableSpec):
@@ -99,7 +126,13 @@ class CatalogTableValueLinkWriter(CatalogLinkWriter[Any, Any]):
         """
         Return the destination-table specification.
 
-        :return: Configured destination-table specification.
+        Example:
+            Exercise CatalogTableValueLinkWriter.destination table through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_writer.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         return self._destination_table
@@ -109,7 +142,13 @@ class CatalogTableValueLinkWriter(CatalogLinkWriter[Any, Any]):
         """
         Return the destination value-column specification.
 
-        :return: Configured destination value-column specification.
+        Example:
+            Exercise CatalogTableValueLinkWriter.destination column through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_writer.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         return self._destination_column
@@ -118,8 +157,14 @@ class CatalogTableValueLinkWriter(CatalogLinkWriter[Any, Any]):
         """
         Preserve one raw destination value by default.
 
-        :param raw_value: Raw metadata value supplied by the caller.
-        :return: Unchanged metadata value.
+        Example:
+            Exercise CatalogTableValueLinkWriter.adapt through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_writer.py
+
+
+        :param raw_value: Value supplied for raw value under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         return raw_value
@@ -128,8 +173,14 @@ class CatalogTableValueLinkWriter(CatalogLinkWriter[Any, Any]):
         """
         Match or create one destination value through portable macros.
 
-        :param value: Adapted and validated destination value.
-        :return: Matched or created destination-table ID.
+        Example:
+            Exercise CatalogTableValueLinkWriter.resolve destination through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_writer.py
+
+
+        :param value: Public or stored value to normalize, compare or write.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         return self.catalog.db.macros.ensure_table_value(
@@ -143,12 +194,14 @@ class CatalogTableValueLinkWriter(CatalogLinkWriter[Any, Any]):
         """
         Find one destination value without creating a database row.
 
-        This lookup is used for deletions, where a missing value is already a
-        no-op. Matching follows the same database-owned value policy as
-        :meth:`resolve_destination`.
+        Example:
+            Exercise CatalogTableValueLinkWriter.find destination through its owning regression module::
 
-        :param value: Adapted and validated destination value.
-        :return: Existing destination-table ID, or ``None`` when absent.
+                python -m pytest -q tests/catalog/test_link_writer.py
+
+
+        :param value: Public or stored value to normalize, compare or write.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         return self.catalog.db.macros.find_table_value(
@@ -162,8 +215,14 @@ class CatalogTableValueLinkWriter(CatalogLinkWriter[Any, Any]):
         """
         Resolve a deletion value while retaining a missing-value sentinel.
 
-        :param raw_value: Raw metadata value to process.
-        :return: Existing destination ID, or an internal ``None`` sentinel.
+        Example:
+            Exercise CatalogTableValueLinkWriter.existing destination id for through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_writer.py
+
+
+        :param raw_value: Value supplied for raw value under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         return cast(
@@ -172,7 +231,18 @@ class CatalogTableValueLinkWriter(CatalogLinkWriter[Any, Any]):
         )
 
     def _reference_for(self, raw_value: Any) -> _TableValueReference:
-        """Adapt a value into a pure, lazily resolved reference."""
+        """
+        Adapt a value into a pure, lazily resolved reference.
+
+        Example:
+            Exercise CatalogTableValueLinkWriter.reference for through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_writer.py
+
+
+        :param raw_value: Value supplied for raw value under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
 
         return _TableValueReference.from_value(self.prepare_value(raw_value))
 
@@ -187,18 +257,17 @@ class CatalogTableValueLinkWriter(CatalogLinkWriter[Any, Any]):
         """
         Build an update with operation-aware destination-value resolution.
 
-        Unlike the legacy link-writer convention, integer scalars are treated
-        as values in :attr:`destination_column`, not as destination IDs. Pass
-        an explicit :class:`LinkValue` when an ID is already resolved.
-        Replacement and addition values are ensured. Deletion values are
-        found without creation and omitted when they do not exist.
+        Example:
+            Exercise CatalogTableValueLinkWriter.build update through its owning regression module::
 
-        :param replacements: Authoritative destination values keyed by source
-            ID.
-        :param additions: Destination values to add, keyed by source ID.
-        :param deletions: Destination values to remove, keyed by source ID.
-        :param link_type: Optional link-type scope.
-        :return: Immutable normalized link update.
+                python -m pytest -q tests/catalog/test_link_writer.py
+
+
+        :param replacements: Value supplied for replacements under the catalog contract.
+        :param additions: Value supplied for additions under the catalog contract.
+        :param deletions: Value supplied for deletions under the catalog contract.
+        :param link_type: Optional typed relation value carried by the link.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         replacements, additions, deletions = self._validate_link_type_inputs(
@@ -219,7 +288,18 @@ class CatalogTableValueLinkWriter(CatalogLinkWriter[Any, Any]):
         return update
 
     def _resolve_update(self, update: LinkUpdate) -> LinkUpdate:
-        """Resolve raw value references inside the active write transaction."""
+        """
+        Resolve raw value references inside the active write transaction.
+
+        Example:
+            Exercise CatalogTableValueLinkWriter.resolve update through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_writer.py
+
+
+        :param update: Prepared catalog update to validate or apply.
+        :return: The deterministic value, row, identity or collection described above.
+        """
 
         resolved: dict[_TableValueReference, DstTableID] = {}
 
@@ -228,6 +308,20 @@ class CatalogTableValueLinkWriter(CatalogLinkWriter[Any, Any]):
             *,
             create: bool,
         ) -> dict[Any, tuple[Any, ...]]:
+            """
+            Perform the catalog operation operation under explicit validation and ordering rules.
+
+            Example:
+                Exercise CatalogTableValueLinkWriter.resolve update.operation through its owning regression module::
+
+                    python -m pytest -q tests/catalog/test_link_writer.py
+
+
+            :param links_by_source: Value supplied for links by source under the catalog
+                contract.
+            :param create: Value supplied for create under the catalog contract.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             result: dict[Any, tuple[Any, ...]] = {}
             for source_id, links in links_by_source.items():
                 resolved_links = []
@@ -264,7 +358,18 @@ class CatalogTableValueLinkWriter(CatalogLinkWriter[Any, Any]):
         self,
         update: LinkUpdate,
     ) -> Mapping[SrcTableID, tuple[LinkRow, ...]]:
-        """Resolve values and apply links in one portable transaction."""
+        """
+        Resolve values and apply links in one portable transaction.
+
+        Example:
+            Exercise CatalogTableValueLinkWriter.apply update through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_link_writer.py
+
+
+        :param update: Prepared catalog update to validate or apply.
+        :return: The deterministic value, row, identity or collection described above.
+        """
 
         if not isinstance(update, LinkUpdate):
             raise TypeError("update must be a LinkUpdate")

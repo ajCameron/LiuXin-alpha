@@ -1,8 +1,13 @@
-"""Check the explicit modern formatting scope, or rewrite it with --write.
+"""
+Run repository formatting checks.
 
-The scope and Ruff settings live in pyproject.toml. Resolve every selected
-Python file before invoking Ruff: an empty or misspelled scope must fail, not
-silently pass or fall back to formatting the current working directory.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise run format checks through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
 """
 
 from __future__ import annotations
@@ -18,6 +23,20 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _target_files(root: Path, entry: str) -> tuple[Path, ...]:
+    """
+    Perform the target files operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  target files through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param entry: Value supplied for entry under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     relative = Path(entry)
     if relative.is_absolute() or not relative.parts or ".." in relative.parts:
         raise ValueError(f"Formatting target must be repository-relative: {entry!r}")
@@ -41,7 +60,19 @@ def _target_files(root: Path, entry: str) -> tuple[Path, ...]:
 
 
 def format_paths(root: Path) -> tuple[Path, ...]:
-    """Resolve a nonempty scope, including new modules in selected directories."""
+    """
+    Resolve a nonempty scope, including new modules in selected directories.
+
+    Example:
+        Exercise format paths through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     root = root.resolve()
     with (root / "pyproject.toml").open("rb") as handle:
         config = tomllib.load(handle)
@@ -57,7 +88,19 @@ def format_paths(root: Path) -> tuple[Path, ...]:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run the repo-local Ruff formatter; checking never rewrites source files."""
+    """
+    Run the repo-local Ruff formatter; checking never rewrites source files.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--write", action="store_true", help="Format the selected files in place."

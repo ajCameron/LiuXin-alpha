@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 
+"""
+Extract, normalize and identify cover images from supported ebook containers.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise covers through a consuming regression::
+
+        python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -42,6 +53,14 @@ except Exception:
     QColor = QRect = QBrush = QLinearGradient = QPainterPath = QPen = QRectF = None
 
     class _QtFallback:
+        """
+        Provide the qtfallback contract for validated ebook processing.
+
+        Example:
+            Exercise  QtFallback through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+        """
         AlignCenter = 0
         AlignTop = 0
         AlignHCenter = 0
@@ -111,6 +130,18 @@ Prefs = namedtuple("Prefs", " ".join(sorted(cprefs.defaults)))
 
 
 def get_use_roman() -> _typing.Any:
+    """
+    Return use roman under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get use roman through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     global _use_roman
     if _use_roman is None:
         return config["use_roman_numerals_for_series_number"]
@@ -118,6 +149,19 @@ def get_use_roman() -> _typing.Any:
 
 
 def set_use_roman(val: _typing.Any) -> None:
+    """
+    Set use roman under the format's safety and compatibility rules.
+
+    Example:
+        Exercise set use roman through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param val: Template or metadata value evaluated by the operation.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     global _use_roman
     _use_roman = bool(val)
 
@@ -130,8 +174,16 @@ Point = namedtuple("Point", "x y")
 def parse_text_formatting(text: _typing.Any) -> tuple[_typing.Any, ...]:
     """
     Prepare text for writing out by parsing the style information.
-    :param text:
-    :return:
+
+    Example:
+        Exercise parse text formatting through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     pos = 0
     tokens = []
@@ -187,6 +239,11 @@ def parse_text_formatting(text: _typing.Any) -> tuple[_typing.Any, ...]:
 class Block(object):
     """
     Represents a block of text.
+
+    Example:
+        Exercise Block through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
     """
 
     def __init__(
@@ -198,6 +255,23 @@ class Block(object):
         max_height: int = 100,
         align: _typing.Any = Qt.AlignCenter,
     ) -> None:
+        """
+        Initialize and validate the block state.
+
+        Example:
+            Exercise Block.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :param width: Value supplied for width under the utility contract.
+        :param font: Value supplied for font under the utility contract.
+        :param img: Value supplied for img under the utility contract.
+        :param max_height: Value supplied for max height under the utility contract.
+        :param align: Value supplied for align under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.layouts = []
         self._position = Point(0, 0)
         self.leading = self.line_spacing = 0
@@ -235,14 +309,51 @@ class Block(object):
 
     @property
     def height(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the height operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Block.height through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return int(ceil(sum(l if isinstance(l, (int, float)) else l.boundingRect().height() for l in self.layouts)))
 
     @property
     def position(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the position operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Block.position through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._position
 
     @position.setter
     def position(self: _typing.Self, tuple_x_y: _typing.Any) -> None:
+        """
+        Perform the position operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Block.position through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+        :param tuple_x_y: Value supplied for tuple x y under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         x = tuple_x_y[0]
         y = tuple_x_y[1]
         self._position = Point(x, y)
@@ -257,6 +368,19 @@ class Block(object):
                     y += l.boundingRect().height()
 
     def draw(self: _typing.Self, painter: _typing.Any) -> None:
+        """
+        Perform the draw operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Block.draw through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+        :param painter: Value supplied for painter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for l in self.layouts:
             if hasattr(l, "draw"):
                 # Etch effect for the text
@@ -273,14 +397,22 @@ class Block(object):
 def layout_text(prefs: _typing.Any, img: _typing.Any, title: _typing.Any, subtitle: _typing.Any, footer: _typing.Any, max_height: _typing.Any, style: _typing.Any) -> tuple[_typing.Any, ...]:
     """
     Preform the layout of text on the cover.
-    :param prefs:
-    :param img:
-    :param title:
-    :param subtitle:
-    :param footer:
-    :param max_height:
-    :param style:
-    :return:
+
+    Example:
+        Exercise layout text through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param prefs: Value supplied for prefs under the utility contract.
+    :param img: Value supplied for img under the utility contract.
+    :param title: Value supplied for title under the utility contract.
+    :param subtitle: Value supplied for subtitle under the utility contract.
+    :param footer: Value supplied for footer under the utility contract.
+    :param max_height: Value supplied for max height under the utility contract.
+    :param style: Value supplied for style under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     width = img.width() - 2 * style.hmargin
 
@@ -325,6 +457,19 @@ def layout_text(prefs: _typing.Any, img: _typing.Any, title: _typing.Any, subtit
 
 # Format text using templates {{{
 def sanitize(s: _typing.Any) -> _typing.Any:
+    """
+    Perform the sanitize operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise sanitize through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return unicodedata.normalize("NFC", clean_xml_chars(clean_ascii_chars(force_unicode(s or ""))))
 
 
@@ -333,20 +478,81 @@ _template_cache = {}
 
 
 def escape_formatting(val: _typing.Any) -> _typing.Any:
+    """
+    Perform the escape formatting operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise escape formatting through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param val: Template or metadata value evaluated by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return val.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
 def unescape_formatting(val: _typing.Any) -> _typing.Any:
+    """
+    Perform the unescape formatting operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise unescape formatting through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param val: Template or metadata value evaluated by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return val.replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
 
 
 class Formatter(SafeFormat):
+    """
+    Provide the formatter contract for validated ebook processing.
+
+    Example:
+        Exercise Formatter through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+    """
     def get_value(self: _typing.Self, orig_key: _typing.Any, args: _typing.Any, kwargs: _typing.Any) -> _typing.Any:
+        """
+        Return value under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Formatter.get value through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+        :param orig_key: Value supplied for orig key under the utility contract.
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = SafeFormat.get_value(self, orig_key, args, kwargs)
         return escape_formatting(ans)
 
 
 def formatter() -> _typing.Any:
+    """
+    Perform the formatter operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise formatter through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     global _formatter
     if _formatter is None:
         _formatter = Formatter()
@@ -354,9 +560,36 @@ def formatter() -> _typing.Any:
 
 
 def format_fields(mi: _typing.Any, prefs: _typing.Any) -> _typing.Any:
+    """
+    Perform the format fields operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise format fields through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param mi: Metadata object exposed to the template function.
+    :param prefs: Value supplied for prefs under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     f = formatter()
 
     def safe_format(field: _typing.Any) -> _typing.Any:
+        """
+        Perform the safe format operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise format fields.safe format through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return f.safe_format(
             getattr(prefs, field),
             mi,
@@ -370,6 +603,19 @@ def format_fields(mi: _typing.Any, prefs: _typing.Any) -> _typing.Any:
 
 @contextmanager
 def preserve_fields(obj: _typing.Any, fields: _typing.Any) -> _typing.Iterator[_typing.Any]:
+    """
+    Perform the preserve fields operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise preserve fields through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param obj: Value supplied for obj under the utility contract.
+    :param fields: Value supplied for fields under the utility contract.
+    :return: An iterator yielding the normalized values described above.
+    """
     if isinstance(fields, str):
         fields = fields.split()
     null = object()
@@ -385,6 +631,20 @@ def preserve_fields(obj: _typing.Any, fields: _typing.Any) -> _typing.Iterator[_
 
 
 def format_text(mi: _typing.Any, prefs: _typing.Any) -> _typing.Any:
+    """
+    Perform the format text operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise format text through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param mi: Metadata object exposed to the template function.
+    :param prefs: Value supplied for prefs under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     with preserve_fields(mi, "authors formatted_series_index"):
         mi.authors = [a for a in mi.authors if a != _("Unknown")]
         mi.formatted_series_index = fmt_sidx(
@@ -399,6 +659,19 @@ _FORMATTING_TAG_RX = re.compile(r"</?[a-zA-Z1-6]+/?>")
 
 
 def _plain_text_for_fallback(text: _typing.Any) -> _typing.Any:
+    """
+    Perform the plain text for fallback operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  plain text for fallback through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     text = force_unicode(text or "")
     text = unescape_formatting(text)
     text = _FORMATTING_TAG_RX.sub("", text)
@@ -406,6 +679,19 @@ def _plain_text_for_fallback(text: _typing.Any) -> _typing.Any:
 
 
 def _basic_format_text(mi: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Perform the basic format text operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  basic format text through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param mi: Metadata object exposed to the template function.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     title = escape_formatting(getattr(mi, "title", "") or _("Unknown"))
 
     authors = [a for a in getattr(mi, "authors", ()) if a and a != _("Unknown")]
@@ -429,6 +715,20 @@ def _basic_format_text(mi: _typing.Any) -> tuple[_typing.Any, ...]:
 
 
 def _safe_format_text(mi: _typing.Any, prefs: _typing.Any) -> _typing.Any:
+    """
+    Perform the safe format text operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  safe format text through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param mi: Metadata object exposed to the template function.
+    :param prefs: Value supplied for prefs under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         return tuple(format_text(mi, prefs))
     except Exception:
@@ -438,6 +738,21 @@ def _safe_format_text(mi: _typing.Any, prefs: _typing.Any) -> _typing.Any:
 
 
 def _coerce_positive_int(value: _typing.Any, default: _typing.Any, minimum: int = 1) -> _typing.Any:
+    """
+    Perform the coerce positive int operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  coerce positive int through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :param default: Value supplied for default under the utility contract.
+    :param minimum: Value supplied for minimum under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         ans = int(value)
     except Exception:
@@ -446,6 +761,19 @@ def _coerce_positive_int(value: _typing.Any, default: _typing.Any, minimum: int 
 
 
 def _normalize_cover_prefs(prefs: _typing.Any) -> _typing.Any:
+    """
+    Normalize cover prefs under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  normalize cover prefs through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param prefs: Value supplied for prefs under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return prefs._replace(
         cover_width=_coerce_positive_int(prefs.cover_width, cprefs.defaults["cover_width"]),
         cover_height=_coerce_positive_int(prefs.cover_height, cprefs.defaults["cover_height"]),
@@ -461,6 +789,19 @@ ColorTheme = namedtuple("ColorTheme", "color1 color2 contrast_color1 contrast_co
 
 
 def to_theme(x: _typing.Any) -> _typing.Any:
+    """
+    Perform the to theme operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise to theme through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return {k: v for k, v in zip(ColorTheme._fields[:4], x.split())}
 
 
@@ -475,11 +816,37 @@ default_color_themes = {
 
 
 def theme_to_colors(theme: _typing.Any) -> _typing.Any:
+    """
+    Perform the theme to colors operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise theme to colors through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param theme: Value supplied for theme under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     colors = {k: QColor("#" + theme[k]) for k in ColorTheme._fields}
     return ColorTheme(**colors)
 
 
 def load_color_themes(prefs: _typing.Any) -> _typing.Any:
+    """
+    Perform the load color themes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise load color themes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param prefs: Value supplied for prefs under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     t = default_color_themes.copy()
     t.update(prefs.color_themes)
     disabled = frozenset(prefs.disabled_color_themes)
@@ -499,6 +866,20 @@ def load_color_themes(prefs: _typing.Any) -> _typing.Any:
 
 
 def color(color_theme: _typing.Any, name: _typing.Any) -> _typing.Any:
+    """
+    Perform the color operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise color through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param color_theme: Value supplied for color theme under the utility contract.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ans = getattr(color_theme, name)
     if not ans.isValid():
         ans = QColor("#" + fallback_colors[name])
@@ -511,10 +892,31 @@ def color(color_theme: _typing.Any, name: _typing.Any) -> _typing.Any:
 # Styles {{{
 class Style(object):
 
+    """
+    Provide the style contract for validated ebook processing.
+
+    Example:
+        Exercise Style through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+    """
     TITLE_ALIGN = SUBTITLE_ALIGN = FOOTER_ALIGN = Qt.AlignHCenter | Qt.AlignTop
 
     def __init__(self: _typing.Self, color_theme: _typing.Any, prefs: _typing.Any) -> None:
         # Will be written over immediately
+        """
+        Initialize and validate the style state.
+
+        Example:
+            Exercise Style.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+        :param color_theme: Value supplied for color theme under the utility contract.
+        :param prefs: Value supplied for prefs under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.hmargin = None
         self.vmargin = None
         self.color1 = None
@@ -526,10 +928,36 @@ class Style(object):
         self.calculate_margins(prefs)
 
     def calculate_margins(self: _typing.Self, prefs: _typing.Any) -> None:
+        """
+        Perform the calculate margins operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.calculate margins through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+        :param prefs: Value supplied for prefs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.hmargin = int((50 / 600) * prefs.cover_width)
         self.vmargin = int((50 / 800) * prefs.cover_height)
 
     def load_colors(self: _typing.Self, color_theme: _typing.Any) -> None:
+        """
+        Perform the load colors operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.load colors through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+        :param color_theme: Value supplied for color theme under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.color1 = color(color_theme, "color1")
         self.color2 = color(color_theme, "color2")
         self.ccolor1 = color(color_theme, "contrast_color1")
@@ -538,10 +966,36 @@ class Style(object):
 
 class Cross(Style):
 
+    """
+    Provide the cross contract for validated ebook processing.
+
+    Example:
+        Exercise Cross through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+    """
     NAME = "The Cross"
     GUI_NAME = _("The Cross")
 
     def __call__(self: _typing.Self, painter: _typing.Any, rect: _typing.Any, color_theme: _typing.Any, title_block: _typing.Any, subtitle_block: _typing.Any, footer_block: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Cross.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+        :param painter: Value supplied for painter under the utility contract.
+        :param rect: Value supplied for rect under the utility contract.
+        :param color_theme: Value supplied for color theme under the utility contract.
+        :param title_block: Value supplied for title block under the utility contract.
+        :param subtitle_block: Value supplied for subtitle block under the utility contract.
+        :param footer_block: Value supplied for footer block under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         painter.fillRect(rect, self.color1)
         r = QRect(
             0,
@@ -563,10 +1017,36 @@ class Cross(Style):
 
 class Half(Style):
 
+    """
+    Provide the half contract for validated ebook processing.
+
+    Example:
+        Exercise Half through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+    """
     NAME = "Half and Half"
     GUI_NAME = _("Half and Half")
 
     def __call__(self: _typing.Self, painter: _typing.Any, rect: _typing.Any, color_theme: _typing.Any, title_block: _typing.Any, subtitle_block: _typing.Any, footer_block: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Half.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+        :param painter: Value supplied for painter under the utility contract.
+        :param rect: Value supplied for rect under the utility contract.
+        :param color_theme: Value supplied for color theme under the utility contract.
+        :param title_block: Value supplied for title block under the utility contract.
+        :param subtitle_block: Value supplied for subtitle block under the utility contract.
+        :param footer_block: Value supplied for footer block under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         g = QLinearGradient(QPointF(0, 0), QPointF(0, rect.height()))
         g.setStops([(0, self.color1), (0.7, self.color2), (1, self.color1)])
         painter.fillRect(rect, QBrush(g))
@@ -574,10 +1054,44 @@ class Half(Style):
 
 
 def rotate_vector(angle: _typing.Any, x: _typing.Any, y: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Perform the rotate vector operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise rotate vector through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param angle: Value supplied for angle under the utility contract.
+    :param x: Value supplied for x under the utility contract.
+    :param y: Value supplied for y under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return x * cos(angle) - y * sin(angle), x * sin(angle) + y * cos(angle)
 
 
 def draw_curved_line(painter_path: _typing.Any, dx: _typing.Any, dy: _typing.Any, c1_frac: _typing.Any, c1_amp: _typing.Any, c2_frac: _typing.Any, c2_amp: _typing.Any) -> None:
+    """
+    Perform the draw curved line operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise draw curved line through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param painter_path: Value supplied for painter path under the utility contract.
+    :param dx: Value supplied for dx under the utility contract.
+    :param dy: Value supplied for dy under the utility contract.
+    :param c1_frac: Value supplied for c1 frac under the utility contract.
+    :param c1_amp: Value supplied for c1 amp under the utility contract.
+    :param c2_frac: Value supplied for c2 frac under the utility contract.
+    :param c2_amp: Value supplied for c2 amp under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     length = sqrt(dx * dx + dy * dy)
     angle = atan2(dy, dx)
     c1 = QPointF(*rotate_vector(angle, c1_frac * length, c1_amp * length))
@@ -588,16 +1102,55 @@ def draw_curved_line(painter_path: _typing.Any, dx: _typing.Any, dy: _typing.Any
 
 class Banner(Style):
 
+    """
+    Provide the banner contract for validated ebook processing.
+
+    Example:
+        Exercise Banner through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+    """
     NAME = "Banner"
     GUI_NAME = _("Banner")
     GRADE = 0.07
 
     def calculate_margins(self: _typing.Self, prefs: _typing.Any) -> None:
+        """
+        Perform the calculate margins operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Banner.calculate margins through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+        :param prefs: Value supplied for prefs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         Style.calculate_margins(self, prefs)
         self.hmargin = int(0.15 * prefs.cover_width)
         self.fold_width = int(0.1 * prefs.cover_width)
 
     def __call__(self: _typing.Self, painter: _typing.Any, rect: _typing.Any, color_theme: _typing.Any, title_block: _typing.Any, subtitle_block: _typing.Any, footer_block: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Banner.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+        :param painter: Value supplied for painter under the utility contract.
+        :param rect: Value supplied for rect under the utility contract.
+        :param color_theme: Value supplied for color theme under the utility contract.
+        :param title_block: Value supplied for title block under the utility contract.
+        :param subtitle_block: Value supplied for subtitle block under the utility contract.
+        :param footer_block: Value supplied for footer block under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         painter.fillRect(rect, self.color1)
         top = title_block.position.y + 10
         extra_spacing = (
@@ -624,6 +1177,21 @@ class Banner(Style):
         rtop = top + height * yfrac
 
         def draw_fold(x: _typing.Any, m: int = 1, corner: _typing.Any = left_corner) -> tuple[_typing.Any, ...]:
+            """
+            Perform the draw fold operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Banner.  call  .draw fold through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+            :param x: Value supplied for x under the utility contract.
+            :param m: Value supplied for m under the utility contract.
+            :param corner: Value supplied for corner under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             ans = p = QPainterPath(QPointF(x, rtop))
             draw_curved_line(p, rwidth * m, 0, 0.1, 0.1 * m, 0.5, -0.2 * m)
             fold_upper = p.currentPosition()
@@ -660,11 +1228,37 @@ class Banner(Style):
 
 class Blocks(Style):
 
+    """
+    Provide the blocks contract for validated ebook processing.
+
+    Example:
+        Exercise Blocks through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+    """
     NAME = "Blocks"
     GUI_NAME = _("Blocks")
     FOOTER_ALIGN = Qt.AlignRight | Qt.AlignTop
 
     def __call__(self: _typing.Self, painter: _typing.Any, rect: _typing.Any, color_theme: _typing.Any, title_block: _typing.Any, subtitle_block: _typing.Any, footer_block: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Blocks.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+        :param painter: Value supplied for painter under the utility contract.
+        :param rect: Value supplied for rect under the utility contract.
+        :param color_theme: Value supplied for color theme under the utility contract.
+        :param title_block: Value supplied for title block under the utility contract.
+        :param subtitle_block: Value supplied for subtitle block under the utility contract.
+        :param footer_block: Value supplied for footer block under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         painter.fillRect(rect, self.color1)
         y = rect.height() - rect.height() // 3
         r = QRect(rect)
@@ -677,12 +1271,39 @@ class Blocks(Style):
 
 
 def all_styles() -> _typing.Any:
+    """
+    Perform the all styles operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise all styles through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return set(
         x.NAME for x in globals().values() if isinstance(x, type) and issubclass(x, Style) and x is not Style
     )
 
 
 def load_styles(prefs: _typing.Any, respect_disabled: bool = True) -> _typing.Any:
+    """
+    Perform the load styles operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise load styles through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param prefs: Value supplied for prefs under the utility contract.
+    :param respect_disabled: Value supplied for respect disabled under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     disabled = frozenset(prefs.disabled_styles) if respect_disabled else ()
     ans = tuple(
         x
@@ -699,6 +1320,18 @@ def load_styles(prefs: _typing.Any, respect_disabled: bool = True) -> _typing.An
 
 
 def _fallback_resource_cover_bytes() -> _typing.Any:
+    """
+    Perform the fallback resource cover bytes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  fallback resource cover bytes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     for name in ("library.png", "lt.png", "cover_texture.png"):
         try:
             data = I(name, data=True)
@@ -710,6 +1343,23 @@ def _fallback_resource_cover_bytes() -> _typing.Any:
 
 
 def _draw_fallback_cover_with_pillow(title: _typing.Any, subtitle: _typing.Any, footer: _typing.Any, width: _typing.Any, height: _typing.Any) -> _typing.Any:
+    """
+    Perform the draw fallback cover with pillow operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  draw fallback cover with pillow through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param title: Value supplied for title under the utility contract.
+    :param subtitle: Value supplied for subtitle under the utility contract.
+    :param footer: Value supplied for footer under the utility contract.
+    :param width: Value supplied for width under the utility contract.
+    :param height: Value supplied for height under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         from PIL import Image, ImageDraw, ImageFont
     except Exception:
@@ -726,6 +1376,19 @@ def _draw_fallback_cover_with_pillow(title: _typing.Any, subtitle: _typing.Any, 
     draw.rectangle([(0, 0), (img.width, int(img.height * 0.18))], fill=(226, 232, 238))
 
     def load_font(size: _typing.Any) -> _typing.Any:
+        """
+        Perform the load font operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  draw fallback cover with pillow.load font through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+        :param size: Value supplied for size under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for font_name in ("DejaVuSans.ttf", "LiberationSans-Regular.ttf", "Arial.ttf"):
             try:
                 return ImageFont.truetype(font_name, size=size)
@@ -738,6 +1401,19 @@ def _draw_fallback_cover_with_pillow(title: _typing.Any, subtitle: _typing.Any, 
     footer_font = load_font(max(12, img.height // 32))
 
     def text_height(font: _typing.Any) -> _typing.Any:
+        """
+        Perform the text height operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  draw fallback cover with pillow.text height through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+        :param font: Value supplied for font under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             bbox = draw.textbbox((0, 0), "Ag", font=font)
             return max(1, bbox[3] - bbox[1])
@@ -752,6 +1428,20 @@ def _draw_fallback_cover_with_pillow(title: _typing.Any, subtitle: _typing.Any, 
     max_text_width = img.width - 2 * margin
 
     def wrap_lines(text: _typing.Any, font: _typing.Any) -> _typing.Any:
+        """
+        Perform the wrap lines operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  draw fallback cover with pillow.wrap lines through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :param font: Value supplied for font under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = (text or "").strip()
         if not text:
             return []
@@ -774,6 +1464,23 @@ def _draw_fallback_cover_with_pillow(title: _typing.Any, subtitle: _typing.Any, 
 
     y = margin
     def safe_draw_text(x: _typing.Any, y: _typing.Any, text: _typing.Any, fill: _typing.Any, font: _typing.Any) -> None:
+        """
+        Perform the safe draw text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  draw fallback cover with pillow.safe draw text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+        :param x: Value supplied for x under the utility contract.
+        :param y: Value supplied for y under the utility contract.
+        :param text: Text parsed, normalized or rendered.
+        :param fill: Value supplied for fill under the utility contract.
+        :param font: Value supplied for font under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         try:
             draw.text((x, y), text, fill=fill, font=font)
             return
@@ -813,6 +1520,23 @@ def _draw_fallback_cover_with_pillow(title: _typing.Any, subtitle: _typing.Any, 
 
 
 def _fallback_cover_bytes(title: _typing.Any, subtitle: _typing.Any, footer: _typing.Any, width: _typing.Any, height: _typing.Any) -> _typing.Any:
+    """
+    Perform the fallback cover bytes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  fallback cover bytes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param title: Value supplied for title under the utility contract.
+    :param subtitle: Value supplied for subtitle under the utility contract.
+    :param footer: Value supplied for footer under the utility contract.
+    :param width: Value supplied for width under the utility contract.
+    :param height: Value supplied for height under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     data = _draw_fallback_cover_with_pillow(title, subtitle, footer, width, height)
     if data is not None:
         return data
@@ -830,6 +1554,18 @@ def _fallback_cover_bytes(title: _typing.Any, subtitle: _typing.Any, footer: _ty
 
 
 def init_environment() -> None:
+    """
+    Perform the init environment operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise init environment through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if not HAS_QT:
         return
     try:
@@ -843,6 +1579,21 @@ def init_environment() -> None:
 
 
 def generate_cover(mi: _typing.Any, prefs: _typing.Any = None, as_qimage: bool = False) -> _typing.Any:
+    """
+    Perform the generate cover operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise generate cover through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param mi: Metadata object exposed to the template function.
+    :param prefs: Value supplied for prefs under the utility contract.
+    :param as_qimage: Value supplied for as qimage under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     prefs = prefs or cprefs
     prefs = {k: prefs.get(k) for k in cprefs.defaults}
     prefs = Prefs(**prefs)
@@ -876,6 +1627,20 @@ def generate_cover(mi: _typing.Any, prefs: _typing.Any = None, as_qimage: bool =
 
 
 def override_prefs(base_prefs: _typing.Any, **overrides: _typing.Any) -> _typing.Any:
+    """
+    Perform the override prefs operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise override prefs through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param base_prefs: Value supplied for base prefs under the utility contract.
+    :param overrides: Value supplied for overrides under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ans = {k: overrides.get(k, base_prefs[k]) for k in cprefs.defaults}
     override_color_theme = overrides.get("override_color_theme")
     if override_color_theme is not None:
@@ -895,15 +1660,22 @@ def override_prefs(base_prefs: _typing.Any, **overrides: _typing.Any) -> _typing
 
 def create_cover(title: _typing.Any, authors: _typing.Any, series: _typing.Any = None, series_index: int = 1, prefs: _typing.Any = None, as_qimage: bool = False) -> _typing.Any:
     """
-    Create a cover from the specified title, author and series. Any user set templates are ignored, to ensure that the
-     specified metadata is used. '
-    :param title:
-    :param authors:
-    :param series:
-    :param series_index:
-    :param prefs:
-    :param as_qimage:
-    :return:
+    Create a cover from the specified title, author and series. Any user set templates are ignored, to ensure that the specified metadata is used. '
+
+    Example:
+        Exercise create cover through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param title: Value supplied for title under the utility contract.
+    :param authors: Value supplied for authors under the utility contract.
+    :param series: Value supplied for series under the utility contract.
+    :param series_index: Value supplied for series index under the utility contract.
+    :param prefs: Value supplied for prefs under the utility contract.
+    :param as_qimage: Value supplied for as qimage under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     mi = Metadata(title, authors)
     if series:
@@ -919,6 +1691,23 @@ def create_cover(title: _typing.Any, authors: _typing.Any, series: _typing.Any =
 
 
 def calibre_cover2(title: _typing.Any, author_string: str = "", series_string: str = "", prefs: _typing.Any = None, as_qimage: bool = False) -> _typing.Any:
+    """
+    Perform the calibre cover2 operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise calibre cover2 through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param title: Value supplied for title under the utility contract.
+    :param author_string: Value supplied for author string under the utility contract.
+    :param series_string: Value supplied for series string under the utility contract.
+    :param prefs: Value supplied for prefs under the utility contract.
+    :param as_qimage: Value supplied for as qimage under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     title, subtitle, footer = (
         "<b>" + escape_formatting(title),
         "<i>" + escape_formatting(series_string),
@@ -944,9 +1733,35 @@ def calibre_cover2(title: _typing.Any, author_string: str = "", series_string: s
     color_theme = theme_to_colors(fallback_colors)
 
     class CalibeLogoStyle(Style):
+        """
+        Provide the calibelogostyle contract for validated ebook processing.
+
+        Example:
+            Exercise calibre cover2.CalibeLogoStyle through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+        """
         NAME = GUI_NAME = "calibre"
 
         def __call__(self: _typing.Self, painter: _typing.Any, rect: _typing.Any, color_theme: _typing.Any, title_block: _typing.Any, subtitle_block: _typing.Any, footer_block: _typing.Any) -> tuple[_typing.Any, ...]:
+            """
+            Perform the call operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise calibre cover2.CalibeLogoStyle.  call   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+            :param painter: Value supplied for painter under the utility contract.
+            :param rect: Value supplied for rect under the utility contract.
+            :param color_theme: Value supplied for color theme under the utility contract.
+            :param title_block: Value supplied for title block under the utility contract.
+            :param subtitle_block: Value supplied for subtitle block under the utility contract.
+            :param footer_block: Value supplied for footer block under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             top = title_block.position.y + 10
             extra_spacing = (
                 subtitle_block.line_spacing // 2 if subtitle_block.line_spacing else title_block.line_spacing // 3
@@ -981,6 +1796,20 @@ def calibre_cover2(title: _typing.Any, author_string: str = "", series_string: s
 
 
 def scale_cover(prefs: _typing.Any, scale: _typing.Any) -> None:
+    """
+    Perform the scale cover operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise scale cover through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param prefs: Value supplied for prefs under the utility contract.
+    :param scale: Value supplied for scale under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for x in (
         "cover_width",
         "cover_height",
@@ -992,6 +1821,24 @@ def scale_cover(prefs: _typing.Any, scale: _typing.Any) -> None:
 
 
 def generate_masthead(title: _typing.Any, output_path: _typing.Any = None, width: int = 600, height: int = 60, as_qimage: bool = False, font_family: _typing.Any = None) -> _typing.Any:
+    """
+    Perform the generate masthead operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise generate masthead through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param title: Value supplied for title under the utility contract.
+    :param output_path: Value supplied for output path under the utility contract.
+    :param width: Value supplied for width under the utility contract.
+    :param height: Value supplied for height under the utility contract.
+    :param as_qimage: Value supplied for as qimage under the utility contract.
+    :param font_family: Value supplied for font family under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     width = _coerce_positive_int(width, 600)
     height = _coerce_positive_int(height, 60)
     if not HAS_QT:
@@ -1026,6 +1873,19 @@ def generate_masthead(title: _typing.Any, output_path: _typing.Any = None, width
 
 
 def test(scale: float = 0.25) -> None:
+    """
+    Perform the test operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_cover_extraction_utils.py
+
+
+    :param scale: Value supplied for scale under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if not HAS_QT:
         raise RuntimeError("PyQt5 is required to run covers.test()")
     from PyQt5.Qt import (

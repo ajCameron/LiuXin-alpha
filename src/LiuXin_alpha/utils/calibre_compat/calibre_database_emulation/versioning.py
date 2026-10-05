@@ -1,18 +1,13 @@
 """
-Stage B: Calibre schema/version handling.
+Resolve supported Calibre schema versions into explicit compatibility plans.
 
-This module is intentionally conservative.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-It records observed ``PRAGMA application_id`` and ``PRAGMA user_version`` values
-and, when possible, compares them to the Calibre SQL snapshot vendored with
-LiuXin.
+Example:
+    Exercise versioning through a consuming regression::
 
-It does **not** attempt schema upgrades/downgrades.
-
-Default policy:
-- Older-than-snapshot schemas are treated as readable best-effort.
-- Newer-than-snapshot schemas produce a warning (schema drift is likely).
-- Mismatched ``application_id`` produces a warning.
+        python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_db.py
 """
 
 from __future__ import annotations
@@ -28,9 +23,10 @@ class CalibreVersionPolicy:
     """
     Policy knobs for interpreting Calibre ``application_id``/``user_version``.
 
-    Default policy is permissive (warn + continue). Set the allow_* flags to
-    False to turn specific drift cases into a "refuse" action in the returned
-    plan.
+    Example:
+        Exercise CalibreVersionPolicy through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_db.py
     """
 
     expected_application_id: Optional[int] = None
@@ -45,6 +41,15 @@ class CalibreVersionPolicy:
 def _try_load_snapshot_versions() -> Tuple[Optional[int], Optional[int]]:
     """
     Return (expected_application_id, latest_supported_user_version) if available.
+
+    Example:
+        Exercise  try load snapshot versions through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_db.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     try:
         from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator.database_generator import (
@@ -67,11 +72,19 @@ def resolve_version_plan(
     """
     Build a CalibreVersionPlan for the observed DB pragmas.
 
-    :param application_id:
-    :param user_version:
-    :param target_user_version:
-    :param policy:
-    :return:
+    Example:
+        Exercise resolve version plan through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_db.py
+
+
+    :param application_id: Value supplied for application id under the utility contract.
+    :param user_version: Value supplied for user version under the utility contract.
+    :param target_user_version: Value supplied for target user version under the utility
+        contract.
+    :param policy: Value supplied for policy under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     pol = policy or CalibreVersionPolicy()
 

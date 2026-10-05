@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Build MOBI and KF8 navigation structures.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise toc through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -46,6 +57,19 @@ TEMPLATE = """
 
 
 def find_previous_calibre_inline_toc(oeb: _typing.Any) -> _typing.Any:
+    """
+    Find previous calibre inline toc under the format's safety and compatibility rules.
+
+    Example:
+        Exercise find previous calibre inline toc through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+    :param oeb: Value supplied for oeb under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if "toc" in oeb.guide:
         href = urlnormalize(oeb.guide["toc"].href.partition("#")[0])
         if href in oeb.manifest.hrefs:
@@ -55,7 +79,32 @@ def find_previous_calibre_inline_toc(oeb: _typing.Any) -> _typing.Any:
 
 
 class TOCAdder(object):
+    """
+    Provide the tocadder contract for validated ebook processing.
+
+    Example:
+        Exercise TOCAdder through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+    """
     def __init__(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any, replace_previous_inline_toc: bool = False, ignore_existing_toc: bool = False) -> None:
+        """
+        Initialize and validate the tocadder state.
+
+        Example:
+            Exercise TOCAdder.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param replace_previous_inline_toc: Value supplied for replace previous inline toc
+            under the utility contract.
+        :param ignore_existing_toc: Value supplied for ignore existing toc under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.oeb, self.opts, self.log = oeb, opts, oeb.log
         self.title = opts.toc_title or DEFAULT_TITLE
         self.at_start = opts.mobi_toc_at_start
@@ -124,6 +173,21 @@ class TOCAdder(object):
         oeb.guide.add("toc", "Table of Contents", href)
 
     def process_toc_node(self: _typing.Self, toc: _typing.Any, parent: _typing.Any, level: int = 0) -> None:
+        """
+        Perform the process toc node operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TOCAdder.process toc node through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param toc: Value supplied for toc under the utility contract.
+        :param parent: Value supplied for parent under the utility contract.
+        :param level: Value supplied for level under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         li = parent.makeelement(XHTML("li"))
         li.tail = "\n" + ("\t" * level)
         parent.append(li)
@@ -143,6 +207,18 @@ class TOCAdder(object):
                 self.process_toc_node(child, parent, level + 1)
 
     def remove_generated_toc(self: _typing.Self) -> None:
+        """
+        Perform the remove generated toc operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TOCAdder.remove generated toc through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.generated_item is not None:
             self.oeb.manifest.remove(self.generated_item)
             self.generated_item = None

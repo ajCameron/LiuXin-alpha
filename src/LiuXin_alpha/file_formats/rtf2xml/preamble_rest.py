@@ -10,6 +10,17 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+"""
+Process retained RTF preamble declarations after core tables.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise preamble rest through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -21,10 +32,12 @@ from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
 
 class Preamble:
     """
-    Fix the reamaing parts of the preamble. This module does very little. It
-    makes sure that no text gets put in the revision of list table. In the
-    future, when I understand how to interpret the revision table and list
-    table, I will make these methods more functional.
+    Fix the reamaing parts of the preamble. This module does very little. It makes sure that no text gets put in the revision of list table. In the future, when I understand how to interpret the revision table and list table, I will make these methods more functional.
+
+    Example:
+        Exercise Preamble through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
     """
 
     def __init__(
@@ -38,17 +51,22 @@ class Preamble:
         temp_dir: _typing.Any = None,
     ) -> None:
         """
-        Required:
-            file--file to parse
-            platform --Windows or Macintosh
-            default_font -- the default font
-            code_page --the code page (ansi1252, for example)
-        Optional:
-            'copy'-- whether to make a copy of result for debugging
-            'temp_dir' --where to output temporary results (default is
-            directory from which the script is run.)
-        Returns:
-            nothing
+        Required: file--file to parse platform --Windows or Macintosh default_font -- the default font code_page --the code page (ansi1252, for example) Optional: 'copy'-- whether to make a copy of result for debugging 'temp_dir' --where to output temporary results (default is directory from which the script is run.) Returns: nothing
+
+        Example:
+            Exercise Preamble.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param file: Value supplied for file under the utility contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param platform: Value supplied for platform under the utility contract.
+        :param default_font: Value supplied for default font under the utility contract.
+        :param code_page: Value supplied for code page under the utility contract.
+        :param copy: Value supplied for copy under the utility contract.
+        :param temp_dir: Value supplied for temp dir under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.__file = file
         self.__bug_handler = bug_handler
@@ -64,6 +82,15 @@ class Preamble:
     def __initiate_values(self: _typing.Self) -> None:
         """
         Initiate all values.
+
+        Example:
+            Exercise Preamble.  initiate values through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__state = "default"
         self.__text_string = ""
@@ -81,6 +108,19 @@ class Preamble:
         }
 
     def __default_func(self: _typing.Self, line: _typing.Any) -> None:
+        """
+        Perform the default func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Preamble.  default func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         action = self.__default_dict.get(self.__token_info)
         if action:
             action(line)
@@ -89,13 +129,17 @@ class Preamble:
 
     def __found_rtf_head_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line -- the line to parse
-        Returns:
-            nothing.
-        Logic:
-            Write to the output file the default font info, the code page
-            info, and the platform info.
+        Requires: line -- the line to parse Returns: nothing. Logic: Write to the output file the default font info, the code page info, and the platform info.
+
+        Example:
+            Exercise Preamble.  found rtf head func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__write_obj.write(
             "mi<tg<empty-att_<rtf-definition"
@@ -104,9 +148,35 @@ class Preamble:
         )
 
     def __found_list_table_func(self: _typing.Self, line: _typing.Any) -> None:
+        """
+        Perform the found list table func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Preamble.  found list table func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__state = "list_table"
 
     def __list_table_func(self: _typing.Self, line: _typing.Any) -> None:
+        """
+        Perform the list table func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Preamble.  list table func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.__token_info == "mi<mk<listabend_":
             self.__state = "default"
         elif line[0:2] == "tx":
@@ -115,9 +185,35 @@ class Preamble:
             self.__write_obj.write(line)
 
     def __found_revision_table_func(self: _typing.Self, line: _typing.Any) -> None:
+        """
+        Perform the found revision table func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Preamble.  found revision table func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__state = "revision"
 
     def __revision_table_func(self: _typing.Self, line: _typing.Any) -> None:
+        """
+        Perform the revision table func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Preamble.  revision table func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.__token_info == "mi<mk<revtbl-end":
             self.__state = "default"
         elif line[0:2] == "tx":
@@ -126,22 +222,50 @@ class Preamble:
             self.__write_obj.write(line)
 
     def __found_body_func(self: _typing.Self, line: _typing.Any) -> None:
+        """
+        Perform the found body func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Preamble.  found body func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__state = "body"
         self.__write_obj.write(line)
 
     def __body_func(self: _typing.Self, line: _typing.Any) -> None:
+        """
+        Perform the body func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Preamble.  body func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__write_obj.write(line)
 
     def fix_preamble(self: _typing.Self) -> None:
         """
-        Requires:
-            nothing
-        Returns:
-            nothing (changes the original file)
-        Logic:
-            Read one line in at a time. Determine what action to take based on
-            the state. The state can either be default, the revision table, or
-            the list table.
+        Requires: nothing Returns: nothing (changes the original file) Logic: Read one line in at a time. Determine what action to take based on the state. The state can either be default, the revision table, or the list table.
+
+        Example:
+            Exercise Preamble.fix preamble through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__initiate_values()
         with open_for_read(self.__file) as read_obj:

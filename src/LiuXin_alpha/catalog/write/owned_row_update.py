@@ -1,4 +1,13 @@
-"""Normalized updates for values stored in owned one-to-one rows."""
+"""
+Represent one mutation of a row owned through a catalog relation.
+
+The module keeps validation, normalization and host mutation boundaries explicit.
+
+Example:
+    Exercise owned row update through its owning regression module::
+
+        python -m pytest -q tests/catalog/test_owned_row_writer.py
+"""
 
 from __future__ import annotations
 
@@ -21,6 +30,17 @@ if TYPE_CHECKING:
 
 
 def _empty_values[ValueT]() -> dict[SrcTableID, ValueT | None]:
+    """
+    Return whether an update payload explicitly clears its target value.
+
+    Example:
+        Exercise empty values through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_owned_row_writer.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return {}
 
 
@@ -29,15 +49,10 @@ class CatalogOwnedRowUpdate[ValueT]:
     """
     Describe value replacements for destination rows owned one-to-one.
 
-    A non-null value updates the source's linked destination row in place. If
-    the source has no link, application creates and links a destination row in
-    the same transaction. ``None`` removes the link but deliberately leaves
-    the destination row for explicit cleanup policy.
+    Example:
+        Exercise CatalogOwnedRowUpdate through its owning regression module::
 
-    :param link_spec: Directed one-to-one storage route.
-    :param destination_table: Table containing each owned destination row.
-    :param destination_column: Value column to update or populate.
-    :param values: Replacement values keyed by source-table ID.
+            python -m pytest -q tests/catalog/test_owned_row_writer.py
     """
 
     link_spec: StorageLinkSpec
@@ -51,10 +66,13 @@ class CatalogOwnedRowUpdate[ValueT]:
         """
         Validate and materialize the owned-row update.
 
-        :return: None.
-        :raises TypeError: If specifications or values have invalid types.
-        :raises ValueError: If the specifications do not describe a writable
-            one-to-one destination value.
+        Example:
+            Exercise CatalogOwnedRowUpdate.post init through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_owned_row_writer.py
+
+
+        :return: None; the function records state or raises through its assertions.
         """
 
         if not isinstance(self.link_spec, StorageLinkSpec):
@@ -93,8 +111,14 @@ class CatalogOwnedRowUpdate[ValueT]:
         """
         Apply this update through one portable atomic database operation.
 
-        :param macros: Portable macro layer for the catalog database.
-        :return: Complete link rows keyed by affected source-table ID.
+        Example:
+            Exercise CatalogOwnedRowUpdate.write through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_owned_row_writer.py
+
+
+        :param macros: Value supplied for macros under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         if not self.values:

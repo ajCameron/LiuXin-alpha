@@ -1,10 +1,13 @@
-"""Static-only positive and negative examples for internal call contracts.
+"""
+Define valid and intentionally invalid examples for internal static-type contracts.
 
-Never execute these functions. Each ``expect-error`` line must produce the
-named basedpyright and mypy diagnostics, respectively. All other lines must
-type-check, including calls that use the actual composed implementations.
-A dash leaves that checker unmarked on the line; use separate markers when
-the two checkers locate a multiline call error differently.
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise internal contracts through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_internal_type_contracts.py
 """
 
 import argparse
@@ -55,6 +58,21 @@ def terminal_component_contracts(
     row: CoreRow,
     window: CursesWindow,
 ) -> None:
+    """
+    Perform the terminal component contracts step with deterministic fixture inputs.
+
+    Example:
+        Exercise terminal component contracts through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_internal_type_contracts.py
+
+
+    :param browser: Value supplied for browser under the deterministic fixture contract.
+    :param driver: Value supplied for driver under the deterministic fixture contract.
+    :param row: Row values inserted into or read from deterministic fixture state.
+    :param window: Value supplied for window under the deterministic fixture contract.
+    :return: None; fixture state or the supplied destination is updated in place.
+    """
     row_record: RowRecord = row
     assert_type(browser._table_slice("works", limit=2, offset=0), list[CoreRow])
     assert_type(browser.format_row("works", row_record), str)
@@ -73,25 +91,90 @@ def terminal_component_contracts(
 
 
 class TerminalEmitter(Protocol):
-    """A small host capability an external terminal extension can request."""
+    """
+    A small host capability an external terminal extension can request.
 
-    def emit(self, text: str, *, end: str = "\n") -> None: ...
+    Example:
+        Exercise TerminalEmitter through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_internal_type_contracts.py
+    """
+
+    def emit(self, text: str, *, end: str = "\n") -> None:
+        """
+        Perform the emit step with deterministic fixture inputs.
+
+        Example:
+            Exercise TerminalEmitter.emit through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_internal_type_contracts.py
+
+
+        :param text: Text encoded, parsed or embedded in the fixture.
+        :param end: Value supplied for end under the deterministic fixture contract.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
+        ...
 
 
 class EmittingCommand(TerminalCommandAPI[TerminalEmitter]):
-    """Check concrete command conformance against the real generic API."""
+    """
+    Check concrete command conformance against the real generic API.
+
+    Example:
+        Exercise EmittingCommand through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_internal_type_contracts.py
+    """
 
     def execute(self, browser: TerminalEmitter, args: list[str]) -> bool:
+        """
+        Execute the internal contracts fixture workflow.
+
+        Example:
+            Exercise EmittingCommand.execute through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_internal_type_contracts.py
+
+
+        :param browser: Value supplied for browser under the deterministic fixture contract.
+        :param args: Positional arguments forwarded to the bounded test double.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         browser.emit(" ".join(args))
         return True
 
 
 class WrongTerminalCommand(TerminalCommandAPI[TerminalEmitter]):
+    """
+    Provide an intentionally invalid WrongTerminalCommand implementation for static-type rejection tests.
+
+    Example:
+        Exercise WrongTerminalCommand through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_internal_type_contracts.py
+    """
+
     def execute(  # expect-error: reportIncompatibleMethodOverride -
         self,
         browser: int,  # expect-error: - override
         args: list[str],
     ) -> bool:
+        """
+        Execute the internal contracts fixture workflow.
+
+        Example:
+            Exercise WrongTerminalCommand.execute through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_internal_type_contracts.py
+
+
+        :param browser: Value supplied for browser under the deterministic fixture contract.
+        :param args: Positional arguments forwarded to the bounded test double.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         return bool(browser or args)
 
 
@@ -101,6 +184,21 @@ def terminal_extension_contracts(
     command: TerminalCommandAPI[TerminalEmitter],
     plugin: TerminalLifecyclePluginAPI[TerminalEmitter],
 ) -> None:
+    """
+    Perform the terminal extension contracts step with deterministic fixture inputs.
+
+    Example:
+        Exercise terminal extension contracts through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_internal_type_contracts.py
+
+
+    :param browser: Value supplied for browser under the deterministic fixture contract.
+    :param host: Value supplied for host under the deterministic fixture contract.
+    :param command: Value supplied for command under the deterministic fixture contract.
+    :param plugin: Value supplied for plugin under the deterministic fixture contract.
+    :return: None; fixture state or the supplied destination is updated in place.
+    """
     assert_type(command.execute(host, ["help"]), bool)
     assert_type(EmittingCommand().execute(host, []), bool)
     command.execute(browser, [])
@@ -115,6 +213,18 @@ def terminal_extension_contracts(
 
 
 def valid_composition(runtime: CoreRuntime) -> None:
+    """
+    Perform the valid composition step with deterministic fixture inputs.
+
+    Example:
+        Exercise valid composition through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_internal_type_contracts.py
+
+
+    :param runtime: Value supplied for runtime under the deterministic fixture contract.
+    :return: None; fixture state or the supplied destination is updated in place.
+    """
     api = CoreProgramAPI()
     install_program_endpoints(api, runtime)
     install_queries(api, runtime)
@@ -128,6 +238,23 @@ def valid_calls(
     registrar: ProgramEndpointRegistrar,
     runtime: CoreRuntime,
 ) -> None:
+    """
+    Perform the valid calls step with deterministic fixture inputs.
+
+    Example:
+        Exercise valid calls through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_internal_type_contracts.py
+
+
+    :param manager: Value supplied for manager under the deterministic fixture contract.
+    :param handlers: Value supplied for handlers under the deterministic fixture
+        contract.
+    :param registrar: Value supplied for registrar under the deterministic fixture
+        contract.
+    :param runtime: Value supplied for runtime under the deterministic fixture contract.
+    :return: None; fixture state or the supplied destination is updated in place.
+    """
     assert_type(manager._new_revision_locked(), str)
     assert_type(manager._metadata_transaction(), AbstractContextManager[None])
     assert_type(manager._find_asset_locked((), 0), storage.DigitalAssetRecord | None)
@@ -141,6 +268,19 @@ def valid_calls(
 
 
 def bad_storage_calls(manager: _StorageManagerState) -> int:
+    """
+    Perform the bad storage calls step with deterministic fixture inputs.
+
+    Example:
+        Exercise bad storage calls through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_internal_type_contracts.py
+
+
+    :param manager: Value supplied for manager under the deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     manager._metadata_transactoin()  # expect-error: reportAttributeAccessIssue attr-defined
     manager._find_asset_locked((), "zero")  # expect-error: reportArgumentType arg-type
     manager._new_revision_locked("unexpected")  # expect-error: reportCallIssue call-arg
@@ -155,6 +295,22 @@ def bad_endpoint_calls(
     registrar: ProgramEndpointRegistrar,
     runtime: CoreRuntime,
 ) -> None:
+    """
+    Perform the bad endpoint calls step with deterministic fixture inputs.
+
+    Example:
+        Exercise bad endpoint calls through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_internal_type_contracts.py
+
+
+    :param handlers: Value supplied for handlers under the deterministic fixture
+        contract.
+    :param registrar: Value supplied for registrar under the deterministic fixture
+        contract.
+    :param runtime: Value supplied for runtime under the deterministic fixture contract.
+    :return: None; fixture state or the supplied destination is updated in place.
+    """
     handlers.storage_store_proeb(  # expect-error: reportAttributeAccessIssue attr-defined
         runtime, CoreCommand("probe")
     )
@@ -195,17 +351,61 @@ def bad_endpoint_calls(
 
 
 class IncorrectStorageHelper(TransientStorageManager):
+    """
+    Provide an intentionally invalid IncorrectStorageHelper implementation for static-type rejection tests.
+
+    Example:
+        Exercise IncorrectStorageHelper through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_internal_type_contracts.py
+    """
+
     def _new_revision_locked(  # expect-error: reportIncompatibleMethodOverride override
         self,
     ) -> int:
+        """
+        Perform the new revision locked step with deterministic fixture inputs.
+
+        Example:
+            Exercise IncorrectStorageHelper. new revision locked through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_internal_type_contracts.py
+
+
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         return 1
 
 
 class IncorrectProgramHandler(CoreProgramAPI):
+    """
+    Provide an intentionally invalid IncorrectProgramHandler implementation for static-type rejection tests.
+
+    Example:
+        Exercise IncorrectProgramHandler through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_internal_type_contracts.py
+    """
+
     @classmethod
     def storage_store_get(  # expect-error: reportIncompatibleMethodOverride override
         cls, runtime: CoreRuntime, query: CoreQuery
     ) -> str:
+        """
+        Perform the storage store get step with deterministic fixture inputs.
+
+        Example:
+            Exercise IncorrectProgramHandler.storage store get through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_internal_type_contracts.py
+
+
+        :param runtime: Value supplied for runtime under the deterministic fixture contract.
+        :param query: Value supplied for query under the deterministic fixture contract.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         return "not a record"
 
 
@@ -213,6 +413,20 @@ def reject_incorrect_implementations(
     api: IncorrectProgramHandler,
     registrar: ProgramEndpointRegistrar,
 ) -> None:
+    """
+    Perform the reject incorrect implementations step with deterministic fixture inputs.
+
+    Example:
+        Exercise reject incorrect implementations through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_internal_type_contracts.py
+
+
+    :param api: Value supplied for api under the deterministic fixture contract.
+    :param registrar: Value supplied for registrar under the deterministic fixture
+        contract.
+    :return: None; fixture state or the supplied destination is updated in place.
+    """
     install_program_endpoints(
         api,  # expect-error: reportArgumentType arg-type
         registrar,
@@ -222,6 +436,19 @@ def reject_incorrect_implementations(
 def evacuation_contracts(
     manager: storage.StorageManagerAPI, plan: EvacuationPlan
 ) -> None:
+    """
+    Perform the evacuation contracts step with deterministic fixture inputs.
+
+    Example:
+        Exercise evacuation contracts through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_internal_type_contracts.py
+
+
+    :param manager: Value supplied for manager under the deterministic fixture contract.
+    :param plan: Value supplied for plan under the deterministic fixture contract.
+    :return: None; fixture state or the supplied destination is updated in place.
+    """
     limits = EvacuationLimits(10, 1024)
     assert_type(
         execute_evacuation(manager, plan, limits, keep_source_bytes=True),
@@ -250,6 +477,20 @@ def evacuation_contracts(
 def surface_contracts(
     model: CoreSurfaceModel, row: CoreRow, reader: AcquisitionReader
 ) -> None:
+    """
+    Perform the surface contracts step with deterministic fixture inputs.
+
+    Example:
+        Exercise surface contracts through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_internal_type_contracts.py
+
+
+    :param model: Value supplied for model under the deterministic fixture contract.
+    :param row: Row values inserted into or read from deterministic fixture state.
+    :param reader: Value supplied for reader under the deterministic fixture contract.
+    :return: None; fixture state or the supplied destination is updated in place.
+    """
     actual_reader: AcquisitionReader = model
     actual_row: RowLookup = row
     assert_type(CoreStoredFile(actual_reader, "file", 7).read_bytes(), bytes)
@@ -264,6 +505,21 @@ def cli_parser_contracts(
     registrar: CompletionRegistrar,
     subparsers: CompletionSubparsers,
 ) -> None:
+    """
+    Perform the cli parser contracts step with deterministic fixture inputs.
+
+    Example:
+        Exercise cli parser contracts through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_internal_type_contracts.py
+
+
+    :param registrar: Value supplied for registrar under the deterministic fixture
+        contract.
+    :param subparsers: Value supplied for subparsers under the deterministic fixture
+        contract.
+    :return: None; fixture state or the supplied destination is updated in place.
+    """
     assert_type(
         create_parser(register_completion=build_completion_parser),
         argparse.ArgumentParser,

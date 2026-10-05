@@ -1,5 +1,13 @@
 """
-ManyToOne tables specialized for various purposes.
+Provide specialized many-to-one relation tables.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise specific many to one tables through a consuming regression::
+
+        python -m pytest -q tests/library/test_unified_library.py
 """
 
 from collections import defaultdict
@@ -28,6 +36,14 @@ T = TypeVar("T")
 
 class CalibreRatingTable(CalibreTypedManyToOneTable[int]):
 
+    """
+    Provide the calibreratingtable contract for validated ebook processing.
+
+    Example:
+        Exercise CalibreRatingTable through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     _priority = False
     _typed = True
 
@@ -35,8 +51,15 @@ class CalibreRatingTable(CalibreTypedManyToOneTable[int]):
         """
         Read the database to create the id maps.
 
-        :param db:
-        :return None: All changes take place internally
+        Example:
+            Exercise CalibreRatingTable.read id maps through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.link_table_bt_id_column: TableColumnName = "rating_title_link_title_id"
         self.link_table_table_id_column: TableColumnName = "rating_title_link_rating_id"
@@ -74,10 +97,16 @@ class CalibreRatingTable(CalibreTypedManyToOneTable[int]):
         """
         Read the maps - filtering the link table to only return the results which are of link type calibre.
 
-        Not the best fix in the world, but it should work.
-        :param db:
-        :param type_filter: defaults to "calibre"
-        :return:
+        Example:
+            Exercise CalibreRatingTable.read maps through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :param type_filter: Value supplied for type filter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         assert type_filter == "calibre"
 
@@ -112,10 +141,19 @@ class CalibreRatingTable(CalibreTypedManyToOneTable[int]):
         """
         Write an update of calibre ratings out to the database.
 
-        :param book_id_to_val_map:
-        :param db:
-        :param allow_case_change:
-        :return:
+        Example:
+            Exercise CalibreRatingTable.update db through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_to_val_map: Value supplied for book id to val map under the utility
+            contract.
+        :param db: Value supplied for db under the utility contract.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         # This table is presenting a table WITHOUT a type - while actually being a typed table
@@ -137,9 +175,17 @@ class CalibreRatingTable(CalibreTypedManyToOneTable[int]):
         """
         Write out to the caches ratings values
 
-        :param book_id_item_id_map:
-        :param id_map_update:
-        :return:
+        Example:
+            Exercise CalibreRatingTable.internal update cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Need this for writing out to the database
         type_stripped_dict = dict()
@@ -172,6 +218,14 @@ class CalibreRatingTable(CalibreTypedManyToOneTable[int]):
 
 class CalibreCustomColumnsManyOneTable(CalibreManyToOneTable[T]):
 
+    """
+    Provide the calibrecustomcolumnsmanyonetable contract for validated ebook processing.
+
+    Example:
+        Exercise CalibreCustomColumnsManyOneTable through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     _priority = False
     _typed = False
 
@@ -181,10 +235,17 @@ class CalibreCustomColumnsManyOneTable(CalibreManyToOneTable[T]):
         """
         Startup a custom ManyToOne table - which has slightly different logic re. link tables.
 
-        :param name: The name of the table
-        :param metadata: The metadata associated with the table - how it should display and other properties
-        :param link_table: The table linking this table to either the books or titles field
-        :param custom: Is this table a custom table
+        Example:
+            Exercise CalibreCustomColumnsManyOneTable.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param metadata: Value supplied for metadata under the utility contract.
+        :param link_table: Value supplied for link table under the utility contract.
+        :param custom: Value supplied for custom under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         super(CalibreCustomColumnsManyOneTable, self).__init__(
             name=name, metadata=metadata, link_table=link_table, custom=custom
@@ -196,9 +257,17 @@ class CalibreCustomColumnsManyOneTable(CalibreManyToOneTable[T]):
         """
         Check the given book update is valid.
 
-        :param book_id_item_id_map:
-        :param id_map_update:
-        :return None: Will throw an error if there's a problem.
+        Example:
+            Exercise CalibreCustomColumnsManyOneTable.update precheck through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
 
         for book_id, book_val in iteritems(book_id_item_id_map):
@@ -220,9 +289,15 @@ class CalibreCustomColumnsManyOneTable(CalibreManyToOneTable[T]):
         """
         Read the entire table and create a dictionary keyed with the id and valued with the relevant column value.
 
-        Loads any elements from the table connected to the book.
-        :param db:
-        :return None: All changes are made internally
+        Example:
+            Exercise CalibreCustomColumnsManyOneTable. read id maps through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Read the values from the id table
         if not self.custom:
@@ -259,8 +334,15 @@ class CalibreCustomColumnsManyOneTable(CalibreManyToOneTable[T]):
         """
         Read the database to create the id maps.
 
-        :param db:
-        :return None: All changes are made internally
+        Example:
+            Exercise CalibreCustomColumnsManyOneTable.read id maps through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Todo: Move the functions that make the names for the custom columns over into utils
         # Link table properties
@@ -305,10 +387,16 @@ class CalibreCustomColumnsManyOneTable(CalibreManyToOneTable[T]):
         """
         Read the maps - filtering the link table to only return the results which are of link type calibre.
 
-        Not the best fix in the world, but it should work.
-        :param db:
-        :param type_filter: Should be calibre, unless there is a very good reason for it not to be.
-        :return None:
+        Example:
+            Exercise CalibreCustomColumnsManyOneTable.read maps through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :param type_filter: Value supplied for type filter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if not self.custom:
             lt_book_id = self.link_table_bt_id_column
@@ -338,10 +426,19 @@ class CalibreCustomColumnsManyOneTable(CalibreManyToOneTable[T]):
         """
         Write an update out to a custom ManyToOneTable on the database.
 
-        :param book_id_to_val_map:
-        :param db:
-        :param allow_case_change:
-        :return:
+        Example:
+            Exercise CalibreCustomColumnsManyOneTable.update db through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_to_val_map: Value supplied for book id to val map under the utility
+            contract.
+        :param db: Value supplied for db under the utility contract.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         # Todo: This can probably be removed
@@ -363,12 +460,18 @@ class CalibreCustomColumnsManyOneTable(CalibreManyToOneTable[T]):
     ) -> tuple[dict[SrcTableID, DstTableID], set[SrcTableID]]:
         """
         Preform a write out to the caches ratings values
-        :param book_id_item_id_map:
-        :param id_map_update:
-        :return updated, deleted:
-                updated - dict- keyed with the value of the book id and valued with the new value
-                          Note - the new value can never be None
-                deleted - set of book ids to be set null
+
+        Example:
+            Exercise CalibreCustomColumnsManyOneTable.internal update cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self.id_map.update(id_map_update)
 

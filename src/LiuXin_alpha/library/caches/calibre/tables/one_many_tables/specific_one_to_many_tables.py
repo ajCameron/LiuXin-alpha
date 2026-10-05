@@ -1,7 +1,13 @@
 """
-Specific OneToMany tables are OneToMany tables built for a specific purpose.
+Provide specialized one-to-many relation tables.
 
-E.g. identifiers - which emulates the calibre identifier table for compatibility.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise specific one to many tables through a consuming regression::
+
+        python -m pytest -q tests/library/test_unified_library.py
 """
 
 
@@ -38,8 +44,10 @@ class CalibreIdentifiersTable(CalibrePriorityTypedOneToManyTable[T], BaseIdentif
     """
     Represents the identifiers of a book.
 
-    book_col_map - a dictionary of dictionaries - valued with the id of the book, then valued with the type of
-    identifier and finally with a set of those identifier types.
+    Example:
+        Exercise CalibreIdentifiersTable through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     _priority = True
@@ -49,8 +57,15 @@ class CalibreIdentifiersTable(CalibrePriorityTypedOneToManyTable[T], BaseIdentif
         """
         Not used in this context - doesn't much matter what the specific ids of the identifiers are.
 
-        :param db:
-        :return:
+        Example:
+            Exercise CalibreIdentifiersTable.read id maps through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
@@ -58,8 +73,15 @@ class CalibreIdentifiersTable(CalibrePriorityTypedOneToManyTable[T], BaseIdentif
         """
         All identifiers are stored in lower case anyways.
 
-        :param db:
-        :return:
+        Example:
+            Exercise CalibreIdentifiersTable.fix case duplicates through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
@@ -68,13 +90,16 @@ class CalibreIdentifiersTable(CalibrePriorityTypedOneToManyTable[T], BaseIdentif
         """
         Read the maps between the identifiers book and the identifier table.
 
-        book_col_map - A dictionary of dictionaries of sets. Keyed with the book_id, then keyed with the type of
-                       identifier and valued with a set of all the identifiers of that type associated with the title.
-        col_book_map - A dictionary of sets, keyed with the type of the identifier and valued with a set of the books
-                       that have that identifier.
-        :param db:
-        :param type_filter: Not currently in use
-        :return None: All changes are made internally
+        Example:
+            Exercise CalibreIdentifiersTable.read maps through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :param type_filter: Value supplied for type filter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if type_filter is not None:
             raise NotImplementedError(f"{type_filter=} not supported - pass None.")
@@ -92,10 +117,16 @@ class CalibreIdentifiersTable(CalibrePriorityTypedOneToManyTable[T], BaseIdentif
         """
         Write the identifiers stored in the book_col_map out to the database.
 
-        All identifiers for the title will be scrubbed and the currently cached identifiers will be written out.
-        :param book_id:
-        :param db: The database to preform the edit in
-        :return None: Data is written blind
+        Example:
+            Exercise CalibreIdentifiersTable.write to db through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         db.metadata_sql.delete_title_identifiers(book_id)
         db.macros.delete_in_table("identifier_title_links", "identifier_title_link_title_id", book_id)
@@ -121,14 +152,17 @@ class CalibreIdentifiersTable(CalibrePriorityTypedOneToManyTable[T], BaseIdentif
         """
         Check that an update is of a valid form before writing it out to the cache and the database.
 
-        Called when you know the ids you want to assign to the book after the update. Checks those ids are valid.
-        No changes will be made to the :param book_id_item_id_map: (e.g. if the map is valued with tuples - not lists
-        as expected - this will not be corrected.
-        Raised InvalidCacheUpdate if the cache update is invalid in some way.
+        Example:
+            Exercise CalibreIdentifiersTable.update precheck through a consuming regression::
 
-        :param book_id_item_id_map: Keyed with the ids of the books to update and valued with the
-        :param id_map_update:
-        :return None: Raises an error if the update is malformed.
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         seen_ids = set()
         for book_id, book_vals in iteritems(book_id_item_id_map):
@@ -152,13 +186,17 @@ class CalibreIdentifiersTable(CalibrePriorityTypedOneToManyTable[T], BaseIdentif
         """
         Preform updates on the cache.
 
-        Update should take the form of a dictionary of dictionaries of sets. Keyed with the id of the book to update,
-        then keyed with the type of identifier to preform the update on, and finally valued with the identifiers to
-        add in or replace.
-        :param book_id_val_map: Keyed with the book id - then the identifier type - and then a container of the actual
-                                Identifiers
-        :param id_map: Should always be None (the identifiers act as their own ids - each being unique)
-        :return None: All changes are handled internally
+        Example:
+            Exercise CalibreIdentifiersTable.update cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_val_map: Value supplied for book id val map under the utility
+            contract.
+        :param id_map: Value supplied for id map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Todo: Need to handle col_book_map as well
         for book_id, book_val in iteritems(book_id_val_map):
@@ -184,13 +222,19 @@ class CalibreIdentifiersTable(CalibrePriorityTypedOneToManyTable[T], BaseIdentif
         """
         Preform updates on the database.
 
-        Update should take the form of a dictionary of dictionaries of sets. Keyed with the id of the book to update,
-        then keyed with the type of identifier to preform the update on, and finally valued with the identifiers to
-        add in or replace.
-        :param book_id_to_val_map:
-        :param db:
-        :param allow_case_change:
-        :return:
+        Example:
+            Exercise CalibreIdentifiersTable.update db through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_to_val_map: Value supplied for book id to val map under the utility
+            contract.
+        :param db: Value supplied for db under the utility contract.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Todo: This needs to be merged with the identifiers update method over in write
         for book_id, book_val in iteritems(book_id_to_val_map):
@@ -228,7 +272,14 @@ class CalibreIdentifiersTable(CalibrePriorityTypedOneToManyTable[T], BaseIdentif
         """
         Part of allowing the production of nested default dicts.
 
-        :return:
+        Example:
+            Exercise CalibreIdentifiersTable. container for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return defaultdict(set)
 
@@ -236,11 +287,16 @@ class CalibreIdentifiersTable(CalibrePriorityTypedOneToManyTable[T], BaseIdentif
         """
         Remove books from the cache.
 
-        Should be called after any delete activity in the cache - for each table which might be affected.
-        :param book_ids:
-        :param db:
-        :return clean: Set of ids from the linked table to be removed
-                       In this case, all the ids linked to each of the books for removal.
+        Example:
+            Exercise CalibreIdentifiersTable.remove books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param db: Value supplied for db under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         clean = set()
         for book_id in book_ids:
@@ -262,11 +318,18 @@ class CalibreIdentifiersTable(CalibrePriorityTypedOneToManyTable[T], BaseIdentif
         """
         NOT SUPPORTED - Directly remove identifiers from the system.
 
-        Instead, please update the books with new identifiers.
-        :param item_ids:
-        :param db:
-        :param restrict_to_book_ids:
-        :return:
+        Example:
+            Exercise CalibreIdentifiersTable.remove items through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_ids: Value supplied for item ids under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :param restrict_to_book_ids: Value supplied for restrict to book ids under the
+            utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError("Direct deletion of identifiers is not implemented")
 
@@ -274,10 +337,17 @@ class CalibreIdentifiersTable(CalibrePriorityTypedOneToManyTable[T], BaseIdentif
         """
         Rename an item stored in the cache - NOT USED FOR IDENTIFIERS.
 
-        :param item_id:
-        :param new_name:
-        :param db:
-        :return:
+        Example:
+            Exercise CalibreIdentifiersTable.rename item through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :param new_name: Value supplied for new name under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError("Cannot rename identifiers")
 
@@ -285,6 +355,13 @@ class CalibreIdentifiersTable(CalibrePriorityTypedOneToManyTable[T], BaseIdentif
         """
         Return all the identifier types known to the system.
 
-        :return:
+        Example:
+            Exercise CalibreIdentifiersTable.all identifier types through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return frozenset(k for k, v in iteritems(self.col_book_map) if v)

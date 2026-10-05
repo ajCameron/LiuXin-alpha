@@ -1,6 +1,17 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
 
+"""
+Preserve the legacy library facade and compatibility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise legacy through a consuming regression::
+
+        python -m pytest -q tests/library/test_unified_library.py
+"""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import os
@@ -59,18 +70,27 @@ def create_backend(
     existing_fsm=None,
 ):
     """
-    Create a DB object from LiuXin.databases.backend - this adds additional methods to the base DatabasePing located as
-    LiuXin.databases.database.
-    :param library_path: Path to the database for the backend
-    :param default_prefs:
-    :param read_only: Should the backend be started in read only mode?
-    :param progress_callback: To display the progress in loading the library
-    :param restore_all_prefs: Restore preferences (from backup in the library folder)
-    :param load_user_formatter_functions: Formatter functions are used to control the display of columns - to load them
-                                          or not.
-    :param needs_create: If True then the database will be created at this location
-    :param existing_fsm: Allows you to pass in a folder store manager if you've already started one
-    :return:
+    Create a DB object from LiuXin.databases.backend - this adds additional methods to the base DatabasePing located as LiuXin.databases.database.
+
+    Example:
+        Exercise create backend through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param library_path: Value supplied for library path under the utility contract.
+    :param default_prefs: Value supplied for default prefs under the utility contract.
+    :param read_only: Value supplied for read only under the utility contract.
+    :param progress_callback: Value supplied for progress callback under the utility
+        contract.
+    :param restore_all_prefs: Value supplied for restore all prefs under the utility
+        contract.
+    :param load_user_formatter_functions: Value supplied for load user formatter
+        functions under the utility contract.
+    :param needs_create: Value supplied for needs create under the utility contract.
+    :param existing_fsm: Value supplied for existing fsm under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return DB(
         library_path,
@@ -86,9 +106,12 @@ def create_backend(
 
 class LibraryDatabase(object):
     """
-    In calibre this emulates the old LibraryDatabase2 interface.
-    This is the interface used by the gui.
-    Provides a number of useful methods.
+    In calibre this emulates the old LibraryDatabase2 interface. This is the interface used by the gui. Provides a number of useful methods.
+
+    Example:
+        Exercise LibraryDatabase through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     PATH_LIMIT = DB.PATH_LIMIT
@@ -114,8 +137,17 @@ class LibraryDatabase(object):
     def exists_at(cls, path):
         """
         Checks to see if the library exists at a specific path.
-        :param path:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.exists at through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return path and os.path.exists(os.path.join(path, "metadata.db"))
 
@@ -131,14 +163,23 @@ class LibraryDatabase(object):
     ):
         """
         Startup the database class.
-        :param library_path: If passed a path to a folder will look for a file called "liuxin_metadata.db" in it - if
-                             this file doesn't exist then a new database will be created.
-        :param default_prefs: Override the builtin default prefs with your own.
-        :param read_only: If True then the database will be opened in a read only configuration.
-        :param is_second_db:
-        :param progress_callback:
-        :param restore_all_prefs:
-        :param existing_fsm: Allows you to pass in a prestarted fsm if you have one you'd like to use.
+
+        Example:
+            Exercise LibraryDatabase.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param library_path: Value supplied for library path under the utility contract.
+        :param default_prefs: Value supplied for default prefs under the utility contract.
+        :param read_only: Value supplied for read only under the utility contract.
+        :param is_second_db: Value supplied for is second db under the utility contract.
+        :param progress_callback: Value supplied for progress callback under the utility
+            contract.
+        :param restore_all_prefs: Value supplied for restore all prefs under the utility
+            contract.
+        :param existing_fsm: Value supplied for existing fsm under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         if read_only:
             raise NotImplementedError("Currently opens a scratch copy of the database - which is not quite read only")
@@ -203,14 +244,30 @@ class LibraryDatabase(object):
     def close(self):
         """
         Close the cache connection to the database.
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.close through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.new_api.close()
 
     def break_cycles(self):
         """
         Preform actual shutdown tasks - release elements so that they can be deleted - then preform the delete.
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.break cycles through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         delattr(self.backend, "field_metadata")
         self.data.cache.backend = None
@@ -231,34 +288,126 @@ class LibraryDatabase(object):
     def prefs(self):
         """
         Returns a DBPrefs object representing preferences stored in the library database.
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.prefs through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.new_api.backend.prefs
 
     @property
     def field_metadata(self):
+        """
+        Perform the field metadata operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.field metadata through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.backend.field_metadata
 
     @property
     def user_version(self):
+        """
+        Perform the user version operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.user version through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.backend.user_version
 
     @property
     def library_id(self):
+        """
+        Perform the library id operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.library id through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.backend.library_id
 
     @property
     def library_path(self):
+        """
+        Perform the library path operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.library path through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.backend.library_path
 
     @property
     def dbpath(self):
+        """
+        Perform the dbpath operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.dbpath through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.backend.dbpath
 
     def last_modified(self):
+        """
+        Perform the last modified operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.last modified through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.new_api.last_modified()
 
     def check_if_modified(self):
+        """
+        Perform the check if modified operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.check if modified through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.last_modified() > self.last_update_check:
             self.backend.reopen()
             self.new_api.reload_from_db()
@@ -268,69 +417,231 @@ class LibraryDatabase(object):
     # Todo: Remove this from the backend - it's all been shifted over to the cache
     @property
     def custom_column_num_map(self):
+        """
+        Perform the custom column num map operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.custom column num map through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.backend.custom_column_num_map
 
     # Todo: Remove this from the backend - it's all been shifted over to the cache
     @property
     def custom_column_label_map(self):
+        """
+        Perform the custom column label map operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.custom column label map through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.backend.custom_column_label_map
 
     # Todo: Remove this from the backend - it's all been shifted over to the cache
     @property
     def FIELD_MAP(self):
+        """
+        Perform the FIELD MAP operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.FIELD MAP through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.new_api.FIELD_MAP
 
     @property
     def formatter_template_cache(self):
+        """
+        Perform the formatter template cache operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.formatter template cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.data.cache.formatter_template_cache
 
     def initialize_template_cache(self):
+        """
+        Perform the initialize template cache operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.initialize template cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.data.cache.initialize_template_cache()
 
     def all_ids(self):
         """
         All book ids in the db. This cannot be a generator because of db locking.
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.all ids through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return tuple(self.new_api.all_book_ids())
 
     def is_empty(self):
+        """
+        Return whether is empty holds for the supplied ebook data.
+
+        Example:
+            Exercise LibraryDatabase.is empty through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: True when the documented condition holds; otherwise False.
+        """
         with self.new_api.safe_read_lock:
             return not bool(self.new_api.fields["title"].table.book_col_map)
 
     def get_usage_count_by_id(self, field):
+        """
+        Return usage count by id under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LibraryDatabase.get usage count by id through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return [[k, v] for k, v in iteritems(self.new_api.get_usage_count_by_id(field))]
 
     def field_id_map(self, field):
+        """
+        Perform the field id map operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.field id map through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return [(k, v) for k, v in iteritems(self.new_api.get_id_map(field))]
 
     def get_custom_items_with_ids(self, label=None, num=None):
+        """
+        Return custom items with ids under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LibraryDatabase.get custom items with ids through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param label: Value supplied for label under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return [[k, v] for k, v in iteritems(self.new_api.get_id_map(self.custom_field_name(label, num)))]
         except ValueError:
             return []
 
     def refresh(self, field=None, ascending=True):
+        """
+        Perform the refresh operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.refresh through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :param ascending: Value supplied for ascending under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.data.refresh(field=field, ascending=ascending)
 
     def get_id_from_uuid(self, uuid):
+        """
+        Return id from uuid under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LibraryDatabase.get id from uuid through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param uuid: Value supplied for uuid under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if uuid:
             return self.new_api.lookup_by_uuid(uuid)
 
     def add_listener(self, listener):
         """
         Add a listener. Will be called on change events with two arguments. Event name and list of affected ids.
-        :param listener:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.add listener through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param listener: Value supplied for listener under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.listeners.add(listener)
 
     def notify(self, event, ids=()):
         """
         Notify all listeners
-        :param event:
-        :param ids:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.notify through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param event: Value supplied for event under the utility contract.
+        :param ids: Value supplied for ids under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         for listener in self.listeners:
             try:
@@ -355,10 +666,18 @@ class LibraryDatabase(object):
     # Todo: Write this method
     def check_import_path(self, path):
         """
-        Checks that the given path doesn't include any of the bad paths - such as folder stores, scratch and the
-        database.
-        :param path:
-        :return:
+        Checks that the given path doesn't include any of the bad paths - such as folder stores, scratch and the database.
+
+        Example:
+            Exercise LibraryDatabase.check import path through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # lp = os.path.normcase(os.path.abspath(self.gui.current_db.library_path))
         # if lp.startswith(os.path.normcase(os.path.abspath(root)) + os.pathsep):
@@ -367,10 +686,18 @@ class LibraryDatabase(object):
     def path(self, index, index_is_id=False, all_paths=False):
         """
         Return the relative path to the directory containing this books files as a unicode string.
-        :param index:
-        :param index_is_id:
-        :param all_paths: If True then returns a list of the paths to all the folders linked to this book.
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.path through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :param all_paths: Value supplied for all paths under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         book_id = index if index_is_id else self.id(index)
         cand_paths = self.new_api.field_for("path", book_id, default_value="")
@@ -396,10 +723,18 @@ class LibraryDatabase(object):
     def abspath(self, index, index_is_id=False, create_dirs=True):
         """
         Return the absolute path to the directory containing this books files as a unicode string.
-        :param index:
-        :param index_is_id:
-        :param create_dirs:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.abspath through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :param create_dirs: Value supplied for create dirs under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Check to see if paths for a folder associated with the book already exist - if not they will have to be
         # created
@@ -420,11 +755,19 @@ class LibraryDatabase(object):
     def create_book_entry(self, mi, cover=None, add_duplicates=True, force_id=None):
         """
         Create an entry for a blank book - create using the metadata object.
-        :param mi: Metadata object to read the metadata from
-        :param cover: The cover to add to the new book entry
-        :param add_duplicates: Add the new book entry as a duplicate?
-        :param force_id: The new entry is guaranteed to have this id.
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.create book entry through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param mi: Metadata object exposed to the template function.
+        :param cover: Value supplied for cover under the utility contract.
+        :param add_duplicates: Value supplied for add duplicates under the utility contract.
+        :param force_id: Value supplied for force id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         ret = self.new_api.create_book_entry(mi, cover=cover, add_duplicates=add_duplicates, force_id=force_id)
         if ret is not None:
@@ -434,13 +777,20 @@ class LibraryDatabase(object):
     def add_books(self, paths, formats, metadata, add_duplicates=True, return_ids=False):
         """
         Add a collection of books to the database.
-        :param paths: List of paths to add as books
-        :param formats: Corresponding list of the formats present at the ends of those paths
-        :param metadata: Metadata corresponding to those paths and formats
-        :param add_duplicates: True/False - override and add duplicates if the metadata clashes
-        :param return_ids: Return the ids of the books that where just added? If False, return the number of books that
-                           where just added.
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.add books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param paths: Value supplied for paths under the utility contract.
+        :param formats: Value supplied for formats under the utility contract.
+        :param metadata: Value supplied for metadata under the utility contract.
+        :param add_duplicates: Value supplied for add duplicates under the utility contract.
+        :param return_ids: Value supplied for return ids under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         books = [(mi, {fmt: path}) for mi, path, fmt in zip(metadata, paths, formats)]
         book_ids, duplicates = self.new_api.add_books(books, add_duplicates=add_duplicates, dbapi=self)
@@ -469,13 +819,22 @@ class LibraryDatabase(object):
     ):
         """
         Import a book from a calibre/LiuXin dictionary.
-        :param mi: The metadata to apply to the new book - must have been read at a higher level
-        :param formats: The formats contained in the book to add
-        :param notify: True/False - notify listeners
-        :param import_hooks: Run import hooks (import plugins) on the books
-        :param apply_import_tags: Apply the tags which are applied to imported books to this one as well
-        :param preserve_uuid: Keep the uuid of the book the same
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.import book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param mi: Metadata object exposed to the template function.
+        :param formats: Value supplied for formats under the utility contract.
+        :param notify: Value supplied for notify under the utility contract.
+        :param import_hooks: Value supplied for import hooks under the utility contract.
+        :param apply_import_tags: Value supplied for apply import tags under the utility
+            contract.
+        :param preserve_uuid: Value supplied for preserve uuid under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         format_map = {}
         for path in formats:
@@ -502,21 +861,38 @@ class LibraryDatabase(object):
     def find_books_in_directory(dirpath, single_book_per_directory=False, compiled_rules=()):
         """
         Iterates through a directory tree, finding all the books in it to later add.
-        :param dirpath:
-        :param single_book_per_directory:
-        :param compiled_rules:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.find books in directory through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param dirpath: Value supplied for dirpath under the utility contract.
+        :param single_book_per_directory: Value supplied for single book per directory under
+            the utility contract.
+        :param compiled_rules: Value supplied for compiled rules under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return find_books_in_directory(dirpath, single_book_per_directory, compiled_rules=compiled_rules)
 
     def import_book_directory_multiple(self, dirpath, callback=None, added_ids=None, compiled_rules=()):
         """
         Import books from a single directory containing multiple books.
-        :param dirpath: The path to the directory to import
-        :param callback:
-        :param added_ids:
-        :param compiled_rules:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.import book directory multiple through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param dirpath: Value supplied for dirpath under the utility contract.
+        :param callback: Value supplied for callback under the utility contract.
+        :param added_ids: Value supplied for added ids under the utility contract.
+        :param compiled_rules: Value supplied for compiled rules under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return import_book_directory_multiple(
             self,
@@ -529,11 +905,19 @@ class LibraryDatabase(object):
     def import_book_directory(self, dirpath, callback=None, added_ids=None, compiled_rules=()):
         """
         Import a book from a directory - assuming that the book contains a single book.
-        :param dirpath: The path to the directory to import.
-        :param callback:
-        :param added_ids:
-        :param compiled_rules:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.import book directory through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param dirpath: Value supplied for dirpath under the utility contract.
+        :param callback: Value supplied for callback under the utility contract.
+        :param added_ids: Value supplied for added ids under the utility contract.
+        :param compiled_rules: Value supplied for compiled rules under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return import_book_directory(
             self,
@@ -553,12 +937,21 @@ class LibraryDatabase(object):
     ):
         """
         Recursively import - walk a tree and import any directory that looks like a book.
-        :param root: The root of the file system to walk
-        :param single_book_per_directory: Assume one book per dictionary
-        :param callback: Callback to notify another process about the progress
-        :param added_ids:
-        :param compiled_rules: Apply rules to the import process - filter book titles
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.recursive import through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :param single_book_per_directory: Value supplied for single book per directory under
+            the utility contract.
+        :param callback: Value supplied for callback under the utility contract.
+        :param added_ids: Value supplied for added ids under the utility contract.
+        :param compiled_rules: Value supplied for compiled rules under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return recursive_import(
             self,
@@ -572,9 +965,18 @@ class LibraryDatabase(object):
     def add_catalog(self, path, title):
         """
         Add a catalog of books to the database.
-        :param path:
-        :param title:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.add catalog through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param title: Value supplied for title under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         book_id, new_book_added = add_catalog(self.new_api, path, title, dbapi=self)
         if book_id is not None and new_book_added:
@@ -584,9 +986,18 @@ class LibraryDatabase(object):
     def add_news(self, path, arg):
         """
         Add a item of news to the database.
-        :param path: The path of the news "book" to add.
-        :param arg:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.add news through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param arg: Value supplied for arg under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         book_id = add_news(self.new_api, path, arg, dbapi=self)
         if book_id is not None:
@@ -603,12 +1014,20 @@ class LibraryDatabase(object):
     def delete_book(self, book_id, notify=True, commit=True, permanent=False, do_clean=True):
         """
         Remove books from the database.
-        :param book_id: The id of the book to remove
-        :param notify: Notify the listeners or not
-        :param commit: NO LONGER IN USE
-        :param permanent: Remove the underlying files from the file system
-        :param do_clean: NO LONGER IN USE
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.delete book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param notify: Value supplied for notify under the utility contract.
+        :param commit: Value supplied for commit under the utility contract.
+        :param permanent: Value supplied for permanent under the utility contract.
+        :param do_clean: Value supplied for do clean under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Check for use of the depreciated variables
         if not commit:
@@ -629,43 +1048,121 @@ class LibraryDatabase(object):
     def add_custom_book_data(self, book_id, name, val):
         """
         Add data to the custom books table.
-        :param book_id:
-        :param name:
-        :param val:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.add custom book data through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.new_api.add_custom_book_data(name, {book_id: val})
 
     def add_multiple_custom_book_data(self, name, val_map, delete_first=False):
         """
         Add multiple instances of the same type of data to a number of books
-        :param name:
-        :param val_map: Keyed with the id of the book and valued with the data to add to the table
-        :param delete_first:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.add multiple custom book data through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param val_map: Value supplied for val map under the utility contract.
+        :param delete_first: Value supplied for delete first under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.new_api.add_custom_book_data(name, val_map, delete_first=delete_first)
 
     def get_custom_book_data(self, book_id, name, default=None):
         """
         Return custom book data for the given book_id.
-        :param book_id:
-        :param name: The name of the type of custom book data to retrieve
-        :param default: Default value to retrieve if there is no valid custom book data of that form for that book
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.get custom book data through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param default: Value supplied for default under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.new_api.get_custom_book_data(name, book_ids={book_id}, default=default).get(book_id, default)
 
     def get_all_custom_book_data(self, name, default=None):
+        """
+        Return all custom book data under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LibraryDatabase.get all custom book data through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param default: Value supplied for default under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.new_api.get_custom_book_data(name, default=default)
 
     def delete_custom_book_data(self, book_id, name):
+        """
+        Perform the delete custom book data operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.delete custom book data through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.new_api.delete_custom_book_data(name, book_ids=(book_id,))
 
     def delete_all_custom_book_data(self, name):
+        """
+        Perform the delete all custom book data operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.delete all custom book data through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.new_api.delete_custom_book_data(name)
 
     def get_ids_for_custom_book_data(self, name):
+        """
+        Return ids for custom book data under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LibraryDatabase.get ids for custom book data through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return list(self.new_api.get_ids_for_custom_book_data(name))
 
     # }}}
@@ -678,12 +1175,20 @@ class LibraryDatabase(object):
     def cover(self, index, index_is_id=False, as_file=False, as_image=False, as_path=False):
         """
         Returns a cover as a stream.
-        :param index:
-        :param index_is_id:
-        :param as_file:
-        :param as_image:
-        :param as_path:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.cover through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :param as_file: Value supplied for as file under the utility contract.
+        :param as_image: Value supplied for as image under the utility contract.
+        :param as_path: Value supplied for as path under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         book_id = index if index_is_id else self.id(index)
         return self.new_api.cover(book_id, as_file=as_file, as_image=as_image, as_path=as_path)
@@ -698,12 +1203,21 @@ class LibraryDatabase(object):
     ):
         """
         Copy the cover of a book to a location.
-        :param index:
-        :param dest:
-        :param index_is_id:
-        :param windows_atomic_move:
-        :param use_hardlink:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.copy cover to through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :param dest: Value supplied for dest under the utility contract.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :param windows_atomic_move: Value supplied for windows atomic move under the utility
+            contract.
+        :param use_hardlink: Value supplied for use hardlink under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if windows_atomic_move is not None:
             warnings.warn("Depreciation warning - Window atomic move no longer in use")
@@ -714,9 +1228,17 @@ class LibraryDatabase(object):
     def cover_last_modified(self, index, index_is_id=False):
         """
         Get the cover last modification time.
-        :param index:
-        :param index_is_id:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.cover last modified through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         book_id = index if index_is_id else self.id(index)
         return self.new_api.cover_last_modified(book_id) or self.last_modified()
@@ -740,18 +1262,26 @@ class LibraryDatabase(object):
         copy_function=None,
     ):
         """
-        Add a format to the library - associate it with a book with the given index.
-        Import hooks will not be run - thus the format won't be processed as it's added
-        path and copy_function are ignored by the new API
-        :param index: The index of the book
-        :param fmt:
-        :param stream:
-        :param index_is_id: Is the index the position of the book in the cache or the id of the book
-        :param path: Currently ignored
-        :param notify: Currently ignored
-        :param replace: Replace the old format with the new format
-        :param copy_function:
-        :return:
+        Add a format to the library - associate it with a book with the given index. Import hooks will not be run - thus the format won't be processed as it's added path and copy_function are ignored by the new API
+
+        Example:
+            Exercise LibraryDatabase.add format through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param notify: Value supplied for notify under the utility contract.
+        :param replace: Value supplied for replace under the utility contract.
+        :param copy_function: Value supplied for copy function under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if path is not None:
             warnings.warn("Depreciation warning - path variable no longer in use")
@@ -767,16 +1297,24 @@ class LibraryDatabase(object):
 
     def add_format_with_hooks(self, index, fmt, fpath, index_is_id=False, path=None, notify=True, replace=True):
         """
-        Add the format - with a run of the post import hooks.
-        path is ignored by the new API
-        :param index:
-        :param fmt:
-        :param fpath:
-        :param index_is_id:
-        :param path:
-        :param notify:
-        :param replace:
-        :return:
+        Add the format - with a run of the post import hooks. path is ignored by the new API
+
+        Example:
+            Exercise LibraryDatabase.add format with hooks through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param fpath: Value supplied for fpath under the utility contract.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param notify: Value supplied for notify under the utility contract.
+        :param replace: Value supplied for replace under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if path is not None:
             warnings.warn("Depreciation warning - variable path no longer in use")
@@ -798,15 +1336,23 @@ class LibraryDatabase(object):
         use_hardlink=False,
     ):
         """
-        Copy/download a format from the library to a location.
-        Downloads the current primary format of that type, for that book to the location.
-        :param index:
-        :param fmt:
-        :param dest:
-        :param index_is_id:
-        :param windows_atomic_move:
-        :param use_hardlink:
-        :return:
+        Copy/download a format from the library to a location. Downloads the current primary format of that type, for that book to the location.
+
+        Example:
+            Exercise LibraryDatabase.copy format to through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param dest: Value supplied for dest under the utility contract.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :param windows_atomic_move: Value supplied for windows atomic move under the utility
+            contract.
+        :param use_hardlink: Value supplied for use hardlink under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if windows_atomic_move is not None:
             warnings.warn("Depreciation warning - windows_atomic_move no longer needed")
@@ -824,28 +1370,51 @@ class LibraryDatabase(object):
     def conversion_options(self, book_id, fmt):
         """
         Returns the conversion options for the given format for the given book_id.
-        :param book_id:
-        :param fmt:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.conversion options through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.new_api.conversion_options(book_id, fmt=fmt)
 
     def has_conversion_options(self, ids, fmt="PIPE"):
         """
         Checks to see if the given conversion option exists for any of the given ids.
-        :param ids: The ids to search for the given conversion options
-        :param fmt: The format to search the conversion options table for
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.has conversion options through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param ids: Value supplied for ids under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: True when the documented condition holds; otherwise False.
         """
         return self.new_api.has_conversion_options(ids, fmt=fmt)
 
     def delete_conversion_options(self, book_id, fmt, commit=True):
         """
         Remove a conversion option.
-        :param book_id:
-        :param fmt:
-        :param commit:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.delete conversion options through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param commit: Value supplied for commit under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if not commit:
             warnings.warn("Depreciation warning - parameter commit is no longer in use")
@@ -855,10 +1424,18 @@ class LibraryDatabase(object):
     def set_conversion_options(self, book_id, fmt, options):
         """
         Set or update the conversion options.
-        :param book_id: The id of the book to update/set the
-        :param fmt:
-        :param options:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.set conversion options through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param options: Value supplied for options under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.new_api.set_conversion_options({book_id: options}, fmt=fmt)
 
@@ -873,9 +1450,17 @@ class LibraryDatabase(object):
     def dirtied(self, book_ids, commit=True):
         """
         Mark all the books with the given book_ids as dirtied.
-        :param book_ids:
-        :param commit:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.dirtied through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param commit: Value supplied for commit under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if not commit:
             warnings.warn("Depreciation warning - commit variable no longer in use")
@@ -885,7 +1470,15 @@ class LibraryDatabase(object):
     def dirty_queue_length(self):
         """
         How many books are currently in the dirtied queue.
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.dirty queue length through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.new_api.dirty_queue_length()
 
@@ -899,11 +1492,20 @@ class LibraryDatabase(object):
     def dump_metadata(self, book_ids=None, remove_from_dirtied=True, commit=True, callback=None):
         """
         Preform a metadata dump - this writes metadata to an OPF file in the directory of the book.
-        :param book_ids: The ids of the books to
-        :param remove_from_dirtied:
-        :param commit:
-        :param callback:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.dump metadata through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param remove_from_dirtied: Value supplied for remove from dirtied under the utility
+            contract.
+        :param commit: Value supplied for commit under the utility contract.
+        :param callback: Value supplied for callback under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if not commit:
             warnings.warn("Depreciation warning - commit parameter nbo longer used")
@@ -917,10 +1519,18 @@ class LibraryDatabase(object):
     def sort(self, field, ascending, subsort=False):
         """
         Preform a sort of the view of the books table.
-        :param field:
-        :param ascending:
-        :param subsort:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.sort through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :param ascending: Value supplied for ascending under the utility contract.
+        :param subsort: Value supplied for subsort under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if subsort:
             warnings.warn("Depreciation user - subsort parameter is no longer in use")
@@ -928,6 +1538,22 @@ class LibraryDatabase(object):
         self.data.multisort([(field, ascending)])
 
     def get_field(self, index, key, default=None, index_is_id=False):
+        """
+        Return field under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LibraryDatabase.get field through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :param key: Metadata, identifier or local-variable key.
+        :param default: Value supplied for default under the utility contract.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         book_id = index if index_is_id else self.id(index)
         mi = self.new_api.get_metadata(book_id, get_cover=key == "cover")
         return mi.get(key, default)
@@ -935,11 +1561,20 @@ class LibraryDatabase(object):
     def set(self, index, field, val, allow_case_change=False):
         """
         Generic interface for set functionality.
-        :param index:
-        :param field:
-        :param val:
-        :param allow_case_change:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.set through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :param field: Metadata or template field addressed by the operation.
+        :param val: Template or metadata value evaluated by the operation.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         book_id = self.id(index)
         try:
@@ -960,15 +1595,23 @@ class LibraryDatabase(object):
     ):
         """
         Update the metadata for a given book from a given API.
-        :param book_id:
-        :param mi:
-        :param ignore_errors:
-        :param set_title:
-        :param set_authors:
-        :param commit:
-        :param force_changes:
-        :param notify:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.set metadata through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param mi: Metadata object exposed to the template function.
+        :param ignore_errors: Value supplied for ignore errors under the utility contract.
+        :param set_title: Value supplied for set title under the utility contract.
+        :param set_authors: Value supplied for set authors under the utility contract.
+        :param commit: Value supplied for commit under the utility contract.
+        :param force_changes: Value supplied for force changes under the utility contract.
+        :param notify: Value supplied for notify under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if not commit:
             warnings.warn("Depreciation warning - commit variable no longer in use")
@@ -991,9 +1634,17 @@ class LibraryDatabase(object):
     def authors_sort_strings(self, index, index_is_id=False):
         """
         Returns a list of all the author sort strings for a given book.
-        :param index:
-        :param index_is_id:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.authors sort strings through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         book_id = index if index_is_id else self.id(index)
         return list(self.new_api.author_sort_strings_for_books((book_id,))[book_id])
@@ -1001,19 +1652,34 @@ class LibraryDatabase(object):
     def author_sort_from_book(self, index, index_is_id=False):
         """
         Return the combined author sort string for a book.
-        :param index:
-        :param index_is_id:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.author sort from book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return " & ".join(self.authors_sort_strings(index, index_is_id=index_is_id))
 
     def authors_with_sort_strings(self, index, index_is_id=False):
         """
         Returns a list of the author data for the authors linked to the given book.
-        :param index: The
-        :param index_is_id:
-        :return author_data_list: A list of tuples (in priority order for the authors). Each tuple has three elements.
-                                  (author_name, author_sort, author_link)
+
+        Example:
+            Exercise LibraryDatabase.authors with sort strings through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         book_id = index if index_is_id else self.id(index)
         with self.new_api.safe_read_lock:
@@ -1024,11 +1690,19 @@ class LibraryDatabase(object):
     def set_sort_field_for_author(self, old_id, new_sort, commit=True, notify=False):
         """
         Set the sort field for an author.
-        :param old_id: The id of the author to update the sort for
-        :param new_sort: The new sort field to set
-        :param commit:
-        :param notify: Notify listeners?
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.set sort field for author through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param old_id: Value supplied for old id under the utility contract.
+        :param new_sort: Value supplied for new sort under the utility contract.
+        :param commit: Value supplied for commit under the utility contract.
+        :param notify: Value supplied for notify under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if commit:
             warnings.warn("Depreciation Warning - commit parameter is no longer used")
@@ -1040,11 +1714,19 @@ class LibraryDatabase(object):
     def set_link_field_for_author(self, aid, link, commit=True, notify=False):
         """
         Set the link field for an author.
-        :param aid:
-        :param link:
-        :param commit:
-        :param notify: Notify listeners?
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.set link field for author through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param aid: Value supplied for aid under the utility contract.
+        :param link: Value supplied for link under the utility contract.
+        :param commit: Value supplied for commit under the utility contract.
+        :param notify: Value supplied for notify under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if not commit:
             warnings.warn("Depreciation warning - parameter commit is no longer in use")
@@ -1060,20 +1742,66 @@ class LibraryDatabase(object):
     def book_on_device(self, book_id):
         """
         Are there currently files from the given book on a device?
-        :param book_id:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.book on device through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         with self.new_api.safe_read_lock:
             return self.new_api.fields["ondevice"].book_on_device(book_id)
 
     def book_on_device_string(self, book_id):
+        """
+        Perform the book on device string operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.book on device string through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.new_api.field_for("ondevice", book_id)
 
     def set_book_on_device_func(self, func):
+        """
+        Set book on device func under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LibraryDatabase.set book on device func through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param func: Value supplied for func under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.new_api.fields["ondevice"].set_book_on_device_func(func)
 
     @property
     def book_on_device_func(self):
+        """
+        Perform the book on device func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.book on device func through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.new_api.fields["ondevice"].book_on_device_func
 
     # }}} --------------------------------------------------------------------------------------------------------------
@@ -1084,14 +1812,21 @@ class LibraryDatabase(object):
     # Identifiers API - {{{
     def set_identifier(self, book_id, typ, val, notify=True, commit=True):
         """
-        Updates the identifier, of the given type, to the given value for the given book. Books is associated with the
-        identifier with highest priority - if the identifier already exists then it's set as primary.
-        :param book_id: Id of the book to update
-        :param typ: Type of the identifier - has to be one of the valid types stored in preferences
-        :param val: Value to update the identifier to
-        :param notify: Notify the listeners
-        :param commit:
-        :return:
+        Updates the identifier, of the given type, to the given value for the given book. Books is associated with the identifier with highest priority - if the identifier already exists then it's set as primary.
+
+        Example:
+            Exercise LibraryDatabase.set identifier through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param typ: Value supplied for typ under the utility contract.
+        :param val: Template or metadata value evaluated by the operation.
+        :param notify: Value supplied for notify under the utility contract.
+        :param commit: Value supplied for commit under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if commit:
             warnings.warn("Depreciation error - variable commit is no longer used.")
@@ -1110,15 +1845,22 @@ class LibraryDatabase(object):
 
     def set_identifiers(self, book_id, val, notify=True, commit=True, allow_case_change=False):
         """
-        The set_identifiers method used to be generic - but it has now diverged so far from the original intent that
-        it needs to be re-written for greater flexibility.
-        :param book_id:
-        :param val: A dictionary keyed with the type of the identifiers and valued with the identifier string
-                    (or iterable)
-        :param notify:
-        :param commit:
-        :param allow_case_change:
-        :return:
+        The set_identifiers method used to be generic - but it has now diverged so far from the original intent that it needs to be re-written for greater flexibility.
+
+        Example:
+            Exercise LibraryDatabase.set identifiers through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param val: Template or metadata value evaluated by the operation.
+        :param notify: Value supplied for notify under the utility contract.
+        :param commit: Value supplied for commit under the utility contract.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if commit:
             warnings.warn("Depreciation error - variable commit is no longer used.")
@@ -1136,10 +1878,17 @@ class LibraryDatabase(object):
     @staticmethod
     def _id_val_dict_preflight(val):
         """
-        Bring the values dict which set_identifiers has been called with into a useful for (every id cleaned - the
-        dictionary keyed with the type of the identifier and valued with a set of the id values.
-        :param val:
-        :return:
+        Bring the values dict which set_identifiers has been called with into a useful for (every id cleaned - the dictionary keyed with the type of the identifier and valued with a set of the id values.
+
+        Example:
+            Exercise LibraryDatabase. id val dict preflight through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         clean_vals = dict()
         for typ, vals in iteritems(val):
@@ -1162,13 +1911,20 @@ class LibraryDatabase(object):
 
     def set_isbn(self, book_id, isbn, notify=True, commit=True):
         """
-        Set the ISBN for the given book.
-        ISBN will be set with highest priority. Pass val=None to blank all the isbns associated with this book.
-        :param book_id:
-        :param isbn:
-        :param notify:
-        :param commit:
-        :return:
+        Set the ISBN for the given book. ISBN will be set with highest priority. Pass val=None to blank all the isbns associated with this book.
+
+        Example:
+            Exercise LibraryDatabase.set isbn through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param isbn: Value supplied for isbn under the utility contract.
+        :param notify: Value supplied for notify under the utility contract.
+        :param commit: Value supplied for commit under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.set_identifier(book_id, "isbn", isbn, notify=notify, commit=commit)
 
@@ -1186,13 +1942,22 @@ class LibraryDatabase(object):
     ):
         """
         Set the title tags for the given book_id.
-        :param book_id:
-        :param tags:
-        :param append:
-        :param notify:
-        :param commit:
-        :param allow_case_change:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.set tags through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param tags: Value supplied for tags under the utility contract.
+        :param append: Value supplied for append under the utility contract.
+        :param notify: Value supplied for notify under the utility contract.
+        :param commit: Value supplied for commit under the utility contract.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if not commit:
             warnings.warn("Depreciation warning - commit parameter is no longed used")
@@ -1211,10 +1976,18 @@ class LibraryDatabase(object):
     def remove_all_tags(self, ids, notify=False, commit=True):
         """
         Removes all the tags from all the books with ids in the iterable of ids.
-        :param ids:
-        :param notify:
-        :param commit:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.remove all tags through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param ids: Value supplied for ids under the utility contract.
+        :param notify: Value supplied for notify under the utility contract.
+        :param commit: Value supplied for commit under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if not commit:
             warnings.warn("Depreciation warning - commit parameter is no longer used")
@@ -1224,17 +1997,41 @@ class LibraryDatabase(object):
 
     def bulk_modify_tags(self, ids, add=(), remove=(), notify=False):
         """
-        Convenience method for bulk modifying the tag content of books - allowing adding and removing tags from all
-        given book ids.
-        :param ids:
-        :param add:
-        :param remove:
-        :param notify:
-        :return:
+        Convenience method for bulk modifying the tag content of books - allowing adding and removing tags from all given book ids.
+
+        Example:
+            Exercise LibraryDatabase.bulk modify tags through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param ids: Value supplied for ids under the utility contract.
+        :param add: Value supplied for add under the utility contract.
+        :param remove: Value supplied for remove under the utility contract.
+        :param notify: Value supplied for notify under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self._do_bulk_modify("tags", ids, add, remove, notify)
 
     def _do_bulk_modify(self, field, ids, add, remove, notify):
+        """
+        Perform the do bulk modify operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase. do bulk modify through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :param ids: Value supplied for ids under the utility contract.
+        :param add: Value supplied for add under the utility contract.
+        :param remove: Value supplied for remove under the utility contract.
+        :param notify: Value supplied for notify under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         add = cleanup_tags(add)
         remove = cleanup_tags(remove)
         remove = set(remove) - set(add)
@@ -1258,34 +2055,65 @@ class LibraryDatabase(object):
     def unapply_tags(self, book_id, tags, notify=True):
         """
         Remove all tags from the given iterable of tags from the book with the given book id.
-        :param book_id: The id of the book to remove the tags from
-        :param tags: The tags to remove (if present)
-        :param notify:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.unapply tags through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param tags: Value supplied for tags under the utility contract.
+        :param notify: Value supplied for notify under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.bulk_modify_tags((book_id,), remove=tags, notify=notify)
 
     def is_tag_used(self, tag):
         """
         Check to see if the tag is currently linked to a title or not.
-        :param tag:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.is tag used through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :return: True when the documented condition holds; otherwise False.
         """
         return icu_lower(tag) in {icu_lower(x) for x in self.new_api.all_field_names("tags")}
 
     def delete_tag(self, tag):
         """
         Remove a tag (specified with the tag text) from the tags table.
-        :param tag:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.delete tag through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.delete_tags((tag,))
 
     def delete_tags(self, tags):
         """
         Takes an iterable of tag strings and deletes them.
-        :param tags:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.delete tags through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param tags: Value supplied for tags under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         with self.new_api.write_lock:
             tag_map = {icu_lower(v): k for k, v in iteritems(self.new_api.unlock.get_id_map("tags"))}
@@ -1298,6 +2126,18 @@ class LibraryDatabase(object):
     # }}}
 
     def has_id(self, book_id):
+        """
+        Return whether has id holds for the supplied ebook data.
+
+        Example:
+            Exercise LibraryDatabase.has id through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: True when the documented condition holds; otherwise False.
+        """
         return self.new_api.has_id(book_id)
 
     def format(
@@ -1310,6 +2150,26 @@ class LibraryDatabase(object):
         as_path=False,
         preserve_filename=False,
     ):
+        """
+        Perform the format operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.format through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :param as_file: Value supplied for as file under the utility contract.
+        :param mode: Open or adapter mode controlling read/write behavior.
+        :param as_path: Value supplied for as path under the utility contract.
+        :param preserve_filename: Value supplied for preserve filename under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if mode != "r+b":
             warnings.warn("Depreciation warning - mode parameter is no longer used")
         book_id = index if index_is_id else self.id(index)
@@ -1322,10 +2182,40 @@ class LibraryDatabase(object):
         )
 
     def format_abspath(self, index, fmt, index_is_id=False):
+        """
+        Perform the format abspath operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.format abspath through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         book_id = index if index_is_id else self.id(index)
         return self.new_api.format_abspath(book_id, fmt)
 
     def format_path(self, index, fmt, index_is_id=False):
+        """
+        Perform the format path operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.format path through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         book_id = index if index_is_id else self.id(index)
         ans = self.new_api.format_abspath(book_id, fmt)
         if ans is None:
@@ -1333,18 +2223,40 @@ class LibraryDatabase(object):
         return ans
 
     def format_files(self, index, index_is_id=False):
+        """
+        Perform the format files operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.format files through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         book_id = index if index_is_id else self.id(index)
         return [(v, k) for k, v in iteritems(self.new_api.format_files(book_id))]
 
     def format_metadata(self, book_id, fmt, allow_cache=True, update_db=False, commit=False):
         """
         Returns the metadata for a format as a calibre metadata object.
-        :param book_id:
-        :param fmt:
-        :param allow_cache:
-        :param update_db:
-        :param commit: NO LONGER USED
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.format metadata through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param allow_cache: Value supplied for allow cache under the utility contract.
+        :param update_db: Value supplied for update db under the utility contract.
+        :param commit: Value supplied for commit under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if not commit:
             warnings.warn("Depreciation warning - variable commit is no longer used")
@@ -1352,27 +2264,110 @@ class LibraryDatabase(object):
         return self.new_api.format_metadata(book_id, fmt, allow_cache=allow_cache, update_db=update_db)
 
     def format_last_modified(self, book_id, fmt):
+        """
+        Perform the format last modified operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.format last modified through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         m = self.format_metadata(book_id, fmt)
         if m:
             return m["mtime"]
 
     def formats(self, index, index_is_id=False, verify_formats=True):
+        """
+        Perform the formats operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.formats through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :param verify_formats: Value supplied for verify formats under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         book_id = index if index_is_id else self.id(index)
         ans = self.new_api.formats(book_id, verify_formats=verify_formats)
         if ans:
             return ",".join(ans)
 
     def has_format(self, index, fmt, index_is_id=False):
+        """
+        Return whether has format holds for the supplied ebook data.
+
+        Example:
+            Exercise LibraryDatabase.has format through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :return: True when the documented condition holds; otherwise False.
+        """
         book_id = index if index_is_id else self.id(index)
         return self.new_api.has_format(book_id, fmt)
 
     def refresh_format_cache(self):
+        """
+        Perform the refresh format cache operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.refresh format cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.new_api.refresh_format_cache()
 
     def refresh_ondevice(self):
+        """
+        Perform the refresh ondevice operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.refresh ondevice through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.new_api.refresh_ondevice()
 
     def tags_older_than(self, tag, delta, must_have_tag=None, must_have_authors=None):
+        """
+        Perform the tags older than operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.tags older than through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param delta: Value supplied for delta under the utility contract.
+        :param must_have_tag: Value supplied for must have tag under the utility contract.
+        :param must_have_authors: Value supplied for must have authors under the utility
+            contract.
+        :return: An iterator yielding the normalized values described above.
+        """
         for book_id in sorted(
             self.new_api.tags_older_than(
                 tag,
@@ -1384,6 +2379,21 @@ class LibraryDatabase(object):
             yield book_id
 
     def sizeof_format(self, index, fmt, index_is_id=False):
+        """
+        Perform the sizeof format operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.sizeof format through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         book_id = index if index_is_id else self.id(index)
         return self.new_api.format_metadata(book_id, fmt).get("size", None)
 
@@ -1397,12 +2407,21 @@ class LibraryDatabase(object):
     ):
         """
         Returns the metaata for a given book as a calibreMetaData object.
-        :param index:
-        :param index_is_id:
-        :param get_cover:
-        :param get_user_categories:
-        :param cover_as_data:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.get metadata through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :param get_cover: Value supplied for get cover under the utility contract.
+        :param get_user_categories: Value supplied for get user categories under the utility
+            contract.
+        :param cover_as_data: Value supplied for cover as data under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         book_id = index if index_is_id else self.id(index)
         return self.new_api.get_metadata(
@@ -1415,10 +2434,18 @@ class LibraryDatabase(object):
     def rename_series(self, old_id, new_name, change_index=True):
         """
         Preforms
-        :param old_id:
-        :param new_name:
-        :param change_index:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.rename series through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param old_id: Value supplied for old id under the utility contract.
+        :param new_name: Value supplied for new name under the utility contract.
+        :param change_index: Value supplied for change index under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.new_api.rename_items("series", {old_id: new_name}, change_index=change_index)
 
@@ -1430,12 +2457,19 @@ class LibraryDatabase(object):
     def get_custom(self, index, label=None, num=None, index_is_id=False):
         """
         Return the custom data for the specified book_id and custom column.
-        :param index: The book in the database - either the id or the position in the current sort
-        :param label: Either this or the num is used to identify the custom column
-        :param num:
-        :param index_is_id: If True then the index is assumed to be the id of the book - else it's the current position
-                            of the book in the sort.
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.get custom through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :param label: Value supplied for label under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         book_id = index if index_is_id else self.id(index)
         ans = self.new_api.field_for(self.custom_field_name(label, num), book_id)
@@ -1446,12 +2480,19 @@ class LibraryDatabase(object):
     def get_custom_extra(self, index, label=None, num=None, index_is_id=False):
         """
         Return the extra value for the given custom column - this is the index value for a series type custom column.
-        :param index: The index of the row to retrieve the extra for
-        :param label: Either label or num must be used to identify the custom column
-        :param num:
-        :param index_is_id: If True then the index is taken to be the id of the book - otherwise it's the position
-                            of the book row in the current sort
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.get custom extra through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :param label: Value supplied for label under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         data = self.backend.custom_field_metadata(label, num)
         # add future datatypes with an extra column here
@@ -1463,11 +2504,19 @@ class LibraryDatabase(object):
     def get_custom_and_extra(self, index, label=None, num=None, index_is_id=False):
         """
         Return the value of a custom field and it's extra/index (if it has one).
-        :param index:
-        :param label:
-        :param num:
-        :param index_is_id:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.get custom and extra through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :param label: Value supplied for label under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         book_id = index if index_is_id else self.id(index)
         data = self.backend.custom_field_metadata(label, num)
@@ -1479,6 +2528,21 @@ class LibraryDatabase(object):
         return ans, self.new_api.field_for(self.custom_field_name(label, num) + "_index", book_id)
 
     def get_next_cc_series_num_for(self, series, label=None, num=None):
+        """
+        Return next cc series num for under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LibraryDatabase.get next cc series num for through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param series: Value supplied for series under the utility contract.
+        :param label: Value supplied for label under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.backend.custom_field_metadata(label, num)
         if data["datatype"] != "series":
             return None
@@ -1487,16 +2551,22 @@ class LibraryDatabase(object):
     def set_custom_bulk(self, ids, val, label=None, num=None, append=False, notify=True, extras=None):
         """
         Set custom metadata in bulk for the specified book ids.
-        :param ids: The ids to set the custom data for
-        :param val: The value to set
-        :param label: Either this or the num is used to specify the custom column to set the value for
-        :param num:
-        :param append: Append the value to the existing value in the custom column
-        :param notify: Use the listener system to issue a notification that the changes have occured,
-        :param extras: Used to update the index col - should be an ordered iterable of the same length as the ids.
-                       The ids and this iterable will be zipped together - and used to set the extra value for each
-                       of the ids.
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.set custom bulk through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param ids: Value supplied for ids under the utility contract.
+        :param val: Template or metadata value evaluated by the operation.
+        :param label: Value supplied for label under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :param append: Value supplied for append under the utility contract.
+        :param notify: Value supplied for notify under the utility contract.
+        :param extras: Value supplied for extras under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if extras is not None and len(extras) != len(ids):
             raise ValueError("Length of ids and extras is not the same")
@@ -1533,13 +2603,21 @@ class LibraryDatabase(object):
     def set_custom_bulk_multiple(self, ids, add=(), remove=(), label=None, num=None, notify=False):
         """
         Manipulate the values of a multiple valued custom column in bulk
-        :param ids: The ids to preform the manipulation for
-        :param add: An iterable of values to add to the custom column
-        :param remove: An iterable of values to remove from the custom column (if present)
-        :param label: Either the label or num is used to specify which custom column to preform the update on
-        :param num:
-        :param notify:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.set custom bulk multiple through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param ids: Value supplied for ids under the utility contract.
+        :param add: Value supplied for add under the utility contract.
+        :param remove: Value supplied for remove under the utility contract.
+        :param label: Value supplied for label under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :param notify: Value supplied for notify under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         data = self.backend.custom_field_metadata(label, num)
         if not data["editable"]:
@@ -1550,16 +2628,76 @@ class LibraryDatabase(object):
         self._do_bulk_modify(field, ids, add, remove, notify)
 
     def is_item_used_in_multiple(self, item, label=None, num=None):
+        """
+        Return whether is item used in multiple holds for the supplied ebook data.
+
+        Example:
+            Exercise LibraryDatabase.is item used in multiple through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :param label: Value supplied for label under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :return: True when the documented condition holds; otherwise False.
+        """
         existing_tags = self.all_custom(label=label, num=num)
         return icu_lower(item) in {icu_lower(t) for t in existing_tags}
 
     def delete_custom_item_using_id(self, item_id, label=None, num=None):
+        """
+        Perform the delete custom item using id operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.delete custom item using id through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :param label: Value supplied for label under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.new_api.remove_items(self.custom_field_name(label, num), (item_id,))
 
     def rename_custom_item(self, old_id, new_name, label=None, num=None):
+        """
+        Perform the rename custom item operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.rename custom item through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param old_id: Value supplied for old id under the utility contract.
+        :param new_name: Value supplied for new name under the utility contract.
+        :param label: Value supplied for label under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.new_api.rename_items(self.custom_field_name(label, num), {old_id: new_name}, change_index=False)
 
     def delete_item_from_multiple(self, item, label=None, num=None):
+        """
+        Perform the delete item from multiple operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.delete item from multiple through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :param label: Value supplied for label under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         custom_field_name = self.custom_field_name(label, num)
         existing = self.new_api.get_id_map(custom_field_name)
         rmap = {icu_lower(v): k for k, v in iteritems(existing)}
@@ -1582,19 +2720,25 @@ class LibraryDatabase(object):
     ):
         """
         Set the value for a custom column for a book.
-        :param book_id: The book_id to update the value for
-        :param val: The value to update the custom column value to
-        :param label: Either the label or the number is used to identify the custom column
-        :param num:
-        :param append: Append the value to the value already existent for that book
-        :type append: bool
-        :param notify:
-        :param extra: Update the _index column corresponding to the table - if it exists
-        :param commit:
-        :param allow_case_change: If True then tries to match the value to values in the table by changing the case of
-                                  the value.
-        :type allow_case_change: bool
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.set custom through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param val: Template or metadata value evaluated by the operation.
+        :param label: Value supplied for label under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :param append: Value supplied for append under the utility contract.
+        :param notify: Value supplied for notify under the utility contract.
+        :param extra: Value supplied for extra under the utility contract.
+        :param commit: Value supplied for commit under the utility contract.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if not commit:
             warnings.warn("Depreciation warning - commit parameter is no longer used")
@@ -1637,18 +2781,40 @@ class LibraryDatabase(object):
         return affected_books
 
     def delete_custom_column(self, label=None, num=None):
+        """
+        Perform the delete custom column operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.delete custom column through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param label: Value supplied for label under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.new_api.delete_custom_column(label, num)
 
     def create_custom_column(self, label, name, datatype, is_multiple, editable=True, display=None):
         """
         Add a new custom column to the books table.
-        :param label:
-        :param name:
-        :param datatype:
-        :param is_multiple:
-        :param editable:
-        :param display:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.create custom column through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param label: Value supplied for label under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param datatype: Value supplied for datatype under the utility contract.
+        :param is_multiple: Value supplied for is multiple under the utility contract.
+        :param editable: Value supplied for editable under the utility contract.
+        :param display: Value supplied for display under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if display is None:
             display = {}
@@ -1666,14 +2832,23 @@ class LibraryDatabase(object):
     ):
         """
         Change the metadata for a custom column.
-        :param num:
-        :param name:
-        :param label:
-        :param is_editable:
-        :param display:
-        :param notify:
-        :param update_last_modified:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.set custom column metadata through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param num: Value supplied for num under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param label: Value supplied for label under the utility contract.
+        :param is_editable: Value supplied for is editable under the utility contract.
+        :param display: Value supplied for display under the utility contract.
+        :param notify: Value supplied for notify under the utility contract.
+        :param update_last_modified: Value supplied for update last modified under the
+            utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         changed = self.new_api.set_custom_column_metadata(
             num,
@@ -1691,12 +2866,19 @@ class LibraryDatabase(object):
 
     def remove_cover(self, book_id, notify=True, commit=True):
         """
-        Remove a cover from a book - will delete the primary cover of the book and note that the cover has been
-        deliberately set to be None.
-        :param book_id: The id of the book to nullify the cover for
-        :param notify: Notify listeners
-        :param commit: NO LONGER USED
-        :return:
+        Remove a cover from a book - will delete the primary cover of the book and note that the cover has been deliberately set to be None.
+
+        Example:
+            Exercise LibraryDatabase.remove cover through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param notify: Value supplied for notify under the utility contract.
+        :param commit: Value supplied for commit under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if not commit:
             warnings.warn("Depreciation warning - variable commit no longer in use")
@@ -1706,6 +2888,22 @@ class LibraryDatabase(object):
             self.notify("cover", [book_id])
 
     def set_cover(self, book_id, data, notify=True, commit=True):
+        """
+        Replace the container's cover while preserving required package references.
+
+        Example:
+            Exercise LibraryDatabase.set cover through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param data: Value supplied for data under the utility contract.
+        :param notify: Value supplied for notify under the utility contract.
+        :param commit: Value supplied for commit under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not commit:
             warnings.warn("Depreciation warning - commit parameter is no longer in use")
 
@@ -1714,16 +2912,60 @@ class LibraryDatabase(object):
             self.notify("cover", [book_id])
 
     def original_fmt(self, book_id, fmt):
+        """
+        Perform the original fmt operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.original fmt through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         nfmt = ("ORIGINAL_%s" % fmt).upper()
         return nfmt if self.new_api.has_format(book_id, nfmt) else fmt
 
     def save_original_format(self, book_id, fmt, notify=True):
+        """
+        Perform the save original format operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.save original format through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param notify: Value supplied for notify under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ret = self.new_api.save_original_format(book_id, fmt)
         if ret and notify:
             self.notify("metadata", [book_id])
         return ret
 
     def restore_original_format(self, book_id, original_fmt, notify=True):
+        """
+        Perform the restore original format operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.restore original format through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param original_fmt: Value supplied for original fmt under the utility contract.
+        :param notify: Value supplied for notify under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ret = self.new_api.restore_original_format(book_id, original_fmt)
         if ret and notify:
             self.notify("metadata", [book_id])
@@ -1732,13 +2974,21 @@ class LibraryDatabase(object):
     def remove_format(self, index, fmt, index_is_id=False, notify=True, commit=True, db_only=False):
         """
         Preform the removal of the highest rated format from a book.
-        :param index:
-        :param fmt:
-        :param index_is_id:
-        :param notify:
-        :param commit:
-        :param db_only:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.remove format through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :param notify: Value supplied for notify under the utility contract.
+        :param commit: Value supplied for commit under the utility contract.
+        :param db_only: Value supplied for db only under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if not commit:
             warnings.warn("Depreciation warning - commit variable not used")
@@ -1757,8 +3007,16 @@ class LibraryDatabase(object):
     def books_in_series(self, series_id):
         """
         Returns the ids of all the books in a given series in the order of their series index.
-        :param series_id: The id of the series to return the books for.
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.books in series through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param series_id: Value supplied for series id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         with self.new_api.safe_read_lock:
             book_ids = self.new_api.unlock.books_for_field("series", series_id)
@@ -1767,11 +3025,18 @@ class LibraryDatabase(object):
 
     def books_in_series_of(self, index, index_is_id=False):
         """
-        Looks up the series that the book is - then returns a list of the ids of all the books in that series ordered by
-        their position in the series.
-        :param index:
-        :param index_is_id:
-        :return:
+        Looks up the series that the book is - then returns a list of the ids of all the books in that series ordered by their position in the series.
+
+        Example:
+            Exercise LibraryDatabase.books in series of through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :param index_is_id: Value supplied for index is id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         book_id = index if index_is_id else self.id(index)
         series_ids = self.new_api.field_ids_for("series", book_id)
@@ -1782,10 +3047,17 @@ class LibraryDatabase(object):
     def books_with_same_title(self, mi, all_matches=True):
         """
         Returns a set of books_ids with the same title as that extracted from the metadata object.
-        :param mi: The metadata object containing the title
-        :param all_matches: If True, then will continue to search the database for all values - if not will abort at
-                            the first match and just return a set containing only the first matched value.
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.books with same title through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param mi: Metadata object exposed to the template function.
+        :param all_matches: Value supplied for all matches under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         title = mi.title
         ans = set()
@@ -1803,24 +3075,69 @@ class LibraryDatabase(object):
 
     # Private interface {{{
     def __iter__(self):
+        """
+        Perform the iter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase.  iter   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for row in self.data.iterall():
             yield row
 
     @staticmethod
     def _get_next_series_num_for_list(series_indices):
+        """
+        Perform the get next series num for list operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase. get next series num for list through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param series_indices: Value supplied for series indices under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return _get_next_series_num_for_list(series_indices)
 
     @staticmethod
     def _get_series_values(val):
+        """
+        Perform the get series values operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LibraryDatabase. get series values through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return _get_series_values(val)
 
     @staticmethod
     def all_custom(label, num):
         """
         Dummy method - should be overwritten below - if it isn't this method throughs an error.
-        :param label:
-        :param num:
-        :return:
+
+        Example:
+            Exercise LibraryDatabase.all custom through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param label: Value supplied for label under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError(label, num)
 
@@ -1859,6 +3176,19 @@ for prop in (
 ):
 
     def getter(field_prop):
+        """
+        Perform the getter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise getter through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param field_prop: Value supplied for field prop under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         fm = {
             "comment": "comments",
             "metadata_last_modified": "last_modified",
@@ -1867,6 +3197,21 @@ for prop in (
         }.get(field_prop, field_prop)
 
         def get_property_func(self, index, index_is_id=False):
+            """
+            Return property func under the format's safety and compatibility rules.
+
+            Example:
+                Exercise getter.get property func through a consuming regression::
+
+                    python -m pytest -q tests/library/test_unified_library.py
+
+
+            :param self: Value supplied for self under the utility contract.
+            :param index: Value supplied for index under the utility contract.
+            :param index_is_id: Value supplied for index is id under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.get_property(index, index_is_id=index_is_id, loc=self.FIELD_MAP[fm])
 
         return get_property_func
@@ -1876,7 +3221,35 @@ for prop in (
 for prop in ("series", "publisher"):
 
     def getter(db_field):
+        """
+        Perform the getter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise getter through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db_field: Value supplied for db field under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         def sp_local_func(self, index, index_is_id=False):
+            """
+            Perform the sp local func operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise getter.sp local func through a consuming regression::
+
+                    python -m pytest -q tests/library/test_unified_library.py
+
+
+            :param self: Value supplied for self under the utility contract.
+            :param index: Value supplied for index under the utility contract.
+            :param index_is_id: Value supplied for index is id under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             book_id = index if index_is_id else self.id(index)
             ans = self.new_api.field_ids_for(db_field, book_id)
             try:
@@ -1932,6 +3305,19 @@ for field_name in (
 ):
 
     def setter(db_field):
+        """
+        Perform the setter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise setter through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db_field: Value supplied for db field under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         has_case_change = db_field.startswith("!")
         # Todo: Is comments still in use?
         db_field = {"comment": "comments", "title_sort": "sort"}.get(db_field, db_field)
@@ -1941,6 +3327,25 @@ for field_name in (
 
             # Todo: This should be table_id - as it's more general than books
             def setter_func(self, book_id, val, notify=True, commit=True, allow_case_change=acc):
+                """
+                Perform the setter func operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise setter.setter func through a consuming regression::
+
+                        python -m pytest -q tests/library/test_unified_library.py
+
+
+                :param self: Value supplied for self under the utility contract.
+                :param book_id: Value supplied for book id under the utility contract.
+                :param val: Template or metadata value evaluated by the operation.
+                :param notify: Value supplied for notify under the utility contract.
+                :param commit: Value supplied for commit under the utility contract.
+                :param allow_case_change: Value supplied for allow case change under the utility
+                    contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 if not commit:
                     warnings.warn("Depreciation warning - commit parameter is no longer used")
 
@@ -1952,6 +3357,21 @@ for field_name in (
         elif db_field == "has_cover":
 
             def setter_func(self, book_id, val):
+                """
+                Perform the setter func operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise setter.setter func through a consuming regression::
+
+                        python -m pytest -q tests/library/test_unified_library.py
+
+
+                :param self: Value supplied for self under the utility contract.
+                :param book_id: Value supplied for book id under the utility contract.
+                :param val: Template or metadata value evaluated by the operation.
+                :return: None; the operation mutates state, writes output or performs cleanup in
+                    place.
+                """
                 self.new_api.set_field("cover", {book_id: bool(val)})
 
         else:
@@ -1959,6 +3379,23 @@ for field_name in (
             retval = True if db_field == "sort" else None
 
             def setter_func(self, book_id, val, notify=True, commit=True):
+                """
+                Perform the setter func operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise setter.setter func through a consuming regression::
+
+                        python -m pytest -q tests/library/test_unified_library.py
+
+
+                :param self: Value supplied for self under the utility contract.
+                :param book_id: Value supplied for book id under the utility contract.
+                :param val: Template or metadata value evaluated by the operation.
+                :param notify: Value supplied for notify under the utility contract.
+                :param commit: Value supplied for commit under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 if not commit:
                     warnings.warn("Depreciation warning - commit parameter is no longer used")
 
@@ -1981,7 +3418,35 @@ for field_name in (
 for field_name in ("authors", "tags", "publisher"):
 
     def renamer(affected_field):
+        """
+        Perform the renamer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise renamer through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param affected_field: Value supplied for affected field under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         def renamer_func(self, old_id, new_name):
+            """
+            Perform the renamer func operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise renamer.renamer func through a consuming regression::
+
+                    python -m pytest -q tests/library/test_unified_library.py
+
+
+            :param self: Value supplied for self under the utility contract.
+            :param old_id: Value supplied for old id under the utility contract.
+            :param new_name: Value supplied for new name under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             id_map = self.new_api.rename_items(affected_field, {old_id: new_name})[1]
             if affected_field == "authors":
                 return id_map[old_id]
@@ -2001,7 +3466,33 @@ LibraryDatabase.update_last_modified = method_type(
 for field_name in ("authors", "tags", "publisher", "series"):
 
     def getter(field):
+        """
+        Perform the getter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise getter through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         def local_func_2(self):
+            """
+            Perform the local func 2 operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise getter.local func 2 through a consuming regression::
+
+                    python -m pytest -q tests/library/test_unified_library.py
+
+
+            :param self: Value supplied for self under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.new_api.all_field_names(field)
 
         return local_func_2
@@ -2030,7 +3521,33 @@ for local_func, field_name in iteritems(
 ):
 
     def getter(db_field):
+        """
+        Perform the getter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise getter through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db_field: Value supplied for db field under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         def func(self):
+            """
+            Perform the func operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise getter.func through a consuming regression::
+
+                    python -m pytest -q tests/library/test_unified_library.py
+
+
+            :param self: Value supplied for self under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.field_id_map(db_field)
 
         return func
@@ -2058,9 +3575,35 @@ LibraryDatabase.get_author_id = method_type(
 for field_name in ("tags", "series", "publishers", "ratings", "languages"):
 
     def getter(field):
+        """
+        Perform the getter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise getter through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         local_fname = field[:-1] if field in {"publishers", "ratings"} else field
 
         def func(self):
+            """
+            Perform the func operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise getter.func through a consuming regression::
+
+                    python -m pytest -q tests/library/test_unified_library.py
+
+
+            :param self: Value supplied for self under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return [[tid, tag] for tid, tag in iteritems(self.new_api.get_id_map(local_fname))]
 
         return func
@@ -2071,9 +3614,36 @@ for field_name in ("tags", "series", "publishers", "ratings", "languages"):
 for field_name in ("author", "tag", "series"):
 
     def getter(field):
+        """
+        Perform the getter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise getter through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         field = field if field == "series" else (field + "s")
 
         def func(self, item_id):
+            """
+            Perform the func operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise getter.func through a consuming regression::
+
+                    python -m pytest -q tests/library/test_unified_library.py
+
+
+            :param self: Value supplied for self under the utility contract.
+            :param item_id: Value supplied for item id under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.new_api.get_item_name(field, item_id)
 
         return func
@@ -2083,9 +3653,36 @@ for field_name in ("author", "tag", "series"):
 for field_name in ("publisher", "series", "tag"):
 
     def getter(field):
+        """
+        Perform the getter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise getter through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         local_fname = "tags" if field == "tag" else field
 
         def func(self, item_id):
+            """
+            Perform the func operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise getter.func through a consuming regression::
+
+                    python -m pytest -q tests/library/test_unified_library.py
+
+
+            :param self: Value supplied for self under the utility contract.
+            :param item_id: Value supplied for item id under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.new_api.remove_items(local_fname, (item_id,))
 
         return func
@@ -2110,20 +3707,75 @@ for local_func in (
 ):
 
     def getter(func):
+        """
+        Perform the getter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise getter through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param func: Value supplied for func under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if func.startswith("!"):
             func = func[1:]
 
             def local_meth(self, include_composites=True):
+                """
+                Perform the local meth operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise getter.local meth through a consuming regression::
+
+                        python -m pytest -q tests/library/test_unified_library.py
+
+
+                :param self: Value supplied for self under the utility contract.
+                :param include_composites: Value supplied for include composites under the utility
+                    contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 return getattr(self.field_metadata, func)(include_composites=include_composites)
 
         elif func == "search_term_to_field_key":
 
             def local_meth(self, term):
+                """
+                Perform the local meth operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise getter.local meth through a consuming regression::
+
+                        python -m pytest -q tests/library/test_unified_library.py
+
+
+                :param self: Value supplied for self under the utility contract.
+                :param term: Value supplied for term under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 return self.field_metadata.search_term_to_field_key(term)
 
         else:
 
             def local_meth(self):
+                """
+                Perform the local meth operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise getter.local meth through a consuming regression::
+
+                        python -m pytest -q tests/library/test_unified_library.py
+
+
+                :param self: Value supplied for self under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 return getattr(self.field_metadata, func)()
 
         return local_meth
@@ -2140,7 +3792,34 @@ for meth in (
 ):
 
     def getter(local_meth):
+        """
+        Perform the getter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise getter through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param local_meth: Value supplied for local meth under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         def meth_func(self, x):
+            """
+            Perform the meth func operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise getter.meth func through a consuming regression::
+
+                    python -m pytest -q tests/library/test_unified_library.py
+
+
+            :param self: Value supplied for self under the utility contract.
+            :param x: Value supplied for x under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return getattr(self.new_api, local_meth)(x)
 
         return meth_func

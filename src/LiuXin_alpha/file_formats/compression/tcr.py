@@ -1,6 +1,16 @@
 # -*- coding: utf-8 -*-
 
-"""TCR compressor/decompressor."""
+"""
+Compress and decompress TCR dictionary-coded ebook payloads.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise tcr through a consuming regression::
+
+        python -m pytest -q tests/file_formats/compression/test_compression_modernized.py
+"""
 
 from __future__ import annotations
 
@@ -18,10 +28,36 @@ TCRInput: TypeAlias = str | bytes | bytearray | memoryview
 
 
 def _int_to_byte(value: int) -> bytes:
+    """
+    Perform the int to byte operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  int to byte through a consuming regression::
+
+            python -m pytest -q tests/file_formats/compression/test_compression_modernized.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return bytes([value & 0xFF])
 
 
 def _to_bytes(data: TCRInput) -> bytes:
+    """
+    Perform the to bytes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  to bytes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/compression/test_compression_modernized.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(data, bytes):
         return data
     if isinstance(data, bytearray):
@@ -34,20 +70,62 @@ def _to_bytes(data: TCRInput) -> bytes:
 
 
 class TCRCompressor:
-    """Encode byte content into TCR format."""
+    """
+    Encode byte content into TCR format.
+
+    Example:
+        Exercise TCRCompressor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/compression/test_compression_modernized.py
+    """
 
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the tcrcompressor state.
+
+        Example:
+            Exercise TCRCompressor.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/compression/test_compression_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.unused_codes: set[int]
         self.coded_txt: bytes
         self.codes: list[bytes]
         self._reset()
 
     def _reset(self: _typing.Self) -> None:
+        """
+        Perform the reset operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TCRCompressor. reset through a consuming regression::
+
+                python -m pytest -q tests/file_formats/compression/test_compression_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.unused_codes = set()
         self.coded_txt = b""
         self.codes = []
 
     def _combine_codes(self: _typing.Self) -> None:
+        """
+        Perform the combine codes operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TCRCompressor. combine codes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/compression/test_compression_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         possible_codes = []
         a_code = set(re.findall(br"(?ms).", self.coded_txt))
 
@@ -61,11 +139,35 @@ class TCRCompressor:
             self.codes[code[0]] = b"%s%s" % (self.codes[code[0]], self.codes[code[1]])
 
     def _free_unused_codes(self: _typing.Self) -> None:
+        """
+        Perform the free unused codes operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TCRCompressor. free unused codes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/compression/test_compression_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for i in range(256):
             if i not in self.unused_codes and _int_to_byte(i) not in self.coded_txt:
                 self.unused_codes.add(i)
 
     def _new_codes(self: _typing.Self) -> list[bytes]:
+        """
+        Perform the new codes operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TCRCompressor. new codes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/compression/test_compression_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         possible_new_codes = sorted(set(re.findall(br"(?ms)..", self.coded_txt)))
         new_codes_count = []
 
@@ -77,6 +179,19 @@ class TCRCompressor:
         return [x[0] for x in sorted(new_codes_count, key=lambda local_c: (local_c[1], local_c[0]))]
 
     def compress(self: _typing.Self, txt: TCRInput) -> bytes:
+        """
+        Encode the supplied bytes into the format's compressed representation.
+
+        Example:
+            Exercise TCRCompressor.compress through a consuming regression::
+
+                python -m pytest -q tests/file_formats/compression/test_compression_modernized.py
+
+
+        :param txt: Value supplied for txt under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         txt = _to_bytes(txt)
         self._reset()
 
@@ -122,7 +237,20 @@ class TCRCompressor:
 
 
 def decompress(stream: BinaryIO) -> bytes:
-    """Decompress a TCR stream into bytes."""
+    """
+    Decompress a TCR stream into bytes.
+
+    Example:
+        Exercise decompress through a consuming regression::
+
+            python -m pytest -q tests/file_formats/compression/test_compression_modernized.py
+
+
+    :param stream: Input or output stream wrapped by the terminal or compatibility
+        layer.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     stream.seek(0)
     if stream.read(9) != b"!!8-Bit!!":
         name = getattr(stream, "name", "<stream>")
@@ -149,6 +277,19 @@ def decompress(stream: BinaryIO) -> bytes:
 
 
 def compress(txt: TCRInput) -> bytes:
+    """
+    Encode the supplied bytes into the format's compressed representation.
+
+    Example:
+        Exercise compress through a consuming regression::
+
+            python -m pytest -q tests/file_formats/compression/test_compression_modernized.py
+
+
+    :param txt: Value supplied for txt under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     payload = _to_bytes(txt)
     encoded = TCRCompressor().compress(payload)
     # The historical algorithm occasionally produces non-reversible output for

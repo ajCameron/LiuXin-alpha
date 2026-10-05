@@ -1,48 +1,14 @@
 #!/usr/bin/env python3
-"""Build a large FRBR-native LiuXin test DB from an ISFDB MySQL dump.
+"""
+Build ISFDB-derived test databases.
 
-This script is intended for the separate data repository:
-
-    ./LiuXin_alpha_data/
-
-It reads a zipped MySQL text dump of ISFDB, stages a deliberately small subset
-of ISFDB tables into a temporary SQLite database, then constructs a large
-FRBR-native ``.test_db`` bundle under:
-
-    LiuXin_alpha_data/test_databases/<bundle_name>/<bundle_name>.test_db
-
-The import is intentionally conservative rather than exhaustive:
-
-- one Work + one Expression per ISFDB title
-- one Manifestation + one Item per ISFDB publication
-- title/publication linkage via ``pub_content``
-- canonical title authors mapped to ``agent_work_links``
-- publication publishers mapped to ``agent_manifestation_links``
-- title series mapped to ``series_work_links``
-- title language mapped to ``language_work_links``
-- title tags mapped to ``tags`` and ``tag_work_links``
-- uncommon title words also mapped to generated ``tags`` and ``tag_work_links``
-- genre-like title tags normalized into ``genres`` and ``genre_work_links``
-- generated fallback tags, genres, and standalone series links for otherwise empty works
-- title notes/synopses mapped to ``notes``/``synopses`` and work links
-- selected publication ISBN/ASIN values mapped to item and manifestation identifiers
-- deterministic generated comments, ratings, subjects, and annotations
-- deterministic fixture values for otherwise empty non-storage metadata fields
-
-This gives a large, realistic metadata corpus for cache and query benchmarks
-without trying to mirror every ISFDB concept.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
 Example:
+    Exercise build isfdb test db through a consuming regression::
 
-    python3 scripts/build_isfdb_test_db.py --max-pubs 50000 --force
-
-Or explicitly:
-
-    python3 scripts/build_isfdb_test_db.py \\
-        --dump-zip /path/to/backup-MySQL-55-2026-04-18.zip \\
-        --data-root /path/to/LiuXin_alpha_data \\
-        --bundle-name isfdb_mysql_55_2026_04_18 \\
-        --force
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
 """
 
 from __future__ import annotations
@@ -304,6 +270,19 @@ TITLE_WORD_TAG_STOPWORDS = frozenset(
 
 
 def _find_repo_root(start: Path) -> Optional[Path]:
+    """
+    Find repo root under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  find repo root through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param start: Value supplied for start under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     start = start.resolve()
     for candidate in (start, *start.parents):
         if (candidate / "src" / "LiuXin_alpha").is_dir() and (candidate / "tests").is_dir():
@@ -312,6 +291,19 @@ def _find_repo_root(start: Path) -> Optional[Path]:
 
 
 def _ensure_importable(repo_root: Path) -> None:
+    """
+    Perform the ensure importable operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  ensure importable through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     root_str = str(repo_root)
     src_str = str(repo_root / "src")
     if root_str not in sys.path:
@@ -332,6 +324,20 @@ COMPILED_GENRE_TAG_MAPPING = _genre_std.compile_genre_mapping(_genre_std.GENRE_S
 
 
 def _resolve_data_repo_root(repo_root: Path, explicit: Optional[str]) -> Path:
+    """
+    Perform the resolve data repo root operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  resolve data repo root through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :param explicit: Value supplied for explicit under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if explicit:
         root = Path(explicit).expanduser()
         if not root.is_absolute():
@@ -361,6 +367,20 @@ def _resolve_data_repo_root(repo_root: Path, explicit: Optional[str]) -> Path:
 
 
 def _resolve_dump_zip(repo_root: Path, explicit: Optional[str]) -> Path:
+    """
+    Perform the resolve dump zip operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  resolve dump zip through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :param explicit: Value supplied for explicit under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     candidates: list[Path] = []
 
     if explicit:
@@ -398,14 +418,54 @@ def _resolve_dump_zip(repo_root: Path, explicit: Optional[str]) -> Path:
 
 
 def _log(message: str) -> None:
+    """
+    Perform the log operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  log through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param message: Value supplied for message under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     print(message, file=sys.stderr, flush=True)
 
 
 def _elapsed_seconds(started_at: float) -> str:
+    """
+    Perform the elapsed seconds operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  elapsed seconds through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param started_at: Value supplied for started at under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return f"{time.time() - started_at:,.1f}s"
 
 
 def _rate_per_second(processed: int, started_at: float) -> str:
+    """
+    Perform the rate per second operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  rate per second through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param processed: Value supplied for processed under the utility contract.
+    :param started_at: Value supplied for started at under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     elapsed = max(time.time() - started_at, 0.001)
     return f"{processed / elapsed:,.0f}/s"
 
@@ -419,6 +479,24 @@ def _log_periodic_progress(
     started_at: float,
     force: bool = False,
 ) -> int:
+    """
+    Perform the log periodic progress operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  log periodic progress through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param label: Value supplied for label under the utility contract.
+    :param processed: Value supplied for processed under the utility contract.
+    :param every: Value supplied for every under the utility contract.
+    :param next_threshold: Value supplied for next threshold under the utility contract.
+    :param started_at: Value supplied for started at under the utility contract.
+    :param force: Value supplied for force under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if processed <= 0:
         return next_threshold
     if not force and processed < next_threshold:
@@ -436,6 +514,19 @@ def _log_periodic_progress(
 
 
 def _norm_text(value: str) -> str:
+    """
+    Perform the norm text operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  norm text through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return re.sub(r"[^a-z0-9]+", "-", str(value).strip().lower()).strip("-")
 
 
@@ -446,6 +537,23 @@ def _allocate_unique_norm(
     seen: set[str],
     fallback_prefix: str,
 ) -> str:
+    """
+    Perform the allocate unique norm operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  allocate unique norm through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param base_value: Value supplied for base value under the utility contract.
+    :param source_id: Value supplied for source id under the utility contract.
+    :param seen: Value supplied for seen under the utility contract.
+    :param fallback_prefix: Value supplied for fallback prefix under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     normalized = _norm_text(base_value)
     if not normalized:
         normalized = f"{fallback_prefix}-{int(source_id)}"
@@ -470,6 +578,19 @@ def _allocate_unique_norm(
 
 
 def _first_year(value: Any) -> Optional[int]:
+    """
+    Perform the first year operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  first year through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if value is None:
         return None
     match = re.search(r"(\d{4})", str(value))
@@ -480,6 +601,19 @@ def _first_year(value: Any) -> Optional[int]:
 
 
 def _clean_date(value: Any) -> Optional[str]:
+    """
+    Perform the clean date operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  clean date through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if value is None:
         return None
     text = str(value).strip()
@@ -489,6 +623,19 @@ def _clean_date(value: Any) -> Optional[str]:
 
 
 def _extract_page_count(value: Any) -> Optional[int]:
+    """
+    Extract page count under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  extract page count through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if value is None:
         return None
     matches = re.findall(r"\d+", str(value))
@@ -498,6 +645,19 @@ def _extract_page_count(value: Any) -> Optional[int]:
 
 
 def _safe_str(value: Any) -> Optional[str]:
+    """
+    Perform the safe str operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  safe str through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if value is None:
         return None
     text = str(value).strip()
@@ -505,6 +665,19 @@ def _safe_str(value: Any) -> Optional[str]:
 
 
 def _safe_int(value: Any) -> Optional[int]:
+    """
+    Perform the safe int operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  safe int through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if value is None:
         return None
     if isinstance(value, int):
@@ -519,6 +692,19 @@ def _safe_int(value: Any) -> Optional[int]:
 
 
 def _isbn10_is_valid(value: str) -> bool:
+    """
+    Perform the isbn10 is valid operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  isbn10 is valid through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if len(value) != 10:
         return False
     total = 0
@@ -534,6 +720,19 @@ def _isbn10_is_valid(value: str) -> bool:
 
 
 def _isbn13_is_valid(value: str) -> bool:
+    """
+    Perform the isbn13 is valid operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  isbn13 is valid through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if len(value) != 13 or not value.isdigit():
         return False
     total = 0
@@ -544,6 +743,19 @@ def _isbn13_is_valid(value: str) -> bool:
 
 
 def _normalize_isbn(value: Any) -> Optional[tuple[str, str]]:
+    """
+    Normalize isbn under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  normalize isbn through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     text = _safe_str(value)
     if text is None:
         return None
@@ -556,6 +768,19 @@ def _normalize_isbn(value: Any) -> Optional[tuple[str, str]]:
 
 
 def _normalize_asin(value: Any) -> Optional[str]:
+    """
+    Normalize asin under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  normalize asin through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     text = _safe_str(value)
     if text is None:
         return None
@@ -564,6 +789,19 @@ def _normalize_asin(value: Any) -> Optional[str]:
 
 
 def _title_tag_words(title: Any) -> tuple[str, ...]:
+    """
+    Perform the title tag words operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  title tag words through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param title: Value supplied for title under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     text = _safe_str(title)
     if text is None:
         return ()
@@ -589,6 +827,19 @@ def _title_tag_words(title: Any) -> tuple[str, ...]:
 
 
 def _canonical_genre_from_tag(tag_name: Any) -> Optional[str]:
+    """
+    Perform the canonical genre from tag operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  canonical genre from tag through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param tag_name: Value supplied for tag name under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     text = _safe_str(tag_name)
     if text is None:
         return None
@@ -611,7 +862,21 @@ def _canonical_genre_from_tag(tag_name: Any) -> Optional[str]:
 
 
 def _stable_mod(source_id: int, modulus: int, *, salt: int = 0) -> int:
-    """Return a deterministic, well-distributed bucket for generated fixtures."""
+    """
+    Return a deterministic, well-distributed bucket for generated fixtures.
+
+    Example:
+        Exercise  stable mod through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param source_id: Value supplied for source id under the utility contract.
+    :param modulus: Value supplied for modulus under the utility contract.
+    :param salt: Value supplied for salt under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     if modulus <= 0:
         raise ValueError("modulus must be positive")
@@ -626,6 +891,19 @@ def _stable_mod(source_id: int, modulus: int, *, salt: int = 0) -> int:
 
 
 def _stable_text_salt(value: str) -> int:
+    """
+    Perform the stable text salt operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  stable text salt through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     salt = 0
     for index, char in enumerate(value):
         salt += (index + 1) * ord(char)
@@ -633,15 +911,55 @@ def _stable_text_salt(value: str) -> int:
 
 
 def _sql_identifier(name: str) -> str:
+    """
+    Perform the sql identifier operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  sql identifier through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     escaped = name.replace('"', '""')
     return f'"{escaped}"'
 
 
 def _sql_literal(value: str) -> str:
+    """
+    Perform the sql literal operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  sql literal through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return "'" + value.replace("'", "''") + "'"
 
 
 def _metadata_fixture_table_exists(conn: sqlite3.Connection, table: str) -> bool:
+    """
+    Perform the metadata fixture table exists operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  metadata fixture table exists through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param conn: SQLite connection used for schema or metadata queries.
+    :param table: Value supplied for table under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return (
         conn.execute(
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?;",
@@ -652,6 +970,20 @@ def _metadata_fixture_table_exists(conn: sqlite3.Connection, table: str) -> bool
 
 
 def _should_backfill_metadata_fixture_column(column_name: str, pk_column: str) -> bool:
+    """
+    Perform the should backfill metadata fixture column operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  should backfill metadata fixture column through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param column_name: Value supplied for column name under the utility contract.
+    :param pk_column: Value supplied for pk column under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if column_name == pk_column:
         return False
     if column_name.endswith("_id"):
@@ -667,6 +999,21 @@ def _metadata_fixture_text_expression(
     column: str,
     pk_sql: str,
 ) -> str:
+    """
+    Perform the metadata fixture text expression operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  metadata fixture text expression through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param table: Value supplied for table under the utility contract.
+    :param column: Value supplied for column under the utility contract.
+    :param pk_sql: Value supplied for pk sql under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     suffix = f"{table}:{column}:"
     if column.endswith("_flags"):
         return _sql_literal("isfdb;fixture")
@@ -741,6 +1088,22 @@ def _metadata_fixture_value_expression(
     column_type: str,
     pk_sql: str,
 ) -> str:
+    """
+    Perform the metadata fixture value expression operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  metadata fixture value expression through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param table: Value supplied for table under the utility contract.
+    :param column: Value supplied for column under the utility contract.
+    :param column_type: Value supplied for column type under the utility contract.
+    :param pk_sql: Value supplied for pk sql under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     normalized_type = column_type.upper()
     if column.endswith("_created_timestamp_ep_k") or column.endswith(
         "_modified_timestamp_ep_k"
@@ -773,11 +1136,18 @@ def _metadata_fixture_value_expression(
 
 
 def _populate_metadata_fixture_fields(conn: sqlite3.Connection) -> int:
-    """Fill nullable non-storage metadata fields with deterministic fixture values.
+    """
+    Fill nullable non-storage metadata fields with deterministic fixture values.
 
-    Relationship columns, hierarchy parent columns, device links, and soft-delete
-    markers are intentionally left alone because filling them fabricates state
-    rather than increasing object surface area for tests.
+    Example:
+        Exercise  populate metadata fixture fields through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param conn: SQLite connection used for schema or metadata queries.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     _log("Backfilling deterministic metadata fixture fields...")
@@ -886,6 +1256,19 @@ def _populate_metadata_fixture_fields(conn: sqlite3.Connection) -> int:
 
 
 def _assert_metadata_facet_coverage(conn: sqlite3.Connection) -> None:
+    """
+    Perform the assert metadata facet coverage operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  assert metadata facet coverage through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param conn: SQLite connection used for schema or metadata queries.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     _log("Checking per-work metadata facet coverage...")
     phase_started_at = time.time()
     missing_by_table: dict[str, int] = {}
@@ -922,19 +1305,71 @@ def _assert_metadata_facet_coverage(conn: sqlite3.Connection) -> None:
 
 
 def _generated_rating_from_title_id(title_id: int) -> tuple[float, int]:
+    """
+    Perform the generated rating from title id operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  generated rating from title id through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param title_id: Value supplied for title id under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     half_star_units = _stable_mod(int(title_id), 10, salt=17) + 1
     return half_star_units / 2.0, half_star_units
 
 
 def _should_generate_comment_for_title(title_id: int) -> bool:
+    """
+    Perform the should generate comment for title operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  should generate comment for title through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param title_id: Value supplied for title id under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return _stable_mod(int(title_id), 3, salt=2) == 0
 
 
 def _should_generate_annotation_for_pub(pub_id: int) -> bool:
+    """
+    Perform the should generate annotation for pub operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  should generate annotation for pub through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param pub_id: Value supplied for pub id under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return _stable_mod(int(pub_id), 4, salt=0) == 0
 
 
 def _title_type_subject(title_type: Any) -> str:
+    """
+    Perform the title type subject operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  title type subject through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param title_type: Value supplied for title type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     text = (_safe_str(title_type) or "unknown").replace("_", " ").replace("-", " ")
     words = [word for word in re.split(r"\s+", text.lower()) if word]
     overrides = {
@@ -948,6 +1383,19 @@ def _title_type_subject(title_type: Any) -> str:
 
 
 def _decade_subject(value: Any) -> str:
+    """
+    Perform the decade subject operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  decade subject through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     year = _first_year(value)
     if year is None:
         return "Undated"
@@ -964,6 +1412,26 @@ def _insert_generated_subject(
     parent_position: Optional[int] = None,
     tree_id: str = "isfdb-generated",
 ) -> tuple[int, str]:
+    """
+    Perform the insert generated subject operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  insert generated subject through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param conn: SQLite connection used for schema or metadata queries.
+    :param subject: Value supplied for subject under the utility contract.
+    :param subject_cache: Value supplied for subject cache under the utility contract.
+    :param parent_id: Value supplied for parent id under the utility contract.
+    :param parent_full: Value supplied for parent full under the utility contract.
+    :param parent_position: Value supplied for parent position under the utility
+        contract.
+    :param tree_id: Value supplied for tree id under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parent_key = int(parent_id) if parent_id is not None else None
     key = (parent_key, subject)
     cached = subject_cache.get(key)
@@ -1009,7 +1477,20 @@ def _insert_generated_subject(
 
 
 def _priority_from_group_and_local_order(group_id: int, local_order: int = 0) -> int:
-    """Encode a stable local ordering into a globally unique link priority."""
+    """
+    Encode a stable local ordering into a globally unique link priority.
+
+    Example:
+        Exercise  priority from group and local order through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param group_id: Value supplied for group id under the utility contract.
+    :param local_order: Value supplied for local order under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     safe_group_id = max(int(group_id), 0)
     safe_local_order = max(int(local_order), 0)
@@ -1017,7 +1498,20 @@ def _priority_from_group_and_local_order(group_id: int, local_order: int = 0) ->
 
 
 def _priority_from_sort_key_and_unique_id(sort_key: Optional[int], unique_id: int) -> int:
-    """Sort primarily by `sort_key`, while guaranteeing uniqueness via `unique_id`."""
+    """
+    Sort primarily by `sort_key`, while guaranteeing uniqueness via `unique_id`.
+
+    Example:
+        Exercise  priority from sort key and unique id through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param sort_key: Value supplied for sort key under the utility contract.
+    :param unique_id: Value supplied for unique id under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     safe_unique_id = max(int(unique_id), 0)
     safe_sort_key = _safe_int(sort_key)
@@ -1027,6 +1521,19 @@ def _priority_from_sort_key_and_unique_id(sort_key: Optional[int], unique_id: in
 
 
 def _parse_mysql_token(token: str) -> Any:
+    """
+    Parse mysql token under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  parse mysql token through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param token: Value supplied for token under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     token = token.strip()
     if not token or token.upper() == "NULL":
         return None
@@ -1044,6 +1551,18 @@ def _parse_mysql_token(token: str) -> Any:
 
 
 def _parse_mysql_insert_values(values_sql: str) -> Iterator[list[Any]]:
+    """
+    Parse mysql insert values under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  parse mysql insert values through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param values_sql: Value supplied for values sql under the utility contract.
+    :return: An iterator yielding the normalized values described above.
+    """
     i = 0
     n = len(values_sql)
 
@@ -1100,7 +1619,14 @@ def _parse_mysql_insert_values(values_sql: str) -> Iterator[list[Any]]:
 
 @dataclass(frozen=True)
 class StageTableSpec:
-    """Define how one ISFDB source table projects into the staging database."""
+    """
+    Define how one ISFDB source table projects into the staging database.
+
+    Example:
+        Exercise StageTableSpec through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+    """
 
     source_table: str
     create_sql: str
@@ -1109,6 +1635,19 @@ class StageTableSpec:
 
 
 def _project_authors(row: list[Any]) -> tuple[Any, ...]:
+    """
+    Perform the project authors operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  project authors through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param row: Value supplied for row under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return (
         _safe_int(row[0]),
         _safe_str(row[1]),
@@ -1121,6 +1660,19 @@ def _project_authors(row: list[Any]) -> tuple[Any, ...]:
 
 
 def _project_titles(row: list[Any]) -> tuple[Any, ...]:
+    """
+    Perform the project titles operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  project titles through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param row: Value supplied for row under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return (
         _safe_int(row[0]),
         _safe_str(row[1]),
@@ -1141,6 +1693,19 @@ def _project_titles(row: list[Any]) -> tuple[Any, ...]:
 
 
 def _project_pubs(row: list[Any]) -> tuple[Any, ...]:
+    """
+    Perform the project pubs operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  project pubs through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param row: Value supplied for row under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return (
         _safe_int(row[0]),
         _safe_str(row[1]),
@@ -1159,6 +1724,19 @@ def _project_pubs(row: list[Any]) -> tuple[Any, ...]:
 
 
 def _project_pub_content(row: list[Any]) -> tuple[Any, ...]:
+    """
+    Perform the project pub content operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  project pub content through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param row: Value supplied for row under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return (
         _safe_int(row[0]),
         _safe_int(row[1]),
@@ -1168,6 +1746,19 @@ def _project_pub_content(row: list[Any]) -> tuple[Any, ...]:
 
 
 def _project_publishers(row: list[Any]) -> tuple[Any, ...]:
+    """
+    Perform the project publishers operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  project publishers through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param row: Value supplied for row under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return (
         _safe_int(row[0]),
         _safe_str(row[1]),
@@ -1176,6 +1767,19 @@ def _project_publishers(row: list[Any]) -> tuple[Any, ...]:
 
 
 def _project_series(row: list[Any]) -> tuple[Any, ...]:
+    """
+    Perform the project series operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  project series through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param row: Value supplied for row under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return (
         _safe_int(row[0]),
         _safe_str(row[1]),
@@ -1186,6 +1790,19 @@ def _project_series(row: list[Any]) -> tuple[Any, ...]:
 
 
 def _project_canonical_author(row: list[Any]) -> tuple[Any, ...]:
+    """
+    Perform the project canonical author operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  project canonical author through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param row: Value supplied for row under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return (
         _safe_int(row[0]),
         _safe_int(row[1]),
@@ -1195,6 +1812,19 @@ def _project_canonical_author(row: list[Any]) -> tuple[Any, ...]:
 
 
 def _project_languages(row: list[Any]) -> tuple[Any, ...]:
+    """
+    Perform the project languages operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  project languages through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param row: Value supplied for row under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return (
         _safe_int(row[0]),
         _safe_str(row[1]),
@@ -1203,6 +1833,19 @@ def _project_languages(row: list[Any]) -> tuple[Any, ...]:
 
 
 def _project_tags(row: list[Any]) -> tuple[Any, ...]:
+    """
+    Perform the project tags operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  project tags through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param row: Value supplied for row under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return (
         _safe_int(row[0]),
         _safe_str(row[1]),
@@ -1211,6 +1854,19 @@ def _project_tags(row: list[Any]) -> tuple[Any, ...]:
 
 
 def _project_tag_mapping(row: list[Any]) -> tuple[Any, ...]:
+    """
+    Perform the project tag mapping operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  project tag mapping through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param row: Value supplied for row under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return (
         _safe_int(row[0]),
         _safe_int(row[1]),
@@ -1220,6 +1876,19 @@ def _project_tag_mapping(row: list[Any]) -> tuple[Any, ...]:
 
 
 def _project_identifier_types(row: list[Any]) -> tuple[Any, ...]:
+    """
+    Perform the project identifier types operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  project identifier types through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param row: Value supplied for row under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return (
         _safe_int(row[0]),
         _safe_str(row[1]),
@@ -1228,6 +1897,19 @@ def _project_identifier_types(row: list[Any]) -> tuple[Any, ...]:
 
 
 def _project_identifiers(row: list[Any]) -> tuple[Any, ...]:
+    """
+    Perform the project identifiers operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  project identifiers through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param row: Value supplied for row under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return (
         _safe_int(row[0]),
         _safe_int(row[1]),
@@ -1237,6 +1919,19 @@ def _project_identifiers(row: list[Any]) -> tuple[Any, ...]:
 
 
 def _project_notes(row: list[Any]) -> tuple[Any, ...]:
+    """
+    Perform the project notes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  project notes through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param row: Value supplied for row under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return (
         _safe_int(row[0]),
         _safe_str(row[1]),
@@ -1483,6 +2178,19 @@ STAGE_SPECS: dict[str, StageTableSpec] = {
 
 
 def _statement_table_name(line: str) -> Optional[str]:
+    """
+    Perform the statement table name operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  statement table name through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param line: Value supplied for line under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not line.startswith("INSERT INTO `"):
         return None
     parts = line.split("`", 2)
@@ -1496,6 +2204,20 @@ def _load_dump_subset_into_stage(
     dump_zip: Path,
     stage_conn: sqlite3.Connection,
 ) -> dict[str, int]:
+    """
+    Perform the load dump subset into stage operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  load dump subset into stage through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param dump_zip: Value supplied for dump zip under the utility contract.
+    :param stage_conn: Value supplied for stage conn under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     stage_conn.execute("PRAGMA journal_mode = MEMORY;")
     stage_conn.execute("PRAGMA synchronous = OFF;")
     stage_conn.execute("PRAGMA temp_store = MEMORY;")
@@ -1583,6 +2305,23 @@ def _stage_insert_statement(
     progress_label: str,
     current_total: int,
 ) -> int:
+    """
+    Perform the stage insert statement operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  stage insert statement through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param conn: SQLite connection used for schema or metadata queries.
+    :param spec: Value supplied for spec under the utility contract.
+    :param statement: Value supplied for statement under the utility contract.
+    :param progress_label: Value supplied for progress label under the utility contract.
+    :param current_total: Value supplied for current total under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     marker = " VALUES "
     idx = statement.find(marker)
     if idx == -1:
@@ -1621,6 +2360,19 @@ def _stage_insert_statement(
 
 
 def _create_stage_indexes(conn: sqlite3.Connection) -> None:
+    """
+    Create stage indexes under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  create stage indexes through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param conn: SQLite connection used for schema or metadata queries.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     index_sql = (
         "CREATE INDEX idx_stage_titles_series_id ON stage_titles(series_id);",
         "CREATE INDEX idx_stage_titles_language_id ON stage_titles(title_language);",
@@ -1648,6 +2400,20 @@ def _materialize_selected_subset(
     *,
     max_pubs: Optional[int],
 ) -> dict[str, int]:
+    """
+    Perform the materialize selected subset operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  materialize selected subset through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param stage_conn: Value supplied for stage conn under the utility contract.
+    :param max_pubs: Value supplied for max pubs under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     started_at = time.time()
     supported_placeholders = ", ".join("?" for _ in SUPPORTED_TITLE_TYPES)
 
@@ -1884,12 +2650,39 @@ def _materialize_selected_subset(
 
 
 def _count(conn: sqlite3.Connection, table: str) -> int:
+    """
+    Perform the count operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  count through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param conn: SQLite connection used for schema or metadata queries.
+    :param table: Value supplied for table under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     row = conn.execute(f"SELECT COUNT(*) FROM {table};").fetchone()
     assert row is not None
     return int(row[0])
 
 
 def _build_target_language_lookup(conn: sqlite3.Connection) -> dict[str, int]:
+    """
+    Perform the build target language lookup operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  build target language lookup through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param conn: SQLite connection used for schema or metadata queries.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     lookup: dict[str, int] = {}
     rows = conn.execute(
         """
@@ -1909,6 +2702,19 @@ def _build_target_language_lookup(conn: sqlite3.Connection) -> dict[str, int]:
 
 
 def _build_stage_language_lookup(stage_conn: sqlite3.Connection) -> dict[int, tuple[Optional[str], Optional[str]]]:
+    """
+    Perform the build stage language lookup operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  build stage language lookup through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param stage_conn: Value supplied for stage conn under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     out: dict[int, tuple[Optional[str], Optional[str]]] = {}
     for lang_id, lang_name, lang_code in stage_conn.execute(
         "SELECT lang_id, lang_name, lang_code FROM stage_languages;"
@@ -1923,6 +2729,21 @@ def _resolve_target_language_id(
     stage_lookup: dict[int, tuple[Optional[str], Optional[str]]],
     target_lookup: dict[str, int],
 ) -> Optional[int]:
+    """
+    Perform the resolve target language id operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  resolve target language id through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param stage_lang_id: Value supplied for stage lang id under the utility contract.
+    :param stage_lookup: Value supplied for stage lookup under the utility contract.
+    :param target_lookup: Value supplied for target lookup under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if stage_lang_id is None:
         return None
     payload = stage_lookup.get(int(stage_lang_id))
@@ -1939,6 +2760,19 @@ def _resolve_target_language_id(
 
 
 def _work_type_from_title_type(title_type: Optional[str]) -> str:
+    """
+    Perform the work type from title type operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  work type from title type through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param title_type: Value supplied for title type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     normalized = (title_type or "").strip().lower()
     if not normalized:
         return "unknown"
@@ -1950,12 +2784,41 @@ def _work_type_from_title_type(title_type: Optional[str]) -> str:
 
 
 def _is_fiction(title_type: Optional[str], title_non_genre: Optional[str]) -> int:
+    """
+    Perform the is fiction operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  is fiction through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param title_type: Value supplied for title type under the utility contract.
+    :param title_non_genre: Value supplied for title non genre under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if str(title_non_genre or "").strip().lower() == "yes":
         return 0
     return 0 if (title_type or "").strip().upper() in {"ESSAY", "INTERVIEW", "NONFICTION", "REVIEW"} else 1
 
 
 def _manifestation_format(pub_ptype: Optional[str], pub_ctype: Optional[str]) -> str:
+    """
+    Perform the manifestation format operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  manifestation format through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param pub_ptype: Value supplied for pub ptype under the utility contract.
+    :param pub_ctype: Value supplied for pub ctype under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     for value in (pub_ptype, pub_ctype):
         if value is not None and str(value).strip():
             return str(value).strip().lower()
@@ -1969,6 +2832,23 @@ def _manifestation_note(
     pub_tag: Any,
     pub_note: Any = None,
 ) -> Optional[str]:
+    """
+    Perform the manifestation note operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  manifestation note through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param pub_pages: Value supplied for pub pages under the utility contract.
+    :param pub_isbn: Value supplied for pub isbn under the utility contract.
+    :param pub_catalog: Value supplied for pub catalog under the utility contract.
+    :param pub_tag: Value supplied for pub tag under the utility contract.
+    :param pub_note: Value supplied for pub note under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parts: list[str] = []
     if _safe_str(pub_note):
         parts.append(str(_safe_str(pub_note)))
@@ -1990,6 +2870,23 @@ def _insert_source_note(
     note_text: Any,
     source_note_to_note_id: dict[int, int],
 ) -> Optional[int]:
+    """
+    Perform the insert source note operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  insert source note through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param conn: SQLite connection used for schema or metadata queries.
+    :param source_note_id: Value supplied for source note id under the utility contract.
+    :param note_text: Value supplied for note text under the utility contract.
+    :param source_note_to_note_id: Value supplied for source note to note id under the
+        utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     normalized_note_id = _safe_int(source_note_id)
     text = _safe_str(note_text)
     if normalized_note_id is None or text is None:
@@ -2023,6 +2920,23 @@ def _insert_source_synopsis(
     synopsis_text: Any,
     source_note_to_synopsis_id: dict[int, int],
 ) -> Optional[int]:
+    """
+    Perform the insert source synopsis operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  insert source synopsis through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param conn: SQLite connection used for schema or metadata queries.
+    :param source_note_id: Value supplied for source note id under the utility contract.
+    :param synopsis_text: Value supplied for synopsis text under the utility contract.
+    :param source_note_to_synopsis_id: Value supplied for source note to synopsis id
+        under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     normalized_note_id = _safe_int(source_note_id)
     text = _safe_str(synopsis_text)
     if normalized_note_id is None or text is None:
@@ -2062,6 +2976,32 @@ def _insert_manifestation_item_identifier(
     primary_entity_identifier_seen: set[tuple[int, str]],
     seen_item_identifiers: set[tuple[int, str, str]],
 ) -> bool:
+    """
+    Perform the insert manifestation item identifier operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  insert manifestation item identifier through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param conn: SQLite connection used for schema or metadata queries.
+    :param manifestation_id: Value supplied for manifestation id under the utility
+        contract.
+    :param item_id: Value supplied for item id under the utility contract.
+    :param scheme: Value supplied for scheme under the utility contract.
+    :param value: Value normalized, stored, formatted or returned.
+    :param source: Value supplied for source under the utility contract.
+    :param scratch: Value supplied for scratch under the utility contract.
+    :param seen_entity_identifiers: Value supplied for seen entity identifiers under the
+        utility contract.
+    :param primary_entity_identifier_seen: Value supplied for primary entity identifier
+        seen under the utility contract.
+    :param seen_item_identifiers: Value supplied for seen item identifiers under the
+        utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     inserted = False
     entity_key = (int(manifestation_id), scheme, value)
     if entity_key not in seen_entity_identifiers:
@@ -2124,6 +3064,20 @@ def _build_frbr_target(
     stage_conn: sqlite3.Connection,
     output_db: Path,
 ) -> dict[str, int]:
+    """
+    Perform the build frbr target operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  build frbr target through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param stage_conn: Value supplied for stage conn under the utility contract.
+    :param output_db: Value supplied for output db under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr import (
         create_new_database,
     )
@@ -4103,6 +5057,18 @@ def _build_frbr_target(
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parse args under the format's safety and compatibility rules.
+
+    Example:
+        Exercise parse args through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = argparse.ArgumentParser(
         description="Build a large FRBR-native LiuXin test DB from an ISFDB MySQL dump zip."
     )
@@ -4138,6 +5104,18 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     args = parse_args()
     started = time.time()
 

@@ -1,3 +1,6 @@
+
+# Todo: Why is this called optional? Explain in the doc string.
+
 """
 Declare independent enumeration, staged-write, deletion, and addressing protocols.
 

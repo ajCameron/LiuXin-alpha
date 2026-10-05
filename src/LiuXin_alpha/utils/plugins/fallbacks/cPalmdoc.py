@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-Pure-python fallback for the compiled ``cPalmdoc`` extension.
+Provide cPalmdoc utility behavior.
 
-Implements PalmDOC compression and decompression, matching the logic in the C extension.
-API:
-    - decompress(data: bytes) -> bytes
-    - compress(data: bytes) -> bytes
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise cPalmdoc through a consuming regression::
+
+        python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
 """
 
 from __future__ import annotations
@@ -14,6 +17,19 @@ from typing import ByteString
 
 
 def decompress(data: ByteString) -> bytes:
+    """
+    Perform the decompress utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise decompress through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     b = bytes(data)
     out = bytearray()
     i = 0
@@ -53,11 +69,43 @@ def decompress(data: ByteString) -> bytes:
 
 
 def _memcmp(a: bytes, ai: int, b: bytes, bi: int, ln: int) -> bool:
+    """
+    Perform the memcmp utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  memcmp through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param a: Value supplied for a under the utility contract.
+    :param ai: Value supplied for ai under the utility contract.
+    :param b: Value supplied for b under the utility contract.
+    :param bi: Value supplied for bi under the utility contract.
+    :param ln: Value supplied for ln under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return a[ai:ai + ln] == b[bi:bi + ln]
 
 
 def _rfind(data: bytes, pos: int, chunk_len: int) -> int:
     # Search backwards for a previous occurrence of data[pos:pos+chunk_len]
+    """
+    Perform the rfind utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  rfind through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :param pos: Value supplied for pos under the utility contract.
+    :param chunk_len: Value supplied for chunk len under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     needle = data[pos:pos + chunk_len]
     for i in range(pos - chunk_len, -1, -1):
         if data[i:i + chunk_len] == needle:
@@ -66,6 +114,19 @@ def _rfind(data: bytes, pos: int, chunk_len: int) -> int:
 
 
 def compress(data: ByteString) -> bytes:
+    """
+    Perform the compress utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise compress through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     b = bytes(data)
     out = bytearray()
     i = 0

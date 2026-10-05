@@ -1,4 +1,15 @@
 
+"""
+Provide test lzx utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test lzx through a consuming regression::
+
+        python -m pytest -q tests/utils/plugins/fallbacks/test_lzx.py
+"""
 from __future__ import annotations
 
 import multiprocessing as mp
@@ -15,14 +26,30 @@ class _BitWriter16LE:
     """
     Produce a byte stream compatible with the lzx.c bit reader:
 
-    - Bits are read MSB-first out of each 16-bit word.
-    - Words are loaded little-endian from the input stream.
+    Example:
+        Exercise  BitWriter16LE through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_lzx.py
     """
     out: bytearray
     cur: int = 0
     nbits: int = 0
 
     def write(self, value: int, n: int) -> None:
+        """
+        Forward the write operation while preserving adapter ownership rules.
+
+        Example:
+            Exercise  BitWriter16LE.write through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/fallbacks/test_lzx.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :param n: Value supplied for n under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if n < 0:
             raise ValueError("n must be >= 0")
         for i in range(n - 1, -1, -1):
@@ -36,6 +63,18 @@ class _BitWriter16LE:
                 self.nbits = 0
 
     def finish(self) -> bytes:
+        """
+        Perform the finish utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  BitWriter16LE.finish through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/fallbacks/test_lzx.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.nbits:
             self.cur <<= (16 - self.nbits)
             self.out.append(self.cur & 0xFF)
@@ -49,11 +88,16 @@ def _make_uncompressed_stream(payload: bytes, *, block_type: int = 3) -> bytes:
     """
     Craft a minimal stream that exercises the 'uncompressed block' path.
 
-    Layout (bitstream then byte-aligned fields):
-      - intel header: k=0 (1 bit)
-      - block header: block_type (3 bits), block_length (24 bits)
-      - then R0, R1, R2 (12 bytes LE)
-      - then raw payload bytes
+    Example:
+        Exercise  make uncompressed stream through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_lzx.py
+
+
+    :param payload: Value supplied for payload under the utility contract.
+    :param block_type: Value supplied for block type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     bw = _BitWriter16LE(out=bytearray())
 
@@ -83,6 +127,21 @@ def _make_uncompressed_stream(payload: bytes, *, block_type: int = 3) -> bytes:
 # --- subprocess runner: protects pytest from hangs on adversarial inputs ---
 
 def _worker_decompress(data: bytes, outlen: int, q: "mp.Queue[Tuple[str, Any]]") -> None:
+    """
+    Perform the worker decompress utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  worker decompress through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_lzx.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :param outlen: Value supplied for outlen under the utility contract.
+    :param q: Value supplied for q under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     try:
         from LiuXin_alpha.utils.plugins.fallbacks import lzx
 
@@ -94,6 +153,18 @@ def _worker_decompress(data: bytes, outlen: int, q: "mp.Queue[Tuple[str, Any]]")
 
 
 def _mp_context() -> mp.context.BaseContext:
+    """
+    Perform the mp context utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  mp context through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_lzx.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     methods = set(mp.get_all_start_methods())
     if "fork" in methods:
         return mp.get_context("fork")
@@ -101,6 +172,21 @@ def _mp_context() -> mp.context.BaseContext:
 
 
 def _decompress_with_timeout(data: bytes, outlen: int, *, timeout_s: float = 2.0) -> Tuple[str, Any]:
+    """
+    Perform the decompress with timeout utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  decompress with timeout through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_lzx.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :param outlen: Value supplied for outlen under the utility contract.
+    :param timeout_s: Value supplied for timeout s under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ctx = _mp_context()
     q: "mp.Queue[Tuple[str, Any]]" = ctx.Queue()
     p = ctx.Process(target=_worker_decompress, args=(data, outlen, q))
@@ -119,6 +205,18 @@ def _decompress_with_timeout(data: bytes, outlen: int, *, timeout_s: float = 2.0
 # --- contract tests ---
 
 def test_lzxinit_rejects_out_of_range_window() -> None:
+    """
+    Perform the test lzxinit rejects out of range window utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test lzxinit rejects out of range window through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_lzx.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.utils.plugins.fallbacks import lzx
 
     with pytest.raises(ValueError):
@@ -128,6 +226,18 @@ def test_lzxinit_rejects_out_of_range_window() -> None:
 
 
 def test_uncompressed_block_roundtrip_small_payload() -> None:
+    """
+    Perform the test uncompressed block roundtrip small payload utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test uncompressed block roundtrip small payload through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_lzx.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.utils.plugins.fallbacks import lzx
 
     payload = b"hello"
@@ -139,6 +249,18 @@ def test_uncompressed_block_roundtrip_small_payload() -> None:
 
 
 def test_uncompressed_block_roundtrip_binary_payload() -> None:
+    """
+    Perform the test uncompressed block roundtrip binary payload utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test uncompressed block roundtrip binary payload through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_lzx.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.utils.plugins.fallbacks import lzx
 
     payload = bytes([0, 255, 1, 2, 3, 128, 127, 0, 9])
@@ -150,6 +272,18 @@ def test_uncompressed_block_roundtrip_binary_payload() -> None:
 
 
 def test_reset_allows_reuse() -> None:
+    """
+    Perform the test reset allows reuse utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test reset allows reuse through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_lzx.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.utils.plugins.fallbacks import lzx
 
     st = lzx.LZXinit(15)
@@ -181,11 +315,36 @@ def test_reset_allows_reuse() -> None:
     ],
 )
 def test_malformed_inputs_do_not_hang(data: bytes) -> None:
+    """
+    Perform the test malformed inputs do not hang utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test malformed inputs do not hang through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_lzx.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     status, _ = _decompress_with_timeout(data, outlen=8)
     assert status in {"ok", "exc"}
 
 
 def test_small_random_fuzz_does_not_hang() -> None:
+    """
+    Perform the test small random fuzz does not hang utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test small random fuzz does not hang through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_lzx.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     rng = random.Random(4242)
     for _ in range(10):
         ln = rng.randint(1, 64)

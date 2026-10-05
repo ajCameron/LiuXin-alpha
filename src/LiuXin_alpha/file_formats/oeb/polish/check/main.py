@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 
+"""
+Coordinate EPUB/OEB polishing and validation operations.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise main through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -42,6 +53,19 @@ XML_TYPES = frozenset(six_map(guess_type, ("a.xml", "a.svg", "a.opf", "a.ncx")))
 
 
 def _safe_line_offset(elem: _typing.Any) -> _typing.Any:
+    """
+    Perform the safe line offset operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  safe line offset through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param elem: Value supplied for elem under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     line = getattr(elem, "sourceline", None)
     if isinstance(line, int) and line > 0:
         return line - 1
@@ -50,6 +74,19 @@ def _safe_line_offset(elem: _typing.Any) -> _typing.Any:
 
 def run_checks(container: _typing.Any) -> _typing.Any:
 
+    """
+    Perform the run checks operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise run checks through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     errors = []
 
     # Check parsing
@@ -109,6 +146,20 @@ def run_checks(container: _typing.Any) -> _typing.Any:
 
 def fix_errors(container: _typing.Any, errors: _typing.Any) -> _typing.Any:
     # Fix parsing
+    """
+    Apply safe fixes for the supplied validation problems.
+
+    Example:
+        Exercise fix errors through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param errors: Value supplied for errors under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     changed = False
     for name in {e.name for e in errors if getattr(e, "is_parsing_error", False)}:
         try:

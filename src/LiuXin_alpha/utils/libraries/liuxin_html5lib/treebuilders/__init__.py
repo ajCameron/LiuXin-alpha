@@ -1,29 +1,13 @@
-"""A collection of modules for building different kinds of tree from
-HTML documents.
+"""
+Expose the supported treebuilders compatibility surface.
 
-To create a treebuilder for a new type of tree, you need to do
-implement several things:
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-1) A set of classes for various types of elements: Document, Doctype,
-Comment, Element. These must implement the interface of
-_base.treebuilders.Node (although comment nodes have a different
-signature for their constructor, see treebuilders.etree.Comment)
-Textual content may also be implemented as another node type, or not, as
-your tree implementation requires.
+Example:
+    Exercise   init   through a consuming regression::
 
-2) A treebuilder object (called TreeBuilder by convention) that
-inherits from treebuilders._base.TreeBuilder. This has 4 required attributes:
-documentClass - the class to use for the bottommost node of a document
-elementClass - the class to use for HTML Elements
-commentClass - the class to use for comments
-doctypeClass - the class to use for doctypes
-It also has one required method:
-getDocument - Returns the root node of the complete document tree
-
-3) If you wish to run the unit tests, you must also create a
-testSerializer method on your treebuilder which accepts a node and
-returns a string containing Node and its children serialized according
-to the format used in the unittests
+        python -m pytest -q tests/file_formats/html/test_html_modernized.py
 """
 
 from __future__ import absolute_import, division, unicode_literals
@@ -34,23 +18,21 @@ treeBuilderCache = {}
 
 
 def getTreeBuilder(treeType, implementation=None, **kwargs):
-    """Get a TreeBuilder class for various types of tree with built-in support
+    """
+    Get a TreeBuilder class for various types of tree with built-in support
 
-    treeType - the name of the tree type required (case-insensitive). Supported
-               values are:
+    Example:
+        Exercise getTreeBuilder through a consuming regression::
 
-               "dom" - A generic builder for DOM implementations, defaulting to
-                       a xml.dom.minidom based implementation.
-               "etree" - A generic builder for tree implementations exposing an
-                         ElementTree-like interface, defaulting to
-                         xml.etree.cElementTree if available and
-                         xml.etree.ElementTree if not.
-               "lxml" - A etree-based builder for lxml.etree, handling
-                        limitations of lxml's implementation.
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
 
-    implementation - (Currently applies to the "etree" and "dom" tree types). A
-                      module implementing the tree type e.g.
-                      xml.etree.ElementTree or xml.etree.cElementTree."""
+
+    :param treeType: Value supplied for treeType under the utility contract.
+    :param implementation: Value supplied for implementation under the utility contract.
+    :param kwargs: Keyword values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     treeType = treeType.lower()
     if treeType not in treeBuilderCache:

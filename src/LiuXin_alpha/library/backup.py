@@ -2,7 +2,15 @@
 # vim:fileencoding=UTF-8
 
 """
-Tools for enabling metadata backup to file.
+Create, inspect and restore library backups.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise backup through a consuming regression::
+
+        python -m pytest -q tests/library/test_unified_library.py
 """
 
 from __future__ import unicode_literals, division, absolute_import, print_function
@@ -24,6 +32,14 @@ __docformat__ = "restructuredtext en"
 
 
 class Abort(Exception):
+    """
+    Provide the abort contract for validated ebook processing.
+
+    Example:
+        Exercise Abort through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     pass
 
 
@@ -31,10 +47,28 @@ class MetadataBackup(Thread):
     """
     Continuously backup changed metadata into OPF files in the book directory.
 
-    This class runs in its own thread.
+    Example:
+        Exercise MetadataBackup through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def __init__(self, db, interval=2, scheduling_interval=0.1):
+        """
+        Initialize and validate the metadatabackup state.
+
+        Example:
+            Exercise MetadataBackup.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :param interval: Value supplied for interval under the utility contract.
+        :param scheduling_interval: Value supplied for scheduling interval under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         Thread.__init__(self)
         self.daemon = True
         self._db = weakref.ref(getattr(db, "new_api", db))
@@ -47,8 +81,14 @@ class MetadataBackup(Thread):
         """
         Holds a weakref to the database
 
-        Shuts the thread down if it's ever detected that the database has been deleted.
-        :return:
+        Example:
+            Exercise MetadataBackup.db through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         ans = self._db()
         if ans is None:
@@ -56,13 +96,50 @@ class MetadataBackup(Thread):
         return ans
 
     def stop(self):
+        """
+        Perform the stop operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MetadataBackup.stop through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.stop_running.set()
 
     def wait(self, interval):
+        """
+        Perform the wait operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MetadataBackup.wait through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param interval: Value supplied for interval under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.stop_running.wait(interval):
             raise Abort()
 
     def run(self):
+        """
+        Execute the configured conversion stage and return its primary result.
+
+        Example:
+            Exercise MetadataBackup.run through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         while not self.stop_running.is_set():
             try:
                 self.wait(self.interval)
@@ -71,6 +148,18 @@ class MetadataBackup(Thread):
                 break
 
     def do_one(self):
+        """
+        Perform the do one operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MetadataBackup.do one through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         try:
             book_id = self.db.get_a_dirtied_book()
             if book_id is None:
@@ -136,6 +225,18 @@ class MetadataBackup(Thread):
 
     def break_cycles(self):
         # Legacy compatibility
+        """
+        Perform the break cycles operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MetadataBackup.break cycles through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
 

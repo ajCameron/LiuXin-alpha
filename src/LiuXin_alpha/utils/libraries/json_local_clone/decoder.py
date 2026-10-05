@@ -1,4 +1,13 @@
-"""Implementation of JSONDecoder
+"""
+Decode JSON text through the bundled local JSON implementation.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise decoder through a consuming regression::
+
+        python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
 """
 import re
 
@@ -18,17 +27,30 @@ NegInf = float('-inf')
 
 
 class JSONDecodeError(ValueError):
-    """Subclass of ValueError with the following additional properties:
+    """
+    Subclass of ValueError with the following additional properties:
 
-    msg: The unformatted error message
-    doc: The JSON document being parsed
-    pos: The start index of doc where parsing failed
-    lineno: The line corresponding to pos
-    colno: The column corresponding to pos
+    Example:
+        Exercise JSONDecodeError through a consuming regression::
 
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
     """
     # Note that this exception is used from _json
     def __init__(self, msg, doc, pos):
+        """
+        Initialize and validate the JSONDecodeError state.
+
+        Example:
+            Exercise JSONDecodeError.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+        :param msg: Value supplied for msg under the utility contract.
+        :param doc: Value supplied for doc under the utility contract.
+        :param pos: Value supplied for pos under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         lineno = doc.count('\n', 0, pos) + 1
         colno = pos - doc.rfind('\n', 0, pos)
         errmsg = '%s: line %d column %d (char %d)' % (msg, lineno, colno, pos)
@@ -40,6 +62,18 @@ class JSONDecodeError(ValueError):
         self.colno = colno
 
     def __reduce__(self):
+        """
+        Perform the reduce utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise JSONDecodeError.  reduce   through a consuming regression::
+
+                python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.__class__, (self.msg, self.doc, self.pos)
 
 
@@ -58,6 +92,21 @@ BACKSLASH = {
 }
 
 def _decode_uXXXX(s, pos, _m=HEXDIGITS.match):
+    """
+    Perform the decode uXXXX utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  decode uXXXX through a consuming regression::
+
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :param pos: Value supplied for pos under the utility contract.
+    :param _m: Value supplied for m under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     esc = _m(s, pos + 1)
     if esc is not None:
         try:
@@ -68,14 +117,23 @@ def _decode_uXXXX(s, pos, _m=HEXDIGITS.match):
     raise JSONDecodeError(msg, s, pos)
 
 def py_scanstring(s, end, strict=True, _b=BACKSLASH, _m=STRINGCHUNK.match):
-    """Scan the string s for a JSON string. End is the index of the
-    character in s after the quote that started the JSON string.
-    Unescapes all valid JSON string escape sequences and raises ValueError
-    on attempt to decode an invalid string. If strict is False then literal
-    control characters are allowed in the string.
+    """
+    Scan the string s for a JSON string. End is the index of the character in s after the quote that started the JSON string. Unescapes all valid JSON string escape sequences and raises ValueError on attempt to decode an invalid string. If strict is False then literal control characters are allowed in the string.
 
-    Returns a tuple of the decoded string and the index of the character in s
-    after the end quote."""
+    Example:
+        Exercise py scanstring through a consuming regression::
+
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :param end: Value supplied for end under the utility contract.
+    :param strict: Value supplied for strict under the utility contract.
+    :param _b: Value supplied for b under the utility contract.
+    :param _m: Value supplied for m under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     chunks = []
     _append = chunks.append
     begin = end - 1
@@ -136,6 +194,27 @@ WHITESPACE_STR = ' \t\n\r'
 
 def JSONObject(s_and_end, strict, scan_once, object_hook, object_pairs_hook,
                memo=None, _w=WHITESPACE.match, _ws=WHITESPACE_STR):
+    """
+    Perform the JSONObject utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise JSONObject through a consuming regression::
+
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+    :param s_and_end: Value supplied for s and end under the utility contract.
+    :param strict: Value supplied for strict under the utility contract.
+    :param scan_once: Value supplied for scan once under the utility contract.
+    :param object_hook: Value supplied for object hook under the utility contract.
+    :param object_pairs_hook: Value supplied for object pairs hook under the utility
+        contract.
+    :param memo: Value supplied for memo under the utility contract.
+    :param _w: Value supplied for w under the utility contract.
+    :param _ws: Value supplied for ws under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     s, end = s_and_end
     pairs = []
     pairs_append = pairs.append
@@ -219,6 +298,22 @@ def JSONObject(s_and_end, strict, scan_once, object_hook, object_pairs_hook,
     return pairs, end
 
 def JSONArray(s_and_end, scan_once, _w=WHITESPACE.match, _ws=WHITESPACE_STR):
+    """
+    Perform the JSONArray utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise JSONArray through a consuming regression::
+
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+    :param s_and_end: Value supplied for s and end under the utility contract.
+    :param scan_once: Value supplied for scan once under the utility contract.
+    :param _w: Value supplied for w under the utility contract.
+    :param _ws: Value supplied for ws under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     s, end = s_and_end
     values = []
     nextchar = s[end:end + 1]
@@ -260,69 +355,35 @@ def JSONArray(s_and_end, scan_once, _w=WHITESPACE.match, _ws=WHITESPACE_STR):
 
 
 class JSONDecoder(object):
-    """Simple JSON <https://json.org> decoder
+    """
+    Simple JSON <https://json.org> decoder
 
-    Performs the following translations in decoding by default:
+    Example:
+        Exercise JSONDecoder through a consuming regression::
 
-    +---------------+-------------------+
-    | JSON          | Python            |
-    +===============+===================+
-    | object        | dict              |
-    +---------------+-------------------+
-    | array         | list              |
-    +---------------+-------------------+
-    | string        | str               |
-    +---------------+-------------------+
-    | number (int)  | int               |
-    +---------------+-------------------+
-    | number (real) | float             |
-    +---------------+-------------------+
-    | true          | True              |
-    +---------------+-------------------+
-    | false         | False             |
-    +---------------+-------------------+
-    | null          | None              |
-    +---------------+-------------------+
-
-    It also understands ``NaN``, ``Infinity``, and ``-Infinity`` as
-    their corresponding ``float`` values, which is outside the JSON spec.
-
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
     """
 
     def __init__(self, *, object_hook=None, parse_float=None,
             parse_int=None, parse_constant=None, strict=True,
             object_pairs_hook=None):
-        """``object_hook``, if specified, will be called with the result
-        of every JSON object decoded and its return value will be used in
-        place of the given ``dict``.  This can be used to provide custom
-        deserializations (e.g. to support JSON-RPC class hinting).
+        """
+        ``object_hook``, if specified, will be called with the result of every JSON object decoded and its return value will be used in place of the given ``dict``. This can be used to provide custom deserializations (e.g. to support JSON-RPC class hinting).
 
-        ``object_pairs_hook``, if specified will be called with the result of
-        every JSON object decoded with an ordered list of pairs.  The return
-        value of ``object_pairs_hook`` will be used instead of the ``dict``.
-        This feature can be used to implement custom decoders.
-        If ``object_hook`` is also defined, the ``object_pairs_hook`` takes
-        priority.
+        Example:
+            Exercise JSONDecoder.  init   through a consuming regression::
 
-        ``parse_float``, if specified, will be called with the string
-        of every JSON float to be decoded. By default this is equivalent to
-        float(num_str). This can be used to use another datatype or parser
-        for JSON floats (e.g. decimal.Decimal).
+                python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
 
-        ``parse_int``, if specified, will be called with the string
-        of every JSON int to be decoded. By default this is equivalent to
-        int(num_str). This can be used to use another datatype or parser
-        for JSON integers (e.g. float).
 
-        ``parse_constant``, if specified, will be called with one of the
-        following strings: -Infinity, Infinity, NaN.
-        This can be used to raise an exception if invalid JSON numbers
-        are encountered.
-
-        If ``strict`` is false (true is the default), then control
-        characters will be allowed inside strings.  Control characters in
-        this context are those with character codes in the 0-31 range,
-        including ``'\\t'`` (tab), ``'\\n'``, ``'\\r'`` and ``'\\0'``.
+        :param object_hook: Value supplied for object hook under the utility contract.
+        :param parse_float: Value supplied for parse float under the utility contract.
+        :param parse_int: Value supplied for parse int under the utility contract.
+        :param parse_constant: Value supplied for parse constant under the utility contract.
+        :param strict: Value supplied for strict under the utility contract.
+        :param object_pairs_hook: Value supplied for object pairs hook under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.object_hook = object_hook
         self.parse_float = parse_float or float
@@ -338,9 +399,19 @@ class JSONDecoder(object):
 
 
     def decode(self, s, _w=WHITESPACE.match):
-        """Return the Python representation of ``s`` (a ``str`` instance
-        containing a JSON document).
+        """
+        Return the Python representation of ``s`` (a ``str`` instance containing a JSON document).
 
+        Example:
+            Exercise JSONDecoder.decode through a consuming regression::
+
+                python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+        :param s: Value supplied for s under the utility contract.
+        :param _w: Value supplied for w under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         obj, end = self.raw_decode(s, idx=_w(s, 0).end())
         end = _w(s, end).end()
@@ -349,13 +420,19 @@ class JSONDecoder(object):
         return obj
 
     def raw_decode(self, s, idx=0):
-        """Decode a JSON document from ``s`` (a ``str`` beginning with
-        a JSON document) and return a 2-tuple of the Python
-        representation and the index in ``s`` where the document ended.
+        """
+        Decode a JSON document from ``s`` (a ``str`` beginning with a JSON document) and return a 2-tuple of the Python representation and the index in ``s`` where the document ended.
 
-        This can be used to decode a JSON document from a string that may
-        have extraneous data at the end.
+        Example:
+            Exercise JSONDecoder.raw decode through a consuming regression::
 
+                python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+        :param s: Value supplied for s under the utility contract.
+        :param idx: Value supplied for idx under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         try:
             obj, end = self.scan_once(s, idx)

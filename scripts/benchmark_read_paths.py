@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Benchmark representative application read-model request paths."""
+"""
+Benchmark library read paths.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise benchmark read paths through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+"""
 
 from __future__ import annotations
 
@@ -35,6 +45,18 @@ from LiuXin_alpha.surfaces.web_readonly.app import _row_value  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parse args under the format's safety and compatibility rules.
+
+    Example:
+        Exercise parse args through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = argparse.ArgumentParser(description="Benchmark backend read paths on a LiuXin database.")
     parser.add_argument("--db-name", default="benchmark_db_medium", help="Named test DB to provision.")
     parser.add_argument("--database", default="", help="Existing database path to benchmark instead of provisioning.")
@@ -55,11 +77,37 @@ def parse_args() -> argparse.Namespace:
 
 
 def _load_app(database_path: Path) -> ReadOnlyWebApplication:
+    """
+    Perform the load app operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  load app through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param database_path: Value supplied for database path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db = _open_database(database_path=str(database_path), db_type="sqlite")
     return ReadOnlyWebApplication(db)
 
 
 def _drain_response(response) -> tuple[str, int]:
+    """
+    Perform the drain response operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  drain response through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param response: Value supplied for response under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     body_bytes = 0
     try:
         for chunk in response.body:
@@ -71,6 +119,20 @@ def _drain_response(response) -> tuple[str, int]:
 
 
 def _choose_query(app: ReadOnlyWebApplication, explicit_query: str) -> str:
+    """
+    Perform the choose query operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  choose query through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param app: Value supplied for app under the utility contract.
+    :param explicit_query: Value supplied for explicit query under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     text = str(explicit_query or "").strip()
     if text:
         return text
@@ -82,6 +144,19 @@ def _choose_query(app: ReadOnlyWebApplication, explicit_query: str) -> str:
 
 
 def _first_work_row(app: ReadOnlyWebApplication):
+    """
+    Perform the first work row operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  first work row through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param app: Value supplied for app under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     rows = app.read_model.work_rows(sorted_by="title")
     if not rows:
         raise RuntimeError("No works rows are available for benchmarking.")
@@ -89,6 +164,19 @@ def _first_work_row(app: ReadOnlyWebApplication):
 
 
 def _first_file_row(app: ReadOnlyWebApplication):
+    """
+    Perform the first file row operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  first file row through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param app: Value supplied for app under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not app._table_exists("files"):
         return None
     rows = list(app.db.get_all_rows("files", iterator_return=False))
@@ -96,6 +184,19 @@ def _first_file_row(app: ReadOnlyWebApplication):
 
 
 def _first_image_row(app: ReadOnlyWebApplication):
+    """
+    Perform the first image row operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  first image row through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param app: Value supplied for app under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not app._table_exists("images"):
         return None
     work_rows = app.read_model.work_rows(sorted_by="title")
@@ -120,6 +221,29 @@ def run_read_path_benchmarks(
     scenario_names: list[str],
     progress: Optional[Callable[[str], None]] = None,
 ) -> dict[str, object]:
+    """
+    Perform the run read path benchmarks operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise run read path benchmarks through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param db_name: Value supplied for db name under the utility contract.
+    :param database: Value supplied for database under the utility contract.
+    :param cache_dir: Value supplied for cache dir under the utility contract.
+    :param regenerate: Value supplied for regenerate under the utility contract.
+    :param keep_provisioned: Value supplied for keep provisioned under the utility
+        contract.
+    :param iterations: Value supplied for iterations under the utility contract.
+    :param warmups: Value supplied for warmups under the utility contract.
+    :param query: Search expression parsed or evaluated by the utility.
+    :param scenario_names: Value supplied for scenario names under the utility contract.
+    :param progress: Value supplied for progress under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if progress is not None:
         progress("preparing read-path benchmark target={}".format(db_name or database))
     with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
@@ -219,18 +343,58 @@ def run_read_path_benchmarks(
 
 
 def _scenario_open_database(database_path: Path) -> dict[str, object]:
+    """
+    Perform the scenario open database operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario open database through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param database_path: Value supplied for database path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     with _open_database(database_path=str(database_path), db_type="sqlite") as db:
         works = int(db.get_record_count("works")) if "works" in set(db.get_tables()) else 0
         return {"works": works}
 
 
 def _scenario_work_list_title(app: ReadOnlyWebApplication) -> dict[str, object]:
+    """
+    Perform the scenario work list title operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario work list title through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param app: Value supplied for app under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     rows = app.read_model.work_rows(sorted_by="title")
     first_title = app._row_primary_text("works", rows[0]) if rows else ""
     return {"count": len(rows), "first_title": first_title}
 
 
 def _scenario_work_search_global(app: ReadOnlyWebApplication, *, query_text: str) -> dict[str, object]:
+    """
+    Perform the scenario work search global operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario work search global through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param app: Value supplied for app under the utility contract.
+    :param query_text: Value supplied for query text under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     payload = app.read_model.search_results_payload(query_text=query_text, table_filter="works", limit=25, offset=0)
     return {
         "query": query_text,
@@ -240,6 +404,20 @@ def _scenario_work_search_global(app: ReadOnlyWebApplication, *, query_text: str
 
 
 def _scenario_work_detail(app: ReadOnlyWebApplication, *, work_row) -> dict[str, object]:
+    """
+    Perform the scenario work detail operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario work detail through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param app: Value supplied for app under the utility contract.
+    :param work_row: Value supplied for work row under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     payload = app.read_model.work_detail_payload(work_row)
     return {
         "title": str(payload["work"]["title"]),
@@ -250,6 +428,20 @@ def _scenario_work_detail(app: ReadOnlyWebApplication, *, work_row) -> dict[str,
 
 
 def _scenario_file_download(app: ReadOnlyWebApplication, *, file_row) -> dict[str, object]:
+    """
+    Perform the scenario file download operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario file download through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param app: Value supplied for app under the utility contract.
+    :param file_row: Value supplied for file row under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     file_id = int(file_row["file_id"])
     response = app._serve_file_download(str(file_id), {"wsgi.file_wrapper": None})
     status, body_bytes = _drain_response(response)
@@ -261,6 +453,20 @@ def _scenario_file_download(app: ReadOnlyWebApplication, *, file_row) -> dict[st
 
 
 def _scenario_image_bytes(app: ReadOnlyWebApplication, *, image_row) -> dict[str, object]:
+    """
+    Perform the scenario image bytes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario image bytes through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param app: Value supplied for app under the utility contract.
+    :param image_row: Value supplied for image row under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     image_id = int(image_row["image_id"])
     stored = app.images.resolve_storage_image(image_row)
     if stored is not None:
@@ -279,6 +485,19 @@ def _scenario_image_bytes(app: ReadOnlyWebApplication, *, image_row) -> dict[str
 
 
 def main(argv: Optional[list[str]] = None) -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     args = parse_args()
     scenario_names = [one.strip() for one in str(args.scenarios).split(",") if one.strip()]
     progress = None if bool(args.quiet) else stderr_progress

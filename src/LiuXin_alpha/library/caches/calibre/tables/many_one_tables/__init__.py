@@ -1,5 +1,13 @@
 """
-API for the ManyToOneTables - if possible, import all the CalibreManyToOne table classes and subclasses from here.
+Expose the supported many one tables compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/library/test_unified_library.py
 """
 
 from LiuXin_alpha.library.caches.calibre.tables.many_one_tables.many_to_one_table import CalibreManyToOneTable

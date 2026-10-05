@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-Fallback layer: beta (CLI-only).
+Provide magick utility behavior.
 
-This avoids Wand entirely and shells out to ImageMagick command line tools.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-Implements the same public surface as the base fallback:
-    - Image(data_or_path).identify()
-    - Image(...).to_bytes(format="png")
-    - Image(...).resize(w, h)
-    - Image(...).thumbnail(max_w, max_h)
-    - Image(...).save(path, format=None)
+Example:
+    Exercise magick through a consuming regression::
+
+        python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
 """
 
 from __future__ import annotations
@@ -23,6 +22,19 @@ from typing import Any, Dict, Optional, Union
 
 
 def _which(*names: str) -> Optional[str]:
+    """
+    Perform the which utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  which through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param names: Value supplied for names under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     for n in names:
         p = shutil.which(n)
         if p:
@@ -31,14 +43,52 @@ def _which(*names: str) -> Optional[str]:
 
 
 def _magick_identify() -> Optional[str]:
+    """
+    Perform the magick identify utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  magick identify through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return _which("magick", "identify")
 
 
 def _magick_convert() -> Optional[str]:
+    """
+    Perform the magick convert utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  magick convert through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return _which("magick", "convert")
 
 
 def _safe_getsize(path: str) -> Optional[int]:
+    """
+    Safely process getsize under the documented compatibility and safety rules.
+
+    Example:
+        Exercise  safe getsize through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         return os.path.getsize(path)
     except Exception:
@@ -46,6 +96,18 @@ def _safe_getsize(path: str) -> Optional[int]:
 
 
 def __liuxin_plugin_probe__():
+    """
+    Perform the liuxin plugin probe utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise   liuxin plugin probe   through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     exe = _magick_identify() or _magick_convert()
     if not exe:
         return False, "no ImageMagick CLI (magick/identify/convert) on PATH"
@@ -58,10 +120,30 @@ def __liuxin_plugin_probe__():
 
 @dataclass
 class Image:
+    """
+    Provide the Image utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise Image through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+    """
     _src: Union[bytes, str, os.PathLike[str]]
     _tmp_path: Optional[str] = None
 
     def close(self) -> None:
+        """
+        Forward the close operation while preserving adapter ownership rules.
+
+        Example:
+            Exercise Image.close through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self._tmp_path is not None:
             try:
                 os.remove(self._tmp_path)
@@ -70,18 +152,69 @@ class Image:
             self._tmp_path = None
 
     def __del__(self) -> None:
+        """
+        Perform the del utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Image.  del   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         try:
             self.close()
         except Exception:
             pass
 
     def __enter__(self) -> "Image":
+        """
+        Implement the resource's enter lifecycle operation.
+
+        Example:
+            Exercise Image.  enter   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:  # type: ignore[override]
+        """
+        Implement the resource's exit lifecycle operation.
+
+        Example:
+            Exercise Image.  exit   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :param exc_type: Value supplied for exc type under the utility contract.
+        :param exc: Value supplied for exc under the utility contract.
+        :param tb: Value supplied for tb under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.close()
 
     def _ensure_path(self) -> str:
+        """
+        Ensure path under the documented compatibility and safety rules.
+
+        Example:
+            Exercise Image. ensure path through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if isinstance(self._src, (str, os.PathLike)):
             return os.fspath(self._src)
 
@@ -94,6 +227,18 @@ class Image:
         return self._tmp_path
 
     def identify(self) -> Dict[str, Any]:
+        """
+        Perform the identify utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Image.identify through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         exe = _magick_identify()
         if not exe:
             raise RuntimeError("ImageMagick CLI not found (need `magick` or `identify` on PATH)")
@@ -120,6 +265,19 @@ class Image:
         return out
 
     def to_bytes(self, *, format: str = "png") -> bytes:
+        """
+        Perform the to bytes utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Image.to bytes through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :param format: Value supplied for format under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         exe = _magick_convert()
         if not exe:
             raise RuntimeError("ImageMagick CLI not found (need `magick` or `convert` on PATH)")
@@ -136,6 +294,20 @@ class Image:
         return cp.stdout or b""
 
     def resize(self, width: int, height: int) -> "Image":
+        """
+        Perform the resize utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Image.resize through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :param width: Value supplied for width under the utility contract.
+        :param height: Value supplied for height under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         exe = _magick_convert()
         if not exe:
             raise RuntimeError("ImageMagick CLI not found (need `magick` or `convert` on PATH)")
@@ -167,6 +339,20 @@ class Image:
             raise
 
     def thumbnail(self, max_width: int, max_height: int) -> "Image":
+        """
+        Perform the thumbnail utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Image.thumbnail through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :param max_width: Value supplied for max width under the utility contract.
+        :param max_height: Value supplied for max height under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         exe = _magick_convert()
         if not exe:
             raise RuntimeError("ImageMagick CLI not found (need `magick` or `convert` on PATH)")
@@ -196,6 +382,21 @@ class Image:
             raise
 
     def save(self, path: Union[str, os.PathLike[str]], *, format: Optional[str] = None) -> None:
+        """
+        Perform the save utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Image.save through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param format: Value supplied for format under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         exe = _magick_convert()
         if not exe:
             raise RuntimeError("ImageMagick CLI not found (need `magick` or `convert` on PATH)")

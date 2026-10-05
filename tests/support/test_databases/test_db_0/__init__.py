@@ -1,5 +1,16 @@
 # Base data is the manually constructed base data class. Most of the test database inherit from it
 
+"""
+Build the deterministic test_db_0 database fixture and its declared content profile.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/databases/test_test_resources_manager.py
+"""
 import os
 
 from .. import TestDatabaseBuilder
@@ -15,12 +26,23 @@ def build_test_db(
     test_asset_version=None,
 ):
     """
-    Construct the test database specified by this module.
-    In this case the base data - which is present here as a collection of csv files.
-    :param dst_file_path: The file to write the database to after it's been built.
-    :param dump: HERE IGNORED
-    :param plugin_name:
-    :return:
+    Construct the test database specified by this module. In this case the base data - which is present here as a collection of csv files.
+
+    Example:
+        Exercise build test db through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param dst_file_path: Destination file written with the generated database or asset.
+    :param dump: Value supplied for dump under the deterministic fixture contract.
+    :param plugin_name: Value supplied for plugin name under the deterministic fixture
+        contract.
+    :param new_db_uuid: Value supplied for new db uuid under the deterministic fixture
+        contract.
+    :param test_asset_version: Value supplied for test asset version under the
+        deterministic fixture contract.
+    :return: None; fixture state or the supplied destination is updated in place.
     """
     test_db_builder = TestDatabaseBuilder(
         dst_file_path=dst_file_path,

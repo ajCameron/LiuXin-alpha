@@ -1,10 +1,13 @@
 """
-zip_project.py — zip up a project for upload, skipping common junk.
+Create reproducible project archives with explicit exclusion rules.
 
-Prefer Git mode (respects .gitignore) when inside a git repo:
-  git ls-files --cached --others --exclude-standard
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-Fallback mode: walk the tree and exclude common dirs/files.
+Example:
+    Exercise zip project through a consuming regression::
+
+        python -m pytest -q tests/utils/test_zip_project.py
 """
 
 from __future__ import annotations
@@ -88,6 +91,20 @@ DEFAULT_EXTRA_WALK_DIRS = {
 
 
 def run(cmd: Sequence[str], cwd: Path) -> subprocess.CompletedProcess:
+    """
+    Perform the run utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise run through a consuming regression::
+
+            python -m pytest -q tests/utils/test_zip_project.py
+
+
+    :param cmd: Value supplied for cmd under the utility contract.
+    :param cwd: Value supplied for cwd under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return subprocess.run(
         list(cmd),
         cwd=str(cwd),
@@ -99,6 +116,19 @@ def run(cmd: Sequence[str], cwd: Path) -> subprocess.CompletedProcess:
 
 
 def inside_git_repo(start: Path) -> Optional[Path]:
+    """
+    Perform the inside git repo utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise inside git repo through a consuming regression::
+
+            python -m pytest -q tests/utils/test_zip_project.py
+
+
+    :param start: Value supplied for start under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not shutil.which("git"):
         return None
     p = run(["git", "rev-parse", "--show-toplevel"], cwd=start)
@@ -110,6 +140,19 @@ def inside_git_repo(start: Path) -> Optional[Path]:
 
 def git_file_list(repo_root: Path) -> List[Path]:
     # NUL-delimited output is robust for weird filenames
+    """
+    Perform the git file list utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise git file list through a consuming regression::
+
+            python -m pytest -q tests/utils/test_zip_project.py
+
+
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     p = subprocess.run(
         ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
         cwd=str(repo_root),
@@ -131,6 +174,20 @@ def git_file_list(repo_root: Path) -> List[Path]:
 
 
 def matches_any_glob(name: str, globs: Sequence[str]) -> bool:
+    """
+    Perform the matches any glob utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise matches any glob through a consuming regression::
+
+            python -m pytest -q tests/utils/test_zip_project.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param globs: Value supplied for globs under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return any(fnmatch.fnmatch(name, g) for g in globs)
 
 
@@ -141,6 +198,23 @@ def should_exclude_path(
     exclude_globs: Sequence[str],
 ) -> bool:
     # Exclude by any directory segment name matching exclude_dirs (supports globs)
+    """
+    Perform the should exclude path utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise should exclude path through a consuming regression::
+
+            python -m pytest -q tests/utils/test_zip_project.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param rel: Value supplied for rel under the utility contract.
+    :param exclude_dirs: Value supplied for exclude dirs under the utility contract.
+    :param exclude_globs: Value supplied for exclude globs under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parts = rel.parts
     for part in parts[:-1]:
         for pat in exclude_dirs:
@@ -167,6 +241,21 @@ def iter_files_fallback(
     include_globs: Optional[Sequence[str]] = None,
 ) -> Iterable[Path]:
     # Walk with pruning for speed
+    """
+    Iterate files fallback under the documented compatibility and safety rules.
+
+    Example:
+        Exercise iter files fallback through a consuming regression::
+
+            python -m pytest -q tests/utils/test_zip_project.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param exclude_dirs: Value supplied for exclude dirs under the utility contract.
+    :param exclude_globs: Value supplied for exclude globs under the utility contract.
+    :param include_globs: Value supplied for include globs under the utility contract.
+    :return: An iterator yielding the normalized values described above.
+    """
     for dirpath, dirnames, filenames in os.walk(root):
         dirpath_p = Path(dirpath)
         rel_dir = dirpath_p.relative_to(root)
@@ -206,11 +295,20 @@ def iter_files_subtree(
     exclude_dirs: Sequence[str],
     exclude_globs: Sequence[str],
 ) -> Iterable[Path]:
-    """Walk `subtree_root` and yield files, filtering by `repo_root`-relative paths.
+    """
+    Walk `subtree_root` and yield files, filtering by `repo_root`-relative paths.
 
-    This is mainly used to include nested Git repositories (directories containing their own
-    `.git` metadata). Git will not enumerate their contents via `git ls-files`, but for
-    upload zips we often *do* want the working tree content (excluding Git internals).
+    Example:
+        Exercise iter files subtree through a consuming regression::
+
+            python -m pytest -q tests/utils/test_zip_project.py
+
+
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :param subtree_root: Value supplied for subtree root under the utility contract.
+    :param exclude_dirs: Value supplied for exclude dirs under the utility contract.
+    :param exclude_globs: Value supplied for exclude globs under the utility contract.
+    :return: An iterator yielding the normalized values described above.
     """
 
     for dirpath, dirnames, filenames in os.walk(subtree_root):
@@ -230,6 +328,19 @@ def iter_files_subtree(
 
 
 def default_output_name(root: Path) -> str:
+    """
+    Perform the default output name utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise default output name through a consuming regression::
+
+            python -m pytest -q tests/utils/test_zip_project.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     stamp = time.strftime("%Y%m%d-%H%M%S")
     return f"{root.name}-{stamp}.zip"
 
@@ -241,6 +352,23 @@ def zip_files(
     max_size_mb: Optional[float],
     dry_run: bool,
 ) -> Tuple[int, int]:
+    """
+    Perform the zip files utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise zip files through a consuming regression::
+
+            python -m pytest -q tests/utils/test_zip_project.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param files: Value supplied for files under the utility contract.
+    :param out_zip: Value supplied for out zip under the utility contract.
+    :param max_size_mb: Value supplied for max size mb under the utility contract.
+    :param dry_run: Value supplied for dry run under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     added = 0
     skipped = 0
 
@@ -287,6 +415,19 @@ def zip_files(
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
+    """
+    Perform the main utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/utils/test_zip_project.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ap = argparse.ArgumentParser(description="Create a clean zip of a project directory for upload.")
     ap.add_argument("path", nargs="?", default=".", help="Project directory (default: .)")
     ap.add_argument("-o", "--output", default=None, help="Output zip path (default: <project>-YYYYMMDD-HHMMSS.zip)")

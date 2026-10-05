@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
-"""Build and verify optional LiuXin data artifacts.
+"""
+Build project distribution artifacts.
 
-The large artifacts live in the separate private data checkout. This script is
-the single entry point from the main repo: it wraps existing builders, pins the
-child build environment, and writes/verifies a manifest using content hashes.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise build artifacts through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
 """
 
 from __future__ import annotations
@@ -40,10 +45,36 @@ DETERMINISM_NOTES = (
 
 
 def _log(message: str) -> None:
+    """
+    Perform the log operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  log through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param message: Value supplied for message under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     print(f"[artifacts] {message}", file=sys.stderr, flush=True)
 
 
 def _format_bytes(size: int) -> str:
+    """
+    Perform the format bytes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  format bytes through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param size: Value supplied for size under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     value = float(size)
     for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
         if value < 1024.0 or unit == "TiB":
@@ -56,7 +87,14 @@ def _format_bytes(size: int) -> str:
 
 @dataclass(frozen=True)
 class ArtifactSpec:
-    """Declarative build, provenance, and validation rules for one artifact."""
+    """
+    Declarative build, provenance, and validation rules for one artifact.
+
+    Example:
+        Exercise ArtifactSpec through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+    """
 
     name: str
     relative_path: Path
@@ -102,6 +140,19 @@ ARTIFACTS: dict[str, ArtifactSpec] = {
 
 
 def _resolve_data_root(explicit: Optional[str]) -> Path:
+    """
+    Perform the resolve data root operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  resolve data root through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param explicit: Value supplied for explicit under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     candidates: list[Path] = []
     if explicit:
         _log(f"data root requested explicitly: {explicit}")
@@ -134,6 +185,20 @@ def _resolve_data_root(explicit: Optional[str]) -> Path:
 
 
 def _resolve_manifest_path(data_root: Path, explicit: Optional[str]) -> Path:
+    """
+    Perform the resolve manifest path operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  resolve manifest path through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param data_root: Value supplied for data root under the utility contract.
+    :param explicit: Value supplied for explicit under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if explicit:
         path = Path(explicit).expanduser()
         if not path.is_absolute():
@@ -146,6 +211,19 @@ def _resolve_manifest_path(data_root: Path, explicit: Optional[str]) -> Path:
 
 
 def _dump_zip_candidates(explicit: Optional[str]) -> list[Path]:
+    """
+    Perform the dump zip candidates operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  dump zip candidates through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param explicit: Value supplied for explicit under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     candidates: list[Path] = []
     if explicit:
         candidates.append(Path(explicit).expanduser())
@@ -167,6 +245,20 @@ def _dump_zip_candidates(explicit: Optional[str]) -> list[Path]:
 
 
 def _resolve_dump_zip(explicit: Optional[str], *, required: bool) -> Optional[Path]:
+    """
+    Perform the resolve dump zip operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  resolve dump zip through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param explicit: Value supplied for explicit under the utility contract.
+    :param required: Value supplied for required under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     candidates = _dump_zip_candidates(explicit)
     for candidate in candidates:
         _log(f"checking ISFDB dump zip candidate: {candidate}")
@@ -184,6 +276,20 @@ def _resolve_dump_zip(explicit: Optional[str], *, required: bool) -> Optional[Pa
 
 
 def _selected_specs(artifact: str, *, build_only: bool = False) -> list[ArtifactSpec]:
+    """
+    Perform the selected specs operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  selected specs through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param artifact: Value supplied for artifact under the utility contract.
+    :param build_only: Value supplied for build only under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if artifact == "all":
         values = list(ARTIFACTS.values())
     else:
@@ -204,6 +310,19 @@ def _selected_specs(artifact: str, *, build_only: bool = False) -> list[Artifact
 
 
 def _child_env(data_root: Path) -> dict[str, str]:
+    """
+    Perform the child env operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  child env through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param data_root: Value supplied for data root under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     env = os.environ.copy()
     env.update(DETERMINISTIC_CHILD_ENV)
     env["LIUXIN_ALPHA_DATA_DIR"] = str(data_root)
@@ -212,6 +331,20 @@ def _child_env(data_root: Path) -> dict[str, str]:
 
 
 def _run(command: Sequence[str], *, data_root: Path) -> None:
+    """
+    Perform the run operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  run through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param command: Value supplied for command under the utility contract.
+    :param data_root: Value supplied for data root under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     _log(f"deterministic child env: {DETERMINISTIC_CHILD_ENV}")
     _log(f"child data root: {data_root}")
     _log("$ " + " ".join(command))
@@ -231,6 +364,23 @@ def build_artifact(
     force: bool,
     regenerate: bool,
 ) -> None:
+    """
+    Perform the build artifact operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise build artifact through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param spec: Value supplied for spec under the utility contract.
+    :param data_root: Value supplied for data root under the utility contract.
+    :param dump_zip: Value supplied for dump zip under the utility contract.
+    :param force: Value supplied for force under the utility contract.
+    :param regenerate: Value supplied for regenerate under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if not spec.buildable:
         raise SystemExit(f"{spec.name} is manifest-only: {spec.legacy_manifest_only_reason}")
 
@@ -276,6 +426,20 @@ def build_artifact(
 
 
 def _sha256_file(path: Path) -> str:
+    """
+    Perform the sha256 file operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  sha256 file through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     digest = hashlib.sha256()
     size = path.stat().st_size
     processed = 0
@@ -297,6 +461,20 @@ def _sha256_file(path: Path) -> str:
 
 
 def _file_payload(path: Path) -> dict[str, object]:
+    """
+    Perform the file payload operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  file payload through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     _log(f"collecting file payload: {path}")
     return {
         "size_bytes": path.stat().st_size,
@@ -305,6 +483,21 @@ def _file_payload(path: Path) -> dict[str, object]:
 
 
 def _sqlite_counts(path: Path, tables: Iterable[str]) -> dict[str, int]:
+    """
+    Perform the sqlite counts operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  sqlite counts through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param tables: Value supplied for tables under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     _log(f"collecting SQLite counts from {path}")
     counts: dict[str, int] = {}
     conn = sqlite3.connect(str(path))
@@ -328,10 +521,38 @@ def _sqlite_counts(path: Path, tables: Iterable[str]) -> dict[str, int]:
 
 
 def _read_json(path: Path) -> dict[str, object]:
+    """
+    Read json under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  read json through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _summary_payload(spec: ArtifactSpec, data_root: Path) -> dict[str, object]:
+    """
+    Perform the summary payload operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  summary payload through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param spec: Value supplied for spec under the utility contract.
+    :param data_root: Value supplied for data root under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     summary_path = data_root / spec.relative_path.parent / "build_summary.json"
     if not summary_path.is_file():
         _log(f"no build summary found for {spec.name}: {summary_path}")
@@ -346,6 +567,19 @@ def _summary_payload(spec: ArtifactSpec, data_root: Path) -> dict[str, object]:
 
 
 def _source_zip_payload(dump_zip: Optional[Path]) -> Optional[dict[str, object]]:
+    """
+    Perform the source zip payload operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  source zip payload through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param dump_zip: Value supplied for dump zip under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if dump_zip is None or not dump_zip.is_file():
         _log("source zip payload skipped; no source zip available")
         return None
@@ -356,6 +590,19 @@ def _source_zip_payload(dump_zip: Optional[Path]) -> Optional[dict[str, object]]
 
 
 def _rebuild_command(spec: ArtifactSpec) -> str:
+    """
+    Perform the rebuild command operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  rebuild command through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param spec: Value supplied for spec under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if spec.name == "benchmark-smoke":
         return "python3 scripts/build_artifacts.py build --artifact benchmark-smoke --regenerate"
     if spec.name == "isfdb-current":
@@ -372,6 +619,21 @@ def _manifest_entry(
     data_root: Path,
     dump_zip: Optional[Path],
 ) -> dict[str, object]:
+    """
+    Perform the manifest entry operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  manifest entry through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param spec: Value supplied for spec under the utility contract.
+    :param data_root: Value supplied for data root under the utility contract.
+    :param dump_zip: Value supplied for dump zip under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     artifact_path = data_root / spec.relative_path
     _log(f"building manifest entry for {spec.name}")
     entry: dict[str, object] = {
@@ -424,6 +686,22 @@ def write_manifest(
     specs: Sequence[ArtifactSpec],
     dump_zip: Optional[Path],
 ) -> None:
+    """
+    Write manifest under the format's safety and compatibility rules.
+
+    Example:
+        Exercise write manifest through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param data_root: Value supplied for data root under the utility contract.
+    :param manifest_path: Value supplied for manifest path under the utility contract.
+    :param specs: Value supplied for specs under the utility contract.
+    :param dump_zip: Value supplied for dump zip under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     _log(f"writing manifest: {manifest_path}")
     selected_names = {spec.name for spec in specs}
     existing_entries: dict[str, dict[str, object]] = {}
@@ -470,6 +748,24 @@ def verify_manifest(
     dump_zip: Optional[Path],
     require_source: bool,
 ) -> int:
+    """
+    Perform the verify manifest operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise verify manifest through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param data_root: Value supplied for data root under the utility contract.
+    :param manifest_path: Value supplied for manifest path under the utility contract.
+    :param specs: Value supplied for specs under the utility contract.
+    :param allow_missing: Value supplied for allow missing under the utility contract.
+    :param dump_zip: Value supplied for dump zip under the utility contract.
+    :param require_source: Value supplied for require source under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     _log(f"verifying manifest: {manifest_path}")
     payload = _read_json(manifest_path)
     requested = {spec.name for spec in specs}
@@ -483,6 +779,20 @@ def verify_manifest(
     _log(f"manifest entries selected for verification: {len(entries)}")
 
     def cached_hash(path: Path) -> str:
+        """
+        Perform the cached hash operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise verify manifest.cached hash through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         key = path.resolve()
         if key not in hash_cache:
             hash_cache[key] = _sha256_file(path)
@@ -541,6 +851,19 @@ def verify_manifest(
 
 
 def _add_common_args(parser: argparse.ArgumentParser) -> None:
+    """
+    Perform the add common args operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  add common args through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param parser: Value supplied for parser under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     parser.add_argument("--data-root", help="Path to the LiuXin_alpha_data checkout.")
     parser.add_argument("--manifest", help=f"Manifest path; defaults to <data-root>/{DEFAULT_MANIFEST_NAME}.")
     parser.add_argument("--dump-zip", help=f"Path to {DEFAULT_ISFDB_DUMP_NAME}.")
@@ -553,6 +876,19 @@ def _add_common_args(parser: argparse.ArgumentParser) -> None:
 
 
 def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
+    """
+    Parse args under the format's safety and compatibility rules.
+
+    Example:
+        Exercise parse args through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -580,6 +916,19 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     args = parse_args(argv)
     _log(f"command: {args.command}")
     _log(f"repo root: {REPO_ROOT}")

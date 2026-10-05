@@ -1,3 +1,14 @@
+"""
+Provide test htmlz malformed hostile utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test htmlz malformed hostile through a consuming regression::
+
+        python -m pytest -q tests/file_formats/htmlz/test_htmlz_malformed_hostile.py
+"""
 from __future__ import annotations
 
 import re
@@ -21,6 +32,19 @@ from tests.support.file_format_htmlz import (
 
 
 def _opf_with_cover(cover_href: str) -> bytes:
+    """
+    Perform the opf with cover operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  opf with cover through a consuming regression::
+
+            python -m pytest -q tests/file_formats/htmlz/test_htmlz_malformed_hostile.py
+
+
+    :param cover_href: Value supplied for cover href under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     cover_href = escape(cover_href, {'"': "&quot;"})
     return f"""<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="BookId">
@@ -40,6 +64,22 @@ def _opf_with_cover(cover_href: str) -> bytes:
 
 
 def _convert_htmlz(archive: Path, workdir: Path, monkeypatch, log: NullLog):
+    """
+    Convert htmlz under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  convert htmlz through a consuming regression::
+
+            python -m pytest -q tests/file_formats/htmlz/test_htmlz_malformed_hostile.py
+
+
+    :param archive: Value supplied for archive under the utility contract.
+    :param workdir: Value supplied for workdir under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.htmlz_input import HTMLZInput
 
     workdir.mkdir()
@@ -59,6 +99,22 @@ def _assert_htmlz_rejects_before_html_handoff(
     monkeypatch,
     match: str,
 ) -> None:
+    """
+    Perform the assert htmlz rejects before html handoff operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  assert htmlz rejects before html handoff through a consuming regression::
+
+            python -m pytest -q tests/file_formats/htmlz/test_htmlz_malformed_hostile.py
+
+
+    :param archive: Value supplied for archive under the utility contract.
+    :param workdir: Value supplied for workdir under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param match: Value supplied for match under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.htmlz_input import HTMLZInput
 
     workdir.mkdir()
@@ -78,6 +134,21 @@ def _assert_htmlz_rejects_before_html_handoff(
 
 
 def _assert_optional_enrichment_loss(options, code: str, **details) -> None:
+    """
+    Perform the assert optional enrichment loss operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  assert optional enrichment loss through a consuming regression::
+
+            python -m pytest -q tests/file_formats/htmlz/test_htmlz_malformed_hostile.py
+
+
+    :param options: Value supplied for options under the utility contract.
+    :param code: Value supplied for code under the utility contract.
+    :param details: Value supplied for details under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     report = options.conversion_report
     events = [event for event in report.loss_events if event.code == code]
     assert len(events) == 1
@@ -100,6 +171,23 @@ def _assert_htmlz_preflight_rejects_without_partial_output(
     match: str,
     input_cls=None,
 ) -> None:
+    """
+    Perform the assert htmlz preflight rejects without partial output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  assert htmlz preflight rejects without partial output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/htmlz/test_htmlz_malformed_hostile.py
+
+
+    :param archive: Value supplied for archive under the utility contract.
+    :param workdir: Value supplied for workdir under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param match: Value supplied for match under the utility contract.
+    :param input_cls: Value supplied for input cls under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.htmlz_input import HTMLZInput
 
     workdir.mkdir()
@@ -126,6 +214,20 @@ def test_htmlz_input_rejects_archive_without_top_level_html_before_html_handoff(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test htmlz input rejects archive without top level html before html handoff operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test htmlz input rejects archive without top level html before html handoff through a consuming regression::
+
+            python -m pytest -q tests/file_formats/htmlz/test_htmlz_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     base = build_unicode_htmlz(tmp_path / "base.htmlz")
     hostile = tmp_path / "missing_top_level_html.htmlz"
     rewrite_htmlz_zip(
@@ -148,6 +250,20 @@ def test_htmlz_input_rejects_empty_top_level_html_before_html_handoff(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test htmlz input rejects empty top level html before html handoff operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test htmlz input rejects empty top level html before html handoff through a consuming regression::
+
+            python -m pytest -q tests/file_formats/htmlz/test_htmlz_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     base = build_unicode_htmlz(tmp_path / "base.htmlz")
     hostile = tmp_path / "empty_index.htmlz"
     rewrite_htmlz_zip(base.path, hostile, replace={base.html_member: b""})
@@ -164,6 +280,20 @@ def test_htmlz_input_warns_and_ignores_malformed_optional_opf(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test htmlz input warns and ignores malformed optional opf operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test htmlz input warns and ignores malformed optional opf through a consuming regression::
+
+            python -m pytest -q tests/file_formats/htmlz/test_htmlz_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     base = build_unicode_htmlz(tmp_path / "base.htmlz")
     hostile = tmp_path / "malformed_opf.htmlz"
     rewrite_htmlz_zip(
@@ -198,6 +328,20 @@ def test_htmlz_input_warns_and_ignores_missing_optional_cover(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test htmlz input warns and ignores missing optional cover operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test htmlz input warns and ignores missing optional cover through a consuming regression::
+
+            python -m pytest -q tests/file_formats/htmlz/test_htmlz_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     base = build_unicode_htmlz(tmp_path / "base.htmlz")
     hostile = tmp_path / "missing_cover.htmlz"
     rewrite_htmlz_zip(base.path, hostile, remove=(HTMLZ_IMAGE_MEMBER,))
@@ -236,6 +380,21 @@ def test_htmlz_input_warns_and_ignores_unsafe_optional_cover_reference(
     monkeypatch,
     cover_href: str,
 ) -> None:
+    """
+    Perform the test htmlz input warns and ignores unsafe optional cover reference operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test htmlz input warns and ignores unsafe optional cover reference through a consuming regression::
+
+            python -m pytest -q tests/file_formats/htmlz/test_htmlz_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param cover_href: Value supplied for cover href under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     base = build_unicode_htmlz(tmp_path / "base.htmlz")
     hostile = tmp_path / "unsafe_cover_ref.htmlz"
     rewrite_htmlz_zip(
@@ -268,6 +427,20 @@ def test_htmlz_input_rejects_non_zip_payload_before_extraction(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test htmlz input rejects non zip payload before extraction operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test htmlz input rejects non zip payload before extraction through a consuming regression::
+
+            python -m pytest -q tests/file_formats/htmlz/test_htmlz_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     hostile = tmp_path / "not_an_htmlz.htmlz"
     hostile.write_bytes("not an HTMLZ zip: Καλημέρα".encode("utf-8"))
 
@@ -295,6 +468,22 @@ def test_htmlz_input_rejects_unsafe_archive_member_paths_before_extraction(
     case_id: str,
     member_name: str,
 ) -> None:
+    """
+    Perform the test htmlz input rejects unsafe archive member paths before extraction operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test htmlz input rejects unsafe archive member paths before extraction through a consuming regression::
+
+            python -m pytest -q tests/file_formats/htmlz/test_htmlz_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param case_id: Value supplied for case id under the utility contract.
+    :param member_name: Value supplied for member name under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     base = build_unicode_htmlz(tmp_path / "base.htmlz")
     hostile = tmp_path / f"{case_id}.htmlz"
     rewrite_htmlz_zip(base.path, hostile, add={member_name: b"unsafe"})
@@ -311,9 +500,31 @@ def test_htmlz_input_rejects_too_many_archive_members_without_partial_output(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test htmlz input rejects too many archive members without partial output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test htmlz input rejects too many archive members without partial output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/htmlz/test_htmlz_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.htmlz_input import HTMLZInput
 
     class StrictHTMLZInput(HTMLZInput):
+        """
+        Convert stricthtmlzinput sources into the normalized OEB pipeline model.
+
+        Example:
+            Exercise test htmlz input rejects too many archive members without partial output.StrictHTMLZInput through a consuming regression::
+
+                python -m pytest -q tests/file_formats/htmlz/test_htmlz_malformed_hostile.py
+        """
         max_archive_members = 8
 
     base = build_unicode_htmlz(tmp_path / "small.htmlz", lines=("small",))
@@ -337,9 +548,31 @@ def test_htmlz_input_rejects_oversized_archive_member_without_partial_output(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test htmlz input rejects oversized archive member without partial output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test htmlz input rejects oversized archive member without partial output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/htmlz/test_htmlz_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.htmlz_input import HTMLZInput
 
     class StrictHTMLZInput(HTMLZInput):
+        """
+        Convert stricthtmlzinput sources into the normalized OEB pipeline model.
+
+        Example:
+            Exercise test htmlz input rejects oversized archive member without partial output.StrictHTMLZInput through a consuming regression::
+
+                python -m pytest -q tests/file_formats/htmlz/test_htmlz_malformed_hostile.py
+        """
         max_member_uncompressed_size = 10 * 1024
 
     base = build_unicode_htmlz(tmp_path / "small.htmlz", lines=("small",))
@@ -359,9 +592,31 @@ def test_htmlz_input_rejects_excessive_total_expansion_without_partial_output(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test htmlz input rejects excessive total expansion without partial output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test htmlz input rejects excessive total expansion without partial output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/htmlz/test_htmlz_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.htmlz_input import HTMLZInput
 
     class StrictHTMLZInput(HTMLZInput):
+        """
+        Convert stricthtmlzinput sources into the normalized OEB pipeline model.
+
+        Example:
+            Exercise test htmlz input rejects excessive total expansion without partial output.StrictHTMLZInput through a consuming regression::
+
+                python -m pytest -q tests/file_formats/htmlz/test_htmlz_malformed_hostile.py
+        """
         max_member_uncompressed_size = 100 * 1024
         max_total_uncompressed_size = 30 * 1024
 
@@ -386,9 +641,31 @@ def test_htmlz_input_rejects_suspicious_compression_ratio_without_partial_output
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test htmlz input rejects suspicious compression ratio without partial output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test htmlz input rejects suspicious compression ratio without partial output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/htmlz/test_htmlz_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.htmlz_input import HTMLZInput
 
     class StrictHTMLZInput(HTMLZInput):
+        """
+        Convert stricthtmlzinput sources into the normalized OEB pipeline model.
+
+        Example:
+            Exercise test htmlz input rejects suspicious compression ratio without partial output.StrictHTMLZInput through a consuming regression::
+
+                python -m pytest -q tests/file_formats/htmlz/test_htmlz_malformed_hostile.py
+        """
         max_compression_ratio = 20
         min_compression_ratio_check_size = 32 * 1024
 

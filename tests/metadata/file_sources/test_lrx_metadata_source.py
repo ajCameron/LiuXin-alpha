@@ -1,3 +1,14 @@
+"""
+Verify LRX metadata handling and optional corpus behavior.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test lrx metadata source through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_lrx_metadata_source.py
+"""
 from __future__ import annotations
 
 import io
@@ -10,6 +21,18 @@ import pytest
 
 
 def _values(raw):
+    """
+    Perform the values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise values through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrx_metadata_source.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, Mapping):
@@ -33,6 +56,25 @@ def _build_lrx_payload(
     author_sort: str = "Lovelace, Ada",
     lrf_version: int = 700,
 ) -> bytes:
+    """
+    Perform the build lrx payload test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise build lrx payload through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrx_metadata_source.py
+
+
+    :param title: Value supplied for title in the focused test operation.
+    :param author: Value supplied for author in the focused test operation.
+    :param publisher: Value supplied for publisher in the focused test operation.
+    :param categories: Value supplied for categories in the focused test operation.
+    :param language: Value supplied for language in the focused test operation.
+    :param title_sort: Value supplied for title sort in the focused test operation.
+    :param author_sort: Value supplied for author sort in the focused test operation.
+    :param lrf_version: Value supplied for lrf version in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     category_nodes = "".join(f"<Category>{x}</Category>" for x in categories)
     xml = (
         "<Root>"
@@ -78,12 +120,34 @@ def _build_lrx_payload(
 
 
 def test_lrx_metadata_module_import_smoke() -> None:
+    """
+    Verify lrx metadata module import smoke.
+
+    Example:
+        Exercise test lrx metadata module import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrx_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.lrx as lrx_md
 
     assert lrx_md is not None
 
 
 def test_lrx_reader_plugin_is_available_and_keeps_stream_position() -> None:
+    """
+    Verify lrx reader plugin remains available and keeps stream position.
+
+    Example:
+        Exercise test lrx reader plugin is available and keeps stream position through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrx_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
 
     plugins = get_metadata_reader_plugins()
@@ -103,6 +167,17 @@ def test_lrx_reader_plugin_is_available_and_keeps_stream_position() -> None:
 
 
 def test_lrx_get_metadata_extracts_fields_and_unicode() -> None:
+    """
+    Verify lrx get metadata extracts fields and unicode.
+
+    Example:
+        Exercise test lrx get metadata extracts fields and unicode through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrx_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.lrx import get_metadata
 
     payload = _build_lrx_payload(
@@ -126,6 +201,17 @@ def test_lrx_get_metadata_extracts_fields_and_unicode() -> None:
 
 
 def test_lrx_get_metadata_supports_version_800_layout() -> None:
+    """
+    Verify lrx get metadata supports version 800 layout.
+
+    Example:
+        Exercise test lrx get metadata supports version 800 layout through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrx_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.lrx import get_metadata
 
     payload = _build_lrx_payload(lrf_version=800, title="Version 800")
@@ -136,6 +222,18 @@ def test_lrx_get_metadata_supports_version_800_layout() -> None:
 
 
 def test_lrx_get_metadata_pathlike_input(tmp_path: Path) -> None:
+    """
+    Verify lrx get metadata pathlike input.
+
+    Example:
+        Exercise test lrx get metadata pathlike input through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrx_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.lrx import get_metadata
 
     path = tmp_path / "path_like_test.lrx"
@@ -147,6 +245,17 @@ def test_lrx_get_metadata_pathlike_input(tmp_path: Path) -> None:
 
 
 def test_lrx_invalid_header_raises_by_default_and_can_opt_into_fallback() -> None:
+    """
+    Verify lrx invalid header raises by default and can opt into fallback.
+
+    Example:
+        Exercise test lrx invalid header raises by default and can opt into fallback through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrx_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.lrx import LrxFormatError, get_metadata
 
     with pytest.raises(LrxFormatError):
@@ -158,6 +267,17 @@ def test_lrx_invalid_header_raises_by_default_and_can_opt_into_fallback() -> Non
 
 
 def test_lrx_unsupported_librie_header_returns_safe_default() -> None:
+    """
+    Verify lrx unsupported librie header returns safe default.
+
+    Example:
+        Exercise test lrx unsupported librie header returns safe default through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrx_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.lrx import get_metadata
 
     payload = b"\x00\x00\x00\x00LRX2" + b"\x00" * 8
@@ -167,6 +287,18 @@ def test_lrx_unsupported_librie_header_returns_safe_default() -> None:
 
 
 def test_lrx_truncated_payload_raises_by_default_and_can_opt_into_fallback(tmp_path: Path) -> None:
+    """
+    Verify lrx truncated payload raises by default and can opt into fallback.
+
+    Example:
+        Exercise test lrx truncated payload raises by default and can opt into fallback through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrx_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.lrx import LrxFormatError, get_metadata
 
     path = tmp_path / "broken_sample.lrx"
@@ -183,6 +315,19 @@ def test_lrx_truncated_payload_raises_by_default_and_can_opt_into_fallback(tmp_p
 
 
 def test_lrx_optional_real_fixtures_parse_without_crash(md_test_files_by_ext: dict[str, list[Path]]) -> None:
+    """
+    Verify lrx optional real fixtures parse without crash.
+
+    Example:
+        Exercise test lrx optional real fixtures parse without crash through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrx_metadata_source.py
+
+
+    :param md_test_files_by_ext: Value supplied for md test files by ext in the focused
+        test operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.lrx import get_metadata
 
     fixtures = list(md_test_files_by_ext.get("lrx", []))

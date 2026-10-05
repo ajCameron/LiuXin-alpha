@@ -1,3 +1,14 @@
+"""
+Build deterministic test-database images covers db 0 data and relationships.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise images covers db 0 through a consuming regression::
+
+        python -m pytest -q tests/databases/test_test_resources_manager.py
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -27,6 +38,19 @@ _JPEG_BYTES = b"\xff\xd8\xff\xe0FAKEJPEG\xff\xd9"
 
 
 def populate_bundle(bundle_dir: Path) -> None:
+    """
+    Populate one deterministic fixture bundle with related database rows.
+
+    Example:
+        Exercise populate bundle through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param bundle_dir: Value supplied for bundle dir under the deterministic fixture
+        contract.
+    :return: None; fixture state or the supplied destination is updated in place.
+    """
     bundle_dir = Path(bundle_dir)
     bundle_dir.mkdir(parents=True, exist_ok=True)
     db_path = build_base_profiled_db(bundle_dir=bundle_dir, db_name=DB_NAME, books=3)

@@ -1,7 +1,13 @@
-"""Tiny helpers that some calibre code expects.
+"""
+Expose the supported metadata compatibility surface.
 
-Wherever it makes sense, these functions delegate to existing LiuXin
-implementations (LiuXin began life as a calibre fork).
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
 """
 
 from __future__ import annotations

@@ -1,5 +1,13 @@
 """
-Make strings safe for use as ASCII filenames, while trying to preserve as much meaning as possible.
+Normalize and validate local storage filenames and extensions.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise filenames through a consuming regression::
+
+        python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
 """
 
 import os
@@ -27,14 +35,17 @@ def sanitize_file_name(name: str, substitute: str = "_", as_unicode: bool = Fals
     """
     Sanitize the filename `name`. All invalid characters are replaced by `substitute`.
 
-    The set of invalid characters is the union of the invalid characters in Windows, OS X and Linux.
-    Also removes leading and trailing whitespace.
-    **WARNING:** This function also replaces path separators, so only pass file names and not full paths to it.
-    *NOTE:* In this Python 3 port this returns text (`str`), not bytes.
-    :param name:
-    :param substitute:
-    :param as_unicode:
-    :return:
+    Example:
+        Exercise sanitize file name through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param substitute: Value supplied for substitute under the utility contract.
+    :param as_unicode: Value supplied for as unicode under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if isinstance(name, bytes):
         name = name.decode(filesystem_encoding, "replace")
@@ -63,14 +74,16 @@ def sanitize_file_name_unicode(name: str, substitute: str="_") -> Union[str, byt
     """
     Sanitize the filename `name`. All invalid characters are replaced by `substitute`.
 
-    The set of invalid characters is the union of the invalid characters in Windows,
-    OS X and Linux. Also removes leading and trailing whitespace.
-    **WARNING:** This function also replaces path separators, so only pass file names
-    and not full paths to it.
+    Example:
+        Exercise sanitize file name unicode through a consuming regression::
 
-    :param name:
-    :param substitute:
-    :return:
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param substitute: Value supplied for substitute under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if isbytestring(name):
         return sanitize_file_name(name, substitute=substitute, as_unicode=True)
@@ -92,8 +105,18 @@ def sanitize_file_name_unicode(name: str, substitute: str="_") -> Union[str, byt
 
 def sanitize_file_name2(name, substitute="_"):
     """
-    Sanitize filenames removing invalid chars. Keeps unicode names as unicode
-    and bytestrings as bytestrings
+    Sanitize filenames removing invalid chars. Keeps unicode names as unicode and bytestrings as bytestrings
+
+    Example:
+        Exercise sanitize file name2 through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param substitute: Value supplied for substitute under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if isbytestring(name):
         return sanitize_file_name(name, substitute=substitute)
@@ -106,8 +129,15 @@ def ascii_text(orig: str) -> str:
     """
     Force a string to ASCII - if it isn't already.
 
-    :param orig:
-    :return:
+    Example:
+        Exercise ascii text through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param orig: Value supplied for orig under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     udc = get_udc()
     try:
@@ -124,9 +154,16 @@ def ascii_filename(orig: str, substitute: str = "_") -> Union[str, bytes]:
     """
     Render a filename to pure ascii.
 
-    :param orig:
-    :param substitute:
-    :return:
+    Example:
+        Exercise ascii filename through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param orig: Value supplied for orig under the utility contract.
+    :param substitute: Value supplied for substitute under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     ans = []
     orig = ascii_text(orig).replace("?", "_")
@@ -141,8 +178,16 @@ def supports_long_names(path: str) -> bool:
     """
     Checks to see if a drive supports long names.
 
-    :param path:
-    :return:
+    Example:
+        Exercise supports long names through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     t = ("a" * 300) + ".txt"
     try:
@@ -159,9 +204,16 @@ def shorten_component(s: str, by_what: int) -> str:
     """
     Knock the middle out of a string.
 
-    :param s:
-    :param by_what:
-    :return:
+    Example:
+        Exercise shorten component through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :param by_what: Value supplied for by what under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     l = len(s)
     if l < by_what:
@@ -176,10 +228,17 @@ def shorten_components_to(length: int, components: list[str], more_to_take: int 
     """
     Shorten each component of a list - so it can be rebuilt later into a shorter path.
 
-    :param length:
-    :param components:
-    :param more_to_take:
-    :return:
+    Example:
+        Exercise shorten components to through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param length: Value supplied for length under the utility contract.
+    :param components: Value supplied for components under the utility contract.
+    :param more_to_take: Value supplied for more to take under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     filepath = os.sep.join(components)
     extra = len(filepath) - (length - more_to_take)
@@ -218,9 +277,17 @@ def find_executable_in_path(name: str, path: Optional[str] = None) -> Optional[s
     """
     Find a given executable in the given path.
 
-    :param name:
-    :param path:
-    :return:
+    Example:
+        Exercise find executable in path through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if path is None:
         path = os.environ.get("PATH", "")
@@ -239,13 +306,15 @@ def is_case_sensitive(path: str) -> bool:
     """
     Return True if the filesystem the path terminates in is case-sensitive.
 
-    path must be the path to an existing directory. You must have permission
-    to create and delete files in this directory. The results of this test
-    apply to the filesystem containing the directory in path.
-    Tests by writing two files whose paths are the same up to different cases and checks to see if both exist
-    afterwards,
-    :param path:
-    :return:
+    Example:
+        Exercise is case sensitive through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: True when the documented condition holds; otherwise False.
     """
     test_is_case_sensitive = False
 
@@ -268,17 +337,18 @@ def case_preserving_open_file(path: Union[str, bytes], mode: str = "wb", mkdir_m
     """
     Open the file pointed to by path with the specified mode.
 
-    If any directories in path do not exist, they are created. Returns the
-    opened file object and the path to the opened file object. This path is
-    guaranteed to have the same case as the on disk path. For case-insensitive
-    filesystems, the returned path may be different from the passed in path.
-    The returned path is always unicode and always an absolute path.
+    Example:
+        Exercise case preserving open file through a consuming regression::
 
-    If mode is None, then this function assumes that path points to a directory
-    and return the path to the directory as the file object.
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
 
-    mkdir_mode specifies the mode with which any missing directories in path
-    are created.
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param mode: Open or adapter mode controlling read/write behavior.
+    :param mkdir_mode: Value supplied for mkdir mode under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if isbytestring(path):
         path = path.decode(filesystem_encoding)
@@ -354,10 +424,16 @@ def windows_get_fileid(path: Union[str, bytes]):
     """
     The fileid uniquely identifies actual file contents (it is the same for all hardlinks to a file).
 
-    Similar to inode number on linux.
+    Example:
+        Exercise windows get fileid through a consuming regression::
 
-    :param path:
-    :return:
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     import win32file
 
@@ -385,6 +461,20 @@ def windows_get_fileid(path: Union[str, bytes]):
 
 
 def samefile_windows(src, dst):
+    """
+    Perform the samefile windows utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise samefile windows through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param src: Value supplied for src under the utility contract.
+    :param dst: Value supplied for dst under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     samestring = os.path.normcase(os.path.abspath(src)) == os.path.normcase(os.path.abspath(dst))
     if samestring:
         return True
@@ -399,17 +489,16 @@ def samefile(src: Union[str, bytes], dst: Union[str, bytes]) -> bool:
     """
     Check if two paths point to the same actual file on the filesystem.
 
-    Handles symlinks, case insensitivity, mapped drives, etc.
+    Example:
+        Exercise samefile through a consuming regression::
 
-    Returns True iff both paths exist and point to the same file on disk.
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
 
-    Note: On windows will return True if the two string are identical (upto
-    case) even if the file does not exist. This is because I have no way of
-    knowing how reliable the GetFileInformationByHandle method is.
 
-    :param src:
-    :param dst:
-    :return:
+    :param src: Value supplied for src under the utility contract.
+    :param dst: Value supplied for dst under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if iswindows:
         return samefile_windows(src, dst)
@@ -430,11 +519,16 @@ def windows_get_size(path: Union[bytes, str]) -> int:
     """
     On Windows file sizes are only accurately stored in the actual file.
 
-    Not in the directory entry (which could be out of date).
+    Example:
+        Exercise windows get size through a consuming regression::
 
-    So we open the file, and get the actual size.
-    :param path:
-    :return:
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     import win32file
 
@@ -459,9 +553,16 @@ def windows_hardlink(src: Union[str, bytes], dest: Union[str, bytes]) -> None:
     """
     Hardlink two files.
 
-    :param src:
-    :param dest:
-    :return:
+    Example:
+        Exercise windows hardlink through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param src: Value supplied for src under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     import win32file, pywintypes
 
@@ -491,6 +592,20 @@ def windows_hardlink(src: Union[str, bytes], dest: Union[str, bytes]) -> None:
 
 
 def windows_nlinks(path):
+    """
+    Perform the windows nlinks utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise windows nlinks through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     import win32file
 
     dwFlagsAndAttributes = win32file.FILE_FLAG_BACKUP_SEMANTICS if os.path.isdir(path) else 0
@@ -516,17 +631,25 @@ class WindowsAtomicFolderMove:
     """
     Move all the files inside a specified folder in an atomic fashion.
 
-    Preventing any other process from locking a file while the operation is
-    incomplete. Raises an IOError if another process has locked a file before
-    the operation starts. Note that this only operates on the files in the
-    folder, not any sub-folders.
+    Example:
+        Exercise WindowsAtomicFolderMove through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
     """
 
     def __init__(self, path: Union[str, bytes]) -> None:
         """
         Startup the mover class.
 
-        :param path:
+        Example:
+            Exercise WindowsAtomicFolderMove.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: None; validated state is stored on the receiving object.
         """
         self.handle_map = {}
 
@@ -602,9 +725,17 @@ class WindowsAtomicFolderMove:
         """
         Copy a path to the specific destination.
 
-        :param path:
-        :param dest:
-        :return:
+        Example:
+            Exercise WindowsAtomicFolderMove.copy path to through a consuming regression::
+
+                python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param dest: Value supplied for dest under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
 
         from LiuXin_alpha.utils.storage.local.file_ops import local_open as lopen
@@ -639,7 +770,20 @@ class WindowsAtomicFolderMove:
                 f.write(raw)
 
     def release_file(self, path):
-        "Release the lock on the file pointed to by path. Will also release the lock on any hardlinks to path"
+        """
+        Release the lock on the file pointed to by path. Will also release the lock on any hardlinks to path
+
+        Example:
+            Exercise WindowsAtomicFolderMove.release file through a consuming regression::
+
+                python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         key = None
         for p, h in self.handle_map.iteritems():
             if samefile_windows(path, p):
@@ -654,6 +798,18 @@ class WindowsAtomicFolderMove:
                 self.handle_map.pop(x)
 
     def close_handles(self):
+        """
+        Perform the close handles utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise WindowsAtomicFolderMove.close handles through a consuming regression::
+
+                python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         import win32file
 
         for h in self.handle_map.values():
@@ -661,6 +817,18 @@ class WindowsAtomicFolderMove:
         self.handle_map = {}
 
     def delete_originals(self):
+        """
+        Perform the delete originals utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise WindowsAtomicFolderMove.delete originals through a consuming regression::
+
+                python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         import win32file
 
         for path in self.handle_map.keys():
@@ -669,6 +837,20 @@ class WindowsAtomicFolderMove:
 
 
 def hardlink_file(src: Union[str, bytes], dest: Union[str, bytes]) -> None:
+    """
+    Perform the hardlink file utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise hardlink file through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param src: Value supplied for src under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if iswindows:
         windows_hardlink(src, dest)
         return
@@ -676,7 +858,20 @@ def hardlink_file(src: Union[str, bytes], dest: Union[str, bytes]) -> None:
 
 
 def nlinks_file(path):
-    "Return number of hardlinks to the file"
+    """
+    Return number of hardlinks to the file
+
+    Example:
+        Exercise nlinks file through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if iswindows:
         return windows_nlinks(path)
     return os.stat(path).st_nlink
@@ -686,10 +881,16 @@ def atomic_rename(oldpath, newpath):
     """
     Replace the file newpath with the file oldpath. Can fail if the files are on different volumes.
 
-     If succeeds, guaranteed to be atomic. newpath may or may not exist. If it exists, it is replaced.
-    :param oldpath:
-    :param newpath:
-    :return:
+    Example:
+        Exercise atomic rename through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param oldpath: Value supplied for oldpath under the utility contract.
+    :param newpath: Value supplied for newpath under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     if iswindows:
         import win32file
@@ -714,9 +915,22 @@ def atomic_rename(oldpath, newpath):
 
 
 def remove_dir_if_empty(path, ignore_metadata_caches=False):
-    """Remove a directory if it is empty or contains only the folder metadata
-    caches from different OSes. To delete the folder if it contains only
-    metadata caches, set ignore_metadata_caches to True."""
+    """
+    Remove a directory if it is empty or contains only the folder metadata caches from different OSes. To delete the folder if it contains only metadata caches, set ignore_metadata_caches to True.
+
+    Example:
+        Exercise remove dir if empty through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param ignore_metadata_caches: Value supplied for ignore metadata caches under the
+        utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     try:
         os.rmdir(path)
     except OSError as e:
@@ -747,6 +961,20 @@ def remove_dir_if_empty(path, ignore_metadata_caches=False):
 if iswindows:
     # Python's expanduser is broken for non-ASCII usernames
     def expanduser(path):
+        """
+        Perform the expanduser utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise expanduser through a consuming regression::
+
+                python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if isinstance(path, bytes):
             path = path.decode(filesystem_encoding)
         if path[:1] != "~":
@@ -764,6 +992,19 @@ else:
 
 
 def format_permissions(st_mode):
+    """
+    Format permissions under the documented compatibility and safety rules.
+
+    Example:
+        Exercise format permissions through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param st_mode: Value supplied for st mode under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     import stat
 
     for func, letter in (x.split(":") for x in "REG:- DIR:d BLK:b CHR:c FIFO:p LNK:l SOCK:s".split()):

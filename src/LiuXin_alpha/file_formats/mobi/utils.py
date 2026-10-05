@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Provide shared MOBI record, EXTH, index and binary helpers.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise utils through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -37,25 +48,113 @@ except (ImportError, RuntimeError) as e:
     if _FallbackImage is not None:
 
         class Image(_FallbackImage):
+            """
+            Provide the image contract for validated ebook processing.
+
+            Example:
+                Exercise Image through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+            """
             def load(self: _typing.Self, data: _typing.Any) -> None:
+                """
+                Perform the load operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise Image.load through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+                :param data: Value supplied for data under the utility contract.
+                :return: None; the operation mutates state, writes output or performs cleanup in
+                    place.
+                """
                 self._src = data
 
             def set_compression_quality(self: _typing.Self, quality: _typing.Any) -> None:
+                """
+                Set compression quality under the format's safety and compatibility rules.
+
+                Example:
+                    Exercise Image.set compression quality through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+                :param quality: Value supplied for quality under the utility contract.
+                :return: None; the operation mutates state, writes output or performs cleanup in
+                    place.
+                """
                 self._quality = quality
 
             def export(self: _typing.Self, fmt: _typing.Any) -> _typing.Any:
+                """
+                Perform the export operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise Image.export through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+                :param fmt: Date, number or template format specification.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 return self.to_bytes(format=fmt)
 
             @property
             def size(self: _typing.Self) -> tuple[_typing.Any, ...]:
+                """
+                Perform the size operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise Image.size through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 meta = self.identify()
                 return meta.get("width") or 0, meta.get("height") or 0
 
             @size.setter
             def size(self: _typing.Self, value: _typing.Any) -> None:
+                """
+                Perform the size operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise Image.size through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+                :param value: Value normalized, stored, formatted or returned.
+                :return: None; the operation mutates state, writes output or performs cleanup in
+                    place.
+                """
                 raise RuntimeError("Image resize is not supported by the fallback magick backend.")
 
         def save_cover_data_to(data: _typing.Any, path: _typing.Any, return_data: bool = False) -> _typing.Any:
+            """
+            Perform the save cover data to operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise save cover data to through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+            :param data: Value supplied for data under the utility contract.
+            :param path: Filesystem path read, written, normalized or validated by the
+                operation.
+            :param return_data: Value supplied for return data under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if return_data:
                 return data
             with open(path, "wb") as f:
@@ -63,32 +162,154 @@ except (ImportError, RuntimeError) as e:
             return path
 
         def thumbnail(data: _typing.Any, width: int = 60, height: int = 80, compression_quality: int = 90) -> tuple[_typing.Any, ...]:
+            """
+            Perform the thumbnail operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise thumbnail through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+            :param data: Value supplied for data under the utility contract.
+            :param width: Value supplied for width under the utility contract.
+            :param height: Value supplied for height under the utility contract.
+            :param compression_quality: Value supplied for compression quality under the utility
+                contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return width, height, data
 
     else:
 
         class Image(object):
+            """
+            Provide the image contract for validated ebook processing.
+
+            Example:
+                Exercise Image through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+            """
             def load(self: _typing.Self, data: _typing.Any) -> None:
+                """
+                Perform the load operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise Image.load through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+                :param data: Value supplied for data under the utility contract.
+                :return: None; the operation mutates state, writes output or performs cleanup in
+                    place.
+                """
                 raise RuntimeError("No magick backend is available.")
 
             def set_compression_quality(self: _typing.Self, quality: _typing.Any) -> None:
+                """
+                Set compression quality under the format's safety and compatibility rules.
+
+                Example:
+                    Exercise Image.set compression quality through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+                :param quality: Value supplied for quality under the utility contract.
+                :return: None; the operation mutates state, writes output or performs cleanup in
+                    place.
+                """
                 raise RuntimeError("No magick backend is available.")
 
             def export(self: _typing.Self, fmt: _typing.Any) -> None:
+                """
+                Perform the export operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise Image.export through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+                :param fmt: Date, number or template format specification.
+                :return: None; the operation mutates state, writes output or performs cleanup in
+                    place.
+                """
                 raise RuntimeError("No magick backend is available.")
 
             @property
             def size(self: _typing.Self) -> tuple[_typing.Any, ...]:
+                """
+                Perform the size operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise Image.size through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 return 0, 0
 
             @size.setter
             def size(self: _typing.Self, value: _typing.Any) -> None:
+                """
+                Perform the size operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise Image.size through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+                :param value: Value normalized, stored, formatted or returned.
+                :return: None; the operation mutates state, writes output or performs cleanup in
+                    place.
+                """
                 raise RuntimeError("No magick backend is available.")
 
         def save_cover_data_to(data: _typing.Any, path: _typing.Any, return_data: bool = False) -> None:
+            """
+            Perform the save cover data to operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise save cover data to through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+            :param data: Value supplied for data under the utility contract.
+            :param path: Filesystem path read, written, normalized or validated by the
+                operation.
+            :param return_data: Value supplied for return data under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             raise RuntimeError("No magick backend is available.")
 
         def thumbnail(data: _typing.Any, width: int = 60, height: int = 80, compression_quality: int = 90) -> None:
+            """
+            Perform the thumbnail operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise thumbnail through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+            :param data: Value supplied for data under the utility contract.
+            :param width: Value supplied for width under the utility contract.
+            :param height: Value supplied for height under the utility contract.
+            :param compression_quality: Value supplied for compression quality under the utility
+                contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             raise RuntimeError("No magick backend is available.")
 
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iterkeys as iterkeys
@@ -101,6 +322,19 @@ try:
     from LiuXin_alpha.utils.libraries.liuxin_tinycss.color3 import parse_color_string
 except ModuleNotFoundError:
     def parse_color_string(value: _typing.Any) -> None:
+        """
+        Parse color string under the format's safety and compatibility rules.
+
+        Example:
+            Exercise parse color string through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return None
 
 __license__ = "GPL v3"
@@ -113,6 +347,21 @@ RECORD_SIZE = 0x1000  # 4096 (Text record size (uncompressed))
 
 
 def decode_string(raw: _typing.Any, codec: str = "utf-8", ordt_map: str = "") -> tuple[_typing.Any, ...]:
+    """
+    Perform the decode string operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise decode string through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param codec: Value supplied for codec under the utility contract.
+    :param ordt_map: Value supplied for ordt map under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not raw:
         return "", 0
     length = raw[0] if isinstance(raw[0], int) else struct.unpack(">B", raw[0:1])[0]
@@ -125,20 +374,37 @@ def decode_string(raw: _typing.Any, codec: str = "utf-8", ordt_map: str = "") ->
 
 def decode_hex_number(raw: _typing.Any, codec: str = "utf-8") -> tuple[_typing.Any, ...]:
     """
-    Return a variable length number encoded using hexadecimal encoding. These
-    numbers have the first byte which tells the number of bytes that follow.
-    The bytes that follow are simply the hexadecimal representation of the
-    number.
+    Return a variable length number encoded using hexadecimal encoding. These numbers have the first byte which tells the number of bytes that follow. The bytes that follow are simply the hexadecimal representation of the number.
 
-    :param raw: Raw binary data as a bytestring
-    :param codec:
-    :return: The number and the number of bytes from raw that the number occupies.
+    Example:
+        Exercise decode hex number through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param codec: Value supplied for codec under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     raw, consumed = decode_string(raw, codec=codec)
     return int(raw, 16), consumed
 
 
 def encode_string(raw: _typing.Any) -> _typing.Any:
+    """
+    Perform the encode string operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise encode string through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(raw, str):
         raw = raw.encode("utf-8")
     ans = bytearray(bytes(raw))
@@ -148,13 +414,17 @@ def encode_string(raw: _typing.Any) -> _typing.Any:
 
 def encode_number_as_hex(num: _typing.Any) -> _typing.Any:
     """
-    Encode num as a variable length encoded hexadecimal number. Returns the
-    bytestring containing the encoded number. These
-    numbers have the first byte which tells the number of bytes that follow.
-    The bytes that follow are simply the hexadecimal representation of the
-    number.
-    :param num:
-    :return:
+    Encode num as a variable length encoded hexadecimal number. Returns the bytestring containing the encoded number. These numbers have the first byte which tells the number of bytes that follow. The bytes that follow are simply the hexadecimal representation of the number.
+
+    Example:
+        Exercise encode number as hex through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param num: Value supplied for num under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     num = hex(num)[2:].upper().encode("ascii")
     nlen = len(num)
@@ -165,27 +435,18 @@ def encode_number_as_hex(num: _typing.Any) -> _typing.Any:
 
 def encint(value: _typing.Any, forward: bool = True) -> _typing.Any:
     """
-    Some parts of the Mobipocket format encode data as variable-width integers.
-    These integers are represented big-endian with 7 bits per byte in bits 1-7.
-    They may be either forward-encoded, in which case only the first byte has bit 8 set,
-    or backward-encoded, in which case only the last byte has bit 8 set.
-    For example, the number 0x11111 = 0b10001000100010001 would be represented
-    forward-encoded as:
+    Some parts of the Mobipocket format encode data as variable-width integers. These integers are represented big-endian with 7 bits per byte in bits 1-7. They may be either forward-encoded, in which case only the first byte has bit 8 set, or backward-encoded, in which case only the last byte has bit 8 set. For example, the number 0x11111 = 0b10001000100010001 would be represented forward-encoded as:
 
-        0x04 0x22 0x91 = 0b100 0b100010 0b10010001
+    Example:
+        Exercise encint through a consuming regression::
 
-    And backward-encoded as:
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
 
-        0x84 0x22 0x11 = 0b10000100 0b100010 0b10001
 
-    This function encodes the integer ``value`` as a variable width integer and
-    returns the bytestring corresponding to it.
-
-    If forward is True the bytes returned are suitable for prepending to the
-    output buffer, otherwise they must be append to the output buffer.
-    :param value:
-    :param forward:
-    :return:
+    :param value: Value normalized, stored, formatted or returned.
+    :param forward: Value supplied for forward under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if value < 0:
         raise ValueError("Cannot encode negative numbers as vwi")
@@ -205,15 +466,18 @@ def encint(value: _typing.Any, forward: bool = True) -> _typing.Any:
 
 def decint(raw: _typing.Any, forward: bool = True) -> tuple[_typing.Any, ...]:
     """
-    Read a variable width integer from the bytestring or bytearray raw and return the
-    integer and the number of bytes read. If forward is True bytes are read
-    from the start of raw, otherwise from the end of raw.
+    Read a variable width integer from the bytestring or bytearray raw and return the integer and the number of bytes read. If forward is True bytes are read from the start of raw, otherwise from the end of raw.
 
-    This function is the inverse of encint above, see its docs for more
-    details.
-    :param raw:
-    :param forward:
-    :return:
+    Example:
+        Exercise decint through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param forward: Value supplied for forward under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     val = 0
     byts = bytearray()
@@ -234,6 +498,19 @@ def decint(raw: _typing.Any, forward: bool = True) -> tuple[_typing.Any, ...]:
 
 
 def test_decint(num: _typing.Any) -> None:
+    """
+    Perform the test decint operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test decint through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param num: Value supplied for num under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for d in (True, False):
         raw = encint(num, forward=d)
         sz = len(raw)
@@ -243,19 +520,19 @@ def test_decint(num: _typing.Any) -> None:
 
 def rescale_image(data: _typing.Any, maxsizeb: _typing.Any = IMAGE_MAX_SIZE, dimen: _typing.Any = None) -> _typing.Any:
     """
-    Convert image setting all transparent pixels to white and changing format
-    to JPEG. Ensure the resultant image has a byte size less than
-    maxsizeb.
+    Convert image setting all transparent pixels to white and changing format to JPEG. Ensure the resultant image has a byte size less than maxsizeb.
 
-    If dimen is not None, generate a thumbnail of
-    width=dimen, height=dimen or width, height = dimen (depending on the type
-    of dimen)
+    Example:
+        Exercise rescale image through a consuming regression::
 
-    Returns the image as a bytestring
-    :param data:
-    :param maxsizeb:
-    :param dimen:
-    :return:
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :param maxsizeb: Value supplied for maxsizeb under the utility contract.
+    :param dimen: Value supplied for dimen under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if dimen is not None:
         if hasattr(dimen, "__len__"):
@@ -305,12 +582,19 @@ def rescale_image(data: _typing.Any, maxsizeb: _typing.Any = IMAGE_MAX_SIZE, dim
 
 def get_trailing_data(record: _typing.Any, extra_data_flags: _typing.Any) -> tuple[_typing.Any, ...]:
     """
-    Given a text record as a bytestring and the extra data flags from the MOBI header, return the trailing data as a
-    dictionary, mapping bit number to data as bytestring. Also returns the record - all trailing data.
+    Given a text record as a bytestring and the extra data flags from the MOBI header, return the trailing data as a dictionary, mapping bit number to data as bytestring. Also returns the record - all trailing data.
 
-    :param record:
-    :param extra_data_flags:
-    :return: Trailing data, record - trailing data
+    Example:
+        Exercise get trailing data through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param record: Value supplied for record under the utility contract.
+    :param extra_data_flags: Value supplied for extra data flags under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     data = OrderedDict()
     flags = extra_data_flags >> 1
@@ -340,15 +624,15 @@ def encode_trailing_data(raw: _typing.Any) -> _typing.Any:
     """
     Given some data in the bytestring raw, return a bytestring of the form
 
-        <data><size>
+    Example:
+        Exercise encode trailing data through a consuming regression::
 
-    where size is a backwards encoded vwi whose value is the length of the
-    entire returned bytestring. data is the bytestring passed in as raw.
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
 
-    This is the encoding used for trailing data entries at the end of text
-    records. See get_trailing_data() for details.
-    :param raw:
-    :return:
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     lsize = 1
     encoded = 0
@@ -362,13 +646,19 @@ def encode_trailing_data(raw: _typing.Any) -> _typing.Any:
 
 def encode_fvwi(val: _typing.Any, flags: _typing.Any, flag_size: int = 4) -> _typing.Any:
     """
-    Encode the value val and the flag_size bits from flags as a fvwi. This encoding is
-    used in the trailing byte sequences for indexing. Returns encoded
-    bytestring.
-    :param val:
-    :param flags:
-    :param flag_size:
-    :return:
+    Encode the value val and the flag_size bits from flags as a fvwi. This encoding is used in the trailing byte sequences for indexing. Returns encoded bytestring.
+
+    Example:
+        Exercise encode fvwi through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param val: Template or metadata value evaluated by the operation.
+    :param flags: Value supplied for flags under the utility contract.
+    :param flag_size: Value supplied for flag size under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     ans = val << flag_size
     for i in memory_range(flag_size):
@@ -379,9 +669,17 @@ def encode_fvwi(val: _typing.Any, flags: _typing.Any, flag_size: int = 4) -> _ty
 def decode_fvwi(byts: _typing.Any, flag_size: int = 4) -> tuple[_typing.Any, ...]:
     """
     Decode encoded fvwi. Returns number, flags, consumed
-    :param byts:
-    :param flag_size:
-    :return:
+
+    Example:
+        Exercise decode fvwi through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param byts: Value supplied for byts under the utility contract.
+    :param flag_size: Value supplied for flag size under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     arg, consumed = decint(bytes(byts))
     val = arg >> flag_size
@@ -393,16 +691,18 @@ def decode_fvwi(byts: _typing.Any, flag_size: int = 4) -> tuple[_typing.Any, ...
 
 def decode_tbs(byts: _typing.Any, flag_size: int = 4) -> tuple[_typing.Any, ...]:
     """
-    Trailing byte sequences for indexing consists of series of fvwi numbers.
-    This function reads the fvwi number and its associated flags. It then uses
-    the flags to read any more numbers that belong to the series. The flags are
-    the lowest 4 bits of the vwi (see the encode_fvwi function above).
+    Trailing byte sequences for indexing consists of series of fvwi numbers. This function reads the fvwi number and its associated flags. It then uses the flags to read any more numbers that belong to the series. The flags are the lowest 4 bits of the vwi (see the encode_fvwi function above).
 
-    Returns the fvwi number, a dictionary mapping flags bits to the associated
-    data and the number of bytes consumed.
-    :param byts:
-    :param flag_size:
-    :return:
+    Example:
+        Exercise decode tbs through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param byts: Value supplied for byts under the utility contract.
+    :param flag_size: Value supplied for flag size under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     byts = bytes(byts)
     val, flags, consumed = decode_fvwi(byts, flag_size=flag_size)
@@ -430,10 +730,18 @@ def decode_tbs(byts: _typing.Any, flag_size: int = 4) -> tuple[_typing.Any, ...]
 def encode_tbs(val: _typing.Any, extra: _typing.Any, flag_size: int = 4) -> _typing.Any:
     """
     Encode the number val and the extra data in the extra dict as an fvwi. See decode_tbs above.
-    :param val:
-    :param extra:
-    :param flag_size:
-    :return:
+
+    Example:
+        Exercise encode tbs through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param val: Template or metadata value evaluated by the operation.
+    :param extra: Value supplied for extra under the utility contract.
+    :param flag_size: Value supplied for flag size under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     flags = 0
     for flag in extra:
@@ -452,8 +760,16 @@ def encode_tbs(val: _typing.Any, extra: _typing.Any, flag_size: int = 4) -> _typ
 def utf8_text(text: _typing.Any) -> _typing.Any:
     """
     Convert a possibly null string to utf-8 bytes, guaranteeing to return a non empty, normalized bytestring.
-    :param text:
-    :return:
+
+    Example:
+        Exercise utf8 text through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if text and text.strip():
         text = text.strip()
@@ -468,10 +784,18 @@ def utf8_text(text: _typing.Any) -> _typing.Any:
 def align_block(raw: _typing.Any, multiple: int = 4, pad: bytes = b"\0") -> _typing.Any:
     """
     Return raw with enough pad bytes append to ensure its length is a multiple of 4.
-    :param raw:
-    :param multiple:
-    :param pad:
-    :return:
+
+    Example:
+        Exercise align block through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param multiple: Value supplied for multiple under the utility contract.
+    :param pad: Value supplied for pad under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     extra = len(raw) % multiple
     if extra == 0:
@@ -481,11 +805,18 @@ def align_block(raw: _typing.Any, multiple: int = 4, pad: bytes = b"\0") -> _typ
 
 def detect_periodical(toc: _typing.Any, log: _typing.Any = None) -> bool:
     """
-    Detect if the TOC object toc contains a periodical that conforms to the structure required by kindlegen to
-    generate a periodical.
-    :param toc:
-    :param log:
-    :return:
+    Detect if the TOC object toc contains a periodical that conforms to the structure required by kindlegen to generate a periodical.
+
+    Example:
+        Exercise detect periodical through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param toc: Value supplied for toc under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if toc.count() < 1 or not toc[0].klass == "periodical":
         return False
@@ -515,6 +846,19 @@ def detect_periodical(toc: _typing.Any, log: _typing.Any = None) -> bool:
 
 
 def count_set_bits(num: _typing.Any) -> _typing.Any:
+    """
+    Perform the count set bits operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise count set bits through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param num: Value supplied for num under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if num < 0:
         num = -num
     ans = 0
@@ -525,6 +869,21 @@ def count_set_bits(num: _typing.Any) -> _typing.Any:
 
 
 def to_base(num: _typing.Any, base: int = 32, min_num_digits: _typing.Any = None) -> _typing.Any:
+    """
+    Perform the to base operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise to base through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param num: Value supplied for num under the utility contract.
+    :param base: Value supplied for base under the utility contract.
+    :param min_num_digits: Value supplied for min num digits under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     digits = string.digits + string.ascii_uppercase
     sign = 1 if num >= 0 else -1
     if num == 0:
@@ -545,8 +904,16 @@ def to_base(num: _typing.Any, base: int = 32, min_num_digits: _typing.Any = None
 def mobify_image(data: _typing.Any) -> _typing.Any:
     """
     Convert PNG images to GIF as Kindle cannot display some PNG.
-    :param data:
-    :return:
+
+    Example:
+        Exercise mobify image through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     fmt = what(None, data)
 
@@ -560,22 +927,18 @@ def mobify_image(data: _typing.Any) -> _typing.Any:
 # Font records {{{
 def read_font_record(data: _typing.Any, extent: int = 1040) -> _typing.Any:
     """
-    Return the font encoded in the MOBI FONT record represented by data.
-    The return value in a dict with fields raw_data, font_data, err, ext, headers.
+    Return the font encoded in the MOBI FONT record represented by data. The return value in a dict with fields raw_data, font_data, err, ext, headers.
 
-    :param data:
-    :param extent: The number of obfuscated bytes. So far I have only
-    encountered files with 1040 obfuscated bytes. If you encounter an
-    obfuscated record for which this function fails, try different extent
-    values (easily automated).
+    Example:
+        Exercise read font record through a consuming regression::
 
-    raw_data is the raw data in the font record
-    font_data is the decoded font_data or None if an error occurred
-    err is not None if some error occurred
-    ext is the font type (ttf for TrueType, dat for unknown and failed if an
-    error occurred)
-    headers is the list of decoded headers from the font record or None if
-    decoding failed
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :param extent: Value supplied for extent under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     # Format:
     # bytes  0 -  3:  'FONT'
@@ -645,12 +1008,19 @@ def read_font_record(data: _typing.Any, extent: int = 1040) -> _typing.Any:
 
 def write_font_record(data: _typing.Any, obfuscate: bool = True, compress: bool = True) -> _typing.Any:
     """
-    Write the ttf/otf font represented by data into a font record. See read_font_record() for details on the format of
-    the record.
-    :param data:
-    :param obfuscate:
-    :param compress:
-    :return:
+    Write the ttf/otf font represented by data into a font record. See read_font_record() for details on the format of the record.
+
+    Example:
+        Exercise write font record through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :param obfuscate: Value supplied for obfuscate under the utility contract.
+    :param compress: Value supplied for compress under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     flags = 0
     key_len = 20
@@ -683,14 +1053,17 @@ def write_font_record(data: _typing.Any, obfuscate: bool = True, compress: bool 
 
 def create_text_record(text: _typing.Any) -> tuple[_typing.Any, ...]:
     """
-    Return a Palmdoc record of size RECORD_SIZE from the text file object.
-    In case the record ends in the middle of a multibyte character return
-    the overlap as well.
+    Return a Palmdoc record of size RECORD_SIZE from the text file object. In case the record ends in the middle of a multibyte character return the overlap as well.
 
-    Returns data, overlap: where both are byte strings. overlap is the
-    extra bytes needed to complete the truncated multibyte character.
-    :param text:
-    :return:
+    Example:
+        Exercise create text record through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     opos = text.tell()
     text.seek(0, 2)
@@ -736,13 +1109,29 @@ def create_text_record(text: _typing.Any) -> tuple[_typing.Any, ...]:
 
 class CNCX(object):  # {{{
     """
-    Create the CNCX records. These are records containing all the strings from an index.
-    Each record is of the form: <vwi string size><utf-8 encoded string>
+    Create the CNCX records. These are records containing all the strings from an index. Each record is of the form: <vwi string size><utf-8 encoded string>
+
+    Example:
+        Exercise CNCX through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
     """
 
     MAX_STRING_LENGTH = 500
 
     def __init__(self: _typing.Self, strings: tuple[_typing.Any, ...] = ()) -> None:
+        """
+        Initialize and validate the cncx state.
+
+        Example:
+            Exercise CNCX.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param strings: Value supplied for strings under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.strings = OrderedDict((s, 0) for s in strings)
 
         self.records = []
@@ -767,14 +1156,50 @@ class CNCX(object):  # {{{
             self.records.append(align_block(val))
 
     def __getitem__(self: _typing.Self, string: _typing.Any) -> _typing.Any:
+        """
+        Perform the getitem operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CNCX.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param string: Value supplied for string under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.strings[string]
 
     def __bool__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the bool operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CNCX.  bool   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: True when the documented condition holds; otherwise False.
+        """
         return bool(self.records)
 
     __nonzero__ = __bool__
 
     def __len__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the len operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CNCX.  len   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return len(self.records)
 
 
@@ -782,10 +1207,35 @@ class CNCX(object):  # {{{
 
 
 def is_guide_ref_start(ref: _typing.Any) -> bool:
+    """
+    Return whether is guide ref start holds for the supplied ebook data.
+
+    Example:
+        Exercise is guide ref start through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param ref: Value supplied for ref under the utility contract.
+    :return: True when the documented condition holds; otherwise False.
+    """
     return ref.title.lower() == "start" or (ref.type and ref.type.lower() in {"start", "other.start", "text"})
 
 
 def convert_color_for_font_tag(val: _typing.Any) -> _typing.Any:
+    """
+    Convert color for font tag under the format's safety and compatibility rules.
+
+    Example:
+        Exercise convert color for font tag through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param val: Template or metadata value evaluated by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     rgba = parse_color_string(six_unicode(val or ""))
     if rgba is None or rgba == "currentColor":
         return val

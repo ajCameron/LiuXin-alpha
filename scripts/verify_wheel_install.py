@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Verify LiuXin wheel ownership and exercise an installed first-run system."""
+"""
+Provide verify wheel install utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise verify wheel install through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+"""
 
 from __future__ import annotations
 
@@ -63,11 +73,30 @@ EXCLUDED_PACKAGE_PREFIXES = (
 
 
 class WheelVerificationError(RuntimeError):
-    """Report a wheel-content or installed-runtime packaging regression."""
+    """
+    Report a wheel-content or installed-runtime packaging regression.
+
+    Example:
+        Exercise WheelVerificationError through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+    """
 
 
 def _origin_check_program(install_root: Path) -> str:
-    """Build the isolated subprocess check for package/dependency origins."""
+    """
+    Build the isolated subprocess check for package/dependency origins.
+
+    Example:
+        Exercise  origin check program through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param install_root: Value supplied for install root under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     return "\n".join(
         (
@@ -90,7 +119,19 @@ def _origin_check_program(install_root: Path) -> str:
 
 
 def expected_runtime_assets(repo_root: Path = REPO_ROOT) -> frozenset[str]:
-    """Return package-relative files which the maintained runtime opens directly."""
+    """
+    Return package-relative files which the maintained runtime opens directly.
+
+    Example:
+        Exercise expected runtime assets through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     schema_source = repo_root / SCHEMA_SOURCE.relative_to(REPO_ROOT)
     schema_package = SCHEMA_PACKAGE
@@ -126,7 +167,20 @@ def expected_runtime_assets(repo_root: Path = REPO_ROOT) -> frozenset[str]:
 
 
 def inspect_wheel(wheel: Path, repo_root: Path = REPO_ROOT) -> dict[str, object]:
-    """Check discovery boundaries and all source-controlled runtime assets."""
+    """
+    Check discovery boundaries and all source-controlled runtime assets.
+
+    Example:
+        Exercise inspect wheel through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param wheel: Value supplied for wheel under the utility contract.
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     try:
         with zipfile.ZipFile(wheel) as archive:
@@ -173,7 +227,19 @@ def inspect_wheel(wheel: Path, repo_root: Path = REPO_ROOT) -> dict[str, object]
 
 
 def _run_installed_runtime(wheel: Path) -> dict[str, object]:
-    """Install one wheel with conversion extras, initialize, and convert."""
+    """
+    Install one wheel with conversion extras, initialize, and convert.
+
+    Example:
+        Exercise  run installed runtime through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param wheel: Value supplied for wheel under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     with tempfile.TemporaryDirectory(prefix="liuxin-wheel-check-") as temporary:
         temporary_root = Path(temporary)
@@ -302,13 +368,38 @@ def _run_installed_runtime(wheel: Path) -> dict[str, object]:
 
 
 def verify_wheel(wheel: Path, repo_root: Path = REPO_ROOT) -> dict[str, object]:
-    """Verify wheel contents, installed initialization, and conversion."""
+    """
+    Verify wheel contents, installed initialization, and conversion.
+
+    Example:
+        Exercise verify wheel through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param wheel: Value supplied for wheel under the utility contract.
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     content = inspect_wheel(wheel, repo_root)
     return {**content, "installed_smoke": _run_installed_runtime(wheel)}
 
 
 def _build_parser() -> argparse.ArgumentParser:
+    """
+    Perform the build parser operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  build parser through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = argparse.ArgumentParser(
         description=(
             "Verify a LiuXin wheel, installed initialization, and HTML-to-EPUB "
@@ -320,7 +411,19 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run the wheel verification command."""
+    """
+    Run the wheel verification command.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     args = _build_parser().parse_args(argv)
     try:

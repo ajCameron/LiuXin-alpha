@@ -1,6 +1,14 @@
 
 """
-Tools to generate and manipulate LiuXin style names and file names.
+Normalize and sort personal names under LiuXin display conventions.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise lx name manip through a consuming regression::
+
+        python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
 """
 
 import uuid
@@ -31,9 +39,16 @@ def smart_truncate(file_name_ext, length_limit=20):
     """
     Truncate the given file_name down to a more suitable form.
 
-    :param file_name_ext:
-    :param length_limit:
-    :return new_file_name/False: False if the truncation cannot be accomplished.
+    Example:
+        Exercise smart truncate through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param file_name_ext: Value supplied for file name ext under the utility contract.
+    :param length_limit: Value supplied for length limit under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if length_limit < 10:
         return False
@@ -63,11 +78,17 @@ def smart_truncate(file_name_ext, length_limit=20):
 # 4) __folder_id
 def make_folder_name(folder_row):
     """
-    Takes a folder_row - extracts the actual folder dict. Seeds a RowCollection object with it. Iterates through the
-    allowable linked row types until it finds one which actually has some content.
-    Builds the appropriate name for that folder and returns it.
-    :param folder_row:
-    :return folder_name:
+    Takes a folder_row - extracts the actual folder dict. Seeds a RowCollection object with it. Iterates through the allowable linked row types until it finds one which actually has some content. Builds the appropriate name for that folder and returns it.
+
+    Example:
+        Exercise make folder name through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param folder_row: Value supplied for folder row under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if folder_row["folder_use_original_name"] == "1":
         original_name = folder_row["folder_original_name"]
@@ -133,10 +154,17 @@ def make_folder_name(folder_row):
 # These have the structure original_name - original_name - LX_0_gjwtl_file_id.extension
 def make_file_name(file_row):
     """
-    ...writing this method made me simply give up and write the Row_Collection object.
-    Takes a file_row. Extracts the file_row_dict from it.
-    :param file_row:
-    :return:
+    ...writing this method made me simply give up and write the Row_Collection object. Takes a file_row. Extracts the file_row_dict from it.
+
+    Example:
+        Exercise make file name through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param file_row: Value supplied for file row under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if file_row["file_use_original_name"] == "1":
         original_name = file_row["file_original_name"]
@@ -177,10 +205,17 @@ def make_file_name(file_row):
 
 def make_cover_name(cover_row):
     """
-    Takes a cover Row - builds an appropriate name for it out of data in it.  Returns the name.
-    The returned name won't have an extension
-    :param cover_row:
-    :return cover_name:
+    Takes a cover Row - builds an appropriate name for it out of data in it. Returns the name. The returned name won't have an extension
+
+    Example:
+        Exercise make cover name through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param cover_row: Value supplied for cover row under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     cover_id = cover_row["cover_id"]
     cover_tag = make_lx_tag(cover_id, "covers")
@@ -194,18 +229,33 @@ def make_cover_name(cover_row):
 def get_random_alpha_string(string_len):
     """
     Returns a random alphabetical string of length string len.
-    :param string_len:
-    :return alpha_string:
+
+    Example:
+        Exercise get random alpha string through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param string_len: Value supplied for string len under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return "".join(random.choice(string.ascii_lowercase) for _ in range(string_len))
 
 
 def get_random_alpha_num_string(string_len):
     """
-    Produces a random alpha_numeric string of the requested length.
-    Provided the requested length is not greater than that of a standard uuid with all the full stops stripped.
-    :param string_len:
-    :return:
+    Produces a random alpha_numeric string of the requested length. Provided the requested length is not greater than that of a standard uuid with all the full stops stripped.
+
+    Example:
+        Exercise get random alpha num string through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param string_len: Value supplied for string len under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     start_string = six_unicode(uuid.uuid4())
     start_string = re.sub(r"\.", "", start_string)
@@ -216,8 +266,16 @@ def get_random_alpha_num_string(string_len):
 def check_for_LX_ending(test_string):
     """
     Checks the given test string to see if it ends with a structure like an LX tag.
-    :param test_string:
-    :return True/False:
+
+    Example:
+        Exercise check for LX ending through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param test_string: Value supplied for test string under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     # LX endings have an LX tag form (see below)
     test_string = deepcopy(test_string)
@@ -235,8 +293,16 @@ def check_for_LX_ending(test_string):
 def strip_LX_ending(object_name):
     """
     Takes an object name - uses a regex to strip the LX tag from the end.
-    :param object_name:
-    :return:
+
+    Example:
+        Exercise strip LX ending through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param object_name: Value supplied for object name under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if not check_for_LX_ending(object_name):
         if VERBOSE_DEBUG:
@@ -268,13 +334,19 @@ def strip_LX_ending(object_name):
 # Todo: This should be customizable in preferences
 def make_initial_folder_name(row, separate_tag=False, folder_id=None):
     """
-    Takes a Row. Builds a nice name for an object associated with that Row.
-    This method is only defined for certain types of Row.
-    It will throw an error if anything except a simple row is fed to it.
-    It should be preference dependant - but that feature hasn't been coded yet.
-    It only works for certain types of Row.
-    :param row:
-    :return:
+    Takes a Row. Builds a nice name for an object associated with that Row. This method is only defined for certain types of Row. It will throw an error if anything except a simple row is fed to it. It should be preference dependant - but that feature hasn't been coded yet. It only works for certain types of Row.
+
+    Example:
+        Exercise make initial folder name through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param row: Value supplied for row under the utility contract.
+    :param separate_tag: Value supplied for separate tag under the utility contract.
+    :param folder_id: Value supplied for folder id under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if folder_id is None:
         raise InputIntegrityError
@@ -363,9 +435,18 @@ def make_initial_folder_name(row, separate_tag=False, folder_id=None):
 def make_lx_tag(row_id, row_type, folder_id):
     """
     Makes a tag - largely a lookup table, which takes some information and sticks it together.
-    :param row_id:
-    :param row_type: Allowable types and File, Title, Series, Author
-    :return tag:
+
+    Example:
+        Exercise make lx tag through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param row_id: Value supplied for row id under the utility contract.
+    :param row_type: Value supplied for row type under the utility contract.
+    :param folder_id: Value supplied for folder id under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if row_type is None:
         tag = " - LX_{}_(0-".format(row_id) + six_unicode(folder_id) + ")_" + six_unicode(uuid.uuid4())[:5]
@@ -394,10 +475,17 @@ def make_lx_tag(row_id, row_type, folder_id):
 
 def make_folder_tag(folder_id):
     """
-    Makes a bare tag which just contains the folder_id - used when a folder is being assimilated and it hasn't yet been
-    linked to anything else
-    :param folder_id:
-    :return:
+    Makes a bare tag which just contains the folder_id - used when a folder is being assimilated and it hasn't yet been linked to anything else
+
+    Example:
+        Exercise make folder tag through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param folder_id: Value supplied for folder id under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return sanitize_object_names(" - LX_{}".format(folder_id) + six_unicode(uuid.uuid4())[:5])
 
@@ -405,10 +493,18 @@ def make_folder_tag(folder_id):
 # Todo: Centralize and standardize the creator_sort setting functions
 def make_creators_folder_name(creator_list, folder_id):
     """
-    Takes a list of creator rows - creates a nice name for them which can be easily parsed by the system.
-    Assumes the list is sorted in order of name priority - i.e. first name first.
-    :param creator_list:
-    :return:
+    Takes a list of creator rows - creates a nice name for them which can be easily parsed by the system. Assumes the list is sorted in order of name priority - i.e. first name first.
+
+    Example:
+        Exercise make creators folder name through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param creator_list: Value supplied for creator list under the utility contract.
+    :param folder_id: Value supplied for folder id under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if len(creator_list) == 0:
         err_str = "make_creators_folder_name has been passed a blank index.\n"
@@ -436,9 +532,17 @@ def make_creators_folder_name(creator_list, folder_id):
 def make_series_folder_name(series_row, folder_id):
     """
     Make a name suitable for a folder linked to a series_row
-    :param series_row:
-    :param folder_id:
-    :return:
+
+    Example:
+        Exercise make series folder name through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param series_row: Value supplied for series row under the utility contract.
+    :param folder_id: Value supplied for folder id under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     series_id = six_unicode(series_row["series_id"])
     series_name = series_row["series"]
@@ -448,13 +552,21 @@ def make_series_folder_name(series_row, folder_id):
 
 def make_book_folder_name(book_row, folder_id, title_string=None, series_position=None):
     """
-    Make a name suitable for writing into the name of a book folder.
-    DatabasePing access is required if you want to add the position of the book in the series it's
-    :param book_row:
-    :param folder_id:
-    :param title_string:
-    :param series_position:
-    :return:
+    Make a name suitable for writing into the name of a book folder. DatabasePing access is required if you want to add the position of the book in the series it's
+
+    Example:
+        Exercise make book folder name through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param book_row: Value supplied for book row under the utility contract.
+    :param folder_id: Value supplied for folder id under the utility contract.
+    :param title_string: Value supplied for title string under the utility contract.
+    :param series_position: Value supplied for series position under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     book_id = six_unicode(book_row["book_id"])
     if title_string is not None:
@@ -474,8 +586,15 @@ def authors_str_to_sort_str(authors_str):
     """
     Takes a string of authors. Makes an author sort string out of them.
 
-    :param authors_str:
-    :return:
+    Example:
+        Exercise authors str to sort str through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param authors_str: Value supplied for authors str under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if not authors_str:
         return None
@@ -488,10 +607,17 @@ def authors_str_to_sort_str(authors_str):
 
 def author_list_to_sort_str(author_list):
     """
-    Takes a list of authors - converts it into a sort string and returns it.
-    Assumes that the authors are in the right order.
-    :param author_list:
-    :return:
+    Takes a list of authors - converts it into a sort string and returns it. Assumes that the authors are in the right order.
+
+    Example:
+        Exercise author list to sort str through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param author_list: Value supplied for author list under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     author_list = deepcopy(author_list)
     rtn_str = " & ".join(author_list)
@@ -501,9 +627,17 @@ def author_list_to_sort_str(author_list):
 def author_to_author_sort(author, method=None):
     """
     Converts an author name string into an author sort string.
-    :param author:
-    :param method:
-    :return:
+
+    Example:
+        Exercise author to author sort through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param author: Value supplied for author under the utility contract.
+    :param method: Value supplied for method under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if not author:
         return ""
@@ -570,8 +704,17 @@ def author_to_author_sort(author, method=None):
 def split_file_tag(target_file_name_ext):
     """
     Takes a file name (including extension) splits the tag from out of that name and returns it.
-    :param target_file_name:
-    :return:
+
+    Example:
+        Exercise split file tag through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param target_file_name_ext: Value supplied for target file name ext under the
+        utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     target_file_name_ext = deepcopy(target_file_name_ext)
     target_file_name = os.path.splitext(target_file_name_ext)[0]
@@ -581,8 +724,17 @@ def split_file_tag(target_file_name_ext):
 def split_file_id(target_file_name_ext):
     """
     Takes a file name - extracts the file_id from it and returns it.
-    :param target_file_name_ext:
-    :return:
+
+    Example:
+        Exercise split file id through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param target_file_name_ext: Value supplied for target file name ext under the
+        utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     file_tag = split_file_tag(target_file_name_ext)
     return split_folder_id(file_tag)
@@ -591,8 +743,17 @@ def split_file_id(target_file_name_ext):
 def split_folder_tag(target_folder_name):
     """
     Takes a folder name. Splits the tag out of the folder name and returns it.
-    :param target_folder_name:
-    :return folder_tag:
+
+    Example:
+        Exercise split folder tag through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param target_folder_name: Value supplied for target folder name under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     target_folder_name = deepcopy(target_folder_name)
 
@@ -609,8 +770,17 @@ def split_folder_tag(target_folder_name):
 def split_folder_id(target_folder_name):
     """
     Takes a folder name. Splits the id out of the name and returns it.
-    :param target_folder_name:
-    :return folder_id:
+
+    Example:
+        Exercise split folder id through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param target_folder_name: Value supplied for target folder name under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     target_folder_name = deepcopy(target_folder_name)
 
@@ -629,8 +799,16 @@ def split_folder_id(target_folder_name):
 def sanitize_object_names(target_name):
     """
     Makes a name safe for actually writing to all operating systems.
-    :param target_name:
-    :return:
+
+    Example:
+        Exercise sanitize object names through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
+
+
+    :param target_name: Value supplied for target name under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     target_name = deepcopy(target_name)
     return target_name.replace(":", "-")

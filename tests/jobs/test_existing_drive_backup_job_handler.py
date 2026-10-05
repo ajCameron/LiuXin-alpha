@@ -1,3 +1,14 @@
+"""
+Provide test existing drive backup job handler utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test existing drive backup job handler through a consuming regression::
+
+        python -m pytest -q tests/jobs/test_existing_drive_backup_job_handler.py
+"""
 from __future__ import annotations
 
 from LiuXin_alpha.jobs.api import JobDefinition
@@ -17,13 +28,46 @@ from LiuXin_alpha.storage.backup.prototype_pipeline import PrototypeRunResult, I
 
 
 class _FakePrototype:
+    """
+    Provide the fakeprototype contract for validated ebook processing.
+
+    Example:
+        Exercise  FakePrototype through a consuming regression::
+
+            python -m pytest -q tests/jobs/test_existing_drive_backup_job_handler.py
+    """
     last_init_kwargs = None
     last_run_args = None
 
     def __init__(self, **kwargs):
+        """
+        Initialize and validate the fakeprototype state.
+
+        Example:
+            Exercise  FakePrototype.  init   through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_existing_drive_backup_job_handler.py
+
+
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; validated state is stored on the receiving object.
+        """
         type(self).last_init_kwargs = kwargs
 
     def run(self, input_paths):
+        """
+        Execute the configured conversion stage and return its primary result.
+
+        Example:
+            Exercise  FakePrototype.run through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_existing_drive_backup_job_handler.py
+
+
+        :param input_paths: Value supplied for input paths under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         type(self).last_run_args = tuple(str(x) for x in input_paths)
         return PrototypeRunResult(
             database_path=str(_FakePrototype.last_init_kwargs["database_path"]),
@@ -33,6 +77,20 @@ class _FakePrototype:
 
 
 def test_existing_drive_backup_handler_round_trip_payload_and_run(monkeypatch, tmp_path) -> None:
+    """
+    Perform the test existing drive backup handler round trip payload and run operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test existing drive backup handler round trip payload and run through a consuming regression::
+
+            python -m pytest -q tests/jobs/test_existing_drive_backup_job_handler.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     payload = ExistingDriveSquashfsBackupJobPayload(
         input_paths=(str(tmp_path / "input_a"), str(tmp_path / "input_b")),
         database_path=str(tmp_path / "library.sqlite"),

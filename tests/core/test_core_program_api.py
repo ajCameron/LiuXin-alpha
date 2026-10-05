@@ -1,3 +1,15 @@
+"""
+Provide test core program api utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test core program api through a consuming regression::
+
+        python -m pytest -q tests/core/test_core_program_api.py
+"""
+
 from __future__ import annotations
 
 import base64
@@ -15,14 +27,50 @@ from LiuXin_alpha.utils.jobs import JobRequest
 
 @dataclass
 class _CapturingJobManager:
+    """
+    Provide the capturingjobmanager contract for validated ebook processing.
+
+    Example:
+        Exercise  CapturingJobManager through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_program_api.py
+    """
+
     requests: list[JobRequest] = field(default_factory=list)
 
     def submit(self, request: JobRequest, **_kwargs: Any) -> str:
+        """
+        Perform the submit operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  CapturingJobManager.submit through a consuming regression::
+
+                python -m pytest -q tests/core/test_core_program_api.py
+
+
+        :param request: Value supplied for request under the utility contract.
+        :param _kwargs: Value supplied for kwargs under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.requests.append(request)
         return "captured-job-{}".format(len(self.requests))
 
 
 def test_managed_storage_graph_local_and_rpc_round_trip(db) -> None:
+    """
+    Perform the test managed storage graph local and rpc round trip operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test managed storage graph local and rpc round trip through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_program_api.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     runtime = CoreRuntime(
         library=Library(
             database=db,
@@ -166,6 +214,21 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
     tmp_path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """
+    Perform the test storage integrity reconcile and migration operations are real operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test storage integrity reconcile and migration operations are real through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_program_api.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     runtime = CoreRuntime(
         library=Library(database=db, close_database_on_close=False),
     )
@@ -400,6 +463,20 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
         original_replicate = manager.replicate_digital_asset
 
         def _fail_replacement(*_args: Any, **_kwargs: Any) -> None:
+            """
+            Perform the fail replacement operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test storage integrity reconcile and migration operations are real. fail replacement through a consuming regression::
+
+                    python -m pytest -q tests/core/test_core_program_api.py
+
+
+            :param _args: Value supplied for args under the utility contract.
+            :param _kwargs: Value supplied for kwargs under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             raise RuntimeError("simulated replacement failure")
 
         monkeypatch.setattr(manager, "replicate_digital_asset", _fail_replacement)
@@ -489,6 +566,20 @@ def test_browse_projection_covers_work_list_detail_and_acquisition(
     db,
     tmp_path,
 ) -> None:
+    """
+    Perform the test browse projection covers work list detail and acquisition operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test browse projection covers work list detail and acquisition through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_program_api.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     runtime = CoreRuntime(
         library=Library(
             database=db,
@@ -700,6 +791,19 @@ def test_browse_projection_covers_work_list_detail_and_acquisition(
 
 
 def test_database_identity_and_tree_semantics_are_core_operations(db) -> None:
+    """
+    Perform the test database identity and tree semantics are core operations operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test database identity and tree semantics are core operations through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_program_api.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     runtime = CoreRuntime(
         library=Library(
             database=db,
@@ -783,6 +887,19 @@ def test_database_identity_and_tree_semantics_are_core_operations(db) -> None:
 def test_backup_workflow_persistence_is_available_directly_and_over_rpc(
     db,
 ) -> None:
+    """
+    Perform the test backup workflow persistence is available directly and over rpc operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test backup workflow persistence is available directly and over rpc through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_program_api.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     runtime = CoreRuntime(
         library=Library(
             database=db,
@@ -848,6 +965,19 @@ def test_backup_workflow_persistence_is_available_directly_and_over_rpc(
 def test_program_discovery_and_local_support_cover_every_capability_family(
     db,
 ) -> None:
+    """
+    Perform the test program discovery and local support cover every capability family operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test program discovery and local support cover every capability family through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_program_api.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     runtime = CoreRuntime(
         library=Library(
             database=db,
@@ -954,6 +1084,19 @@ def test_program_discovery_and_local_support_cover_every_capability_family(
 
 
 def test_named_workflows_submit_only_serializable_core_job_requests(db) -> None:
+    """
+    Perform the test named workflows submit only serializable core job requests operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test named workflows submit only serializable core job requests through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_program_api.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     manager = _CapturingJobManager()
     runtime = CoreRuntime(
         library=Library(
@@ -1025,6 +1168,20 @@ def test_named_workflows_submit_only_serializable_core_job_requests(db) -> None:
 
 
 def test_metadata_file_read_and_write_stay_inside_core(db, tmp_path) -> None:
+    """
+    Perform the test metadata file read and write stay inside core operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test metadata file read and write stay inside core through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_program_api.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     book_path = tmp_path / "core-metadata.epub"
     container_xml = b"""<?xml version="1.0"?>
 <container version="1.0"
@@ -1096,6 +1253,19 @@ def test_metadata_file_read_and_write_stay_inside_core(db, tmp_path) -> None:
 
 
 def test_schema_policy_and_custom_fields_round_trip_through_core(db) -> None:
+    """
+    Perform the test schema policy and custom fields round trip through core operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test schema policy and custom fields round trip through core through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_program_api.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     runtime = CoreRuntime(
         library=Library(
             database=db,

@@ -1,3 +1,14 @@
+"""
+Model cached link-attribute relations.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise link attribute tables through a consuming regression::
+
+        python -m pytest -q tests/library/test_unified_library.py
+"""
 from collections import defaultdict
 from copy import deepcopy
 from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
@@ -28,6 +39,11 @@ T = TypeVar("T")
 class CalibreLinkAttributeTable(BaseLinkAttributeTable[T]):
     """
     Represents a link property in a calibre table.
+
+    Example:
+        Exercise CalibreLinkAttributeTable through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     # Todo: The name is on the recognized list
@@ -43,13 +59,20 @@ class CalibreLinkAttributeTable(BaseLinkAttributeTable[T]):
         """
         Startup. Stores the name of the property this class represents as well as the underlying table.
 
-        :param name: Name of the property - has to be one of the recognized property types ("index", "datestamp" e.t.c)
-                     "index" - the index of a title in a series - for example
-                     "datestamp" - when the link was created
-        :param link_table_name: The property is defined in the following link table
-        :param link_table: Table class representing the underlying link table
-        :param main_table:
-        :param auxiliary_table:
+        Example:
+            Exercise CalibreLinkAttributeTable.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param link_table_name: Value supplied for link table name under the utility
+            contract.
+        :param link_table: Value supplied for link table under the utility contract.
+        :param main_table: Value supplied for main table under the utility contract.
+        :param auxiliary_table: Value supplied for auxiliary table under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
         """
         super(CalibreLinkAttributeTable, self).__init__(name, link_table_name, link_table, main_table, auxiliary_table)
 
@@ -62,7 +85,14 @@ class CalibreLinkAttributeTable(BaseLinkAttributeTable[T]):
         """
         Used to contain the cached data internally in the table.
 
-        :return:
+        Example:
+            Exercise CalibreLinkAttributeTable. nested dict factory through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return defaultdict(dict)
 
@@ -70,9 +100,15 @@ class CalibreLinkAttributeTable(BaseLinkAttributeTable[T]):
         """
         Preforms a read of information from the database into this table.
 
-        After this method has been called, the table should be populated with data.
-        :param db:
-        :return:
+        Example:
+            Exercise CalibreLinkAttributeTable.read through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.set_link_properties(db)
 
@@ -95,9 +131,15 @@ class CalibreLinkAttributeTable(BaseLinkAttributeTable[T]):
         """
         Used when reading properties off the database - affects how the data is locally stored for purposes of sorting.
 
-        Unless overridden will just return the identity.
-        :param link_attr:
-        :return:
+        Example:
+            Exercise CalibreLinkAttributeTable. property adapter through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param link_attr: Value supplied for link attr under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return link_attr
 
@@ -105,11 +147,16 @@ class CalibreLinkAttributeTable(BaseLinkAttributeTable[T]):
         """
         Return the property for a given main_id and auxilary_id.
 
-        E.g. In the case of an "index" attribute for a "series"/"title" link, returns the index of that title in that
-        series.
-        :param main_id:
-        :param auxiliary_id:
-        :return:
+        Example:
+            Exercise CalibreLinkAttributeTable.get property through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param main_id: Value supplied for main id under the utility contract.
+        :param auxiliary_id: Value supplied for auxiliary id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Should be equivalent to self.auxiliary_main_property_map[auxiliary_id][main_id]
         return self.main_auxiliary_property_map[main_id][auxiliary_id]
@@ -118,8 +165,15 @@ class CalibreLinkAttributeTable(BaseLinkAttributeTable[T]):
         """
         Return a dictionary keyed with the auxiliary ids and valued with the link value for that aux id.
 
-        :param main_id:
-        :return:
+        Example:
+            Exercise CalibreLinkAttributeTable.get auxiliary val dict through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param main_id: Value supplied for main id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return deepcopy(self.main_auxiliary_property_map[main_id])
 
@@ -127,8 +181,15 @@ class CalibreLinkAttributeTable(BaseLinkAttributeTable[T]):
         """
         Return a dictionary keyed with the main ids and valued with the link value for that aux id.
 
-        :param auxiliary_id:
-        :return:
+        Example:
+            Exercise CalibreLinkAttributeTable.get main val dict through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param auxiliary_id: Value supplied for auxiliary id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return deepcopy(self.auxiliary_main_property_map[auxiliary_id])
 
@@ -136,12 +197,16 @@ class CalibreLinkAttributeTable(BaseLinkAttributeTable[T]):
         """
         Return main ids which correspond to the auxiliary id.
 
-        How they're sorted is optional.
-        :param auxiliary_id:
-        :param sort: The type of sort to use - depends on the details of the store type.
-                     Default is to sort on the link attribute. Because that's the only thing that's certain to be
-                     available.
-        :return:
+        Example:
+            Exercise CalibreLinkAttributeTable.get sorted main values through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param auxiliary_id: Value supplied for auxiliary id under the utility contract.
+        :param sort: Value supplied for sort under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if sort == "attr":
             main_ids_map = self.auxiliary_main_property_map[auxiliary_id]
@@ -153,11 +218,17 @@ class CalibreLinkAttributeTable(BaseLinkAttributeTable[T]):
     def get_sorted_auxiliary_values(self, main_id: SrcTableID, sort: str = "attr") -> list[DstTableID]:
         """
         Return auxiliary ids which correspond to the main id, sorted by the property
-        :param main_id:
-        :param sort: The type of sort to use - depends on the details of the store type.
-                     Default is to sort on the link attribute. Because that's the only thing that's certain to be
-                     available.
-        :return:
+
+        Example:
+            Exercise CalibreLinkAttributeTable.get sorted auxiliary values through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param main_id: Value supplied for main id under the utility contract.
+        :param sort: Value supplied for sort under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if sort == "attr":
             aux_ids_map = self.main_auxiliary_property_map[main_id]
@@ -170,6 +241,11 @@ class CalibreLinkAttributeTable(BaseLinkAttributeTable[T]):
 class CalibreIndexLinkAttributeTablePrioritySort(CalibreLinkAttributeTable):
     """
     Aan Index link attribute for a table with priority sort.
+
+    Example:
+        Exercise CalibreIndexLinkAttributeTablePrioritySort through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def __init__(
@@ -183,11 +259,20 @@ class CalibreIndexLinkAttributeTablePrioritySort(CalibreLinkAttributeTable):
         """
         Startup. Stores the name of the property this class represents as well as the underlying table.
 
-        :param name: Name of the property
-        :param link_table_name: The property is defined in the following link table
-        :param link_table: Table class representing the underlying link table
-        :param main_table:
-        :param auxiliary_table:
+        Example:
+            Exercise CalibreIndexLinkAttributeTablePrioritySort.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param link_table_name: Value supplied for link table name under the utility
+            contract.
+        :param link_table: Value supplied for link table under the utility contract.
+        :param main_table: Value supplied for main table under the utility contract.
+        :param auxiliary_table: Value supplied for auxiliary table under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
         """
         super(CalibreIndexLinkAttributeTablePrioritySort, self).__init__(
             name, link_table_name, link_table, main_table, auxiliary_table
@@ -203,8 +288,15 @@ class CalibreIndexLinkAttributeTablePrioritySort(CalibreLinkAttributeTable):
         """
         Additionally sets the priority_column.
 
-        :param db:
-        :return:
+        Example:
+            Exercise CalibreIndexLinkAttributeTablePrioritySort.set link properties through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         super(CalibreIndexLinkAttributeTablePrioritySort, self).set_link_properties(db)
 
@@ -215,8 +307,15 @@ class CalibreIndexLinkAttributeTablePrioritySort(CalibreLinkAttributeTable):
         """
         Read data off the database.
 
-        :param db:
-        :return:
+        Example:
+            Exercise CalibreIndexLinkAttributeTablePrioritySort.read through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
 
         super(CalibreIndexLinkAttributeTablePrioritySort, self).read(db)
@@ -240,8 +339,15 @@ class CalibreIndexLinkAttributeTablePrioritySort(CalibreLinkAttributeTable):
         """
         Turns the data stored on the table into something which can be stored in the dicts.
 
-        :param link_attr:
-        :return:
+        Example:
+            Exercise CalibreIndexLinkAttributeTablePrioritySort. property adapter through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param link_attr: Value supplied for link attr under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return int(link_attr)
 
@@ -251,13 +357,16 @@ class CalibreIndexLinkAttributeTablePrioritySort(CalibreLinkAttributeTable):
         """
         Return main ids which correspond to the auxiliary id. How they're sorted is optional
 
-        Note - this is intended for a ManyToOne series configuration.
-        E.g. many titles linked to one series.
-        :param auxiliary_id: The id to sort on for in the secondary tables.
-        :param sort: The type of sort to use - depends on the details of the store type.
-                     Default is to sort on the link attribute. Because that's the only thing that's certain to be
-                     available.
-        :return:
+        Example:
+            Exercise CalibreIndexLinkAttributeTablePrioritySort.get sorted main values through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param auxiliary_id: Value supplied for auxiliary id under the utility contract.
+        :param sort: Value supplied for sort under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if sort == "attr":
             return super(CalibreIndexLinkAttributeTablePrioritySort, self).get_sorted_main_values(
@@ -281,11 +390,17 @@ class CalibreIndexLinkAttributeTablePrioritySort(CalibreLinkAttributeTable):
     ) -> list[T, ...]:
         """
         Return auxiliary ids which correspond to the main id, sorted by the property
-        :param main_id:
-        :param sort: The type of sort to use - depends on the details of the store type.
-                     Default is to sort on the link attribute. Because that's the only thing that's certain to be
-                     available.
-        :return:
+
+        Example:
+            Exercise CalibreIndexLinkAttributeTablePrioritySort.get sorted auxiliary values through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param main_id: Value supplied for main id under the utility contract.
+        :param sort: Value supplied for sort under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if sort == "attr":
             return super(CalibreIndexLinkAttributeTablePrioritySort, self).get_sorted_auxiliary_values(
@@ -309,9 +424,16 @@ def create_link_attribute_table(
     """
     Create and return an appropriate link table for the given type of table and type of link.
 
-    :param link_field:
-    :param attribute_name:
-    :return:
+    Example:
+        Exercise create link attribute table through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param link_field: Value supplied for link field under the utility contract.
+    :param attribute_name: Value supplied for attribute name under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     # Examine the table to check that we CAN emulate a OneToOne field with the given table
     # Preform the needed changes to the access methods to accommodate the backend table

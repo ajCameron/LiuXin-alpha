@@ -1,3 +1,14 @@
+"""
+Provide test docx malformed hostile utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test docx malformed hostile through a consuming regression::
+
+        python -m pytest -q tests/file_formats/docx/test_docx_malformed_hostile.py
+"""
 from __future__ import annotations
 
 import zipfile
@@ -15,6 +26,23 @@ def _assert_docx_convert_rejects_without_partial_output(
     monkeypatch=None,
     docx_cls=None,
 ) -> None:
+    """
+    Perform the assert docx convert rejects without partial output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  assert docx convert rejects without partial output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_malformed_hostile.py
+
+
+    :param archive: Value supplied for archive under the utility contract.
+    :param out_dir: Value supplied for out dir under the utility contract.
+    :param match: Value supplied for match under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param docx_cls: Value supplied for docx cls under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.docx import InvalidDOCX
     import LiuXin_alpha.file_formats.docx.to_html as to_html_mod
 
@@ -54,6 +82,23 @@ def test_docx_convert_rejects_malformed_container_members_without_partial_output
     replace: dict[str, bytes],
     match: str,
 ) -> None:
+    """
+    Perform the test docx convert rejects malformed container members without partial output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test docx convert rejects malformed container members without partial output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param case_id: Value supplied for case id under the utility contract.
+    :param remove: Value supplied for remove under the utility contract.
+    :param replace: Value supplied for replace under the utility contract.
+    :param match: Value supplied for match under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     base = build_unicode_docx(tmp_path / "base.docx")
     hostile = tmp_path / f"{case_id}.docx"
     rewrite_docx_zip(base.path, hostile, remove=remove, replace=replace)
@@ -80,6 +125,21 @@ def test_docx_convert_rejects_unsafe_archive_member_paths_before_extraction(
     case_id: str,
     member_name: str,
 ) -> None:
+    """
+    Perform the test docx convert rejects unsafe archive member paths before extraction operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test docx convert rejects unsafe archive member paths before extraction through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param case_id: Value supplied for case id under the utility contract.
+    :param member_name: Value supplied for member name under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     base = build_unicode_docx(tmp_path / "base.docx")
     hostile = tmp_path / f"{case_id}.docx"
     rewrite_docx_zip(base.path, hostile, add={member_name: b"unsafe"})
@@ -95,9 +155,31 @@ def test_docx_convert_rejects_too_many_archive_members_without_partial_output(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test docx convert rejects too many archive members without partial output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test docx convert rejects too many archive members without partial output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.docx.container import DOCX
 
     class StrictDOCX(DOCX):
+        """
+        Provide the strictdocx contract for validated ebook processing.
+
+        Example:
+            Exercise test docx convert rejects too many archive members without partial output.StrictDOCX through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_malformed_hostile.py
+        """
         max_archive_members = 8
 
     base = build_unicode_docx(tmp_path / "small.docx", lines=("small",))
@@ -121,9 +203,31 @@ def test_docx_convert_rejects_oversized_archive_member_without_partial_output(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test docx convert rejects oversized archive member without partial output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test docx convert rejects oversized archive member without partial output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.docx.container import DOCX
 
     class StrictDOCX(DOCX):
+        """
+        Provide the strictdocx contract for validated ebook processing.
+
+        Example:
+            Exercise test docx convert rejects oversized archive member without partial output.StrictDOCX through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_malformed_hostile.py
+        """
         max_member_uncompressed_size = 10 * 1024
 
     base = build_unicode_docx(tmp_path / "small.docx", lines=("small",))
@@ -143,9 +247,31 @@ def test_docx_convert_rejects_excessive_total_expansion_without_partial_output(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test docx convert rejects excessive total expansion without partial output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test docx convert rejects excessive total expansion without partial output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.docx.container import DOCX
 
     class StrictDOCX(DOCX):
+        """
+        Provide the strictdocx contract for validated ebook processing.
+
+        Example:
+            Exercise test docx convert rejects excessive total expansion without partial output.StrictDOCX through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_malformed_hostile.py
+        """
         max_member_uncompressed_size = 100 * 1024
         max_total_uncompressed_size = 30 * 1024
 
@@ -170,9 +296,31 @@ def test_docx_convert_rejects_suspicious_compression_ratio_without_partial_outpu
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test docx convert rejects suspicious compression ratio without partial output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test docx convert rejects suspicious compression ratio without partial output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.docx.container import DOCX
 
     class StrictDOCX(DOCX):
+        """
+        Provide the strictdocx contract for validated ebook processing.
+
+        Example:
+            Exercise test docx convert rejects suspicious compression ratio without partial output.StrictDOCX through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_malformed_hostile.py
+        """
         max_compression_ratio = 20
         min_compression_ratio_check_size = 32 * 1024
 

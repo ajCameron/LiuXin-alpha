@@ -1,24 +1,199 @@
 # Working Memory Index
 
-Current status: **M157–M176 complete**; 599 declarations across twenty-two files.
-All twenty-two web-source files are complete.
-[Latest checkpoint](project-docstrings-m157-m176-2026-10-04.md).
-Metadata progress: **176/274 units, 4,508 declarations, 204 complete files**.
-**M177 is next**; all 34 declarations across four metadata test files are unchanged. D remains archived complete.
-Project coverage: **1,264/2,671 complete-file records**, plus **37 partial declarations**.
-All 306 focused regressions and full quality checks passed with no skips.
+Current status: **project documentation inventory complete**. All 1,372 units,
+2,671 files and 42,166 declarations are verified, with no partial files.
+[Latest checkpoint](project-docstrings-l001-l037-2026-10-05.md).
+Nothing remains. The final focused result matches baseline; 95
+regressions and all full quality checks passed.
 Discovery records 39 unrelated review-hash differences.
 
-Updated: 2026-10-04
+Updated: 2026-10-05
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [project-docstrings-l001-l037-2026-10-05.md](project-docstrings-l001-l037-2026-10-05.md)
+  Final retained fixture-database compatibility track: 318 declarations and 52
+  files. The project-wide documentation inventory is complete.
+
+- [project-docstrings-s001-s028-2026-10-05.md](project-docstrings-s001-s028-2026-10-05.md)
+  Project scripts and their regression contracts: 785 declarations and 51 files.
+  S is complete; L001 next.
+
+- [project-docstrings-a102-a128-2026-10-05.md](project-docstrings-a102-a128-2026-10-05.md)
+  Renderers, Tk GUI and application regressions: 672 declarations and 37 files.
+  A is complete; S001 next.
+
+- [project-docstrings-a082-a101-2026-10-05.md](project-docstrings-a082-a101-2026-10-05.md)
+  Library relation/cache tables and GUI compatibility: 450 declarations and 33
+  files. A102 next.
+
+- [project-docstrings-a061-a081-2026-10-05.md](project-docstrings-a061-a081-2026-10-05.md)
+  Library restore and cache fields/views/coordination: 583 declarations and 11
+  files. A082 next.
+
+- [project-docstrings-a041-a060-2026-10-05.md](project-docstrings-a041-a060-2026-10-05.md)
+  Managed jobs and library backup/comments/lazy/legacy/facade/metadata APIs:
+  535 declarations and 12 files. A061 next.
+
+- [project-docstrings-a021-a040-2026-10-05.md](project-docstrings-a021-a040-2026-10-05.md)
+  Customization UI/builtins/cache and managed jobs: 527 declarations and 22
+  files. A041 next.
+
+- [project-docstrings-a001-a020-2026-10-05.md](project-docstrings-a001-a020-2026-10-05.md)
+  Preferences, errors, constants and customization foundations: 480
+  declarations and 18 files. A021 next.
+
+- [project-docstrings-f341-f347-2026-10-05.md](project-docstrings-f341-f347-2026-10-05.md)
+  Final RTF/SNB/TCR/Textile/text regression helpers: 184 declarations and 12
+  files. F is complete; A001 next.
+
+- [project-docstrings-f321-f340-2026-10-05.md](project-docstrings-f321-f340-2026-10-05.md)
+  ODT through RTF regression helpers: 532 declarations and 43 files. F341 next.
+
+- [project-docstrings-f301-f320-2026-10-05.md](project-docstrings-f301-f320-2026-10-05.md)
+  DOCX through ODF regression helpers: 483 declarations and 38 files. F321 next.
+
+- [project-docstrings-f281-f300-2026-10-05.md](project-docstrings-f281-f300-2026-10-05.md)
+  Text conversion/transliteration and early file-format regression helpers:
+  412 declarations and 45 files. F301 next.
+
+- [project-docstrings-f261-f280-2026-10-05.md](project-docstrings-f261-f280-2026-10-05.md)
+  RTF-to-XML, SNB, TCR, Textile and plain-text processing: 523 declarations and
+  36 files. F281 next.
+
+- [project-docstrings-f241-f260-2026-10-05.md](project-docstrings-f241-f260-2026-10-05.md)
+  PDF serializer/TOC, PML, RocketBook, readability and RTF-to-XML: 499 new
+  declarations and 42 promoted files. F261 next.
+
+- [project-docstrings-f221-f240-2026-10-05.md](project-docstrings-f221-f240-2026-10-05.md)
+  OPF3, Palm database and PDF internals: 522 declarations across 36 complete
+  files and one partial file. F241 next.
+
+- [project-docstrings-f201-f220-2026-10-05.md](project-docstrings-f201-f220-2026-10-05.md)
+  OEB polish tests, transformations and OPF/OPF2 models: 600 declarations and
+  28 files. F221 next.
+
+- [project-docstrings-f181-f200-2026-10-05.md](project-docstrings-f181-f200-2026-10-05.md)
+  Complete OEB polish and validation stack: 603 declarations and 28 files.
+  F201 next.
+
+- [project-docstrings-f161-f180-2026-10-05.md](project-docstrings-f161-f180-2026-10-05.md)
+  ODF/ODT and foundational OEB: 442 declarations and 20 files. F181 next.
+
+- [project-docstrings-f141-f160-2026-10-05.md](project-docstrings-f141-f160-2026-10-05.md)
+  ODF XHTML/package/style/table/text: 587 declarations and 11 files. F161 next.
+
+- [project-docstrings-f121-f140-2026-10-05.md](project-docstrings-f121-f140-2026-10-05.md)
+  MOBI writing and ODF internals: 520 declarations and 35 files. F141 next.
+
+- [project-docstrings-f101-f120-2026-10-05.md](project-docstrings-f101-f120-2026-10-05.md)
+  Markdown extensions and MOBI debug/reader internals: 549 declarations and 40
+  complete files. All 110 regressions and full quality checks passed. F121 next.
+
+- [project-docstrings-f081-f100-2026-10-05.md](project-docstrings-f081-f100-2026-10-05.md)
+  PyLRS construction and retained Markdown parsing/serialization: 587
+  declarations and 15 complete files. All 33 regressions and full quality
+  checks passed. F101 next.
+
+- [project-docstrings-f061-f080-2026-10-05.md](project-docstrings-f061-f080-2026-10-05.md)
+  LIT writing and the main LRF parser/object/HTML stack: 488 declarations and
+  19 complete files. All 66 regressions and full quality checks passed. F081 next.
+
+- [project-docstrings-f041-f060-2026-10-05.md](project-docstrings-f041-f060-2026-10-05.md)
+  DOCX writing, EPUB/CFI, FB2, HTML/HTMLZ, JSON and LIT: 502 declarations
+  and 33 complete files. All 218 regressions and full quality checks passed.
+  F061 next.
+
+- [project-docstrings-f021-f040-2026-10-05.md](project-docstrings-f021-f040-2026-10-05.md)
+  Conversion plugins, DjVu and DOCX internals: 543 declarations and 55 complete
+  files. All 46 regressions and full quality checks passed. F041 next.
+
+- [project-docstrings-f001-f020-2026-10-05.md](project-docstrings-f001-f020-2026-10-05.md)
+  Top-level format APIs, covers, markup, AZW4, CHM, comic, compression and the
+  first conversion plugins: 523 declarations and 38 complete files. All 304
+  regressions and full quality checks passed. F021 next.
+
+- [project-docstrings-u176-u208-2026-10-05.md](project-docstrings-u176-u208-2026-10-05.md)
+  Final utility-test batch: 633 declarations and 72 complete files. Regression
+  results match baseline; scoped and full quality checks passed. U is complete
+  and F001 is next.
+
+- [project-docstrings-u143-u175-2026-10-05.md](project-docstrings-u143-u175-2026-10-05.md)
+  Localization, logging, plugins/fallbacks, resources, local storage and text:
+  721 declarations and 73 complete files. Regression results match baseline;
+  full quality passed and the Latin-1 storage source remains intact. U176 next.
+
+- [project-docstrings-u114-u142-2026-10-05.md](project-docstrings-u114-u142-2026-10-05.md)
+  Complete bundled HTML5 parser/tokenizer/tree/filter stack: 796 declarations
+  and 36 complete files. Focused regressions and full quality passed. U143 is
+  next.
+
+- [project-docstrings-u097-u113-2026-10-05.md](project-docstrings-u097-u113-2026-10-05.md)
+  Bundled dateutil test corpus and timezone implementations: 591 declarations
+  and five complete files. The legacy collection barrier matches baseline; five
+  modern regressions and full quality passed. U114 is next.
+
+- [project-docstrings-u068-u096-2026-10-05.md](project-docstrings-u068-u096-2026-10-05.md)
+  Bundled HTML/date/archive/JSON/polyglot/inflection libraries: 726 declarations
+  and 53 complete files. Regressions match the green pre-edit baseline; full
+  quality passed and two Latin-1 source encodings remain intact. U097 is next.
+
+- [project-docstrings-u035-u067-2026-10-05.md](project-docstrings-u035-u067-2026-10-05.md)
+  Configuration, APSW shell, decompression, image, IPC, jobs and language
+  utilities: 772 declarations and 38 complete files. Regression results match
+  the captured baseline exactly; full quality passed. U068 is next.
+
+- [project-docstrings-u001-u034-2026-10-05.md](project-docstrings-u001-u034-2026-10-05.md)
+  First utility batch: 807 declarations and 36 complete files across shared
+  utilities and retained Calibre compatibility. Static and full quality checks
+  passed; 472 scoped regressions passed. U035 is next.
+
+- [project-docstrings-t002-t066-2026-10-05.md](project-docstrings-t002-t066-2026-10-05.md)
+  Final test-infrastructure batch: 984 declarations and 114 complete files.
+  Fixture, database, format-consumer and typing coverage passed; T is complete
+  and the authorized remainder continues at U001.
+
+- [project-docstrings-t001-2026-10-05.md](project-docstrings-t001-2026-10-05.md)
+  Root test package and conftest: 39 declarations across two complete files.
+  Import/runtime isolation and shared provisioning fixtures are documented; 86
+  regressions passed. T002 is next.
+
+- [project-docstrings-c033-c052-2026-10-05.md](project-docstrings-c033-c052-2026-10-05.md)
+  Final catalog search/write and regression-test batch: 500 new declarations,
+  twenty-eight complete files and the prior 37-declaration Search slice promoted.
+  C is complete at 52/52; T001 is next overall.
+
+- [project-docstrings-m267-m274-2026-10-05.md](project-docstrings-m267-m274-2026-10-05.md)
+  Final live-harness/provider/worker tests: 221 declarations and eight complete
+  files. M is complete at 274/274; next campaign selection remains open.
+
+- [project-docstrings-m237-m266-2026-10-05.md](project-docstrings-m237-m266-2026-10-05.md)
+  Remaining legacy file-source, local/standardization and non-live web-source
+  tests: 813 declarations and thirty-five complete files. 368 regressions passed;
+  historical checkpoint before the final M267–M274 batch.
+
+- [project-docstrings-m217-m236-2026-10-05.md](project-docstrings-m217-m236-2026-10-05.md)
+  EXTZ through PDF file-source tests: 580 declarations and thirty complete files.
+  438 regressions passed with one optional LRX skip; historical checkpoint
+  before M237–M266.
+
+- [project-docstrings-m197-m216-2026-10-04.md](project-docstrings-m197-m216-2026-10-04.md)
+  Container hydration, projections, conversions, Calibre-like metadata and
+  archive/comic/DOCX/EPUB tests: 518 new declarations and thirty-two complete
+  files. 286 regressions passed; historical checkpoint before M217–M236.
+
+- [project-docstrings-m177-m196-2026-10-04.md](project-docstrings-m177-m196-2026-10-04.md)
+  Metadata, OPF and standardization tests; API/source/WEMI contracts; book
+  serialization; and hydrator edge cases: 558 declarations, thirty-five complete
+  files and one partial file. 330 regressions passed; historical checkpoint
+  before M197–M216.
+
 - [project-docstrings-m157-m176-2026-10-04.md](project-docstrings-m157-m176-2026-10-04.md)
   Shared web-source contracts, orchestration and 16 provider/worker modules:
-  599 declarations and twenty-two complete files. 306 regressions passed; M177
-  is next.
+  599 declarations and twenty-two complete files. 306 regressions passed;
+  historical checkpoint before M177–M196.
 
 - [project-docstrings-m147-m156-2026-10-04.md](project-docstrings-m147-m156-2026-10-04.md)
   PDB readers, database-backed metadata source contracts, local ISFDB and

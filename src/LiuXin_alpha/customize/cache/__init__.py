@@ -1,8 +1,13 @@
 """
-Base classes to implement a database cache object.
+Expose the supported cache compatibility surface.
 
-Caches are used to store the database - or sections of it - in memory for faster access.
-They have several components - hence why it's broken down into a module
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/customize/test_customize_base.py
 """
 
 from LiuXin_alpha.customize.cache.base_cache import BaseCache

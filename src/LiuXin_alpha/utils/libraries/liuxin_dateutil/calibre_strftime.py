@@ -1,5 +1,16 @@
 
 
+"""
+Format dates with Calibre-compatible handling for historical years.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise calibre strftime through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_docstring_migration.py
+"""
 import time
 
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode as unicode
@@ -10,6 +21,17 @@ from LiuXin_alpha.utils.which_os import iswindows
 def strftime(fmt, t=None):
     """
     A version of strftime that returns unicode strings and tries to handle dates before 1900.
+
+    Example:
+        Exercise strftime through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param fmt: Date, number or template format specification.
+    :param t: Value supplied for t under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if not fmt:
         return ""

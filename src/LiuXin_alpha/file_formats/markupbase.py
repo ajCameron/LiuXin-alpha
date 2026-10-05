@@ -1,9 +1,13 @@
-"""Shared support for scanning document type declarations in HTML and XHTML.
+"""
+Provide shared declaration parsing for retained HTML and SGML parsers.
 
-This module is used as a foundation for the HTMLParser and sgmllib
-modules (indirectly, for htmllib as well).  It has no documented
-public API and should not be used directly.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
+Example:
+    Exercise markupbase through a consuming regression::
+
+        python -m pytest -q tests/file_formats/html/test_html_modernized.py
 """
 from __future__ import annotations
 
@@ -25,22 +29,75 @@ del re
 
 
 class ParserBase:
-    """Parser base class which provides some common support methods used
-    by the SGML/HTML and XHTML parsers."""
+    """
+    Parser base class which provides some common support methods used by the SGML/HTML and XHTML parsers.
+
+    Example:
+        Exercise ParserBase through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
 
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the parserbase state.
+
+        Example:
+            Exercise ParserBase.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         if self.__class__ is ParserBase:
             raise RuntimeError("markupbase.ParserBase must be subclassed")
 
     def error(self: _typing.Self, message: _typing.Any) -> None:
+        """
+        Perform the error operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ParserBase.error through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param message: Value supplied for message under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise NotImplementedError("subclasses of ParserBase must override error()")
 
     def reset(self: _typing.Self) -> None:
+        """
+        Perform the reset operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ParserBase.reset through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.lineno = 1
         self.offset = 0
 
     def getpos(self: _typing.Self) -> tuple[_typing.Any, ...]:
-        """Return current line number and offset."""
+        """
+        Return current line number and offset.
+
+        Example:
+            Exercise ParserBase.getpos through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.lineno, self.offset
 
     # Internal -- update line number and offset.  This should be
@@ -48,6 +105,20 @@ class ParserBase:
     # words the concatenation of all the input strings to this
     # function should be exactly the entire input.
     def updatepos(self: _typing.Self, i: _typing.Any, j: _typing.Any) -> _typing.Any:
+        """
+        Perform the updatepos operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ParserBase.updatepos through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param i: Value supplied for i under the utility contract.
+        :param j: Value supplied for j under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if i >= j:
             return j
         rawdata = self.rawdata
@@ -74,6 +145,19 @@ class ParserBase:
         # name in the following list: ENTITY, DOCTYPE, ELEMENT,
         # ATTLIST, NOTATION, SHORTREF, USEMAP,
         # LINKTYPE, LINK, IDLINK, USELINK, SYSTEM
+        """
+        Parse declaration under the format's safety and compatibility rules.
+
+        Example:
+            Exercise ParserBase.parse declaration through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param i: Value supplied for i under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         rawdata = self.rawdata
         j = i + 2
         assert rawdata[i:j] == "<!", "unexpected call to parse_declaration"
@@ -141,6 +225,20 @@ class ParserBase:
     # Internal -- parse a marked section
     # Override this to handle MS-word extension syntax <![if word]>content<![endif]>
     def parse_marked_section(self: _typing.Self, i: _typing.Any, report: int = 1) -> _typing.Any:
+        """
+        Parse marked section under the format's safety and compatibility rules.
+
+        Example:
+            Exercise ParserBase.parse marked section through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param i: Value supplied for i under the utility contract.
+        :param report: Value supplied for report under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         rawdata = self.rawdata
         assert rawdata[i : i + 3] == "<![", "unexpected call to parse_marked_section()"
         sectName, j = self._scan_name(i + 3, i)
@@ -163,6 +261,20 @@ class ParserBase:
 
     # Internal -- parse comment, return length or -1 if not terminated
     def parse_comment(self: _typing.Self, i: _typing.Any, report: int = 1) -> _typing.Any:
+        """
+        Parse comment under the format's safety and compatibility rules.
+
+        Example:
+            Exercise ParserBase.parse comment through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param i: Value supplied for i under the utility contract.
+        :param report: Value supplied for report under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         rawdata = self.rawdata
         if rawdata[i : i + 4] != "<!--":
             self.error("unexpected call to parse_comment()")
@@ -177,6 +289,20 @@ class ParserBase:
     # Internal -- scan past the internal subset in a <!DOCTYPE declaration,
     # returning the index just past any whitespace following the trailing ']'.
     def _parse_doctype_subset(self: _typing.Self, i: _typing.Any, declstartpos: _typing.Any) -> _typing.Any:
+        """
+        Parse doctype subset under the format's safety and compatibility rules.
+
+        Example:
+            Exercise ParserBase. parse doctype subset through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param i: Value supplied for i under the utility contract.
+        :param declstartpos: Value supplied for declstartpos under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         rawdata = self.rawdata
         n = len(rawdata)
         j = i
@@ -243,6 +369,20 @@ class ParserBase:
 
     # Internal -- scan past <!ELEMENT declarations
     def _parse_doctype_element(self: _typing.Self, i: _typing.Any, declstartpos: _typing.Any) -> _typing.Any:
+        """
+        Parse doctype element under the format's safety and compatibility rules.
+
+        Example:
+            Exercise ParserBase. parse doctype element through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param i: Value supplied for i under the utility contract.
+        :param declstartpos: Value supplied for declstartpos under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         name, j = self._scan_name(i, declstartpos)
         if j == -1:
             return -1
@@ -254,6 +394,20 @@ class ParserBase:
 
     # Internal -- scan past <!ATTLIST declarations
     def _parse_doctype_attlist(self: _typing.Self, i: _typing.Any, declstartpos: _typing.Any) -> _typing.Any:
+        """
+        Parse doctype attlist under the format's safety and compatibility rules.
+
+        Example:
+            Exercise ParserBase. parse doctype attlist through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param i: Value supplied for i under the utility contract.
+        :param declstartpos: Value supplied for declstartpos under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         rawdata = self.rawdata
         name, j = self._scan_name(i, declstartpos)
         c = rawdata[j : j + 1]
@@ -311,6 +465,20 @@ class ParserBase:
 
     # Internal -- scan past <!NOTATION declarations
     def _parse_doctype_notation(self: _typing.Self, i: _typing.Any, declstartpos: _typing.Any) -> _typing.Any:
+        """
+        Parse doctype notation under the format's safety and compatibility rules.
+
+        Example:
+            Exercise ParserBase. parse doctype notation through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param i: Value supplied for i under the utility contract.
+        :param declstartpos: Value supplied for declstartpos under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         name, j = self._scan_name(i, declstartpos)
         if j < 0:
             return j
@@ -334,6 +502,20 @@ class ParserBase:
 
     # Internal -- scan past <!ENTITY declarations
     def _parse_doctype_entity(self: _typing.Self, i: _typing.Any, declstartpos: _typing.Any) -> _typing.Any:
+        """
+        Parse doctype entity under the format's safety and compatibility rules.
+
+        Example:
+            Exercise ParserBase. parse doctype entity through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param i: Value supplied for i under the utility contract.
+        :param declstartpos: Value supplied for declstartpos under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         rawdata = self.rawdata
         if rawdata[i : i + 1] == "%":
             j = i + 1
@@ -370,6 +552,20 @@ class ParserBase:
     # Internal -- scan a name token and the new position and the token, or
     # return -1 if we've reached the end of the buffer.
     def _scan_name(self: _typing.Self, i: _typing.Any, declstartpos: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the scan name operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ParserBase. scan name through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param i: Value supplied for i under the utility contract.
+        :param declstartpos: Value supplied for declstartpos under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         rawdata = self.rawdata
         n = len(rawdata)
         if i == n:
@@ -387,4 +583,17 @@ class ParserBase:
 
     # To be overridden -- handlers for unknown objects
     def unknown_decl(self: _typing.Self, data: _typing.Any) -> None:
+        """
+        Perform the unknown decl operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ParserBase.unknown decl through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass

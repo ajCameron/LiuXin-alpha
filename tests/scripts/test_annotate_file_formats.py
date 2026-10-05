@@ -1,4 +1,14 @@
-"""Tests for the file-format annotation migration tool."""
+"""
+Provide test annotate file formats utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test annotate file formats through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_annotate_file_formats.py
+"""
 
 from __future__ import annotations
 
@@ -13,6 +23,18 @@ from scripts.annotate_file_formats import annotate_source  # noqa: E402
 
 
 def test_annotate_source_adds_conservative_complete_signatures() -> None:
+    """
+    Perform the test annotate source adds conservative complete signatures operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test annotate source adds conservative complete signatures through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_annotate_file_formats.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     source = '''#!/usr/bin/env python3
 """Example module."""
 from __future__ import division
@@ -62,6 +84,18 @@ def label(value, suffix="!"):
 
 
 def test_annotate_source_is_idempotent() -> None:
+    """
+    Perform the test annotate source is idempotent operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test annotate source is idempotent through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_annotate_file_formats.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     source = "def empty():\n    return None\n"
 
     annotated, _changed = annotate_source(source)
@@ -72,6 +106,18 @@ def test_annotate_source_is_idempotent() -> None:
 
 
 def test_annotate_source_terminates_empty_modules_with_a_newline() -> None:
+    """
+    Perform the test annotate source terminates empty modules with a newline operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test annotate source terminates empty modules with a newline through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_annotate_file_formats.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     annotated, changed = annotate_source("")
 
     assert changed

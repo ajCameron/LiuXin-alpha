@@ -1,3 +1,14 @@
+"""
+Expose the supported config compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/utils/config/test_config_base.py
+"""
 __author__ = "Big Brother Iron"
 
 from copy import deepcopy
@@ -13,8 +24,26 @@ from LiuXin_alpha.constants import __appname__, get_version
 class CustomHelpFormatter(optparse.IndentedHelpFormatter):
     """
     Custom help formatter.
+
+    Example:
+        Exercise CustomHelpFormatter through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
     """
     def format_usage(self, usage):
+        """
+        Format usage under the documented compatibility and safety rules.
+
+        Example:
+            Exercise CustomHelpFormatter.format usage through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param usage: Value supplied for usage under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.utils.terminal import colored
 
         parts = usage.split(" ")
@@ -24,6 +53,19 @@ class CustomHelpFormatter(optparse.IndentedHelpFormatter):
         return colored(_("Usage"), fg="blue", bold=True) + ": " + usage
 
     def format_heading(self, heading):
+        """
+        Format heading under the documented compatibility and safety rules.
+
+        Example:
+            Exercise CustomHelpFormatter.format heading through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param heading: Value supplied for heading under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.utils.terminal import colored
 
         return "%*s%s:\n" % (
@@ -33,6 +75,19 @@ class CustomHelpFormatter(optparse.IndentedHelpFormatter):
         )
 
     def format_option(self, option):
+        """
+        Format option under the documented compatibility and safety rules.
+
+        Example:
+            Exercise CustomHelpFormatter.format option through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param option: Value supplied for option under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         import textwrap
         from LiuXin_alpha.utils.terminal import colored
 
@@ -65,6 +120,14 @@ class CustomHelpFormatter(optparse.IndentedHelpFormatter):
 
 
 class OptionParser(optparse.OptionParser):
+    """
+    Parse or evaluate OptionParser expressions under Calibre template semantics.
+
+    Example:
+        Exercise OptionParser through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+    """
     def __init__(
         self,
         usage="%prog [options] filename",
@@ -74,6 +137,24 @@ class OptionParser(optparse.OptionParser):
         conflict_handler="resolve",
         **kwds
     ):
+        """
+        Initialize and validate the OptionParser state.
+
+        Example:
+            Exercise OptionParser.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param usage: Value supplied for usage under the utility contract.
+        :param version: Value supplied for version under the utility contract.
+        :param epilog: Value supplied for epilog under the utility contract.
+        :param gui_mode: Value supplied for gui mode under the utility contract.
+        :param conflict_handler: Value supplied for conflict handler under the utility
+            contract.
+        :param kwds: Value supplied for kwds under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         import textwrap
         from LiuXin_alpha.utils.terminal import colored
 
@@ -107,37 +188,112 @@ class OptionParser(optparse.OptionParser):
             _("show program's version number and exit")
 
     def print_usage(self, file=None):
+        """
+        Perform the print usage utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise OptionParser.print usage through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param file: Value supplied for file under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.utils.terminal import ANSIStream
 
         s = ANSIStream(file)
         optparse.OptionParser.print_usage(self, file=s)
 
     def print_help(self, file=None):
+        """
+        Perform the print help utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise OptionParser.print help through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param file: Value supplied for file under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.utils.terminal import ANSIStream
 
         s = ANSIStream(file)
         optparse.OptionParser.print_help(self, file=s)
 
     def print_version(self, file=None):
+        """
+        Perform the print version utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise OptionParser.print version through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param file: Value supplied for file under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.utils.terminal import ANSIStream
 
         s = ANSIStream(file)
         optparse.OptionParser.print_version(self, file=s)
 
     def error(self, msg):
+        """
+        Perform the error utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise OptionParser.error through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param msg: Value supplied for msg under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.gui_mode:
             raise Exception(msg)
         optparse.OptionParser.error(self, msg)
 
     def merge(self, parser):
         """
-        Add options from parser to self. In case of conflicts, conflicting options from
-        parser are skipped.
+        Add options from parser to self. In case of conflicts, conflicting options from parser are skipped.
+
+        Example:
+            Exercise OptionParser.merge through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param parser: Value supplied for parser under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         opts = list(parser.option_list)
         groups = list(parser.option_groups)
 
         def merge_options(options, container):
+            """
+            Perform the merge options utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise OptionParser.merge.merge options through a consuming regression::
+
+                    python -m pytest -q tests/utils/config/test_config_base.py
+
+
+            :param options: Value supplied for options under the utility contract.
+            :param container: Value supplied for container under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             for opt in deepcopy(options):
                 if not self.has_option(opt.get_opt_string()):
                     container.add_option(opt)
@@ -150,8 +306,18 @@ class OptionParser(optparse.OptionParser):
 
     def subsume(self, group_name, msg=""):
         """
-        Move all existing options into a subgroup named
-        C{group_name} with description C{msg}.
+        Move all existing options into a subgroup named C{group_name} with description C{msg}.
+
+        Example:
+            Exercise OptionParser.subsume through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param group_name: Value supplied for group name under the utility contract.
+        :param msg: Value supplied for msg under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         opts = [opt for opt in self.options_iter() if opt.get_opt_string() not in ("--version", "--help")]
         self.option_groups = []
@@ -161,6 +327,17 @@ class OptionParser(optparse.OptionParser):
             subgroup.add_option(opt)
 
     def options_iter(self):
+        """
+        Perform the options iter utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise OptionParser.options iter through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for opt in self.option_list:
             if str(opt).strip():
                 yield opt
@@ -170,15 +347,37 @@ class OptionParser(optparse.OptionParser):
                     yield opt
 
     def option_by_dest(self, dest):
+        """
+        Perform the option by dest utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise OptionParser.option by dest through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param dest: Value supplied for dest under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for opt in self.options_iter():
             if opt.dest == dest:
                 return opt
 
     def merge_options(self, lower, upper):
         """
-        Merge options in lower and upper option lists into upper.
-        Default values in upper are overridden by
-        non default values in lower.
+        Merge options in lower and upper option lists into upper. Default values in upper are overridden by non default values in lower.
+
+        Example:
+            Exercise OptionParser.merge options through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param lower: Value supplied for lower under the utility contract.
+        :param upper: Value supplied for upper under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         for dest in lower.__dict__.keys():
             if dest not in upper.__dict__:
@@ -189,6 +388,20 @@ class OptionParser(optparse.OptionParser):
 
     def add_option_group(self, *args, **kwargs):
         # stdlib optparse expects the group title to be a str
+        """
+        Add option group under the documented compatibility and safety rules.
+
+        Example:
+            Exercise OptionParser.add option group through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if args and isinstance(args[0], (str, bytes)):
             args = list(args)
             args[0] = str(args[0])

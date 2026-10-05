@@ -1,3 +1,14 @@
+"""
+Verify package exports, compatibility modules and import-side-effect boundaries.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test metadata package surface through its owning regression module::
+
+        python -m pytest -q tests/metadata/api/test_metadata_package_surface.py
+"""
 from __future__ import annotations
 
 import ast
@@ -245,12 +256,37 @@ METADATA_API_ROOT = REPO_ROOT / "src" / "LiuXin_alpha" / "metadata" / "api"
     ],
 )
 def test_metadata_package_import_surface(module_name: str, expected_names: list[str]) -> None:
+    """
+    Verify metadata package import surface.
+
+    Example:
+        Exercise test metadata package import surface through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_metadata_package_surface.py
+
+
+    :param module_name: Value supplied for module name in the focused test operation.
+    :param expected_names: Value supplied for expected names in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     module = importlib.import_module(module_name)
     for expected_name in expected_names:
         assert hasattr(module, expected_name), f"{module_name} is missing {expected_name}"
 
 
 def test_metadata_api_root_combines_current_public_api_roots() -> None:
+    """
+    Verify metadata api root combines current public api roots.
+
+    Example:
+        Exercise test metadata api root combines current public api roots through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_metadata_package_surface.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     api_root = importlib.import_module("LiuXin_alpha.metadata.api")
     container_api_root = importlib.import_module(
         "LiuXin_alpha.metadata.api.containers_api"
@@ -277,6 +313,17 @@ def test_metadata_api_root_combines_current_public_api_roots() -> None:
 
 
 def test_stale_metadata_from_database_namespace_is_removed() -> None:
+    """
+    Verify stale metadata from database namespace remains removed.
+
+    Example:
+        Exercise test stale metadata from database namespace is removed through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_metadata_package_surface.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     stale_package = (
         REPO_ROOT
         / "src"
@@ -289,6 +336,17 @@ def test_stale_metadata_from_database_namespace_is_removed() -> None:
 
 
 def test_metadata_container_root_matches_metadata_containers_root() -> None:
+    """
+    Verify metadata container root matches metadata containers root.
+
+    Example:
+        Exercise test metadata container root matches metadata containers root through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_metadata_package_surface.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     container_root = importlib.import_module("LiuXin_alpha.metadata.containers")
     metadata_containers_root = importlib.import_module(
         "LiuXin_alpha.metadata.containers.metadata_containers"
@@ -297,11 +355,33 @@ def test_metadata_container_root_matches_metadata_containers_root() -> None:
 
 
 def test_metadata_api_source_scan_observes_repo_files() -> None:
+    """
+    Verify metadata api source scan observes repo files.
+
+    Example:
+        Exercise test metadata api source scan observes repo files through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_metadata_package_surface.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     assert (METADATA_API_ROOT / "__init__.py").is_file()
     assert any(METADATA_API_ROOT.rglob("*.py"))
 
 
 def test_metadata_api_source_avoids_unbounded_typing() -> None:
+    """
+    Verify metadata api source avoids unbounded typing.
+
+    Example:
+        Exercise test metadata api source avoids unbounded typing through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_metadata_package_surface.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     pattern = re.compile(r"\b" + ("A" "ny") + r"\b")
     offenders = [
         str(path)
@@ -312,6 +392,17 @@ def test_metadata_api_source_avoids_unbounded_typing() -> None:
 
 
 def test_metadata_api_source_avoids_abstract_implementation_placeholders() -> None:
+    """
+    Verify metadata api source avoids abstract implementation placeholders.
+
+    Example:
+        Exercise test metadata api source avoids abstract implementation placeholders through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_metadata_package_surface.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     offenders = [
         str(path)
         for path in METADATA_API_ROOT.rglob("*.py")
@@ -321,6 +412,17 @@ def test_metadata_api_source_avoids_abstract_implementation_placeholders() -> No
 
 
 def test_metadata_api_annotations_avoid_unbounded_objects() -> None:
+    """
+    Verify metadata api annotations avoid unbounded objects.
+
+    Example:
+        Exercise test metadata api annotations avoid unbounded objects through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_metadata_package_surface.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     unbounded_names = {("A" "ny"), "object"}
     offenders: list[str] = []
 
@@ -348,6 +450,18 @@ def test_metadata_api_annotations_avoid_unbounded_objects() -> None:
 
 
 def _name_from_ast(node: ast.AST) -> str | None:
+    """
+    Perform the name from ast test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise name from ast through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_metadata_package_surface.py
+
+
+    :param node: Value supplied for node in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if isinstance(node, ast.Name):
         return node.id
     return None
@@ -389,6 +503,20 @@ def test_metadata_api_surfaces_do_not_export_concrete_containers(
     module_name: str,
     concrete_names: list[str],
 ) -> None:
+    """
+    Verify metadata api surfaces do not export concrete containers.
+
+    Example:
+        Exercise test metadata api surfaces do not export concrete containers through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_metadata_package_surface.py
+
+
+    :param module_name: Value supplied for module name in the focused test operation.
+    :param concrete_names: Value supplied for concrete names in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     module = importlib.import_module(module_name)
     for concrete_name in concrete_names:
         assert not hasattr(module, concrete_name), f"{module_name} still exports {concrete_name}"
@@ -402,6 +530,18 @@ def test_metadata_api_surfaces_do_not_export_concrete_containers(
     ],
 )
 def test_metadata_leaf_all_names_exist(module_name: str) -> None:
+    """
+    Verify metadata leaf all names exist.
+
+    Example:
+        Exercise test metadata leaf all names exist through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_metadata_package_surface.py
+
+
+    :param module_name: Value supplied for module name in the focused test operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     module = importlib.import_module(module_name)
     for exported_name in module.__all__:
         assert hasattr(module, exported_name), f"{module_name} exports missing {exported_name}"

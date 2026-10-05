@@ -1,12 +1,13 @@
 """
-Declares an API for the field module.
+Model cached metadata fields and their lookup behavior.
 
-Fields are one step of abstraction up from tables - collections of data in a form that people might actually want.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-They may, or may not, be externally accessible outside the cache.
-The only API which _really_ matters is the cache one - on paper.
-Some plugins might go rogue and access the fields directly.
-However, if you have field like objects within your cache, they should inherit from the objects here if possible.
+Example:
+    Exercise base field through a consuming regression::
+
+        python -m pytest -q tests/customize/test_customize_base.py
 """
 
 from __future__ import unicode_literals, division, absolute_import, print_function
@@ -33,8 +34,15 @@ def identity(x: D) -> D:
     """
     Just returns itself.
 
-    :param x:
-    :return x:
+    Example:
+        Exercise identity through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return x
 
@@ -46,8 +54,10 @@ class BaseField(Generic[T]):
     """
     Basis for a representation of a field on the database.
 
-    Cached information from the database is stored in the table object.
-    The field provides convenient access methods to it.
+    Example:
+        Exercise BaseField through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     _default_sort_key: Optional[Union[bytes, int, datetime.datetime, tuple]]
@@ -76,16 +86,24 @@ class BaseField(Generic[T]):
         auxiliary_table: Optional[str] = None,
     ) -> None:
         """
+        Initialize and validate the basefield state.
 
-        :param name: Name of the field
-        :param table: The table the field is in
-        :param bools_are_tristate: If True then bools are permitted to take three values - True, False and None
-        :param link_attributes: The names of the additional attributes that the link has (e.g. "index")
-        :param main_table: It is helpful to be able to generically refer to the tables being linked.
-                           While "main" and "auxiliary" are not hard and fast they should be taken as a guide (and
-                           if one of the two is a title or book, that should probably always been main.
-        :param auxiliary_table:
-        :return:
+        Example:
+            Exercise BaseField.  init   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param table: Value supplied for table under the utility contract.
+        :param bools_are_tristate: Value supplied for bools are tristate under the utility
+            contract.
+        :param link_attributes: Value supplied for link attributes under the utility
+            contract.
+        :param main_table: Value supplied for main table under the utility contract.
+        :param auxiliary_table: Value supplied for auxiliary table under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
         """
         # Todo: datatype, table_type should be enums
         self.name: str = name
@@ -129,7 +147,14 @@ class BaseField(Generic[T]):
         """
         Return valid link_attr names.
 
-        :return:
+        Example:
+            Exercise BaseField.get link attrs through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.link_attr_fields.keys()
 
@@ -137,9 +162,15 @@ class BaseField(Generic[T]):
         """
         Allows a [] interface to the stored link_attrs.
 
-        This will return the link attribute with the given name.
-        :param item:
-        :return value: The result of getting this item from the link_attr_fields dict.
+        Example:
+            Exercise BaseField.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.link_attr_fields[item]
 
@@ -147,8 +178,14 @@ class BaseField(Generic[T]):
         """
         Startup the link attribute fields - which additionally characterizes the link between main and auxiliary tables.
 
-        E.g. "index" on a "series" field in "titles".
-        :return:
+        Example:
+            Exercise BaseField.startup link attr fields through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
@@ -156,15 +193,15 @@ class BaseField(Generic[T]):
         """
         Read any *link-attribute* tables associated with this field.
 
-        In calibre-style schemas, some many-to-many links have extra columns
-        (for example, a series link might have a series index). Those extras
-        are represented as additional "attribute fields" stored in
-        ``self.link_attr_fields``.
+        Example:
+            Exercise BaseField.read attribute tables through a consuming regression::
 
-        Most fields have no attribute tables, so the default implementation is
-        a no-op.
+                python -m pytest -q tests/customize/test_customize_base.py
 
-        :param db: Database backend / driver wrapper used by tables to read.
+
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Be defensive: link_attr_fields may be empty (normal) or contain
         # objects that are either Field-like (with .table) or Table-like.
@@ -181,7 +218,14 @@ class BaseField(Generic[T]):
         """
         Write is a tool to writing data out to the table in the database when it's changed in the field.
 
-        :return:
+        Example:
+            Exercise BaseField.writer through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self._writer
 
@@ -190,8 +234,15 @@ class BaseField(Generic[T]):
         """
         Changing the writer should also change the writer in the table.
 
-        :param new_writer:
-        :return:
+        Example:
+            Exercise BaseField.writer through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param new_writer: Value supplied for new writer under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self._writer = new_writer
         try:
@@ -204,7 +255,14 @@ class BaseField(Generic[T]):
         """
         Return the default value for this field.
 
-        :return:
+        Example:
+            Exercise BaseField.default value through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return deepcopy(self._default_value)
 
@@ -213,7 +271,14 @@ class BaseField(Generic[T]):
         """
         Return the metadata of the underlying table.
 
-        :return:
+        Example:
+            Exercise BaseField.metadata through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.table.metadata
 
@@ -221,8 +286,15 @@ class BaseField(Generic[T]):
         """
         Check to see if the given book is in the folder store - returns True if it is and False if it isn't.
 
-        :param book_id:
-        :return True/False:
+        Example:
+            Exercise BaseField.book in cache through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError("Method not implemented in base Table method")
 
@@ -230,11 +302,15 @@ class BaseField(Generic[T]):
         """
         Return True if the given item is in the cache and False otherwise.
 
-        If the table and the auxiliary table are OneToOne then the id of the item is assumed to be the id of that table.
-        E.g. if this field is for "titles" then the id will just be the id of the title.
-        E.g. if this field is for "title tags" then the id will be the id of a given tag in the auxiliary table.
-        :param item_id:
-        :return True/False:
+        Example:
+            Exercise BaseField.item in cache through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError("Method not implemented in base Table method")
 
@@ -242,10 +318,16 @@ class BaseField(Generic[T]):
         """
         Return the value of this field for the book identified by book_id.
 
-        When no value is found, returns ``default_value``.
-        :param book_id:
-        :param default_value:
-        :return:
+        Example:
+            Exercise BaseField.for book through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError("Method not implemented in base Table method")
 
@@ -253,19 +335,32 @@ class BaseField(Generic[T]):
         """
         Return a tuple of items ids for items associated with the book identified by book_ids.
 
-        Returns an empty tuple if no such items are found.
-        :param book_id:
-        :return:
+        Example:
+            Exercise BaseField.ids for book through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError("Method not implemented in base Table method")
 
     # Todo: In a system where order has meaning, shouldn't this be a tuple?
     def books_for(self, item_id: int) -> set[int, ...]:
         """
-        Return the ids of all books associated with the item identified by item_id as a set. An empty set is returned if
-        no books are found.
-        :param item_id:
-        :return:
+        Return the ids of all books associated with the item identified by item_id as a set. An empty set is returned if no books are found.
+
+        Example:
+            Exercise BaseField.books for through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError("Method not implemented in base Table method")
 
@@ -273,8 +368,14 @@ class BaseField(Generic[T]):
         """
         Iterate over the ids for all values in this field.
 
-        WARNING: Some fields such as composite fields and virtual fields like ondevice do not have ids for their values,
-        in such cases this is an empty iterator.
+        Example:
+            Exercise BaseField.  iter   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return iter(())
 
@@ -282,10 +383,16 @@ class BaseField(Generic[T]):
         """
         Return a function that maps book_id to sort_key.
 
-        The sort key is suitable for use in sorting the list of all books by this field, via the python cmp method.
-        :param get_metadata:
-        :param lang_map:
-        :return:
+        Example:
+            Exercise BaseField.sort keys for books through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param lang_map: Value supplied for lang map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -293,12 +400,17 @@ class BaseField(Generic[T]):
         """
         Return a generator that yields items of the form (value, set of books ids that have this value).
 
-        Here, value is a searchable value.
-        Returned books_ids are restricted to the set of ids in candidates.
-        :param get_metadata:
-        :param candidates:
-        :param default_value:
-        :return:
+        Example:
+            Exercise BaseField.iter searchable values through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param get_metadata: Value supplied for get metadata under the utility contract.
+        :param candidates: Value supplied for candidates under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -306,23 +418,37 @@ class BaseField(Generic[T]):
         """
         Still not 100% sure what this is supposed to do.
 
-        It's probably broken though.
-        :param tag_class:
-        :param book_rating_map:
-        :param lang_map:
-        :param book_ids:
-        :return:
+        Example:
+            Exercise BaseField.get categories through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param tag_class: Value supplied for tag class under the utility contract.
+        :param book_rating_map: Value supplied for book rating map under the utility
+            contract.
+        :param lang_map: Value supplied for lang map under the utility contract.
+        :param book_ids: Book identities included in the batched read operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
     def update_cache(self, book_id_val_map: dict[int, D], id_map: Optional[dict[int, D]] = None) -> bool:
         """
         Preform an update of the book_col_map (also the col_book_map, if required).
-        :param book_id_val_map: Keyed with the value of the book and valued with the new value for that book (in cases
-                                where the book_item map is one to one or the item can be uniquely identified in some
-                                other way, then this value might just be the new value for the book)
-        :param id_map: Keyed with the id of the update and valued with the new value.
-        :return status: Did the field update successfully
+
+        Example:
+            Exercise BaseField.update cache through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id_val_map: Value supplied for book id val map under the utility
+            contract.
+        :param id_map: Value supplied for id map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -330,12 +456,19 @@ class BaseField(Generic[T]):
         """
         Preform an update of the database - should return the data needed to preform an update of the cache.
 
-        :param book_id_to_val_map: Keyed with the item id and valued with the new item value
-                                   If the map is 1-1 this might just be the new value - if it's a different type of map
-                                   it might be more complicated.
-        :param db:
-        :param allow_case_change:
-        :return status: Did the database update successfully?
+        Example:
+            Exercise BaseField.update db through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id_to_val_map: Value supplied for book id to val map under the utility
+            contract.
+        :param db: Value supplied for db under the utility contract.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -343,14 +476,26 @@ class BaseField(Generic[T]):
 class BaseOneToManyField(BaseField[T]):
     """
     For a Many-to-Many or One-to-Many table that has to pretend to be a 1-1 table.
+
+    Example:
+        Exercise BaseOneToManyField through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     def ids_for_book(self, book_id: SrcTableID) -> set[DstTableID]:
         """
         The table is pretending to be 1-1 - so this method does not make sense.
 
-        :param book_id:
-        :return:
+        Example:
+            Exercise BaseOneToManyField.ids for book through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -358,7 +503,14 @@ class BaseOneToManyField(BaseField[T]):
         """
         The table is pretending to be 1-1 - so this method does not make sense.
 
-        :param item_id:
-        :return:
+        Example:
+            Exercise BaseOneToManyField.books for through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError

@@ -1,3 +1,14 @@
+"""
+Verify work metadata values, aliases, relations and projections.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test work metadata container through its owning regression module::
+
+        python -m pytest -q tests/metadata/containers/test_work_metadata_container.py
+"""
 from __future__ import annotations
 
 from LiuXin_alpha.metadata.api import WorkRelationLink
@@ -5,6 +16,17 @@ from LiuXin_alpha.metadata.containers import WorkIdentity, WorkMetadata
 
 
 def test_work_metadata_container_round_trip() -> None:
+    """
+    Verify work metadata container round trip.
+
+    Example:
+        Exercise test work metadata container round trip through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_work_metadata_container.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     container = WorkMetadata(
         work=WorkIdentity(
             work_id=5,

@@ -1,6 +1,16 @@
 #! /usr/bin/env python
 
-"""Dump archive contents, test extraction."""
+"""
+Inspect RAR blocks and render diagnostic information for compatibility debugging.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise dumprar through a consuming regression::
+
+        python -m pytest -q tests/utils/decompression/test_archives.py
+"""
 
 from __future__ import print_function
 
@@ -15,6 +25,19 @@ except NameError:
     import array
 
     def bytearray(v):
+        """
+        Perform the bytearray utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise bytearray through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param v: Value supplied for v under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return array.array("B", v)
 
 
@@ -53,6 +76,19 @@ block_strs = [
 
 
 def rarType(type):
+    """
+    Perform the rarType utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise rarType through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param type: Value supplied for type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if type < rf.RAR_BLOCK_MARK or type > rf.RAR_BLOCK_ENDARC:
         return "*UNKNOWN*"
     return block_strs[type - rf.RAR_BLOCK_MARK]
@@ -106,6 +142,19 @@ file_parms = ("D64", "D128", "D256", "D512", "D1024", "D2048", "D4096", "DIR")
 
 
 def xprint(m):
+    """
+    Perform the xprint utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise xprint through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param m: Value supplied for m under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if sys.hexversion < 0x3000000:
         if isinstance(m, unicode):
             m = m.encode("utf8")
@@ -114,6 +163,20 @@ def xprint(m):
 
 
 def render_flags(flags, bit_list):
+    """
+    Perform the render flags utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise render flags through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param flags: Value supplied for flags under the utility contract.
+    :param bit_list: Value supplied for bit list under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     res = []
     known = 0
     for bit in bit_list:
@@ -132,6 +195,19 @@ def render_flags(flags, bit_list):
 
 
 def get_file_flags(flags):
+    """
+    Return file flags under the documented compatibility and safety rules.
+
+    Example:
+        Exercise get file flags through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param flags: Value supplied for flags under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     res = render_flags(flags & ~rf.RAR_FILE_DICTMASK, file_bits)
 
     xf = (flags & rf.RAR_FILE_DICTMASK) >> 5
@@ -140,24 +216,89 @@ def get_file_flags(flags):
 
 
 def get_main_flags(flags):
+    """
+    Return main flags under the documented compatibility and safety rules.
+
+    Example:
+        Exercise get main flags through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param flags: Value supplied for flags under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return render_flags(flags, main_bits)
 
 
 def get_endarc_flags(flags):
+    """
+    Return endarc flags under the documented compatibility and safety rules.
+
+    Example:
+        Exercise get endarc flags through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param flags: Value supplied for flags under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return render_flags(flags, endarc_bits)
 
 
 def get_generic_flags(flags):
+    """
+    Return generic flags under the documented compatibility and safety rules.
+
+    Example:
+        Exercise get generic flags through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param flags: Value supplied for flags under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return render_flags(flags, generic_bits)
 
 
 def fmt_time(t):
+    """
+    Perform the fmt time utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise fmt time through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param t: Value supplied for t under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(t, datetime):
         return t.isoformat(" ")
     return "%04d-%02d-%02d %02d:%02d:%02d" % t
 
 
 def show_item(h):
+    """
+    Perform the show item utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise show item through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param h: Value supplied for h under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     st = rarType(h.type)
     unknown = h.header_size - h.header_base
     xprint("%s: hdrlen=%d datlen=%d hdr_unknown=%d" % (st, h.header_size, h.add_size, unknown))
@@ -223,6 +364,20 @@ cf_test_unrar = 0
 
 
 def check_crc(f, inf):
+    """
+    Perform the check crc utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise check crc through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param f: Value supplied for f under the utility contract.
+    :param inf: Value supplied for inf under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     ucrc = f.CRC
     if ucrc < 0:
         ucrc += long(1) << 32
@@ -231,6 +386,20 @@ def check_crc(f, inf):
 
 
 def test_read_long(r, inf):
+    """
+    Perform the test read long utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test read long through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param r: Value supplied for r under the utility contract.
+    :param inf: Value supplied for inf under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     f = r.open(inf.filename)
     total = 0
     while 1:
@@ -265,10 +434,38 @@ def test_read_long(r, inf):
 
 
 def test_read(r, inf):
+    """
+    Perform the test read utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test read through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param r: Value supplied for r under the utility contract.
+    :param inf: Value supplied for inf under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     test_read_long(r, inf)
 
 
 def test_real(fn, psw):
+    """
+    Perform the test real utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test real through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param fn: Value supplied for fn under the utility contract.
+    :param psw: Value supplied for psw under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     xprint("Archive: %s" % fn)
 
     cb = None
@@ -320,6 +517,20 @@ def test_real(fn, psw):
 
 
 def test(fn, psw):
+    """
+    Perform the test utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param fn: Value supplied for fn under the utility contract.
+    :param psw: Value supplied for psw under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     try:
         test_real(fn, psw)
     except rf.NeedFirstVolume:
@@ -335,6 +546,18 @@ def test(fn, psw):
 
 
 def main():
+    """
+    Perform the main utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     global cf_verbose, cf_show_comment, cf_charset
     global cf_extract, cf_test_read, cf_test_unrar
 

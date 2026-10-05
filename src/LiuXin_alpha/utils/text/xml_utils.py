@@ -1,11 +1,35 @@
 
 
+"""
+Normalize XML text, entities and namespace-aware element operations.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise xml utils through a consuming regression::
+
+        python -m pytest -q tests/utils/text/test_text_core.py
+"""
 import re
 
 from functools import partial
 
 
 def my_unichr(num):
+    """
+    Perform the my unichr utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise my unichr through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :param num: Value supplied for num under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.utils.text.icu import safe_chr
     try:
         return safe_chr(num)
@@ -14,20 +38,37 @@ def my_unichr(num):
 
 def entity_to_unicode(match, exceptions=[], encoding="cp1252", result_exceptions={}):
     """
-    :param match: A match object such that '&'+match.group(1)';' is the entity.
+    Perform the entity to unicode utility operation under explicit compatibility rules.
 
-    :param exceptions: A list of entities to not convert (Each entry is the name of the entity, e.g. 'apos' or '#1234'
+    Example:
+        Exercise entity to unicode through a consuming regression::
 
-    :param encoding: The encoding to use to decode numeric entities between 128 and 256.
-    If None, the Unicode UCS encoding is used. A common encoding is cp1252.
+            python -m pytest -q tests/utils/text/test_text_core.py
 
-    :param result_exceptions: A mapping of characters to entities. If the result
-    is in result_exceptions, result_exception[result] is returned instead.
-    Convenient way to specify exception for things like < or > that can be
-    specified by various actual entities.
+
+    :param match: Value supplied for match under the utility contract.
+    :param exceptions: Value supplied for exceptions under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param result_exceptions: Value supplied for result exceptions under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     def check(ch):
+        """
+        Perform the check utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise entity to unicode.check through a consuming regression::
+
+                python -m pytest -q tests/utils/text/test_text_core.py
+
+
+        :param ch: Value supplied for ch under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return result_exceptions.get(ch, ch)
 
     ent = match.group(1)
@@ -73,14 +114,56 @@ xml_entity_to_unicode = partial(
 
 
 def replace_entities(raw, encoding="cp1252"):
+    """
+    Perform the replace entities utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise replace entities through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return _ent_pat.sub(partial(entity_to_unicode, encoding=encoding), raw)
 
 
 def xml_replace_entities(raw, encoding="cp1252"):
+    """
+    Perform the xml replace entities utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise xml replace entities through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return _ent_pat.sub(partial(xml_entity_to_unicode, encoding=encoding), raw)
 
 
 def prepare_string_for_xml(raw, attribute=False):
+    """
+    Perform the prepare string for xml utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise prepare string for xml through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param attribute: Value supplied for attribute under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     raw = _ent_pat.sub(entity_to_unicode, raw)
     raw = raw.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     if attribute:

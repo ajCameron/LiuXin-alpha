@@ -1,3 +1,14 @@
+"""
+Translate normalized markup or LRS structures into LRF content.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise convert from through a consuming regression::
+
+        python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+"""
 from __future__ import annotations, print_function
 
 import typing as _typing
@@ -60,6 +71,14 @@ __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
 
 class LrsParser(object):
 
+    """
+    Parse lrsparser data into normalized ebook structures.
+
+    Example:
+        Exercise LrsParser through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     SELF_CLOSING_TAGS = [
         i.lower()
         for i in [
@@ -83,6 +102,20 @@ class LrsParser(object):
     ]
 
     def __init__(self: _typing.Self, stream: _typing.Any, logger: _typing.Any) -> None:
+        """
+        Initialize and validate the lrsparser state.
+
+        Example:
+            Exercise LrsParser.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param logger: Value supplied for logger under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.logger = logger
         src = stream.read()
         self.soup = BeautifulStoneSoup(
@@ -102,6 +135,18 @@ class LrsParser(object):
         self.fifth_pass()
 
     def fifth_pass(self: _typing.Self) -> None:
+        """
+        Perform the fifth pass operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrsParser.fifth pass through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for tag in self.soup.findAll(["canvas", "header", "footer"]):
             canvas = self.parsed_objects[tag.get("objid")]
             for po in tag.findAll("putobj"):
@@ -109,6 +154,20 @@ class LrsParser(object):
 
     @classmethod
     def attrs_to_dict(cls: type[_typing.Self], tag: _typing.Any, exclude: tuple[_typing.Any, ...] = ("objid",)) -> _typing.Any:
+        """
+        Perform the attrs to dict operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrsParser.attrs to dict through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param exclude: Value supplied for exclude under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         result = {}
         for key, val in tag.attrs:
             if key in exclude:
@@ -117,6 +176,19 @@ class LrsParser(object):
         return result
 
     def text_tag_to_element(self: _typing.Self, tag: _typing.Any) -> _typing.Any:
+        """
+        Perform the text tag to element operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrsParser.text tag to element through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         element_map = {
             "span": Span,
             "italic": Italic,
@@ -139,6 +211,20 @@ class LrsParser(object):
         return element_map[tag.name](**settings)
 
     def process_text_element(self: _typing.Self, tag: _typing.Any, elem: _typing.Any) -> None:
+        """
+        Perform the process text element operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrsParser.process text element through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param elem: Value supplied for elem under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for item in tag.contents:
             if isinstance(item, NavigableString):
                 elem.append(item.string)
@@ -148,6 +234,19 @@ class LrsParser(object):
                 self.process_text_element(item, subelem)
 
     def process_paragraph(self: _typing.Self, tag: _typing.Any) -> _typing.Any:
+        """
+        Perform the process paragraph operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrsParser.process paragraph through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         p = Paragraph()
         contents = [i for i in tag.contents]
         if contents:
@@ -165,6 +264,19 @@ class LrsParser(object):
         return p
 
     def process_text_block(self: _typing.Self, tag: _typing.Any) -> None:
+        """
+        Perform the process text block operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrsParser.process text block through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         tb = self.parsed_objects[tag.get("objid")]
         for item in tag.contents:
             if hasattr(item, "name"):
@@ -180,6 +292,18 @@ class LrsParser(object):
                     p.append(elem)
 
     def fourth_pass(self: _typing.Self) -> None:
+        """
+        Perform the fourth pass operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrsParser.fourth pass through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for tag in self.soup.findAll("page"):
             page = self.parsed_objects[tag.get("objid")]
             self.book.append(page)
@@ -205,6 +329,18 @@ class LrsParser(object):
                 self.book.addTocEntry(label, self.parsed_objects[tag.get("refobj")])
 
     def third_pass(self: _typing.Self) -> None:
+        """
+        Perform the third pass operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrsParser.third pass through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         local_map = {
             "page": (
                 Page,
@@ -247,6 +383,18 @@ class LrsParser(object):
                 self.parsed_objects[item_id] = local_map[tag.name][0](*args, **settings)
 
     def second_pass(self: _typing.Self) -> None:
+        """
+        Perform the second pass operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrsParser.second pass through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         map = {
             "pagestyle": (
                 PageStyle,
@@ -288,8 +436,16 @@ class LrsParser(object):
     def tag_to_string(cls: type[_typing.Self], tag: _typing.Any) -> _typing.Any:
         """
         Convenience method to take a BeautifulSoup Tag and extract the text from it recursively.
-        :param tag:
-        :return:
+
+        Example:
+            Exercise LrsParser.tag to string through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if not tag:
             return ""
@@ -304,11 +460,37 @@ class LrsParser(object):
         return "".join(strings)
 
     def first_pass(self: _typing.Self) -> None:
+        """
+        Perform the first pass operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrsParser.first pass through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         info = self.soup.find("bbebxylog").find("bookinformation").find("info")
         book_info = info.find("bookinfo")
         doc_info = info.find("docinfo")
 
         def me(base: _typing.Any, tagname: _typing.Any) -> _typing.Any:
+            """
+            Perform the me operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise LrsParser.first pass.me through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param base: Value supplied for base under the utility contract.
+            :param tagname: Value supplied for tagname under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             tag = base.find(tagname.lower())
             if tag is None:
                 return "", "", ""
@@ -364,6 +546,20 @@ class LrsParser(object):
             self.parsed_objects[hdr.get("objid")] = elem(**self.attrs_to_dict(hdr))
 
     def render(self: _typing.Self, file: _typing.Any, to_lrs: bool = False) -> None:
+        """
+        Perform the render operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrsParser.render through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param file: Value supplied for file under the utility contract.
+        :param to_lrs: Value supplied for to lrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if to_lrs:
             self.book.renderLrs(file, "utf-8")
         else:
@@ -371,6 +567,18 @@ class LrsParser(object):
 
 
 def option_parser() -> _typing.Any:
+    """
+    Perform the option parser operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise option parser through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = OptionParser(usage=_("%prog [options] file.lrs\nCompile an LRS file into an LRF file."))
     parser.add_option("-o", "--output", default=None, help=_("Path to output file"))
     parser.add_option("--verbose", default=False, action="store_true", help=_("Verbose processing"))
@@ -384,6 +592,20 @@ def option_parser() -> _typing.Any:
 
 
 def main(args: _typing.Any = sys.argv, logger: _typing.Any = None) -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+    :param args: Positional values forwarded to the compatibility implementation.
+    :param logger: Value supplied for logger under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = option_parser()
     opts, args = parser.parse_args(args)
     if logger is None:

@@ -10,6 +10,17 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+"""
+Extract and structure RTF document headers and metadata.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise header through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -22,10 +33,12 @@ from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
 
 class Header:
     """
-    Two public methods are available. The first separates all of the headers
-    and footers from the body and puts them at the bottom of the text, where
-    they are easier to process. The second joins those headers and footers to
-    the proper places in the body.
+    Two public methods are available. The first separates all of the headers and footers from the body and puts them at the bottom of the text, where they are easier to process. The second joins those headers and footers to the proper places in the body.
+
+    Example:
+        Exercise Header through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
     """
 
     def __init__(
@@ -35,6 +48,21 @@ class Header:
         copy: _typing.Any = None,
         run_level: int = 1,
     ) -> None:
+        """
+        Initialize and validate the header state.
+
+        Example:
+            Exercise Header.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param copy: Value supplied for copy under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.__file = in_file
         self.__bug_handler = bug_handler
         self.__copy = copy
@@ -44,6 +72,16 @@ class Header:
     def __in_header_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Handle all tokens that are part of header
+
+        Example:
+            Exercise Header.  in header func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__cb_count == self.__header_bracket_count:
             self.__in_header = False
@@ -57,6 +95,16 @@ class Header:
     def __found_header(self: _typing.Self, line: _typing.Any) -> None:
         """
         Found a header
+
+        Example:
+            Exercise Header.  found header through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # but this could be header or footer
         self.__found_a_header = True
@@ -78,6 +126,16 @@ class Header:
     def __default_sep(self: _typing.Self, line: _typing.Any) -> None:
         """
         Handle all tokens that are not header tokens
+
+        Example:
+            Exercise Header.  default sep through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info[3:5] == "hf":
             self.__found_header(line)
@@ -86,6 +144,15 @@ class Header:
     def __initiate_sep_values(self: _typing.Self) -> None:
         """
         initiate counters for separate_footnotes method.
+
+        Example:
+            Exercise Header.  initiate sep values through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__bracket_count = 0
         self.__ob_count = 0
@@ -106,11 +173,16 @@ class Header:
 
     def separate_headers(self: _typing.Self) -> None:
         """
-        Separate all the footnotes in an RTF file and put them at the bottom,
-        where they are easier to process.  Each time a footnote is found,
-        print all of its contents to a temporary file. Close both the main and
-        temporary file. Print the footnotes from the temporary file to the
-        bottom of the main file.
+        Separate all the footnotes in an RTF file and put them at the bottom, where they are easier to process. Each time a footnote is found, print all of its contents to a temporary file. Close both the main and temporary file. Print the footnotes from the temporary file to the bottom of the main file.
+
+        Example:
+            Exercise Header.separate headers through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__initiate_sep_values()
         self.__header_holder = better_mktemp()
@@ -148,6 +220,17 @@ class Header:
     def update_info(self: _typing.Self, file: _typing.Any, copy: _typing.Any) -> None:
         """
         Unused method
+
+        Example:
+            Exercise Header.update info through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param file: Value supplied for file under the utility contract.
+        :param copy: Value supplied for copy under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__file = file
         self.__copy = copy
@@ -155,6 +238,16 @@ class Header:
     def __get_head_body_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Process lines in main body and look for beginning of headers.
+
+        Example:
+            Exercise Header.  get head body func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # mi<mk<footnt-end
         if self.__token_info == "mi<mk<header-beg":
@@ -165,6 +258,16 @@ class Header:
     def __get_head_head_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Copy headers and footers from bottom of file to a separate, temporary file.
+
+        Example:
+            Exercise Header.  get head head func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "mi<mk<header-end":
             self.__state = "body"
@@ -173,11 +276,16 @@ class Header:
 
     def __get_headers(self: _typing.Self) -> None:
         """
-        Private method to remove footnotes from main file.  Read one line from
-        the main file at a time. If the state is 'body', call on the private
-        __get_foot_foot_func. Otherwise, call on the __get_foot_body_func.
-        These two functions do the work of separating the footnotes form the
-        body.
+        Private method to remove footnotes from main file. Read one line from the main file at a time. If the state is 'body', call on the private __get_foot_foot_func. Otherwise, call on the __get_foot_body_func. These two functions do the work of separating the footnotes form the body.
+
+        Example:
+            Exercise Header.  get headers through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         with open_for_read(self.__file) as read_obj:
             with open_for_write(self.__write_to) as self.__write_obj:
@@ -191,10 +299,17 @@ class Header:
 
     def __get_head_from_temp(self: _typing.Self, num: _typing.Any) -> _typing.Any:
         """
-        Private method for joining headers and footers to body. This method
-        reads from the temporary file until the proper footnote marker is
-        found. It collects all the tokens until the end of the footnote, and
-        returns them as a string.
+        Private method for joining headers and footers to body. This method reads from the temporary file until the proper footnote marker is found. It collects all the tokens until the end of the footnote, and returns them as a string.
+
+        Example:
+            Exercise Header.  get head from temp through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param num: Value supplied for num under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         look_for = "mi<mk<header-ope<" + num + "\n"
         found_head = False
@@ -210,12 +325,16 @@ class Header:
 
     def __join_from_temp(self: _typing.Self) -> None:
         """
-        Private method for rejoining footnotes to body.  Read from the
-        newly-created, temporary file that contains the body text but no
-        footnotes. Each time a footnote marker is found, call the private
-        method __get_foot_from_temp(). This method will return a string to
-        print out to the third file.
-        If no footnote marker is found, simply print out the token (line).
+        Private method for rejoining footnotes to body. Read from the newly-created, temporary file that contains the body text but no footnotes. Each time a footnote marker is found, call the private method __get_foot_from_temp(). This method will return a string to print out to the third file. If no footnote marker is found, simply print out the token (line).
+
+        Example:
+            Exercise Header.  join from temp through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__read_from_head_obj = open_for_read(self.__header_holder)
         self.__write_obj = open_for_write(self.__write_to2)
@@ -227,13 +346,16 @@ class Header:
 
     def join_headers(self: _typing.Self) -> None:
         """
-        Join the footnotes from the bottom of the file and put them in their
-        former places.  First, remove the footnotes from the bottom of the
-        input file, outputting them to a temporary file. This creates two new
-        files, one without footnotes, and one of just footnotes. Open both
-        these files to read. When a marker is found in the main file, find the
-        corresponding marker in the footnote file. Output the mix of body and
-        footnotes to a third file.
+        Join the footnotes from the bottom of the file and put them in their former places. First, remove the footnotes from the bottom of the input file, outputting them to a temporary file. This creates two new files, one without footnotes, and one of just footnotes. Open both these files to read. When a marker is found in the main file, find the corresponding marker in the footnote file. Output the mix of body and footnotes to a third file.
+
+        Example:
+            Exercise Header.join headers through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if not self.__found_a_header:
             return

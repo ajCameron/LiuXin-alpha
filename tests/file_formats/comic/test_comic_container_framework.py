@@ -1,3 +1,14 @@
+"""
+Provide test comic container framework utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test comic container framework through a consuming regression::
+
+        python -m pytest -q tests/file_formats/comic/test_comic_container_framework.py
+"""
 from __future__ import annotations
 
 import io
@@ -27,6 +38,18 @@ from tests.support.file_format_unicode import assert_no_replacement_chars
 
 
 def _comic_options() -> SimpleNamespace:
+    """
+    Perform the comic options operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  comic options through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_container_framework.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return SimpleNamespace(
         no_sort=False,
         verbose=False,
@@ -36,6 +59,20 @@ def _comic_options() -> SimpleNamespace:
 
 
 def _read_valid_opf(path: Path) -> str:
+    """
+    Read valid opf under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  read valid opf through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_container_framework.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     assert path.exists(), f"missing output OPF: {path}"
     root = ET.parse(path).getroot()
     assert root.tag.endswith("package")
@@ -45,6 +82,19 @@ def _read_valid_opf(path: Path) -> str:
 
 
 def test_comic_cbz_fixture_builds_valid_unicode_page_archive(tmp_path: Path) -> None:
+    """
+    Perform the test comic cbz fixture builds valid unicode page archive operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic cbz fixture builds valid unicode page archive through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_container_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     fixture = build_unicode_cbz(tmp_path / "comic_Καλημέρα_世界.cbz")
 
     with zipfile.ZipFile(fixture.path, "r") as zf:
@@ -66,6 +116,19 @@ def test_comic_cbz_fixture_builds_valid_unicode_page_archive(tmp_path: Path) -> 
 
 
 def test_comic_cbz_fixture_supports_optional_extra_members(tmp_path: Path) -> None:
+    """
+    Perform the test comic cbz fixture supports optional extra members operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic cbz fixture supports optional extra members through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_container_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     extra_members = {
         "notes/readme_שלום.txt": "שלום comic note".encode("utf-8"),
         "metadata/credits_世界.json": b'{"role": "artist"}',
@@ -86,6 +149,19 @@ def test_comic_cbz_fixture_supports_optional_extra_members(tmp_path: Path) -> No
 
 
 def test_comic_cbc_fixture_builds_valid_collection_with_nested_cbz_members(tmp_path: Path) -> None:
+    """
+    Perform the test comic cbc fixture builds valid collection with nested cbz members operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic cbc fixture builds valid collection with nested cbz members through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_container_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     fixture = build_unicode_cbc(tmp_path / "collection_Καλημέρα_世界.cbc")
 
     with zipfile.ZipFile(fixture.path, "r") as zf:
@@ -115,6 +191,19 @@ def test_comic_cbc_fixture_builds_valid_collection_with_nested_cbz_members(tmp_p
 
 
 def test_comic_collection_parser_accepts_unicode_fixture_titles_and_paths(tmp_path: Path) -> None:
+    """
+    Perform the test comic collection parser accepts unicode fixture titles and paths operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic collection parser accepts unicode fixture titles and paths through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_container_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.comic_input import ComicInput
 
     fixture = build_unicode_cbc(tmp_path / "bundle_Καλημέρα_世界.cbc")
@@ -135,6 +224,20 @@ def test_comic_input_accepts_unicode_cbz_fixture_through_plugin_path(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test comic input accepts unicode cbz fixture through plugin path operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic input accepts unicode cbz fixture through plugin path through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_container_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.comic_input import ComicInput
 
     fixture = build_unicode_cbz(tmp_path / "comic_Καλημέρα_世界.cbz")
@@ -174,6 +277,20 @@ def test_comic_input_accepts_unicode_cbc_collection_through_plugin_path(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test comic input accepts unicode cbc collection through plugin path operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic input accepts unicode cbc collection through plugin path through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_container_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.comic_input import ComicInput
 
     fixture = build_unicode_cbc(tmp_path / "collection_Καλημέρα_世界.cbc")
@@ -217,6 +334,20 @@ def test_comic_input_accepts_preflighted_unicode_cbr_through_plugin_path(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test comic input accepts preflighted unicode cbr through plugin path operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic input accepts preflighted unicode cbr through plugin path through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_container_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.comic_input import ComicInput
     import LiuXin_alpha.file_formats.comic.input as comic_input_impl
 
@@ -230,6 +361,19 @@ def test_comic_input_accepts_preflighted_unicode_cbr_through_plugin_path(
     extracted = tmp_path / "extracted_cbr"
 
     def _extract_comic(_path):
+        """
+        Extract comic under the format's safety and compatibility rules.
+
+        Example:
+            Exercise test comic input accepts preflighted unicode cbr through plugin path. extract comic through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_container_framework.py
+
+
+        :param _path: Value supplied for path under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         page_dir = extracted / "pages"
         page_dir.mkdir(parents=True, exist_ok=True)
         (page_dir / page_name).write_bytes(png_bytes())
@@ -257,6 +401,20 @@ def test_comic_input_reports_names_only_cbr_preflight_diagnostic(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test comic input reports names only cbr preflight diagnostic operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic input reports names only cbr preflight diagnostic through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_container_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.comic_input import ComicInput
     import LiuXin_alpha.file_formats.comic.input as comic_input_impl
 
@@ -268,6 +426,19 @@ def test_comic_input_reports_names_only_cbr_preflight_diagnostic(
     extracted = tmp_path / "extracted_names_only_cbr"
 
     def _extract_comic(_path):
+        """
+        Extract comic under the format's safety and compatibility rules.
+
+        Example:
+            Exercise test comic input reports names only cbr preflight diagnostic. extract comic through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_container_framework.py
+
+
+        :param _path: Value supplied for path under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         page_dir = extracted / "pages"
         page_dir.mkdir(parents=True, exist_ok=True)
         for page_name in page_names:
@@ -309,6 +480,18 @@ def test_comic_input_reports_names_only_cbr_preflight_diagnostic(
 
 
 def test_comic_cbr_preflight_accepts_real_vendored_unicode_rar_listing() -> None:
+    """
+    Perform the test comic cbr preflight accepts real vendored unicode rar listing operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic cbr preflight accepts real vendored unicode rar listing through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_container_framework.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.comic_input import ComicInput
 
     archive = vendored_rar_fixture("unicode.rar")
@@ -326,6 +509,20 @@ def test_comic_cbr_preflight_accepts_names_only_external_rar_listing(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test comic cbr preflight accepts names only external rar listing operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic cbr preflight accepts names only external rar listing through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_container_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.comic_input import ComicInput
 
     archive = write_stub_cbr(tmp_path / "fallback_Καλημέρα_世界.cbr")
@@ -353,6 +550,19 @@ def test_comic_cbr_preflight_accepts_names_only_external_rar_listing(
 
 
 def test_comic_fixture_rewrite_helper_removes_replaces_and_adds_members(tmp_path: Path) -> None:
+    """
+    Perform the test comic fixture rewrite helper removes replaces and adds members operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic fixture rewrite helper removes replaces and adds members through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_container_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     fixture = build_unicode_cbz(tmp_path / "base.cbz")
     rewritten = tmp_path / "rewritten.cbz"
     replacement_page = b"\x89PNG replacement"
