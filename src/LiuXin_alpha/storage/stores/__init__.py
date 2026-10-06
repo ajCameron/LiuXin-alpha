@@ -14,6 +14,7 @@ from LiuXin_alpha.storage.stores.encrypted import (
     StaticEncryptionKeyProvider,
 )
 from LiuXin_alpha.storage.stores.http import HttpReadOnlyStore
+from LiuXin_alpha.storage.stores.memory import MemoryStore
 from LiuXin_alpha.storage.stores.s3 import S3BackendOptions, S3Store
 from LiuXin_alpha.storage.stores.sqlite import SQLiteStore
 
@@ -23,6 +24,7 @@ __all__ = [
     "EncryptedStore",
     "EncryptionKeyProviderAPI",
     "HttpReadOnlyStore",
+    "MemoryStore",
     "S3BackendOptions",
     "S3Store",
     "StaticEncryptionKeyProvider",

@@ -120,6 +120,19 @@ class _TrackedWriteSession:
         self._size = 0
         self._released = False
 
+    @property
+    def location(self) -> Location:
+        """
+        Return the staged destination exposed by the wrapped Store session.
+
+        This wrapper adds byte-ceiling and mutation-lease behavior without changing the publication
+        target. Access delegates to the underlying session and performs no storage operation.
+
+        :return: Routed Location at which the wrapped session will publish.
+        """
+
+        return self._session.location
+
     def write(self, data: bytes) -> int:
         """
         Check offered length against the ceiling, delegate the write, and add its accepted count.

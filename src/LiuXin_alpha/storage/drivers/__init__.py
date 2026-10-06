@@ -19,6 +19,10 @@ from LiuXin_alpha.storage.drivers.ftp import (
 from LiuXin_alpha.storage.drivers.http import HttpObjectAddress, HttpStorageDriver
 from LiuXin_alpha.storage.drivers.iso import IsoObjectAddress, IsoStorageDriver
 from LiuXin_alpha.storage.drivers.iso_writer import WritableIsoStorageDriver
+from LiuXin_alpha.storage.drivers.memory import (
+    MemoryObjectAddress,
+    MemoryStorageDriver,
+)
 from LiuXin_alpha.storage.drivers.rar import RarObjectAddress, RarStorageDriver
 from LiuXin_alpha.storage.drivers.rclone import (
     RcloneObjectAddress,
@@ -61,6 +65,8 @@ __all__ = [
     "HttpStorageDriver",
     "IsoObjectAddress",
     "IsoStorageDriver",
+    "MemoryObjectAddress",
+    "MemoryStorageDriver",
     "WritableIsoStorageDriver",
     "RarObjectAddress",
     "RarStorageDriver",

@@ -18,6 +18,7 @@ import abc
 from types import TracebackType
 
 from LiuXin_alpha.storage.api.storage_manager_api.catalog_api import (
+    DigitalAssetRecordOrder,
     DigitalAssetRegistryAPI,
 )
 from LiuXin_alpha.storage.api.storage_manager_api.composites_api import (
@@ -26,6 +27,7 @@ from LiuXin_alpha.storage.api.storage_manager_api.composites_api import (
 from LiuXin_alpha.storage.api.storage_manager_api.convenience_api import (
     DigitalAssetFileIdentifier,
     StorageConvenienceAPI,
+    StorageConvenienceBase,
 )
 from LiuXin_alpha.storage.api.storage_manager_api.derivations_api import (
     DigitalAssetDerivationRegistryAPI,
@@ -60,6 +62,8 @@ from LiuXin_alpha.storage.api.storage_manager_api.models import (
     DigitalAssetRecreationPlan,
     DigitalAssetLossAction,
     DigitalAssetBackupPlan,
+    DigitalAssetReplacementAssessment,
+    DigitalAssetReplacementStatus,
     BackupPolicy,
     BackupPolicyID,
     BackupPolicyRecord,
@@ -67,6 +71,11 @@ from LiuXin_alpha.storage.api.storage_manager_api.models import (
     CompositeDigitalAssetDeclaration,
     CompositeDigitalAssetID,
     CompositeDigitalAssetMemberResolution,
+    CompositeDigitalAssetMemberStorageAssessment,
+    CompositeDigitalAssetMemberVerificationReport,
+    CompositeDigitalAssetResolution,
+    CompositeDigitalAssetStorageAssessment,
+    CompositeDigitalAssetVerificationReport,
     CompositeDigitalAssetMembership,
     CompositeDigitalAssetRecord,
     DigitalAssetDeclaration,
@@ -79,12 +88,14 @@ from LiuXin_alpha.storage.api.storage_manager_api.models import (
     DigitalAssetVerificationReport,
     DigitalAssetDerivationKind,
     DigitalAssetDerivationSourceReference,
+    ExternalReproductionCommand,
     ReplicaSeparationDimension,
     ItemDigitalAssetResolution,
     ItemID,
     StoreReconciliationPlan,
     StoreReconciliationReport,
     ReproductionRecipeArtifactReference,
+    ReproductionNormalizationDigest,
     ReproductionRecipeInputReference,
     ReplicaDeclaration,
     ReplicaID,
@@ -105,6 +116,7 @@ from LiuXin_alpha.storage.api.storage_manager_api.models import (
     StorageBootstrapReport,
     StoragePolicyAssessment,
     StorageOperationalIssue,
+    StorageOperationalRecoverability,
     StorageOperationalSeverity,
     StorageOperationalStatus,
     StorageRecoveryAction,
@@ -134,7 +146,6 @@ from LiuXin_alpha.storage.api.storage_manager_api.router_api import StorageRoute
 from LiuXin_alpha.storage.api.storage_manager_api.stores_api import StoreAdministrationAPI
 
 
-# Todo: Would be clearer to have an explicit __init__ method
 class StorageManagerAPI(
     StorageConvenienceAPI,
     StoreAdministrationAPI,
@@ -160,7 +171,9 @@ class StorageManagerAPI(
     inherited conveniences delegate through those operations rather than exposing database rows or
     raw driver addresses.
 
-    Context entry returns the existing manager without starting or probing Stores. Exit delegates to
+    The composed abstract facade owns no constructor state, so concrete managers define
+    initialization for their repositories and Stores. Context entry returns the existing manager
+    without starting or probing Stores. Exit delegates to
     close regardless of the body's outcome and never suppresses its exception. Store shutdown and
     cleanup failures follow the concrete close implementation; this wrapper provides no transaction,
     publication rollback, or suppression of close errors.
@@ -172,10 +185,9 @@ class StorageManagerAPI(
         True
     """
 
-    # Todo: Given the constraints... why does this method exist?
     def __enter__(self) -> StorageManagerAPI:
         """
-        Return this manager without starting Stores or opening a transaction.
+        Return this manager so context exit can reliably pair its concrete close operation.
 
         All initialization and resource setup remain with the concrete manager and its callers; this
         method does not check whether the manager was closed.
@@ -227,10 +239,13 @@ __all__ = [
     "DigitalAssetDerivationNotFound",
     "DigitalAssetDerivationRecord",
     "DigitalAssetRecreationPlan",
+    "ExternalReproductionCommand",
     "DigitalAssetDerivationRegistryAPI",
     "DigitalAssetDerivationRepositoryAPI",
     "DigitalAssetLossAction",
     "DigitalAssetBackupPlan",
+    "DigitalAssetReplacementAssessment",
+    "DigitalAssetReplacementStatus",
     "BackupPolicy",
     "BackupPolicyID",
     "BackupPolicyRecord",
@@ -241,6 +256,11 @@ __all__ = [
     "CompositeDigitalAssetID",
     "CompositeDigitalAssetIncomplete",
     "CompositeDigitalAssetMemberResolution",
+    "CompositeDigitalAssetMemberStorageAssessment",
+    "CompositeDigitalAssetMemberVerificationReport",
+    "CompositeDigitalAssetResolution",
+    "CompositeDigitalAssetStorageAssessment",
+    "CompositeDigitalAssetVerificationReport",
     "CompositeDigitalAssetMembership",
     "CompositeDigitalAssetNotFound",
     "CompositeDigitalAssetRecord",
@@ -254,6 +274,7 @@ __all__ = [
     "DigitalAssetIngestAPI",
     "DigitalAssetIngestResult",
     "DigitalAssetRecord",
+    "DigitalAssetRecordOrder",
     "DigitalAssetRegistryAPI",
     "DigitalAssetResolution",
     "DigitalAssetRetrievalAPI",
@@ -272,6 +293,7 @@ __all__ = [
     "StoreReconciliationPlanStale",
     "StoreReconciliationReport",
     "ReproductionRecipeArtifactReference",
+    "ReproductionNormalizationDigest",
     "ReproductionRecipeArtifactResolverAPI",
     "ReproductionRecipeInputReference",
     "ReplicaDeclaration",
@@ -295,9 +317,11 @@ __all__ = [
     "StorageBootstrapIssue",
     "StorageBootstrapReport",
     "StorageConvenienceAPI",
+    "StorageConvenienceBase",
     "StorageManagementError",
     "StorageManagerAPI",
     "StorageOperationalIssue",
+    "StorageOperationalRecoverability",
     "StorageOperationalSeverity",
     "StorageOperationalStatus",
     "StorageOperationalStatusAPI",

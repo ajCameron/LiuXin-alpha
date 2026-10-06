@@ -34,6 +34,7 @@ from LiuXin_alpha.storage.api.placement_hints_api import (
 )
 from LiuXin_alpha.storage.api.store_api.file_api import StoreFileAPI
 from LiuXin_alpha.storage.api.store_api.identity_api import StoreIdentityAPI
+from LiuXin_alpha.storage.utils.streams import bytes_stream
 
 
 StoreSource: TypeAlias = (
@@ -42,8 +43,7 @@ StoreSource: TypeAlias = (
 StoreFileIdentifier: TypeAlias = str | Location | FileInfo
 
 
-# Todo: split convenience down and include the subclasses in the submodules as appropriate
-class StoreConvenienceAPI:
+class StoreConvenienceBase:
     """
     Familiar file operations layered over a configured Store's exact API.
 
@@ -344,7 +344,7 @@ class StoreConvenienceAPI:
         """
 
         return self.store_stream(
-            _bytes_stream(data),
+            bytes_stream(data),
             location=location,
             name=name,
             metadata=metadata,
@@ -468,23 +468,13 @@ class StoreConvenienceAPI:
             )
 
 
-# Todo: These should not be in the API...
-def _bytes_stream(data: bytes) -> BinaryIO:
+class StoreConvenienceAPI(StoreConvenienceBase):
     """
-    Wrap an in-memory payload as a binary stream.
+    Preserve the established public convenience-mixin name over its implementation base.
 
-    Example:
-        >>> _bytes_stream(b"book").read()
-        b'book'
-
-
-    :param data: In-memory payload accepted by io.BytesIO.
-    :return: New BytesIO positioned at the beginning of the payload.
+    The base name makes composition responsibilities explicit while existing imports and subclasses
+    continue to receive the same methods through this compatibility class.
     """
-
-    import io
-
-    return io.BytesIO(data)
 
 
 def _placement_hints(
@@ -633,6 +623,7 @@ def _write_mode_argument(
 
 
 __all__ = [
+    "StoreConvenienceBase",
     "StoreConvenienceAPI",
     "StoreFileIdentifier",
     "StoreSource",

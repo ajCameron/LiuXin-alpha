@@ -1,10 +1,13 @@
-
-# Todo: The existence of store_manager and storage_manager is understaable, but we do need different names for them
-# Todo: This module is too long
-
-
 """
 Bind application storage orchestration to catalogue metadata and configured backends.
+
+``store_manager`` is retained as the compatibility import for the database-aware
+application manager; ``storage_manager`` is the package of repository-neutral
+composition, mixins, and persistence adapters. A future module rename must keep
+this import as a forwarding shim. The remaining class is intentionally the durable
+integration layer; further splitting should extract ingest-journal and database-
+bootstrap collaborators without moving policy/catalogue behavior back out of the
+existing mixin package.
 
 The application manager extends the repository-neutral composition with optional
 database views, unit-of-work transactions, ingest journaling/recovery, and Store
@@ -80,9 +83,7 @@ class StorageManager(_StorageManagerOrchestrator):
         self,
         *,
         stores: Iterable[api.StoreAPI] = (),
-        store_registrations: Iterable[
-            tuple[api.StoreConfiguration, api.StoreAPI]
-        ] = (),
+        store_registrations: Iterable[tuple[api.StoreConfiguration, api.StoreAPI]] = (),
         store_factory=None,
         backend_context: StoreConstructionContext | None = None,
         s3_client: Any | None = None,
@@ -97,9 +98,11 @@ class StorageManager(_StorageManagerOrchestrator):
         Initialize transient orchestration, bind supported durable metadata, then attach supplied
         Stores. Materialize store_registrations and append each StoreAPI from stores with its own
         configuration. Build a fresh runtime context: non-None client/provider arguments override
-        supplied context fields, while falsey resolvers fall back to this manager. A truthy custom
-        factory wins; the default lambda reads the manager's current backend_context when it
-        constructs a Store.
+        supplied context fields, while falsey resolvers fall back to this manager. An explicit S3
+        client also replaces an existing generic ``backend_clients["s3"]`` entry, so the documented
+        constructor override is not shadowed by generic-context precedence. A truthy custom factory
+        wins; the default lambda reads the manager's current backend_context when it constructs a
+        Store.
 
         Initialize the base with no registrations/default Store. If the database resembles a storage
         catalogue and exposes migration capability, run additive migrations; caught migration
@@ -117,7 +120,7 @@ class StorageManager(_StorageManagerOrchestrator):
         :param store_registrations: Iterable of explicit (configuration, Store) pairs, eagerly copied before initialization.
         :param store_factory: Optional truthy configuration-to-Store callable; falsey input selects the canonical registry with runtime context.
         :param backend_context: Optional runtime context whose client/provider fields are defaults and whose truthy resolvers are retained.
-        :param s3_client: Non-None override for the S3 client in the new context; None preserves the supplied context value.
+        :param s3_client: Non-None override for both generic and legacy S3 client entries in the new context; None preserves the supplied context values.
         :param encryption_key_provider: Non-None override for the encryption provider; None preserves the supplied context value.
         :param db: Borrowed database used for capability/migration checks and, when supported, durable metadata.
         :param cache: Optional shared cache used only when binding a supported metadata repository.
@@ -134,30 +137,27 @@ class StorageManager(_StorageManagerOrchestrator):
             registrations.append((store.configuration, store))
         self.db = db
         self._metadata_repository: DatabaseStorageMetadataRepository | None = None
-        self._metadata_unit_of_work_factory: (
-            DatabaseStorageUnitOfWorkFactory | None
-        ) = None
+        self._metadata_unit_of_work_factory: DatabaseStorageUnitOfWorkFactory | None = (
+            None
+        )
         self.storage_migration_report = StorageMigrationReport()
         self.ingest_recovery_issues: tuple[str, ...] = ()
         self.startup_on_add = bool(startup_on_add)
         supplied_context = backend_context or StoreConstructionContext()
+        backend_clients = supplied_context.backend_clients
+        if s3_client is not None:
+            backend_clients = {**backend_clients, "s3": s3_client}
         self.backend_context = StoreConstructionContext(
-            s3_client=(
-                supplied_context.s3_client
-                if s3_client is None
-                else s3_client
-            ),
-            store_resolver=(
-                supplied_context.store_resolver or self.get_store
-            ),
+            backend_clients=backend_clients,
+            s3_client=(supplied_context.s3_client if s3_client is None else s3_client),
+            store_resolver=(supplied_context.store_resolver or self.get_store),
             encryption_key_provider=(
                 supplied_context.encryption_key_provider
                 if encryption_key_provider is None
                 else encryption_key_provider
             ),
             backing_path_resolver=(
-                supplied_context.backing_path_resolver
-                or self._resolve_backing_path
+                supplied_context.backing_path_resolver or self._resolve_backing_path
             ),
         )
         selected_factory = store_factory or (
@@ -785,9 +785,7 @@ class StorageManager(_StorageManagerOrchestrator):
         issues: list[str] = []
         pending = list(repository.pending_ingests())
         if operation_id is not None:
-            pending = [
-                entry for entry in pending if entry[0] == operation_id
-            ]
+            pending = [entry for entry in pending if entry[0] == operation_id]
             if not pending:
                 entry = repository.ingest_journal_entry(operation_id)
                 if entry is None:
@@ -904,9 +902,7 @@ class StorageManager(_StorageManagerOrchestrator):
                     self.link_item_to_digital_asset(
                         item_id,
                         asset_record.digital_asset_id,
-                        role=(
-                            getattr(request, "role", None) or "primary_payload"
-                        ),
+                        role=(getattr(request, "role", None) or "primary_payload"),
                     )
                 with self._lock:
                     self._ingest_operations[current_operation_id] = _IngestOperation(
@@ -1031,9 +1027,7 @@ class StorageManager(_StorageManagerOrchestrator):
                 replica_mode=request.replica_mode,
                 verify=request.verify,
             )
-        request_kind = (
-            type(request).__name__ if request is not None else "unknown"
-        )
+        request_kind = type(request).__name__ if request is not None else "unknown"
         raise api.StoragePreconditionFailed(
             "ingest operation {} used a non-replayable {} source; retry it "
             "through the original caller with the same operation UUID and "
@@ -1070,9 +1064,7 @@ class StorageManager(_StorageManagerOrchestrator):
         """
 
         if store_or_name is None:
-            supplied_keys = [
-                key for key in ("name", "store") if key in kwargs
-            ]
+            supplied_keys = [key for key in ("name", "store") if key in kwargs]
             if len(supplied_keys) != 1:
                 raise TypeError(
                     "add_store requires exactly one Store object or Store name."
@@ -1091,9 +1083,7 @@ class StorageManager(_StorageManagerOrchestrator):
                 startup=startup,
             )
         if not isinstance(store_or_name, str):
-            raise TypeError(
-                "add_store expects a StoreAPI instance or a Store name."
-            )
+            raise TypeError("add_store expects a StoreAPI instance or a Store name.")
         if configuration is not None:
             raise TypeError(
                 "configuration is only valid when attaching a Store object."
@@ -1223,9 +1213,7 @@ class StorageManager(_StorageManagerOrchestrator):
                 )
             return api.StorageBootstrapReport()
 
-        rows = tuple(
-            database.get_all_rows("stores", iterator_return=False) or ()
-        )
+        rows = tuple(database.get_all_rows("stores", iterator_return=False) or ())
         existing_refs = {
             configuration.store_uuid
             for configuration in self.iter_store_configurations()
@@ -1244,12 +1232,9 @@ class StorageManager(_StorageManagerOrchestrator):
             candidate: api.StoreAPI | None = None
             attached = False
             try:
-                online = (
-                    _row_text(row, "store_online_status") or ""
-                ).lower()
-                if (
-                    declared_store_ref is not None
-                    and (include_offline or online not in {"offline", "retired"})
+                online = (_row_text(row, "store_online_status") or "").lower()
+                if declared_store_ref is not None and (
+                    include_offline or online not in {"offline", "retired"}
                 ):
                     # A malformed changed row must not make the last known-good
                     # facade disappear merely because translation fails below.
@@ -1279,8 +1264,7 @@ class StorageManager(_StorageManagerOrchestrator):
                 with self._lock:
                     already_live = configuration.store_uuid in self._stores
                     already_configured = (
-                        configuration.store_uuid
-                        in self._store_configurations
+                        configuration.store_uuid in self._store_configurations
                     )
                 if already_live and not clear_existing:
                     skipped += 1
@@ -1334,9 +1318,7 @@ class StorageManager(_StorageManagerOrchestrator):
                 )
 
         if clear_existing:
-            self._unload_database_stores(
-                tuple(existing_refs - active_database_refs)
-            )
+            self._unload_database_stores(tuple(existing_refs - active_database_refs))
         self.recover_pending_ingests()
 
         return api.StorageBootstrapReport(
@@ -1648,9 +1630,7 @@ def _configuration_dependencies(
             dependencies.add(backing.materialization_store_ref)
         if backing.preferred_replica_id is not None:
             try:
-                replica = manager.get_replica_record(
-                    backing.preferred_replica_id
-                )
+                replica = manager.get_replica_record(backing.preferred_replica_id)
             except api.ReplicaNotFound:
                 pass
             else:
@@ -1658,15 +1638,11 @@ def _configuration_dependencies(
                     dependencies.add(replica.location.store_ref)
 
     try:
-        kind = DEFAULT_BACKEND_REGISTRY.canonical_kind(
-            configuration.store_kind
-        )
+        kind = DEFAULT_BACKEND_REGISTRY.canonical_kind(configuration.store_kind)
     except (ValueError, api.StoreUnsupportedOperation):
         kind = configuration.store_kind
     if kind == "encrypted":
-        raw_inner_ref = dict(configuration.backend_options).get(
-            "inner_store_uuid"
-        )
+        raw_inner_ref = dict(configuration.backend_options).get("inner_store_uuid")
         if raw_inner_ref is None:
             parsed = urlparse(configuration.store_root_uri)
             raw_inner_ref = parsed.netloc or parsed.path.strip("/") or None

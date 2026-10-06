@@ -2,8 +2,11 @@
 Represent advisory placement hints and project structural WEMI metadata.
 
 Hint values carry caller-supplied or derived suggestions without allocating storage.
-Projection keeps metadata independent from storage imports and preserves explicit
-selection/failure boundaries; it does not validate destinations or snapshot relations.
+Projection lives at this boundary rather than on catalogue metadata objects, keeping
+metadata independent from storage concerns. Private relation/projector helpers are
+co-located because they implement the public ``derive_storage_hints`` conversion;
+they are not exported API. Projection does not validate destinations or snapshot
+relations.
 """
 
 from __future__ import annotations
@@ -577,8 +580,6 @@ def _derive_work_storage_hints(metadata: object) -> WorkStorageHints:
     )
 
 
-# Todo: Perhaps a method on metadata? Though that does mix concerns perhaps too much
-# Todo: Definitely SHOULD NOT be in the API tho...
 def _derive_item_storage_hints(metadata: object) -> ItemStorageHints:
     """
     Combine Item provenance with selected Work, Expression, and Manifestation targets. Each WEMI
@@ -855,7 +856,6 @@ def _relation_links(metadata: object, relation: str) -> list[object]:
         return []
 
 
-# Todo: These feel like utility objects which should be in utils somewhere
 def _target(link: object) -> object:
     """
     Read a link target with None as the missing-attribute fallback. The target is neither copied nor

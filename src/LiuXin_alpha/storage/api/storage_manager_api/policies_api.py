@@ -11,16 +11,23 @@ import abc
 from collections.abc import Iterator
 
 from LiuXin_alpha.storage.api.storage_manager_api.models import (
-    DigitalAssetBackupPlan, BackupPolicy, BackupPolicyID, BackupPolicyRecord,
-    DigitalAssetID, DigitalAssetRecord, DigitalAssetStorageAssessment,
-    DigitalAssetReplicationPlan, ReplicationPolicy, ReplicationPolicyID,
-    ReplicationPolicyRecord, ResolvedStoragePolicies,
+    CompositeDigitalAssetID,
+    CompositeDigitalAssetStorageAssessment,
+    DigitalAssetBackupPlan,
+    BackupPolicy,
+    BackupPolicyID,
+    BackupPolicyRecord,
+    DigitalAssetID,
+    DigitalAssetRecord,
+    DigitalAssetStorageAssessment,
+    DigitalAssetReplicationPlan,
+    ReplicationPolicy,
+    ReplicationPolicyID,
+    ReplicationPolicyRecord,
+    ResolvedStoragePolicies,
     StoragePolicyAssessment,
 )
 
-
-# Todo: Need a method to get the currently active replication and backup policy
-# Todo: This is not feeling complete - it can't answer questions such as "currently set policy" e.t.c
 
 class StoragePolicyAPI(abc.ABC):
     """
@@ -34,8 +41,42 @@ class StoragePolicyAPI(abc.ABC):
         >>> assessment = manager.assess_replication(asset_id)  # doctest: +SKIP
     """
 
-    # Todo: Again, we need a convenience method for setting this replication policy
-    # Todo: How do we get what replication policy is currently live?
+    @property
+    @abc.abstractmethod
+    def default_replication_policy(self) -> ReplicationPolicy:
+        """
+        Return the manager-level replication definition used when an Asset has no explicit policy.
+
+        The returned frozen value is the configured fallback itself, not a registered policy record
+        and not a policy inferred from a Store or Replica. Reading it performs no persistence lookup,
+        assessment, or physical storage operation.
+
+        Example:
+            >>> manager.default_replication_policy.name  # doctest: +SKIP
+            'default'
+
+        :return: Manager-level fallback replication definition.
+        """
+        ...
+
+    @property
+    @abc.abstractmethod
+    def default_backup_policy(self) -> BackupPolicy:
+        """
+        Return the manager-level backup definition used when an Asset has no explicit policy.
+
+        This is the configured fallback value rather than a registered policy record. Store defaults
+        captured during placement and explicit Asset assignments remain separate sources of policy
+        identity.
+
+        Example:
+            >>> manager.default_backup_policy.name  # doctest: +SKIP
+            'default_backup'
+
+        :return: Manager-level fallback backup/archive definition.
+        """
+        ...
+
     @abc.abstractmethod
     def create_replication_policy(
         self,
@@ -229,7 +270,9 @@ class StoragePolicyAPI(abc.ABC):
 
     @abc.abstractmethod
     def set_digital_asset_policies(
-        self, digital_asset_id: DigitalAssetID, *,
+        self,
+        digital_asset_id: DigitalAssetID,
+        *,
         replication_policy_id: ReplicationPolicyID | None = None,
         backup_policy_id: BackupPolicyID | None = None,
         if_revision: str | None = None,
@@ -256,8 +299,63 @@ class StoragePolicyAPI(abc.ABC):
         ...
 
     @abc.abstractmethod
+    def set_digital_asset_replication_policy(
+        self,
+        digital_asset_id: DigitalAssetID,
+        replication_policy_id: ReplicationPolicyID | None,
+        *,
+        if_revision: str | None = None,
+    ) -> DigitalAssetRecord:
+        """
+        Replace only an Asset's explicit replication-policy reference.
+
+        ``None`` clears the replication assignment so manager-default resolution applies. The
+        existing backup assignment is preserved atomically with the update. Registered-policy,
+        revision, and recreation-feasibility checks are the same as for replacing both references.
+
+        Example:
+            >>> asset = manager.set_digital_asset_replication_policy(  # doctest: +SKIP
+            ...     asset_id, policy_id, if_revision=asset.revision,
+            ... )
+
+        :param digital_asset_id: Registered atomic Asset identity to update.
+        :param replication_policy_id: Registered replication-policy identity, or None to clear the explicit assignment.
+        :param if_revision: Expected current Asset revision, or None to omit the optimistic precondition.
+        :return: Updated Asset record preserving its previous backup-policy reference.
+        """
+        ...
+
+    @abc.abstractmethod
+    def set_digital_asset_backup_policy(
+        self,
+        digital_asset_id: DigitalAssetID,
+        backup_policy_id: BackupPolicyID | None,
+        *,
+        if_revision: str | None = None,
+    ) -> DigitalAssetRecord:
+        """
+        Replace only an Asset's explicit backup-policy reference.
+
+        ``None`` clears the backup assignment so manager-default resolution applies. The existing
+        replication assignment is preserved atomically with the update. Registered-policy,
+        revision, and recreation-feasibility checks are the same as for replacing both references.
+
+        Example:
+            >>> asset = manager.set_digital_asset_backup_policy(  # doctest: +SKIP
+            ...     asset_id, policy_id, if_revision=asset.revision,
+            ... )
+
+        :param digital_asset_id: Registered atomic Asset identity to update.
+        :param backup_policy_id: Registered backup-policy identity, or None to clear the explicit assignment.
+        :param if_revision: Expected current Asset revision, or None to omit the optimistic precondition.
+        :return: Updated Asset record preserving its previous replication-policy reference.
+        """
+        ...
+
+    @abc.abstractmethod
     def resolve_effective_policies(
-        self, digital_asset_id: DigitalAssetID,
+        self,
+        digital_asset_id: DigitalAssetID,
     ) -> ResolvedStoragePolicies:
         """
         Resolve each explicit Asset policy reference, otherwise use the manager's default
@@ -317,7 +415,6 @@ class StoragePolicyAPI(abc.ABC):
         """
         ...
 
-    # Todo: asses_composite_digital_asset - to asses every member of a digital asset
     @abc.abstractmethod
     def assess_digital_asset(
         self,
@@ -342,6 +439,27 @@ class StoragePolicyAPI(abc.ABC):
         ...
 
     @abc.abstractmethod
+    def assess_composite_digital_asset_storage(
+        self,
+        composite_digital_asset_id: CompositeDigitalAssetID,
+    ) -> CompositeDigitalAssetStorageAssessment:
+        """
+        Assess every distinct member Asset and retain evidence for each relationship occurrence.
+
+        Repeated Asset memberships reuse one atomic assessment during the call. Optional members
+        remain represented, but aggregate readability, recoverability, and policy predicates apply
+        only to required relationships. The operation performs no verification, repair, planning,
+        or cross-Store snapshot.
+
+        Example:
+            >>> assessment = manager.assess_composite_digital_asset_storage(composite_id)  # doctest: +SKIP
+
+        :param composite_digital_asset_id: Registered Composite identity whose member storage posture is assessed.
+        :return: Composite record and ordered relationship-specific atomic storage assessments.
+        """
+        ...
+
+    @abc.abstractmethod
     def plan_replication(
         self,
         digital_asset_id: DigitalAssetID,
@@ -350,9 +468,12 @@ class StoragePolicyAPI(abc.ABC):
         Propose destinations, verification, removal, or an exact recreation route under the
         effective policy.
 
-        Plans may be based on recorded verification and configuration evidence rather than fresh
-        physical checks. They do not reserve destinations, execute transformations, or authorize
-        unconditional deletion; execution must revalidate current conditions.
+        Copy counts may be based on recorded verification and configuration evidence, while required
+        publication also needs a currently readable source or a recoverable exact recreation route.
+        Separation constraints are applied jointly to the retained subset. The returned
+        implementable flag reflects known planning blockers, not a reservation or execution
+        guarantee. Plans do not execute transformations or authorize unconditional deletion;
+        execution must revalidate current conditions.
 
         Example:
             >>> plan = manager.plan_replication(asset_id)  # doctest: +SKIP
@@ -371,8 +492,11 @@ class StoragePolicyAPI(abc.ABC):
         """
         Propose backup destinations, candidate source claims, verification, and surplus removal.
 
-        A zero target can propose removing existing backup claims. The plan itself does not enforce
-        every execution-time retention or repository-race requirement and does not publish or remove
+        A zero target can propose removing existing backup claims. For a positive target, removals
+        preserve one jointly separation-compliant retained subset. Known destination shortages and
+        absence of a currently readable source for required publication are exposed as blocking
+        reasons and make the plan nonimplementable. The plan itself does not enforce every
+        execution-time retention or repository-race requirement and does not publish or remove
         bytes.
 
         Example:

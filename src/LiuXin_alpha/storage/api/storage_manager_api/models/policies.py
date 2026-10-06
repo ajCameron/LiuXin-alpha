@@ -11,8 +11,13 @@ from __future__ import annotations
 import dataclasses
 
 from enum import StrEnum
+from uuid import UUID
 
 from LiuXin_alpha.storage.api.models import StoreUUID
+from LiuXin_alpha.storage.api.storage_manager_api.models.composites import (
+    CompositeDigitalAssetMembership,
+    CompositeDigitalAssetRecord,
+)
 from LiuXin_alpha.storage.api.storage_manager_api.models.replicas import ReplicaMode
 from LiuXin_alpha.storage.api.storage_manager_api.models.identifiers import (
     DigitalAssetDerivationID,
@@ -266,16 +271,14 @@ class BackupPolicy:
         return self.min_copies if self.target_copies is None else self.target_copies
 
 
-# Todo: This ... should be a subclasses row? Or give the option to sync back to the database
-# Todo: This may be true for all record holder classes
 @dataclasses.dataclass(slots=True, frozen=True)
 class ReplicationPolicyRecord:
     """
     Retain a registered replication-policy identity, definition, and optional revision.
 
-    This frozen value adds no validation of ID positivity, definition type, or revision text.
-    Manager methods own registration and optimistic-update behavior; constructing the record does
-    not persist it.
+    This frozen value validates its local identity, definition type, and optional revision text.
+    Manager methods own registration and optimistic-update behavior; constructing or replacing the
+    record never writes it back to persistence implicitly.
 
     Example:
         >>> record = ReplicationPolicyRecord(
@@ -285,25 +288,33 @@ class ReplicationPolicyRecord:
         4
 
 
-    :ivar replication_policy_id: Attributed registered policy ID, not validated or allocated here.
+    :ivar replication_policy_id: Positive registered policy ID, not allocated here.
     :ivar policy: Retained replication-policy definition without a defensive copy.
-    :ivar revision: Optional optimistic-lock token, without constructor validation.
+    :ivar revision: Optional nonblank optimistic-lock token.
     """
 
     replication_policy_id: ReplicationPolicyID
     policy: ReplicationPolicy
     revision: str | None = None
 
+    def __post_init__(self) -> None:
+        """Require a positive ID, a replication definition, and a nonblank revision."""
+        _validate_policy_record(
+            "replication_policy_id",
+            self.replication_policy_id,
+            self.policy,
+            ReplicationPolicy,
+            self.revision,
+        )
 
-# Todo: See above comments on records
+
 @dataclasses.dataclass(slots=True, frozen=True)
 class BackupPolicyRecord:
     """
-    Retain a registered backup-policy identity, definition, and optional revision without additional
-    validation.
+    Retain a validated registered backup-policy identity, definition, and optional revision.
 
-    The value does not allocate a row, check ID positivity, or enforce retention. Persistence and
-    update preconditions belong to manager operations.
+    The value does not allocate or persist a row or enforce retention. Persistence and update
+    preconditions belong to manager operations.
 
     Example:
         >>> record = BackupPolicyRecord(BackupPolicyID(5), BackupPolicy())
@@ -311,25 +322,35 @@ class BackupPolicyRecord:
         True
 
 
-    :ivar backup_policy_id: Attributed backup-policy identity, not resolved here.
+    :ivar backup_policy_id: Positive attributed backup-policy identity, not resolved here.
     :ivar policy: Retained backup/archive definition.
-    :ivar revision: Optional optimistic-lock token retained as supplied.
+    :ivar revision: Optional nonblank optimistic-lock token retained as supplied.
     """
 
     backup_policy_id: BackupPolicyID
     policy: BackupPolicy
     revision: str | None = None
 
+    def __post_init__(self) -> None:
+        """Require a positive ID, a backup definition, and a nonblank revision."""
+        _validate_policy_record(
+            "backup_policy_id",
+            self.backup_policy_id,
+            self.policy,
+            BackupPolicy,
+            self.revision,
+        )
 
-# Todo: Still not clear why they want this?
+
 @dataclasses.dataclass(slots=True, frozen=True)
 class ResolvedStoragePolicies:
     """
-    Pair effective replication/backup definitions with their reported origins.
+    Pair effective replication/backup definitions with their reported origins for audit and UI.
 
     The manager normally reports digital_asset for a captured explicit reference and manager_default
-    otherwise. Construction does not validate those labels, copy the definitions, or resolve any
-    policy itself.
+    otherwise. Construction validates definition types and nonblank origin labels but does not copy
+    definitions or resolve any policy itself. Keeping the origin alongside each effective value lets
+    callers explain whether changing a manager default would affect this Asset.
 
     Example:
         >>> policies = ResolvedStoragePolicies(
@@ -350,6 +371,21 @@ class ResolvedStoragePolicies:
     backup: BackupPolicy
     replication_source: str
     backup_source: str
+
+    def __post_init__(self) -> None:
+        """Validate policy definition types and nonblank explanatory source labels."""
+        if not isinstance(self.replication, ReplicationPolicy):
+            raise TypeError("replication must be a ReplicationPolicy.")
+        if not isinstance(self.backup, BackupPolicy):
+            raise TypeError("backup must be a BackupPolicy.")
+        for field_name, source in (
+            ("replication_source", self.replication_source),
+            ("backup_source", self.backup_source),
+        ):
+            if not isinstance(source, str):
+                raise TypeError(f"{field_name} must be a string.")
+            if not source.strip():
+                raise ValueError(f"{field_name} must not be blank.")
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -418,7 +454,70 @@ class StoragePolicyAssessment:
             raise ValueError("meeting a target implies meeting its minimum.")
 
 
-# Todo: Be good to include "can_be_replaced" details.
+class DigitalAssetReplacementStatus(StrEnum):
+    """Classify whether equivalent replacement content is known to be obtainable."""
+
+    UNKNOWN = "unknown"
+    AVAILABLE = "available"
+    UNAVAILABLE = "unavailable"
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class DigitalAssetReplacementAssessment:
+    """
+    Carry producer-reported evidence for replacing content rather than recreating exact bytes.
+
+    Replacement may produce a new Digital Asset identity and is therefore distinct from an exact
+    derivation. Source references are opaque operator-facing identifiers or credential-free URIs;
+    this value does not resolve them, fetch content, or compare semantics.
+
+    Example:
+        >>> replacement = DigitalAssetReplacementAssessment(
+        ...     DigitalAssetReplacementStatus.AVAILABLE,
+        ...     source_references=("isbn:9780000000000",),
+        ... )
+        >>> replacement.can_be_replaced
+        True
+
+
+    :ivar status: Tri-state producer conclusion, normalized to DigitalAssetReplacementStatus.
+    :ivar source_references: Unique nonblank opaque references to possible replacement content.
+    :ivar reasons: Unique nonblank explanatory findings supporting the conclusion.
+    """
+
+    status: DigitalAssetReplacementStatus = DigitalAssetReplacementStatus.UNKNOWN
+    source_references: tuple[str, ...] = ()
+    reasons: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        """Normalize status and validate unique, nonblank source and reason text."""
+        object.__setattr__(self, "status", DigitalAssetReplacementStatus(self.status))
+        for field_name, values in (
+            ("source_references", self.source_references),
+            ("reasons", self.reasons),
+        ):
+            if any(not isinstance(value, str) for value in values):
+                raise TypeError(f"{field_name} must contain strings.")
+            if any(not value.strip() for value in values):
+                raise ValueError(f"{field_name} must not contain blank values.")
+            if len(values) != len(set(values)):
+                raise ValueError(f"{field_name} must contain unique values.")
+        if (
+            self.status is DigitalAssetReplacementStatus.AVAILABLE
+            and not self.source_references
+        ):
+            raise ValueError(
+                "an available replacement requires at least one source reference."
+            )
+
+    @property
+    def can_be_replaced(self) -> bool | None:
+        """Return true/false for a known conclusion and None when replacement is unknown."""
+        if self.status is DigitalAssetReplacementStatus.UNKNOWN:
+            return None
+        return self.status is DigitalAssetReplacementStatus.AVAILABLE
+
+
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetStorageAssessment:
     """
@@ -449,6 +548,7 @@ class DigitalAssetStorageAssessment:
     :ivar backup_assessment: Backup assessment required to carry the same Asset ID.
     :ivar readable_replica_ids: Reported readable claims across the modes considered by the producer.
     :ivar exact_recreation_derivation_ids: Reported exact recipes whose prerequisites the producer considered recoverable.
+    :ivar replacement_assessment: Separate evidence about equivalent replacement content, not exact recovery of this identity.
     """
 
     digital_asset_id: DigitalAssetID
@@ -456,6 +556,9 @@ class DigitalAssetStorageAssessment:
     backup_assessment: StoragePolicyAssessment
     readable_replica_ids: tuple[ReplicaID, ...] = ()
     exact_recreation_derivation_ids: tuple[DigitalAssetDerivationID, ...] = ()
+    replacement_assessment: DigitalAssetReplacementAssessment = dataclasses.field(
+        default_factory=DigitalAssetReplacementAssessment
+    )
 
     def __post_init__(self) -> None:
         """
@@ -474,6 +577,13 @@ class DigitalAssetStorageAssessment:
             raise ValueError("replication assessment belongs to another Asset.")
         if self.backup_assessment.digital_asset_id != self.digital_asset_id:
             raise ValueError("backup assessment belongs to another Asset.")
+        if not isinstance(
+            self.replacement_assessment,
+            DigitalAssetReplacementAssessment,
+        ):
+            raise TypeError(
+                "replacement_assessment must be a DigitalAssetReplacementAssessment."
+            )
 
     @property
     def readable(self) -> bool:
@@ -608,16 +718,135 @@ class DigitalAssetStorageAssessment:
 
         return not self.recoverable
 
+    @property
+    def can_be_replaced(self) -> bool | None:
+        """
+        Return the separately reported equivalent-content replacement conclusion.
 
-# Todo: How do we tell if this plan can be implemented.
+        This does not affect ``recoverable`` or ``irrecoverable`` because replacement content may
+        have different bytes and therefore a different Digital Asset identity.
+        """
+        return self.replacement_assessment.can_be_replaced
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class CompositeDigitalAssetMemberStorageAssessment:
+    """
+    Pair one Composite membership relationship with its atomic storage assessment.
+
+    Construction requires matching Asset identities but does not establish that the relationship
+    belongs to a particular Composite. Repeated memberships may retain the same atomic assessment
+    instance while preserving distinct roles, paths, positions, and required flags.
+
+    :ivar membership: Complete relationship metadata for one Composite position.
+    :ivar assessment: Atomic storage assessment whose Asset ID must match membership.
+    """
+
+    membership: CompositeDigitalAssetMembership
+    assessment: DigitalAssetStorageAssessment
+
+    def __post_init__(self) -> None:
+        """Require the relationship and assessment to identify the same atomic Asset."""
+
+        if self.membership.digital_asset_id != self.assessment.digital_asset_id:
+            raise ValueError("storage assessment does not match the Composite member.")
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class CompositeDigitalAssetStorageAssessment:
+    """
+    Retain ordered per-member storage and policy evidence for one Composite record.
+
+    Member assessments must exactly cover the declared membership sequence. Aggregate predicates
+    consider required relationships only: optional unavailable or under-replicated members remain
+    visible but do not make the Composite fail its required availability or policy posture. Values
+    summarize separately gathered atomic observations rather than one repository/Store snapshot.
+
+    :ivar composite_digital_asset_record: Composite identity and complete declared membership.
+    :ivar member_assessments: Atomic assessments in exactly the declared relationship order.
+    """
+
+    composite_digital_asset_record: CompositeDigitalAssetRecord
+    member_assessments: tuple[CompositeDigitalAssetMemberStorageAssessment, ...]
+
+    def __post_init__(self) -> None:
+        """Require exact ordered relationship coverage for the selected Composite."""
+
+        if tuple(member.membership for member in self.member_assessments) != (
+            self.composite_digital_asset_record.members
+        ):
+            raise ValueError(
+                "storage assessments must exactly cover Composite members in order."
+            )
+
+    @property
+    def readable(self) -> bool:
+        """Return whether every required member currently reports a readable Replica."""
+
+        return all(
+            not member.membership.required or member.assessment.readable
+            for member in self.member_assessments
+        )
+
+    @property
+    def recoverable(self) -> bool:
+        """Return whether every required member is readable, backed up, or exactly recreatable."""
+
+        return all(
+            not member.membership.required or member.assessment.recoverable
+            for member in self.member_assessments
+        )
+
+    @property
+    def irrecoverable(self) -> bool:
+        """Negate required-member recoverability without performing another assessment."""
+
+        return not self.recoverable
+
+    @property
+    def replication_satisfied(self) -> bool:
+        """Return whether every required member meets its effective replication minimum."""
+
+        return all(
+            not member.membership.required or member.assessment.replication_satisfied
+            for member in self.member_assessments
+        )
+
+    @property
+    def backup_satisfied(self) -> bool:
+        """Return whether every required member meets its effective backup minimum."""
+
+        return all(
+            not member.membership.required or member.assessment.backup_satisfied
+            for member in self.member_assessments
+        )
+
+    @property
+    def policies_satisfied(self) -> bool:
+        """Return whether required members satisfy both replication and backup minima."""
+
+        return self.replication_satisfied and self.backup_satisfied
+
+    @property
+    def at_risk(self) -> bool:
+        """Return whether any required readable member reports unsatisfied policy protection."""
+
+        return any(
+            member.membership.required and member.assessment.at_risk
+            for member in self.member_assessments
+        )
+
+
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetReplicationPlan:
     """
     Carry proposed destination, verification, removal, and exact-recreation work for an Asset.
 
-    Construction adds no validation of IDs, Store UUIDs, conflicts, or current feasibility.
-    The value reserves no destination and executes no action; callers must apply current execution
-    preconditions before acting.
+    ``blocking_reasons`` explicitly records why the complete policy outcome cannot currently be
+    reached, including missing destinations or publication sources; ``implementable`` is true
+    exactly when that collection is empty. This remains planning evidence rather than a reservation:
+    Store health, capacity, versions, retention constraints, and source readability must be
+    revalidated during execution.
 
     Example:
         >>> plan = DigitalAssetReplicationPlan(
@@ -633,6 +862,7 @@ class DigitalAssetReplicationPlan:
     :ivar replica_ids_to_remove: Proposed removals, requiring execution-time checks.
     :ivar exact_recreation_derivation_id: Optional selected exact recipe, without execution or validation here.
     :ivar warnings: Planner diagnostics about incomplete or unavailable options.
+    :ivar blocking_reasons: Conditions preventing the complete planned policy outcome now.
     """
 
     digital_asset_id: DigitalAssetID
@@ -641,17 +871,66 @@ class DigitalAssetReplicationPlan:
     replica_ids_to_remove: tuple[ReplicaID, ...] = ()
     exact_recreation_derivation_id: DigitalAssetDerivationID | None = None
     warnings: tuple[str, ...] = ()
+    blocking_reasons: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        """Validate identities, action conflicts, UUID uniqueness, and diagnostic text."""
+        _validate_plan_identity(self.digital_asset_id)
+        _validate_store_refs(self.destination_store_refs)
+        _validate_replica_ids("replica_ids_to_verify", self.replica_ids_to_verify)
+        _validate_replica_ids("replica_ids_to_remove", self.replica_ids_to_remove)
+        overlap = set(self.replica_ids_to_verify).intersection(
+            self.replica_ids_to_remove
+        )
+        if overlap:
+            raise ValueError(
+                "a Replica cannot be both verified and removed by one plan."
+            )
+        if self.exact_recreation_derivation_id is not None and (
+            isinstance(self.exact_recreation_derivation_id, bool)
+            or not isinstance(self.exact_recreation_derivation_id, int)
+        ):
+            raise TypeError(
+                "exact_recreation_derivation_id must be an integer or None."
+            )
+        if (
+            self.exact_recreation_derivation_id is not None
+            and self.exact_recreation_derivation_id <= 0
+        ):
+            raise ValueError(
+                "exact_recreation_derivation_id must be positive when supplied."
+            )
+        _validate_plan_messages("warnings", self.warnings)
+        _validate_plan_messages("blocking_reasons", self.blocking_reasons)
+
+    @property
+    def implementable(self) -> bool:
+        """Return whether planning found every currently known prerequisite."""
+        return not self.blocking_reasons
+
+    @property
+    def has_work(self) -> bool:
+        """Return whether the plan proposes any verification, publication, removal, or recreation."""
+        return bool(
+            self.destination_store_refs
+            or self.replica_ids_to_verify
+            or self.replica_ids_to_remove
+            or self.exact_recreation_derivation_id is not None
+        )
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetBackupPlan:
     """
-    # Todo: This seems to be too many things for one object
     Carry proposed backup destinations, source claims, verification, and removal work.
 
-    The frozen value does not validate identities, enforce retention locks, reserve Stores, or
-    perform copying/deletion. Its tuples are the producing planner's proposals rather than durable
-    execution commitments.
+    These fields intentionally travel together as one immutable planning snapshot: executors need
+    to see proposed publications, source choices, verification, removals, warnings, and blockers
+    from the same planning pass. The value does not execute or sequence those actions.
+
+    The frozen value validates local identity/action shape and reports explicit blockers, but does
+    not enforce retention locks, reserve Stores, or perform copying/deletion. Its tuples are the
+    producing planner's proposals rather than durable execution commitments.
 
     Example:
         >>> plan = DigitalAssetBackupPlan(
@@ -668,6 +947,7 @@ class DigitalAssetBackupPlan:
     :ivar replica_ids_to_verify: Claims proposed for further verification.
     :ivar replica_ids_to_remove: Proposed removals subject to execution-time retention and race checks.
     :ivar warnings: Planner diagnostics retained without validation.
+    :ivar blocking_reasons: Conditions such as destination shortage or missing readable source that prevent the complete planned backup outcome now.
     """
 
     digital_asset_id: DigitalAssetID
@@ -676,13 +956,110 @@ class DigitalAssetBackupPlan:
     replica_ids_to_verify: tuple[ReplicaID, ...] = ()
     replica_ids_to_remove: tuple[ReplicaID, ...] = ()
     warnings: tuple[str, ...] = ()
+    blocking_reasons: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        """Validate identities, action conflicts, destination uniqueness, and diagnostics."""
+        _validate_plan_identity(self.digital_asset_id)
+        _validate_store_refs(self.destination_store_refs)
+        _validate_replica_ids("source_replica_ids", self.source_replica_ids)
+        _validate_replica_ids("replica_ids_to_verify", self.replica_ids_to_verify)
+        _validate_replica_ids("replica_ids_to_remove", self.replica_ids_to_remove)
+        if set(self.replica_ids_to_verify).intersection(self.replica_ids_to_remove):
+            raise ValueError(
+                "a Replica cannot be both verified and removed by one plan."
+            )
+        _validate_plan_messages("warnings", self.warnings)
+        _validate_plan_messages("blocking_reasons", self.blocking_reasons)
+
+    @property
+    def implementable(self) -> bool:
+        """Return whether planning found every currently known prerequisite."""
+        return not self.blocking_reasons
+
+    @property
+    def has_work(self) -> bool:
+        """Return whether the plan proposes any source, verification, publication, or removal."""
+        return bool(
+            self.destination_store_refs
+            or self.source_replica_ids
+            or self.replica_ids_to_verify
+            or self.replica_ids_to_remove
+        )
+
+
+def _validate_policy_record(
+    identifier_name: str,
+    identifier: int,
+    policy: object,
+    policy_type: type[object],
+    revision: str | None,
+) -> None:
+    """Validate shared registered-policy record identity, payload, and revision fields."""
+    if isinstance(identifier, bool) or not isinstance(identifier, int):
+        raise TypeError(f"{identifier_name} must be an integer.")
+    if identifier <= 0:
+        raise ValueError(f"{identifier_name} must be positive.")
+    if not isinstance(policy, policy_type):
+        raise TypeError(f"policy must be a {policy_type.__name__}.")
+    if revision is not None and not isinstance(revision, str):
+        raise TypeError("revision must be a string or None.")
+    if revision is not None and not revision.strip():
+        raise ValueError("revision must not be blank when supplied.")
+
+
+def _validate_plan_identity(digital_asset_id: DigitalAssetID) -> None:
+    """Require a positive integer Asset identity for a policy plan."""
+    if isinstance(digital_asset_id, bool) or not isinstance(digital_asset_id, int):
+        raise TypeError("digital_asset_id must be an integer.")
+    if digital_asset_id <= 0:
+        raise ValueError("digital_asset_id must be positive.")
+
+
+def _validate_store_refs(store_refs: tuple[StoreUUID, ...]) -> None:
+    """Require a tuple of unique Store UUIDs in planner order."""
+    if not isinstance(store_refs, tuple):
+        raise TypeError("destination_store_refs must be a tuple.")
+    if not all(isinstance(store_ref, UUID) for store_ref in store_refs):
+        raise TypeError("destination_store_refs must contain UUID values.")
+    if len(store_refs) != len(set(store_refs)):
+        raise ValueError("destination_store_refs must be unique.")
+
+
+def _validate_replica_ids(field_name: str, replica_ids: tuple[ReplicaID, ...]) -> None:
+    """Require a tuple of unique positive integer Replica identities."""
+    if not isinstance(replica_ids, tuple):
+        raise TypeError(f"{field_name} must be a tuple.")
+    if any(
+        isinstance(replica_id, bool) or not isinstance(replica_id, int)
+        for replica_id in replica_ids
+    ):
+        raise TypeError(f"{field_name} must contain integer Replica IDs.")
+    if any(replica_id <= 0 for replica_id in replica_ids):
+        raise ValueError(f"{field_name} must contain positive Replica IDs.")
+    if len(replica_ids) != len(set(replica_ids)):
+        raise ValueError(f"{field_name} must not contain duplicate Replica IDs.")
+
+
+def _validate_plan_messages(field_name: str, messages: tuple[str, ...]) -> None:
+    """Require a tuple of nonblank diagnostic strings."""
+    if not isinstance(messages, tuple):
+        raise TypeError(f"{field_name} must be a tuple.")
+    if not all(isinstance(message, str) for message in messages):
+        raise TypeError(f"{field_name} must contain strings.")
+    if any(not message.strip() for message in messages):
+        raise ValueError(f"{field_name} must not contain blank messages.")
 
 
 __all__ = [
+    "CompositeDigitalAssetMemberStorageAssessment",
+    "CompositeDigitalAssetStorageAssessment",
     "DigitalAssetLossAction",
     "DigitalAssetBackupPlan",
     "BackupPolicy",
     "BackupPolicyRecord",
+    "DigitalAssetReplacementAssessment",
+    "DigitalAssetReplacementStatus",
     "DigitalAssetStorageAssessment",
     "ReplicaSeparationDimension",
     "DigitalAssetReplicationPlan",

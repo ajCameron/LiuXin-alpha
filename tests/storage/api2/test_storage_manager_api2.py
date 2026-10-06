@@ -12,10 +12,12 @@ from __future__ import annotations
 import hashlib
 import inspect
 import io
+import logging
 import zipfile
 
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, replace
+from datetime import UTC, datetime
 from uuid import UUID
 
 import pytest
@@ -23,6 +25,7 @@ import pytest
 import LiuXin_alpha.storage.api as api
 import LiuXin_alpha.storage.utils.store as storage_utils
 from LiuXin_alpha.storage.storage_manager.manager import TransientStorageManager
+from LiuXin_alpha.storage.utils.operational import log_operational_status
 
 
 MEMORY_STORE_UUID = UUID("00000000-0000-0000-0000-000000000001")
@@ -50,6 +53,7 @@ class _MemoryWriteSession:
         >>> session.commit().size
         4
     """
+
     def __init__(
         self,
         store: "_MemoryStore",
@@ -219,6 +223,7 @@ class _MemoryStore(api.StoreAPI):
         4
         >>> store.close()
     """
+
     def __init__(self, store_ref: api.StoreUUID = MEMORY_STORE_UUID) -> None:
         """
         Build a memory configuration, empty payload/version maps, and online writable flags.
@@ -577,6 +582,7 @@ class _PlacementAwareMemoryStore(_MemoryStore):
         >>> store.allocate_location(placement_hints={"title": "Book"}).key
         'rich/Book'
     """
+
     def __init__(self, store_ref: api.StoreUUID = MEMORY_STORE_UUID) -> None:
         """
         Initialize the memory Store, advertise placement hints, and clear both observation slots.
@@ -677,6 +683,7 @@ class _CharacteristicMemoryStore(_MemoryStore):
         >>> store.characteristics.max_object_bytes is None
         True
     """
+
     def __init__(
         self,
         store_ref: api.StoreUUID,
@@ -746,6 +753,7 @@ class _MemoryManager(api.StorageRouterAPI):
         >>> manager.status(MEMORY_STORE_UUID).available
         True
     """
+
     def __init__(self, store: _MemoryStore) -> None:
         """
         Retain the supplied Store without startup, validation, or lifetime ownership.
@@ -995,6 +1003,7 @@ class _IngestHarness(api.DigitalAssetIngestAPI):
         >>> result.asset_record.digital_asset_id
         1
     """
+
     def __init__(self) -> None:
         """
         Clear the observed byte and expected-size slots before a convenience ingest.
@@ -1079,6 +1088,7 @@ class _RetrievalHarness(api.DigitalAssetRetrievalAPI):
         >>> manager.locate_replica(12).key
         'replicas/12'
     """
+
     def __init__(self) -> None:
         """
         Start an empty ordered selection-call log.
@@ -1105,9 +1115,7 @@ class _RetrievalHarness(api.DigitalAssetRetrievalAPI):
         :param kwargs: Selection options forwarded unchanged.
         :return: ReplicaRecord extracted from the fixture resolution.
         """
-        return self.resolve_digital_asset(
-            digital_asset_id, **kwargs
-        ).replica_record
+        return self.resolve_digital_asset(digital_asset_id, **kwargs).replica_record
 
     def resolve_digital_asset(
         self,
@@ -1207,6 +1215,7 @@ class _TopologyHarness:
         >>> _TopologyHarness(()).configurations
         {}
     """
+
     compare_location_hosts = api.StoreAdministrationAPI.compare_location_hosts
     compare_location_devices = api.StoreAdministrationAPI.compare_location_devices
 
@@ -1227,8 +1236,7 @@ class _TopologyHarness:
         :return: None after updating the fixture state.
         """
         self.configurations = {
-            configuration.store_uuid: configuration
-            for configuration in configurations
+            configuration.store_uuid: configuration for configuration in configurations
         }
 
     def get_store_configuration(
@@ -1306,14 +1314,21 @@ def test_full_manager_layers_catalogue_and_policy_above_the_small_router() -> No
         "begin_write",
     }.isdisjoint(api.StorageManagerAPI.__abstractmethods__)
     assert {
-        "ingest_stream", "resolve_digital_asset", "replicate_digital_asset",
-        "verify_replica", "resolve_effective_policies",
-        "declare_composite_digital_asset", "plan_reconciliation",
+        "ingest_stream",
+        "resolve_digital_asset",
+        "replicate_digital_asset",
+        "verify_replica",
+        "resolve_effective_policies",
+        "declare_composite_digital_asset",
+        "plan_reconciliation",
         "record_digital_asset_derivation",
         "iter_digital_asset_derivation_records",
-        "get_derivation_graph", "plan_digital_asset_recreation",
-        "link_item_to_digital_asset", "unlink_item_digital_asset",
-        "get_store", "iter_stores",
+        "get_derivation_graph",
+        "plan_digital_asset_recreation",
+        "link_item_to_digital_asset",
+        "unlink_item_digital_asset",
+        "get_store",
+        "iter_stores",
     }.issubset(api.StorageManagerAPI.__abstractmethods__)
 
 
@@ -1332,16 +1347,34 @@ def test_storage_manager_package_exposes_stable_segregated_import_paths() -> Non
     from LiuXin_alpha.storage.api.storage_manager_api.models.replicas import (
         ReplicaState,
     )
-    from LiuXin_alpha.storage.api.storage_manager_api.models.policies import ReplicationPolicy
-    from LiuXin_alpha.storage.api.storage_manager_api.location_factory import LocationFactory
-    from LiuXin_alpha.storage.api.storage_manager_api.derivations_api import DigitalAssetDerivationRegistryAPI
-    from LiuXin_alpha.storage.api.storage_manager_api.item_links_api import ItemDigitalAssetLinkAPI
-    from LiuXin_alpha.storage.api.storage_manager_api.policies_api import StoragePolicyAPI
+    from LiuXin_alpha.storage.api.storage_manager_api.models.policies import (
+        ReplicationPolicy,
+    )
+    from LiuXin_alpha.storage.api.storage_manager_api.location_factory import (
+        LocationFactory,
+    )
+    from LiuXin_alpha.storage.api.storage_manager_api.derivations_api import (
+        DigitalAssetDerivationRegistryAPI,
+    )
+    from LiuXin_alpha.storage.api.storage_manager_api.item_links_api import (
+        ItemDigitalAssetLinkAPI,
+    )
+    from LiuXin_alpha.storage.api.storage_manager_api.policies_api import (
+        StoragePolicyAPI,
+    )
     from LiuXin_alpha.storage.api.storage_manager_api.router_api import StorageRouterAPI
 
     assert manager_api.StorageManagerAPI is api.StorageManagerAPI
-    assert manager_api.DigitalAssetDerivationRegistryAPI is DigitalAssetDerivationRegistryAPI is api.DigitalAssetDerivationRegistryAPI
-    assert manager_api.ItemDigitalAssetLinkAPI is ItemDigitalAssetLinkAPI is api.ItemDigitalAssetLinkAPI
+    assert (
+        manager_api.DigitalAssetDerivationRegistryAPI
+        is DigitalAssetDerivationRegistryAPI
+        is api.DigitalAssetDerivationRegistryAPI
+    )
+    assert (
+        manager_api.ItemDigitalAssetLinkAPI
+        is ItemDigitalAssetLinkAPI
+        is api.ItemDigitalAssetLinkAPI
+    )
     assert manager_api.StoragePolicyAPI is StoragePolicyAPI is api.StoragePolicyAPI
     assert manager_api.StorageRouterAPI is StorageRouterAPI is api.StorageRouterAPI
     assert manager_api.ReplicaState is ReplicaState is api.ReplicaState
@@ -1405,6 +1438,7 @@ def test_structural_protocols_accept_a_complete_backend_and_session() -> None:
     assert isinstance(store, api.StoreAPI)
     assert isinstance(store, api.StoreCoreAPI)
     assert isinstance(session, api.WriteSessionAPI)
+    assert session.location == api.Location(MEMORY_STORE_UUID, "book.epub")
     assert not store.capabilities.native_copy
 
 
@@ -1457,6 +1491,21 @@ def test_store_api_composes_identity_lifecycle_and_transactional_files() -> None
     assert info.size == 4
     assert store.read_bytes(location) == b"book"
     assert store.compute_digest(location) == _sha256(b"book")
+    with store.try_get(location) as source:
+        assert source.read() == b"book"
+    assert store.try_file_size(location) == 4
+    assert store.try_read_bytes(location) == b"book"
+    assert store.try_compute_digest(location) == _sha256(b"book")
+    missing = api.Location(store.store_ref, "objects/missing")
+    assert store.try_get(missing) is None
+    assert store.try_file_size(missing) is None
+    assert store.try_read_bytes(missing) is None
+    assert store.try_compute_digest(missing) is None
+    with pytest.raises(
+        api.StoreUnsupportedOperation,
+        match="available algorithms:.*sha256",
+    ):
+        store.compute_digest(location, "not-a-real-digest")
 
     copied = api.Location(store.store_ref, "objects/copied")
     moved = api.Location(store.store_ref, "objects/moved")
@@ -1595,9 +1644,7 @@ def test_free_operations_are_segregated_from_contract_exports() -> None:
     assert utility_names <= (
         set(storage_utils.__all__) | set(driver.__all__) | set(workflow.__all__)
     )
-    assert storage_utils.try_stat.__module__ == (
-        "LiuXin_alpha.storage.utils.store"
-    )
+    assert storage_utils.try_stat.__module__ == ("LiuXin_alpha.storage.utils.store")
     assert driver.transfer_between_drivers.__module__ == (
         "LiuXin_alpha.storage.utils.driver"
     )
@@ -1740,9 +1787,15 @@ def test_enumeration_and_iter_infos_are_files_only_and_prefix_filtered() -> None
     :return: None after the stated regression assertions pass.
     """
     store = _MemoryStore()
-    storage_utils.write_bytes(store, api.Location(MEMORY_STORE_UUID, "books/a.epub"), b"a")
-    storage_utils.write_bytes(store, api.Location(MEMORY_STORE_UUID, "books/b.epub"), b"bb")
-    storage_utils.write_bytes(store, api.Location(MEMORY_STORE_UUID, "covers/a.jpg"), b"jpg")
+    storage_utils.write_bytes(
+        store, api.Location(MEMORY_STORE_UUID, "books/a.epub"), b"a"
+    )
+    storage_utils.write_bytes(
+        store, api.Location(MEMORY_STORE_UUID, "books/b.epub"), b"bb"
+    )
+    storage_utils.write_bytes(
+        store, api.Location(MEMORY_STORE_UUID, "covers/a.jpg"), b"jpg"
+    )
 
     prefix = api.Location(MEMORY_STORE_UUID, "books/")
     assert [location.key for location in store.iter_locations(prefix=prefix)] == [
@@ -1750,8 +1803,7 @@ def test_enumeration_and_iter_infos_are_files_only_and_prefix_filtered() -> None
         "books/b.epub",
     ]
     assert [
-        info.size
-        for info in storage_utils.iter_file_infos(store, prefix=prefix)
+        info.size for info in storage_utils.iter_file_infos(store, prefix=prefix)
     ] == [1, 2]
     assert store.capabilities.enumeration is api.EnumerationCompleteness.COMPLETE
 
@@ -1809,15 +1861,11 @@ def test_store_and_manager_moves_refuse_unprotected_fallbacks_before_copy() -> N
         conditional_delete=False,
     )
 
-    with pytest.raises(
-        api.StoreUnsupportedOperation, match="conditional deletion"
-    ):
+    with pytest.raises(api.StoreUnsupportedOperation, match="conditional deletion"):
         storage_utils.move(store, source, utility_destination)
 
     manager = _MemoryManager(store)
-    with pytest.raises(
-        api.StoreUnsupportedOperation, match="conditional deletion"
-    ):
+    with pytest.raises(api.StoreUnsupportedOperation, match="conditional deletion"):
         manager.move(source, manager_destination)
 
     assert store.exists(source)
@@ -1836,6 +1884,7 @@ def test_store_and_manager_moves_require_a_source_version_before_copy() -> None:
 
     :return: None after the stated regression assertions pass.
     """
+
     class _UnversionedMemoryStore(_MemoryStore):
         """
         Retain all memory Store behavior while removing version evidence from stat results. This
@@ -1845,6 +1894,7 @@ def test_store_and_manager_moves_require_a_source_version_before_copy() -> None:
         Example:
             >>> store = _UnversionedMemoryStore(MAIN_STORE_UUID)  # doctest: +SKIP
         """
+
         def stat(self, location: api.Location) -> api.FileInfo:
             """
             Compute normal memory metadata, then copy it with version=None. All parent availability,
@@ -1894,7 +1944,9 @@ def test_manager_routes_primitives_and_derives_only_small_conveniences() -> None
     manager = _MemoryManager(store)
     location = api.Location(MAIN_STORE_UUID, "book.epub")
 
-    info = manager.write_bytes(location, b"payload", expected_digest=_sha256(b"payload"))
+    info = manager.write_bytes(
+        location, b"payload", expected_digest=_sha256(b"payload")
+    )
 
     assert info.size == 7
     assert manager.exists(location)
@@ -1967,12 +2019,15 @@ def test_automatic_active_placement_avoids_archival_snapshot_writers() -> None:
         store_registrations=((archive.configuration, archive),),
     )
 
-    assert manager._plan_destination_stores(
-        api.ReplicationPolicy(min_copies=1),
-        (),
-        1,
-        expected_size=4,
-    ) == ()
+    assert (
+        manager._plan_destination_stores(
+            api.ReplicationPolicy(min_copies=1),
+            (),
+            1,
+            expected_size=4,
+        )
+        == ()
+    )
     assert manager._plan_destination_stores(
         api.BackupPolicy(min_copies=1, mode=api.ReplicaMode.ARCHIVE),
         (),
@@ -2050,8 +2105,7 @@ def test_location_topology_distinguishes_same_different_and_unknown() -> None:
     remote_host = api.Location(OTHER_STORE_UUID, "objects/destination")
 
     assert (
-        manager.compare_location_hosts(source, same_host)
-        is api.TopologyRelation.SAME
+        manager.compare_location_hosts(source, same_host) is api.TopologyRelation.SAME
     )
     assert (
         manager.compare_location_devices(source, same_host)
@@ -2090,7 +2144,9 @@ def test_facade_models_cover_store_policy_and_replica_state() -> None:
     )
     replication = api.ReplicationPolicy(min_copies=2)
     backup = api.BackupPolicy(
-        min_copies=2, target_copies=3, mode=api.ReplicaMode.ARCHIVE,
+        min_copies=2,
+        target_copies=3,
+        mode=api.ReplicaMode.ARCHIVE,
     )
 
     assert configuration.store_uuid == ARCHIVE_STORE_UUID
@@ -2249,6 +2305,7 @@ def test_repository_ports_operate_on_domain_values_not_record_protocols() -> Non
 
     :return: None after the stated regression assertions pass.
     """
+
     class _AssetRepository:
         """
         Satisfy the structural Asset repository port with synthesized records and fixed responses.
@@ -2257,6 +2314,7 @@ def test_repository_ports_operate_on_domain_values_not_record_protocols() -> Non
         Example:
             >>> repository = _AssetRepository()  # doctest: +SKIP
         """
+
         def add(self, declaration):
             """
             Synthesize Asset ID 7 while retaining the declaration size, digests, and metadata. No
@@ -2270,8 +2328,10 @@ def test_repository_ports_operate_on_domain_values_not_record_protocols() -> Non
             :return: New DigitalAssetRecord with fixed ID 7.
             """
             return api.DigitalAssetRecord(
-                api.DigitalAssetID(7), declaration.size_bytes,
-                declaration.digests, declaration.metadata,
+                api.DigitalAssetID(7),
+                declaration.size_bytes,
+                declaration.digests,
+                declaration.metadata,
             )
 
         def get(self, digital_asset_id):
@@ -2440,7 +2500,8 @@ def test_exact_derivation_recipe_pins_everything_needed_for_replay() -> None:
         output_role="cover",
     )
     derivation = api.DigitalAssetDerivationRecord(
-        api.DigitalAssetDerivationID(11), declaration,
+        api.DigitalAssetDerivationID(11),
+        declaration,
     )
 
     assert derivation.can_recreate_exactly
@@ -2468,16 +2529,25 @@ def test_composite_derivation_provenance_uses_flattened_atomic_recipe_inputs() -
         complete=True,
         inputs=(
             api.ReproductionRecipeInputReference(
-                0, api.DigitalAssetID(7), 3, (_sha256(b"one"),),
-                "disc-1/track-01.mp3", role="audio",
+                0,
+                api.DigitalAssetID(7),
+                3,
+                (_sha256(b"one"),),
+                "disc-1/track-01.mp3",
+                role="audio",
             ),
             api.ReproductionRecipeInputReference(
-                1, api.DigitalAssetID(8), 3, (_sha256(b"two"),),
-                "disc-1/track-02.mp3", role="audio",
+                1,
+                api.DigitalAssetID(8),
+                3,
+                (_sha256(b"two"),),
+                "disc-1/track-02.mp3",
+                role="audio",
             ),
         ),
         executor=api.ReproductionRecipeArtifactReference(
-            "packager", _sha256(b"tool"),
+            "packager",
+            _sha256(b"tool"),
             digital_asset_id=api.DigitalAssetID(20),
         ),
         command=("packager", "disc-1", "audiobook.m4b"),
@@ -2498,11 +2568,63 @@ def test_composite_derivation_provenance_uses_flattened_atomic_recipe_inputs() -
         recipe,
     )
 
-    assert (
-        declaration.sources[0].composite_digital_asset_id
-        == api.CompositeDigitalAssetID(3)
-    )
+    assert declaration.sources[
+        0
+    ].composite_digital_asset_id == api.CompositeDigitalAssetID(3)
     assert tuple(input_.digital_asset_id for input_ in recipe.inputs) == (7, 8)
+
+
+def test_recipe_external_command_and_normalized_identity_are_explicit() -> None:
+    """
+    Round-trip a shell-neutral external command, use injected executable discovery, and retain
+    normalization evidence for a complete best-effort recipe. No process or normalizer runs.
+    """
+    command = api.ExternalReproductionCommand(
+        ("epub-normalize", "source.epub", "normalized.epub")
+    )
+    evidence = api.ReproductionNormalizationDigest(
+        "epub-metadata-v1",
+        _sha256(b"normalized-content"),
+        normalizer_version="1.2.0",
+        parameters_json='{"ignore":["creation_date"]}',
+    )
+    input_ = api.ReproductionRecipeInputReference(
+        0,
+        api.DigitalAssetID(7),
+        4,
+        (_sha256(b"book"),),
+        "source.epub",
+    )
+    recipe = api.ReproductionRecipe(
+        "normalize_epub",
+        api.Reproducibility.BEST_EFFORT,
+        True,
+        (input_,),
+        executor=api.ReproductionRecipeArtifactReference(
+            "epub-normalize",
+            _sha256(b"tool"),
+            digital_asset_id=api.DigitalAssetID(20),
+        ),
+        command=command.arguments,
+        output_path="normalized.epub",
+        normalized_output_digests=(evidence,),
+    )
+
+    assert api.ExternalReproductionCommand.from_json(command.to_json()) == command
+    assert command.resolve_executable(lambda executable: f"/tools/{executable}") == (
+        "/tools/epub-normalize"
+    )
+    assert recipe.external_command == command
+    assert recipe.can_verify_normalized_equivalence
+    assert not recipe.can_recreate_exactly
+    with pytest.raises(ValueError, match="unsupported fields"):
+        api.ExternalReproductionCommand.from_json(
+            '{"arguments":["tool"],"kind":"external","version":1,"shell":true}'
+        )
+    with pytest.raises(ValueError, match="kind or version"):
+        api.ExternalReproductionCommand.from_json(
+            '{"arguments":["tool"],"kind":"external","version":true}'
+        )
 
 
 def test_exact_complete_recipe_rejects_missing_replay_evidence() -> None:
@@ -2517,12 +2639,19 @@ def test_exact_complete_recipe_rejects_missing_replay_evidence() -> None:
     :return: None after the stated regression assertions pass.
     """
     input_ = api.ReproductionRecipeInputReference(
-        0, api.DigitalAssetID(7), 4, (_sha256(b"book"),), "book.epub",
+        0,
+        api.DigitalAssetID(7),
+        4,
+        (_sha256(b"book"),),
+        "book.epub",
     )
 
     with pytest.raises(ValueError, match="pinned executor"):
         api.ReproductionRecipe(
-            "extract", api.Reproducibility.EXACT, True, (input_,),
+            "extract",
+            api.Reproducibility.EXACT,
+            True,
+            (input_,),
             command=("extract",),
             output_path="cover.jpg",
             expected_output_size=5,
@@ -2530,9 +2659,13 @@ def test_exact_complete_recipe_rejects_missing_replay_evidence() -> None:
         )
     with pytest.raises(ValueError, match="replay command"):
         api.ReproductionRecipe(
-            "extract", api.Reproducibility.EXACT, True, (input_,),
+            "extract",
+            api.Reproducibility.EXACT,
+            True,
+            (input_,),
             executor=api.ReproductionRecipeArtifactReference(
-                "extract", _sha256(b"tool"),
+                "extract",
+                _sha256(b"tool"),
                 digital_asset_id=api.DigitalAssetID(20),
             ),
             output_path="cover.jpg",
@@ -2541,13 +2674,19 @@ def test_exact_complete_recipe_rejects_missing_replay_evidence() -> None:
         )
     with pytest.raises(ValueError, match="canonical JSON"):
         api.ReproductionRecipe(
-            "extract", api.Reproducibility.BEST_EFFORT, False, (input_,),
+            "extract",
+            api.Reproducibility.BEST_EFFORT,
+            False,
+            (input_,),
             parameters_json='{ "cover_index": 0 }',
         )
     with pytest.raises(ValueError, match="inside the recipe workspace"):
         replace(
             api.ReproductionRecipe(
-                "extract", api.Reproducibility.BEST_EFFORT, False, (input_,),
+                "extract",
+                api.Reproducibility.BEST_EFFORT,
+                False,
+                (input_,),
             ),
             output_path="../cover.jpg",
         )
@@ -2604,12 +2743,18 @@ def test_derivative_policy_can_trade_copies_for_exact_recreation() -> None:
     )
     recreation = api.DigitalAssetDerivationID(11)
     empty_status = api.StoragePolicyAssessment(
-        api.DigitalAssetID(8), "recreatable_derivative", api.ReplicaMode.ACTIVE,
-        meets_minimum=True, meets_target=True,
+        api.DigitalAssetID(8),
+        "recreatable_derivative",
+        api.ReplicaMode.ACTIVE,
+        meets_minimum=True,
+        meets_target=True,
     )
     empty_backup = api.StoragePolicyAssessment(
-        api.DigitalAssetID(8), "no_derivative_backup", api.ReplicaMode.BACKUP,
-        meets_minimum=True, meets_target=True,
+        api.DigitalAssetID(8),
+        "no_derivative_backup",
+        api.ReplicaMode.BACKUP,
+        meets_minimum=True,
+        meets_target=True,
     )
     health = api.DigitalAssetStorageAssessment(
         api.DigitalAssetID(8),
@@ -2618,7 +2763,8 @@ def test_derivative_policy_can_trade_copies_for_exact_recreation() -> None:
         exact_recreation_derivation_ids=(recreation,),
     )
     plan = api.DigitalAssetReplicationPlan(
-        api.DigitalAssetID(8), exact_recreation_derivation_id=recreation,
+        api.DigitalAssetID(8),
+        exact_recreation_derivation_id=recreation,
     )
 
     assert original.loss_action is api.DigitalAssetLossAction.REQUIRE_COPY
@@ -2689,7 +2835,43 @@ def test_health_and_reconciliation_do_not_collapse_distinct_states() -> None:
     assert not api.StoreReconciliationReport(partial_plan, applied=False).clean
 
 
-def test_ingest_bytes_remains_a_small_wrapper_over_transactional_stream_ingest() -> None:
+def test_storage_assessment_separates_replacement_from_exact_recovery() -> None:
+    """Retain tri-state replacement evidence without treating different bytes as recovery."""
+    replacement = api.DigitalAssetReplacementAssessment(
+        api.DigitalAssetReplacementStatus.AVAILABLE,
+        source_references=("isbn:9780000000000",),
+        reasons=("A licensed edition remains downloadable.",),
+    )
+    replication = api.StoragePolicyAssessment(
+        api.DigitalAssetID(7),
+        "live",
+        api.ReplicaMode.ACTIVE,
+    )
+    backup = api.StoragePolicyAssessment(
+        api.DigitalAssetID(7),
+        "backup",
+        api.ReplicaMode.BACKUP,
+    )
+    assessment = api.DigitalAssetStorageAssessment(
+        api.DigitalAssetID(7),
+        replication,
+        backup,
+        replacement_assessment=replacement,
+    )
+
+    assert assessment.can_be_replaced is True
+    assert assessment.irrecoverable
+    assert not assessment.recoverable
+    assert api.DigitalAssetReplacementAssessment().can_be_replaced is None
+    with pytest.raises(ValueError, match="source reference"):
+        api.DigitalAssetReplacementAssessment(
+            api.DigitalAssetReplacementStatus.AVAILABLE
+        )
+
+
+def test_ingest_bytes_remains_a_small_wrapper_over_transactional_stream_ingest() -> (
+    None
+):
     """
     Verify ingest_bytes forwards payload and exact size into the ingest fixture and preserves
     returned Asset/Replica identity and Location aliasing. The fixture result does not prove
@@ -2703,7 +2885,9 @@ def test_ingest_bytes_remains_a_small_wrapper_over_transactional_stream_ingest()
     """
     manager = _IngestHarness()
     result = manager.ingest_bytes(
-        b"payload", item_id=api.ItemID(7), role="primary_payload",
+        b"payload",
+        item_id=api.ItemID(7),
+        role="primary_payload",
         preferred_store_ref=MAIN_STORE_UUID,
     )
 
@@ -2714,7 +2898,9 @@ def test_ingest_bytes_remains_a_small_wrapper_over_transactional_stream_ingest()
     assert result.location is result.replica_record.location
 
 
-def test_verification_and_reconciliation_results_preserve_operational_distinctions() -> None:
+def test_verification_and_reconciliation_results_preserve_operational_distinctions() -> (
+    None
+):
     """
     Verify unavailable and corrupt reports are unhealthy, a fully matching verified report is
     healthy, any healthy report makes the Asset readable, and missing-Replica reconciliation remains
@@ -2727,20 +2913,31 @@ def test_verification_and_reconciliation_results_preserve_operational_distinctio
     :return: None after the stated regression assertions pass.
     """
     unavailable = api.ReplicaVerificationReport(
-        api.ReplicaID(1), api.DigitalAssetID(9),
-        api.ReplicaState.UNAVAILABLE, None, errors=("offline",),
+        api.ReplicaID(1),
+        api.DigitalAssetID(9),
+        api.ReplicaState.UNAVAILABLE,
+        None,
+        errors=("offline",),
     )
     corrupt = api.ReplicaVerificationReport(
-        api.ReplicaID(2), api.DigitalAssetID(9),
-        api.ReplicaState.CORRUPT, True, digest_matches=False,
+        api.ReplicaID(2),
+        api.DigitalAssetID(9),
+        api.ReplicaState.CORRUPT,
+        True,
+        digest_matches=False,
     )
     verified = api.ReplicaVerificationReport(
-        api.ReplicaID(3), api.DigitalAssetID(9),
-        api.ReplicaState.VERIFIED, True,
-        size_matches=True, digest_matches=True,
+        api.ReplicaID(3),
+        api.DigitalAssetID(9),
+        api.ReplicaState.VERIFIED,
+        True,
+        size_matches=True,
+        digest_matches=True,
     )
     dirty_plan = api.StoreReconciliationPlan(
-        UUID(int=20), MAIN_STORE_UUID, True,
+        UUID(int=20),
+        MAIN_STORE_UUID,
+        True,
         api.EnumerationCompleteness.COMPLETE,
         missing_replica_ids=(api.ReplicaID(1),),
     )
@@ -2790,10 +2987,7 @@ def test_reference_manager_is_concrete_and_ingest_is_idempotent() -> None:
     assert not TransientStorageManager.__abstractmethods__
     assert retried == first
     assert deduplicated.asset_record == first.asset_record
-    assert (
-        deduplicated.replica_record.replica_id
-        == first.replica_record.replica_id
-    )
+    assert deduplicated.replica_record.replica_id == first.replica_record.replica_id
     assert deduplicated.location == first.location
     assert first.verified
     assert manager.read_bytes(first.location) == b"payload"
@@ -2830,6 +3024,9 @@ def test_operational_status_reports_replica_and_policy_recovery_actions() -> Non
     assert not initial.healthy
     assert initial.issues_for("replication_policy_violation") == ()
     assert len(initial.issues_for("backup_policy_violation")) == 1
+    assert initial.issues_for("backup_policy_violation")[0].recoverability is (
+        api.StorageOperationalRecoverability.MANUAL
+    )
     assert any(
         action.action == "plan_backup"
         and action.digital_asset_id == result.asset_record.digital_asset_id
@@ -2844,12 +3041,70 @@ def test_operational_status_reports_replica_and_policy_recovery_actions() -> Non
     corrupt = degraded.issues_for("replica_corrupt")
     assert len(corrupt) == 1
     assert corrupt[0].replica_id == result.replica_record.replica_id
+    assert corrupt[0].can_recover is True
+    assert corrupt[0].recoverability is api.StorageOperationalRecoverability.MANUAL
     assert len(degraded.issues_for("replication_policy_violation")) == 1
     assert any(
         action.action == "replicate_digital_asset"
         and action.replica_id == result.replica_record.replica_id
         for action in degraded.recovery_actions
     )
+    assert manager.get_operational_status_history() == (initial, degraded)
+    assert manager.get_operational_status_history(limit=1) == (degraded,)
+    assert manager.get_operational_status_history(limit=0) == ()
+    with pytest.raises(ValueError, match="must not be negative"):
+        manager.get_operational_status_history(limit=-1)
+
+
+def test_operational_issue_separates_severity_from_recoverability() -> None:
+    """Normalize both classifications and expose a tri-state recovery predicate."""
+    terminal = api.StorageOperationalIssue(
+        "source_destroyed",
+        "error",
+        "No source bytes or exact recreation path remain.",
+        recoverability="terminal",
+    )
+    unknown = api.StorageOperationalIssue(
+        "provider_message",
+        api.StorageOperationalSeverity.INFO,
+        "The provider supplied no recovery classification.",
+    )
+
+    assert terminal.severity is api.StorageOperationalSeverity.ERROR
+    assert terminal.recoverability is api.StorageOperationalRecoverability.TERMINAL
+    assert terminal.can_recover is False
+    assert unknown.can_recover is None
+
+
+def test_operational_status_logs_structured_issue_context(caplog) -> None:
+    """Map issue severity and attribution into one structured logging record per finding."""
+    issue = api.StorageOperationalIssue(
+        "replica_corrupt",
+        api.StorageOperationalSeverity.ERROR,
+        "The stored bytes do not match the Asset identity.",
+        digital_asset_id=api.DigitalAssetID(7),
+        replica_id=api.ReplicaID(12),
+        recoverability=api.StorageOperationalRecoverability.MANUAL,
+    )
+    status = api.StorageOperationalStatus(
+        datetime.now(UTC),
+        issues=(issue,),
+    )
+    logger = logging.getLogger("tests.storage.operational")
+
+    with caplog.at_level(logging.INFO, logger=logger.name):
+        emitted = log_operational_status(status, logger)
+
+    assert emitted == 1
+    record = caplog.records[-1]
+    assert record.levelno == logging.ERROR
+    assert record.getMessage() == (
+        "replica_corrupt: The stored bytes do not match the Asset identity."
+    )
+    assert getattr(record, "storage_issue_code") == "replica_corrupt"
+    assert getattr(record, "storage_recoverability") == "manual"
+    assert getattr(record, "storage_digital_asset_id") == 7
+    assert getattr(record, "storage_replica_id") == 12
 
 
 def test_failed_manager_publication_leaves_no_phantom_asset(
@@ -2980,9 +3235,9 @@ def test_reference_manager_replicates_verifies_and_reconciles() -> None:
     report = manager.apply_reconciliation(plan)
     assert report.applied
     assert report.updated_replica_ids == (replica.replica_id,)
-    assert manager.get_replica_record(
-        replica.replica_id
-    ).state is api.ReplicaState.CORRUPT
+    assert (
+        manager.get_replica_record(replica.replica_id).state is api.ReplicaState.CORRUPT
+    )
 
     stale = manager.plan_reconciliation(MAIN_STORE_UUID)
     manager.ingest_bytes(b"changes repository generation")
@@ -3016,6 +3271,7 @@ def test_policy_plans_do_not_place_independent_modes_on_an_occupied_store() -> N
     asset = manager.ingest_bytes(b"separate policy modes").asset_record
 
     backup_plan = manager.plan_backup(asset.digital_asset_id)
+    assert backup_plan.implementable
     assert len(backup_plan.destination_store_refs) == 1
     assert backup_plan.destination_store_refs[0] != MAIN_STORE_UUID
     backup_store_ref = backup_plan.destination_store_refs[0]
@@ -3037,11 +3293,237 @@ def test_policy_plans_do_not_place_independent_modes_on_an_occupied_store() -> N
         replication_policy_id=two_live_copies.replication_policy_id,
     )
     replication_plan = manager.plan_replication(asset.digital_asset_id)
+    assert replication_plan.implementable
     assert len(replication_plan.destination_store_refs) == 1
     assert replication_plan.destination_store_refs[0] not in {
         MAIN_STORE_UUID,
         backup_store_ref,
     }
+
+
+def test_policy_plans_expose_destination_shortages_as_blockers() -> None:
+    """Distinguish a partial proposal from a plan capable of satisfying its target."""
+    only_store = _MemoryStore(MAIN_STORE_UUID)
+    manager = TransientStorageManager(
+        store_registrations=((only_store.configuration, only_store),),
+    )
+    asset = manager.ingest_bytes(b"no spare destination").asset_record
+    policy = manager.create_replication_policy(
+        api.ReplicationPolicy(name="two-copies", min_copies=2, target_copies=2)
+    )
+    manager.set_digital_asset_replication_policy(
+        asset.digital_asset_id,
+        policy.replication_policy_id,
+    )
+
+    plan = manager.plan_replication(asset.digital_asset_id)
+
+    assert not plan.implementable
+    assert plan.destination_store_refs == ()
+    assert plan.blocking_reasons == plan.warnings
+    assert "0 of 1 required destinations" in plan.blocking_reasons[0]
+
+
+def test_replication_plan_retains_a_jointly_separated_subset_before_removal() -> None:
+    """Keep the distinct-host copy when surplus cache claims are ordered A, A, B."""
+
+    source = _MemoryStore(UUID(int=1100))
+    cache_a1 = _MemoryStore(UUID(int=1101))
+    cache_a2 = _MemoryStore(UUID(int=1102))
+    cache_b = _MemoryStore(UUID(int=1103))
+    cache_a1._configuration = replace(  # noqa: SLF001 - topology fixture
+        cache_a1.configuration,
+        store_host_uuid=HOST_A_UUID,
+        supported_replica_modes=(
+            cache_a1.configuration.supported_replica_modes | {api.ReplicaMode.CACHE}
+        ),
+    )
+    cache_a2._configuration = replace(  # noqa: SLF001 - topology fixture
+        cache_a2.configuration,
+        store_host_uuid=HOST_A_UUID,
+        supported_replica_modes=(
+            cache_a2.configuration.supported_replica_modes | {api.ReplicaMode.CACHE}
+        ),
+    )
+    cache_b._configuration = replace(  # noqa: SLF001 - topology fixture
+        cache_b.configuration,
+        store_host_uuid=HOST_B_UUID,
+        supported_replica_modes=(
+            cache_b.configuration.supported_replica_modes | {api.ReplicaMode.CACHE}
+        ),
+    )
+    stores = (source, cache_a1, cache_a2, cache_b)
+    manager = TransientStorageManager(
+        store_registrations=tuple((store.configuration, store) for store in stores),
+        default_store_ref=source.store_ref,
+    )
+    asset = manager.ingest_bytes(b"separated cache copies").asset_record
+    replicas = tuple(
+        manager.replicate_digital_asset(
+            asset.digital_asset_id,
+            destination_store_ref=store.store_ref,
+            mode=api.ReplicaMode.CACHE,
+        )
+        for store in (cache_a1, cache_a2, cache_b)
+    )
+    policy = manager.create_replication_policy(
+        api.ReplicationPolicy(
+            name="two-cache-hosts",
+            min_copies=2,
+            target_copies=2,
+            mode=api.ReplicaMode.CACHE,
+            distinct_by=(api.ReplicaSeparationDimension.HOST,),
+        )
+    )
+    manager.set_digital_asset_replication_policy(
+        asset.digital_asset_id,
+        policy.replication_policy_id,
+    )
+
+    plan = manager.plan_replication(asset.digital_asset_id)
+
+    assert plan.implementable
+    assert plan.destination_store_refs == ()
+    assert plan.replica_ids_to_remove == (replicas[1].replica_id,)
+    assert replicas[2].replica_id not in plan.replica_ids_to_remove
+
+
+def test_backup_plan_retains_separation_and_accepts_a_backup_copy_as_source() -> None:
+    """Preserve host diversity and expose every readable mode as a candidate backup source."""
+
+    source = _MemoryStore(UUID(int=1200))
+    backup_a1 = _MemoryStore(UUID(int=1201))
+    backup_a2 = _MemoryStore(UUID(int=1202))
+    backup_b = _MemoryStore(UUID(int=1203))
+    backup_a1._configuration = replace(  # noqa: SLF001 - topology fixture
+        backup_a1.configuration,
+        store_host_uuid=HOST_A_UUID,
+    )
+    backup_a2._configuration = replace(  # noqa: SLF001 - topology fixture
+        backup_a2.configuration,
+        store_host_uuid=HOST_A_UUID,
+    )
+    backup_b._configuration = replace(  # noqa: SLF001 - topology fixture
+        backup_b.configuration,
+        store_host_uuid=HOST_B_UUID,
+    )
+    stores = (source, backup_a1, backup_a2, backup_b)
+    manager = TransientStorageManager(
+        store_registrations=tuple((store.configuration, store) for store in stores),
+        default_store_ref=source.store_ref,
+    )
+    asset = manager.ingest_bytes(b"separated backup copies").asset_record
+    replicas = tuple(
+        manager.replicate_digital_asset(
+            asset.digital_asset_id,
+            destination_store_ref=store.store_ref,
+            mode=api.ReplicaMode.BACKUP,
+        )
+        for store in (backup_a1, backup_a2, backup_b)
+    )
+    policy = manager.create_backup_policy(
+        api.BackupPolicy(
+            name="two-backup-hosts",
+            min_copies=2,
+            target_copies=2,
+            distinct_by=(api.ReplicaSeparationDimension.HOST,),
+        )
+    )
+    manager.set_digital_asset_backup_policy(
+        asset.digital_asset_id,
+        policy.backup_policy_id,
+    )
+
+    plan = manager.plan_backup(asset.digital_asset_id)
+
+    assert plan.implementable
+    assert plan.replica_ids_to_remove == (replicas[1].replica_id,)
+    assert {replica.replica_id for replica in replicas} <= set(plan.source_replica_ids)
+
+
+def test_policy_assessment_requires_one_subset_to_satisfy_all_dimensions() -> None:
+    """Reject independent host/device totals when no three-copy joint subset exists."""
+
+    topologies = (
+        (HOST_A_UUID, DEVICE_A_UUID),
+        (HOST_A_UUID, DEVICE_B_UUID),
+        (HOST_A_UUID, UUID(int=2203)),
+        (HOST_B_UUID, DEVICE_A_UUID),
+        (UUID(int=2103), DEVICE_A_UUID),
+    )
+    stores: list[_MemoryStore] = []
+    for index, (host_ref, device_ref) in enumerate(topologies, start=1):
+        store = _MemoryStore(UUID(int=1300 + index))
+        store._configuration = replace(  # noqa: SLF001 - topology fixture
+            store.configuration,
+            store_host_uuid=host_ref,
+            store_device_uuid=device_ref,
+        )
+        stores.append(store)
+    manager = TransientStorageManager(
+        store_registrations=tuple((store.configuration, store) for store in stores),
+        default_store_ref=stores[0].store_ref,
+    )
+    asset = manager.ingest_bytes(b"joint separation").asset_record
+    for store in stores[1:]:
+        manager.replicate_digital_asset(
+            asset.digital_asset_id,
+            destination_store_ref=store.store_ref,
+        )
+    policy = manager.create_replication_policy(
+        api.ReplicationPolicy(
+            name="three-joint-buckets",
+            min_copies=3,
+            target_copies=3,
+            distinct_by=(
+                api.ReplicaSeparationDimension.HOST,
+                api.ReplicaSeparationDimension.DEVICE,
+            ),
+        )
+    )
+    manager.set_digital_asset_replication_policy(
+        asset.digital_asset_id,
+        policy.replication_policy_id,
+    )
+
+    assessment = manager.assess_replication(asset.digital_asset_id)
+    plan = manager.plan_replication(asset.digital_asset_id)
+
+    assert len(assessment.healthy_replica_ids) == 5
+    assert not assessment.meets_minimum
+    assert not assessment.meets_target
+    assert not plan.implementable
+    assert plan.replica_ids_to_remove == ()
+    assert "0 of 1 required destinations" in plan.blocking_reasons[0]
+
+
+def test_copy_plans_block_publication_when_no_readable_source_exists() -> None:
+    """Do not call a destination-only proposal implementable for a metadata-only Asset."""
+
+    first = _MemoryStore(UUID(int=1401))
+    second = _MemoryStore(UUID(int=1402))
+    manager = TransientStorageManager(
+        store_registrations=(
+            (first.configuration, first),
+            (second.configuration, second),
+        ),
+        default_store_ref=first.store_ref,
+    )
+    asset = manager.declare_digital_asset(
+        api.DigitalAssetDeclaration(4, (_sha256(b"lost"),))
+    )
+
+    replication = manager.plan_replication(asset.digital_asset_id)
+    backup = manager.plan_backup(asset.digital_asset_id)
+
+    assert replication.destination_store_refs
+    assert backup.destination_store_refs
+    assert not replication.implementable
+    assert not backup.implementable
+    assert replication.blocking_reasons == (
+        "no currently readable source Replica is available",
+    )
+    assert backup.blocking_reasons == replication.blocking_reasons
 
 
 def test_detailed_file_ingest_returns_result_and_defaults_original_name(
@@ -3211,7 +3693,9 @@ def test_composite_convenience_ingests_and_exports_members(tmp_path) -> None:
         composite,
         tmp_path / "exported",
     )
-    assert {path.relative_to(tmp_path / "exported").as_posix() for path in exported} == {
+    assert {
+        path.relative_to(tmp_path / "exported").as_posix() for path in exported
+    } == {
         "text/chapter 1.txt",
         "images/Caf\u00e9-Cafe\u0301.bin",
     }
@@ -3223,12 +3707,12 @@ def test_composite_convenience_ingests_and_exports_members(tmp_path) -> None:
                 "text/chapter 1.txt",
                 "images/Caf\u00e9-Cafe\u0301.bin",
             }
-            assert archive_file.read("images/Caf\u00e9-Cafe\u0301.bin") == b"cover bytes"
+            assert (
+                archive_file.read("images/Caf\u00e9-Cafe\u0301.bin") == b"cover bytes"
+            )
 
     with pytest.raises(ValueError, match="logical path"):
         manager.store_composite({"../escape.bin": b"escape"})
-
-
 
 
 def test_reference_manager_records_exact_derivation_and_disposable_policy() -> None:
@@ -3306,9 +3790,7 @@ def test_reference_manager_records_exact_derivation_and_disposable_policy() -> N
     )
 
     result_replica = next(
-        manager.iter_replica_records(
-            digital_asset_id=result.digital_asset_id
-        )
+        manager.iter_replica_records(digital_asset_id=result.digital_asset_id)
     )
     manager.remove_replica(result_replica.replica_id)
     assessment = manager.assess_digital_asset(result.digital_asset_id)
@@ -3317,9 +3799,10 @@ def test_reference_manager_records_exact_derivation_and_disposable_policy() -> N
     assert assessment.unavailable
     assert assessment.recreatable
     assert assessment.recoverable
-    assert manager.plan_replication(
-        result.digital_asset_id
-    ).exact_recreation_derivation_id == derivation.digital_asset_derivation_id
+    assert (
+        manager.plan_replication(result.digital_asset_id).exact_recreation_derivation_id
+        == derivation.digital_asset_derivation_id
+    )
 
 
 def test_reference_manager_validates_composites_and_derivation_cycles() -> None:
@@ -3369,11 +3852,12 @@ def test_reference_manager_validates_composites_and_derivation_cycles() -> None:
         )
     )
 
-    assert len(
-        manager.resolve_composite_digital_asset(
-            composite.composite_digital_asset_id
-        )
-    ) == 2
+    resolution = manager.resolve_composite_digital_asset(
+        composite.composite_digital_asset_id
+    )
+    assert isinstance(resolution, api.CompositeDigitalAssetResolution)
+    assert resolution.composite_digital_asset_record == composite
+    assert len(resolution) == 2
     with pytest.raises(api.StoragePreconditionFailed, match="cycle"):
         manager.record_digital_asset_derivation(
             api.DigitalAssetDerivationDeclaration(
@@ -3387,6 +3871,466 @@ def test_reference_manager_validates_composites_and_derivation_cycles() -> None:
                 api.DigitalAssetDerivationKind.OTHER,
             )
         )
+
+
+def test_asset_metadata_field_setters_preserve_unselected_values_and_revision() -> None:
+    """Update each metadata field independently and reject reuse of the original revision."""
+
+    manager = TransientStorageManager()
+    asset = manager.declare_digital_asset(
+        api.DigitalAssetDeclaration(
+            4,
+            (api.Digest("sha256", "field-update"),),
+            api.DigitalAssetMetadata(
+                name="old",
+                media_type="application/octet-stream",
+                original_name="old.bin",
+                attributes=(("source", "fixture"),),
+            ),
+        )
+    )
+
+    named = manager.set_digital_asset_name(
+        asset.digital_asset_id,
+        "new",
+        if_revision=asset.revision,
+    )
+    typed = manager.set_digital_asset_media_type(
+        asset.digital_asset_id,
+        "application/epub+zip",
+        if_revision=named.revision,
+    )
+    cleared = manager.set_digital_asset_original_name(
+        asset.digital_asset_id,
+        None,
+        if_revision=typed.revision,
+    )
+    attributed = manager.set_digital_asset_attributes(
+        asset.digital_asset_id,
+        (("language", "en"),),
+        if_revision=cleared.revision,
+    )
+
+    assert attributed.metadata == api.DigitalAssetMetadata(
+        name="new",
+        media_type="application/epub+zip",
+        original_name=None,
+        attributes=(("language", "en"),),
+    )
+    assert attributed.size_bytes == asset.size_bytes
+    assert attributed.digests == asset.digests
+    with pytest.raises(api.StoragePreconditionFailed, match="revision"):
+        manager.set_digital_asset_name(
+            asset.digital_asset_id,
+            "stale",
+            if_revision=asset.revision,
+        )
+
+
+def test_asset_catalogue_iteration_supports_stable_requested_orderings() -> None:
+    """Order one catalogue snapshot by identity, size, and case-folded optional names."""
+
+    manager = TransientStorageManager()
+    beta = manager.declare_digital_asset(
+        api.DigitalAssetDeclaration(
+            20,
+            (api.Digest("sha256", "order-beta"),),
+            api.DigitalAssetMetadata(name="Beta"),
+        )
+    )
+    unnamed = manager.declare_digital_asset(
+        api.DigitalAssetDeclaration(
+            10,
+            (api.Digest("sha256", "order-unnamed"),),
+        )
+    )
+    alpha = manager.declare_digital_asset(
+        api.DigitalAssetDeclaration(
+            30,
+            (api.Digest("sha256", "order-alpha"),),
+            api.DigitalAssetMetadata(name="alpha"),
+        )
+    )
+
+    assert tuple(manager.iter_digital_asset_records()) == (
+        beta,
+        unnamed,
+        alpha,
+    )
+    assert tuple(manager.iter_digital_asset_records(order_by="name")) == (
+        alpha,
+        beta,
+        unnamed,
+    )
+    assert tuple(
+        manager.iter_digital_asset_records(
+            order_by=api.DigitalAssetRecordOrder.SIZE,
+            descending=True,
+        )
+    ) == (alpha, beta, unnamed)
+    with pytest.raises(ValueError, match="order_by"):
+        tuple(manager.iter_digital_asset_records(order_by="unknown"))
+
+
+def test_composite_field_and_member_updates_are_atomic_and_revision_safe() -> None:
+    """Update Composite description and one relationship without rebuilding its declaration."""
+
+    manager = TransientStorageManager()
+    assets = tuple(
+        manager.declare_digital_asset(
+            api.DigitalAssetDeclaration(
+                index + 1,
+                (api.Digest("sha256", f"composite-update-{index}"),),
+            )
+        )
+        for index in range(3)
+    )
+    composite = manager.declare_composite_digital_asset(
+        api.CompositeDigitalAssetDeclaration(
+            (
+                api.CompositeDigitalAssetMembership(
+                    assets[0].digital_asset_id,
+                    0,
+                    logical_path="one.bin",
+                ),
+                api.CompositeDigitalAssetMembership(
+                    assets[1].digital_asset_id,
+                    1,
+                    logical_path="two.bin",
+                ),
+            ),
+            name="old",
+            attributes=(("edition", "one"),),
+        )
+    )
+    original_digest = manager.calculate_composite_digital_asset_digest(
+        composite.composite_digital_asset_id
+    )
+
+    named = manager.set_composite_digital_asset_name(
+        composite.composite_digital_asset_id,
+        None,
+        if_revision=composite.revision,
+    )
+    attributed = manager.set_composite_digital_asset_attributes(
+        composite.composite_digital_asset_id,
+        (("edition", "two"),),
+        if_revision=named.revision,
+    )
+    replaced = manager.replace_composite_digital_asset_member(
+        composite.composite_digital_asset_id,
+        api.CompositeDigitalAssetMembership(
+            assets[2].digital_asset_id,
+            1,
+            logical_path="replacement.bin",
+            role="supplement",
+        ),
+        if_revision=attributed.revision,
+    )
+
+    assert replaced.name is None
+    assert replaced.attributes == (("edition", "two"),)
+    assert replaced.members[0] == composite.members[0]
+    assert replaced.members[1].digital_asset_id == assets[2].digital_asset_id
+    assert (
+        manager.calculate_composite_digital_asset_digest(
+            replaced.composite_digital_asset_id
+        )
+        != original_digest
+    )
+    with pytest.raises(api.StoragePreconditionFailed, match="revision"):
+        manager.set_composite_digital_asset_name(
+            composite.composite_digital_asset_id,
+            "stale",
+            if_revision=composite.revision,
+        )
+
+
+def test_composite_manifest_digest_is_portable_and_supports_reverse_lookup() -> None:
+    """
+    Hash logical relationship and byte identity metadata without including catalogue-only labels.
+
+    Two separately declared Composites with the same ordered manifest but different names must
+    share a digest and both appear in reverse lookup. Changing a delivery path must change the
+    digest. Unsupported runtime algorithms should expose the supported hashlib set.
+
+    :return: None after digest stability, sensitivity, lookup, and algorithm-error assertions pass.
+    """
+
+    manager = TransientStorageManager()
+    first = manager.declare_digital_asset(
+        api.DigitalAssetDeclaration(
+            4,
+            (api.Digest("sha256", "first-identity"),),
+        )
+    )
+    second = manager.declare_digital_asset(
+        api.DigitalAssetDeclaration(
+            5,
+            (api.Digest("sha256", "second-identity"),),
+        )
+    )
+
+    def declaration(path: str, name: str) -> api.CompositeDigitalAssetDeclaration:
+        """Build the two-member manifest while varying one delivery path and descriptive name."""
+
+        return api.CompositeDigitalAssetDeclaration(
+            (
+                api.CompositeDigitalAssetMembership(
+                    first.digital_asset_id,
+                    0,
+                    logical_path=path,
+                    role="content",
+                ),
+                api.CompositeDigitalAssetMembership(
+                    second.digital_asset_id,
+                    1,
+                    logical_path="cover.jpg",
+                    role="cover",
+                    required=False,
+                ),
+            ),
+            name=name,
+        )
+
+    original = manager.declare_composite_digital_asset(
+        declaration("book.epub", "first catalogue label")
+    )
+    equivalent = manager.declare_composite_digital_asset(
+        declaration("book.epub", "second catalogue label")
+    )
+    changed = manager.declare_composite_digital_asset(
+        declaration("renamed.epub", "first catalogue label")
+    )
+
+    digest = manager.calculate_composite_digital_asset_digest(
+        original.composite_digital_asset_id
+    )
+    assert digest == manager.calculate_composite_digital_asset_digest(
+        equivalent.composite_digital_asset_id
+    )
+    assert digest != manager.calculate_composite_digital_asset_digest(
+        changed.composite_digital_asset_id
+    )
+    assert manager.find_composite_digital_asset_records_by_digest(digest) == (
+        original,
+        equivalent,
+    )
+    with pytest.raises(
+        api.StoreUnsupportedOperation,
+        match="available algorithms:.*sha256",
+    ):
+        manager.calculate_composite_digital_asset_digest(
+            original.composite_digital_asset_id,
+            algorithm="not-a-real-digest",
+        )
+
+
+def test_composite_materialization_caches_every_member_and_retains_relationships() -> (
+    None
+):
+    """
+    Materialize two required members into one cache Store and return their Composite context.
+
+    The source Assets begin as ACTIVE claims in the main Store. The aggregate result must retain the
+    declared relationship order while selecting CACHE claims in the requested destination. Repeating
+    materialization reuses those claims rather than publishing duplicate cache Replicas.
+
+    :return: None after aggregate, destination, mode, relationship, and reuse assertions pass.
+    """
+
+    main = _MemoryStore(MAIN_STORE_UUID)
+    cache = _MemoryStore(OTHER_STORE_UUID)
+    cache._configuration = replace(  # noqa: SLF001 - capability fixture
+        cache.configuration,
+        supported_replica_modes=(api.ReplicaMode.CACHE,),
+    )
+    manager = TransientStorageManager(
+        store_registrations=(
+            (main.configuration, main),
+            (cache.configuration, cache),
+        ),
+        default_store_ref=MAIN_STORE_UUID,
+    )
+    first = manager.ingest_bytes(b"first member").asset_record
+    second = manager.ingest_bytes(b"second member").asset_record
+    composite = manager.declare_composite_digital_asset(
+        api.CompositeDigitalAssetDeclaration(
+            (
+                api.CompositeDigitalAssetMembership(
+                    first.digital_asset_id,
+                    0,
+                    logical_path="one.bin",
+                ),
+                api.CompositeDigitalAssetMembership(
+                    second.digital_asset_id,
+                    1,
+                    logical_path="two.bin",
+                ),
+            ),
+            name="pair",
+        )
+    )
+
+    materialized = manager.materialize_composite_digital_asset(
+        composite.composite_digital_asset_id,
+        cache_store_ref=OTHER_STORE_UUID,
+    )
+
+    assert materialized.composite_digital_asset_record == composite
+    assert tuple(member.membership.logical_path for member in materialized) == (
+        "one.bin",
+        "two.bin",
+    )
+    assert all(
+        location.store_ref == OTHER_STORE_UUID for location in materialized.locations
+    )
+    assert all(
+        member.resolution.replica_record.mode is api.ReplicaMode.CACHE
+        for member in materialized
+    )
+
+    reused = manager.materialize_composite_digital_asset(
+        composite.composite_digital_asset_id,
+        cache_store_ref=OTHER_STORE_UUID,
+    )
+    assert tuple(
+        member.resolution.replica_record.replica_id for member in reused
+    ) == tuple(member.resolution.replica_record.replica_id for member in materialized)
+
+
+def test_composite_verification_reuses_repeated_assets_and_reports_optional_gaps() -> (
+    None
+):
+    """
+    Verify each distinct Asset once while retaining all relationships and optional unreadability.
+
+    One readable Asset occupies two required positions, while a declared metadata-only Asset is an
+    optional third member. The repeated positions must share one atomic report. Removing the
+    required bytes before a second pass must make the aggregate unreadable without turning the
+    optional gap into an exception.
+
+    :return: None after ordered coverage, reuse, optional, and required-readability assertions pass.
+    """
+
+    store = _MemoryStore(MAIN_STORE_UUID)
+    manager = TransientStorageManager(
+        store_registrations=((store.configuration, store),),
+    )
+    available = manager.ingest_bytes(b"shared member")
+    optional = manager.declare_digital_asset(
+        api.DigitalAssetDeclaration(
+            7,
+            (api.Digest("sha256", "optional-without-replica"),),
+        )
+    )
+    composite = manager.declare_composite_digital_asset(
+        api.CompositeDigitalAssetDeclaration(
+            (
+                api.CompositeDigitalAssetMembership(
+                    available.asset_record.digital_asset_id,
+                    0,
+                    logical_path="first.bin",
+                ),
+                api.CompositeDigitalAssetMembership(
+                    available.asset_record.digital_asset_id,
+                    1,
+                    logical_path="second.bin",
+                ),
+                api.CompositeDigitalAssetMembership(
+                    optional.digital_asset_id,
+                    2,
+                    logical_path="optional.bin",
+                    required=False,
+                ),
+            )
+        )
+    )
+
+    report = manager.verify_composite_digital_asset(
+        composite.composite_digital_asset_id
+    )
+
+    assert report.composite_digital_asset_record == composite
+    assert (
+        tuple(member.membership for member in report.member_reports)
+        == composite.members
+    )
+    assert (
+        report.member_reports[0].verification_report
+        is report.member_reports[1].verification_report
+    )
+    assert report.member_reports[0].readable
+    assert not report.member_reports[2].readable
+    assert report.readable
+
+    store.delete(available.replica_record.location)
+    missing = manager.verify_composite_digital_asset(
+        composite.composite_digital_asset_id
+    )
+    assert not missing.member_reports[0].readable
+    assert not missing.readable
+
+
+def test_composite_storage_assessment_reuses_members_and_ignores_optional_gaps() -> (
+    None
+):
+    """Aggregate required-member policy/recovery posture while retaining optional evidence."""
+
+    store = _MemoryStore(MAIN_STORE_UUID)
+    manager = TransientStorageManager(
+        store_registrations=((store.configuration, store),),
+    )
+    available = manager.ingest_bytes(b"assessed member")
+    optional = manager.declare_digital_asset(
+        api.DigitalAssetDeclaration(
+            5,
+            (api.Digest("sha256", "optional-assessment"),),
+        )
+    )
+    composite = manager.declare_composite_digital_asset(
+        api.CompositeDigitalAssetDeclaration(
+            (
+                api.CompositeDigitalAssetMembership(
+                    available.asset_record.digital_asset_id,
+                    0,
+                ),
+                api.CompositeDigitalAssetMembership(
+                    available.asset_record.digital_asset_id,
+                    1,
+                ),
+                api.CompositeDigitalAssetMembership(
+                    optional.digital_asset_id,
+                    2,
+                    required=False,
+                ),
+            )
+        )
+    )
+
+    assessment = manager.assess_composite_digital_asset_storage(
+        composite.composite_digital_asset_id
+    )
+
+    assert assessment.composite_digital_asset_record == composite
+    assert (
+        assessment.member_assessments[0].assessment
+        is assessment.member_assessments[1].assessment
+    )
+    assert not assessment.member_assessments[2].assessment.readable
+    assert assessment.readable
+    assert assessment.recoverable
+    assert assessment.replication_satisfied
+    assert not assessment.backup_satisfied
+    assert not assessment.policies_satisfied
+    assert assessment.at_risk
+
+    store.delete(available.replica_record.location)
+    unavailable = manager.assess_composite_digital_asset_storage(
+        composite.composite_digital_asset_id
+    )
+    assert not unavailable.readable
+    assert unavailable.irrecoverable
 
 
 def test_derivation_graph_traverses_chains_branches_and_workflows() -> None:
@@ -3439,9 +4383,7 @@ def test_derivation_graph_traverses_chains_branches_and_workflows() -> None:
     )
 
     ancestors = tuple(manager.iter_derivation_ancestors(mobi.digital_asset_id))
-    descendants = tuple(
-        manager.iter_derivation_descendants(html.digital_asset_id)
-    )
+    descendants = tuple(manager.iter_derivation_descendants(html.digital_asset_id))
     workflow_chain = manager.get_derivation_graph(
         mobi.digital_asset_id,
         direction="ancestors",
@@ -3453,17 +4395,22 @@ def test_derivation_graph_traverses_chains_branches_and_workflows() -> None:
         max_depth=1,
         workflow_id=42,
     )
+    shortest = manager.find_digital_asset_derivation_path(
+        html.digital_asset_id,
+        mobi.digital_asset_id,
+    )
+    workflow_path = manager.find_digital_asset_derivation_path(
+        html.digital_asset_id,
+        mobi.digital_asset_id,
+        workflow_id=42,
+    )
 
-    assert tuple(
-        record.digital_asset_derivation_id for record in ancestors
-    ) == (
+    assert tuple(record.digital_asset_derivation_id for record in ancestors) == (
         epub_to_mobi.digital_asset_derivation_id,
         direct_html_to_mobi.digital_asset_derivation_id,
         html_to_epub.digital_asset_derivation_id,
     )
-    assert tuple(
-        record.digital_asset_derivation_id for record in descendants
-    ) == (
+    assert tuple(record.digital_asset_derivation_id for record in descendants) == (
         html_to_epub.digital_asset_derivation_id,
         direct_html_to_mobi.digital_asset_derivation_id,
         epub_to_mobi.digital_asset_derivation_id,
@@ -3481,11 +4428,54 @@ def test_derivation_graph_traverses_chains_branches_and_workflows() -> None:
         epub_to_mobi.digital_asset_derivation_id,
         html_to_epub.digital_asset_derivation_id,
     )
+    assert workflow_chain.derivations_producing(mobi.digital_asset_id) == (
+        epub_to_mobi,
+    )
+    assert workflow_chain.derivations_using(html.digital_asset_id) == (html_to_epub,)
+    assert workflow_chain.direct_predecessor_ids(mobi.digital_asset_id) == (
+        epub.digital_asset_id,
+    )
+    assert workflow_chain.direct_successor_ids(html.digital_asset_id) == (
+        epub.digital_asset_id,
+    )
+    dot = workflow_chain.to_dot()
+    assert dot.startswith("digraph derivations {\n")
+    assert f'"asset:{html.digital_asset_id}"' in dot
+    assert f"Derivation {html_to_epub.digital_asset_derivation_id}: convert" in dot
     assert tuple(
-        record.digital_asset_derivation_id
-        for record in shallow.derivation_records
+        record.digital_asset_derivation_id for record in shallow.derivation_records
     ) == (epub_to_mobi.digital_asset_derivation_id,)
     assert shallow.truncated
+    assert shortest is not None
+    assert shortest.digital_asset_ids == (
+        html.digital_asset_id,
+        mobi.digital_asset_id,
+    )
+    assert shortest.derivation_records == (direct_html_to_mobi,)
+    assert workflow_path is not None
+    assert workflow_path.digital_asset_ids == (
+        html.digital_asset_id,
+        epub.digital_asset_id,
+        mobi.digital_asset_id,
+    )
+    assert workflow_path.derivation_records == (
+        html_to_epub,
+        epub_to_mobi,
+    )
+    assert (
+        manager.find_digital_asset_derivation_path(
+            mobi.digital_asset_id,
+            html.digital_asset_id,
+        )
+        is None
+    )
+    same = manager.find_digital_asset_derivation_path(
+        html.digital_asset_id,
+        html.digital_asset_id,
+    )
+    assert same is not None
+    assert same.digital_asset_ids == (html.digital_asset_id,)
+    assert same.derivation_records == ()
 
 
 def test_namespaced_workflow_references_filter_derivations_and_graphs() -> None:
@@ -3616,13 +4606,22 @@ def test_recreation_plan_selects_shortest_route_and_orders_chain() -> None:
         )
 
     html_to_epub = exact_conversion(
-        html, epub, "html_to_epub", workflow_id=42,
+        html,
+        epub,
+        "html_to_epub",
+        workflow_id=42,
     )
     epub_to_mobi = exact_conversion(
-        epub, mobi, "epub_to_mobi", workflow_id=42,
+        epub,
+        mobi,
+        "epub_to_mobi",
+        workflow_id=42,
     )
     direct = exact_conversion(
-        html, mobi, "html_to_mobi", workflow_id=99,
+        html,
+        mobi,
+        "html_to_mobi",
+        workflow_id=99,
     )
 
     available = manager.plan_digital_asset_recreation(mobi.digital_asset_id)
@@ -3635,9 +4634,9 @@ def test_recreation_plan_selects_shortest_route_and_orders_chain() -> None:
     shortest = manager.plan_digital_asset_recreation(mobi.digital_asset_id)
     assert shortest.can_recreate_exactly
     assert shortest.selected_derivation_id == direct.digital_asset_derivation_id
-    assert tuple(
-        step.digital_asset_derivation_id for step in shortest.steps
-    ) == (direct.digital_asset_derivation_id,)
+    assert tuple(step.digital_asset_derivation_id for step in shortest.steps) == (
+        direct.digital_asset_derivation_id,
+    )
     assert shortest.alternative_derivation_ids == (
         epub_to_mobi.digital_asset_derivation_id,
     )
@@ -3646,17 +4645,11 @@ def test_recreation_plan_selects_shortest_route_and_orders_chain() -> None:
         tool.digital_asset_id,
     }
 
-    assert manager.forget_digital_asset_derivation(
-        direct.digital_asset_derivation_id
-    )
+    assert manager.forget_digital_asset_derivation(direct.digital_asset_derivation_id)
     chained = manager.plan_digital_asset_recreation(mobi.digital_asset_id)
     assert chained.can_recreate_exactly
-    assert chained.selected_derivation_id == (
-        epub_to_mobi.digital_asset_derivation_id
-    )
-    assert tuple(
-        step.digital_asset_derivation_id for step in chained.steps
-    ) == (
+    assert chained.selected_derivation_id == (epub_to_mobi.digital_asset_derivation_id)
+    assert tuple(step.digital_asset_derivation_id for step in chained.steps) == (
         html_to_epub.digital_asset_derivation_id,
         epub_to_mobi.digital_asset_derivation_id,
     )
@@ -3772,15 +4765,11 @@ def test_store_default_policies_are_captured_at_first_placement() -> None:
     other = _MemoryStore(OTHER_STORE_UUID)
     main_configuration = replace(
         main.configuration,
-        store_default_replication_policy_id=(
-            main_policy.replication_policy_id
-        ),
+        store_default_replication_policy_id=(main_policy.replication_policy_id),
     )
     other_configuration = replace(
         other.configuration,
-        store_default_replication_policy_id=(
-            other_policy.replication_policy_id
-        ),
+        store_default_replication_policy_id=(other_policy.replication_policy_id),
     )
     manager.attach_store(main_configuration, main)
     manager.attach_store(other_configuration, other)
@@ -3793,13 +4782,10 @@ def test_store_default_policies_are_captured_at_first_placement() -> None:
         result.asset_record.digital_asset_id,
         destination_store_ref=OTHER_STORE_UUID,
     )
-    policies = manager.resolve_effective_policies(
-        result.asset_record.digital_asset_id
-    )
+    policies = manager.resolve_effective_policies(result.asset_record.digital_asset_id)
 
     assert (
-        result.asset_record.replication_policy_id
-        == main_policy.replication_policy_id
+        result.asset_record.replication_policy_id == main_policy.replication_policy_id
     )
     assert policies.replication.name == "main-policy"
     assert policies.replication_source == "digital_asset"
@@ -3842,9 +4828,10 @@ def test_policy_updates_validate_recreation_and_revision_transactionally() -> No
             recreate,
             if_revision=policy_record.revision,
         )
-    assert manager.get_replication_policy_record(
-        policy_record.replication_policy_id
-    ) == policy_record
+    assert (
+        manager.get_replication_policy_record(policy_record.replication_policy_id)
+        == policy_record
+    )
 
     with pytest.raises(api.StoragePreconditionFailed, match="revision"):
         manager.update_replication_policy(
@@ -3853,9 +4840,7 @@ def test_policy_updates_validate_recreation_and_revision_transactionally() -> No
             if_revision="stale",
         )
 
-    backup_record = manager.create_backup_policy(
-        api.BackupPolicy(name="backup")
-    )
+    backup_record = manager.create_backup_policy(api.BackupPolicy(name="backup"))
     updated_backup = manager.update_backup_policy(
         backup_record.backup_policy_id,
         api.BackupPolicy(name="updated-backup"),
@@ -3935,21 +4920,14 @@ def test_uri_only_recipe_artifacts_require_an_availability_resolver() -> None:
 
     assert not manager.assess_digital_asset(result.digital_asset_id).recreatable
     result_replica = next(
-        manager.iter_replica_records(
-            digital_asset_id=result.digital_asset_id
-        )
+        manager.iter_replica_records(digital_asset_id=result.digital_asset_id)
     )
     manager.remove_replica(result_replica.replica_id)
-    recreation_plan = manager.plan_digital_asset_recreation(
-        result.digital_asset_id
-    )
+    recreation_plan = manager.plan_digital_asset_recreation(result.digital_asset_id)
     assert not recreation_plan.can_recreate_exactly
-    assert result.digital_asset_id in (
-        recreation_plan.unavailable_digital_asset_ids
-    )
+    assert result.digital_asset_id in (recreation_plan.unavailable_digital_asset_ids)
     assert any(
-        "unavailable artefact" in warning
-        for warning in recreation_plan.warnings
+        "unavailable artefact" in warning for warning in recreation_plan.warnings
     )
     with pytest.raises(api.StoragePolicyUnsatisfied):
         manager.set_digital_asset_policies(
@@ -4031,9 +5009,10 @@ def test_staged_replica_is_not_selected_or_counted_as_readable() -> None:
 
     with pytest.raises(api.NoReadableReplica):
         manager.select_replica(asset.digital_asset_id)
-    assert replica.replica_id not in manager.assess_digital_asset(
-        asset.digital_asset_id
-    ).readable_replica_ids
+    assert (
+        replica.replica_id
+        not in manager.assess_digital_asset(asset.digital_asset_id).readable_replica_ids
+    )
 
 
 def test_ingest_operation_id_binds_the_complete_request() -> None:
@@ -4113,9 +5092,10 @@ def test_ingest_republishes_when_a_matching_replica_is_missing() -> None:
     )
     first = manager.ingest_bytes(b"replace-missing")
     store.delete(first.location)
-    assert manager.verify_replica(
-        first.replica_record.replica_id
-    ).state is api.ReplicaState.MISSING
+    assert (
+        manager.verify_replica(first.replica_record.replica_id).state
+        is api.ReplicaState.MISSING
+    )
 
     repaired = manager.ingest_bytes(b"replace-missing")
     assert repaired.replica_created
@@ -4168,10 +5148,14 @@ def test_storage_manager_exposes_concrete_convenience_operations() -> None:
         "create_composite",
         "define_replication_policy",
         "define_backup_policy",
+        "assign_replication_policy",
+        "assign_backup_policy",
         "record_derivation",
     }.isdisjoint(api.StorageManagerAPI.__abstractmethods__)
     assert "add_store" in api.StorageManagerAPI.__abstractmethods__
+    assert "attach_store" in api.StorageManagerAPI.__abstractmethods__
     assert "add_store" not in TransientStorageManager.__abstractmethods__
+    assert "attach_store" not in TransientStorageManager.__abstractmethods__
     assert {
         "list_ingest_operations",
         "recover_pending_ingests",
@@ -4239,18 +5223,24 @@ def test_convenience_storage_and_retrieval_accept_ordinary_inputs(
     with manager.get_file(book.digital_asset_id) as source:
         assert source.read() == b"book payload"
     assert manager.read_file(_sha256(b"book payload")) == b"book payload"
-    assert manager.read_file(
-        _sha256(b"book payload").value,
-        offset=5,
-        length=7,
-    ) == b"payload"
+    assert (
+        manager.read_file(
+            _sha256(b"book payload").value,
+            offset=5,
+            length=7,
+        )
+        == b"payload"
+    )
     with manager.open_asset(streamed, verified=True) as source:
         assert source.read() == b"streamed"
     assert cover.metadata.original_name == "cover.jpg"
     assert manager.read_asset(cover) == b"cover"
-    assert manager.resolve_item_digital_asset(
-        api.ItemID(9)
-    ).digital_asset_resolution.asset_record == book
+    assert (
+        manager.resolve_item_digital_asset(
+            api.ItemID(9)
+        ).digital_asset_resolution.asset_record
+        == book
+    )
 
     backup = manager.replicate_asset(
         book,
@@ -4258,12 +5248,15 @@ def test_convenience_storage_and_retrieval_accept_ordinary_inputs(
         replica_mode="backup",
     )
     assert backup.mode is api.ReplicaMode.BACKUP
-    assert manager.read_asset(
-        book,
-        store=other,
-        replica_mode="backup",
-        verified=True,
-    ) == b"book payload"
+    assert (
+        manager.read_asset(
+            book,
+            store=other,
+            replica_mode="backup",
+            verified=True,
+        )
+        == b"book payload"
+    )
 
     compatibility_copy = manager.replicate_asset(
         streamed,
@@ -4432,9 +5425,12 @@ def test_convenience_composites_and_item_links_hide_membership_objects() -> None
         role="package",
         composite=True,
     )
-    assert manager.resolve_item_digital_asset(
-        api.ItemID(12), role="package"
-    ).composite_digital_asset_record == composite
+    assert (
+        manager.resolve_item_digital_asset(
+            api.ItemID(12), role="package"
+        ).composite_digital_asset_record
+        == composite
+    )
 
 
 def test_convenience_policy_store_and_declaration_helpers() -> None:
@@ -4502,16 +5498,12 @@ def test_convenience_policy_store_and_declaration_helpers() -> None:
     )
 
     assert replication.policy.min_copies == 2
-    assert replication.policy.distinct_by == (
-        api.ReplicaSeparationDimension.HOST,
-    )
+    assert replication.policy.distinct_by == (api.ReplicaSeparationDimension.HOST,)
     assert backup.policy.mode is api.ReplicaMode.ARCHIVE
     assert configuration.store_default_replication_policy_id == (
         replication.replication_policy_id
     )
-    assert configuration.store_default_backup_policy_id == (
-        backup.backup_policy_id
-    )
+    assert configuration.store_default_backup_policy_id == (backup.backup_policy_id)
     assert configuration.supported_replica_modes == {
         api.ReplicaMode.ACTIVE,
         api.ReplicaMode.ARCHIVE,
@@ -4554,9 +5546,7 @@ def test_convenience_provenance_hides_source_reference_objects() -> None:
         kind=api.DigitalAssetDerivationKind.PACKAGE,
     )
 
-    assert atomic.declaration.sources[0].digital_asset_id == (
-        source.digital_asset_id
-    )
+    assert atomic.declaration.sources[0].digital_asset_id == (source.digital_asset_id)
     assert atomic.declaration.sources[0].role == "primary"
     assert atomic.declaration.kind is api.DigitalAssetDerivationKind.EXTRACT
     assert atomic.declaration.notes == "ordinary provenance"

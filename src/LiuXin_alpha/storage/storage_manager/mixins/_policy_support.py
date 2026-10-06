@@ -350,13 +350,15 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
         policy: api.ReplicationPolicy | api.BackupPolicy,
     ) -> int:
         """
-        Materialize records and return the smallest of their count and each independently capped
-        dimension total.
+        Return the largest useful jointly separated subset size, capped at the policy target.
 
-        For each dimension, count records per bucket and sum min(bucket count,
-        max_copies_per_bucket). The minimum across these totals is returned; this does not solve for
-        a jointly compatible subset across all dimensions. Inputs are not deduplicated or checked
-        for policy eligibility/readability here.
+        Selection applies every configured dimension to the same candidate subset. A record is
+        admitted only when doing so keeps every one of its host/device/domain/region/Store buckets
+        below ``max_copies_per_bucket``. This avoids the false positives produced by calculating
+        independent per-dimension totals that cannot be realized by one set of copies. The search
+        stops at the effective target because additional copies cannot change minimum/target
+        assessment or destination demand. Inputs are not deduplicated or checked for policy
+        eligibility/readability here.
 
         Example:
             >>> capacity = manager._separated_copy_capacity(records, policy)  # doctest: +SKIP
@@ -364,25 +366,81 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
 
         :param records: Claims already chosen by the caller; consumed once into a tuple.
         :param policy: Separation dimensions and per-bucket count limit to apply.
-        :return: Zero for no records, otherwise the minimum of the record count and capped per-dimension totals.
+        :return: Size of a jointly compliant subset, capped at the effective target.
         """
 
-        records = tuple(records)
-        if not records:
-            return 0
-        capacities = [len(records)]
-        for dimension in policy.distinct_by:
-            counts = Counter(
-                self._policy_bucket(record.location.store_ref, dimension)
-                for record in records
+        return len(
+            self._select_separated_records(
+                records,
+                policy,
+                limit=policy.effective_target_copies,
             )
-            capacities.append(
-                sum(
-                    min(count, policy.max_copies_per_bucket)
-                    for count in counts.values()
-                )
+        )
+
+    def _select_separated_records(
+        self,
+        records: Iterable[api.ReplicaRecord],
+        policy: api.ReplicationPolicy | api.BackupPolicy,
+        *,
+        limit: int,
+    ) -> tuple[api.ReplicaRecord, ...]:
+        """
+        Select the largest prefix-preferred subset satisfying every separation dimension jointly.
+
+        An include-first branch-and-bound search preserves input order and deterministically prefers
+        earlier records among equally large solutions. Bucket counters are shared across dimensions,
+        so a selected record must fit all configured constraints at once. Search terminates as soon
+        as ``limit`` records are found; callers use the policy target, bounding useful work even when
+        a catalogue contains many surplus claims. No Store or Replica health checks occur here.
+
+        :param records: Candidate claims in deterministic preference order.
+        :param policy: Separation dimensions and per-bucket maximum to enforce simultaneously.
+        :param limit: Maximum useful selected count; nonpositive values return an empty tuple.
+        :return: Largest jointly compliant ordered subset up to ``limit`` records.
+        """
+
+        candidates = tuple(records)
+        selection_limit = min(len(candidates), limit)
+        if selection_limit <= 0:
+            return ()
+        bucket_keys = tuple(
+            tuple(
+                (dimension, self._policy_bucket(record.location.store_ref, dimension))
+                for dimension in policy.distinct_by
             )
-        return min(capacities)
+            for record in candidates
+        )
+        bucket_counts: Counter[tuple[api.ReplicaSeparationDimension, object]] = (
+            Counter()
+        )
+        selected: list[int] = []
+        best: tuple[int, ...] = ()
+
+        def search(index: int) -> bool:
+            """Explore include then exclude branches; return true once the useful cap is reached."""
+
+            nonlocal best
+            if len(selected) > len(best):
+                best = tuple(selected)
+                if len(best) == selection_limit:
+                    return True
+            if index == len(candidates):
+                return False
+            if len(selected) + len(candidates) - index <= len(best):
+                return False
+
+            keys = bucket_keys[index]
+            if all(bucket_counts[key] < policy.max_copies_per_bucket for key in keys):
+                selected.append(index)
+                bucket_counts.update(keys)
+                if search(index + 1):
+                    return True
+                bucket_counts.subtract(keys)
+                selected.pop()
+            return search(index + 1)
+
+        search(0)
+        return tuple(candidates[index] for index in best)
 
     def _record_is_readable(self, record: api.ReplicaRecord) -> bool:
         """

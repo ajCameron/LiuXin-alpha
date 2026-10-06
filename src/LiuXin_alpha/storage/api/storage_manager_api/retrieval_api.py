@@ -84,7 +84,6 @@ class DigitalAssetRetrievalAPI(abc.ABC):
         """
         ...
 
-    # Todo: resolve_composite_digital_asset
     @abc.abstractmethod
     def resolve_digital_asset(
         self,
@@ -161,7 +160,6 @@ class DigitalAssetRetrievalAPI(abc.ABC):
         """
         ...
 
-    # Todo: materialize composite digital asset
     @abc.abstractmethod
     def materialize_digital_asset(
         self,
@@ -200,7 +198,6 @@ class DigitalAssetRetrievalAPI(abc.ABC):
         """
         ...
 
-    # Todo: What happens when the item is linked to a composite asset?
     @abc.abstractmethod
     def resolve_item_digital_asset(
         self,

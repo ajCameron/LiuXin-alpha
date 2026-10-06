@@ -82,7 +82,6 @@ from LiuXin_alpha.storage.api.store_api.facade_api import StoreAPI
 from LiuXin_alpha.storage.api.store_api.file_api import WriteSessionAPI
 
 
-# Todo: I think this could be public
 class _DriverWriteSessionAdapter(Generic[DriverObjectAddressT]):
     """
     Translate a raw-driver write session into a routed Store session.
@@ -97,7 +96,7 @@ class _DriverWriteSessionAdapter(Generic[DriverObjectAddressT]):
 
     def __init__(
         self,
-        store: DriverBackedStoreAPI[DriverObjectAddressT],
+        store: DriverBackedStoreBase[DriverObjectAddressT],
         session: DriverWriteSessionAPI[DriverObjectAddressT],
         expected_address: DriverObjectAddressT,
     ) -> None:
@@ -113,10 +112,28 @@ class _DriverWriteSessionAdapter(Generic[DriverObjectAddressT]):
         :param expected_address: Requested canonical driver destination against which committed metadata is checked.
         :return: None after retaining collaborators and initializing the accepted-byte total to zero.
         """
-        self._store: DriverBackedStoreAPI[DriverObjectAddressT] = store
+        self._store: DriverBackedStoreBase[DriverObjectAddressT] = store
         self._session: DriverWriteSessionAPI[DriverObjectAddressT] = session
         self._expected_address: DriverObjectAddressT = expected_address
+        self._location: Location = store._location(expected_address)
         self._accepted_size: int = 0
+
+    @property
+    def location(self) -> Location:
+        """
+        Return the canonical routed destination corresponding to the raw driver address.
+
+        Construction derives this value through the owning Store after the address has been checked.
+        The returned frozen Location exposes no raw driver or Store lifecycle ownership.
+
+        Example:
+            >>> adapter.location.store_ref == store.store_ref  # doctest: +SKIP
+            True
+
+        :return: Canonical Store Location that commit is expected to publish.
+        """
+
+        return self._location
 
     def write(self, data: bytes) -> int:
         """
@@ -215,9 +232,7 @@ class _DriverWriteSessionAdapter(Generic[DriverObjectAddressT]):
         self._session.__exit__(exc_type, exc, traceback)
 
 
-# Todo: All stores are backed by drivers? So this doesn't seem a good name
-# Todo: Pure, in memory, transient cache store should be a thing which exists
-class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
+class DriverBackedStoreBase(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
     """
     Configured ``StoreAPI`` privately backed by a reusable raw driver.
 
@@ -225,9 +240,11 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
     mechanics with Store configuration, and keeps Store UUID routing out of drivers that are reused
     for importing or other non-Store tasks.
 
-    This configured adapter requires canonical driver addresses to carry the same UUID as store_ref;
-    it does not remap a foreign driver address space. Backend availability, transactions, and byte
-    guarantees remain delegated, while configuration gates mutation.
+    This is one Store implementation strategy rather than a requirement of StoreAPI: wrappers and
+    in-memory Stores can implement the facade directly. This configured adapter requires canonical
+    driver addresses to carry the same UUID as store_ref; it does not remap a foreign driver address
+    space. Backend availability, transactions, and byte guarantees remain delegated, while
+    configuration gates mutation.
 
     Example:
         >>> class ConcreteStore(DriverBackedStoreAPI):  # doctest: +SKIP
@@ -249,7 +266,6 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         """
         ...
 
-    # Todo: Clearly move operational code to the implementation
     @property
     def capabilities(self) -> StoreCapabilities:
         """
@@ -319,7 +335,6 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
             conditional_delete=False,
         )
 
-    # Todo: There seems to be a lot of operational code in this API
     @property
     def characteristics(self) -> StorageCharacteristics:
         """
@@ -404,8 +419,6 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
             metadata_availability=IngestMetadataAvailability.NONE,
         )
 
-    # Todo: Might be a better way to phrase this/name this
-    # Todo: There is also a loottt of implementation code in this API
     def prepare_ingest(
         self,
         info: FileInfo | StoreInventoryEntry,
@@ -468,7 +481,6 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
             provenance_uri=self.location_uri(selected.location),
         )
 
-    # Todo: This and the above method should be combined into one convenience one
     def open_prepared_ingest(
         self,
         prepared: PreparedIngestObject,
@@ -819,6 +831,15 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         :return: Store write-session adapter for the requested raw destination.
         """
         self._require_writable()
+        if expected_size is not None and not self.characteristics.accepts_object_size(
+            expected_size
+        ):
+            maximum = self.characteristics.max_object_bytes
+            assert maximum is not None
+            raise StoreUnsupportedOperation(
+                f"{self.configuration.store_name} accepts objects up to "
+                f"{maximum} bytes; requested {expected_size} bytes."
+            )
         driver = self._driver
         supported = {
             WriteMode.CREATE_ONLY: driver.capabilities.create,
@@ -1260,8 +1281,6 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
             snapshot_token=page.snapshot_token,
         )
 
-    # Todo: What does it mean to be a routed location?
-    # Todo: This should not be part of the API
     def _object_address(self, location: Location) -> DriverObjectAddressT:
         """
         Translate a routed Location into a checked private address.
@@ -1281,7 +1300,6 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
             self._driver.parse_object_address(owned.key)
         )
 
-    # Todo: all this _ methods do not belong in the api... - if they're public, they're public
     def _location(self, object_address: DriverObjectAddressT) -> Location:
         """
         Pair a checked driver address with this Store's UUID.
@@ -1475,4 +1493,19 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
             )
 
 
-__all__ = ["DriverBackedStoreAPI"]
+class DriverBackedStoreAPI(
+    DriverBackedStoreBase[DriverObjectAddressT],
+    Generic[DriverObjectAddressT],
+    abc.ABC,
+):
+    """
+    Preserve the established public driver-backed Store name over its implementation base.
+
+    Preparation and opening remain separate by design: callers can validate and checkpoint a
+    ``PreparedIngestObject`` without acquiring a stream, then reopen it later with the recorded
+    consistency condition. Combining them would obscure stream ownership and resumable-workflow
+    boundaries.
+    """
+
+
+__all__ = ["DriverBackedStoreAPI", "DriverBackedStoreBase"]

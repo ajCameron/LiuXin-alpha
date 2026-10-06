@@ -532,6 +532,23 @@ class _EncryptedWriteSession:
         self._finished = False
         self._committed = False
 
+    @property
+    def location(self) -> Location:
+        """
+        Return the outer plaintext destination retained by this encrypted write session.
+
+        The corresponding inner ciphertext Location remains an implementation detail. Reading this
+        frozen routed value performs no key lookup, encryption, or Store operation.
+
+        Example:
+            >>> session.location == location  # doctest: +SKIP
+            True
+
+        :return: Encrypted Store Location at which plaintext becomes visible after commit.
+        """
+
+        return self._location
+
     def write(self, data: bytes) -> int:
         """
         Accept bytes, stage or encrypt them, and update plaintext size and digest accounting.

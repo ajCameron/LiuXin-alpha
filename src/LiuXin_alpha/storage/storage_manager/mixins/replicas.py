@@ -324,6 +324,62 @@ class ReplicaLifecycleMixin(_StorageManagerState):
         )
 
     @override
+    def verify_composite_digital_asset(
+        self,
+        composite_digital_asset_id: api.CompositeDigitalAssetID,
+        *,
+        all_replicas: bool = False,
+    ) -> api.CompositeDigitalAssetVerificationReport:
+        """
+        Verify each distinct atomic member once and project the result onto every relationship.
+
+        The Composite record is resolved before any physical inspection. Membership order drives
+        the returned report. A per-call dictionary reuses the first atomic report for repeated Asset
+        identities; consequently repeated relationships do not trigger additional reads or
+        observation updates. Every member, including optional ones, is inspected. Atomic reports
+        with no nondeleted claims remain valid unreadable evidence rather than raising.
+
+        ``all_replicas`` is forwarded to every first atomic verification. Unexpected errors abort
+        aggregation, but observation updates completed for earlier Assets are not rolled back.
+
+        Example:
+            >>> report = manager.verify_composite_digital_asset(composite_id)  # doctest: +SKIP
+
+        :param composite_digital_asset_id: Registered Composite identity whose declared members are verified.
+        :param all_replicas: Whether each distinct member verifies every nondeleted claim.
+        :return: Ordered relationship-specific evidence retaining the selected Composite record.
+        """
+
+        record = self.get_composite_digital_asset_record(
+            composite_digital_asset_id
+        )
+        by_asset: dict[
+            api.DigitalAssetID,
+            api.DigitalAssetVerificationReport,
+        ] = {}
+        member_reports: list[
+            api.CompositeDigitalAssetMemberVerificationReport
+        ] = []
+        for membership in record.members:
+            verification = by_asset.get(membership.digital_asset_id)
+            if verification is None:
+                verification = self.verify_digital_asset(
+                    membership.digital_asset_id,
+                    all_replicas=all_replicas,
+                )
+                by_asset[membership.digital_asset_id] = verification
+            member_reports.append(
+                api.CompositeDigitalAssetMemberVerificationReport(
+                    membership,
+                    verification,
+                )
+            )
+        return api.CompositeDigitalAssetVerificationReport(
+            record,
+            tuple(member_reports),
+        )
+
+    @override
     def remove_replica(
         self,
         replica_id: api.ReplicaID,

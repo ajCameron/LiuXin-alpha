@@ -66,12 +66,43 @@ class StorageOperationalStatusMixin(_StorageManagerState):
             actions.extend(found_actions)
         issues.extend(self._deferred_recovery_issues())
 
-        return api.StorageOperationalStatus(
+        status = api.StorageOperationalStatus(
             checked_at=datetime.now(UTC),
             store_statuses=store_statuses,
             issues=tuple(issues),
             recovery_actions=tuple(dict.fromkeys(actions)),
         )
+        with self._lock:
+            self._operational_status_history.append(status)
+        return status
+
+    def get_operational_status_history(
+        self,
+        *,
+        limit: int | None = None,
+    ) -> tuple[api.StorageOperationalStatus, ...]:
+        """Return bounded process-local observations in chronological order.
+
+        The manager retains at most the newest 100 snapshots created by
+        ``get_operational_status``. Reading does not refresh Stores, append a snapshot, or expose the
+        mutable deque. A zero limit returns no values; negative, boolean, or noninteger limits are
+        rejected.
+
+        :param limit: Optional maximum number of newest retained observations.
+        :return: Immutable oldest-to-newest snapshot tuple.
+        """
+        if limit is not None:
+            if isinstance(limit, bool) or not isinstance(limit, int):
+                raise TypeError("operational status history limit must be an integer or None.")
+            if limit < 0:
+                raise ValueError("operational status history limit must not be negative.")
+        with self._lock:
+            history = tuple(self._operational_status_history)
+        if limit is None:
+            return history
+        if limit == 0:
+            return ()
+        return history[-limit:]
 
     def _store_operational_findings(
         self,
@@ -103,6 +134,7 @@ class StorageOperationalStatusMixin(_StorageManagerState):
                     api.StorageOperationalSeverity.WARNING,
                     warning,
                     store_ref=observation.store_ref,
+                    recoverability=api.StorageOperationalRecoverability.UNKNOWN,
                 )
                 for warning in observation.status.warnings
             )
@@ -118,6 +150,7 @@ class StorageOperationalStatusMixin(_StorageManagerState):
                     api.StorageOperationalSeverity.WARNING,
                     message,
                     store_ref=observation.store_ref,
+                    recoverability=api.StorageOperationalRecoverability.RETRYABLE,
                 )
             )
             actions.append(
@@ -168,6 +201,7 @@ class StorageOperationalStatusMixin(_StorageManagerState):
                         api.StorageOperationalSeverity.ERROR,
                         message,
                         operation_id=operation_id,
+                        recoverability=api.StorageOperationalRecoverability.RETRYABLE,
                     )
                 )
                 actions.append(
@@ -184,6 +218,7 @@ class StorageOperationalStatusMixin(_StorageManagerState):
                     api.StorageOperationalSeverity.WARNING,
                     f"Ingest {operation_id} remains in journal state {state!r}.",
                     operation_id=operation_id,
+                    recoverability=api.StorageOperationalRecoverability.AUTOMATIC,
                 )
             )
             actions.append(
@@ -237,6 +272,7 @@ class StorageOperationalStatusMixin(_StorageManagerState):
                     digital_asset_id=replica.digital_asset_id,
                     replica_id=replica.replica_id,
                     store_ref=replica.location.store_ref,
+                    recoverability=api.StorageOperationalRecoverability.MANUAL,
                 )
             )
             actions.append(
@@ -282,6 +318,7 @@ class StorageOperationalStatusMixin(_StorageManagerState):
                         api.StorageOperationalSeverity.ERROR,
                         f"Could not assess Digital Asset {asset.digital_asset_id}: {str(error) or type(error).__name__}",
                         digital_asset_id=asset.digital_asset_id,
+                        recoverability=api.StorageOperationalRecoverability.RETRYABLE,
                     )
                 )
                 continue
@@ -311,6 +348,7 @@ class StorageOperationalStatusMixin(_StorageManagerState):
                         ),
                         f"Digital Asset {asset.digital_asset_id} does not meet its {code.replace('_', ' ')}.",
                         digital_asset_id=asset.digital_asset_id,
+                        recoverability=api.StorageOperationalRecoverability.MANUAL,
                     )
                 )
                 actions.append(
@@ -340,6 +378,7 @@ class StorageOperationalStatusMixin(_StorageManagerState):
                 "ingest_recovery_deferred",
                 api.StorageOperationalSeverity.WARNING,
                 str(message),
+                recoverability=api.StorageOperationalRecoverability.AUTOMATIC,
             )
             for message in tuple(getattr(self, "ingest_recovery_issues", ()))
         ]

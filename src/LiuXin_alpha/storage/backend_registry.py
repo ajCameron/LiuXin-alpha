@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import dataclasses
 import os
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from typing import Any, Literal
 from urllib.parse import unquote_to_bytes, urlparse
 from uuid import UUID
@@ -31,32 +31,56 @@ BackendBuilder = Callable[
 ]
 
 
-# Todo: The formatting of the doc strings is not compatible with the linter.
 @dataclasses.dataclass(slots=True, frozen=True)
 class StoreConstructionContext:
     """
-    Carry borrowed runtime dependencies separately from durable Store options. This frozen dataclass
-    retains references without validating interfaces, copying clients, resolving Stores, or
-    acquiring ownership. Builders consume only the dependencies they need and validate them at their
-    own boundaries. Freezing fields does not make a client, provider, or resolver immutable or safe
-    for concurrent use. No dependency serialization is performed here.
+    Carry borrowed runtime dependencies separately from durable Store options.
+
+    This frozen dataclass retains references without validating client interfaces, copying clients,
+    resolving Stores, or acquiring ownership. Builders consume only the dependencies they need and
+    validate them at their own boundaries. Freezing fields does not make a client, provider, or
+    resolver immutable or safe for concurrent use. No dependency serialization is performed here.
 
     Example:
         >>> StoreConstructionContext().s3_client is None
         True
 
 
-    :ivar s3_client: Optional borrowed S3 client passed to S3Store.from_configuration; None selects that Store's client-construction path.
+    :ivar backend_clients: Borrowed clients keyed by canonical backend kind; a matching entry takes precedence over legacy backend-specific fields.
+    :ivar s3_client: Legacy optional S3 client shortcut; use backend_clients for new integrations.
     :ivar store_resolver: Optional callback receiving an inner Store UUID for encrypted construction; its returned Store is validated by the wrapper.
     :ivar encryption_key_provider: Optional runtime provider of active/historical encryption keys, passed unchanged to EncryptedStore.
     :ivar backing_path_resolver: Optional callback receiving the complete Asset-backed StoreConfiguration and returning an accessible local container path.
     """
 
-    # Todo: s3_client... weirdly specific for this general class?
+    backend_clients: Mapping[str, Any] = dataclasses.field(default_factory=dict)
     s3_client: Any | None = None
     store_resolver: Callable[[api.StoreUUID], api.StoreAPI] | None = None
     encryption_key_provider: Any | None = None
     backing_path_resolver: Callable[[api.StoreConfiguration], str] | None = None
+
+    def client_for(self, backend_kind: str) -> Any | None:
+        """
+        Return an injected client for a canonical backend kind.
+
+        A value in ``backend_clients`` wins even when it is explicitly None. The legacy
+        ``s3_client`` field remains the fallback for S3 callers created before the generic mapping
+        was added. No alias resolution or client-interface validation occurs here.
+
+        Example:
+            >>> client = object()
+            >>> StoreConstructionContext(backend_clients={"s3": client}).client_for("s3") is client
+            True
+
+
+        :param backend_kind: Exact canonical backend kind used as the mapping key.
+        :return: The borrowed mapped client, the legacy S3 client, or None when no client was supplied.
+        """
+        if backend_kind in self.backend_clients:
+            return self.backend_clients[backend_kind]
+        if backend_kind == "s3":
+            return self.s3_client
+        return None
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -142,10 +166,12 @@ class StorageBackendRegistry:
         later registration failure leaves earlier entries on the partially initialized instance; no
         backend builder is invoked.
 
-        # Todo: Add another example
         Example:
             >>> tuple(StorageBackendRegistry())
             ()
+            >>> seeded = StorageBackendRegistry((DEFAULT_BACKEND_REGISTRY.descriptor("file"),))
+            >>> seeded.canonical_kind("FILE")
+            'filesystem'
 
         :param descriptors: Initial descriptor sequence, consumed in order with the same validation as register.
         :return: None after all descriptors are registered; normalization or collision errors propagate.
@@ -367,6 +393,65 @@ def _options(configuration: api.StoreConfiguration) -> dict[str, object]:
     return dict(configuration.backend_options)
 
 
+def _optional_float_option(
+    options: Mapping[str, object],
+    name: str,
+    default: float | None,
+) -> float | None:
+    """
+    Read an optional finite-or-infinite numeric backend option as a float.
+
+    Missing names use the supplied default and explicit None remains None. Integers and floats are
+    accepted, but bool is rejected despite being an int subtype. Range and finiteness constraints
+    remain the receiving backend's responsibility.
+
+    Example:
+        >>> _optional_float_option({"timeout_s": 4}, "timeout_s", 30.0)
+        4.0
+
+
+    :param options: Backend option mapping to inspect without mutation.
+    :param name: Option name used for lookup and error reporting.
+    :param default: Value returned when the option is absent.
+    :return: None or a float representation of the supplied numeric value.
+    """
+    value = options.get(name, default)
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise TypeError(f"backend option {name!r} must be numeric or None.")
+    return float(value)
+
+
+def _optional_int_option(
+    options: Mapping[str, object],
+    name: str,
+    default: int | None,
+) -> int | None:
+    """
+    Read an optional exact-integer backend option.
+
+    Missing names use the supplied default and explicit None remains None. Bool and float values are
+    rejected so limits cannot be silently truncated; positivity remains backend validation.
+
+    Example:
+        >>> _optional_int_option({}, "limit", 100)
+        100
+
+
+    :param options: Backend option mapping to inspect without mutation.
+    :param name: Option name used for lookup and error reporting.
+    :param default: Value returned when the option is absent.
+    :return: None or the exact supplied integer.
+    """
+    value = options.get(name, default)
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"backend option {name!r} must be an integer or None.")
+    return value
+
+
 def _container_path(
     configuration: api.StoreConfiguration,
     context: StoreConstructionContext,
@@ -415,6 +500,21 @@ def _build_filesystem(configuration, _context):
     from LiuXin_alpha.storage.stores import FilesystemStore
 
     return FilesystemStore.from_configuration(configuration)
+
+
+def _build_memory(configuration, _context):
+    """Construct an empty process-local cache Store from portable configuration.
+
+    ``max_bytes`` is the only backend option. Rebuilding from the same
+    configuration restores identity and limits, never previously stored bytes.
+
+    :param configuration: Memory Store identity, root URI, policy, and options.
+    :param _context: Unused runtime context accepted for the common builder signature.
+    :return: An unstarted, empty MemoryStore retaining the supplied configuration.
+    """
+    from LiuXin_alpha.storage.stores import MemoryStore
+
+    return MemoryStore.from_configuration(configuration)
 
 
 def _build_managed(configuration, _context):
@@ -561,17 +661,24 @@ def _build_http(configuration, _context):
     from LiuXin_alpha.storage.stores import HttpReadOnlyStore
 
     options = _options(configuration)
-    # Todo: Deal with the typing issue here
     return HttpReadOnlyStore(
         configuration.store_root_uri,
         store_kind="http_readonly",
-        timeout_s=options.get("timeout_s", 30.0),
-        max_requests_per_hour=options.get("max_requests_per_hour"),
-        max_inventory_entries=options.get("max_inventory_entries", 100_000),
+        timeout_s=_optional_float_option(options, "timeout_s", 30.0),
+        max_requests_per_hour=_optional_float_option(
+            options,
+            "max_requests_per_hour",
+            None,
+        ),
+        max_inventory_entries=_optional_int_option(
+            options,
+            "max_inventory_entries",
+            100_000,
+        ),
         **_common(configuration),
     )
 
-# Todo: These should not be here... - they should be in the actual plugins
+
 def _build_native_html(configuration, _context):
     """
     Construct a read-only Store for native HTML discovery from root/name/UUID and options. Pass
@@ -720,7 +827,7 @@ def _build_rclone_writable(configuration, _context):
 
 def _build_s3(configuration, context):
     """
-    Construct S3Store through from_configuration with context.s3_client. The Store retains
+    Construct S3Store through from_configuration with the context's S3 client. The Store retains
     configuration, reconstructs S3BackendOptions, and borrows an injected client or uses its SDK
     client-construction path when None. This adapter adds no startup or request.
 
@@ -729,12 +836,12 @@ def _build_s3(configuration, context):
 
 
     :param configuration: S3 intent supplying URI, identity, policy, and backend options.
-    :param context: Runtime context whose s3_client is passed unchanged to the Store factory.
+    :param context: Runtime context whose generic or legacy S3 client is passed to the Store factory.
     :return: An unstarted S3Store; option, optional SDK, and client-construction errors propagate.
     """
     from LiuXin_alpha.storage.stores import S3Store
 
-    return S3Store.from_configuration(configuration, client=context.s3_client)
+    return S3Store.from_configuration(configuration, client=context.client_for("s3"))
 
 
 def _build_squashfs_readonly(configuration, context):
@@ -1138,7 +1245,6 @@ def _encrypted_inner_ref(root_uri: str) -> str | None:
     return parsed.netloc or parsed.path.strip("/") or None
 
 
-# Todo: Do all these methods have to be private?
 def _local_path(value: str) -> str:
     """
     Decode local file-URI path bytes while retaining other input strings unchanged. A file URI
@@ -1305,6 +1411,18 @@ def _read_only_characteristics(
 
 DEFAULT_BACKEND_REGISTRY = StorageBackendRegistry(
     (
+        _descriptor(
+            "memory", "Process-local memory cache", _build_memory,
+            aliases=("ram", "in_memory"), access_protocol="memory",
+            read_only=False, location_type="remote", random_write=True,
+            delete=True, checksums=True, order=5,
+            characteristics=_per_object_characteristics(
+                api.StorageLimitation(
+                    "process_local_non_durable",
+                    "All objects are lost when the Store instance or process ends.",
+                ),
+            ),
+        ),
         _descriptor(
             "filesystem", "Local folder (read/write)", _build_filesystem,
             aliases=("file", "on_disk"), access_protocol="file", read_only=False,

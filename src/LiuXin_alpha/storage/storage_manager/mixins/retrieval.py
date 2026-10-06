@@ -376,7 +376,7 @@ class DigitalAssetRetrievalMixin(_StorageManagerState):
             )
         composite_id = api.CompositeDigitalAssetID(target_id)
         record = self.get_composite_digital_asset_record(composite_id)
-        members = self.resolve_composite_digital_asset(
+        composite_resolution = self.resolve_composite_digital_asset(
             composite_id,
             preferred_store_ref=preferred_store_ref,
             require_verified=require_verified,
@@ -385,7 +385,9 @@ class DigitalAssetRetrievalMixin(_StorageManagerState):
             item_id,
             role,
             composite_digital_asset_record=record,
-            composite_member_resolutions=members,
+            composite_member_resolutions=(
+                composite_resolution.member_resolutions
+            ),
         )
 
 

@@ -529,7 +529,7 @@ def test_sqlite_profile_supplies_authoritative_identity_to_manager_fast_path(
     prepared = source.prepare_ingest(source.stat_file(stored))
     assert prepared.authoritative_digests == (prepared.info.digest,)
 
-    result = manager.ingest_store_object(source, prepared.info)
+    result = manager.ingest_prepared_object(source, prepared)
 
     assert manager.identified_ingests == 1
     assert manager.read_file(result.asset_record) == b"identified"
@@ -556,7 +556,7 @@ def test_manager_rejects_unadvertised_prepared_identity(tmp_path: Path) -> None:
     )
 
     with pytest.raises(api.StorageIntegrityError, match="unadvertised"):
-        manager.ingest_store_object(source, stored)
+        manager.ingest_object_from_store(source, stored)
 
 
 def test_store_ingest_uses_optional_preparation_without_backend_checks(

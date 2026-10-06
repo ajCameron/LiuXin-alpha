@@ -50,7 +50,6 @@ class TopologyRelation(StrEnum):
     UNKNOWN = "unknown"
 
 
-# Todo: More clarity as to what this is please?
 @dataclasses.dataclass(slots=True, frozen=True)
 class StoreBackingReference:
     """
@@ -113,7 +112,6 @@ class StoreBackingReference:
             raise TypeError("materialization_store_ref must be a UUID or None.")
 
 
-# Todo: Include an optional id for if this was loaded off the database
 @dataclasses.dataclass(slots=True, frozen=True)
 class StoreConfiguration:
     """
@@ -498,7 +496,6 @@ class StoreConfiguration:
                 )
 
 
-# Todo: Again, should not be here in the API reference
 def _endpoint_text(root: str | os.PathLike[str]) -> str:
     """
     Render PathLike values as expanded, resolved file URIs; stringify and strip other inputs.

@@ -57,7 +57,6 @@ class DigitalAssetRepositoryAPI(Protocol):
         True
     """
 
-    # Todo: Explain why this exists in the doc string
     def add(self, declaration: DigitalAssetDeclaration) -> DigitalAssetRecord:
         """
         Persist the supplied content identity and metadata with an assigned Asset ID.
@@ -65,7 +64,9 @@ class DigitalAssetRepositoryAPI(Protocol):
         The declaration carries size, digests, metadata, and policy references. This operation
         records that evidence; it does not read bytes, verify the digests, or promise to reuse an
         existing content identity. The owning manager must establish any required validation and
-        deduplication before calling the port.
+        deduplication before calling the port. A separate add operation is required because the
+        immutable declaration intentionally has no database identity or revision until persistence
+        assigns them.
 
         Example:
             >>> record = repository.add(declaration)  # doctest: +SKIP
@@ -76,7 +77,6 @@ class DigitalAssetRepositoryAPI(Protocol):
         """
         ...
 
-    # Todo: The digital asset repository does not return digital assets... it returns records. Rename.
     def get(self, digital_asset_id: DigitalAssetID) -> DigitalAssetRecord:
         """
         Load an Asset record using its manager-assigned identity.
@@ -187,7 +187,6 @@ class DigitalAssetRepositoryAPI(Protocol):
         ...
 
 
-# Todo: Again, this repo is about replica claims - not the replicas themselves
 @runtime_checkable
 class ReplicaRepositoryAPI(Protocol):
     """
@@ -324,8 +323,6 @@ class ReplicaRepositoryAPI(Protocol):
         ...
 
 
-# Todo: Name of the class is also bad
-# Todo: Where are domain records stored?
 @runtime_checkable
 class CompositeDigitalAssetRepositoryAPI(Protocol):
     """
@@ -333,8 +330,9 @@ class CompositeDigitalAssetRepositoryAPI(Protocol):
 
     Composite metadata does not itself copy member bytes or establish that every member exists or is
     available. Manager-level membership/reference validation and retrieval policy remain separate
-    from this persistence port. Runtime protocol membership checks member presence without enforcing
-    these contracts.
+    from this persistence port. Implementations store these records in the metadata provider owned
+    by the enclosing StorageUnitOfWork; the shipped adapter uses the storage metadata database.
+    Runtime protocol membership checks member presence without enforcing these contracts.
 
     Example:
         >>> isinstance(repository, CompositeDigitalAssetRepositoryAPI)  # doctest: +SKIP
@@ -487,7 +485,6 @@ class DigitalAssetDerivationRepositoryAPI(Protocol):
         """
         ...
 
-    # Todo: Be good to have a means of getting the recreation id from the digital asset id
     def get(
         self,
         digital_asset_derivation_id: DigitalAssetDerivationID,
@@ -535,6 +532,10 @@ class DigitalAssetDerivationRepositoryAPI(Protocol):
         Example:
             >>> edges = tuple(repository.iter_derivations(  # doctest: +SKIP
             ...     result_digital_asset_id=DigitalAssetID(7),
+            ... ))
+            >>> exact_recreations = tuple(repository.iter_derivations(  # doctest: +SKIP
+            ...     result_digital_asset_id=DigitalAssetID(7),
+            ...     exact_only=True,
             ... ))
 
 

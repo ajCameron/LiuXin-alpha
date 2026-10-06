@@ -485,6 +485,102 @@ class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
             traversal.truncated,
         )
 
+    @override
+    def find_digital_asset_derivation_path(
+        self,
+        source_digital_asset_id: api.DigitalAssetID,
+        result_digital_asset_id: api.DigitalAssetID,
+        *,
+        workflow_id: int | None = None,
+        workflow_reference: str | None = None,
+        exact_only: bool = False,
+    ) -> api.DigitalAssetDerivationGraph | None:
+        """
+        Breadth-first search filtered, expanded provenance edges and reconstruct one shortest path.
+
+        Resolve both endpoints before validating workflow filters through derivation iteration. Each
+        record becomes an edge from every expanded atomic source to its single result. Adjacency
+        retains sorted derivation-record order, making predecessor choice deterministic among equal
+        length routes. Visited Assets prevent cycle/redundant traversal even if imported repository
+        state violates ordinary registration constraints.
+
+        Reconstructed node order runs source to result. Composite IDs are collected in first
+        appearance order from direct Composite references on selected records. Co-input Assets are
+        intentionally not added to the node path. No storage availability or recipe execution is
+        considered, and no metadata is mutated.
+
+        :param source_digital_asset_id: Registered atomic start identity.
+        :param result_digital_asset_id: Registered atomic destination identity.
+        :param workflow_id: Optional positive workflow filter forwarded to record iteration.
+        :param workflow_reference: Optional nonblank workflow-reference filter forwarded unchanged.
+        :param exact_only: Whether traversal is restricted to complete exact recipe claims.
+        :return: Selected shortest descendant graph, a zero-step graph for equal endpoints, or None.
+        """
+
+        self.get_digital_asset_record(source_digital_asset_id)
+        self.get_digital_asset_record(result_digital_asset_id)
+        if source_digital_asset_id == result_digital_asset_id:
+            return api.DigitalAssetDerivationGraph(
+                source_digital_asset_id,
+                api.DigitalAssetDerivationGraphDirection.DESCENDANTS,
+                (source_digital_asset_id,),
+            )
+
+        records = tuple(
+            self.iter_digital_asset_derivation_records(
+                workflow_id=workflow_id,
+                workflow_reference=workflow_reference,
+                exact_only=exact_only,
+            )
+        )
+        _, _, by_source = self._index_derivation_graph(records)
+        predecessors: dict[
+            api.DigitalAssetID,
+            tuple[api.DigitalAssetID, api.DigitalAssetDerivationRecord],
+        ] = {}
+        visited = {source_digital_asset_id}
+        pending = deque((source_digital_asset_id,))
+        while pending:
+            current = pending.popleft()
+            for record in by_source.get(current, ()):
+                result = record.declaration.result_digital_asset_id
+                if result in visited:
+                    continue
+                visited.add(result)
+                predecessors[result] = (current, record)
+                if result == result_digital_asset_id:
+                    pending.clear()
+                    break
+                pending.append(result)
+
+        if result_digital_asset_id not in predecessors:
+            return None
+
+        reverse_nodes = [result_digital_asset_id]
+        reverse_records: list[api.DigitalAssetDerivationRecord] = []
+        current = result_digital_asset_id
+        while current != source_digital_asset_id:
+            previous, record = predecessors[current]
+            reverse_records.append(record)
+            reverse_nodes.append(previous)
+            current = previous
+        path_records = tuple(reversed(reverse_records))
+        composite_ids = tuple(
+            dict.fromkeys(
+                source.composite_digital_asset_id
+                for record in path_records
+                for source in record.declaration.sources
+                if source.composite_digital_asset_id is not None
+            )
+        )
+        return api.DigitalAssetDerivationGraph(
+            source_digital_asset_id,
+            api.DigitalAssetDerivationGraphDirection.DESCENDANTS,
+            tuple(reversed(reverse_nodes)),
+            composite_ids,
+            path_records,
+        )
+
     def _index_derivation_graph(
         self,
         records: tuple[api.DigitalAssetDerivationRecord, ...],

@@ -9,6 +9,7 @@ state and transaction behavior elsewhere in the manager composition.
 
 from __future__ import annotations
 
+from collections import deque
 from collections.abc import Iterable
 from threading import RLock
 from uuid import UUID
@@ -109,6 +110,9 @@ class _StorageManagerState(
         self._ingest_identity_locks: dict[
             tuple[int, tuple[api.Digest, ...]], RLock
         ] = {}
+        self._operational_status_history: deque[
+            api.StorageOperationalStatus
+        ] = deque(maxlen=100)
 
         self._next_asset_id = 1
         self._next_replica_id = 1

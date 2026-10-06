@@ -37,6 +37,7 @@ class StoreAdministrationMixin(_StorageManagerState):
         >>> configuration = manager.create_store(configuration)  # doctest: +SKIP
     """
 
+    @override
     def attach_store(
         self,
         configuration: api.StoreConfiguration,

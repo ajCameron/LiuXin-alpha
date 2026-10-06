@@ -44,6 +44,7 @@ from LiuXin_alpha.storage.api.store_driver_api.optional_api import (
 from LiuXin_alpha.storage.api.store_driver_api.readable_api import (
     ReadableStorageDriverAPI,
 )
+from LiuXin_alpha.storage.utils.streams import bytes_stream
 
 
 StorageDriverSource: TypeAlias = (
@@ -62,7 +63,7 @@ DriverFileIdentifier: TypeAlias = (
 )
 
 
-class StorageDriverConvenienceAPI(Generic[DriverObjectAddressT]):
+class StorageDriverConvenienceBase(Generic[DriverObjectAddressT]):
     """
     Familiar file operations layered over optional driver protocols.
 
@@ -379,7 +380,6 @@ class StorageDriverConvenienceAPI(Generic[DriverObjectAddressT]):
             mode=mode,
         )
 
-    # Todo: Understand how it's happening, but there's a lot of code in this API - better way might be to create and then move these functions to a base class
     def store_bytes(
         self,
         data: bytes,
@@ -416,7 +416,7 @@ class StorageDriverConvenienceAPI(Generic[DriverObjectAddressT]):
         """
 
         return self.store_stream(
-            _bytes_stream(data),
+            bytes_stream(data),
             object_address=object_address,
             name=name,
             metadata=metadata,
@@ -552,23 +552,16 @@ class StorageDriverConvenienceAPI(Generic[DriverObjectAddressT]):
             )
 
 
-# Todo: These should be off in utils
-def _bytes_stream(data: bytes) -> BinaryIO:
+class StorageDriverConvenienceAPI(
+    StorageDriverConvenienceBase[DriverObjectAddressT],
+    Generic[DriverObjectAddressT],
+):
     """
-    Wrap an in-memory payload as a binary stream.
+    Preserve the original public convenience-mixin name over its implementation base.
 
-    Example:
-        >>> _bytes_stream(b"book").read()
-        b'book'
-
-
-    :param data: In-memory bytes-like value accepted by io.BytesIO.
-    :return: Fresh seekable BytesIO positioned at the beginning.
+    New composition code may name ``StorageDriverConvenienceBase`` to make the implementation role
+    explicit. Existing subclasses and imports keep the API name without behavioral change.
     """
-
-    import io
-
-    return io.BytesIO(data)
 
 
 def _native_metadata(
@@ -721,6 +714,7 @@ def _write_mode_argument(
 __all__ = [
     "DriverFileIdentifier",
     "DriverNativeMetadata",
+    "StorageDriverConvenienceBase",
     "StorageDriverConvenienceAPI",
     "StorageDriverSource",
 ]

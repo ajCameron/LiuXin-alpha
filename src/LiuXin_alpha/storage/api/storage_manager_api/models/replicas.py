@@ -20,6 +20,10 @@ from LiuXin_alpha.storage.api.storage_manager_api.models.asset_identity import (
     DigitalAssetRecord,
     validate_unique_digests,
 )
+from LiuXin_alpha.storage.api.storage_manager_api.models.composites import (
+    CompositeDigitalAssetMembership,
+    CompositeDigitalAssetRecord,
+)
 from LiuXin_alpha.storage.api.storage_manager_api.models.identifiers import (
     DigitalAssetID,
     ReplicaID,
@@ -130,13 +134,14 @@ class ReplicaObservation:
             raise ValueError("failure_reason must not be empty when supplied.")
 
 
-# Todo: Should this include a callback function so we can recheck the existence of the replica later?
 @dataclasses.dataclass(slots=True, frozen=True)
 class ReplicaDeclaration:
     """
     Describe a Replica claim to register for an existing Asset at a concrete Location.
 
-    The default observation is a new UNVERIFIED record. Direct construction only checks Asset-ID
+    The default observation is a new UNVERIFIED record. Rechecking deliberately remains a manager
+    operation (``verify_replica``), rather than a callback retained by this serializable immutable
+    value. Direct construction only checks Asset-ID
     positivity; Asset/Store existence, Location ownership, mode, and observation validity belong to
     later operations. Placement hints remain caller-supplied advisory data, included in equality but
     excluded from generated hashing.
@@ -478,6 +483,109 @@ class DigitalAssetVerificationReport:
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
+class CompositeDigitalAssetMemberVerificationReport:
+    """
+    Retain one Composite membership relationship and its atomic verification result.
+
+    The same atomic report may be retained by several values when an Asset appears more than once
+    in a Composite. Construction checks only that the relationship and report name the same Asset;
+    it does not prove that the relationship belongs to a particular Composite or repeat any Store
+    inspection.
+
+    Example:
+        >>> member_report.readable == member_report.verification_report.readable  # doctest: +SKIP
+        True
+
+    :ivar membership: Complete relationship metadata for one Composite position.
+    :ivar verification_report: Atomic verification result whose Asset ID must match membership.
+    """
+
+    membership: CompositeDigitalAssetMembership
+    verification_report: DigitalAssetVerificationReport
+
+    def __post_init__(self) -> None:
+        """
+        Require the relationship and atomic report to identify the same Asset.
+
+        :return: None for matching Asset IDs; disagreement raises ValueError.
+        """
+
+        if (
+            self.membership.digital_asset_id
+            != self.verification_report.digital_asset_id
+        ):
+            raise ValueError(
+                "verification report does not match the Composite member."
+            )
+
+    @property
+    def readable(self) -> bool:
+        """
+        Project whether the atomic verification produced at least one healthy Replica report.
+
+        :return: The retained verification report's readable result without a new storage probe.
+        """
+
+        return self.verification_report.readable
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class CompositeDigitalAssetVerificationReport:
+    """
+    Retain one Composite record and verification evidence for every membership occurrence.
+
+    Member-report order and relationships must exactly match the Composite record, including
+    repeated Asset memberships and optional members. The ``readable`` predicate requires every
+    required occurrence to have a readable atomic report; unreadable optional members do not make
+    the Composite unreadable. This value captures completed observations rather than an atomic
+    cross-Store snapshot.
+
+    Example:
+        >>> report.readable  # doctest: +SKIP
+        True
+
+    :ivar composite_digital_asset_record: Composite identity and declared membership sequence.
+    :ivar member_reports: Verification evidence in exactly the declared membership order.
+    """
+
+    composite_digital_asset_record: CompositeDigitalAssetRecord
+    member_reports: tuple[CompositeDigitalAssetMemberVerificationReport, ...]
+
+    def __post_init__(self) -> None:
+        """
+        Require exact ordered coverage of the Composite's membership relationships.
+
+        Exact tuple equality prevents missing, duplicated, reordered, or foreign relationship
+        evidence while still allowing the same Asset identity at several declared positions.
+
+        :return: None for exact membership coverage; disagreement raises ValueError.
+        """
+
+        if tuple(report.membership for report in self.member_reports) != (
+            self.composite_digital_asset_record.members
+        ):
+            raise ValueError(
+                "verification reports must exactly cover Composite members in order."
+            )
+
+    @property
+    def readable(self) -> bool:
+        """
+        Return whether every required relationship has readable atomic verification evidence.
+
+        Optional unreadable members and the number of Replica reports inspected do not affect this
+        predicate. A Composite record is always nonempty under its own constructor validation.
+
+        :return: True when each required member report is readable.
+        """
+
+        return all(
+            not report.membership.required or report.readable
+            for report in self.member_reports
+        )
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
 class ReplicaRemovalReport:
     """
     Carry the reported outcome of byte deletion and Replica-record mutation.
@@ -507,7 +615,6 @@ class ReplicaRemovalReport:
     warnings: tuple[str, ...] = ()
 
 
-# Todo: Again, not an API thing...
 def _require_aware_datetime(value: datetime | None, field_name: str) -> None:
     """
     Accept None or require both a timezone attribute and a non-None UTC offset.
@@ -531,6 +638,8 @@ def _require_aware_datetime(value: datetime | None, field_name: str) -> None:
 
 
 __all__ = [
+    "CompositeDigitalAssetMemberVerificationReport",
+    "CompositeDigitalAssetVerificationReport",
     "DigitalAssetIngestResult",
     "DigitalAssetVerificationReport",
     "ReplicaDeclaration",

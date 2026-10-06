@@ -22,8 +22,8 @@ class CompositeDigitalAssetMembership:
     Describe one ordered relationship between a Composite and an atomic Asset.
 
     The same Asset can occupy multiple positions with different labels or requirements. Construction
-    checks selected ID/position comparisons and optional label text, without resolving the Asset or
-    normalizing an export path. Frozen fields retain their supplied values.
+    checks ID/position types and ranges, the required flag, and optional label text, without
+    resolving the Asset or normalizing an export path. Frozen fields retain their supplied values.
 
     Example:
         >>> member = CompositeDigitalAssetMembership(
@@ -33,13 +33,13 @@ class CompositeDigitalAssetMembership:
         True
 
 
-    :ivar digital_asset_id: Member Asset ID, rejected when it compares at or below zero.
-    :ivar sequence_number: Intended zero-based position, rejected here only when it compares below zero.
+    :ivar digital_asset_id: Positive integer member Asset ID.
+    :ivar sequence_number: Nonnegative integer intended zero-based position.
     :ivar role: Optional relationship role, retained without stripping; blank or NUL-containing text rejects.
     :ivar logical_name: Optional member label, distinct from any physical Store key.
     :ivar logical_path: Optional logical delivery path; nonblank/NUL checks do not establish safe filesystem traversal.
     :ivar title: Optional relationship title, subject to the same text checks as the other labels.
-    :ivar required: Whether consuming workflows require this membership to resolve; the constructor does not enforce a bool type.
+    :ivar required: Boolean selecting whether consuming workflows require this membership to resolve.
     """
 
     digital_asset_id: DigitalAssetID
@@ -52,12 +52,11 @@ class CompositeDigitalAssetMembership:
 
     def __post_init__(self) -> None:
         """
-        Reject IDs at or below zero, positions below zero, and blank or NUL-containing optional
-        labels.
+        Reject invalid ID/position types and ranges, a nonboolean required flag, and blank,
+        NUL-containing, or nonstring optional labels.
 
-        Comparisons do not enforce integer types or finiteness. Labels are tested in their original
-        spelling and remain unchanged; path traversal, sequence uniqueness, Asset existence, and
-        required-flag type are not checked here.
+        Labels are tested in their original spelling and remain unchanged; path traversal, sequence
+        uniqueness, and Asset existence are not checked here.
 
         Example:
             >>> CompositeDigitalAssetMembership(DigitalAssetID(7), -1)
@@ -69,16 +68,28 @@ class CompositeDigitalAssetMembership:
         :return: None after the selected value checks pass; comparison, string-operation, and validation errors propagate.
         """
 
+        if isinstance(self.digital_asset_id, bool) or not isinstance(
+            self.digital_asset_id, int
+        ):
+            raise TypeError("digital_asset_id must be an integer.")
         if self.digital_asset_id <= 0:
             raise ValueError("digital_asset_id must be positive.")
+        if isinstance(self.sequence_number, bool) or not isinstance(
+            self.sequence_number, int
+        ):
+            raise TypeError("sequence_number must be an integer.")
         if self.sequence_number < 0:
             raise ValueError("sequence_number must not be negative.")
+        if not isinstance(self.required, bool):
+            raise TypeError("required must be a bool.")
         for field_name, value in (
             ("role", self.role),
             ("logical_name", self.logical_name),
             ("logical_path", self.logical_path),
             ("title", self.title),
         ):
+            if value is not None and not isinstance(value, str):
+                raise TypeError(f"{field_name} must be a string or None.")
             if value is not None and not value.strip():
                 raise ValueError(f"{field_name} must not be empty when supplied.")
             if value is not None and "\x00" in value:
@@ -86,16 +97,15 @@ class CompositeDigitalAssetMembership:
 
 
 
-# Todo: Just to check - you use a declaration to get a record? Does this really need to be two classes?
 @dataclasses.dataclass(slots=True, frozen=True)
 class CompositeDigitalAssetDeclaration:
     """
-    Describe the members and metadata for a new or replacement logical assembly.
+    Describe caller-supplied members and metadata before persistence assigns identity and revision.
 
     Members must be nonempty with positions covering zero through length minus one, but the supplied
-    sequence is retained in its original order. An optional name must be nonblank. Attributes are
-    neither validated nor copied, and member Asset existence is checked by the manager rather than
-    this value.
+    sequence is retained in its original order. An optional name must be nonblank. Attribute names
+    must be nonblank and unique and both names and values must be strings. Member Asset existence is
+    checked by the manager rather than this value.
 
     Example:
         >>> declaration = CompositeDigitalAssetDeclaration(
@@ -107,7 +117,7 @@ class CompositeDigitalAssetDeclaration:
 
     :ivar members: Retained membership sequence whose position values must be unique and contiguous.
     :ivar name: Optional nonblank display name, retained without stripping.
-    :ivar attributes: Retained extension name/value pairs without name, value, or uniqueness checks.
+    :ivar attributes: Retained extension string pairs with nonblank unique names.
     """
 
     members: tuple[CompositeDigitalAssetMembership, ...]
@@ -118,8 +128,8 @@ class CompositeDigitalAssetDeclaration:
         """
         Validate contiguous membership positions and a nonblank name when supplied.
 
-        The shared helper does not reorder or copy members. Name is optional and retained unchanged;
-        attributes are not examined.
+        The shared helper does not reorder or copy members. Name and attributes are retained
+        unchanged after their local type, text, and uniqueness checks.
 
         Example:
             >>> CompositeDigitalAssetDeclaration(())
@@ -132,8 +142,8 @@ class CompositeDigitalAssetDeclaration:
         """
 
         _validate_composite_members(self.members)
-        if self.name is not None and not self.name.strip():
-            raise ValueError("name must not be empty when supplied.")
+        _validate_optional_name(self.name)
+        _validate_attributes(self.attributes)
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -143,8 +153,8 @@ class CompositeDigitalAssetRecord:
 
     The value contains references to atomic Assets rather than bytes or direct Replica claims.
     Direct construction validates the ID comparison, contiguous positions, and a truthy supplied
-    revision. Unlike the declaration, it does not validate name; attributes and nested values remain
-    unchecked and shared.
+    revision. Name and attributes use the same local validation as a declaration; nested membership
+    values are validated by their own constructors.
 
     Example:
         >>> record = CompositeDigitalAssetRecord(
@@ -157,8 +167,8 @@ class CompositeDigitalAssetRecord:
 
     :ivar composite_digital_asset_id: Manager identity rejected when it compares at or below zero.
     :ivar members: Nonempty membership sequence retained without sorting or copying.
-    :ivar name: Optional display name, not validated by this record constructor.
-    :ivar attributes: Retained descriptive extension values without constructor validation.
+    :ivar name: Optional nonblank display name.
+    :ivar attributes: Retained descriptive string pairs with nonblank unique names.
     :ivar revision: Optional optimistic-lock token; false supplied values reject, but whitespace is retained.
     """
 
@@ -172,8 +182,8 @@ class CompositeDigitalAssetRecord:
         """
         Check the Composite ID comparison, member positions, and a truthy revision when supplied.
 
-        Name and attributes are not checked, and the method performs no catalogue lookup. Comparison
-        and truthiness checks do not enforce the annotated integer/string types.
+        Name and attributes receive local value checks, but the method performs no catalogue lookup.
+        The Composite ID comparison and revision truthiness do not fully enforce their annotations.
 
         Example:
             >>> CompositeDigitalAssetRecord(
@@ -191,19 +201,21 @@ class CompositeDigitalAssetRecord:
         if self.composite_digital_asset_id <= 0:
             raise ValueError("composite_digital_asset_id must be positive.")
         _validate_composite_members(self.members)
+        _validate_optional_name(self.name)
+        _validate_attributes(self.attributes)
         if self.revision is not None and not self.revision:
             raise ValueError("revision must not be empty when supplied.")
 
 
-# Todo: Be good to check the values for the individual elements of the composite assets
 @dataclasses.dataclass(slots=True, frozen=True)
 class CompositeDigitalAssetAvailabilityAssessment:
     """
     Carry counts and diagnostics reported by a Composite availability assessment.
 
     The manager normally counts required membership occurrences, so repeated Assets can contribute
-    more than once and optional members can be omitted. This value adds no constructor validation of
-    IDs, counts, or evidence consistency. Its readable property compares the supplied totals and
+    more than once and optional members can be omitted. Construction requires a positive Composite
+    ID, nonnegative integer counts ordered as readable <= resolved <= expected, positive missing
+    Asset IDs, and nonblank error messages. Its readable property compares the validated totals and
     diagnostics without consulting storage.
 
     Example:
@@ -229,14 +241,48 @@ class CompositeDigitalAssetAvailabilityAssessment:
     missing_digital_asset_ids: tuple[DigitalAssetID, ...] = ()
     errors: tuple[str, ...] = ()
 
+    def __post_init__(self) -> None:
+        """Validate identity, monotonic counts, missing IDs, and diagnostic text."""
+        if isinstance(self.composite_digital_asset_id, bool) or not isinstance(
+            self.composite_digital_asset_id, int
+        ):
+            raise TypeError("composite_digital_asset_id must be an integer.")
+        if self.composite_digital_asset_id <= 0:
+            raise ValueError("composite_digital_asset_id must be positive.")
+        for field_name, value in (
+            ("expected_members", self.expected_members),
+            ("resolved_members", self.resolved_members),
+            ("readable_members", self.readable_members),
+        ):
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise TypeError(f"{field_name} must be an integer.")
+            if value < 0:
+                raise ValueError(f"{field_name} must not be negative.")
+        if self.resolved_members > self.expected_members:
+            raise ValueError("resolved_members must not exceed expected_members.")
+        if self.readable_members > self.resolved_members:
+            raise ValueError("readable_members must not exceed resolved_members.")
+        for digital_asset_id in self.missing_digital_asset_ids:
+            if isinstance(digital_asset_id, bool) or not isinstance(
+                digital_asset_id, int
+            ):
+                raise TypeError("missing Digital Asset IDs must be integers.")
+            if digital_asset_id <= 0:
+                raise ValueError("missing Digital Asset IDs must be positive.")
+        for error in self.errors:
+            if not isinstance(error, str):
+                raise TypeError("availability errors must be strings.")
+            if not error.strip():
+                raise ValueError("availability errors must not be blank.")
+
     @property
     def readable(self) -> bool:
         """
         Return whether all three counts are equal and both missing-ID and error collections are
         empty.
 
-        Zero equal counts can be readable, as for a Composite with no required members. Counts are
-        not independently validated and the predicate does not inspect any member or physical bytes.
+        Zero equal counts can be readable, as for a Composite with no required members. The
+        predicate does not inspect any member or physical bytes beyond the validated summary.
 
         Example:
             >>> CompositeDigitalAssetAvailabilityAssessment(
@@ -257,7 +303,6 @@ class CompositeDigitalAssetAvailabilityAssessment:
         )
 
 
-# Todo: Should not be here...
 def _validate_composite_members(
     members: tuple[CompositeDigitalAssetMembership, ...],
 ) -> None:
@@ -265,8 +310,8 @@ def _validate_composite_members(
     Require a nonempty sequence whose sorted position values equal zero through length minus one.
 
     The comparison enforces contiguous distinct positions without sorting the retained members.
-    Asset IDs may repeat. Membership types, labels, and exact integer types of positions are not
-    checked; malformed attributes, sorting, or length operations can raise.
+    Asset IDs may repeat. Membership types are checked here; each membership constructor owns label,
+    ID, flag, and exact position validation.
 
     Example:
         >>> _validate_composite_members(
@@ -278,15 +323,50 @@ def _validate_composite_members(
     :return: None for a nonempty contiguous position set; empty or noncontiguous sequences raise ValueError.
     """
 
+    if not isinstance(members, tuple):
+        raise TypeError("Composite members must be a tuple.")
     if not members:
         raise ValueError(
             "a Composite Digital Asset requires at least one member."
+        )
+    if not all(
+        isinstance(member, CompositeDigitalAssetMembership)
+        for member in members
+    ):
+        raise TypeError(
+            "Composite members must be CompositeDigitalAssetMembership values."
         )
     positions = sorted(member.sequence_number for member in members)
     if positions != list(range(len(members))):
         raise ValueError(
             "Composite member sequence numbers must be unique and contiguous."
         )
+
+
+def _validate_optional_name(name: str | None) -> None:
+    """Require an optional Composite display name to be a nonblank string."""
+    if name is not None and not isinstance(name, str):
+        raise TypeError("name must be a string or None.")
+    if name is not None and not name.strip():
+        raise ValueError("name must not be empty when supplied.")
+
+
+def _validate_attributes(attributes: tuple[tuple[str, str], ...]) -> None:
+    """Require a tuple of string pairs with nonblank unique attribute names."""
+    if not isinstance(attributes, tuple):
+        raise TypeError("attributes must be a tuple.")
+    names: set[str] = set()
+    for attribute in attributes:
+        if not isinstance(attribute, tuple) or len(attribute) != 2:
+            raise TypeError("Composite attributes must be string pairs.")
+        name, value = attribute
+        if not isinstance(name, str) or not isinstance(value, str):
+            raise TypeError("Composite attributes must be string pairs.")
+        if not name.strip():
+            raise ValueError("Composite attribute names must not be blank.")
+        if name in names:
+            raise ValueError(f"duplicate Composite attribute name: {name!r}.")
+        names.add(name)
 
 
 __all__ = [

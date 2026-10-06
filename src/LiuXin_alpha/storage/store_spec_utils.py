@@ -1,7 +1,11 @@
-
-# Todo: There should be no legacy schemas. Some of these may still make sense
 """
 Translate durable Store rows and configurations across legacy and current schemas.
+
+Legacy reads remain an explicit migration boundary for catalogues that predate
+``store_root_uri``, durable Store UUIDs, or the versioned policy extension. Writers
+emit only the current projection. Compatibility fallbacks can be removed after the
+minimum supported database migration guarantees those columns and extensions for
+every opened catalogue, not merely after in-memory callers adopt the new model.
 
 Readers support scalar columns and versioned policy extensions while preserving
 UUID routing identity. Writers project supported columns without owning database

@@ -21,18 +21,18 @@ from LiuXin_alpha.storage.api.workflow_api.models import WorkflowID
 
 class BackupArtifactRegistryAPI(abc.ABC):
     """
-    Associate completed backup images with configured Stores and source-presence metadata.
+    Expose completed sealed backup images as configured read-only Stores.
 
-    A sealed image can exist before registration. This service records the Store that exposes its
-    contents; it is separate from ingesting the entire image as an atomic Asset with a derivation
-    recipe. Physical format support and local mounting requirements belong to the implementation.
-    Registration can span several writes and a manager attachment, with no cross-operation rollback
-    promised by the ABC.
+    A backup image is one workflow output container, not necessarily a complete snapshot of the
+    source Store. It can exist before registration. This service records the Store that exposes its
+    members and can link those members to source Asset identities. That is separate from ingesting
+    the image itself as one atomic Asset with a derivation recipe. Physical format support and local
+    mounting requirements belong to the implementation. Registration can span several writes and a
+    manager attachment, with no cross-operation rollback promised by the ABC.
 
     Example:
         >>> registration = registry.register_artifact(3, result)  # doctest: +SKIP
 
-    # Todo: I'm not sure what this class is for after reading this docstring. Is it a complete image of a store? What is it?
     """
 
     @abc.abstractmethod
@@ -62,8 +62,7 @@ class BackupArtifactRegistryAPI(abc.ABC):
             ...     3, result, store_name="nightly-pack",
             ... )
 
-        # Todo: Is this the identifier of the workflow which produced the artifact?
-        :param workflow_id: Durable workflow identifier to associate with the output; result.workflow_id may be None or this ID.
+        :param workflow_id: Identifier of the persisted workflow declaration and execution that produced the artifact; result.workflow_id may be None or this ID.
         :param result: Terminal successful outcome containing an output artifact reference and source declaration.
         :param store_name: Optional name for a newly created Store; existing registrations or reused Store rows keep their names.
         :param link_sources: Whether a new registration should insert protected member-presence records from the declaration.

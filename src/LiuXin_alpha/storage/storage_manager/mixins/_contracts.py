@@ -676,11 +676,10 @@ class _StorageManagerPolicyHooks(Protocol):
         policy: api.ReplicationPolicy | api.BackupPolicy,
     ) -> int:
         """
-        Count supplied claims under each separation dimension's bucket limit.
+        Count a jointly compliant subset under every separation dimension's bucket limit.
 
-        Callers provide already eligible claims. The composed calculation takes the minimum of
-        independent dimension counts, not a joint-compatible-subset search, and performs no
-        readability check.
+        Callers provide already eligible claims. The composed calculation applies all dimensions to
+        one selected subset, caps useful work at the target, and performs no readability check.
 
         Example:
             >>> capacity = manager._separated_copy_capacity(healthy_records, policy)  # doctest: +SKIP
@@ -688,7 +687,29 @@ class _StorageManagerPolicyHooks(Protocol):
 
         :param records: Claims whose eligibility has been selected by the caller; iterable is consumed for counting.
         :param policy: Dimensions and maximum-per-bucket count applied to Store topology.
-        :return: Count constrained independently by each dimension, zero for no records; configuration errors can propagate.
+        :return: Jointly constrained count up to the policy target, zero for no records; configuration errors can propagate.
+        """
+        ...
+
+    @abstractmethod
+    def _select_separated_records(
+        self,
+        records: Iterable[api.ReplicaRecord],
+        policy: api.ReplicationPolicy | api.BackupPolicy,
+        *,
+        limit: int,
+    ) -> tuple[api.ReplicaRecord, ...]:
+        """
+        Choose a deterministic largest subset satisfying every separation dimension jointly.
+
+        Input order is the tie breaker between equally large subsets. The limit bounds useful
+        selection, normally at the policy target. Implementations perform no health or policy-tag
+        checks beyond the topology bucket constraints.
+
+        :param records: Candidate claims already filtered by the caller.
+        :param policy: Dimensions and maximum-per-bucket count applied simultaneously.
+        :param limit: Maximum number of records required by the caller.
+        :return: Ordered jointly compliant subset containing at most ``limit`` records.
         """
         ...
 

@@ -10,11 +10,10 @@ string ingest sources are local paths.
 Composite ingest and directory/ZIP delivery perform ordered operations without
 an aggregate transaction or pinned Replica snapshot. Path preflight, reader
 cleanup, and partial-publication limits are described at those operations.
-Private helpers document their exact validation and coercion boundaries.
+Private helpers document their exact validation and coercion boundaries and remain
+co-located with the implementation base so storage utilities do not depend on the
+manager API model graph.
 """
-
-# Todo: This is a kitchien sink module - split it down into convenience sub-classes which can live in the same modules as
-#  the regular parts - e.g. the derivations part should live in the derivations_api class
 
 from __future__ import annotations
 
@@ -124,9 +123,7 @@ _StorableSource: TypeAlias = (
 )
 
 
-# Todo: These are good! But we need extension - to handle more things the StorageManager can do
-# Todo: This module is already too long
-class StorageConvenienceAPI:
+class StorageConvenienceBase:
     """
     Convert ordinary caller values into explicit manager operations without owning state.
 
@@ -1248,7 +1245,6 @@ class StorageConvenienceAPI:
             output.close()
             raise
 
-    # Todo: Do we have the granular control to define a specific replicaiton policy for any given ID
     def define_replication_policy(
         self,
         name: str,
@@ -1406,6 +1402,76 @@ class StorageConvenienceAPI:
             policy
         )
 
+    def assign_replication_policy(
+        self,
+        asset: _AssetInput,
+        policy: ReplicationPolicyID | ReplicationPolicyRecord | None,
+        *,
+        if_revision: str | None = None,
+    ) -> DigitalAssetRecord:
+        """
+        Assign or clear one Asset's explicit replication policy from ordinary record-or-ID inputs.
+
+        Record inputs contribute only their retained identities; their revision or policy contents
+        are not re-registered. ``None`` clears the explicit assignment so effective resolution
+        falls back through Store/default policy rules. The underlying manager preserves the current
+        backup-policy reference atomically and owns registration and optimistic-revision checks.
+
+        Example:
+            >>> updated = manager.assign_replication_policy(  # doctest: +SKIP
+            ...     asset, policy, if_revision=asset.revision,
+            ... )
+
+        :param asset: Positive Asset ID or Asset-bearing record/result/resolution.
+        :param policy: Registered replication-policy ID or record, or None to clear the explicit assignment.
+        :param if_revision: Expected current Asset revision, or None to omit the optimistic precondition.
+        :return: Updated Asset record with its backup-policy reference preserved.
+        """
+
+        return cast(
+            StoragePolicyAPI,
+            cast(object, self),
+        ).set_digital_asset_replication_policy(
+            _asset_id(asset),
+            _replication_policy_id(policy),
+            if_revision=if_revision,
+        )
+
+    def assign_backup_policy(
+        self,
+        asset: _AssetInput,
+        policy: BackupPolicyID | BackupPolicyRecord | None,
+        *,
+        if_revision: str | None = None,
+    ) -> DigitalAssetRecord:
+        """
+        Assign or clear one Asset's explicit backup policy from ordinary record-or-ID inputs.
+
+        Record inputs are identity carriers rather than policy updates. ``None`` clears the explicit
+        assignment and restores fallback resolution. The underlying manager preserves the current
+        replication-policy reference atomically and applies policy registration, recreation, and
+        optional revision checks.
+
+        Example:
+            >>> updated = manager.assign_backup_policy(  # doctest: +SKIP
+            ...     asset, policy, if_revision=asset.revision,
+            ... )
+
+        :param asset: Positive Asset ID or Asset-bearing record/result/resolution.
+        :param policy: Registered backup-policy ID or record, or None to clear the explicit assignment.
+        :param if_revision: Expected current Asset revision, or None to omit the optimistic precondition.
+        :return: Updated Asset record with its replication-policy reference preserved.
+        """
+
+        return cast(
+            StoragePolicyAPI,
+            cast(object, self),
+        ).set_digital_asset_backup_policy(
+            _asset_id(asset),
+            _backup_policy_id(policy),
+            if_revision=if_revision,
+        )
+
     def record_derivation(
         self,
         result: (
@@ -1513,7 +1579,16 @@ class StorageConvenienceAPI:
     )
 
 
-# Todo: This remain NOT API concerns
+class StorageConvenienceAPI(StorageConvenienceBase):
+    """
+    Preserve the established public manager-convenience name over its implementation base.
+
+    The base groups cross-cutting caller adapters that intentionally span catalogue, ingest,
+    retrieval, policy, Replica, Composite, and derivation contracts. Individual contract modules
+    remain focused on exact manager operations and do not acquire these coercion dependencies.
+    """
+
+
 def _file_asset_id(
     manager: object,
     identifier: DigitalAssetFileIdentifier,
@@ -1816,8 +1891,6 @@ def _placement_hints(
     return None if metadata is None else derive_storage_hints(metadata)
 
 
-# Todo: Should not be here in the API
-# Todo: As a general rule, these helpers should also not be private functions...
 def _digests(value: _DigestInput) -> tuple[Digest, ...]:
     """
     Convert mapping entries to Digest objects in mapping order, or tuple-collect an iterable and
@@ -2148,7 +2221,7 @@ def _member_delivery_path(
 
 def _resolved_composite_targets(
     root: Path,
-    resolutions: tuple[CompositeDigitalAssetMemberResolution, ...],
+    resolutions: Iterable[CompositeDigitalAssetMemberResolution],
 ) -> tuple[Path, ...]:
     """
     Preflight delivery names and current resolved containment, returning lexical target Paths.
@@ -2189,4 +2262,8 @@ def _resolved_composite_targets(
     return tuple(targets)
 
 
-__all__ = ["DigitalAssetFileIdentifier", "StorageConvenienceAPI"]
+__all__ = [
+    "DigitalAssetFileIdentifier",
+    "StorageConvenienceAPI",
+    "StorageConvenienceBase",
+]

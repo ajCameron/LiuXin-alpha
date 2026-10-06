@@ -155,22 +155,159 @@ class DigitalAssetRegistryMixin(_StorageManagerState):
             return updated
 
     @override
-    def iter_digital_asset_records(self) -> Iterator[api.DigitalAssetRecord]:
-        """
-        Capture records under the lock in ascending Asset-key order and return a tuple iterator.
+    def set_digital_asset_name(
+        self,
+        digital_asset_id: api.DigitalAssetID,
+        name: str | None,
+        *,
+        if_revision: str | None = None,
+    ) -> api.DigitalAssetRecord:
+        """Replace only the display-name field through the shared atomic metadata updater."""
 
-        The sequence is fixed before return, but its record and nested-value references are not deep
-        copies. Repository iteration or lookup failures propagate.
+        return self._update_digital_asset_metadata_field(
+            digital_asset_id,
+            field_name="name",
+            value=name,
+            if_revision=if_revision,
+        )
+
+    @override
+    def set_digital_asset_media_type(
+        self,
+        digital_asset_id: api.DigitalAssetID,
+        media_type: str | None,
+        *,
+        if_revision: str | None = None,
+    ) -> api.DigitalAssetRecord:
+        """Replace only the media-type field through the shared atomic metadata updater."""
+
+        return self._update_digital_asset_metadata_field(
+            digital_asset_id,
+            field_name="media_type",
+            value=media_type,
+            if_revision=if_revision,
+        )
+
+    @override
+    def set_digital_asset_original_name(
+        self,
+        digital_asset_id: api.DigitalAssetID,
+        original_name: str | None,
+        *,
+        if_revision: str | None = None,
+    ) -> api.DigitalAssetRecord:
+        """Replace only the original-name field through the shared atomic metadata updater."""
+
+        return self._update_digital_asset_metadata_field(
+            digital_asset_id,
+            field_name="original_name",
+            value=original_name,
+            if_revision=if_revision,
+        )
+
+    @override
+    def set_digital_asset_attributes(
+        self,
+        digital_asset_id: api.DigitalAssetID,
+        attributes: tuple[tuple[str, str], ...],
+        *,
+        if_revision: str | None = None,
+    ) -> api.DigitalAssetRecord:
+        """Replace only extension attributes through the shared atomic metadata updater."""
+
+        return self._update_digital_asset_metadata_field(
+            digital_asset_id,
+            field_name="attributes",
+            value=attributes,
+            if_revision=if_revision,
+        )
+
+    def _update_digital_asset_metadata_field(
+        self,
+        digital_asset_id: api.DigitalAssetID,
+        *,
+        field_name: str,
+        value: object,
+        if_revision: str | None,
+    ) -> api.DigitalAssetRecord:
+        """
+        Replace one named metadata field under the manager lock and revision precondition.
+
+        Public callers supply one of the four DigitalAssetMetadata field names. Constructing the
+        replacement metadata applies its ordinary blank-label and attribute-name validation before
+        the Asset record is stored. Size, digests, policies, and the three unselected metadata
+        fields remain unchanged. Transaction hooks control durable rollback.
+
+        :param digital_asset_id: Registered Asset identity to update.
+        :param field_name: DigitalAssetMetadata field selected by a public wrapper.
+        :param value: Complete replacement value for that field.
+        :param if_revision: Expected current Asset revision, or None for no precondition.
+        :return: Updated Asset record with a newly allocated revision.
+        """
+
+        with self._lock, self._metadata_transaction():
+            current = self._require_asset_locked(digital_asset_id)
+            self._check_revision(current.revision, if_revision)
+            metadata = dataclasses.replace(
+                current.metadata,
+                **{field_name: value},
+            )
+            updated = dataclasses.replace(
+                current,
+                metadata=metadata,
+                revision=self._new_revision_locked(),
+            )
+            self._assets[digital_asset_id] = updated
+            return updated
+
+    @override
+    def iter_digital_asset_records(
+        self,
+        *,
+        order_by: api.DigitalAssetRecordOrder | str = api.DigitalAssetRecordOrder.ID,
+        descending: bool = False,
+    ) -> Iterator[api.DigitalAssetRecord]:
+        """
+        Capture records under the lock, apply the selected stable key, and return a tuple iterator.
+
+        ID and size ordering use Asset ID as a tie breaker. Descriptive keys compare case-folded
+        text, place missing values after present values in ascending order, and also use ID as a tie
+        breaker. ``descending`` reverses the complete tuple key, including missing placement and ID
+        ties. The sequence is fixed before return, but record references are not deep copies.
 
         Example:
             >>> assets = tuple(manager.iter_digital_asset_records())  # doctest: +SKIP
 
 
+        :param order_by: Ordering enum or exact value string; invalid strings raise ValueError.
+        :param descending: Whether to reverse the complete selected key ordering.
         :return: Iterator over the captured ordered Asset record references.
         """
 
+        try:
+            selected_order = api.DigitalAssetRecordOrder(order_by)
+        except ValueError as error:
+            raise ValueError(
+                "order_by must be 'id', 'size', 'name', 'media_type', or "
+                "'original_name'."
+            ) from error
         with self._lock:
-            records = tuple(self._assets[key] for key in sorted(self._assets))
+            records = tuple(self._assets.values())
+        if selected_order is api.DigitalAssetRecordOrder.ID:
+            key = lambda record: (record.digital_asset_id,)
+        elif selected_order is api.DigitalAssetRecordOrder.SIZE:
+            key = lambda record: (
+                record.size_bytes,
+                record.digital_asset_id,
+            )
+        else:
+            field_name = selected_order.value
+            key = lambda record: (
+                getattr(record.metadata, field_name) is None,
+                (getattr(record.metadata, field_name) or "").casefold(),
+                record.digital_asset_id,
+            )
+        records = tuple(sorted(records, key=key, reverse=descending))
         return iter(records)
 
     @override
