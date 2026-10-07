@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
-from LiuXin_alpha.storage.backend_registry import (
+from LiuXin_alpha.storage.utils.backend_registry import (
     DEFAULT_BACKEND_REGISTRY,
     StorageBackendDescriptor,
 )

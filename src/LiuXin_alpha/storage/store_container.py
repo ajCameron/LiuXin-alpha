@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.storage.api import StoreAPI, StoreConfiguration, StoreStatus
-from LiuXin_alpha.storage.store_spec_utils import (
+from LiuXin_alpha.storage.utils.store_configuration import (
     store_configuration_from_row,
     store_configuration_to_row_dict,
 )

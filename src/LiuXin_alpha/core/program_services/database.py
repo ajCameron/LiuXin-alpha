@@ -433,7 +433,7 @@ def database_migrations_apply(
     :return: Reconciled migrated=True receipt with projected storage and identity reports after all preceding steps succeed.
     """
     del command
-    from LiuXin_alpha.storage.migrations import migrate_storage_schema
+    from LiuXin_alpha.storage.utils.migrations import migrate_storage_schema
 
     storage_report = migrate_storage_schema(runtime.database)
     identity_report = _database_callable(

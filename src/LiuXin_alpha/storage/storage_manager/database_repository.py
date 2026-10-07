@@ -31,7 +31,7 @@ from LiuXin_alpha.storage.storage_manager.mixins._types import (
     _StoreObjectIngestRequest,
     _StreamIngestRequest,
 )
-from LiuXin_alpha.storage.store_spec_utils import store_configuration_to_row_dict
+from LiuXin_alpha.storage.utils.store_configuration import store_configuration_to_row_dict
 
 _K = TypeVar("_K")
 _V = TypeVar("_V")
@@ -753,7 +753,7 @@ class DatabaseStorageMetadataRepository:
                         id_column=id_column,
                     )
                     upgraded += 1
-        from LiuXin_alpha.storage.migrations import record_envelope_migration
+        from LiuXin_alpha.storage.utils.migrations import record_envelope_migration
 
         record_envelope_migration(self.db, upgraded)
         if upgraded:

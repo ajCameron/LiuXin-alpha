@@ -21,7 +21,7 @@ from urllib.parse import unquote_to_bytes, urlparse
 from uuid import UUID, uuid5
 
 from LiuXin_alpha.storage import api
-from LiuXin_alpha.storage.backend_registry import DEFAULT_BACKEND_REGISTRY
+from LiuXin_alpha.storage.utils.backend_registry import DEFAULT_BACKEND_REGISTRY
 from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
 
 

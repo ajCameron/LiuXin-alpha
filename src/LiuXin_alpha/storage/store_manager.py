@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import dataclasses
 import os
-
 from collections.abc import Iterable
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -32,15 +31,6 @@ from urllib.parse import unquote_to_bytes, urlparse
 from uuid import UUID, uuid4
 
 from LiuXin_alpha.storage import api
-from LiuXin_alpha.storage.backend_registry import (
-    DEFAULT_BACKEND_REGISTRY,
-    StoreConstructionContext,
-)
-from LiuXin_alpha.storage.migrations import (
-    StorageMigrationReport,
-    can_migrate_storage_schema,
-    migrate_storage_schema,
-)
 from LiuXin_alpha.storage.storage_manager.database_repository import (
     DatabaseStorageMetadataRepository,
 )
@@ -55,7 +45,23 @@ from LiuXin_alpha.storage.storage_manager.mixins._types import (
     _StoreObjectIngestRequest,
     _StreamIngestRequest,
 )
-from LiuXin_alpha.storage.store_spec_utils import store_configuration_from_row
+from LiuXin_alpha.storage.utils.backend_registry import (
+    DEFAULT_BACKEND_REGISTRY,
+    StoreConstructionContext,
+)
+from LiuXin_alpha.storage.utils.migrations import (
+    StorageMigrationReport,
+    can_migrate_storage_schema,
+    migrate_storage_schema,
+)
+from LiuXin_alpha.storage.utils.store_configuration import store_configuration_from_row
+from LiuXin_alpha.storage.utils.store_rows import (
+    _order_store_rows,
+    _persist_derived_store_uuid,
+    _row_int,
+    _row_text,
+    _row_uuid,
+)
 
 
 class StorageManager(_StorageManagerOrchestrator):
@@ -1029,9 +1035,9 @@ class StorageManager(_StorageManagerOrchestrator):
             )
         request_kind = type(request).__name__ if request is not None else "unknown"
         raise api.StoragePreconditionFailed(
-            "ingest operation {} used a non-replayable {} source; retry it "
+            f"ingest operation {operation_id} used a non-replayable {request_kind} source; retry it "
             "through the original caller with the same operation UUID and "
-            "source bytes.".format(operation_id, request_kind)
+            "source bytes."
         )
 
     def add_store(
@@ -1421,316 +1427,6 @@ class StorageManager(_StorageManagerOrchestrator):
 
 StorageBootstrapIssue = api.StorageBootstrapIssue
 StorageBootstrapReport = api.StorageBootstrapReport
-
-
-def _row_value(row: Any, key: str):
-    """
-    Attempt row subscription, falling back to an attribute after any Exception. Missing fallback
-    attributes yield None; attribute/property errors can still propagate. Unlike the configuration
-    codec's row accessor, this does not precheck allowed_columns or call mapping.get.
-
-    Example:
-        >>> _row_value({"store_id": 7}, "store_id")
-        7
-
-
-    :param row: Mapping-like or attribute-based row object.
-    :param key: Requested column/attribute name.
-    :return: The subscribed/fallback value or None, without copying or conversion.
-    """
-
-    try:
-        return row[key]
-    except Exception:
-        return getattr(row, key, None)
-
-
-def _row_int(row: Any, key: str) -> int | None:
-    """
-    Read a row value and int-convert it, treating None/empty text and caught TypeError/ValueError as
-    absent. Booleans and truncatable floats are accepted; OverflowError and other unhandled
-    read/conversion failures propagate.
-
-    Example:
-        >>> _row_int({"store_id": "7"}, "store_id")
-        7
-
-
-    :param row: Row object read through _row_value.
-    :param key: Column/attribute containing an optional integer.
-    :return: Converted integer or None for handled absence/conversion failures.
-    """
-
-    try:
-        value = _row_value(row, key)
-        if value is None or value == "":
-            return None
-        return int(value)
-    except (TypeError, ValueError):
-        return None
-
-
-def _persist_derived_store_uuid(
-    database: Any,
-    *,
-    row: Any,
-    store_id: int | None,
-    store_ref: api.StoreUUID,
-) -> None:
-    """
-    Backfill a missing/blank UUID through an available database update macro. Return without writing
-    when row ID is None, row UUID text is nonblank, an explicit allowed_columns collection excludes
-    store_uuid, or the update macro is noncallable. Otherwise write str(store_ref) by store_id using
-    the macro. Nonblank malformed UUIDs are not repaired, and the supplied row object is not updated
-    directly. No concurrent-value guard or local transaction is added.
-
-    Example:
-        >>> _persist_derived_store_uuid(database, row=row, store_id=7, store_ref=store_ref)  # doctest: +SKIP
-
-
-    :param database: Configuration-source database whose macros.update_row is used if callable.
-    :param row: Legacy row inspected for existing UUID text and optional allowed columns.
-    :param store_id: Optional row ID forwarded to the update macro without conversion here.
-    :param store_ref: Derived UUID stringified for persistence when backfill is permitted.
-    :return: None after a skipped or completed backfill; inspection and macro failures propagate.
-    """
-
-    if store_id is None or _row_text(row, "store_uuid") is not None:
-        return
-    allowed_columns = getattr(row, "allowed_columns", None)
-    if allowed_columns is not None and "store_uuid" not in set(allowed_columns):
-        return
-    macros = getattr(database, "macros", None)
-    update_row = getattr(macros, "update_row", None)
-    if not callable(update_row):
-        return
-    update_row(
-        "stores",
-        store_id,
-        {"store_uuid": str(store_ref)},
-        id_column="store_id",
-    )
-
-
-def _row_text(row: Any, key: str) -> str | None:
-    """
-    Read a row field, stringify and strip it, and treat None or resulting blank text as absent.
-    False and zero retain nonblank spellings; read/string conversion errors propagate.
-
-    Example:
-        >>> _row_text({"name": " books "}, "name")
-        'books'
-
-
-    :param row: Row read through _row_value.
-    :param key: Column/attribute whose optional text is requested.
-    :return: Stripped nonempty text or None.
-    """
-
-    value = _row_value(row, key)
-    if value is None:
-        return None
-    text = str(value).strip()
-    return text or None
-
-
-def _row_uuid(row: Any, key: str) -> UUID | None:
-    """
-    Return a UUID object unchanged or parse nonempty row text, treating ValueError as an
-    invalid/absent UUID. This does not strip text first; whitespace-only values become None through
-    parse failure. Other read/string-conversion errors can propagate.
-
-    Example:
-        >>> _row_uuid({"id": "not-a-uuid"}, "id") is None
-        True
-
-
-    :param row: Row read through _row_value.
-    :param key: Column/attribute carrying the UUID.
-    :return: Existing/parsed UUID or None for absent or ValueError-invalid text.
-    """
-
-    value = _row_value(row, key)
-    if isinstance(value, UUID):
-        return value
-    if value is None or value == "":
-        return None
-    try:
-        return UUID(str(value))
-    except ValueError:
-        return None
-
-
-def _row_kind(row: Any) -> str:
-    """
-    Read stripped backend-kind text, default to empty, lowercase it and replace hyphens with
-    underscores. This local normalization performs no registry lookup and retains other punctuation
-    or embedded whitespace.
-
-    Example:
-        >>> _row_kind({"store_kind": " Encrypted-Store "})
-        'encrypted_store'
-
-
-    :param row: Row providing an optional store_kind field.
-    :return: Normalized kind text, possibly empty.
-    """
-
-    return (_row_text(row, "store_kind") or "").lower().replace("-", "_")
-
-
-def _is_encrypted_row(row: Any) -> bool:
-    """
-    Resolve the row's normalized kind through the default backend registry and compare it with
-    encrypted. Empty/unknown kinds return False for ValueError or StoreUnsupportedOperation; other
-    row/registry failures propagate.
-
-    Example:
-        >>> _is_encrypted_row({"store_kind": "aes-gcm"})
-        True
-
-
-    :param row: Row whose store_kind controls secondary bootstrap ordering.
-    :return: True for a recognized encrypted alias, otherwise False for the handled lookup cases.
-    """
-
-    kind = _row_kind(row)
-    try:
-        return DEFAULT_BACKEND_REGISTRY.canonical_kind(kind) == "encrypted"
-    except (ValueError, api.StoreUnsupportedOperation):
-        return False
-
-
-def _configuration_dependencies(
-    manager: StorageManager,
-    configuration: api.StoreConfiguration,
-) -> frozenset[api.StoreUUID]:
-    """
-    Collect declared Store dependencies for bootstrap ordering without constructing backends.
-    Include a backing materialization Store and the preferred Replica's Store only when that Replica
-    exists and belongs to the backing Asset. Missing Replicas are ignored; other lookup failures
-    propagate. For encrypted kinds, read the inner UUID option or derive text from URI
-    authority/path, without requiring an encrypted URI scheme here. Malformed UUID ValueError is
-    ignored. Remove the configuration's own UUID. This discovers neither alternative source Replicas
-    nor every dependency a custom backend/resolver might require.
-
-    Example:
-        >>> dependencies = _configuration_dependencies(manager, configuration)  # doctest: +SKIP
-
-
-    :param manager: Manager used only for a preferred Replica lookup when specified.
-    :param configuration: Configured backing/wrapper intent whose Store references are inspected.
-    :return: A frozenset of discovered non-self Store UUIDs; unresolved external dependencies can remain in it.
-    """
-
-    dependencies: set[api.StoreUUID] = set()
-    backing = configuration.backing
-    if backing is not None:
-        if backing.materialization_store_ref is not None:
-            dependencies.add(backing.materialization_store_ref)
-        if backing.preferred_replica_id is not None:
-            try:
-                replica = manager.get_replica_record(backing.preferred_replica_id)
-            except api.ReplicaNotFound:
-                pass
-            else:
-                if replica.digital_asset_id == backing.digital_asset_id:
-                    dependencies.add(replica.location.store_ref)
-
-    try:
-        kind = DEFAULT_BACKEND_REGISTRY.canonical_kind(configuration.store_kind)
-    except (ValueError, api.StoreUnsupportedOperation):
-        kind = configuration.store_kind
-    if kind == "encrypted":
-        raw_inner_ref = dict(configuration.backend_options).get("inner_store_uuid")
-        if raw_inner_ref is None:
-            parsed = urlparse(configuration.store_root_uri)
-            raw_inner_ref = parsed.netloc or parsed.path.strip("/") or None
-        try:
-            if raw_inner_ref is not None:
-                dependencies.add(UUID(str(raw_inner_ref)))
-        except ValueError:
-            pass
-    dependencies.discard(configuration.store_uuid)
-    return frozenset(dependencies)
-
-
-def _order_store_rows(
-    manager: StorageManager,
-    rows: tuple[Any, ...],
-) -> tuple[Any, ...]:
-    """
-    Order row references by discoverable in-snapshot dependencies with deterministic fallback.
-    Translate each row, retaining failed translations as None for later reporting. Repeatedly select
-    rows whose dependencies do not intersect remaining translated UUIDs; malformed rows are
-    immediately eligible, and external dependencies do not block. Sort each ready group by unbacked
-    before backed, nonencrypted before encrypted, then parsed row ID or zero, preserving input order
-    for ties.
-
-    If no row is ready, sort and emit all remaining rows rather than rejecting or repairing a cycle.
-    Self dependencies are already removed. Duplicate rows/UUIDs are not deduplicated, and dependency
-    discovery can repeat across rounds. Translation errors alone are caught; later dependency/sort
-    errors propagate. Returned rows are original references without writes or backend construction.
-
-    Example:
-        >>> _order_store_rows(None, ())
-        ()
-
-
-    :param manager: Manager used for optional preferred-Replica dependency lookups.
-    :param rows: Snapshot tuple of database row objects to translate and order.
-    :return: A tuple containing the original row objects in bootstrap order; cycle fallback does not prove a valid dependency graph.
-    """
-
-    translated: list[tuple[Any, api.StoreConfiguration | None]] = []
-    for row in rows:
-        try:
-            configuration = store_configuration_from_row(
-                row,
-                fallback_store_id=_row_int(row, "store_id"),
-            )
-        except Exception:
-            configuration = None
-        translated.append((row, configuration))
-
-    configured_refs = {
-        configuration.store_uuid
-        for _, configuration in translated
-        if configuration is not None
-    }
-    remaining = list(translated)
-    ordered: list[Any] = []
-    while remaining:
-        remaining_refs = {
-            configuration.store_uuid
-            for _, configuration in remaining
-            if configuration is not None
-        }
-        ready = [
-            item
-            for item in remaining
-            if item[1] is None
-            or not (
-                _configuration_dependencies(manager, item[1])
-                & remaining_refs
-                & configured_refs
-            )
-        ]
-        if not ready:
-            # Keep deterministic reporting when malformed rows declare a
-            # dependency cycle; construction will provide the useful error.
-            ready = list(remaining)
-        ready.sort(
-            key=lambda item: (
-                item[1] is not None and item[1].backing is not None,
-                _is_encrypted_row(item[0]),
-                _row_int(item[0], "store_id") or 0,
-            )
-        )
-        for item in ready:
-            ordered.append(item[0])
-            remaining.remove(item)
-    return tuple(ordered)
 
 
 __all__ = [
