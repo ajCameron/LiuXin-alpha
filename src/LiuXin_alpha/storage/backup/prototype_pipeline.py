@@ -14,6 +14,7 @@ import pathlib
 import sys
 import time
 from collections.abc import Callable, Iterable, Sequence
+from contextlib import nullcontext
 from typing import Any, TYPE_CHECKING
 from uuid import UUID, uuid4
 
@@ -746,16 +747,22 @@ class ExistingDriveSquashfsPrototype:
         self.reporter = reporter or ConsoleReporter()
         self.workflow_factory = workflow_factory
 
-    def run(self, input_paths: Sequence[str | pathlib.Path]) -> PrototypeRunResult:
+    def run(
+        self,
+        input_paths: Sequence[str | pathlib.Path],
+        *,
+        library: "Library",
+    ) -> PrototypeRunResult:
         """
         Index each input and synchronously build/register its proposed packs with saved checkpoints.
 
-        Expand/resolve all input paths and require at least one existing directory before opening
-        Library. Create the catalogue only when its path is absent; ensure an output Store row,
-        refresh manager Stores, then process inputs in supplied order. Pre-count files for display
-        and derive an ordinal-based Store name. A files table selects the existing legacy indexer;
-        otherwise use the direct-FRBR fallback. Reports containing legacy-indexer errors are
-        displayed but do not automatically stop subsequent planning.
+        Expand/resolve all input paths and require at least one existing directory.
+        Use the caller-owned Library to ensure an output Store row, refresh manager
+        Stores, then process inputs in supplied order. Pre-count files for display
+        and derive an ordinal-based Store name. A files table selects the existing
+        legacy indexer; otherwise use the direct-FRBR fallback. Reports containing
+        legacy-indexer errors are displayed but do not automatically stop subsequent
+        planning.
 
         Resolve the indexed Store UUID and plan using configured size/count/extension limits. Add
         staging and verification settings to each declaration, construct a workflow, and persist its
@@ -766,17 +773,21 @@ class ExistingDriveSquashfsPrototype:
 
         Request the terminal result, require an output reference, derive its local display/name
         path, and register the artifact with source links. Append a pack summary only after
-        registration and reporting return. Library context cleanup runs on exit; later failures can
-        follow completed writes, images, or earlier packs without returning a partial aggregate. No
-        cross-step transaction or rollback is provided.
+        registration and reporting return. The caller retains lifecycle ownership;
+        later failures can follow completed writes, images, or earlier packs without
+        returning a partial aggregate. No cross-step transaction or rollback is
+        provided.
 
         Example:
-            >>> result = prototype.run(["/media/books-a", "/media/books-b"])  # doctest: +SKIP
+            >>> result = prototype.run(  # doctest: +SKIP
+            ...     ["/media/books-a", "/media/books-b"], library=library
+            ... )
             >>> result.total_indexed_stores  # doctest: +SKIP
             2
 
 
         :param input_paths: Ordered nonempty sequence of local directory paths; duplicates are processed again rather than deduplicated.
+        :param library: Already-open, caller-owned Library used for the complete run.
         :return: PrototypeRunResult after all inputs/packs and final reporting succeed; earlier effects may remain when any step raises.
         """
         paths = [pathlib.Path(p).expanduser().resolve() for p in input_paths]
@@ -787,18 +798,17 @@ class ExistingDriveSquashfsPrototype:
                 raise FileNotFoundError(str(path))
             if not path.is_dir():
                 raise NotADirectoryError(str(path))
-        self.reporter.section("Opening library database")
-        create_db = not self.database_path.exists()
+        self.reporter.section("Using library database")
         self.reporter.info(f"Database: {self.database_path}")
-        self.reporter.info(f"Create new DB: {'yes' if create_db else 'no'}")
         self.reporter.info(f"Output dir: {self.output_dir}")
         self.reporter.info(f"Target pack size: {_format_bytes(self.target_pack_size_bytes)}")
         if self.max_files_per_pack is not None:
             self.reporter.info(f"Max files per pack: {self.max_files_per_pack}")
         indexed_runs: list[IndexedStoreRun] = []
         executed_runs: list[PackExecutionRun] = []
-        from LiuXin_alpha.library import Library
-        with Library(database_path=self.database_path, create=create_db, backup=False, storage_startup_on_add=False) as lib:
+        # nullcontext makes the borrowed lifetime explicit without closing the
+        # caller-owned facade when this workflow returns or raises.
+        with nullcontext(library) as lib:
             destination_store_ref = self._ensure_output_store_row(lib.db)
             lib.refresh_storage(clear_existing=True, startup_on_add=True)
             repo = BackupWorkflowRepository(lib.db)

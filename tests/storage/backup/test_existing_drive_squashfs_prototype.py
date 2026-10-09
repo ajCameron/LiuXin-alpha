@@ -12,16 +12,25 @@ from __future__ import annotations
 import dataclasses
 import shutil
 
+from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 
 import pytest
 
-from LiuXin_alpha.library import Library
+from LiuXin_alpha.core.library_services import LibraryServices
 from LiuXin_alpha.storage import api
 from LiuXin_alpha.storage.backup import (
     BackupArtifactRegistry,
     ExistingDriveSquashfsPrototype,
 )
+
+
+@contextmanager
+def _open_library(**kwargs):
+    """Yield a facade whose complete resource graph is test-owned."""
+
+    with LibraryServices.open(enable_maintenance=False, **kwargs) as lifecycle:
+        yield lifecycle.library
 
 
 class _FakeWorkflow:
@@ -173,14 +182,20 @@ def test_existing_drive_prototype_indexes_plans_and_registers_packs(tmp_path: Pa
         ),
     )
 
-    result = prototype.run([source_a, source_b])
+    with _open_library(
+        database_path=database_path,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as library:
+        result = prototype.run([source_a, source_b], library=library)
 
     assert result.total_indexed_stores == 2
     assert result.total_executed_packs == 3
     assert all(Path(item.output_url).is_file() for item in result.executed_packs)
     assert len({item.backup_store_ref for item in result.executed_packs}) == 3
 
-    with Library(
+    with _open_library(
         database_path=database_path,
         create=False,
         backup=False,
@@ -242,7 +257,13 @@ def test_existing_drive_prototype_pack_reads_after_database_restart_and_source_l
         cleanup_staging_after_success=True,
     )
 
-    result = prototype.run([source])
+    with _open_library(
+        database_path=database_path,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as library:
+        result = prototype.run([source], library=library)
 
     assert result.total_indexed_stores == 1
     assert result.total_executed_packs == 1
@@ -254,7 +275,7 @@ def test_existing_drive_prototype_pack_reads_after_database_restart_and_source_l
     # reading the registered SquashFS Store, not accidentally falling back to
     # the source tree or retaining the workflow's in-process Store object.
     source.rename(tmp_path / "indexed-source-offline")
-    with Library(
+    with _open_library(
         database_path=database_path,
         create=False,
         backup=False,

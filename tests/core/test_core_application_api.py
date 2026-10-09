@@ -1543,7 +1543,6 @@ def test_core_catalog_and_cache_api_round_trip_real_database(db) -> None:
     runtime = CoreRuntime(
         library=Library(
             database=db,
-            close_database_on_close=False,
         ),
         cache_type="schema_backed",
         close_cache_on_shutdown=True,
@@ -1751,7 +1750,6 @@ def test_catalog_conveniences_have_direct_and_rpc_parity(db) -> None:
     runtime = CoreRuntime(
         library=Library(
             database=db,
-            close_database_on_close=False,
         ),
     )
     daemon = None

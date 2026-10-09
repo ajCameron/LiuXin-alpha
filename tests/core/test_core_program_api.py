@@ -74,7 +74,6 @@ def test_managed_storage_graph_local_and_rpc_round_trip(db) -> None:
     runtime = CoreRuntime(
         library=Library(
             database=db,
-            close_database_on_close=False,
         ),
     )
     token = uuid.uuid4().hex
@@ -230,7 +229,7 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
         place.
     """
     runtime = CoreRuntime(
-        library=Library(database=db, close_database_on_close=False),
+        library=Library(database=db),
     )
     root = tmp_path / "integrity-store"
     root.mkdir()
@@ -583,7 +582,6 @@ def test_browse_projection_covers_work_list_detail_and_acquisition(
     runtime = CoreRuntime(
         library=Library(
             database=db,
-            close_database_on_close=False,
         ),
     )
     title = "Core browse {}".format(uuid.uuid4().hex)
@@ -807,7 +805,6 @@ def test_database_identity_and_tree_semantics_are_core_operations(db) -> None:
     runtime = CoreRuntime(
         library=Library(
             database=db,
-            close_database_on_close=False,
         ),
     )
     created: list[int] = []
@@ -903,7 +900,6 @@ def test_backup_workflow_persistence_is_available_directly_and_over_rpc(
     runtime = CoreRuntime(
         library=Library(
             database=db,
-            close_database_on_close=False,
         ),
     )
     token = uuid.uuid4().hex
@@ -981,7 +977,6 @@ def test_program_discovery_and_local_support_cover_every_capability_family(
     runtime = CoreRuntime(
         library=Library(
             database=db,
-            close_database_on_close=False,
         ),
     )
     daemon = None
@@ -1101,7 +1096,6 @@ def test_named_workflows_submit_only_serializable_core_job_requests(db) -> None:
     runtime = CoreRuntime(
         library=Library(
             database=db,
-            close_database_on_close=False,
         ),
         job_manager=manager,  # type: ignore[arg-type]
         close_job_manager_on_shutdown=False,
@@ -1219,7 +1213,6 @@ def test_metadata_file_read_and_write_stay_inside_core(db, tmp_path) -> None:
     runtime = CoreRuntime(
         library=Library(
             database=db,
-            close_database_on_close=False,
         ),
     )
     try:
@@ -1269,7 +1262,6 @@ def test_schema_policy_and_custom_fields_round_trip_through_core(db) -> None:
     runtime = CoreRuntime(
         library=Library(
             database=db,
-            close_database_on_close=False,
         ),
     )
     label = "core_{}".format(uuid.uuid4().hex)

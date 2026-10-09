@@ -117,7 +117,13 @@ def open_db(driver_spec, db_metadata: dict):
 
     from LiuXin_alpha.databases.database import Database
 
-    db = Database(metadata=db_metadata, db_type=driver_spec.db_type, create=False, backup=False)
+    db = Database(
+        metadata=db_metadata,
+        db_type=driver_spec.db_type,
+        create=False,
+        backup=False,
+        enable_maintenance=True,
+    )
     try:
         yield db
     finally:

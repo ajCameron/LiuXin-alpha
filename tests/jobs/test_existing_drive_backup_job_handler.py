@@ -54,7 +54,7 @@ class _FakePrototype:
         """
         type(self).last_init_kwargs = kwargs
 
-    def run(self, input_paths):
+    def run(self, input_paths, *, library):
         """
         Execute the configured conversion stage and return its primary result.
 
@@ -68,6 +68,7 @@ class _FakePrototype:
         :return: The normalized value, metadata record, path, stream result or collection
             described above.
         """
+        del library
         type(self).last_run_args = tuple(str(x) for x in input_paths)
         return PrototypeRunResult(
             database_path=str(_FakePrototype.last_init_kwargs["database_path"]),

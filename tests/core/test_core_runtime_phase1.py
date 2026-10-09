@@ -278,7 +278,7 @@ def test_core_runtime_library_store_save_and_lookup_round_trip(tmp_path) -> None
         storage_startup_on_add=False,
     ) as db:
         runtime = CoreRuntime(
-            library=Library(database=db, close_database_on_close=False),
+            library=Library(database=db),
             core_version="test-phase1",
         )
         saved = runtime.invoke_command(
@@ -343,7 +343,7 @@ def test_core_runtime_library_row_get_and_update_round_trip(tmp_path) -> None:
         storage_startup_on_add=False,
     ) as db:
         runtime = CoreRuntime(
-            library=Library(database=db, close_database_on_close=False),
+            library=Library(database=db),
             core_version="test-phase1",
         )
         saved = runtime.invoke_command(
@@ -410,7 +410,7 @@ def test_core_runtime_library_delete_row_round_trip(tmp_path) -> None:
         storage_startup_on_add=False,
     ) as db:
         runtime = CoreRuntime(
-            library=Library(database=db, close_database_on_close=False),
+            library=Library(database=db),
             core_version="test-phase1",
         )
         saved = runtime.invoke_command(
@@ -462,7 +462,7 @@ def test_core_runtime_library_delete_impact_reports_direct_references(tmp_path) 
         storage_startup_on_add=False,
     ) as db:
         runtime = CoreRuntime(
-            library=Library(database=db, close_database_on_close=False),
+            library=Library(database=db),
             core_version="test-phase1",
         )
         saved = runtime.invoke_command(

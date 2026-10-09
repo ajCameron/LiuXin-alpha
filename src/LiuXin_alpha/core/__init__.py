@@ -41,6 +41,7 @@ from .proxies import (
 )
 from .queries import CoreQuery, CoreQueryResult
 from .runtime import CoreRuntime
+from .library_services import LibraryServices, LibraryServicesCloseError
 from .services import CoreServiceReconciliationError, CoreServices
 from .transport import CoreHttpDaemon
 from .wire import CoreWireError, to_wire
@@ -51,6 +52,8 @@ __all__ = [
     "CoreClientAPI",
     "CoreApplicationAPI",
     "CoreServices",
+    "LibraryServices",
+    "LibraryServicesCloseError",
     "CoreServiceReconciliationError",
     "CoreWireError",
     "to_wire",

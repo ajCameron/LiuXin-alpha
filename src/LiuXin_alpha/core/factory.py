@@ -1,5 +1,5 @@
 """
-Compose a direct Core runtime with explicit service ownership or select an HTTP client.
+Compose a direct Core runtime through its library owner or select an HTTP client.
 
 Runtime construction can open/create a database and bootstrap services; remote
 client selection only configures a client and does not start or probe a server.
@@ -8,7 +8,6 @@ client selection only configures a client and does not start or probe a server.
 from __future__ import annotations
 
 import pathlib
-
 from collections.abc import Mapping
 from typing import Any
 
@@ -48,18 +47,18 @@ def create_core(
     maintenance: Any | None = None,
 ) -> CoreRuntime:
     """
-    Build a Core runtime around a borrowed library or a newly constructed library wrapper.
+    Build a Core runtime around a borrowed library or an owned LibraryServices graph.
 
     A supplied library excludes database/database-path arguments and remains
-    caller-owned at shutdown. Otherwise ``Library`` requires exactly one database
-    object or path and owns a database it opens itself. Core closes its constructed
-    library wrapper, but that wrapper does not own a caller-supplied database.
-    Library-construction options are unused when a library is supplied.
+    caller-owned at shutdown. Otherwise ``LibraryServices`` opens the database,
+    storage, cache and Catalog graph and closes every owned resource in reverse
+    order. A supplied database remains borrowed, while resources constructed
+    around it remain owned by this Core session.
 
     Cache ownership follows CoreServices: a cache created by type is owned, while
     an injected cache is borrowed. The default job manager is process-global and
-    is not shut down unless explicitly requested. If runtime construction fails
-    after library creation, this factory supplies no compensating close/rollback.
+    is not shut down unless explicitly requested. Runtime-construction failure
+    closes the already-open LibraryServices graph before propagating.
 
     Example:
         >>> runtime = create_core(database_path="library.sqlite", create=False)  # doctest: +SKIP
@@ -100,10 +99,11 @@ def create_core(
     supplied_library = library is not None
     if supplied_library and (database is not None or database_path is not None):
         raise ValueError("Provide `library`, or a database/database_path, not both.")
+    library_services = None
     if library is None:
-        from LiuXin_alpha.library import Library
+        from LiuXin_alpha.core.library_services import LibraryServices
 
-        library = Library(
+        library_services = LibraryServices.open(
             database=database,
             database_path=database_path,
             db_type=db_type,
@@ -115,27 +115,44 @@ def create_core(
             storage_startup_on_add=storage_startup_on_add,
             enable_maintenance=enable_maintenance,
             repair_bootstrap_rows=repair_bootstrap_rows,
+            catalog=catalog,
+            cache=cache,
+            cache_type=cache_type,
+            cache_kwargs=cache_kwargs,
+            read_source=read_source,
+            cache_allow_database_fallback=cache_allow_database_fallback,
+            preferences=preferences,
+            library_preferences=library_preferences,
+            field_metadata=field_metadata,
+            maintenance=maintenance,
         )
-    return CoreRuntime(
-        library=library,
-        core_uuid=core_uuid,
-        core_version=core_version,
-        api_version=api_version,
-        job_manager=job_manager,
-        close_job_manager_on_shutdown=close_job_manager_on_shutdown,
-        catalog=catalog,
-        cache=cache,
-        cache_type=cache_type,
-        cache_kwargs=cache_kwargs,
-        read_source=read_source,
-        preferences=preferences,
-        library_preferences=library_preferences,
-        field_metadata=field_metadata,
-        maintenance=maintenance,
-        cache_allow_database_fallback=cache_allow_database_fallback,
-        close_library_on_shutdown=not supplied_library,
-        close_cache_on_shutdown=None,
-    )
+        library = library_services.library
+    try:
+        return CoreRuntime(
+            library=library,
+            core_uuid=core_uuid,
+            core_version=core_version,
+            api_version=api_version,
+            job_manager=job_manager,
+            close_job_manager_on_shutdown=close_job_manager_on_shutdown,
+            catalog=catalog,
+            cache=cache,
+            cache_type=cache_type,
+            cache_kwargs=cache_kwargs,
+            read_source=read_source,
+            preferences=preferences,
+            library_preferences=library_preferences,
+            field_metadata=field_metadata,
+            maintenance=maintenance,
+            cache_allow_database_fallback=cache_allow_database_fallback,
+            close_library_on_shutdown=False,
+            close_cache_on_shutdown=None,
+            library_services=library_services,
+        )
+    except BaseException:
+        if library_services is not None:
+            library_services.close()
+        raise
 
 
 def core_client(

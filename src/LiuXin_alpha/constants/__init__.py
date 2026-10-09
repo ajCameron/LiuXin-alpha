@@ -548,37 +548,6 @@ elif isosx:
 else:
     bdir = os.path.abspath(os.path.expanduser(os.environ.get("XDG_CONFIG_HOME", "~/.config")))
     config_dir = os.path.join(bdir, "calibre")
-    try:
-        os.makedirs(config_dir, mode=CONFIG_DIR_MODE)
-    except:
-        pass
-    if not os.path.exists(config_dir) or not os.access(config_dir, os.W_OK) or not os.access(config_dir, os.X_OK):
-        logger.warning("No write access to %s; using a temporary config dir instead", config_dir)
-        import tempfile, atexit
-
-        config_dir = tempfile.mkdtemp(prefix="calibre-config-")
-
-        def cleanup_cdir():
-            """
-            Perform the cleanup cdir operation under explicit file-format and conversion rules.
-
-            Example:
-                Exercise cleanup cdir through a consuming regression::
-
-                    python -m pytest -q tests/test_constants.py
-
-
-            :return: None; the operation mutates state, writes output or performs cleanup in
-                place.
-            """
-            try:
-                import shutil
-
-                shutil.rmtree(config_dir)
-            except:
-                pass
-
-        atexit.register(cleanup_cdir)
 # }}}
 
 # ----------------------------------------------------------------------------------------------------------------------

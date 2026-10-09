@@ -47,7 +47,7 @@ def test_library_register_wget_html_store(db, monkeypatch) -> None:
 
     monkeypatch.setattr(backend_module, "run_wget", _fake_run_wget)
 
-    lib = Library(database=db, close_database_on_close=False)
+    lib = Library(database=db)
     report = lib.register_wget_html_store(
         "https://example.com/",
         store_name="library_wget_web_mirror",

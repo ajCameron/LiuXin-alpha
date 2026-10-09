@@ -5,7 +5,8 @@ Ensure helpers normalize the root, construct a backend, and upsert Store metadat
 without crawling. Registration then delegates to the shared pipeline; Store rows
 and incremental file writes can survive a later failure. This is catalogue
 registration of discovered addresses, not copying ebook bytes or a transaction
-covering the whole crawl. Database-path helpers own only their database context.
+covering the whole crawl. Legacy database-path helpers delegate ownership to
+Core's library lifecycle boundary.
 """
 
 from __future__ import annotations
@@ -654,7 +655,7 @@ def register_wget_html_readonly_with_database_path(
     is a filesystem-path convenience, not a general connection-string adapter.
     Database creation and backup are disabled. Construction/body/exit failures
     propagate, and completed registration writes are not rolled back by this
-    wrapper. The report is returned only after database context exit succeeds.
+    wrapper. The report is returned only after the delegated library owner closes.
 
     Example:
         >>> report = register_wget_html_readonly_with_database_path(database_path='catalogue.sqlite', remote_url='https://example.test/books/')  # doctest: +SKIP
@@ -683,13 +684,19 @@ def register_wget_html_readonly_with_database_path(
     :param attach_store_links: Whether to add supported missing association rows.
     :param refresh_storage_manager: Whether to attempt post-write manager bootstrap.
     :param incremental_db_writes: Whether file registration occurs during crawl callbacks.
-    :param progress_callback: Optional progress consumer invoked inside the database context.
-    :return: Delegated registration report after successful database-context exit.
+    :param progress_callback: Optional progress consumer invoked while the delegated library graph is open.
+    :return: Delegated registration report after successful lifecycle-owner cleanup.
     """
-    from LiuXin_alpha.databases.database import Database
+    from LiuXin_alpha.core.library_services import LibraryServices
 
-    metadata = {"database_path": str(pathlib.Path(database_path))}
-    with Database(metadata=metadata, db_type=db_type, create=False, backup=False) as db:
+    with LibraryServices.open(
+        database_path=pathlib.Path(database_path),
+        db_type=db_type,
+        create=False,
+        backup=False,
+        enable_maintenance=False,
+    ) as lifecycle:
+        db = lifecycle.database
         return register_wget_html_readonly_store_files(
             db,
             remote_url=remote_url,
@@ -777,10 +784,16 @@ def register_native_html_readonly_with_database_path(
     :param progress_callback: Optional observer receiving events while the database remains open.
     :return: Delegated report after registration and database-context cleanup succeed.
     """
-    from LiuXin_alpha.databases.database import Database
+    from LiuXin_alpha.core.library_services import LibraryServices
 
-    metadata = {"database_path": str(pathlib.Path(database_path))}
-    with Database(metadata=metadata, db_type=db_type, create=False, backup=False) as db:
+    with LibraryServices.open(
+        database_path=pathlib.Path(database_path),
+        db_type=db_type,
+        create=False,
+        backup=False,
+        enable_maintenance=False,
+    ) as lifecycle:
+        db = lifecycle.database
         return register_native_html_readonly_store_files(
             db,
             remote_url=remote_url,

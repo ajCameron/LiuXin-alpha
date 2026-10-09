@@ -2,8 +2,10 @@
 
 Date: 2026-09-26
 
-Status: Planning. Lifecycle ownership was decided on 2026-09-28 and is not yet
-implemented. Other areas are still to be decided.
+Status: Lifecycle ownership was implemented on 2026-10-09. Two lower-layer
+database-path compatibility adapter families remain scheduled for removal; see
+`lifecycle-opening-path-review-2026-10-09.md`. Other areas are still to be
+decided.
 
 This guide records the architecture that code changes should move towards, one
 decision area at a time. [Top-level structure](<02 - Top Level Structure.md>)

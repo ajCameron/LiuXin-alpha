@@ -82,6 +82,7 @@ class CoreRuntime(CoreAPI):
         close_cache_on_shutdown: bool | None = None,
         close_library_on_shutdown: bool = False,
         close_job_manager_on_shutdown: bool | None = None,
+        library_services: Any | None = None,
     ) -> None:
         """
         Compose services, establish identity/locks, select a job manager, and install all endpoint families.
@@ -90,7 +91,8 @@ class CoreRuntime(CoreAPI):
         stringified without validation. The process-default job manager is shared,
         not owned. Unless explicitly overridden, neither it nor an injected manager
         is closed at shutdown. Service preparation and incremental registrations
-        precede completion; construction failure has no compensating teardown here.
+        precede completion. Direct construction has no compensating teardown;
+        ``create_core`` owns and rolls back its precomposed graph.
 
         Example:
             >>> runtime = CoreRuntime(library=library, job_manager=manager)  # doctest: +SKIP
@@ -114,23 +116,32 @@ class CoreRuntime(CoreAPI):
         :param close_cache_on_shutdown: Explicit cache cleanup policy; None delegates ownership-based selection to CoreServices.
         :param close_library_on_shutdown: Whether CoreServices should close the hosted library during shutdown.
         :param close_job_manager_on_shutdown: Explicit manager shutdown flag; None currently selects false.
+        :param library_services: Optional precomposed per-library owner supplied by
+            ``create_core``; when present its CoreServices instance is reused and
+            shutdown closes the complete owned graph.
         :return: ``None`` after successful composition and handler installation, without starting an HTTP server.
         """
-        self._services = CoreServices(
-            library=library,
-            catalog=catalog,
-            cache=cache,
-            cache_type=cache_type,
-            cache_kwargs=cache_kwargs,
-            read_source=read_source,
-            preferences=preferences,
-            library_preferences=library_preferences,
-            field_metadata=field_metadata,
-            maintenance=maintenance,
-            cache_allow_database_fallback=cache_allow_database_fallback,
-            close_cache_on_shutdown=close_cache_on_shutdown,
-            close_library_on_shutdown=close_library_on_shutdown,
-        )
+        self._library_services = library_services
+        if library_services is None:
+            self._services = CoreServices(
+                library=library,
+                catalog=catalog,
+                cache=cache,
+                cache_type=cache_type,
+                cache_kwargs=cache_kwargs,
+                read_source=read_source,
+                preferences=preferences,
+                library_preferences=library_preferences,
+                field_metadata=field_metadata,
+                maintenance=maintenance,
+                cache_allow_database_fallback=cache_allow_database_fallback,
+                close_cache_on_shutdown=close_cache_on_shutdown,
+                close_library_on_shutdown=close_library_on_shutdown,
+            )
+        else:
+            if library is not library_services.library:
+                raise ValueError("library must be the LibraryServices-owned facade.")
+            self._services = library_services.core_services
         self._library = self._services.library
         self._core_uuid = str(core_uuid or uuid.uuid4())
         self._core_version = str(core_version)
@@ -575,8 +586,8 @@ class CoreRuntime(CoreAPI):
         The flag is set before cleanup and repeated calls return zero without
         retrying failed cleanup. Opted-in manager shutdown runs in finally with
         wait false/cancel_pending true; its error can replace a service-close error.
-        Cleanup failure prevents the shutdown event. This method does not acquire
-        the handler lock or await running jobs.
+        Cleanup failure prevents the shutdown event. Cleanup acquires the same
+        lock as command/query dispatch, but does not await managed jobs.
 
         Example:
             >>> exit_code = runtime.shutdown()  # doctest: +SKIP
@@ -587,14 +598,18 @@ class CoreRuntime(CoreAPI):
         if self._shutdown:
             return 0
         self._shutdown = True
-        try:
-            self.services.close()
-        finally:
-            if self._close_job_manager_on_shutdown:
-                self.job_manager.shutdown(
-                    wait=False,
-                    cancel_pending=True,
-                )
+        with self._command_lock:
+            try:
+                if self._library_services is not None:
+                    self._library_services.close()
+                else:
+                    self.services.close()
+            finally:
+                if self._close_job_manager_on_shutdown:
+                    self.job_manager.shutdown(
+                        wait=False,
+                        cancel_pending=True,
+                    )
         self.emit_event("core.shutdown", {"reason": "explicit"})
         return 0
 

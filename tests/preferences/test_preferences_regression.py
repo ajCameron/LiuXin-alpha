@@ -127,6 +127,7 @@ use_import_cache = bool:true
     )
 
     prefs = prefs_mod.preferences
+    prefs_mod.initialize_preferences()
 
     # The target key should now be accessible (no KeyError) and should equal the default (False).
     assert prefs["use_series_auto_increment_tweak_when_importing"] is False
@@ -216,6 +217,8 @@ def test_fresh_install_creates_complete_file(
         if module_kind == "alpha"
         else _reload_liuxin_preferences(monkeypatch, tmp_path)
     )
+
+    prefs_mod.initialize_preferences()
 
     assert prefs_path.exists(), "Fresh install should create the prefs INI"
 

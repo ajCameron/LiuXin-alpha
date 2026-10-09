@@ -13,6 +13,7 @@ import argparse
 import logging
 import sys
 from collections.abc import Callable, Mapping
+from contextlib import nullcontext, redirect_stdout
 from pathlib import Path
 from uuid import UUID
 
@@ -99,31 +100,66 @@ def _run_ingest(
         """
         _log(level, event, message, run_id=run_id, **dict(details))
 
-    result = execute_mixed_ingest(
-        MixedIngestApplicationRequest(
-            source_root=source_root,
-            run_id=run_id,
-            budget=_budget(args),
-            discovery_only=discovery_only,
-            database_path=database_path,
-            recursive_filesystem=not bool(args.no_recursive_filesystem),
-            recurse_containers=not bool(args.no_nested_containers),
-            expand_ebook_containers=bool(args.expand_ebook_containers),
-            continue_on_error=not bool(args.strict),
-            verify=bool(args.verify),
-            materialization_root=args.materialization_root,
-            unsquashfs_exe=str(args.unsquashfs_exe),
-            rar_extractor_exe=args.rar_extractor_exe,
-            backend_timeout_s=float(args.backend_timeout_seconds),
-            log_checkpoint_every=int(args.log_checkpoint_every),
-            progress_callback=(
-                None if bool(args.no_console_progress) else _console_progress
-            ),
-            cancellation_callback=cancellation_callback,
-            event_callback=application_event,
-            database_stdout=captured_stdout,
-        )
+    request = MixedIngestApplicationRequest(
+        source_root=source_root,
+        run_id=run_id,
+        budget=_budget(args),
+        discovery_only=discovery_only,
+        database_path=database_path,
+        recursive_filesystem=not bool(args.no_recursive_filesystem),
+        recurse_containers=not bool(args.no_nested_containers),
+        expand_ebook_containers=bool(args.expand_ebook_containers),
+        continue_on_error=not bool(args.strict),
+        verify=bool(args.verify),
+        materialization_root=args.materialization_root,
+        unsquashfs_exe=str(args.unsquashfs_exe),
+        rar_extractor_exe=args.rar_extractor_exe,
+        backend_timeout_s=float(args.backend_timeout_seconds),
+        log_checkpoint_every=int(args.log_checkpoint_every),
+        progress_callback=(
+            None if bool(args.no_console_progress) else _console_progress
+        ),
+        cancellation_callback=cancellation_callback,
+        event_callback=application_event,
+        database_stdout=captured_stdout,
     )
+    if discovery_only:
+        result = execute_mixed_ingest(request)
+    else:
+        assert database_path is not None
+        from LiuXin_alpha.core.library_services import LibraryServices
+
+        create = not database_path.exists()
+        application_event(
+            logging.INFO,
+            "database_open_started",
+            "Opening LiuXin catalogue",
+            {"database": str(database_path), "create": create},
+        )
+        stdout_context = (
+            nullcontext()
+            if captured_stdout is None
+            else redirect_stdout(captured_stdout)
+        )
+        with stdout_context:
+            lifecycle = LibraryServices.open(
+                database_path=database_path,
+                db_type="SQLite",
+                create=create,
+                backup=False,
+                storage_startup_on_add=True,
+                enable_maintenance=False,
+            )
+        with lifecycle:
+            if captured_stdout is not None:
+                captured_stdout.flush()
+            application_event(
+                logging.INFO,
+                "database_open_complete",
+                "LiuXin catalogue opened",
+                {"database": str(database_path), "created": create},
+            )
+            result = execute_mixed_ingest(request, library=lifecycle.library)
     report = result.report
     if discovery_only:
         payload: dict[str, object] = {

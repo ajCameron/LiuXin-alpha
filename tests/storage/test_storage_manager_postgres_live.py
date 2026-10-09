@@ -130,6 +130,7 @@ def test_storage_ingest_concurrency_restart_and_recovery_on_live_postgres(
             db_type="PostgreSQL",
             create=False,
             backup=False,
+            enable_storage_manager=True,
             storage_startup_on_add=True,
         )
         second = Database(
@@ -137,6 +138,7 @@ def test_storage_ingest_concurrency_restart_and_recovery_on_live_postgres(
             db_type="PostgreSQL",
             create=False,
             backup=False,
+            enable_storage_manager=True,
             storage_startup_on_add=True,
         )
         try:
@@ -204,6 +206,10 @@ def test_storage_ingest_concurrency_restart_and_recovery_on_live_postgres(
                 )
             )
         finally:
+            if first.storage is not None:
+                first.storage.close()
+            if second.storage is not None:
+                second.storage.close()
             first.close()
             second.close()
 
@@ -212,6 +218,7 @@ def test_storage_ingest_concurrency_restart_and_recovery_on_live_postgres(
             db_type="PostgreSQL",
             create=False,
             backup=False,
+            enable_storage_manager=True,
             storage_startup_on_add=True,
         ) as restarted:
             assert restarted.storage is not None
@@ -232,5 +239,6 @@ def test_storage_ingest_concurrency_restart_and_recovery_on_live_postgres(
                 for issue in restarted.storage.get_operational_status().issues
                 if issue.code in {"ingest_pending", "ingest_failed"}
             )
+            restarted.storage.close()
     finally:
         _drop_schema(metadata, schema)

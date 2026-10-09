@@ -82,6 +82,7 @@ class CoreServices:
         library_preferences: Any | None = None,
         field_metadata: Any | None = None,
         maintenance: Any | None = None,
+        enable_maintenance: bool = True,
         cache_allow_database_fallback: bool = True,
         close_cache_on_shutdown: bool | None = None,
         close_library_on_shutdown: bool = False,
@@ -112,6 +113,8 @@ class CoreServices:
         :param library_preferences: Optional library preference facade; otherwise DBPrefs is constructed lazily.
         :param field_metadata: Optional field metadata object; an explicit refresh discards even this injected object.
         :param maintenance: Optional borrowed maintenance service; otherwise borrowed from database or constructed lazily.
+        :param enable_maintenance: Whether lazy maintenance construction is allowed
+            when no service was supplied or attached to the database.
         :param cache_allow_database_fallback: Truth-converted fallback flag for a lazily composed cache read source.
         :param close_cache_on_shutdown: Explicit cache cleanup flag; ``None`` defaults to whether a cache type was constructed.
         :param close_library_on_shutdown: Whether close should call the library's optional close method.
@@ -139,6 +142,7 @@ class CoreServices:
         self._field_metadata = field_metadata
         self._maintenance = maintenance
         self._owns_maintenance = False
+        self.enable_maintenance = bool(enable_maintenance)
         self.cache_allow_database_fallback = bool(cache_allow_database_fallback)
         self.close_library_on_shutdown = bool(close_library_on_shutdown)
         self._closed = False
@@ -371,6 +375,8 @@ class CoreServices:
         if self._maintenance is None:
             self._maintenance = getattr(self.database, "maintenance", None)
         if self._maintenance is None:
+            if not self.enable_maintenance:
+                raise RuntimeError("Maintenance is disabled for this library session.")
             from LiuXin_alpha.databases.maintenance.service import Maintainer
 
             self._maintenance = Maintainer(self.database)
@@ -620,9 +626,9 @@ class CoreServices:
 
         Cache cleanup first unbinds it from storage when possible. Borrowed caches
         retained by policy are not unbound. The closed flag is set before cleanup;
-        one failure prevents later cleanup and subsequent close calls do not retry.
-        This method neither closes an injected Catalog/read source nor prevents
-        later lazy property access.
+        every selected closer is attempted, failures are raised as a group, and
+        subsequent close calls do not retry. This method neither closes an injected
+        Catalog/read source nor prevents later lazy property access.
 
         Example:
             >>> from types import SimpleNamespace
@@ -636,20 +642,32 @@ class CoreServices:
         if self._closed:
             return
         self._closed = True
+        failures: list[BaseException] = []
         if self.close_cache_on_shutdown and self.cache is not None:
-            storage = getattr(self.database, "storage", None)
-            unbind = getattr(storage, "bind_metadata_cache", None)
-            if callable(unbind):
-                unbind(None)
-            self.cache.close()
+            try:
+                storage = getattr(self.database, "storage", None)
+                unbind = getattr(storage, "bind_metadata_cache", None)
+                if callable(unbind):
+                    unbind(None)
+                self.cache.close()
+            except BaseException as error:
+                failures.append(error)
         if self._owns_maintenance and self._maintenance is not None:
-            stop = getattr(self._maintenance, "stop", None)
-            if callable(stop):
-                stop()
+            try:
+                stop = getattr(self._maintenance, "stop", None)
+                if callable(stop):
+                    stop()
+            except BaseException as error:
+                failures.append(error)
         if self.close_library_on_shutdown:
-            close = getattr(self.library, "close", None)
-            if callable(close):
-                close()
+            try:
+                close = getattr(self.library, "close", None)
+                if callable(close):
+                    close()
+            except BaseException as error:
+                failures.append(error)
+        if failures:
+            raise BaseExceptionGroup("Core service cleanup failed", failures)
 
 
 __all__ = [

@@ -18,6 +18,27 @@ from typing import Any, cast
 from uuid import UUID
 
 
+def _open_library_services(
+    *,
+    database_path: str,
+    db_type: str,
+    create: bool = False,
+    storage_startup_on_add: bool = False,
+):
+    """Open a one-shot library through Core's sole lifecycle owner."""
+
+    from LiuXin_alpha.core.library_services import LibraryServices
+
+    return LibraryServices.open(
+        database_path=database_path,
+        db_type=db_type,
+        create=create,
+        backup=False,
+        storage_startup_on_add=storage_startup_on_add,
+        enable_maintenance=False,
+    )
+
+
 def _plain(value: Any) -> Any:
     """
     Recursively unpack recognized report containers without requiring JSON-compatible leaves.
@@ -108,15 +129,13 @@ def run_ingest_disk_job(
     :raises TypeError: If the completed report does not convert to a dictionary.
     """
 
-    from LiuXin_alpha.library import Library
-
     plain: Any = None
-    with Library(
+    with _open_library_services(
         database_path=database_path,
         db_type=db_type,
         create=False,
-        backup=False,
-    ) as library:
+    ) as lifecycle:
+        library = lifecycle.library
         report = library.register_unmanaged_disk(
             disk_path=disk_path,
             store_name=store_name,
@@ -208,15 +227,6 @@ def run_sync_store_job(
     :raises TypeError: If the returned report does not convert to a dictionary.
     """
 
-    from LiuXin_alpha.ingest.remote_html import (
-        register_native_html_readonly_with_database_path,
-        register_wget_html_readonly_with_database_path,
-    )
-    from LiuXin_alpha.storage.reconcile import (
-        register_existing_disk_with_database_path,
-        register_rclone_http_readonly_with_database_path,
-    )
-
     def progress(event: str, report: Any, details: Mapping[str, Any]) -> None:
         """
         Print recognized progress events, throttling scan ticks but not crawler log lines.
@@ -266,85 +276,96 @@ def run_sync_store_job(
 
     callback = progress if progress_output else None
     normalized = str(mode or "").strip().lower()
-    if normalized == "rclone":
-        report = register_rclone_http_readonly_with_database_path(
-            database_path=database_path,
-            remote_url=store_root_uri,
-            db_type=db_type,
-            store_name=store_name,
-            store_kind=store_kind,
-            max_http_requests_per_hour=max_http_requests_per_hour,
-            rclone_args=rclone_args,
-            ebook_extensions=ebook_extensions,
-            source_label=source_label,
-            capture_hashes=capture_hashes,
-            attach_store_links=attach_store_links,
-            refresh_storage_manager=refresh_storage_manager,
-            progress_callback=callback,
-        )
-    elif normalized == "wget":
-        report = register_wget_html_readonly_with_database_path(
-            database_path=database_path,
-            remote_url=store_root_uri,
-            db_type=db_type,
-            store_name=store_name,
-            store_kind=store_kind,
-            max_http_requests_per_hour=max_http_requests_per_hour,
-            wget_args=wget_args,
-            timeout_s=crawler_timeout_s,
-            recurse=crawler_recurse,
-            max_depth=crawler_max_depth,
-            no_parent=crawler_no_parent,
-            span_hosts=crawler_span_hosts,
-            respect_robots=crawler_respect_robots,
-            user_agent=crawler_user_agent,
-            no_verbose=wget_no_verbose,
-            ebook_extensions=ebook_extensions,
-            source_label=source_label,
-            attach_store_links=attach_store_links,
-            refresh_storage_manager=refresh_storage_manager,
-            incremental_db_writes=bool(crawler_incremental_db_writes),
-            progress_callback=callback,
-        )
-    elif normalized == "native":
-        report = register_native_html_readonly_with_database_path(
-            database_path=database_path,
-            remote_url=store_root_uri,
-            db_type=db_type,
-            store_name=store_name,
-            store_kind=store_kind,
-            max_http_requests_per_hour=max_http_requests_per_hour,
-            timeout_s=crawler_timeout_s,
-            recurse=crawler_recurse,
-            max_depth=crawler_max_depth,
-            no_parent=crawler_no_parent,
-            span_hosts=crawler_span_hosts,
-            respect_robots=crawler_respect_robots,
-            user_agent=crawler_user_agent,
-            ebook_extensions=ebook_extensions,
-            source_label=source_label,
-            attach_store_links=attach_store_links,
-            refresh_storage_manager=refresh_storage_manager,
-            incremental_db_writes=bool(crawler_incremental_db_writes),
-            progress_callback=callback,
-        )
-    elif normalized == "local":
-        report = register_existing_disk_with_database_path(
-            database_path=database_path,
-            disk_path=store_root_uri,
-            db_type=db_type,
-            store_name=store_name,
-            store_kind=store_kind,
-            ebook_extensions=ebook_extensions,
-            source_label=source_label,
-            compute_hash=compute_hash,
-            follow_symlinks=follow_symlinks,
-            attach_store_links=attach_store_links,
-            refresh_storage_manager=refresh_storage_manager,
-            progress_callback=callback,
-        )
-    else:
+    if normalized not in {"rclone", "wget", "native", "local"}:
         raise ValueError("Unknown sync mode: {!r}".format(mode))
+
+    from LiuXin_alpha.ingest.remote_html import (
+        register_native_html_readonly_store_files,
+        register_wget_html_readonly_store_files,
+    )
+    from LiuXin_alpha.storage.reconcile import (
+        register_existing_disk_as_unmanaged_store,
+        register_rclone_http_readonly_store_files,
+    )
+
+    with _open_library_services(
+        database_path=database_path,
+        db_type=db_type,
+    ) as lifecycle:
+        library = lifecycle.library
+        if normalized == "rclone":
+            report = register_rclone_http_readonly_store_files(
+                library.db,
+                remote_url=store_root_uri,
+                store_name=store_name,
+                store_kind=store_kind,
+                max_http_requests_per_hour=max_http_requests_per_hour,
+                rclone_args=rclone_args,
+                ebook_extensions=ebook_extensions,
+                source_label=source_label,
+                capture_hashes=capture_hashes,
+                attach_store_links=attach_store_links,
+                refresh_storage_manager=refresh_storage_manager,
+                progress_callback=callback,
+            )
+        elif normalized == "wget":
+            report = register_wget_html_readonly_store_files(
+                library.db,
+                remote_url=store_root_uri,
+                store_name=store_name,
+                store_kind=store_kind,
+                max_http_requests_per_hour=max_http_requests_per_hour,
+                wget_args=wget_args,
+                timeout_s=crawler_timeout_s,
+                recurse=crawler_recurse,
+                max_depth=crawler_max_depth,
+                no_parent=crawler_no_parent,
+                span_hosts=crawler_span_hosts,
+                respect_robots=crawler_respect_robots,
+                user_agent=crawler_user_agent,
+                no_verbose=wget_no_verbose,
+                ebook_extensions=ebook_extensions,
+                source_label=source_label,
+                attach_store_links=attach_store_links,
+                refresh_storage_manager=refresh_storage_manager,
+                incremental_db_writes=bool(crawler_incremental_db_writes),
+                progress_callback=callback,
+            )
+        elif normalized == "native":
+            report = register_native_html_readonly_store_files(
+                library.db,
+                remote_url=store_root_uri,
+                store_name=store_name,
+                store_kind=store_kind,
+                max_http_requests_per_hour=max_http_requests_per_hour,
+                timeout_s=crawler_timeout_s,
+                recurse=crawler_recurse,
+                max_depth=crawler_max_depth,
+                no_parent=crawler_no_parent,
+                span_hosts=crawler_span_hosts,
+                respect_robots=crawler_respect_robots,
+                user_agent=crawler_user_agent,
+                ebook_extensions=ebook_extensions,
+                source_label=source_label,
+                attach_store_links=attach_store_links,
+                refresh_storage_manager=refresh_storage_manager,
+                incremental_db_writes=bool(crawler_incremental_db_writes),
+                progress_callback=callback,
+            )
+        else:
+            report = register_existing_disk_as_unmanaged_store(
+                library.db,
+                disk_path=store_root_uri,
+                store_name=store_name,
+                store_kind=store_kind,
+                ebook_extensions=ebook_extensions,
+                source_label=source_label,
+                compute_hash=compute_hash,
+                follow_symlinks=follow_symlinks,
+                attach_store_links=attach_store_links,
+                refresh_storage_manager=refresh_storage_manager,
+                progress_callback=callback,
+            )
 
     plain = _plain(report)
     if not isinstance(plain, dict):
@@ -382,8 +403,6 @@ def run_ingest_remote_html_job(
     :raises TypeError: For invalid keyword arguments or a report that is not dictionary-shaped.
     """
 
-    from LiuXin_alpha.library import Library
-
     token = str(kind).strip().lower().replace("-", "_")
     methods = {
         "wget_html": "register_wget_html_store",
@@ -393,12 +412,12 @@ def run_ingest_remote_html_job(
     if method_name is None:
         raise ValueError("Unsupported remote HTML ingest kind: {!r}".format(kind))
     plain: Any = None
-    with Library(
+    with _open_library_services(
         database_path=database_path,
         db_type=db_type,
         create=False,
-        backup=False,
-    ) as library:
+    ) as lifecycle:
+        library = lifecycle.library
         method = getattr(library, method_name)
         report = method(**dict(options))
         plain = _plain(report)
@@ -628,7 +647,6 @@ def run_squashfs_backup_job(
     :raises TypeError: If mapping decoding fails or the result does not convert to a dictionary.
     """
 
-    from LiuXin_alpha.library import Library
     from LiuXin_alpha.storage.api import BackupWorkflowDeclaration
     from LiuXin_alpha.storage.backup import SquashfsBackupWorkflow
 
@@ -648,12 +666,12 @@ def run_squashfs_backup_job(
         )
 
     plain: Any = None
-    with Library(
+    with _open_library_services(
         database_path=database_path,
         db_type=db_type,
         create=False,
-        backup=False,
-    ) as library:
+    ) as lifecycle:
+        library = lifecycle.library
         workflow = SquashfsBackupWorkflow.from_declaration(
             spec,
             storage_manager=library.storage,
@@ -706,15 +724,13 @@ def run_publish_open_squashfs_store_job(
     :raises TypeError: If the completed report does not convert to a dictionary.
     """
 
-    from LiuXin_alpha.library import Library
-
     plain: Any = None
-    with Library(
+    with _open_library_services(
         database_path=database_path,
         db_type=db_type,
         create=False,
-        backup=False,
-    ) as library:
+    ) as lifecycle:
+        library = lifecycle.library
         report = library.publish_open_squashfs_store(
             store_id=int(store_id),
             output_archive=output_archive,
@@ -772,15 +788,13 @@ def run_publish_squashfs_files_job(
     :raises TypeError: If the completed report does not convert to a dictionary.
     """
 
-    from LiuXin_alpha.library import Library
-
     plain: Any = None
-    with Library(
+    with _open_library_services(
         database_path=database_path,
         db_type=db_type,
         create=False,
-        backup=False,
-    ) as library:
+    ) as lifecycle:
+        library = lifecycle.library
         report = library.publish_squashfs_archive_from_file_ids(
             file_ids=[int(value) for value in file_ids],
             archive_path=str(archive),
@@ -829,7 +843,6 @@ def run_persisted_backup_job(
     :raises RuntimeError: If no result payload was assembled before leaving the library context.
     """
 
-    from LiuXin_alpha.library import Library
     from LiuXin_alpha.storage.api import WorkflowStatus
     from LiuXin_alpha.storage.backup import (
         BackupArtifactRegistry,
@@ -838,12 +851,12 @@ def run_persisted_backup_job(
     )
 
     result_payload: dict[str, Any] | None = None
-    with Library(
+    with _open_library_services(
         database_path=database_path,
         db_type=db_type,
         create=False,
-        backup=False,
-    ) as library:
+    ) as lifecycle:
+        library = lifecycle.library
         repository = BackupWorkflowRepository(library.db)
         checkpoint = repository.load_checkpoint(int(workflow_id))
         workflow = SquashfsBackupWorkflow.from_checkpoint(

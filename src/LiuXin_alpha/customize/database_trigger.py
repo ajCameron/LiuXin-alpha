@@ -12,9 +12,6 @@ Example:
 
 from copy import deepcopy
 
-from LiuXin_alpha.databases.database import Database
-
-
 class Trigger:
     """
     A trigger to be run on the database.
@@ -39,9 +36,8 @@ class Trigger:
         :return: None; validated state is stored on the receiving object.
         """
         if database is None:
-            self.db = Database()
-        else:
-            self.db = database
+            raise ValueError("Trigger requires an open database from LibraryServices.")
+        self.db = database
 
         self._trigger_conditions = {
             "after delete": set([]),

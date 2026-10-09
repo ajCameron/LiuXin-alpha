@@ -223,11 +223,11 @@ class Database(
         create: bool = False,
         backup: bool = True,
         existing_driver: Optional[DatabaseDriverAPI] = None,
-        enable_storage_manager: bool = True,
+        enable_storage_manager: bool = False,
         strict_storage_manager_bootstrap: bool = False,
         storage_startup_on_add: bool = False,
         repair_bootstrap_rows: bool = True,
-        enable_maintenance: bool = True,
+        enable_maintenance: bool = False,
     ) -> None:
         """
         Open or create a backend and attach the shared queues and runtime services.
@@ -387,7 +387,7 @@ class Database(
         existing_driver: DatabaseDriverAPI,
         *,
         repair_bootstrap_rows: bool = True,
-        enable_maintenance: bool = True,
+        enable_maintenance: bool = False,
     ) -> None:
         """
         Bind an existing driver, classify its schema and initialize runtime helpers.
@@ -465,7 +465,7 @@ class Database(
         create=False,
         backup=True,
         repair_bootstrap_rows: bool = True,
-        enable_maintenance: bool = True,
+        enable_maintenance: bool = False,
     ):
         """
         Select a backend and create its schema when explicit or required for a new file.
@@ -552,7 +552,7 @@ class Database(
 
         self._initialise_runtime_collaborators(enable_maintenance=enable_maintenance)
 
-    def _initialise_runtime_collaborators(self, *, enable_maintenance: bool = True) -> None:
+    def _initialise_runtime_collaborators(self, *, enable_maintenance: bool = False) -> None:
         """
         Bind maintenance callbacks, preferences and collaborator back-references.
 
