@@ -2264,7 +2264,6 @@ def test_public_exports_reject_ambiguous_legacy_value_names() -> None:
         "RecipeArtifactReference",
         "RecipeInput",
         "RecipeInputReference",
-        "BackupArtifactRegistration",
         "Replica",
         "ReplicaSpec",
         "ReplicationPlan",
@@ -2295,9 +2294,9 @@ def test_public_exports_reject_ambiguous_legacy_value_names() -> None:
 
 def test_repository_ports_operate_on_domain_values_not_record_protocols() -> None:
     """
-    Verify a minimal structural repository satisfies the persistence protocol and add returns a
-    domain Asset record. The fixture has no persistent state; the public facade must not export
-    RecordAPI.
+    Verify a minimal structural repository satisfies the persistence protocol and declaration add
+    returns a domain Asset record. The fixture has no persistent state; the public facade must not
+    export RecordAPI.
 
     Example:
         >>> test_repository_ports_operate_on_domain_values_not_record_protocols()  # doctest: +SKIP
@@ -2315,13 +2314,13 @@ def test_repository_ports_operate_on_domain_values_not_record_protocols() -> Non
             >>> repository = _AssetRepository()  # doctest: +SKIP
         """
 
-        def add(self, declaration):
+        def add_from_declaration(self, declaration):
             """
             Synthesize Asset ID 7 while retaining the declaration size, digests, and metadata. No
             repository state is written.
 
             Example:
-                >>> created = repository.add(declaration)  # doctest: +SKIP
+                >>> created = repository.add_from_declaration(declaration)  # doctest: +SKIP
 
 
             :param declaration: Domain declaration whose content fields populate the fixture record.
@@ -2364,7 +2363,13 @@ def test_repository_ports_operate_on_domain_values_not_record_protocols() -> Non
             """
             return replace(self.get(digital_asset_id), metadata=metadata)
 
-        def find_by_digest(self, digest, *, size_bytes=None):
+        def find_by_digest(
+            self,
+            digest,
+            *,
+            algorithm="sha256",
+            size_bytes=None,
+        ):
             """
             Return a fixed no-match response without inspecting digest or size.
 
@@ -2374,6 +2379,7 @@ def test_repository_ports_operate_on_domain_values_not_record_protocols() -> Non
 
 
             :param digest: Ignored search digest.
+            :param algorithm: Ignored algorithm used only for plain digest text.
             :param size_bytes: Ignored optional expected byte count.
             :return: None for every search.
             """
@@ -2411,7 +2417,9 @@ def test_repository_ports_operate_on_domain_values_not_record_protocols() -> Non
 
     repository = _AssetRepository()
     assert isinstance(repository, api.DigitalAssetRepositoryAPI)
-    created = repository.add(api.DigitalAssetDeclaration(4, (_sha256(b"book"),)))
+    created = repository.add_from_declaration(
+        api.DigitalAssetDeclaration(4, (_sha256(b"book"),))
+    )
     assert isinstance(created, api.DigitalAssetRecord)
     assert "RecordAPI" not in api.__all__
 
@@ -5117,14 +5125,34 @@ def test_storage_manager_exposes_concrete_convenience_operations() -> None:
     """
     from LiuXin_alpha.storage.api import storage_manager_api
     from LiuXin_alpha.storage.api.storage_manager_api.convenience_api import (
+        CompositeConvenienceMixin,
+        DerivationConvenienceMixin,
+        DigitalAssetConvenienceMixin,
         DigitalAssetFileIdentifier,
+        ItemLinkConvenienceMixin,
         StorageConvenienceAPI,
+        StorageConvenienceBase,
+        StoragePolicyConvenienceMixin,
     )
 
     assert issubclass(api.StorageManagerAPI, StorageConvenienceAPI)
+    assert StorageConvenienceBase.__bases__ == (
+        DigitalAssetConvenienceMixin,
+        ItemLinkConvenienceMixin,
+        CompositeConvenienceMixin,
+        StoragePolicyConvenienceMixin,
+        DerivationConvenienceMixin,
+    )
     assert api.StorageConvenienceAPI is StorageConvenienceAPI
     assert api.DigitalAssetFileIdentifier is DigitalAssetFileIdentifier
     assert "DigitalAssetFileIdentifier" in storage_manager_api.__all__
+    assert {
+        "CompositeConvenienceMixin",
+        "DerivationConvenienceMixin",
+        "DigitalAssetConvenienceMixin",
+        "ItemLinkConvenienceMixin",
+        "StoragePolicyConvenienceMixin",
+    }.issubset(storage_manager_api.__all__)
     assert (
         inspect.signature(api.StorageManagerAPI.get_file)
         .parameters["identifier"]

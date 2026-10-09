@@ -17,7 +17,10 @@ from datetime import UTC, datetime
 from threading import RLock
 from uuid import UUID, uuid4
 
-import LiuXin_alpha.storage.api as api
+from LiuXin_alpha.storage.api import errors as storage_errors
+from LiuXin_alpha.storage.api import models as storage_models
+from LiuXin_alpha.storage.api import placement_hints_api, store_api
+from LiuXin_alpha.storage.api import storage_manager_api as manager_api
 from LiuXin_alpha.storage.storage_manager.mixins._state import _StorageManagerState
 from LiuXin_alpha.storage.storage_manager.mixins._types import (
     _Hasher,
@@ -142,15 +145,15 @@ class _StorageManagerSupportMixin(_StorageManagerState):
         """
 
         if expected is not None and current != expected:
-            raise api.StoragePreconditionFailed(
+            raise storage_errors.StoragePreconditionFailed(
                 f"revision precondition failed: expected {expected!r}, "
                 f"found {current!r}."
             )
 
     def _require_asset_locked(
         self,
-        digital_asset_id: api.DigitalAssetID,
-    ) -> api.DigitalAssetRecord:
+        digital_asset_id: manager_api.DigitalAssetID,
+    ) -> manager_api.DigitalAssetRecord:
         """
         Look up a retained atomic Asset record while the caller holds the manager lock.
 
@@ -169,14 +172,14 @@ class _StorageManagerSupportMixin(_StorageManagerState):
         try:
             return self._assets[digital_asset_id]
         except KeyError as error:
-            raise api.DigitalAssetNotFound(
+            raise manager_api.DigitalAssetNotFound(
                 f"Digital Asset {digital_asset_id} is not registered."
             ) from error
 
     def _require_replica_locked(
         self,
-        replica_id: api.ReplicaID,
-    ) -> api.ReplicaRecord:
+        replica_id: manager_api.ReplicaID,
+    ) -> manager_api.ReplicaRecord:
         """
         Look up a retained Replica record while the caller holds the manager lock.
 
@@ -195,14 +198,14 @@ class _StorageManagerSupportMixin(_StorageManagerState):
         try:
             return self._replicas[replica_id]
         except KeyError as error:
-            raise api.ReplicaNotFound(
+            raise manager_api.ReplicaNotFound(
                 f"Replica {replica_id} is not registered."
             ) from error
 
     def _require_composite_locked(
         self,
-        composite_digital_asset_id: api.CompositeDigitalAssetID,
-    ) -> api.CompositeDigitalAssetRecord:
+        composite_digital_asset_id: manager_api.CompositeDigitalAssetID,
+    ) -> manager_api.CompositeDigitalAssetRecord:
         """
         Look up a retained Composite record while the caller holds the manager lock.
 
@@ -221,16 +224,16 @@ class _StorageManagerSupportMixin(_StorageManagerState):
         try:
             return self._composites[composite_digital_asset_id]
         except KeyError as error:
-            raise api.CompositeDigitalAssetNotFound(
+            raise manager_api.CompositeDigitalAssetNotFound(
                 "Composite Digital Asset "
                 f"{composite_digital_asset_id} is not registered."
             ) from error
 
     def _find_asset_locked(
         self,
-        digests: tuple[api.Digest, ...],
+        digests: tuple[storage_models.Digest, ...],
         size_bytes: int | None,
-    ) -> api.DigitalAssetRecord | None:
+    ) -> manager_api.DigitalAssetRecord | None:
         """
         Find the first Asset by sorted ID whose optional size and overlapping digests agree.
 
@@ -263,8 +266,8 @@ class _StorageManagerSupportMixin(_StorageManagerState):
 
     @staticmethod
     def _require_expected_digests(
-        expected: tuple[api.Digest, ...],
-        observed: tuple[api.Digest, ...],
+        expected: tuple[storage_models.Digest, ...],
+        observed: tuple[storage_models.Digest, ...],
     ) -> None:
         """
         Require every stated expected algorithm/value in the observed digest mapping.
@@ -275,7 +278,7 @@ class _StorageManagerSupportMixin(_StorageManagerState):
 
         Example:
             >>> _StorageManagerSupportMixin._require_expected_digests(
-            ...     (api.Digest("sha256", "aa"),), (api.Digest("sha256", "aa"),),
+            ...     (storage_models.Digest("sha256", "aa"),), (storage_models.Digest("sha256", "aa"),),
             ... )
 
 
@@ -287,7 +290,7 @@ class _StorageManagerSupportMixin(_StorageManagerState):
         observed_by_algorithm = {digest.algorithm: digest.value for digest in observed}
         for digest in expected:
             if observed_by_algorithm.get(digest.algorithm) != digest.value:
-                raise api.StorageIntegrityError(
+                raise storage_errors.StorageIntegrityError(
                     f"{digest.algorithm} digest does not match expected value."
                 )
 
@@ -297,16 +300,18 @@ class _StorageManagerSupportMixin(_StorageManagerState):
         request: _IngestRequest,
         operation_id: UUID,
         size_bytes: int,
-        digests: tuple[api.Digest, ...],
-        item_id: api.ItemID | None,
+        digests: tuple[storage_models.Digest, ...],
+        item_id: manager_api.ItemID | None,
         role: str | None,
-        metadata: api.DigitalAssetMetadata,
-        placement_hints: api.StoragePlacementHints | None,
-        preferred_store_ref: api.StoreUUID | None,
-        replica_mode: api.ReplicaMode,
+        metadata: manager_api.DigitalAssetMetadata,
+        placement_hints: placement_hints_api.StoragePlacementHints | None,
+        preferred_store_ref: storage_models.StoreUUID | None,
+        replica_mode: manager_api.ReplicaMode,
         verify: bool,
-        publish: Callable[[api.StoreAPI, api.Location, api.Digest], None],
-    ) -> api.DigitalAssetIngestResult:
+        publish: Callable[
+            [store_api.StoreAPI, storage_models.Location, storage_models.Digest], None
+        ],
+    ) -> manager_api.DigitalAssetIngestResult:
         """
         Serialize completion for the exact supplied size/digest tuple, then delegate its workflow.
 
@@ -319,7 +324,7 @@ class _StorageManagerSupportMixin(_StorageManagerState):
             >>> result = manager._complete_authoritative_ingest(  # doctest: +SKIP
             ...     request=request, operation_id=operation_id, size_bytes=size, digests=digests,
             ...     item_id=None, role=None, metadata=metadata, placement_hints=None,
-            ...     preferred_store_ref=None, replica_mode=api.ReplicaMode.ACTIVE,
+            ...     preferred_store_ref=None, replica_mode=manager_api.ReplicaMode.ACTIVE,
             ...     verify=True, publish=publish,
             ... )
 
@@ -367,16 +372,18 @@ class _StorageManagerSupportMixin(_StorageManagerState):
         request: _IngestRequest,
         operation_id: UUID,
         size_bytes: int,
-        digests: tuple[api.Digest, ...],
-        item_id: api.ItemID | None,
+        digests: tuple[storage_models.Digest, ...],
+        item_id: manager_api.ItemID | None,
         role: str | None,
-        metadata: api.DigitalAssetMetadata,
-        placement_hints: api.StoragePlacementHints | None,
-        preferred_store_ref: api.StoreUUID | None,
-        replica_mode: api.ReplicaMode,
+        metadata: manager_api.DigitalAssetMetadata,
+        placement_hints: placement_hints_api.StoragePlacementHints | None,
+        preferred_store_ref: storage_models.StoreUUID | None,
+        replica_mode: manager_api.ReplicaMode,
         verify: bool,
-        publish: Callable[[api.StoreAPI, api.Location, api.Digest], None],
-    ) -> api.DigitalAssetIngestResult:
+        publish: Callable[
+            [store_api.StoreAPI, storage_models.Location, storage_models.Digest], None
+        ],
+    ) -> manager_api.DigitalAssetIngestResult:
         """
         Reuse a completed request or coordinate identity declaration, destination publication, and
         result registration.
@@ -403,7 +410,7 @@ class _StorageManagerSupportMixin(_StorageManagerState):
             >>> result = manager._complete_authoritative_ingest_locked(  # doctest: +SKIP
             ...     request=request, operation_id=operation_id, size_bytes=size, digests=digests,
             ...     item_id=None, role=None, metadata=metadata, placement_hints=None,
-            ...     preferred_store_ref=None, replica_mode=api.ReplicaMode.ACTIVE,
+            ...     preferred_store_ref=None, replica_mode=manager_api.ReplicaMode.ACTIVE,
             ...     verify=True, publish=publish,
             ... )
 
@@ -427,7 +434,7 @@ class _StorageManagerSupportMixin(_StorageManagerState):
             prior = self._ingest_operations.get(operation_id)
         if prior is not None:
             if prior.request != request:
-                raise api.StoragePreconditionFailed(
+                raise storage_errors.StoragePreconditionFailed(
                     "ingest operation ID was already used for a different request."
                 )
             return prior.result
@@ -445,7 +452,7 @@ class _StorageManagerSupportMixin(_StorageManagerState):
         asset_created = existing is None
         asset_record = (
             self.declare_digital_asset(
-                api.DigitalAssetDeclaration(
+                manager_api.DigitalAssetDeclaration(
                     size_bytes,
                     digests,
                     metadata,
@@ -498,11 +505,13 @@ class _StorageManagerSupportMixin(_StorageManagerState):
                         backup_policy_id,
                     )
                 replica_record = self._add_replica(
-                    api.ReplicaDeclaration(
+                    manager_api.ReplicaDeclaration(
                         asset_record.digital_asset_id,
                         location,
                         replica_mode,
-                        api.ReplicaObservation(api.ReplicaState.PRESENT),
+                        manager_api.ReplicaObservation(
+                            manager_api.ReplicaState.PRESENT
+                        ),
                         placement_hints=placement_hints,
                     )
                 )
@@ -520,7 +529,7 @@ class _StorageManagerSupportMixin(_StorageManagerState):
                         asset_record.digital_asset_id,
                         if_revision=asset_record.revision,
                     )
-                except api.StoragePreconditionFailed:
+                except storage_errors.StoragePreconditionFailed:
                     # Preserve the original Store failure if concurrent work
                     # acquired a legitimate reference to the declaration.
                     pass
@@ -530,8 +539,8 @@ class _StorageManagerSupportMixin(_StorageManagerState):
             replica_record = self.get_replica_record(replica_record.replica_id)
             verified = report.healthy
         else:
-            verified = replica_record.state is api.ReplicaState.VERIFIED
-        result = api.DigitalAssetIngestResult(
+            verified = replica_record.state is manager_api.ReplicaState.VERIFIED
+        result = manager_api.DigitalAssetIngestResult(
             operation_id,
             asset_record,
             replica_record,
@@ -579,11 +588,11 @@ class _StorageManagerSupportMixin(_StorageManagerState):
         self,
         operation_id: UUID,
         *,
-        asset_record: api.DigitalAssetRecord,
+        asset_record: manager_api.DigitalAssetRecord,
         asset_created: bool,
-        location: api.Location,
-        replica_mode: api.ReplicaMode,
-        placement_hints: api.StoragePlacementHints | None,
+        location: storage_models.Location,
+        replica_mode: manager_api.ReplicaMode,
+        placement_hints: placement_hints_api.StoragePlacementHints | None,
     ) -> None:
         """
         Provide the transient no-op hook immediately before the physical publication callback.
@@ -594,7 +603,7 @@ class _StorageManagerSupportMixin(_StorageManagerState):
         Example:
             >>> manager._journal_ingest_publication_pending(  # doctest: +SKIP
             ...     operation_id, asset_record=record, asset_created=True, location=location,
-            ...     replica_mode=api.ReplicaMode.ACTIVE, placement_hints=None,
+            ...     replica_mode=manager_api.ReplicaMode.ACTIVE, placement_hints=None,
             ... )
 
 
@@ -646,9 +655,9 @@ class _StorageManagerSupportMixin(_StorageManagerState):
 
     def _require_same_identity(
         self,
-        record: api.DigitalAssetRecord,
+        record: manager_api.DigitalAssetRecord,
         size_bytes: int,
-        observed_digests: tuple[api.Digest, ...],
+        observed_digests: tuple[storage_models.Digest, ...],
     ) -> None:
         """
         Require the registered size and all overlapping digest values to agree with supplied
@@ -669,7 +678,7 @@ class _StorageManagerSupportMixin(_StorageManagerState):
         """
 
         if record.size_bytes != size_bytes:
-            raise api.StorageIntegrityError(
+            raise storage_errors.StorageIntegrityError(
                 "observed size differs from the registered Digital Asset."
             )
         expected = {digest.algorithm: digest.value for digest in record.digests}
@@ -678,7 +687,7 @@ class _StorageManagerSupportMixin(_StorageManagerState):
         if not overlap or any(
             expected[algorithm] != observed[algorithm] for algorithm in overlap
         ):
-            raise api.StorageIntegrityError(
+            raise storage_errors.StorageIntegrityError(
                 "observed digests do not identify the registered Digital Asset."
             )
 
@@ -708,9 +717,9 @@ class _StorageManagerSupportMixin(_StorageManagerState):
 
     def _calculate_location_digests(
         self,
-        location: api.Location,
+        location: storage_models.Location,
         algorithms: Iterable[str],
-    ) -> tuple[api.Digest, ...]:
+    ) -> tuple[storage_models.Digest, ...]:
         """
         Read a Location once and return requested digests in normalized algorithm order.
 
@@ -739,12 +748,14 @@ class _StorageManagerSupportMixin(_StorageManagerState):
                 for hasher in hashers.values():
                     hasher.update(chunk)
         return tuple(
-            api.Digest(algorithm, hashers[algorithm].hexdigest())
+            storage_models.Digest(algorithm, hashers[algorithm].hexdigest())
             for algorithm in sorted(hashers)
         )
 
     @staticmethod
-    def _preferred_digest(record: api.DigitalAssetRecord) -> api.Digest:
+    def _preferred_digest(
+        record: manager_api.DigitalAssetRecord,
+    ) -> storage_models.Digest:
         """
         Choose the first SHA-256 entry, falling back to the first supplied digest.
 
@@ -767,11 +778,11 @@ class _StorageManagerSupportMixin(_StorageManagerState):
 
     def _inspect_replica(
         self,
-        record: api.ReplicaRecord,
-        asset_record: api.DigitalAssetRecord,
+        record: manager_api.ReplicaRecord,
+        asset_record: manager_api.DigitalAssetRecord,
         *,
         calculate_digests: bool,
-    ) -> api.ReplicaVerificationReport:
+    ) -> manager_api.ReplicaVerificationReport:
         """
         Inspect current Location evidence against the supplied Asset without updating manager
         records.
@@ -801,27 +812,27 @@ class _StorageManagerSupportMixin(_StorageManagerState):
         checked_at = datetime.now(UTC)
         try:
             info = self.stat(record.location)
-        except api.StoreNotFound as error:
-            return api.ReplicaVerificationReport(
+        except storage_errors.StoreNotFound as error:
+            return manager_api.ReplicaVerificationReport(
                 record.replica_id,
                 record.digital_asset_id,
-                api.ReplicaState.MISSING,
+                manager_api.ReplicaState.MISSING,
                 False,
                 checked_at=checked_at,
                 errors=(str(error) or "object is missing",),
             )
-        except api.StorageError as error:
-            return api.ReplicaVerificationReport(
+        except storage_errors.StorageError as error:
+            return manager_api.ReplicaVerificationReport(
                 record.replica_id,
                 record.digital_asset_id,
-                api.ReplicaState.UNAVAILABLE,
+                manager_api.ReplicaState.UNAVAILABLE,
                 None,
                 checked_at=checked_at,
                 errors=(str(error) or type(error).__name__,),
             )
 
         size_matches = info.size == asset_record.size_bytes
-        observed: tuple[api.Digest, ...] = ()
+        observed: tuple[storage_models.Digest, ...] = ()
         digest_matches: bool | None = None
         errors: list[str] = []
         if not size_matches:
@@ -855,14 +866,14 @@ class _StorageManagerSupportMixin(_StorageManagerState):
                 )
                 self._require_expected_digests(asset_record.digests, observed)
                 digest_matches = True
-            except api.StorageIntegrityError as error:
+            except storage_errors.StorageIntegrityError as error:
                 digest_matches = False
                 errors.append(str(error))
-            except api.StorageError as error:
-                return api.ReplicaVerificationReport(
+            except storage_errors.StorageError as error:
+                return manager_api.ReplicaVerificationReport(
                     record.replica_id,
                     record.digital_asset_id,
-                    api.ReplicaState.UNAVAILABLE,
+                    manager_api.ReplicaState.UNAVAILABLE,
                     None,
                     size_matches=size_matches,
                     observed_size_bytes=info.size,
@@ -870,12 +881,12 @@ class _StorageManagerSupportMixin(_StorageManagerState):
                     errors=(str(error) or type(error).__name__,),
                 )
         if not size_matches or digest_matches is False:
-            state = api.ReplicaState.CORRUPT
+            state = manager_api.ReplicaState.CORRUPT
         elif digest_matches is True:
-            state = api.ReplicaState.VERIFIED
+            state = manager_api.ReplicaState.VERIFIED
         else:
-            state = api.ReplicaState.PRESENT
-        return api.ReplicaVerificationReport(
+            state = manager_api.ReplicaState.PRESENT
+        return manager_api.ReplicaVerificationReport(
             record.replica_id,
             record.digital_asset_id,
             state,
@@ -890,9 +901,9 @@ class _StorageManagerSupportMixin(_StorageManagerState):
 
     def _update_replica_observation(
         self,
-        replica_id: api.ReplicaID,
-        observation: api.ReplicaObservation,
-    ) -> api.ReplicaRecord:
+        replica_id: manager_api.ReplicaID,
+        observation: manager_api.ReplicaObservation,
+    ) -> manager_api.ReplicaRecord:
         """
         Replace one existing observation under the manager lock and metadata context.
 
@@ -923,8 +934,8 @@ class _StorageManagerSupportMixin(_StorageManagerState):
 
     def _add_replica(
         self,
-        declaration: api.ReplicaDeclaration,
-    ) -> api.ReplicaRecord:
+        declaration: manager_api.ReplicaDeclaration,
+    ) -> manager_api.ReplicaRecord:
         """
         Require Asset/Store references, then register a claim if no nondeleted claim owns the
         Location.
@@ -951,16 +962,18 @@ class _StorageManagerSupportMixin(_StorageManagerState):
                     record
                     for record in self._replicas.values()
                     if record.location == declaration.location
-                    and record.state is not api.ReplicaState.DELETED
+                    and record.state is not manager_api.ReplicaState.DELETED
                 ),
                 None,
             )
             if conflict is not None:
-                raise api.StoragePreconditionFailed(
+                raise storage_errors.StoragePreconditionFailed(
                     "Location already has a live Replica claim."
                 )
-            replica_id = api.ReplicaID(self._allocate_metadata_id_locked("replica"))
-            record = api.ReplicaRecord(
+            replica_id = manager_api.ReplicaID(
+                self._allocate_metadata_id_locked("replica")
+            )
+            record = manager_api.ReplicaRecord(
                 replica_id,
                 declaration.digital_asset_id,
                 declaration.location,
@@ -975,10 +988,10 @@ class _StorageManagerSupportMixin(_StorageManagerState):
 
     def _find_replica_for_store(
         self,
-        digital_asset_id: api.DigitalAssetID,
-        store_ref: api.StoreUUID,
-        mode: api.ReplicaMode,
-    ) -> api.ReplicaRecord | None:
+        digital_asset_id: manager_api.DigitalAssetID,
+        store_ref: storage_models.StoreUUID,
+        mode: manager_api.ReplicaMode,
+    ) -> manager_api.ReplicaRecord | None:
         """
         Return the first nondeleted claim from the manager's filtered Replica snapshot.
 
@@ -1004,18 +1017,18 @@ class _StorageManagerSupportMixin(_StorageManagerState):
                     store_ref=store_ref,
                     mode=mode,
                 )
-                if record.state is not api.ReplicaState.DELETED
+                if record.state is not manager_api.ReplicaState.DELETED
             ),
             None,
         )
 
     def _require_writable_destination(
         self,
-        store_ref: api.StoreUUID,
-        mode: api.ReplicaMode,
+        store_ref: storage_models.StoreUUID,
+        mode: manager_api.ReplicaMode,
         *,
         expected_size: int | None = None,
-    ) -> api.StoreAPI:
+    ) -> store_api.StoreAPI:
         """
         Require writable configuration, supported mode, available/writable status, create
         capability, and supported object size.
@@ -1037,20 +1050,20 @@ class _StorageManagerSupportMixin(_StorageManagerState):
 
         configuration = self.get_store_configuration(store_ref)
         if configuration.read_only:
-            raise api.StoreReadOnly(configuration.store_name)
+            raise storage_errors.StoreReadOnly(configuration.store_name)
         if mode not in configuration.supported_replica_modes:
-            raise api.StoreUnsupportedOperation(
+            raise storage_errors.StoreUnsupportedOperation(
                 f"Store {configuration.store_name!r} does not support "
                 f"{mode.value} Replicas."
             )
         store = self.get_store(store_ref)
         status = store.status()
         if not status.available:
-            raise api.StoreUnavailable(configuration.store_name)
+            raise storage_errors.StoreUnavailable(configuration.store_name)
         if not status.writable:
-            raise api.StoreReadOnly(configuration.store_name)
+            raise storage_errors.StoreReadOnly(configuration.store_name)
         if not store.capabilities.create:
-            raise api.StoreUnsupportedOperation(
+            raise storage_errors.StoreUnsupportedOperation(
                 f"Store {configuration.store_name!r} cannot create objects."
             )
         self._require_supported_object_size(store_ref, expected_size)
@@ -1058,7 +1071,7 @@ class _StorageManagerSupportMixin(_StorageManagerState):
 
     def _require_supported_object_size(
         self,
-        store_ref: api.StoreUUID,
+        store_ref: storage_models.StoreUUID,
         expected_size: int | None,
     ) -> None:
         """
@@ -1085,7 +1098,7 @@ class _StorageManagerSupportMixin(_StorageManagerState):
         if characteristics.accepts_object_size(expected_size):
             return
         assert characteristics.max_object_bytes is not None
-        raise api.StoreUnsupportedOperation(
+        raise storage_errors.StoreUnsupportedOperation(
             f"Store {store_ref} accepts objects up to "
             f"{characteristics.max_object_bytes} bytes; requested "
             f"{expected_size} bytes."
@@ -1093,11 +1106,11 @@ class _StorageManagerSupportMixin(_StorageManagerState):
 
     def _allocate_asset_location(
         self,
-        store: api.StoreAPI,
-        record: api.DigitalAssetRecord,
+        store: store_api.StoreAPI,
+        record: manager_api.DigitalAssetRecord,
         *,
-        placement_hints: api.StoragePlacementHints | None = None,
-    ) -> api.Location:
+        placement_hints: placement_hints_api.StoragePlacementHints | None = None,
+    ) -> storage_models.Location:
         """
         Request a Store-selected destination using identity and name hints, with an opaque UUID
         fallback.
@@ -1132,7 +1145,7 @@ class _StorageManagerSupportMixin(_StorageManagerState):
                 name_hint=name_hint,
                 placement_hints=placement_hints,
             )
-        except api.StoreUnsupportedOperation:
+        except storage_errors.StoreUnsupportedOperation:
             return store.location(uuid4().hex)
 
 

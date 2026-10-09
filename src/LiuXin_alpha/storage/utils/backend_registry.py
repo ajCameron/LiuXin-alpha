@@ -23,11 +23,14 @@ from typing import Any, Literal
 from urllib.parse import unquote_to_bytes, urlparse
 from uuid import UUID
 
-from LiuXin_alpha.storage import api
+from LiuXin_alpha.storage.api import errors as storage_errors
+from LiuXin_alpha.storage.api import models as storage_models
+from LiuXin_alpha.storage.api import storage_manager_api as manager_api
+from LiuXin_alpha.storage.api import store_api
 
 BackendBuilder = Callable[
-    [api.StoreConfiguration, "StoreConstructionContext"],
-    api.StoreAPI,
+    [manager_api.StoreConfiguration, "StoreConstructionContext"],
+    store_api.StoreAPI,
 ]
 
 
@@ -55,9 +58,9 @@ class StoreConstructionContext:
 
     backend_clients: Mapping[str, Any] = dataclasses.field(default_factory=dict)
     s3_client: Any | None = None
-    store_resolver: Callable[[api.StoreUUID], api.StoreAPI] | None = None
+    store_resolver: Callable[[storage_models.StoreUUID], store_api.StoreAPI] | None = None
     encryption_key_provider: Any | None = None
-    backing_path_resolver: Callable[[api.StoreConfiguration], str] | None = None
+    backing_path_resolver: Callable[[manager_api.StoreConfiguration], str] | None = None
 
     def client_for(self, backend_kind: str) -> Any | None:
         """
@@ -136,8 +139,8 @@ class StorageBackendDescriptor:
     user_selectable: bool = True
     presentation_order: int = 100
     policy_section: str | None = None
-    characteristics: api.StorageCharacteristics = dataclasses.field(
-        default_factory=api.StorageCharacteristics
+    characteristics: store_api.StorageCharacteristics = dataclasses.field(
+        default_factory=store_api.StorageCharacteristics
     )
 
 
@@ -232,7 +235,7 @@ class StorageBackendRegistry:
         try:
             return self._descriptors[self._aliases[normalized]]
         except KeyError as error:
-            raise api.StoreUnsupportedOperation(
+            raise storage_errors.StoreUnsupportedOperation(
                 f"no Store factory is registered for kind {kind!r}."
             ) from error
 
@@ -253,10 +256,10 @@ class StorageBackendRegistry:
 
     def build(
         self,
-        configuration: api.StoreConfiguration,
+        configuration: manager_api.StoreConfiguration,
         *,
         context: StoreConstructionContext | None = None,
-    ) -> api.StoreAPI:
+    ) -> store_api.StoreAPI:
         """
         Resolve the configured kind, apply selected backed-view checks, and call its builder. Use
         the supplied truthy context or a new empty context. If backing is non-None, require truthy
@@ -282,16 +285,16 @@ class StorageBackendRegistry:
         construction_context = context or StoreConstructionContext()
         if configuration.backing is not None:
             if not configuration.read_only:
-                raise api.StoreUnsupportedOperation(
+                raise storage_errors.StoreUnsupportedOperation(
                     "an Asset-backed Store must be read-only."
                 )
             if not descriptor.read_only_default or descriptor.location_type != "file":
-                raise api.StoreUnsupportedOperation(
+                raise storage_errors.StoreUnsupportedOperation(
                     f"backend {descriptor.kind!r} cannot expose a read-only "
                     "Store backed by a Digital Asset."
                 )
             if construction_context.backing_path_resolver is None:
-                raise api.StoreUnsupportedOperation(
+                raise storage_errors.StoreUnsupportedOperation(
                     "Asset-backed storage requires a runtime backing-path resolver."
                 )
         return descriptor.builder(configuration, construction_context)
@@ -359,7 +362,7 @@ def normalize_backend_kind(kind: str) -> str:
     return normalized
 
 
-def _common(configuration: api.StoreConfiguration) -> dict[str, object]:
+def _common(configuration: manager_api.StoreConfiguration) -> dict[str, object]:
     """
     Project the configured name and UUID into constructor keyword names used by compatibility
     backends. Other configuration fields are not forwarded and no value is normalized or validated.
@@ -377,7 +380,7 @@ def _common(configuration: api.StoreConfiguration) -> dict[str, object]:
     }
 
 
-def _options(configuration: api.StoreConfiguration) -> dict[str, object]:
+def _options(configuration: manager_api.StoreConfiguration) -> dict[str, object]:
     """
     Shallow-copy configured backend option pairs into a dictionary. Values are retained, duplicate
     keys would take the last value, and neither names nor values are filtered here. Pair-shape
@@ -453,7 +456,7 @@ def _optional_int_option(
 
 
 def _container_path(
-    configuration: api.StoreConfiguration,
+    configuration: manager_api.StoreConfiguration,
     context: StoreConstructionContext,
 ) -> str:
     """
@@ -477,7 +480,7 @@ def _container_path(
         return _local_path(configuration.store_root_uri)
     resolver = context.backing_path_resolver
     if resolver is None:
-        raise api.StoreUnsupportedOperation(
+        raise storage_errors.StoreUnsupportedOperation(
             "Asset-backed storage requires a runtime backing-path resolver."
         )
     return resolver(configuration)
@@ -1192,11 +1195,11 @@ def _build_encrypted(configuration, context):
     from LiuXin_alpha.storage.stores import EncryptedStore
 
     if context.store_resolver is None:
-        raise api.StoreUnsupportedOperation(
+        raise storage_errors.StoreUnsupportedOperation(
             "encrypted storage requires a runtime inner-Store resolver."
         )
     if context.encryption_key_provider is None:
-        raise api.StoreUnsupportedOperation(
+        raise storage_errors.StoreUnsupportedOperation(
             "encrypted storage requires a runtime encryption key provider."
         )
     options = _options(configuration)
@@ -1297,7 +1300,7 @@ def _descriptor(
     policy_section: str | None = None,
     access_protocol_aliases: tuple[str, ...] = (),
     user_selectable: bool = True,
-    characteristics: api.StorageCharacteristics | None = None,
+    characteristics: store_api.StorageCharacteristics | None = None,
 ) -> StorageBackendDescriptor:
     """
     Assemble one default-registry descriptor from concise declaration fields. Map supplied flags
@@ -1354,7 +1357,7 @@ def _descriptor(
         policy_section=policy_section,
         user_selectable=user_selectable,
         characteristics=(
-            api.StorageCharacteristics()
+            store_api.StorageCharacteristics()
             if characteristics is None
             else characteristics
         ),
@@ -1362,8 +1365,8 @@ def _descriptor(
 
 
 def _per_object_characteristics(
-    *limitations: api.StorageLimitation,
-) -> api.StorageCharacteristics:
+    *limitations: store_api.StorageLimitation,
+) -> store_api.StorageCharacteristics:
     """
     Create the common per-object publication profile with object staging and general write usage.
     Mark unmodelled entries as preserved and container-format rewriting as false; pass limitation
@@ -1371,7 +1374,7 @@ def _per_object_characteristics(
     measurement.
 
     Example:
-        >>> _per_object_characteristics().publication_model is api.StoragePublicationModel.PER_OBJECT
+        >>> _per_object_characteristics().publication_model is store_api.StoragePublicationModel.PER_OBJECT
         True
 
 
@@ -1379,10 +1382,10 @@ def _per_object_characteristics(
     :return: A new StorageCharacteristics value with the common per-object settings and supplied limitations.
     """
 
-    return api.StorageCharacteristics(
-        publication_model=api.StoragePublicationModel.PER_OBJECT,
-        temporary_space=api.StorageTemporarySpaceRequirement.OBJECT_STAGE,
-        recommended_write_usage=api.StorageWriteUsage.GENERAL,
+    return store_api.StorageCharacteristics(
+        publication_model=store_api.StoragePublicationModel.PER_OBJECT,
+        temporary_space=store_api.StorageTemporarySpaceRequirement.OBJECT_STAGE,
+        recommended_write_usage=store_api.StorageWriteUsage.GENERAL,
         preserves_unmodelled_entries=True,
         rewrites_container_format=False,
         limitations=limitations,
@@ -1390,15 +1393,15 @@ def _per_object_characteristics(
 
 
 def _read_only_characteristics(
-    *limitations: api.StorageLimitation,
-) -> api.StorageCharacteristics:
+    *limitations: store_api.StorageLimitation,
+) -> store_api.StorageCharacteristics:
     """
     Create the common read-only profile with no declared temporary-space requirement and
     nonapplicable write usage. Other characteristics use their dataclass defaults; specific readers
     needing spooling use explicit profiles instead. No endpoint is inspected.
 
     Example:
-        >>> _read_only_characteristics().temporary_space is api.StorageTemporarySpaceRequirement.NONE
+        >>> _read_only_characteristics().temporary_space is store_api.StorageTemporarySpaceRequirement.NONE
         True
 
 
@@ -1406,10 +1409,10 @@ def _read_only_characteristics(
     :return: A new StorageCharacteristics value with read-only defaults and the supplied limitations.
     """
 
-    return api.StorageCharacteristics(
-        publication_model=api.StoragePublicationModel.READ_ONLY,
-        temporary_space=api.StorageTemporarySpaceRequirement.NONE,
-        recommended_write_usage=api.StorageWriteUsage.NOT_APPLICABLE,
+    return store_api.StorageCharacteristics(
+        publication_model=store_api.StoragePublicationModel.READ_ONLY,
+        temporary_space=store_api.StorageTemporarySpaceRequirement.NONE,
+        recommended_write_usage=store_api.StorageWriteUsage.NOT_APPLICABLE,
         limitations=limitations,
     )
 
@@ -1422,7 +1425,7 @@ DEFAULT_BACKEND_REGISTRY = StorageBackendRegistry(
             read_only=False, location_type="remote", random_write=True,
             delete=True, checksums=True, order=5,
             characteristics=_per_object_characteristics(
-                api.StorageLimitation(
+                store_api.StorageLimitation(
                     "process_local_non_durable",
                     "All objects are lost when the Store instance or process ends.",
                 ),
@@ -1511,7 +1514,7 @@ DEFAULT_BACKEND_REGISTRY = StorageBackendRegistry(
             location_type="remote", random_write=True, delete=True, checksums=True,
             policy_section="rclone",
             characteristics=_per_object_characteristics(
-                api.StorageLimitation(
+                store_api.StorageLimitation(
                     "rclone_backend_dependent_limits",
                     "Object limits and publication atomicity depend on the selected rclone backend.",
                 ),
@@ -1523,7 +1526,7 @@ DEFAULT_BACKEND_REGISTRY = StorageBackendRegistry(
             location_type="remote", random_write=True, delete=True, checksums=True,
             policy_section="s3",
             characteristics=_per_object_characteristics(
-                api.StorageLimitation(
+                store_api.StorageLimitation(
                     "s3_service_limits_apply",
                     "Object and multipart limits are imposed by the configured S3-compatible service.",
                 ),
@@ -1535,33 +1538,33 @@ DEFAULT_BACKEND_REGISTRY = StorageBackendRegistry(
             access_protocol="squashfs-build", read_only=False, location_type="file",
             random_write=True, delete=True, checksums=True,
             policy_section="squashfs_build",
-            characteristics=api.StorageCharacteristics(
-                publication_model=api.StoragePublicationModel.STAGING_THEN_SEAL,
-                temporary_space=api.StorageTemporarySpaceRequirement.STORE_COPY,
-                recommended_write_usage=api.StorageWriteUsage.ARCHIVAL_SNAPSHOT,
+            characteristics=store_api.StorageCharacteristics(
+                publication_model=store_api.StoragePublicationModel.STAGING_THEN_SEAL,
+                temporary_space=store_api.StorageTemporarySpaceRequirement.STORE_COPY,
+                recommended_write_usage=store_api.StorageWriteUsage.ARCHIVAL_SNAPSHOT,
                 max_object_bytes=4 * 1024 * 1024 * 1024,
                 max_component_bytes=65_535,
                 max_path_depth=256,
                 preserves_unmodelled_entries=True,
                 rewrites_container_format=True,
                 limitations=(
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "explicit_seal_required",
                         "Staged objects enter the SquashFS archive only after seal().",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "sealed_store_read_only",
                         "A successfully sealed staging Store refuses further mutation.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "external_mksquashfs_required",
                         "Sealing requires a compatible mksquashfs executable.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "validated_bounded_seal",
                         "Sealing preflights the staging tree and verifies candidate inventory and bytes within configured expansion limits.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "nested_expansion_budget_external",
                         "Recursive ingest must impose its own cumulative cross-container budget.",
                     ),
@@ -1573,35 +1576,35 @@ DEFAULT_BACKEND_REGISTRY = StorageBackendRegistry(
             aliases=("squashfs", "sealed_squashfs"), access_protocol="squashfs",
             read_only=True, location_type="file", checksums=True, immutable=True,
             order=50, policy_section="squashfs",
-            characteristics=api.StorageCharacteristics(
-                publication_model=api.StoragePublicationModel.READ_ONLY,
-                temporary_space=api.StorageTemporarySpaceRequirement.OBJECT_STAGE,
-                recommended_write_usage=api.StorageWriteUsage.NOT_APPLICABLE,
+            characteristics=store_api.StorageCharacteristics(
+                publication_model=store_api.StoragePublicationModel.READ_ONLY,
+                temporary_space=store_api.StorageTemporarySpaceRequirement.OBJECT_STAGE,
+                recommended_write_usage=store_api.StorageWriteUsage.NOT_APPLICABLE,
                 max_object_bytes=4 * 1024 * 1024 * 1024,
                 max_component_bytes=65_535,
                 max_path_depth=256,
                 limitations=(
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "unsafe_members_rejected",
                         "Non-regular, ambiguous, escaping, or conflicting members reject the archive.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "regular_files_only",
                         "The exposed projection contains regular files only; other member types reject the archive.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "external_unsquashfs_required",
                         "Reads and inventory require a compatible unsquashfs executable.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "squashfs_member_reads_spooled",
                         "Members are size-verified in bounded temporary storage before ranges are returned.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "bounded_squashfs_expansion",
                         "Inventory header, member size, total expansion, compression ratio, path depth, and entry count are bounded.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "nested_expansion_budget_external",
                         "Recursive ingest must impose its own cumulative cross-container budget.",
                     ),
@@ -1616,29 +1619,29 @@ DEFAULT_BACKEND_REGISTRY = StorageBackendRegistry(
             read_only=False, location_type="file",
             random_write=False, delete=True, checksums=True,
             order=51, policy_section="iso_writable",
-            characteristics=api.StorageCharacteristics(
-                publication_model=api.StoragePublicationModel.WHOLE_STORE_REBUILD,
-                temporary_space=api.StorageTemporarySpaceRequirement.STORE_COPY,
-                recommended_write_usage=api.StorageWriteUsage.ARCHIVAL_SNAPSHOT,
+            characteristics=store_api.StorageCharacteristics(
+                publication_model=store_api.StoragePublicationModel.WHOLE_STORE_REBUILD,
+                temporary_space=store_api.StorageTemporarySpaceRequirement.STORE_COPY,
+                recommended_write_usage=store_api.StorageWriteUsage.ARCHIVAL_SNAPSHOT,
                 max_object_bytes=(1 << 32) - 1,
                 max_component_bytes=255,
                 max_path_depth=256,
                 preserves_unmodelled_entries=False,
                 rewrites_container_format=True,
                 limitations=(
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "whole_store_rebuild",
                         "Each mutation atomically rebuilds the complete ISO image.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "regular_files_only",
                         "Rebuilds retain only regular-file keys and bytes.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "bounded_iso_logical_expansion",
                         "Member size, total logical bytes, path size, parser metadata, and all-entry count are bounded before rebuild publication.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "nested_expansion_budget_external",
                         "Recursive ingest must impose its own cumulative cross-container budget.",
                     ),
@@ -1652,39 +1655,39 @@ DEFAULT_BACKEND_REGISTRY = StorageBackendRegistry(
             access_protocol_aliases=("iso9660", "joliet", "rock-ridge", "udf"),
             read_only=True, location_type="file",
             checksums=True, immutable=True, order=52, policy_section="iso",
-            characteristics=api.StorageCharacteristics(
-                publication_model=api.StoragePublicationModel.READ_ONLY,
-                temporary_space=api.StorageTemporarySpaceRequirement.OBJECT_STAGE,
-                recommended_write_usage=api.StorageWriteUsage.NOT_APPLICABLE,
+            characteristics=store_api.StorageCharacteristics(
+                publication_model=store_api.StoragePublicationModel.READ_ONLY,
+                temporary_space=store_api.StorageTemporarySpaceRequirement.OBJECT_STAGE,
+                recommended_write_usage=store_api.StorageWriteUsage.NOT_APPLICABLE,
                 max_object_bytes=8 * 1024 * 1024 * 1024,
                 max_component_bytes=65_535,
                 max_path_depth=256,
                 limitations=(
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "unsafe_members_rejected",
                         "Non-regular, ambiguous, escaping, or conflicting members reject the selected namespace.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "optional_pycdlib_required_for_udf",
                         "UDF namespace inventory and reads require the optional pycdlib dependency.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "udf_member_reads_spooled",
                         "UDF members are staged in private temporary storage before ranges are returned.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "udf_only_images_unsupported",
                         "The optional UDF reader requires an ISO/UDF bridge image; UDF-only images remain unsupported.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "zisofs_unsupported",
                         "zisofs-compressed members are unsupported.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "bounded_iso_logical_expansion",
                         "Member size, total logical bytes, image expansion ratio, path size, parser metadata, and all-entry count are bounded.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "nested_expansion_budget_external",
                         "Recursive ingest must impose its own cumulative cross-container budget.",
                     ),
@@ -1699,38 +1702,38 @@ DEFAULT_BACKEND_REGISTRY = StorageBackendRegistry(
             read_only=False, location_type="file",
             random_write=False, delete=True, checksums=True,
             order=53, policy_section="zip_writable",
-            characteristics=api.StorageCharacteristics(
-                publication_model=api.StoragePublicationModel.WHOLE_STORE_REBUILD,
-                temporary_space=api.StorageTemporarySpaceRequirement.STORE_COPY,
-                recommended_write_usage=api.StorageWriteUsage.ARCHIVAL_SNAPSHOT,
+            characteristics=store_api.StorageCharacteristics(
+                publication_model=store_api.StoragePublicationModel.WHOLE_STORE_REBUILD,
+                temporary_space=store_api.StorageTemporarySpaceRequirement.STORE_COPY,
+                recommended_write_usage=store_api.StorageWriteUsage.ARCHIVAL_SNAPSHOT,
                 max_object_bytes=4 * 1024 * 1024 * 1024,
                 max_component_bytes=65_535,
                 max_path_depth=256,
                 preserves_unmodelled_entries=False,
                 rewrites_container_format=True,
                 limitations=(
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "whole_store_rebuild",
                         "Each mutation atomically rebuilds the complete ZIP archive.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "unsafe_members_rejected",
                         "Non-regular, ambiguous, escaping, or conflicting members reject the archive.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "encrypted_members_unsupported",
                         "Password-encrypted and multi-disk ZIP members are unsupported.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "metadata_normalized_on_rebuild",
                         "ZIP container and member metadata are normalized on rebuild.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "bounded_zip_expansion",
                         "Entry count, central-directory size, member size, total expanded size, "
                         "and per-member compression ratio are bounded before reads or rebuilds.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "nested_expansion_budget_external",
                         "Recursive ingest must impose its own cumulative cross-container budget.",
                     ),
@@ -1742,32 +1745,32 @@ DEFAULT_BACKEND_REGISTRY = StorageBackendRegistry(
             aliases=("zip",), access_protocol="zip",
             read_only=True, location_type="file", checksums=True,
             immutable=True, order=54, policy_section="zip_readonly",
-            characteristics=api.StorageCharacteristics(
-                publication_model=api.StoragePublicationModel.READ_ONLY,
-                temporary_space=api.StorageTemporarySpaceRequirement.NONE,
-                recommended_write_usage=api.StorageWriteUsage.NOT_APPLICABLE,
+            characteristics=store_api.StorageCharacteristics(
+                publication_model=store_api.StoragePublicationModel.READ_ONLY,
+                temporary_space=store_api.StorageTemporarySpaceRequirement.NONE,
+                recommended_write_usage=store_api.StorageWriteUsage.NOT_APPLICABLE,
                 max_object_bytes=4 * 1024 * 1024 * 1024,
                 max_component_bytes=65_535,
                 max_path_depth=256,
                 limitations=(
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "unsafe_members_rejected",
                         "Non-regular, ambiguous, escaping, or conflicting members reject the archive.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "encrypted_members_unsupported",
                         "Password-encrypted and multi-disk ZIP members are unsupported.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "archive_wide_version",
                         "Any archive replacement changes every member version token.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "bounded_zip_expansion",
                         "Entry count, central-directory size, member size, total expanded size, "
                         "and per-member compression ratio are bounded before reads.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "nested_expansion_budget_external",
                         "Recursive ingest must impose its own cumulative cross-container budget.",
                     ),
@@ -1782,36 +1785,36 @@ DEFAULT_BACKEND_REGISTRY = StorageBackendRegistry(
             read_only=False, location_type="file",
             random_write=False, delete=True, checksums=True,
             order=55, policy_section="tar_writable",
-            characteristics=api.StorageCharacteristics(
-                publication_model=api.StoragePublicationModel.WHOLE_STORE_REBUILD,
-                temporary_space=api.StorageTemporarySpaceRequirement.STORE_COPY,
-                recommended_write_usage=api.StorageWriteUsage.ARCHIVAL_SNAPSHOT,
+            characteristics=store_api.StorageCharacteristics(
+                publication_model=store_api.StoragePublicationModel.WHOLE_STORE_REBUILD,
+                temporary_space=store_api.StorageTemporarySpaceRequirement.STORE_COPY,
+                recommended_write_usage=store_api.StorageWriteUsage.ARCHIVAL_SNAPSHOT,
                 max_object_bytes=4 * 1024 * 1024 * 1024,
                 max_path_depth=256,
                 preserves_unmodelled_entries=False,
                 rewrites_container_format=True,
                 limitations=(
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "whole_store_rebuild",
                         "Each mutation atomically rebuilds the complete TAR archive.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "unsafe_members_rejected",
                         "Non-regular, ambiguous, escaping, or conflicting members reject the archive.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "metadata_normalized_on_rebuild",
                         "TAR headers, ownership, permissions, and extended metadata are normalized on rebuild.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "compressed_tar_rebuild_cost",
                         "Compressed TAR mutation recompresses every retained member.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "bounded_tar_expansion",
                         "Member size, aggregate expansion, compression ratio, parser metadata, and entry count are bounded.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "nested_expansion_budget_external",
                         "Recursive ingest must impose its own cumulative cross-container budget.",
                     ),
@@ -1823,30 +1826,30 @@ DEFAULT_BACKEND_REGISTRY = StorageBackendRegistry(
             aliases=("tar", "tgz", "tar_gz"), access_protocol="tar",
             read_only=True, location_type="file", checksums=True,
             immutable=True, order=56, policy_section="tar_readonly",
-            characteristics=api.StorageCharacteristics(
-                publication_model=api.StoragePublicationModel.READ_ONLY,
-                temporary_space=api.StorageTemporarySpaceRequirement.NONE,
-                recommended_write_usage=api.StorageWriteUsage.NOT_APPLICABLE,
+            characteristics=store_api.StorageCharacteristics(
+                publication_model=store_api.StoragePublicationModel.READ_ONLY,
+                temporary_space=store_api.StorageTemporarySpaceRequirement.NONE,
+                recommended_write_usage=store_api.StorageWriteUsage.NOT_APPLICABLE,
                 max_object_bytes=4 * 1024 * 1024 * 1024,
                 max_path_depth=256,
                 limitations=(
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "unsafe_members_rejected",
                         "Non-regular, ambiguous, escaping, or conflicting members reject the archive.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "archive_wide_version",
                         "Any archive replacement changes every member version token.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "compressed_tar_range_cost",
                         "Ranges in compressed TAR archives may require decompression from an earlier stream position.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "bounded_tar_expansion",
                         "Member size, aggregate expansion, compression ratio, parser metadata, and entry count are bounded.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "nested_expansion_budget_external",
                         "Recursive ingest must impose its own cumulative cross-container budget.",
                     ),
@@ -1860,45 +1863,45 @@ DEFAULT_BACKEND_REGISTRY = StorageBackendRegistry(
             read_only=False, location_type="file",
             random_write=True, delete=True, checksums=True,
             order=57, policy_section="rar_build",
-            characteristics=api.StorageCharacteristics(
-                publication_model=api.StoragePublicationModel.STAGING_THEN_SEAL,
-                temporary_space=api.StorageTemporarySpaceRequirement.STORE_COPY,
-                recommended_write_usage=api.StorageWriteUsage.ARCHIVAL_SNAPSHOT,
+            characteristics=store_api.StorageCharacteristics(
+                publication_model=store_api.StoragePublicationModel.STAGING_THEN_SEAL,
+                temporary_space=store_api.StorageTemporarySpaceRequirement.STORE_COPY,
+                recommended_write_usage=store_api.StorageWriteUsage.ARCHIVAL_SNAPSHOT,
                 max_object_bytes=4 * 1024 * 1024 * 1024,
                 max_component_bytes=65_535,
                 max_path_depth=256,
                 preserves_unmodelled_entries=True,
                 rewrites_container_format=True,
                 limitations=(
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "explicit_seal_required",
                         "Staged objects enter the RAR archive only after seal().",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "sealed_store_read_only",
                         "A successfully sealed RAR builder permanently refuses mutation.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "create_only_archive_publication",
                         "Sealing never replaces an existing output archive.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "external_rar_creator_required",
                         "Sealing requires an operator-supplied licensed rar executable.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "rar4_non_solid_output",
                         "The builder emits reader-compatible, non-solid RAR 4 archives.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "rar_creation_license_operator_managed",
                         "Installation and licensing of the proprietary RAR creator are operator responsibilities.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "validated_bounded_seal",
                         "Sealing preflights every staged entry and validates candidate expansion limits before create-only publication.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "nested_expansion_budget_external",
                         "Recursive ingest must impose its own cumulative cross-container budget.",
                     ),
@@ -1910,39 +1913,39 @@ DEFAULT_BACKEND_REGISTRY = StorageBackendRegistry(
             aliases=("rar",), access_protocol="rar",
             read_only=True, location_type="file", checksums=True,
             immutable=True, order=58, policy_section="rar_readonly",
-            characteristics=api.StorageCharacteristics(
-                publication_model=api.StoragePublicationModel.READ_ONLY,
-                temporary_space=api.StorageTemporarySpaceRequirement.OBJECT_STAGE,
-                recommended_write_usage=api.StorageWriteUsage.NOT_APPLICABLE,
+            characteristics=store_api.StorageCharacteristics(
+                publication_model=store_api.StoragePublicationModel.READ_ONLY,
+                temporary_space=store_api.StorageTemporarySpaceRequirement.OBJECT_STAGE,
+                recommended_write_usage=store_api.StorageWriteUsage.NOT_APPLICABLE,
                 max_object_bytes=4 * 1024 * 1024 * 1024,
                 max_component_bytes=65_535,
                 max_path_depth=256,
                 limitations=(
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "unsafe_members_rejected",
                         "Non-regular, ambiguous, escaping, or conflicting members reject the archive.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "rar_compressed_members_require_extractor",
                         "Compressed RAR members require a compatible unrar or rar executable.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "modern_rarfile_required_for_rar5",
                         "RAR 5 inventory and reads require the optional maintained rarfile dependency.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "rar_member_reads_spooled",
                         "RAR members are verified into temporary local storage before ranges are returned.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "multi_volume_unsupported",
                         "Multi-volume RAR archives are unsupported.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "bounded_rar_expansion",
                         "Member size, total expansion, compression ratio, path size, and all-entry count are bounded before reads.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "nested_expansion_budget_external",
                         "Recursive ingest must impose its own cumulative cross-container budget.",
                     ),
@@ -1954,43 +1957,43 @@ DEFAULT_BACKEND_REGISTRY = StorageBackendRegistry(
             aliases=("7z", "sevenzip"), access_protocol="7z",
             read_only=True, location_type="file", checksums=True,
             immutable=True, order=59, policy_section="sevenzip_readonly",
-            characteristics=api.StorageCharacteristics(
-                publication_model=api.StoragePublicationModel.READ_ONLY,
-                temporary_space=api.StorageTemporarySpaceRequirement.OBJECT_STAGE,
-                recommended_write_usage=api.StorageWriteUsage.NOT_APPLICABLE,
+            characteristics=store_api.StorageCharacteristics(
+                publication_model=store_api.StoragePublicationModel.READ_ONLY,
+                temporary_space=store_api.StorageTemporarySpaceRequirement.OBJECT_STAGE,
+                recommended_write_usage=store_api.StorageWriteUsage.NOT_APPLICABLE,
                 max_object_bytes=4 * 1024 * 1024 * 1024,
                 max_component_bytes=65_535,
                 max_path_depth=256,
                 limitations=(
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "unsafe_members_rejected",
                         "Non-regular, ambiguous, escaping, or conflicting members reject the archive.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "py7zr_dependency_required",
                         "7z inventory and reads require the optional py7zr dependency set.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "sevenzip_member_reads_spooled",
                         "Each requested 7z member is verified in private temporary storage before ranges are returned.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "solid_archive_read_amplification",
                         "Reading one member from a solid 7z block may decompress preceding block data.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "encrypted_archives_unsupported",
                         "Password-encrypted 7z archives are unsupported.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "multi_volume_unsupported",
                         "Multi-volume 7z archives are unsupported.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "bounded_sevenzip_expansion",
                         "Header size, member size, total expansion, compression ratio, path size, and all-entry count are bounded before reads.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "nested_expansion_budget_external",
                         "Recursive ingest must impose its own cumulative cross-container budget.",
                     ),
@@ -2003,14 +2006,14 @@ DEFAULT_BACKEND_REGISTRY = StorageBackendRegistry(
             read_only=False, location_type="remote", random_write=True,
             delete=True, checksums=True, policy_section="encrypted",
             user_selectable=False,
-            characteristics=api.StorageCharacteristics(
-                temporary_space=api.StorageTemporarySpaceRequirement.OBJECT_STAGE,
+            characteristics=store_api.StorageCharacteristics(
+                temporary_space=store_api.StorageTemporarySpaceRequirement.OBJECT_STAGE,
                 limitations=(
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "inner_store_dependent",
                         "Publication and size constraints depend on the configured inner Store.",
                     ),
-                    api.StorageLimitation(
+                    store_api.StorageLimitation(
                         "encrypted_ciphertext_overhead",
                         "Ciphertext adds a header and one authentication tag per chunk.",
                     ),

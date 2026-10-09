@@ -22,7 +22,7 @@ from LiuXin_alpha.storage.backup import (
     BackupWorkflowRepository,
     SquashfsBackupWorkflow,
 )
-from LiuXin_alpha.storage.store_manager import StorageManager
+from LiuXin_alpha.storage.durable_manager import StorageManager
 from LiuXin_alpha.storage.stores import FilesystemStore
 from LiuXin_alpha.storage.workflows import SealedArtifactWorkflow
 

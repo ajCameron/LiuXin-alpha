@@ -10,6 +10,7 @@ remain separate from runtime complexity checks.
 from __future__ import annotations
 
 import abc
+import ast
 import inspect
 import pickle
 from pathlib import Path
@@ -19,7 +20,7 @@ import pytest
 
 from LiuXin_alpha.storage import api
 from LiuXin_alpha.storage.storage_manager import TransientStorageManager
-from LiuXin_alpha.storage.storage_manager.database_repository import (
+from LiuXin_alpha.storage.storage_manager.database_codec import (
     _decode,
     _encode,
     _storage_value_types,
@@ -70,6 +71,39 @@ COMPONENTS = (
     (StorageReconciliationMixin, api.StorageReconciliationAPI),
     (StorageOperationalStatusMixin, api.StorageOperationalStatusAPI),
 )
+
+
+def test_storage_implementation_uses_responsibility_api_packages() -> None:
+    """Prevent internal modules from regaining the broad discovery umbrella dependency.
+
+    Application callers may use ``LiuXin_alpha.storage.api`` for discovery. Production storage
+    modules should instead name the manager, Store, driver, workflow, shared-value, or error package
+    they consume so ownership remains visible from the import block.
+
+    Example:
+        >>> test_storage_implementation_uses_responsibility_api_packages()
+
+    :return: None when no production storage module imports the API umbrella as ``api``.
+    """
+
+    storage_root = Path(__file__).parents[3] / "src" / "LiuXin_alpha" / "storage"
+    offenders: list[str] = []
+    for path in sorted(storage_root.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import) and any(
+                alias.name == "LiuXin_alpha.storage.api" and alias.asname == "api"
+                for alias in node.names
+            ):
+                offenders.append(str(path.relative_to(storage_root)))
+            if (
+                isinstance(node, ast.ImportFrom)
+                and node.module == "LiuXin_alpha.storage"
+                and any(alias.name == "api" for alias in node.names)
+            ):
+                offenders.append(str(path.relative_to(storage_root)))
+
+    assert offenders == []
 
 
 def test_api_and_implementation_components_have_the_same_order() -> None:
@@ -144,6 +178,51 @@ def test_manager_module_stays_a_small_composition_root() -> None:
         line_count = SourceMetrics(path.read_text(encoding="utf-8")).line_count()
         if line_count > 900:
             oversized[path.name] = line_count
+    assert not oversized
+
+
+def test_durable_storage_owners_remain_physically_separated() -> None:
+    """Guard the extracted convenience, persistence, bootstrap, and recovery boundaries.
+
+    The limits count non-docstring source lines and deliberately leave modest growth room. They
+    prevent the compatibility composition module, durable manager, or unit-of-work coordinator from
+    absorbing the extracted responsibilities again.
+
+    Example:
+        >>> test_durable_storage_owners_remain_physically_separated()
+
+    :return: None while every owner remains within its responsibility-specific ceiling.
+    """
+
+    storage_root = Path(__file__).parents[3] / "src" / "LiuXin_alpha" / "storage"
+    limits = {
+        "api/storage_manager_api/convenience_api.py": 80,
+        "api/storage_manager_api/_convenience_support.py": 550,
+        "api/storage_manager_api/asset_convenience.py": 550,
+        "api/storage_manager_api/composite_convenience.py": 350,
+        "api/storage_manager_api/item_link_convenience.py": 180,
+        "api/storage_manager_api/policy_convenience.py": 250,
+        "api/storage_manager_api/derivation_convenience.py": 200,
+        "durable_manager.py": 750,
+        "storage_manager/database_binding.py": 130,
+        "storage_manager/database_codec.py": 160,
+        "storage_manager/database_mappings.py": 250,
+        "storage_manager/database_domain_repositories.py": 480,
+        "storage_manager/database_unit_of_work.py": 240,
+        "storage_manager/ingest_recovery.py": 340,
+        "storage_manager/store_bootstrap.py": 240,
+        "storage_manager/database_repository.py": 1900,
+    }
+    oversized = {
+        relative: count
+        for relative, ceiling in limits.items()
+        if (
+            count := SourceMetrics(
+                (storage_root / relative).read_text(encoding="utf-8")
+            ).line_count()
+        )
+        > ceiling
+    }
     assert not oversized
 
 

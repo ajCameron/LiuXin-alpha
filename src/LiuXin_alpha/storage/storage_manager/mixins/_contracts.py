@@ -15,7 +15,9 @@ from contextlib import AbstractContextManager
 from typing import Protocol
 from uuid import UUID
 
-import LiuXin_alpha.storage.api as api
+from LiuXin_alpha.storage.api import models as storage_models
+from LiuXin_alpha.storage.api import placement_hints_api, store_api
+from LiuXin_alpha.storage.api import storage_manager_api as manager_api
 from LiuXin_alpha.storage.storage_manager.mixins._types import (
     StoreFactory,
     _Hasher,
@@ -132,8 +134,8 @@ class _StorageManagerMechanics(Protocol):
 
     @abstractmethod
     def _require_asset_locked(
-        self, digital_asset_id: api.DigitalAssetID
-    ) -> api.DigitalAssetRecord:
+        self, digital_asset_id: manager_api.DigitalAssetID
+    ) -> manager_api.DigitalAssetRecord:
         """
         Require an atomic Asset record while the caller holds the manager lock.
 
@@ -149,7 +151,9 @@ class _StorageManagerMechanics(Protocol):
         ...
 
     @abstractmethod
-    def _require_replica_locked(self, replica_id: api.ReplicaID) -> api.ReplicaRecord:
+    def _require_replica_locked(
+        self, replica_id: manager_api.ReplicaID
+    ) -> manager_api.ReplicaRecord:
         """
         Require a Replica record under the caller's manager lock, without probing its Location.
 
@@ -164,8 +168,8 @@ class _StorageManagerMechanics(Protocol):
 
     @abstractmethod
     def _require_composite_locked(
-        self, composite_digital_asset_id: api.CompositeDigitalAssetID
-    ) -> api.CompositeDigitalAssetRecord:
+        self, composite_digital_asset_id: manager_api.CompositeDigitalAssetID
+    ) -> manager_api.CompositeDigitalAssetRecord:
         """
         Require a Composite record under the caller's manager lock, without resolving member bytes.
 
@@ -180,8 +184,8 @@ class _StorageManagerMechanics(Protocol):
 
     @abstractmethod
     def _find_asset_locked(
-        self, digests: tuple[api.Digest, ...], size_bytes: int | None
-    ) -> api.DigitalAssetRecord | None:
+        self, digests: tuple[storage_models.Digest, ...], size_bytes: int | None
+    ) -> manager_api.DigitalAssetRecord | None:
         """
         Find the earliest registered Asset whose optional size and shared digest evidence agree.
 
@@ -201,7 +205,8 @@ class _StorageManagerMechanics(Protocol):
     @staticmethod
     @abstractmethod
     def _require_expected_digests(
-        expected: tuple[api.Digest, ...], observed: tuple[api.Digest, ...]
+        expected: tuple[storage_models.Digest, ...],
+        observed: tuple[storage_models.Digest, ...],
     ) -> None:
         """
         Require each expected algorithm/value among the supplied observations.
@@ -225,16 +230,18 @@ class _StorageManagerMechanics(Protocol):
         request: _IngestRequest,
         operation_id: UUID,
         size_bytes: int,
-        digests: tuple[api.Digest, ...],
-        item_id: api.ItemID | None,
+        digests: tuple[storage_models.Digest, ...],
+        item_id: manager_api.ItemID | None,
         role: str | None,
-        metadata: api.DigitalAssetMetadata,
-        placement_hints: api.StoragePlacementHints | None,
-        preferred_store_ref: api.StoreUUID | None,
-        replica_mode: api.ReplicaMode,
+        metadata: manager_api.DigitalAssetMetadata,
+        placement_hints: placement_hints_api.StoragePlacementHints | None,
+        preferred_store_ref: storage_models.StoreUUID | None,
+        replica_mode: manager_api.ReplicaMode,
         verify: bool,
-        publish: Callable[[api.StoreAPI, api.Location, api.Digest], None],
-    ) -> api.DigitalAssetIngestResult:
+        publish: Callable[
+            [store_api.StoreAPI, storage_models.Location, storage_models.Digest], None
+        ],
+    ) -> manager_api.DigitalAssetIngestResult:
         """
         Coordinate authoritative identity, publication/reuse, and completed-ingest metadata.
 
@@ -247,7 +254,7 @@ class _StorageManagerMechanics(Protocol):
             >>> result = manager._complete_authoritative_ingest(  # doctest: +SKIP
             ...     request=request, operation_id=operation_id, size_bytes=size, digests=digests,
             ...     item_id=None, role=None, metadata=metadata, placement_hints=None,
-            ...     preferred_store_ref=None, replica_mode=api.ReplicaMode.ACTIVE,
+            ...     preferred_store_ref=None, replica_mode=manager_api.ReplicaMode.ACTIVE,
             ...     verify=True, publish=publish,
             ... )
 
@@ -271,9 +278,9 @@ class _StorageManagerMechanics(Protocol):
     @abstractmethod
     def _require_same_identity(
         self,
-        record: api.DigitalAssetRecord,
+        record: manager_api.DigitalAssetRecord,
         size_bytes: int,
-        observed_digests: tuple[api.Digest, ...],
+        observed_digests: tuple[storage_models.Digest, ...],
     ) -> None:
         """
         Require equal size and agreement on all overlapping digest algorithms, with at least one
@@ -311,8 +318,8 @@ class _StorageManagerMechanics(Protocol):
 
     @abstractmethod
     def _calculate_location_digests(
-        self, location: api.Location, algorithms: Iterable[str]
-    ) -> tuple[api.Digest, ...]:
+        self, location: storage_models.Location, algorithms: Iterable[str]
+    ) -> tuple[storage_models.Digest, ...]:
         """
         Open a Location, consume its bytes, and return computed digests in stable algorithm order.
 
@@ -331,7 +338,9 @@ class _StorageManagerMechanics(Protocol):
 
     @staticmethod
     @abstractmethod
-    def _preferred_digest(record: api.DigitalAssetRecord) -> api.Digest:
+    def _preferred_digest(
+        record: manager_api.DigitalAssetRecord,
+    ) -> storage_models.Digest:
         """
         Select an Asset's SHA-256 evidence when present, otherwise its first retained digest.
 
@@ -347,11 +356,11 @@ class _StorageManagerMechanics(Protocol):
     @abstractmethod
     def _inspect_replica(
         self,
-        record: api.ReplicaRecord,
-        asset_record: api.DigitalAssetRecord,
+        record: manager_api.ReplicaRecord,
+        asset_record: manager_api.DigitalAssetRecord,
         *,
         calculate_digests: bool,
-    ) -> api.ReplicaVerificationReport:
+    ) -> manager_api.ReplicaVerificationReport:
         """
         Return physical-state evidence without mutating the manager's Replica observation.
 
@@ -372,8 +381,10 @@ class _StorageManagerMechanics(Protocol):
 
     @abstractmethod
     def _update_replica_observation(
-        self, replica_id: api.ReplicaID, observation: api.ReplicaObservation
-    ) -> api.ReplicaRecord:
+        self,
+        replica_id: manager_api.ReplicaID,
+        observation: manager_api.ReplicaObservation,
+    ) -> manager_api.ReplicaRecord:
         """
         Replace one existing observation, allocate its revision, and advance Replica generation.
 
@@ -391,7 +402,9 @@ class _StorageManagerMechanics(Protocol):
         ...
 
     @abstractmethod
-    def _add_replica(self, declaration: api.ReplicaDeclaration) -> api.ReplicaRecord:
+    def _add_replica(
+        self, declaration: manager_api.ReplicaDeclaration
+    ) -> manager_api.ReplicaRecord:
         """
         Register a new claim after resolving its references and rejecting an occupied live Location.
 
@@ -410,11 +423,11 @@ class _StorageManagerMechanics(Protocol):
     @abstractmethod
     def _require_writable_destination(
         self,
-        store_ref: api.StoreUUID,
-        mode: api.ReplicaMode,
+        store_ref: storage_models.StoreUUID,
+        mode: manager_api.ReplicaMode,
         *,
         expected_size: int | None = None,
-    ) -> api.StoreAPI:
+    ) -> store_api.StoreAPI:
         """
         Require configured mode support, current available/writable state, creation capability, and
         supported object size.
@@ -434,7 +447,7 @@ class _StorageManagerMechanics(Protocol):
 
     @abstractmethod
     def _require_supported_object_size(
-        self, store_ref: api.StoreUUID, expected_size: int | None
+        self, store_ref: storage_models.StoreUUID, expected_size: int | None
     ) -> None:
         """
         Check a supplied nonnegative write size against advertised per-object characteristics.
@@ -454,11 +467,11 @@ class _StorageManagerMechanics(Protocol):
     @abstractmethod
     def _allocate_asset_location(
         self,
-        store: api.StoreAPI,
-        record: api.DigitalAssetRecord,
+        store: store_api.StoreAPI,
+        record: manager_api.DigitalAssetRecord,
         *,
-        placement_hints: api.StoragePlacementHints | None = None,
-    ) -> api.Location:
+        placement_hints: placement_hints_api.StoragePlacementHints | None = None,
+    ) -> storage_models.Location:
         """
         Ask a Store to choose an address from identity/name/placement hints, with an opaque fallback
         when unsupported.
@@ -508,8 +521,8 @@ class _StorageManagerPolicyHooks(Protocol):
     @abstractmethod
     def _validate_declared_policy_ids(
         self,
-        replication_policy_id: api.ReplicationPolicyID | None,
-        backup_policy_id: api.BackupPolicyID | None,
+        replication_policy_id: manager_api.ReplicationPolicyID | None,
+        backup_policy_id: manager_api.BackupPolicyID | None,
     ) -> None:
         """
         Require all supplied policy references to resolve before dependent metadata work.
@@ -529,7 +542,7 @@ class _StorageManagerPolicyHooks(Protocol):
 
     @abstractmethod
     def _validate_store_policy_references(
-        self, configuration: api.StoreConfiguration
+        self, configuration: manager_api.StoreConfiguration
     ) -> None:
         """
         Require the optional default policies named by a Store configuration.
@@ -547,8 +560,10 @@ class _StorageManagerPolicyHooks(Protocol):
 
     @abstractmethod
     def _placement_policy_ids(
-        self, store_ref: api.StoreUUID
-    ) -> tuple[api.ReplicationPolicyID | None, api.BackupPolicyID | None]:
+        self, store_ref: storage_models.StoreUUID
+    ) -> tuple[
+        manager_api.ReplicationPolicyID | None, manager_api.BackupPolicyID | None
+    ]:
         """
         Read the default policy IDs from a Store configuration without assigning them to an Asset.
 
@@ -564,10 +579,10 @@ class _StorageManagerPolicyHooks(Protocol):
     @abstractmethod
     def _capture_first_placement_policies(
         self,
-        asset: api.DigitalAssetRecord,
-        replication_policy_id: api.ReplicationPolicyID | None,
-        backup_policy_id: api.BackupPolicyID | None,
-    ) -> api.DigitalAssetRecord:
+        asset: manager_api.DigitalAssetRecord,
+        replication_policy_id: manager_api.ReplicationPolicyID | None,
+        backup_policy_id: manager_api.BackupPolicyID | None,
+    ) -> manager_api.DigitalAssetRecord:
         """
         Fill absent Asset policy references from placement defaults when no live claim exists.
 
@@ -606,7 +621,7 @@ class _StorageManagerPolicyHooks(Protocol):
     @abstractmethod
     def _set_item_target(
         self,
-        item_id: api.ItemID,
+        item_id: manager_api.ItemID,
         role: str,
         kind: _ItemTargetKind,
         target_id: _ItemTargetID,
@@ -631,7 +646,7 @@ class _StorageManagerPolicyHooks(Protocol):
 
     @abstractmethod
     def _asset_has_derivation_reference_locked(
-        self, digital_asset_id: api.DigitalAssetID
+        self, digital_asset_id: manager_api.DigitalAssetID
     ) -> bool:
         """
         Check direct stored provenance and recipe references while the caller holds the manager
@@ -651,7 +666,9 @@ class _StorageManagerPolicyHooks(Protocol):
 
     @abstractmethod
     def _store_satisfies_policy(
-        self, store_ref: api.StoreUUID, policy: api.ReplicationPolicy | api.BackupPolicy
+        self,
+        store_ref: storage_models.StoreUUID,
+        policy: manager_api.ReplicationPolicy | manager_api.BackupPolicy,
     ) -> bool:
         """
         Compare configured supported mode and required/forbidden tags with a policy.
@@ -672,8 +689,8 @@ class _StorageManagerPolicyHooks(Protocol):
     @abstractmethod
     def _separated_copy_capacity(
         self,
-        records: Iterable[api.ReplicaRecord],
-        policy: api.ReplicationPolicy | api.BackupPolicy,
+        records: Iterable[manager_api.ReplicaRecord],
+        policy: manager_api.ReplicationPolicy | manager_api.BackupPolicy,
     ) -> int:
         """
         Count a jointly compliant subset under every separation dimension's bucket limit.
@@ -694,11 +711,11 @@ class _StorageManagerPolicyHooks(Protocol):
     @abstractmethod
     def _select_separated_records(
         self,
-        records: Iterable[api.ReplicaRecord],
-        policy: api.ReplicationPolicy | api.BackupPolicy,
+        records: Iterable[manager_api.ReplicaRecord],
+        policy: manager_api.ReplicationPolicy | manager_api.BackupPolicy,
         *,
         limit: int,
-    ) -> tuple[api.ReplicaRecord, ...]:
+    ) -> tuple[manager_api.ReplicaRecord, ...]:
         """
         Choose a deterministic largest subset satisfying every separation dimension jointly.
 
@@ -714,7 +731,7 @@ class _StorageManagerPolicyHooks(Protocol):
         ...
 
     @abstractmethod
-    def _record_is_readable(self, record: api.ReplicaRecord) -> bool:
+    def _record_is_readable(self, record: manager_api.ReplicaRecord) -> bool:
         """
         Check a claim's eligible state, Store availability, and current size agreement.
 
@@ -733,9 +750,9 @@ class _StorageManagerPolicyHooks(Protocol):
     @abstractmethod
     def _assess_policy(
         self,
-        digital_asset_id: api.DigitalAssetID,
-        policy: api.ReplicationPolicy | api.BackupPolicy,
-    ) -> api.StoragePolicyAssessment:
+        digital_asset_id: manager_api.DigitalAssetID,
+        policy: manager_api.ReplicationPolicy | manager_api.BackupPolicy,
+    ) -> manager_api.StoragePolicyAssessment:
         """
         Assess current readable, recorded-verified, configured-eligible claims against copy
         thresholds.
@@ -756,13 +773,13 @@ class _StorageManagerPolicyHooks(Protocol):
     @abstractmethod
     def _plan_destination_stores(
         self,
-        policy: api.ReplicationPolicy | api.BackupPolicy,
-        existing: tuple[api.ReplicaRecord, ...],
+        policy: manager_api.ReplicationPolicy | manager_api.BackupPolicy,
+        existing: tuple[manager_api.ReplicaRecord, ...],
         needed: int,
         *,
         expected_size: int | None = None,
-        excluded_store_refs: set[api.StoreUUID] | None = None,
-    ) -> tuple[api.StoreUUID, ...]:
+        excluded_store_refs: set[storage_models.StoreUUID] | None = None,
+    ) -> tuple[storage_models.StoreUUID, ...]:
         """
         Rank and choose writable destinations using policy constraints, existing buckets, and
         explicit exclusions.
@@ -787,10 +804,10 @@ class _StorageManagerPolicyHooks(Protocol):
     @abstractmethod
     def _plan_recreation_branch(
         self,
-        digital_asset_id: api.DigitalAssetID,
+        digital_asset_id: manager_api.DigitalAssetID,
         *,
-        visiting: frozenset[api.DigitalAssetID],
-        memo: dict[api.DigitalAssetID, _RecreationBranch],
+        visiting: frozenset[manager_api.DigitalAssetID],
+        memo: dict[manager_api.DigitalAssetID, _RecreationBranch],
     ) -> _RecreationBranch:
         """
         Assess a root's current readability or select a recursively viable exact replay proposal.
@@ -813,10 +830,10 @@ class _StorageManagerPolicyHooks(Protocol):
     @abstractmethod
     def _source_asset_ids(
         self,
-        record: api.DigitalAssetDerivationRecord,
+        record: manager_api.DigitalAssetDerivationRecord,
         *,
         include_recipe_artifacts: bool = True,
-    ) -> set[api.DigitalAssetID]:
+    ) -> set[manager_api.DigitalAssetID]:
         """
         Expand atomic provenance, current Composite membership, and pinned recipe inputs into a set.
 
@@ -836,8 +853,8 @@ class _StorageManagerPolicyHooks(Protocol):
     @abstractmethod
     def _reject_derivation_cycle(
         self,
-        result_digital_asset_id: api.DigitalAssetID,
-        source_asset_ids: set[api.DigitalAssetID],
+        result_digital_asset_id: manager_api.DigitalAssetID,
+        source_asset_ids: set[manager_api.DigitalAssetID],
     ) -> None:
         """
         Reject proposed result-to-source edges that would make the result reachable from its
@@ -859,8 +876,8 @@ class _StorageManagerPolicyHooks(Protocol):
     @abstractmethod
     def _derivation_is_recoverable(
         self,
-        record: api.DigitalAssetDerivationRecord,
-        visiting: set[api.DigitalAssetID],
+        record: manager_api.DigitalAssetDerivationRecord,
+        visiting: set[manager_api.DigitalAssetID],
     ) -> bool:
         """
         Require an exact recipe whose managed/external artefacts and atomic inputs are currently
@@ -896,12 +913,12 @@ class _StorageManagerStoreHooks(Protocol):
     @abstractmethod
     def attach_store(
         self,
-        configuration: api.StoreConfiguration,
-        store: api.StoreAPI,
+        configuration: manager_api.StoreConfiguration,
+        store: store_api.StoreAPI,
         *,
         startup: bool = True,
         replace_existing: bool = False,
-    ) -> api.StoreConfiguration:
+    ) -> manager_api.StoreConfiguration:
         """
         Validate configuration/facade identity and policy references, optionally start the Store,
         and register it.

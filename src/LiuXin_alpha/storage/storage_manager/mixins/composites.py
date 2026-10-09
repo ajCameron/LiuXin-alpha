@@ -10,11 +10,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-
 from collections.abc import Iterable, Iterator
 from typing import override
 
-import LiuXin_alpha.storage.api as api
+from LiuXin_alpha.storage.api import errors as storage_errors
+from LiuXin_alpha.storage.api import models as storage_models
+from LiuXin_alpha.storage.api import storage_manager_api as manager_api
 from LiuXin_alpha.storage.storage_manager.mixins._state import _StorageManagerState
 
 
@@ -34,8 +35,8 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
     @override
     def declare_composite_digital_asset(
         self,
-        declaration: api.CompositeDigitalAssetDeclaration,
-    ) -> api.CompositeDigitalAssetRecord:
+        declaration: manager_api.CompositeDigitalAssetDeclaration,
+    ) -> manager_api.CompositeDigitalAssetRecord:
         """
         Resolve every referenced Asset, then allocate and store a new Composite under the manager
         lock and metadata transaction.
@@ -55,10 +56,10 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
         for member in declaration.members:
             self.get_digital_asset_record(member.digital_asset_id)
         with self._lock, self._metadata_transaction():
-            composite_id = api.CompositeDigitalAssetID(
+            composite_id = manager_api.CompositeDigitalAssetID(
                 self._allocate_metadata_id_locked("composite")
             )
-            record = api.CompositeDigitalAssetRecord(
+            record = manager_api.CompositeDigitalAssetRecord(
                 composite_id,
                 declaration.members,
                 declaration.name,
@@ -71,8 +72,8 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
     @override
     def get_composite_digital_asset_record(
         self,
-        composite_digital_asset_id: api.CompositeDigitalAssetID,
-    ) -> api.CompositeDigitalAssetRecord:
+        composite_digital_asset_id: manager_api.CompositeDigitalAssetID,
+    ) -> manager_api.CompositeDigitalAssetRecord:
         """
         Look up the exact Composite key under the manager lock.
 
@@ -91,17 +92,17 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
             try:
                 return self._composites[composite_digital_asset_id]
             except KeyError as error:
-                raise api.CompositeDigitalAssetNotFound(
+                raise manager_api.CompositeDigitalAssetNotFound(
                     f"Composite Digital Asset {composite_digital_asset_id} is not registered."
                 ) from error
 
     @override
     def calculate_composite_digital_asset_digest(
         self,
-        composite_digital_asset_id: api.CompositeDigitalAssetID,
+        composite_digital_asset_id: manager_api.CompositeDigitalAssetID,
         *,
         algorithm: str = "sha256",
-    ) -> api.Digest:
+    ) -> storage_models.Digest:
         """
         Serialize the Composite's logical byte manifest canonically and hash it without reading bytes.
 
@@ -119,9 +120,7 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
         :return: Digest over the version-one canonical manifest payload.
         """
 
-        record = self.get_composite_digital_asset_record(
-            composite_digital_asset_id
-        )
+        record = self.get_composite_digital_asset_record(composite_digital_asset_id)
         members: list[dict[str, object]] = []
         for membership in record.members:
             asset = self.get_digital_asset_record(membership.digital_asset_id)
@@ -164,17 +163,17 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
             hasher = hashlib.new(algorithm, payload)
         except ValueError as error:
             available = ", ".join(sorted(hashlib.algorithms_available))
-            raise api.StoreUnsupportedOperation(
+            raise storage_errors.StoreUnsupportedOperation(
                 f"digest algorithm is not supported: {algorithm!r}; "
                 f"available algorithms: {available}"
             ) from error
-        return api.Digest(algorithm, hasher.hexdigest())
+        return storage_models.Digest(algorithm, hasher.hexdigest())
 
     @override
     def find_composite_digital_asset_records_by_digest(
         self,
-        digest: api.Digest,
-    ) -> tuple[api.CompositeDigitalAssetRecord, ...]:
+        digest: storage_models.Digest,
+    ) -> tuple[manager_api.CompositeDigitalAssetRecord, ...]:
         """
         Scan the Composite catalogue and retain records whose canonical digest equals the target.
 
@@ -200,11 +199,11 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
     @override
     def set_composite_digital_asset_name(
         self,
-        composite_digital_asset_id: api.CompositeDigitalAssetID,
+        composite_digital_asset_id: manager_api.CompositeDigitalAssetID,
         name: str | None,
         *,
         if_revision: str | None = None,
-    ) -> api.CompositeDigitalAssetRecord:
+    ) -> manager_api.CompositeDigitalAssetRecord:
         """
         Replace only the Composite display name under one metadata transaction.
 
@@ -223,7 +222,7 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
         with self._lock, self._metadata_transaction():
             current = self._require_composite_locked(composite_digital_asset_id)
             self._check_revision(current.revision, if_revision)
-            updated = api.CompositeDigitalAssetRecord(
+            updated = manager_api.CompositeDigitalAssetRecord(
                 current.composite_digital_asset_id,
                 current.members,
                 name,
@@ -236,11 +235,11 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
     @override
     def set_composite_digital_asset_attributes(
         self,
-        composite_digital_asset_id: api.CompositeDigitalAssetID,
+        composite_digital_asset_id: manager_api.CompositeDigitalAssetID,
         attributes: tuple[tuple[str, str], ...],
         *,
         if_revision: str | None = None,
-    ) -> api.CompositeDigitalAssetRecord:
+    ) -> manager_api.CompositeDigitalAssetRecord:
         """
         Replace only Composite extension attributes under one metadata transaction.
 
@@ -257,7 +256,7 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
         with self._lock, self._metadata_transaction():
             current = self._require_composite_locked(composite_digital_asset_id)
             self._check_revision(current.revision, if_revision)
-            updated = api.CompositeDigitalAssetRecord(
+            updated = manager_api.CompositeDigitalAssetRecord(
                 current.composite_digital_asset_id,
                 current.members,
                 current.name,
@@ -270,11 +269,11 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
     @override
     def replace_composite_digital_asset_member(
         self,
-        composite_digital_asset_id: api.CompositeDigitalAssetID,
-        membership: api.CompositeDigitalAssetMembership,
+        composite_digital_asset_id: manager_api.CompositeDigitalAssetID,
+        membership: manager_api.CompositeDigitalAssetMembership,
         *,
         if_revision: str | None = None,
-    ) -> api.CompositeDigitalAssetRecord:
+    ) -> manager_api.CompositeDigitalAssetRecord:
         """
         Replace one relationship selected by sequence number under the manager lock.
 
@@ -306,7 +305,7 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
                 else member
                 for member in current.members
             )
-            updated = api.CompositeDigitalAssetRecord(
+            updated = manager_api.CompositeDigitalAssetRecord(
                 current.composite_digital_asset_id,
                 members,
                 current.name,
@@ -319,11 +318,11 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
     @override
     def replace_composite_digital_asset(
         self,
-        composite_digital_asset_id: api.CompositeDigitalAssetID,
-        declaration: api.CompositeDigitalAssetDeclaration,
+        composite_digital_asset_id: manager_api.CompositeDigitalAssetID,
+        declaration: manager_api.CompositeDigitalAssetDeclaration,
         *,
         if_revision: str | None = None,
-    ) -> api.CompositeDigitalAssetRecord:
+    ) -> manager_api.CompositeDigitalAssetRecord:
         """
         Validate all replacement Asset references, then replace the Composite after optional
         revision checking.
@@ -348,7 +347,7 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
         with self._lock, self._metadata_transaction():
             current = self._require_composite_locked(composite_digital_asset_id)
             self._check_revision(current.revision, if_revision)
-            record = api.CompositeDigitalAssetRecord(
+            record = manager_api.CompositeDigitalAssetRecord(
                 composite_digital_asset_id,
                 declaration.members,
                 declaration.name,
@@ -361,7 +360,7 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
     @override
     def iter_composite_digital_asset_records(
         self,
-    ) -> Iterator[api.CompositeDigitalAssetRecord]:
+    ) -> Iterator[manager_api.CompositeDigitalAssetRecord]:
         """
         Capture records under the lock in ascending Composite-key order and return a tuple iterator.
 
@@ -382,7 +381,7 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
     @override
     def forget_composite_digital_asset(
         self,
-        composite_digital_asset_id: api.CompositeDigitalAssetID,
+        composite_digital_asset_id: manager_api.CompositeDigitalAssetID,
         *,
         require_unlinked: bool = True,
         if_revision: str | None = None,
@@ -417,7 +416,7 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
                     and target_id == composite_digital_asset_id
                     for kind, target_id in self._item_targets.values()
                 ):
-                    raise api.StoragePreconditionFailed(
+                    raise storage_errors.StoragePreconditionFailed(
                         "Composite Digital Asset is still linked to an Item."
                     )
                 if any(
@@ -425,7 +424,7 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
                     for record in self._derivations.values()
                     for source in record.declaration.sources
                 ):
-                    raise api.StoragePreconditionFailed(
+                    raise storage_errors.StoragePreconditionFailed(
                         "Composite Digital Asset is still derivation provenance."
                     )
             del self._composites[composite_digital_asset_id]
@@ -434,11 +433,11 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
     @override
     def resolve_composite_digital_asset(
         self,
-        composite_digital_asset_id: api.CompositeDigitalAssetID,
+        composite_digital_asset_id: manager_api.CompositeDigitalAssetID,
         *,
-        preferred_store_ref: api.StoreUUID | None = None,
+        preferred_store_ref: storage_models.StoreUUID | None = None,
         require_verified: bool = False,
-    ) -> api.CompositeDigitalAssetResolution:
+    ) -> manager_api.CompositeDigitalAssetResolution:
         """
         Resolve each membership in stored order using the default ACTIVE atomic-selection mode.
 
@@ -462,8 +461,8 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
         """
 
         record = self.get_composite_digital_asset_record(composite_digital_asset_id)
-        resolved: list[api.CompositeDigitalAssetMemberResolution] = []
-        missing: list[api.DigitalAssetID] = []
+        resolved: list[manager_api.CompositeDigitalAssetMemberResolution] = []
+        missing: list[manager_api.DigitalAssetID] = []
         for membership in record.members:
             try:
                 resolution = self.resolve_digital_asset(
@@ -471,33 +470,35 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
                     preferred_store_ref=preferred_store_ref,
                     require_verified=require_verified,
                 )
-            except (api.DigitalAssetNotFound, api.NoReadableReplica):
+            except (manager_api.DigitalAssetNotFound, manager_api.NoReadableReplica):
                 if membership.required:
                     missing.append(membership.digital_asset_id)
                 continue
             resolved.append(
-                api.CompositeDigitalAssetMemberResolution(
+                manager_api.CompositeDigitalAssetMemberResolution(
                     membership,
                     resolution,
                 )
             )
         if missing:
-            raise api.CompositeDigitalAssetIncomplete(
+            raise manager_api.CompositeDigitalAssetIncomplete(
                 "required member Assets are unavailable: "
                 + ", ".join(str(value) for value in missing)
             )
-        return api.CompositeDigitalAssetResolution(record, tuple(resolved))
+        return manager_api.CompositeDigitalAssetResolution(record, tuple(resolved))
 
     @override
     def materialize_composite_digital_asset(
         self,
-        composite_digital_asset_id: api.CompositeDigitalAssetID,
+        composite_digital_asset_id: manager_api.CompositeDigitalAssetID,
         *,
-        preferred_store_ref: api.StoreUUID | None = None,
-        source_modes: Iterable[api.ReplicaMode | str] = (api.ReplicaMode.ACTIVE,),
-        cache_store_ref: api.StoreUUID | None = None,
+        preferred_store_ref: storage_models.StoreUUID | None = None,
+        source_modes: Iterable[manager_api.ReplicaMode | str] = (
+            manager_api.ReplicaMode.ACTIVE,
+        ),
+        cache_store_ref: storage_models.StoreUUID | None = None,
         verify: bool = True,
-    ) -> api.CompositeDigitalAssetResolution:
+    ) -> manager_api.CompositeDigitalAssetResolution:
         """
         Materialize each relationship through the atomic Asset workflow and retain Composite context.
 
@@ -527,8 +528,8 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
 
         record = self.get_composite_digital_asset_record(composite_digital_asset_id)
         selected_source_modes = tuple(source_modes)
-        resolved: list[api.CompositeDigitalAssetMemberResolution] = []
-        missing: list[api.DigitalAssetID] = []
+        resolved: list[manager_api.CompositeDigitalAssetMemberResolution] = []
+        missing: list[manager_api.DigitalAssetID] = []
         for membership in record.members:
             try:
                 resolution = self.materialize_digital_asset(
@@ -538,25 +539,27 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
                     cache_store_ref=cache_store_ref,
                     verify=verify,
                 )
-            except (api.DigitalAssetNotFound, api.NoReadableReplica):
+            except (manager_api.DigitalAssetNotFound, manager_api.NoReadableReplica):
                 if membership.required:
                     missing.append(membership.digital_asset_id)
                 continue
             resolved.append(
-                api.CompositeDigitalAssetMemberResolution(membership, resolution)
+                manager_api.CompositeDigitalAssetMemberResolution(
+                    membership, resolution
+                )
             )
         if missing:
-            raise api.CompositeDigitalAssetIncomplete(
+            raise manager_api.CompositeDigitalAssetIncomplete(
                 "required member Assets could not be materialized: "
                 + ", ".join(str(value) for value in missing)
             )
-        return api.CompositeDigitalAssetResolution(record, tuple(resolved))
+        return manager_api.CompositeDigitalAssetResolution(record, tuple(resolved))
 
     @override
     def assess_composite_digital_asset(
         self,
-        composite_digital_asset_id: api.CompositeDigitalAssetID,
-    ) -> api.CompositeDigitalAssetAvailabilityAssessment:
+        composite_digital_asset_id: manager_api.CompositeDigitalAssetID,
+    ) -> manager_api.CompositeDigitalAssetAvailabilityAssessment:
         """
         Count required membership occurrences whose Assets exist and whose ACTIVE Replicas can be
         selected.
@@ -581,7 +584,7 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
 
         record = self.get_composite_digital_asset_record(composite_digital_asset_id)
         resolved = readable = 0
-        missing: list[api.DigitalAssetID] = []
+        missing: list[manager_api.DigitalAssetID] = []
         errors: list[str] = []
         required_members = tuple(
             membership for membership in record.members if membership.required
@@ -590,17 +593,17 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
             try:
                 self.get_digital_asset_record(membership.digital_asset_id)
                 resolved += 1
-            except api.DigitalAssetNotFound as error:
+            except manager_api.DigitalAssetNotFound as error:
                 missing.append(membership.digital_asset_id)
                 errors.append(str(error))
                 continue
             try:
                 self.select_replica(membership.digital_asset_id)
                 readable += 1
-            except api.NoReadableReplica as error:
+            except manager_api.NoReadableReplica as error:
                 missing.append(membership.digital_asset_id)
                 errors.append(str(error))
-        return api.CompositeDigitalAssetAvailabilityAssessment(
+        return manager_api.CompositeDigitalAssetAvailabilityAssessment(
             composite_digital_asset_id,
             len(required_members),
             resolved,

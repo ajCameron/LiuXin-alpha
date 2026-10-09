@@ -9,6 +9,7 @@ manager workflows determine which members must be readable.
 from __future__ import annotations
 
 import dataclasses
+from typing import cast
 
 from LiuXin_alpha.storage.api.storage_manager_api.models.identifiers import (
     CompositeDigitalAssetID,
@@ -68,7 +69,7 @@ class CompositeDigitalAssetMembership:
         :return: None after the selected value checks pass; comparison, string-operation, and validation errors propagate.
         """
 
-        if isinstance(self.digital_asset_id, bool) or not isinstance(
+        if isinstance(cast(object, self.digital_asset_id), bool) or not isinstance(
             self.digital_asset_id, int
         ):
             raise TypeError("digital_asset_id must be an integer.")
@@ -94,7 +95,6 @@ class CompositeDigitalAssetMembership:
                 raise ValueError(f"{field_name} must not be empty when supplied.")
             if value is not None and "\x00" in value:
                 raise ValueError(f"{field_name} must not contain NUL characters.")
-
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -243,9 +243,10 @@ class CompositeDigitalAssetAvailabilityAssessment:
 
     def __post_init__(self) -> None:
         """Validate identity, monotonic counts, missing IDs, and diagnostic text."""
-        if isinstance(self.composite_digital_asset_id, bool) or not isinstance(
-            self.composite_digital_asset_id, int
-        ):
+        if isinstance(
+            cast(object, self.composite_digital_asset_id),
+            bool,
+        ) or not isinstance(self.composite_digital_asset_id, int):
             raise TypeError("composite_digital_asset_id must be an integer.")
         if self.composite_digital_asset_id <= 0:
             raise ValueError("composite_digital_asset_id must be positive.")
@@ -263,7 +264,7 @@ class CompositeDigitalAssetAvailabilityAssessment:
         if self.readable_members > self.resolved_members:
             raise ValueError("readable_members must not exceed resolved_members.")
         for digital_asset_id in self.missing_digital_asset_ids:
-            if isinstance(digital_asset_id, bool) or not isinstance(
+            if isinstance(cast(object, digital_asset_id), bool) or not isinstance(
                 digital_asset_id, int
             ):
                 raise TypeError("missing Digital Asset IDs must be integers.")
@@ -295,9 +296,7 @@ class CompositeDigitalAssetAvailabilityAssessment:
         """
 
         return (
-            self.expected_members
-            == self.resolved_members
-            == self.readable_members
+            self.expected_members == self.resolved_members == self.readable_members
             and not self.missing_digital_asset_ids
             and not self.errors
         )
@@ -326,12 +325,9 @@ def _validate_composite_members(
     if not isinstance(members, tuple):
         raise TypeError("Composite members must be a tuple.")
     if not members:
-        raise ValueError(
-            "a Composite Digital Asset requires at least one member."
-        )
+        raise ValueError("a Composite Digital Asset requires at least one member.")
     if not all(
-        isinstance(member, CompositeDigitalAssetMembership)
-        for member in members
+        isinstance(member, CompositeDigitalAssetMembership) for member in members
     ):
         raise TypeError(
             "Composite members must be CompositeDigitalAssetMembership values."

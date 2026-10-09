@@ -13,7 +13,8 @@ from datetime import UTC, datetime
 from typing import override
 from uuid import UUID
 
-import LiuXin_alpha.storage.api as api
+from LiuXin_alpha.storage.api import errors as storage_errors
+from LiuXin_alpha.storage.api import storage_manager_api as manager_api
 from LiuXin_alpha.storage.storage_manager.mixins._state import _StorageManagerState
 
 
@@ -34,7 +35,7 @@ class StorageOperationalStatusMixin(_StorageManagerState):
         self,
         *,
         refresh_stores: bool = False,
-    ) -> api.StorageOperationalStatus:
+    ) -> manager_api.StorageOperationalStatus:
         """
         Materialize attributable Store status, then collect Store, ingest, Replica, and policy
         findings in that order and append deferred-recovery issues. Exact-equal hashable recovery
@@ -54,8 +55,8 @@ class StorageOperationalStatusMixin(_StorageManagerState):
         """
 
         store_statuses = tuple(self.iter_store_statuses(refresh=refresh_stores))
-        issues: list[api.StorageOperationalIssue] = []
-        actions: list[api.StorageRecoveryAction] = []
+        issues: list[manager_api.StorageOperationalIssue] = []
+        actions: list[manager_api.StorageRecoveryAction] = []
         for found_issues, found_actions in (
             self._store_operational_findings(store_statuses),
             self._ingest_operational_findings(),
@@ -66,7 +67,7 @@ class StorageOperationalStatusMixin(_StorageManagerState):
             actions.extend(found_actions)
         issues.extend(self._deferred_recovery_issues())
 
-        status = api.StorageOperationalStatus(
+        status = manager_api.StorageOperationalStatus(
             checked_at=datetime.now(UTC),
             store_statuses=store_statuses,
             issues=tuple(issues),
@@ -80,7 +81,7 @@ class StorageOperationalStatusMixin(_StorageManagerState):
         self,
         *,
         limit: int | None = None,
-    ) -> tuple[api.StorageOperationalStatus, ...]:
+    ) -> tuple[manager_api.StorageOperationalStatus, ...]:
         """Return bounded process-local observations in chronological order.
 
         The manager retains at most the newest 100 snapshots created by
@@ -93,9 +94,13 @@ class StorageOperationalStatusMixin(_StorageManagerState):
         """
         if limit is not None:
             if isinstance(limit, bool) or not isinstance(limit, int):
-                raise TypeError("operational status history limit must be an integer or None.")
+                raise TypeError(
+                    "operational status history limit must be an integer or None."
+                )
             if limit < 0:
-                raise ValueError("operational status history limit must not be negative.")
+                raise ValueError(
+                    "operational status history limit must not be negative."
+                )
         with self._lock:
             history = tuple(self._operational_status_history)
         if limit is None:
@@ -106,10 +111,10 @@ class StorageOperationalStatusMixin(_StorageManagerState):
 
     def _store_operational_findings(
         self,
-        store_statuses: tuple[api.StoreStatusObservation, ...],
+        store_statuses: tuple[manager_api.StoreStatusObservation, ...],
     ) -> tuple[
-        list[api.StorageOperationalIssue],
-        list[api.StorageRecoveryAction],
+        list[manager_api.StorageOperationalIssue],
+        list[manager_api.StorageRecoveryAction],
     ]:
         """
         Turn every plugin warning into an attributed warning issue, then add an unavailable issue
@@ -125,16 +130,16 @@ class StorageOperationalStatusMixin(_StorageManagerState):
         :return: Pair of mutable issue/action lists in observation order.
         """
 
-        issues: list[api.StorageOperationalIssue] = []
-        actions: list[api.StorageRecoveryAction] = []
+        issues: list[manager_api.StorageOperationalIssue] = []
+        actions: list[manager_api.StorageRecoveryAction] = []
         for observation in store_statuses:
             issues.extend(
-                api.StorageOperationalIssue(
+                manager_api.StorageOperationalIssue(
                     "store_warning",
-                    api.StorageOperationalSeverity.WARNING,
+                    manager_api.StorageOperationalSeverity.WARNING,
                     warning,
                     store_ref=observation.store_ref,
-                    recoverability=api.StorageOperationalRecoverability.UNKNOWN,
+                    recoverability=manager_api.StorageOperationalRecoverability.UNKNOWN,
                 )
                 for warning in observation.status.warnings
             )
@@ -145,16 +150,16 @@ class StorageOperationalStatusMixin(_StorageManagerState):
                 or f"Store {observation.store_ref} is unavailable."
             )
             issues.append(
-                api.StorageOperationalIssue(
+                manager_api.StorageOperationalIssue(
                     "store_unavailable",
-                    api.StorageOperationalSeverity.WARNING,
+                    manager_api.StorageOperationalSeverity.WARNING,
                     message,
                     store_ref=observation.store_ref,
-                    recoverability=api.StorageOperationalRecoverability.RETRYABLE,
+                    recoverability=manager_api.StorageOperationalRecoverability.RETRYABLE,
                 )
             )
             actions.append(
-                api.StorageRecoveryAction(
+                manager_api.StorageRecoveryAction(
                     "reload_stores",
                     "Reload the Store after its endpoint becomes available.",
                     store_ref=observation.store_ref,
@@ -165,8 +170,8 @@ class StorageOperationalStatusMixin(_StorageManagerState):
     def _ingest_operational_findings(
         self,
     ) -> tuple[
-        list[api.StorageOperationalIssue],
-        list[api.StorageRecoveryAction],
+        list[manager_api.StorageOperationalIssue],
+        list[manager_api.StorageRecoveryAction],
     ]:
         """
         Read journal summaries, skip committed state, and classify failed entries as errors with
@@ -181,8 +186,8 @@ class StorageOperationalStatusMixin(_StorageManagerState):
         :return: Pair of journal issue/action lists in supplied journal order.
         """
 
-        issues: list[api.StorageOperationalIssue] = []
-        actions: list[api.StorageRecoveryAction] = []
+        issues: list[manager_api.StorageOperationalIssue] = []
+        actions: list[manager_api.StorageRecoveryAction] = []
         for journal in self._ingest_journal_statuses():
             state = str(journal.get("state") or "unknown")
             if state == "committed":
@@ -196,16 +201,16 @@ class StorageOperationalStatusMixin(_StorageManagerState):
                 if last_error:
                     message += f": {last_error}"
                 issues.append(
-                    api.StorageOperationalIssue(
+                    manager_api.StorageOperationalIssue(
                         "ingest_failed",
-                        api.StorageOperationalSeverity.ERROR,
+                        manager_api.StorageOperationalSeverity.ERROR,
                         message,
                         operation_id=operation_id,
-                        recoverability=api.StorageOperationalRecoverability.RETRYABLE,
+                        recoverability=manager_api.StorageOperationalRecoverability.RETRYABLE,
                     )
                 )
                 actions.append(
-                    api.StorageRecoveryAction(
+                    manager_api.StorageRecoveryAction(
                         "retry_ingest",
                         "Retry with the same operation UUID after correcting the failure.",
                         operation_id=operation_id,
@@ -213,16 +218,16 @@ class StorageOperationalStatusMixin(_StorageManagerState):
                 )
                 continue
             issues.append(
-                api.StorageOperationalIssue(
+                manager_api.StorageOperationalIssue(
                     "ingest_pending",
-                    api.StorageOperationalSeverity.WARNING,
+                    manager_api.StorageOperationalSeverity.WARNING,
                     f"Ingest {operation_id} remains in journal state {state!r}.",
                     operation_id=operation_id,
-                    recoverability=api.StorageOperationalRecoverability.AUTOMATIC,
+                    recoverability=manager_api.StorageOperationalRecoverability.AUTOMATIC,
                 )
             )
             actions.append(
-                api.StorageRecoveryAction(
+                manager_api.StorageRecoveryAction(
                     "recover_pending_ingests",
                     "Run pending-ingest recovery after required Stores are online.",
                     operation_id=operation_id,
@@ -233,8 +238,8 @@ class StorageOperationalStatusMixin(_StorageManagerState):
     def _replica_operational_findings(
         self,
     ) -> tuple[
-        list[api.StorageOperationalIssue],
-        list[api.StorageRecoveryAction],
+        list[manager_api.StorageOperationalIssue],
+        list[manager_api.StorageRecoveryAction],
     ]:
         """
         Inspect stored Replica state without reading or verifying bytes. MISSING and CORRUPT produce
@@ -249,34 +254,34 @@ class StorageOperationalStatusMixin(_StorageManagerState):
         :return: Pair of attributed Replica issue/action lists in repository iteration order.
         """
 
-        issues: list[api.StorageOperationalIssue] = []
-        actions: list[api.StorageRecoveryAction] = []
+        issues: list[manager_api.StorageOperationalIssue] = []
+        actions: list[manager_api.StorageRecoveryAction] = []
         unhealthy_states = {
-            api.ReplicaState.MISSING,
-            api.ReplicaState.UNAVAILABLE,
-            api.ReplicaState.CORRUPT,
+            manager_api.ReplicaState.MISSING,
+            manager_api.ReplicaState.UNAVAILABLE,
+            manager_api.ReplicaState.CORRUPT,
         }
         for replica in self.iter_replica_records():
             if replica.state not in unhealthy_states:
                 continue
-            corrupt = replica.state is api.ReplicaState.CORRUPT
+            corrupt = replica.state is manager_api.ReplicaState.CORRUPT
             issues.append(
-                api.StorageOperationalIssue(
+                manager_api.StorageOperationalIssue(
                     "replica_corrupt" if corrupt else "replica_unavailable",
                     (
-                        api.StorageOperationalSeverity.ERROR
-                        if corrupt or replica.state is api.ReplicaState.MISSING
-                        else api.StorageOperationalSeverity.WARNING
+                        manager_api.StorageOperationalSeverity.ERROR
+                        if corrupt or replica.state is manager_api.ReplicaState.MISSING
+                        else manager_api.StorageOperationalSeverity.WARNING
                     ),
                     f"Replica {replica.replica_id} for Digital Asset {replica.digital_asset_id} is {replica.state.value}.",
                     digital_asset_id=replica.digital_asset_id,
                     replica_id=replica.replica_id,
                     store_ref=replica.location.store_ref,
-                    recoverability=api.StorageOperationalRecoverability.MANUAL,
+                    recoverability=manager_api.StorageOperationalRecoverability.MANUAL,
                 )
             )
             actions.append(
-                api.StorageRecoveryAction(
+                manager_api.StorageRecoveryAction(
                     "replicate_digital_asset",
                     "Create and verify another Replica from a healthy source.",
                     digital_asset_id=replica.digital_asset_id,
@@ -289,8 +294,8 @@ class StorageOperationalStatusMixin(_StorageManagerState):
     def _policy_operational_findings(
         self,
     ) -> tuple[
-        list[api.StorageOperationalIssue],
-        list[api.StorageRecoveryAction],
+        list[manager_api.StorageOperationalIssue],
+        list[manager_api.StorageRecoveryAction],
     ]:
         """
         Assess each Asset and report unsatisfied replication/backup policy with planning
@@ -306,19 +311,19 @@ class StorageOperationalStatusMixin(_StorageManagerState):
         :return: Pair of policy issue/action lists; failed assessments contribute an issue without a suggested action.
         """
 
-        issues: list[api.StorageOperationalIssue] = []
-        actions: list[api.StorageRecoveryAction] = []
+        issues: list[manager_api.StorageOperationalIssue] = []
+        actions: list[manager_api.StorageRecoveryAction] = []
         for asset in self.iter_digital_asset_records():
             try:
                 assessment = self.assess_digital_asset(asset.digital_asset_id)
             except Exception as error:
                 issues.append(
-                    api.StorageOperationalIssue(
+                    manager_api.StorageOperationalIssue(
                         "policy_assessment_failed",
-                        api.StorageOperationalSeverity.ERROR,
+                        manager_api.StorageOperationalSeverity.ERROR,
                         f"Could not assess Digital Asset {asset.digital_asset_id}: {str(error) or type(error).__name__}",
                         digital_asset_id=asset.digital_asset_id,
-                        recoverability=api.StorageOperationalRecoverability.RETRYABLE,
+                        recoverability=manager_api.StorageOperationalRecoverability.RETRYABLE,
                     )
                 )
                 continue
@@ -339,20 +344,20 @@ class StorageOperationalStatusMixin(_StorageManagerState):
                 if satisfied:
                     continue
                 issues.append(
-                    api.StorageOperationalIssue(
+                    manager_api.StorageOperationalIssue(
                         code,
                         (
-                            api.StorageOperationalSeverity.ERROR
+                            manager_api.StorageOperationalSeverity.ERROR
                             if assessment.unavailable
-                            else api.StorageOperationalSeverity.WARNING
+                            else manager_api.StorageOperationalSeverity.WARNING
                         ),
                         f"Digital Asset {asset.digital_asset_id} does not meet its {code.replace('_', ' ')}.",
                         digital_asset_id=asset.digital_asset_id,
-                        recoverability=api.StorageOperationalRecoverability.MANUAL,
+                        recoverability=manager_api.StorageOperationalRecoverability.MANUAL,
                     )
                 )
                 actions.append(
-                    api.StorageRecoveryAction(
+                    manager_api.StorageRecoveryAction(
                         action,
                         reason,
                         digital_asset_id=asset.digital_asset_id,
@@ -360,7 +365,7 @@ class StorageOperationalStatusMixin(_StorageManagerState):
                 )
         return issues, actions
 
-    def _deferred_recovery_issues(self) -> list[api.StorageOperationalIssue]:
+    def _deferred_recovery_issues(self) -> list[manager_api.StorageOperationalIssue]:
         """
         Snapshot an optional ingest_recovery_issues attribute and stringify every message into a
         warning. Missing attributes yield no warnings. No messages are cleared and no recovery runs;
@@ -374,11 +379,11 @@ class StorageOperationalStatusMixin(_StorageManagerState):
         """
 
         return [
-            api.StorageOperationalIssue(
+            manager_api.StorageOperationalIssue(
                 "ingest_recovery_deferred",
-                api.StorageOperationalSeverity.WARNING,
+                manager_api.StorageOperationalSeverity.WARNING,
                 str(message),
-                recoverability=api.StorageOperationalRecoverability.AUTOMATIC,
+                recoverability=manager_api.StorageOperationalRecoverability.AUTOMATIC,
             )
             for message in tuple(getattr(self, "ingest_recovery_issues", ()))
         ]
@@ -421,7 +426,7 @@ class StorageOperationalStatusMixin(_StorageManagerState):
     def retry_ingest_operation(
         self,
         operation_id: UUID,
-    ) -> api.DigitalAssetIngestResult:
+    ) -> manager_api.DigitalAssetIngestResult:
         """
         Reject retry because this base has no durable ingest journal. The supplied UUID is discarded
         without lookup or replay; the application manager can override this behavior.
@@ -435,7 +440,7 @@ class StorageOperationalStatusMixin(_StorageManagerState):
         """
 
         del operation_id
-        raise api.StoragePreconditionFailed(
+        raise storage_errors.StoragePreconditionFailed(
             "transient storage managers have no durable ingest journal."
         )
 

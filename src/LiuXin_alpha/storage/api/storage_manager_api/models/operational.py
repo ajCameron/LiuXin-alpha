@@ -8,9 +8,9 @@ reported issues rather than probing Stores or performing recovery.
 from __future__ import annotations
 
 import dataclasses
-
 from datetime import datetime
 from enum import StrEnum
+from typing import cast
 from uuid import UUID
 
 from LiuXin_alpha.storage.api.models import StoreUUID
@@ -137,7 +137,7 @@ class StorageOperationalIssue:
             ("replica_id", self.replica_id),
         ):
             if identifier is not None and (
-                isinstance(identifier, bool)
+                isinstance(cast(object, identifier), bool)
                 or not isinstance(identifier, int)
             ):
                 raise TypeError(f"{field_name} must be an integer or None.")
@@ -146,7 +146,10 @@ class StorageOperationalIssue:
 
     @property
     def can_recover(self) -> bool | None:
-        """Return false for terminal issues, true for known routes, and None when unknown."""
+        """Return false for terminal issues, true for known routes, and None when unknown.
+
+        :return: Tri-state recovery conclusion derived from the reported classification.
+        """
         if self.recoverability is StorageOperationalRecoverability.UNKNOWN:
             return None
         return self.recoverability is not StorageOperationalRecoverability.TERMINAL

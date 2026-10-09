@@ -4,16 +4,38 @@ This document describes the replacement storage API in
 `LiuXin_alpha.storage.api`. The old `06 - Storage.md` model is deprecated and
 is retained only as salvage material.
 
+See [storage design patterns](design-patterns.md) for the declaration-backed
+convenience façade used by manager, repository, and workflow creation APIs.
+For a task-oriented entry point, use the [storage developer guide](README.md).
+
+## How to use this guide
+
+- Application callers: [start a manager](#starting-a-manager), then use the
+  [everyday convenience surface](#everyday-manager-convenience-surface).
+- Store authors: read [the three boundaries](#the-three-boundaries),
+  [transactional writes](#transactional-writes), and
+  [Store/manager responsibilities](#store-and-manager-responsibilities).
+- Driver authors: begin with [the reusable driver core](#the-reusable-driver-core)
+  and [optional protocols](#optional-driver-protocols).
+- Persistence adapter authors: go directly to the [persistence SPI](#persistence-spi).
+- Archive/backend behavior is separated into
+  [backend behavior and safety](backend-behavior.md).
+
 ## Import ownership
 
-The `LiuXin_alpha.storage` package is a namespace. Import contracts from
-`LiuXin_alpha.storage.api` and implementations from their owning modules:
+The `LiuXin_alpha.storage` package is a namespace. Prefer narrow responsibility
+packages for contracts and owning modules for implementations:
 
 ```python
-from LiuXin_alpha.storage.api import StorageManagerAPI
-from LiuXin_alpha.storage.store_manager import StorageManager
+from LiuXin_alpha.storage.api.storage_manager_api import StorageManagerAPI
+from LiuXin_alpha.storage.durable_manager import StorageManager
 from LiuXin_alpha.storage.store_container import StoreContainer
 ```
+
+The `LiuXin_alpha.storage.api` umbrella remains supported for discovery and
+cross-cutting application composition. Extension modules should import from
+`storage_manager_api`, `store_api`, `store_driver_api`, `persistence_api`, or
+`workflow_api` so their dependency boundary is visible at the import site.
 
 The former package-root implementation exports have been removed. Existing
 `from LiuXin_alpha.storage import api` imports still load the real `api`
@@ -160,207 +182,13 @@ Dynamic, per-instance evidence remains in `StoreStatus`. Status warnings are
 promoted to attributable `store_warning` operational issues, while static
 limitations do not by themselves make an otherwise usable Store unhealthy.
 
-### ISO images
+### Backend-specific behavior
 
-`IsoStorageDriver` and the registered `iso_readonly` Store expose ordinary
-ISO 9660 images without mounting them or requiring a shell utility. Namespace
-selection is explicit and deterministic: standard Rock Ridge is preferred,
-then an available UDF namespace on an ISO/UDF bridge image, then the highest
-available Joliet supplementary volume, then the primary ISO 9660 volume. UDF
-selection uses the optional `pycdlib` dependency; without it, a hybrid image
-remains readable through its direct ISO/Joliet namespace. The selected
-namespace is reported in Store status and object hints.
-
-Inventory parses bounded directory and SUSP continuation records. Reads stream
-directly across recorded extents, including multi-extent files, and support
-conditional range reads pinned to the containing image identity. Rock Ridge
-byte names use surrogate escapes so an old image with incorrectly encoded
-directory entries remains addressable on POSIX rather than being silently
-renamed. A symbolic link, other non-regular entry, ambiguous topology, or
-unsafe name rejects the selected read-only namespace; it is never followed or
-silently omitted from an ingest inventory.
-
-UDF reads stage the selected member in a bounded private temporary file before
-returning a full or ranged reader. `enable_udf`, member and total logical-byte
-ceilings, the logical/image expansion-ratio ceiling, and the path-byte ceiling
-are durable backend options. The current optional parser requires an ISO/UDF bridge,
-so UDF-only images remain explicitly unsupported. zisofs-compressed members are
-also rejected rather than being returned as compressed bytes.
-
-`WritableIsoStorageDriver` and the registered `iso_writable` Store provide the
-same read surface plus create, replace, upsert, conditional delete, and address
-allocation. ISO filesystems do not have an in-place transactional mutation
-primitive, so each commit streams every retained member and the new payload
-into a complete sibling image. LiuXin parses and verifies that candidate before
-using an atomic filesystem replacement to publish it. The old image remains
-untouched if staging, copying, layout, validation, or publication fails; no
-extracted mirror or in-memory payload cache is retained.
-
-Writable images contain a conservative primary ISO 9660 namespace, Rock Ridge
-byte names, and—when all names fit the format—a Joliet supplementary namespace.
-Opening an existing primary, Joliet, or Rock Ridge image for writing preserves
-its regular-file keys and bytes, then publishes this hybrid form on the first
-mutation. Before doing so, the parser audits skipped symbolic links and other
-non-regular entries, unpreserved SUSP/Rock Ridge fields, boot and partition
-descriptors, unrecognised supplementary descriptors, and hybrid-UDF markers.
-Detected loss makes the Store dynamically non-writable and blocks every rebuild
-by default. `allow_lossy_rebuild=True` is the explicit durable opt-in for a
-normalizing conversion; the detected reasons remain visible as Store warnings.
-
-`volume_id`, `include_joliet`, `deterministic`, `allow_lossy_rebuild`, allocation
-prefix, and reader safety limits are durable backend options. Current writes
-enforce their member ceiling while bytes are staged, preflight the complete
-logical-byte total before building, reject individual members of 4 GiB or
-larger, and reject Rock Ridge components longer than 255 encoded bytes. The registry and configured Store
-advertise these limits, whole-image publication, store-copy staging, container
-rewriting, and archival-snapshot usage structurally. Whole-image rebuilding
-makes this backend appropriate for occasional archive mutation; high-volume
-ingest should target an ordinary writable Store before producing an ISO
-snapshot.
-
-### ZIP, TAR, RAR, and 7z archives
-
-ZIP and TAR follow the same container-Store model as ISO. Registered
-`zip_readonly` and `tar_readonly` Stores provide complete regular-file
-inventory, exact full and ranged reads, and conditional reads whose version
-token identifies the containing archive. `zip_writable` and `tar_writable`
-add create, replace, upsert, allocation, and conditional deletion by streaming
-a complete sibling archive, validating it, and atomically replacing the old
-file. They do not keep an extracted directory tree or accumulate member
-payloads in memory.
-
-Every archive member name is treated as an opaque relative POSIX key. Absolute
-paths, dot components, empty components, backslashes, NULs, over-deep paths,
-duplicate keys, and entries beyond configured inventory or size bounds fail
-with typed storage errors. Unicode is not normalized, so NFC and NFD names
-remain distinct. TAR uses UTF-8 with surrogate escapes, preserving legacy
-non-UTF-8 POSIX byte names where Python's TAR format support can represent
-them. Only regular files are exposed. A link, device, other special entry,
-duplicate record, file/directory collision, or file used as another member's
-parent rejects a ZIP or TAR archive rather than producing an ambiguous partial
-projection. Nothing is extracted into a caller-selected host path.
-
-ZIP central-directory records are counted with an allocation-free preflight
-before `zipfile` constructs its inventory. The declared count must agree with
-the records actually present, local and central member names must agree, local
-headers may not be shared or overlap, and path validation happens before any
-member is opened. The durable ZIP policy independently bounds inventory count,
-central-directory bytes, per-member expanded bytes, total expanded bytes, path
-depth, and per-member compression ratio. Defaults cap the central directory at
-128 MiB, each member at 4 GiB, total declared expansion at 64 GiB, and
-expansion ratio at 200:1; operators may lower these for ebook-only ingest or
-explicitly raise them for a known large archive. Invalid UTF-8 metadata becomes
-a contextual integrity error rather than leaking a codec exception.
-
-ZIP writes support stored, Deflate, BZIP2, and LZMA methods. Encrypted members,
-unknown compression methods, symbolic links, special files, and multi-disk ZIP
-sets are unsupported. A write session enforces the member limit while staging,
-and a rebuild plan is rejected before I/O if its keys collide or its expanded
-size exceeds policy. Candidate validation applies the same read-side limits,
-create-only publication never replaces an existing archive, and a whole-file
-rebuild checks the source archive identity immediately before atomic replace.
-TAR reads auto-detect
-uncompressed, gzip, bzip2, and xz archives; the writable Store publishes PAX
-TAR in the explicitly configured compression. Ranged reads from compressed TAR
-may have to decompress from an earlier stream position. Its parser bounds the
-decompressed TAR stream and individual metadata records before `tarfile` can
-allocate them. The durable policy caps all entries, member bytes, total logical
-bytes, compression ratio, depth, aggregate metadata, and a single PAX/GNU
-metadata record. Defaults match ZIP's 4 GiB member, 64 GiB total, and 200:1
-ratio ceilings, with 128 MiB of aggregate parser metadata.
-
-As with writable ISO, mutation is a normalizing conversion. ZIP comments and
-ordinary member metadata, and TAR ownership, permissions, sparse maps,
-and unusual PAX metadata cannot all be preserved by the regular-file Store
-model. Inspection therefore marks the Store non-writable and every mutation
-fails closed when such material is present. Unsafe ZIP entries and ambiguous
-topology reject the archive outright; `allow_lossy_rebuild` does not turn them
-into conversion candidates. The durable
-`allow_lossy_rebuild=True` option is the explicit conversion opt-in; warnings
-continue to advertise what will be discarded. These whole-archive writers are
-classified for archival snapshots, not high-volume ingest targets.
-
-`rar_readonly` indexes RAR 3/4/5 archives in process and reads stored members
-without an external command. The vendored parser remains a dependency-free
-RAR 3/4 fallback; RAR 5 requires the maintained optional `rarfile` dependency.
-Compressed members require a configured or discoverable `unrar`/`rar`
-executable. Its stdout and stderr are bounded, the subprocess is timed out,
-stdout is written to a private temporary file, and the
-declared size and available CRC-32 or BLAKE2sp digest are verified before any
-requested range is returned. Password-protected and multi-volume archives are
-rejected explicitly, and links or other redirections reject inventory. The
-durable read policy bounds all entries, member and total logical bytes,
-per-member and aggregate compression ratio, path bytes/depth, and extraction
-time. Defaults are 4 GiB per member, 64 GiB total, and 200:1.
-
-`sevenzip_readonly` exposes a bounded regular-file projection of a 7z archive
-through optional `py7zr` support. It preserves opaque Unicode member names,
-provides complete inventory and conditional ranges, and verifies each selected
-member's declared size and CRC in a private temporary file. Solid archives are
-supported but advertise their per-member decompression amplification. Encrypted
-and multi-volume archives remain explicit limitations. There is no mutable 7z
-Store. Like RAR and SquashFS packs, a completed 7z image can be catalogued as a
-sealed archival artifact rather than pretending the container supports cheap
-object commits. Before reads, the durable policy bounds parser/header bytes,
-all entries, member and total logical bytes, available per-member and aggregate
-compression ratios, path bytes, and depth; the default size and ratio ceilings
-are the same 4 GiB/64 GiB/200:1 envelope.
-
-RAR intentionally has no mutable whole-archive Store. The optional `rar_build`
-backend instead provides a build-once lifecycle: ordinary Store writes collect
-committed files in a durable filesystem staging directory, and the explicit
-`seal()` transition creates one RAR 4, non-solid archive. Sealing requires an
-operator-installed and appropriately licensed `rar` creator. LiuXin neither
-downloads nor bundles that proprietary tool. A candidate is built beside the
-destination, tested with `rar t`, checked against the staged key/size/CRC
-manifest using LiuXin's independent reader, and then published create-only.
-The destination is never adopted, overwritten, or modified; successful
-publication permanently locks the builder and returns a `rar_readonly` facade.
-Failed builds leave the durable staging tree available for diagnosis or retry.
-Staging writes are member-bounded, and sealing first rejects links, special
-files, topology conflicts, excessive paths, entry counts, member sizes, and
-total bytes. Creator output and runtime are bounded. LiuXin then opens the
-candidate with the fully configured hostile RAR reader and verifies every
-member before create-only publication.
-
-The SquashFS reader follows the same fail-closed boundary. `unsquashfs` listing
-output, all entries, topology, paths, member/total logical bytes, and archive
-expansion ratio are bounded. Every selected member is extracted through a
-timed subprocess into size-bounded private staging, with bounded diagnostics
-and archive-identity checks before and after. `squashfs_build` preflights its
-durable staging tree without following links, bounds creator execution and
-output, then independently inventories and hashes every candidate member before
-publication. A successful builder remains sealed and immutable.
-
-These limits apply to one container. Recursive ingest must additionally own a
-cumulative budget for nesting depth, members, expanded bytes, wall time,
-temporary space, and ancestry/cycles; it must not multiply each container's
-allowance at every level.
-
-All archive backends are registered plugins. Their paths, Store identity,
-safety limits, compression choices, rebuild/build policy, durable RAR staging,
-and optional tools round-trip through `StoreConfiguration`, so normal database
-loading and reload recreates the same Store rather than requiring application
-wiring. Installing the `archives` project extra supplies `py7zr`, `pycdlib`,
-and maintained `rarfile` support; importing the storage package itself does not
-require those dependencies.
-
-### Unicode path conformance
-
-Concrete Store tests share `tests.storage.contracts.unicode_paths`. The common
-contract requires exact opaque-key identity through locate, inventory, stat,
-full reads, ranged reads, and—where advertised—external URI round trips. Its
-case set keeps NFC and NFD spellings distinct and exercises case-sensitive
-scripts, bidi and format controls, astral characters, emoji sequences,
-variation selectors, noncharacters, private-use characters, significant
-spacing, URL punctuation, and combining-mark storms.
-
-Every registered backend family, including both ISO modes and every ZIP, TAR,
-RAR, and 7z mode, is exercised through this contract. Media that
-can contain non-Unicode POSIX byte names also has a supplementary
-surrogateescape case; URL backends separately retain opaque percent-encoded
-octets. A backend may reject an unpaired surrogate supplied through a Unicode
-API, but it must do so with a typed invalid-address error before backend I/O.
+Concrete ISO, ZIP, TAR, RAR, 7z, and SquashFS behavior, safety limits,
+publication models, optional dependencies, and Unicode path conformance live in
+[backend behavior and safety](backend-behavior.md). Keeping those mechanics in a
+separate guide leaves this document focused on contracts shared by every
+backend.
 
 ## Transactional writes
 
@@ -817,7 +645,7 @@ Asset receives its first Replica, the selected Store defaults are captured on
 the Asset record. Adding later Replicas does not change its effective policy,
 so resolution cannot depend on Replica creation or iteration order.
 
-The application implementation is `LiuXin_alpha.storage.store_manager.StorageManager`.
+The application implementation is `LiuXin_alpha.storage.durable_manager.StorageManager`.
 Its manager state is database-authoritative and exposed to the orchestration
 core through repository views. When Core owns a LiuXin `Cache`, the same cache
 serves eligible storage reads and receives explicit invalidation after storage
@@ -873,7 +701,7 @@ from uuid import uuid4
 
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.storage import api
-from LiuXin_alpha.storage.store_manager import StorageManager
+from LiuXin_alpha.storage.durable_manager import StorageManager
 
 configuration = api.StoreConfiguration(
     store_uuid=uuid4(),
@@ -934,6 +762,15 @@ ordinary application code. It owns no state and creates no second set of
 storage semantics: each operation normalizes familiar inputs and delegates to
 the explicit manager contract. Manager implementations therefore inherit the
 whole surface without implementing more abstract methods.
+
+The compatibility base composes five independently reusable adapters:
+`DigitalAssetConvenienceMixin`, `ItemLinkConvenienceMixin`,
+`CompositeConvenienceMixin`, `StoragePolicyConvenienceMixin`, and
+`DerivationConvenienceMixin`. They are exported from
+`LiuXin_alpha.storage.api.storage_manager_api` for focused hosts. A host using a
+single adapter must provide the exact manager contracts named in that adapter's
+docstring; the full `StorageConvenienceAPI` remains the normal application
+surface.
 
 The main entry point accepts bytes, a binary stream, or a local path:
 

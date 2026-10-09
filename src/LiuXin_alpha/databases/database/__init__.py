@@ -54,7 +54,7 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.logging import default_log
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.storage.store_manager import StorageBootstrapReport
+    from LiuXin_alpha.storage.durable_manager import StorageBootstrapReport
 
 
 # Todo: Embed this version number in the database - so that we can check the version of the code used to produce each

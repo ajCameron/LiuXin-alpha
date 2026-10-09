@@ -8,11 +8,13 @@ Stores; callers retain those orchestration boundaries.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Protocol
 from urllib.parse import urlparse
 from uuid import UUID
 
-from LiuXin_alpha.storage import api
+from LiuXin_alpha.storage.api import errors as storage_errors
+from LiuXin_alpha.storage.api import models as storage_models
+from LiuXin_alpha.storage.api import storage_manager_api as manager_api
 from LiuXin_alpha.storage.utils.backend_registry import DEFAULT_BACKEND_REGISTRY
 from LiuXin_alpha.storage.utils.store_configuration import store_configuration_from_row
 
@@ -111,7 +113,7 @@ def _persist_derived_store_uuid(
     *,
     row: Any,
     store_id: int | None,
-    store_ref: api.StoreUUID,
+    store_ref: storage_models.StoreUUID,
 ) -> None:
     """
     Backfill a missing Store UUID when the row and database permit it.
@@ -180,14 +182,25 @@ def _is_encrypted_row(row: Any) -> bool:
     kind = _row_kind(row)
     try:
         return DEFAULT_BACKEND_REGISTRY.canonical_kind(kind) == "encrypted"
-    except (ValueError, api.StoreUnsupportedOperation):
+    except (ValueError, storage_errors.StoreUnsupportedOperation):
         return False
 
 
+class _ReplicaLookup(Protocol):
+    """Supply the one catalogue lookup needed for backed-Store ordering."""
+
+    def get_replica_record(
+        self,
+        replica_id: manager_api.ReplicaID,
+    ) -> manager_api.ReplicaRecord:
+        """Return the preferred Replica used to discover its owning Store."""
+        ...
+
+
 def _configuration_dependencies(
-    manager: Any,
-    configuration: api.StoreConfiguration,
-) -> frozenset[api.StoreUUID]:
+    manager: _ReplicaLookup,
+    configuration: manager_api.StoreConfiguration,
+) -> frozenset[storage_models.StoreUUID]:
     """
     Collect Store dependencies used to order database bootstrap rows.
 
@@ -204,7 +217,7 @@ def _configuration_dependencies(
     :return: Discovered non-self Store UUID dependencies.
     """
 
-    dependencies: set[api.StoreUUID] = set()
+    dependencies: set[storage_models.StoreUUID] = set()
     backing = configuration.backing
     if backing is not None:
         if backing.materialization_store_ref is not None:
@@ -212,7 +225,7 @@ def _configuration_dependencies(
         if backing.preferred_replica_id is not None:
             try:
                 replica = manager.get_replica_record(backing.preferred_replica_id)
-            except api.ReplicaNotFound:
+            except manager_api.ReplicaNotFound:
                 pass
             else:
                 if replica.digital_asset_id == backing.digital_asset_id:
@@ -220,7 +233,7 @@ def _configuration_dependencies(
 
     try:
         kind = DEFAULT_BACKEND_REGISTRY.canonical_kind(configuration.store_kind)
-    except (ValueError, api.StoreUnsupportedOperation):
+    except (ValueError, storage_errors.StoreUnsupportedOperation):
         kind = configuration.store_kind
     if kind == "encrypted":
         raw_inner_ref = dict(configuration.backend_options).get("inner_store_uuid")
@@ -237,7 +250,7 @@ def _configuration_dependencies(
 
 
 def _order_store_rows(
-    manager: Any,
+    manager: _ReplicaLookup,
     rows: tuple[Any, ...],
 ) -> tuple[Any, ...]:
     """
@@ -256,7 +269,7 @@ def _order_store_rows(
     :return: The original row objects in deterministic bootstrap order.
     """
 
-    translated: list[tuple[Any, api.StoreConfiguration | None]] = []
+    translated: list[tuple[Any, manager_api.StoreConfiguration | None]] = []
     for row in rows:
         try:
             configuration = store_configuration_from_row(

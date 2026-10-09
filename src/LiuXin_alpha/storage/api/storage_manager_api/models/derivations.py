@@ -322,7 +322,10 @@ class ExternalReproductionCommand:
 
     @property
     def executable(self) -> str:
-        """Return the first argument without resolving or executing it."""
+        """Return the first argument without resolving or executing it.
+
+        :return: Executable name or path retained as the first argument.
+        """
         return self.arguments[0]
 
     def resolve_executable(
@@ -338,7 +341,10 @@ class ExternalReproductionCommand:
         return resolver(self.executable)
 
     def to_json(self) -> str:
-        """Serialize the versioned external-command document in canonical JSON spelling."""
+        """Serialize the versioned external-command document in canonical JSON spelling.
+
+        :return: Canonical version-one external-command JSON document.
+        """
         return json.dumps(
             {
                 "arguments": self.arguments,
@@ -611,7 +617,10 @@ class ReproductionRecipe:
 
     @property
     def external_command(self) -> ExternalReproductionCommand | None:
-        """Return a typed external command for a nonempty argument vector, otherwise None."""
+        """Return a typed external command for a nonempty argument vector, otherwise None.
+
+        :return: Parsed command value, or None when no command was recorded.
+        """
         if not self.command:
             return None
         return ExternalReproductionCommand(self.command)
@@ -624,6 +633,8 @@ class ReproductionRecipe:
         Exact recipes already provide stronger byte identity. For other complete recipes, at least
         one normalization digest permits a caller with the named normalizer to compare semantic or
         representation-insensitive output. No normalizer is run here.
+
+        :return: Whether the recipe carries complete exact or normalized identity evidence.
         """
         return self.complete and (
             self.reproducibility is Reproducibility.EXACT
@@ -895,7 +906,11 @@ class DigitalAssetDerivationGraph:
         self,
         digital_asset_id: DigitalAssetID,
     ) -> tuple[DigitalAssetDerivationRecord, ...]:
-        """Return ordered records directly naming the selected atomic Asset as a source."""
+        """Return ordered records directly naming the selected atomic Asset as a source.
+
+        :param digital_asset_id: Atomic source identity to match.
+        :return: Matching records in graph traversal order.
+        """
         return tuple(
             record
             for record in self.derivation_records
@@ -909,7 +924,11 @@ class DigitalAssetDerivationGraph:
         self,
         digital_asset_id: DigitalAssetID,
     ) -> tuple[DigitalAssetID, ...]:
-        """Return unique direct atomic inputs of records producing the selected Asset."""
+        """Return unique direct atomic inputs of records producing the selected Asset.
+
+        :param digital_asset_id: Result identity whose immediate inputs are requested.
+        :return: Unique immediate atomic input identities in traversal order.
+        """
         return tuple(
             dict.fromkeys(
                 source.digital_asset_id
@@ -923,7 +942,11 @@ class DigitalAssetDerivationGraph:
         self,
         digital_asset_id: DigitalAssetID,
     ) -> tuple[DigitalAssetID, ...]:
-        """Return unique direct results of records using the selected atomic Asset."""
+        """Return unique direct results of records using the selected atomic Asset.
+
+        :param digital_asset_id: Source identity whose immediate results are requested.
+        :return: Unique immediate result identities in traversal order.
+        """
         return tuple(
             dict.fromkeys(
                 record.declaration.result_digital_asset_id

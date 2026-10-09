@@ -12,7 +12,10 @@ import dataclasses
 from collections import Counter
 from collections.abc import Iterable
 
-import LiuXin_alpha.storage.api as api
+from LiuXin_alpha.storage.api import errors as storage_errors
+from LiuXin_alpha.storage.api import models as storage_models
+from LiuXin_alpha.storage.api import storage_manager_api as manager_api
+from LiuXin_alpha.storage.api import store_api
 from LiuXin_alpha.storage.storage_manager.mixins._state import _StorageManagerState
 from LiuXin_alpha.storage.storage_manager.mixins._types import (
     StoreFactory,
@@ -48,15 +51,15 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
         """
 
         if self._store_factory is None:
-            raise api.StoreUnsupportedOperation(
+            raise storage_errors.StoreUnsupportedOperation(
                 "manager has no Store factory; attach a Store instance explicitly."
             )
         return self._store_factory
 
     def _validate_declared_policy_ids(
         self,
-        replication_policy_id: api.ReplicationPolicyID | None,
-        backup_policy_id: api.BackupPolicyID | None,
+        replication_policy_id: manager_api.ReplicationPolicyID | None,
+        backup_policy_id: manager_api.BackupPolicyID | None,
     ) -> None:
         """
         Resolve each non-None policy ID in replication-then-backup order. Missing references and
@@ -78,7 +81,7 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
 
     def _validate_store_policy_references(
         self,
-        configuration: api.StoreConfiguration,
+        configuration: manager_api.StoreConfiguration,
     ) -> None:
         """
         Delegate validation of the two default policy IDs retained by a Store configuration. This
@@ -99,10 +102,10 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
 
     def _placement_policy_ids(
         self,
-        store_ref: api.StoreUUID,
+        store_ref: storage_models.StoreUUID,
     ) -> tuple[
-        api.ReplicationPolicyID | None,
-        api.BackupPolicyID | None,
+        manager_api.ReplicationPolicyID | None,
+        manager_api.BackupPolicyID | None,
     ]:
         """
         Resolve one Store configuration and project its default replication/backup IDs without
@@ -124,10 +127,10 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
 
     def _capture_first_placement_policies(
         self,
-        asset: api.DigitalAssetRecord,
-        replication_policy_id: api.ReplicationPolicyID | None,
-        backup_policy_id: api.BackupPolicyID | None,
-    ) -> api.DigitalAssetRecord:
+        asset: manager_api.DigitalAssetRecord,
+        replication_policy_id: manager_api.ReplicationPolicyID | None,
+        backup_policy_id: manager_api.BackupPolicyID | None,
+    ) -> manager_api.DigitalAssetRecord:
         """
         Fill absent Asset policy references from supplied placement defaults only when no nondeleted
         Replica claim exists.
@@ -151,7 +154,7 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
         with self._lock:
             has_replica = any(
                 replica.digital_asset_id == asset.digital_asset_id
-                and replica.state is not api.ReplicaState.DELETED
+                and replica.state is not manager_api.ReplicaState.DELETED
                 for replica in self._replicas.values()
             )
             if has_replica:
@@ -196,7 +199,10 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
 
         for asset in tuple(self.iter_digital_asset_records()):
             policies = self.resolve_effective_policies(asset.digital_asset_id)
-            if policies.replication.loss_action is api.DigitalAssetLossAction.RECREATE:
+            if (
+                policies.replication.loss_action
+                is manager_api.DigitalAssetLossAction.RECREATE
+            ):
                 self._validate_recreation_policy(
                     asset.digital_asset_id,
                     set(),
@@ -204,7 +210,7 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
 
     def _set_item_target(
         self,
-        item_id: api.ItemID,
+        item_id: manager_api.ItemID,
         role: str,
         kind: _ItemTargetKind,
         target_id: _ItemTargetID,
@@ -237,7 +243,7 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
 
     def _asset_has_derivation_reference_locked(
         self,
-        digital_asset_id: api.DigitalAssetID,
+        digital_asset_id: manager_api.DigitalAssetID,
     ) -> bool:
         """
         Scan derivation results, atomic sources, recipe inputs, and managed executor/dependency IDs
@@ -281,8 +287,8 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
 
     def _store_satisfies_policy(
         self,
-        store_ref: api.StoreUUID,
-        policy: api.ReplicationPolicy | api.BackupPolicy,
+        store_ref: storage_models.StoreUUID,
+        policy: manager_api.ReplicationPolicy | manager_api.BackupPolicy,
     ) -> bool:
         """
         Check configured mode support, required tags, and absence of forbidden tags.
@@ -302,7 +308,7 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
 
         try:
             configuration = self.get_store_configuration(store_ref)
-        except api.StoreConfigurationNotFound:
+        except manager_api.StoreConfigurationNotFound:
             return False
         tags = set(configuration.store_tags)
         return (
@@ -313,8 +319,8 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
 
     def _policy_bucket(
         self,
-        store_ref: api.StoreUUID,
-        dimension: api.ReplicaSeparationDimension,
+        store_ref: storage_models.StoreUUID,
+        dimension: manager_api.ReplicaSeparationDimension,
     ) -> object:
         """
         Project one configured separation value, using a shared sentinel for missing topology data.
@@ -325,7 +331,7 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
         probe occurs.
 
         Example:
-            >>> bucket = manager._policy_bucket(store_uuid, api.ReplicaSeparationDimension.HOST)  # doctest: +SKIP
+            >>> bucket = manager._policy_bucket(store_uuid, manager_api.ReplicaSeparationDimension.HOST)  # doctest: +SKIP
 
 
         :param store_ref: Configured Store UUID whose topology declaration is read.
@@ -334,20 +340,20 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
         """
 
         configuration = self.get_store_configuration(store_ref)
-        if dimension is api.ReplicaSeparationDimension.STORE:
+        if dimension is manager_api.ReplicaSeparationDimension.STORE:
             return configuration.store_uuid
-        if dimension is api.ReplicaSeparationDimension.HOST:
+        if dimension is manager_api.ReplicaSeparationDimension.HOST:
             return configuration.store_host_uuid or ("unknown_host",)
-        if dimension is api.ReplicaSeparationDimension.DEVICE:
+        if dimension is manager_api.ReplicaSeparationDimension.DEVICE:
             return configuration.store_device_uuid or ("unknown_device",)
-        if dimension is api.ReplicaSeparationDimension.FAILURE_DOMAIN:
+        if dimension is manager_api.ReplicaSeparationDimension.FAILURE_DOMAIN:
             return configuration.store_failure_domain or ("unknown_failure_domain",)
         return configuration.store_region or ("unknown_region",)
 
     def _separated_copy_capacity(
         self,
-        records: Iterable[api.ReplicaRecord],
-        policy: api.ReplicationPolicy | api.BackupPolicy,
+        records: Iterable[manager_api.ReplicaRecord],
+        policy: manager_api.ReplicationPolicy | manager_api.BackupPolicy,
     ) -> int:
         """
         Return the largest useful jointly separated subset size, capped at the policy target.
@@ -379,11 +385,11 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
 
     def _select_separated_records(
         self,
-        records: Iterable[api.ReplicaRecord],
-        policy: api.ReplicationPolicy | api.BackupPolicy,
+        records: Iterable[manager_api.ReplicaRecord],
+        policy: manager_api.ReplicationPolicy | manager_api.BackupPolicy,
         *,
         limit: int,
-    ) -> tuple[api.ReplicaRecord, ...]:
+    ) -> tuple[manager_api.ReplicaRecord, ...]:
         """
         Select the largest prefix-preferred subset satisfying every separation dimension jointly.
 
@@ -410,9 +416,9 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
             )
             for record in candidates
         )
-        bucket_counts: Counter[tuple[api.ReplicaSeparationDimension, object]] = (
-            Counter()
-        )
+        bucket_counts: Counter[
+            tuple[manager_api.ReplicaSeparationDimension, object]
+        ] = Counter()
         selected: list[int] = []
         best: tuple[int, ...] = ()
 
@@ -442,7 +448,7 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
         search(0)
         return tuple(candidates[index] for index in best)
 
-    def _record_is_readable(self, record: api.ReplicaRecord) -> bool:
+    def _record_is_readable(self, record: manager_api.ReplicaRecord) -> bool:
         """
         Require PRESENT/UNVERIFIED/VERIFIED state, an available Store, and stat size equal to the
         owning Asset's expected size.
@@ -460,9 +466,9 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
         """
 
         if record.state not in {
-            api.ReplicaState.PRESENT,
-            api.ReplicaState.UNVERIFIED,
-            api.ReplicaState.VERIFIED,
+            manager_api.ReplicaState.PRESENT,
+            manager_api.ReplicaState.UNVERIFIED,
+            manager_api.ReplicaState.VERIFIED,
         }:
             return False
         try:
@@ -470,14 +476,14 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
                 return False
             asset = self.get_digital_asset_record(record.digital_asset_id)
             return self.stat(record.location).size == asset.size_bytes
-        except api.StorageError:
+        except storage_errors.StorageError:
             return False
 
     def _assess_policy(
         self,
-        digital_asset_id: api.DigitalAssetID,
-        policy: api.ReplicationPolicy | api.BackupPolicy,
-    ) -> api.StoragePolicyAssessment:
+        digital_asset_id: manager_api.DigitalAssetID,
+        policy: manager_api.ReplicationPolicy | manager_api.BackupPolicy,
+    ) -> manager_api.StoragePolicyAssessment:
         """
         Resolve the Asset and capture claims in the policy mode, then classify current readability
         and recorded policy eligibility.
@@ -510,7 +516,7 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
         healthy = tuple(
             record
             for record in present
-            if record.state is api.ReplicaState.VERIFIED
+            if record.state is manager_api.ReplicaState.VERIFIED
             and self._store_satisfies_policy(record.location.store_ref, policy)
         )
         capacity = self._separated_copy_capacity(healthy, policy)
@@ -525,7 +531,7 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
                 "Replicas fail Store policy constraints: "
                 + ", ".join(str(value) for value in ineligible)
             )
-        return api.StoragePolicyAssessment(
+        return manager_api.StoragePolicyAssessment(
             digital_asset_id,
             policy.name,
             policy.mode,
@@ -538,13 +544,13 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
 
     def _plan_destination_stores(
         self,
-        policy: api.ReplicationPolicy | api.BackupPolicy,
-        existing: tuple[api.ReplicaRecord, ...],
+        policy: manager_api.ReplicationPolicy | manager_api.BackupPolicy,
+        existing: tuple[manager_api.ReplicaRecord, ...],
         needed: int,
         *,
         expected_size: int | None = None,
-        excluded_store_refs: set[api.StoreUUID] | None = None,
-    ) -> tuple[api.StoreUUID, ...]:
+        excluded_store_refs: set[storage_models.StoreUUID] | None = None,
+    ) -> tuple[storage_models.StoreUUID, ...]:
         """
         Choose unoccupied policy-eligible destinations in preferred-tag, default-Store, name, then
         UUID order.
@@ -586,7 +592,7 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
             )
         )
         selected_store_refs = [record.location.store_ref for record in existing]
-        selected_refs: list[api.StoreUUID] = []
+        selected_refs: list[storage_models.StoreUUID] = []
         for configuration in configurations:
             store_ref = configuration.store_uuid
             if store_ref in occupied or not self._store_satisfies_policy(
@@ -598,8 +604,8 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
                 characteristics = self.characteristics(store_ref)
                 if (
                     characteristics.recommended_write_usage
-                    is api.StorageWriteUsage.ARCHIVAL_SNAPSHOT
-                    and policy.mode is not api.ReplicaMode.ARCHIVE
+                    is store_api.StorageWriteUsage.ARCHIVAL_SNAPSHOT
+                    and policy.mode is not manager_api.ReplicaMode.ARCHIVE
                 ):
                     continue
                 self._require_writable_destination(
@@ -607,7 +613,7 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
                     policy.mode,
                     expected_size=expected_size,
                 )
-            except api.StorageError:
+            except storage_errors.StorageError:
                 continue
             if any(
                 sum(
@@ -628,10 +634,10 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
 
     def _plan_recreation_branch(
         self,
-        digital_asset_id: api.DigitalAssetID,
+        digital_asset_id: manager_api.DigitalAssetID,
         *,
-        visiting: frozenset[api.DigitalAssetID],
-        memo: dict[api.DigitalAssetID, _RecreationBranch],
+        visiting: frozenset[manager_api.DigitalAssetID],
+        memo: dict[manager_api.DigitalAssetID, _RecreationBranch],
     ) -> _RecreationBranch:
         """
         Plan a currently readable or recursively recreatable route for one Asset, memoizing by Asset
@@ -694,8 +700,10 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
             return branch
 
         next_visiting = visiting | {digital_asset_id}
-        viable: list[tuple[api.DigitalAssetDerivationRecord, _RecreationBranch]] = []
-        unavailable_ids: set[api.DigitalAssetID] = {digital_asset_id}
+        viable: list[
+            tuple[manager_api.DigitalAssetDerivationRecord, _RecreationBranch]
+        ] = []
+        unavailable_ids: set[manager_api.DigitalAssetID] = {digital_asset_id}
         failed_warnings: list[str] = []
         for candidate in candidates:
             attempt = self._plan_recreation_derivation(
@@ -740,10 +748,10 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
 
     def _plan_recreation_derivation(
         self,
-        record: api.DigitalAssetDerivationRecord,
+        record: manager_api.DigitalAssetDerivationRecord,
         *,
-        visiting: frozenset[api.DigitalAssetID],
-        memo: dict[api.DigitalAssetID, _RecreationBranch],
+        visiting: frozenset[manager_api.DigitalAssetID],
+        memo: dict[manager_api.DigitalAssetID, _RecreationBranch],
     ) -> _RecreationBranch:
         """
         Plan managed source and artifact prerequisites for a declared complete exact recipe.
@@ -779,7 +787,7 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
             )
 
         prerequisite_branches: list[_RecreationBranch] = []
-        unavailable_ids: set[api.DigitalAssetID] = set()
+        unavailable_ids: set[manager_api.DigitalAssetID] = set()
         warnings: list[str] = []
         for source_id in sorted(
             self._source_asset_ids(
@@ -837,10 +845,10 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
                 warnings=tuple(dict.fromkeys(warnings)),
             )
 
-        steps: list[api.DigitalAssetDerivationRecord] = []
-        seen_steps: set[api.DigitalAssetDerivationID] = set()
-        available_ids: set[api.DigitalAssetID] = set()
-        alternatives: list[api.DigitalAssetDerivationID] = []
+        steps: list[manager_api.DigitalAssetDerivationRecord] = []
+        seen_steps: set[manager_api.DigitalAssetDerivationID] = set()
+        available_ids: set[manager_api.DigitalAssetID] = set()
+        alternatives: list[manager_api.DigitalAssetDerivationID] = []
         for prerequisite in prerequisite_branches:
             available_ids.update(prerequisite.available_digital_asset_ids)
             warnings.extend(prerequisite.warnings)
@@ -864,7 +872,7 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
 
     def _external_recipe_artifact_is_available(
         self,
-        artifact: api.ReproductionRecipeArtifactReference,
+        artifact: manager_api.ReproductionRecipeArtifactReference,
     ) -> bool:
         """
         Ask the configured resolver about an artifact with a supplied URI.
@@ -891,10 +899,10 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
 
     def _source_asset_ids(
         self,
-        record: api.DigitalAssetDerivationRecord,
+        record: manager_api.DigitalAssetDerivationRecord,
         *,
         include_recipe_artifacts: bool = True,
-    ) -> set[api.DigitalAssetID]:
+    ) -> set[manager_api.DigitalAssetID]:
         """
         Collect atomic source IDs, every Composite-source member, and pinned recipe inputs into a
         set.
@@ -913,7 +921,7 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
         :return: New set of atomic Asset IDs referenced by the requested source categories.
         """
 
-        source_ids: set[api.DigitalAssetID] = set()
+        source_ids: set[manager_api.DigitalAssetID] = set()
         for source in record.declaration.sources:
             if source.digital_asset_id is not None:
                 source_ids.add(source.digital_asset_id)
@@ -940,8 +948,8 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
 
     def _reject_derivation_cycle(
         self,
-        result_digital_asset_id: api.DigitalAssetID,
-        source_asset_ids: set[api.DigitalAssetID],
+        result_digital_asset_id: manager_api.DigitalAssetID,
+        source_asset_ids: set[manager_api.DigitalAssetID],
     ) -> None:
         """
         Build result-to-source adjacency from all derivations, add proposed edges, and reject any
@@ -961,7 +969,9 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
         :return: None when proposed edges do not reach the result; a cycle raises StoragePreconditionFailed.
         """
 
-        adjacency: dict[api.DigitalAssetID, set[api.DigitalAssetID]] = {}
+        adjacency: dict[
+            manager_api.DigitalAssetID, set[manager_api.DigitalAssetID]
+        ] = {}
         for record in self.iter_digital_asset_derivation_records():
             adjacency.setdefault(
                 record.declaration.result_digital_asset_id,
@@ -970,8 +980,8 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
         adjacency.setdefault(result_digital_asset_id, set()).update(source_asset_ids)
 
         def reaches_result(
-            current: api.DigitalAssetID,
-            visited: set[api.DigitalAssetID],
+            current: manager_api.DigitalAssetID,
+            visited: set[manager_api.DigitalAssetID],
         ) -> bool:
             """
             Walk the captured adjacency toward the proposed result, mutating the supplied visited
@@ -999,13 +1009,13 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
             )
 
         if any(reaches_result(source_id, set()) for source_id in source_asset_ids):
-            raise api.StoragePreconditionFailed(
+            raise storage_errors.StoragePreconditionFailed(
                 "Digital Asset derivation would create a provenance cycle."
             )
 
     def _asset_has_readable_replica(
         self,
-        digital_asset_id: api.DigitalAssetID,
+        digital_asset_id: manager_api.DigitalAssetID,
     ) -> bool:
         """
         Return whether any claim in any mode passes the current state/status/size readability
@@ -1029,8 +1039,8 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
 
     def _asset_is_recoverable_now(
         self,
-        digital_asset_id: api.DigitalAssetID,
-        visiting: set[api.DigitalAssetID],
+        digital_asset_id: manager_api.DigitalAssetID,
+        visiting: set[manager_api.DigitalAssetID],
     ) -> bool:
         """
         Accept a currently readable claim or recursively find an exact derivation with reachable
@@ -1067,8 +1077,8 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
 
     def _derivation_is_recoverable(
         self,
-        record: api.DigitalAssetDerivationRecord,
-        visiting: set[api.DigitalAssetID],
+        record: manager_api.DigitalAssetDerivationRecord,
+        visiting: set[manager_api.DigitalAssetID],
     ) -> bool:
         """
         Require declared exact recreatability, reachable recipe artifacts, and current
@@ -1105,8 +1115,8 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
 
     def _asset_policy_recoverable(
         self,
-        digital_asset_id: api.DigitalAssetID,
-        visiting: set[api.DigitalAssetID],
+        digital_asset_id: manager_api.DigitalAssetID,
+        visiting: set[manager_api.DigitalAssetID],
     ) -> bool:
         """
         Check whether policy requires retaining an input or provides a recursively feasible exact
@@ -1131,7 +1141,10 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
         policies = self.resolve_effective_policies(digital_asset_id)
         if policies.replication.min_copies > 0 or policies.backup.min_copies > 0:
             return True
-        if policies.replication.loss_action is not api.DigitalAssetLossAction.RECREATE:
+        if (
+            policies.replication.loss_action
+            is not manager_api.DigitalAssetLossAction.RECREATE
+        ):
             return False
         return any(
             self._recipe_artifacts_are_recoverable(
@@ -1157,8 +1170,8 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
 
     def _validate_recreation_policy(
         self,
-        digital_asset_id: api.DigitalAssetID,
-        visiting: set[api.DigitalAssetID],
+        digital_asset_id: manager_api.DigitalAssetID,
+        visiting: set[manager_api.DigitalAssetID],
     ) -> None:
         """
         Require at least one exact derivation with policy-recoverable artifacts and expanded
@@ -1202,15 +1215,15 @@ class _StorageManagerPolicySupportMixin(_StorageManagerState):
             )
             for record in candidates
         ):
-            raise api.StoragePolicyUnsatisfied(
+            raise manager_api.StoragePolicyUnsatisfied(
                 "recreate-on-loss requires an exact complete derivation whose "
                 "pinned inputs and artefacts remain recoverable."
             )
 
     def _recipe_artifacts_are_recoverable(
         self,
-        record: api.DigitalAssetDerivationRecord,
-        visiting: set[api.DigitalAssetID],
+        record: manager_api.DigitalAssetDerivationRecord,
+        visiting: set[manager_api.DigitalAssetID],
         *,
         for_policy: bool,
     ) -> bool:

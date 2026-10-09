@@ -15,7 +15,9 @@ from collections.abc import Callable
 from typing import Literal, Protocol
 from uuid import NAMESPACE_URL, uuid5
 
-import LiuXin_alpha.storage.api as api
+from LiuXin_alpha.storage.api import models as storage_models
+from LiuXin_alpha.storage.api import placement_hints_api, store_api
+from LiuXin_alpha.storage.api import storage_manager_api as manager_api
 
 # Explicit exports within the private mixin implementation package.
 __all__ = [
@@ -35,10 +37,10 @@ __all__ = [
     "_StreamIngestRequest",
 ]
 
-type StoreFactory = Callable[[api.StoreConfiguration], api.StoreAPI]
-type StoreRegistration = tuple[api.StoreConfiguration, api.StoreAPI]
+type StoreFactory = Callable[[manager_api.StoreConfiguration], store_api.StoreAPI]
+type StoreRegistration = tuple[manager_api.StoreConfiguration, store_api.StoreAPI]
 type _ItemTargetKind = Literal["digital_asset", "composite_digital_asset"]
-type _ItemTargetID = api.DigitalAssetID | api.CompositeDigitalAssetID
+type _ItemTargetID = manager_api.DigitalAssetID | manager_api.CompositeDigitalAssetID
 type _ItemTarget = tuple[_ItemTargetKind, _ItemTargetID]
 type _MetadataRecordKind = Literal[
     "digital_asset",
@@ -62,8 +64,8 @@ class _StreamIngestRequest:
 
     Example:
         >>> request = _StreamIngestRequest(  # doctest: +SKIP
-        ...     size, observed, None, (), None, None, api.DigitalAssetMetadata(),
-        ...     None, None, api.ReplicaMode.ACTIVE, True,
+        ...     size, observed, None, (), None, None, manager_api.DigitalAssetMetadata(),
+        ...     None, None, manager_api.ReplicaMode.ACTIVE, True,
         ... )
 
 
@@ -81,15 +83,15 @@ class _StreamIngestRequest:
     """
 
     size_bytes: int
-    observed_digests: tuple[api.Digest, ...]
+    observed_digests: tuple[storage_models.Digest, ...]
     expected_size: int | None
-    expected_digests: tuple[api.Digest, ...]
-    item_id: api.ItemID | None
+    expected_digests: tuple[storage_models.Digest, ...]
+    item_id: manager_api.ItemID | None
     role: str | None
-    metadata: api.DigitalAssetMetadata
-    placement_hints: api.StoragePlacementHints | None
-    preferred_store_ref: api.StoreUUID | None
-    replica_mode: api.ReplicaMode
+    metadata: manager_api.DigitalAssetMetadata
+    placement_hints: placement_hints_api.StoragePlacementHints | None
+    preferred_store_ref: storage_models.StoreUUID | None
+    replica_mode: manager_api.ReplicaMode
     verify: bool
 
 
@@ -104,8 +106,8 @@ class _AdoptIngestRequest:
 
     Example:
         >>> request = _AdoptIngestRequest(  # doctest: +SKIP
-        ...     location, None, None, None, api.DigitalAssetMetadata(),
-        ...     api.ReplicaMode.UNMANAGED, False,
+        ...     location, None, None, None, manager_api.DigitalAssetMetadata(),
+        ...     manager_api.ReplicaMode.UNMANAGED, False,
         ... )
 
 
@@ -118,12 +120,12 @@ class _AdoptIngestRequest:
     :ivar verify: Requested verification flag, distinct from a completed verification result.
     """
 
-    location: api.Location
-    digital_asset_id: api.DigitalAssetID | None
-    item_id: api.ItemID | None
+    location: storage_models.Location
+    digital_asset_id: manager_api.DigitalAssetID | None
+    item_id: manager_api.ItemID | None
     role: str | None
-    metadata: api.DigitalAssetMetadata
-    replica_mode: api.ReplicaMode
+    metadata: manager_api.DigitalAssetMetadata
+    replica_mode: manager_api.ReplicaMode
     verify: bool
 
 
@@ -139,8 +141,8 @@ class _IdentifiedStreamIngestRequest:
 
     Example:
         >>> request = _IdentifiedStreamIngestRequest(  # doctest: +SKIP
-        ...     size, digests, None, None, api.DigitalAssetMetadata(),
-        ...     None, None, api.ReplicaMode.ACTIVE, True,
+        ...     size, digests, None, None, manager_api.DigitalAssetMetadata(),
+        ...     None, None, manager_api.ReplicaMode.ACTIVE, True,
         ... )
 
 
@@ -156,13 +158,13 @@ class _IdentifiedStreamIngestRequest:
     """
 
     size_bytes: int
-    authoritative_digests: tuple[api.Digest, ...]
-    item_id: api.ItemID | None
+    authoritative_digests: tuple[storage_models.Digest, ...]
+    item_id: manager_api.ItemID | None
     role: str | None
-    metadata: api.DigitalAssetMetadata
-    placement_hints: api.StoragePlacementHints | None
-    preferred_store_ref: api.StoreUUID | None
-    replica_mode: api.ReplicaMode
+    metadata: manager_api.DigitalAssetMetadata
+    placement_hints: placement_hints_api.StoragePlacementHints | None
+    preferred_store_ref: storage_models.StoreUUID | None
+    replica_mode: manager_api.ReplicaMode
     verify: bool
 
 
@@ -177,8 +179,8 @@ class _StoreObjectIngestRequest:
 
     Example:
         >>> request = _StoreObjectIngestRequest(  # doctest: +SKIP
-        ...     location, version, size, digests, None, None, api.DigitalAssetMetadata(),
-        ...     None, None, api.ReplicaMode.ACTIVE, True,
+        ...     location, version, size, digests, None, None, manager_api.DigitalAssetMetadata(),
+        ...     None, None, manager_api.ReplicaMode.ACTIVE, True,
         ... )
 
 
@@ -195,16 +197,16 @@ class _StoreObjectIngestRequest:
     :ivar preferred_store_ref: Requested destination UUID or None for deferred manager-default selection.
     """
 
-    source_location: api.Location
+    source_location: storage_models.Location
     source_version: str | None
     size_bytes: int
-    authoritative_digests: tuple[api.Digest, ...]
-    item_id: api.ItemID | None
+    authoritative_digests: tuple[storage_models.Digest, ...]
+    item_id: manager_api.ItemID | None
     role: str | None
-    metadata: api.DigitalAssetMetadata
-    placement_hints: api.StoragePlacementHints | None
-    preferred_store_ref: api.StoreUUID | None
-    replica_mode: api.ReplicaMode
+    metadata: manager_api.DigitalAssetMetadata
+    placement_hints: placement_hints_api.StoragePlacementHints | None
+    preferred_store_ref: storage_models.StoreUUID | None
+    replica_mode: manager_api.ReplicaMode
     verify: bool
 
 
@@ -235,7 +237,7 @@ class _IngestOperation:
     """
 
     request: _IngestRequest
-    result: api.DigitalAssetIngestResult
+    result: manager_api.DigitalAssetIngestResult
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -248,7 +250,7 @@ class _RecreationBranch:
     fields do not copy supplied containers; viable is evidence for a branch, not proof of execution.
 
     Example:
-        >>> branch = _RecreationBranch(False, unavailable_digital_asset_ids=frozenset({api.DigitalAssetID(7)}))
+        >>> branch = _RecreationBranch(False, unavailable_digital_asset_ids=frozenset({manager_api.DigitalAssetID(7)}))
         >>> branch.viable
         False
 
@@ -263,11 +265,11 @@ class _RecreationBranch:
     """
 
     viable: bool
-    steps: tuple[api.DigitalAssetDerivationRecord, ...] = ()
-    available_digital_asset_ids: frozenset[api.DigitalAssetID] = frozenset()
-    unavailable_digital_asset_ids: frozenset[api.DigitalAssetID] = frozenset()
-    selected_derivation_id: api.DigitalAssetDerivationID | None = None
-    alternative_derivation_ids: tuple[api.DigitalAssetDerivationID, ...] = ()
+    steps: tuple[manager_api.DigitalAssetDerivationRecord, ...] = ()
+    available_digital_asset_ids: frozenset[manager_api.DigitalAssetID] = frozenset()
+    unavailable_digital_asset_ids: frozenset[manager_api.DigitalAssetID] = frozenset()
+    selected_derivation_id: manager_api.DigitalAssetDerivationID | None = None
+    alternative_derivation_ids: tuple[manager_api.DigitalAssetDerivationID, ...] = ()
     warnings: tuple[str, ...] = ()
 
 
@@ -318,8 +320,8 @@ class _Hasher(Protocol):
 
 
 def _replication_policy_id(
-    value: api.ReplicationPolicyID | api.ReplicationPolicyRecord | None,
-) -> api.ReplicationPolicyID | None:
+    value: manager_api.ReplicationPolicyID | manager_api.ReplicationPolicyRecord | None,
+) -> manager_api.ReplicationPolicyID | None:
     """
     Accept None, extract a replication-policy record ID, or coerce another value with int.
 
@@ -328,7 +330,7 @@ def _replication_policy_id(
     floats. No registry lookup or record-content validation occurs.
 
     Example:
-        >>> _replication_policy_id(api.ReplicationPolicyID(4))
+        >>> _replication_policy_id(manager_api.ReplicationPolicyID(4))
         4
         >>> _replication_policy_id(None) is None
         True
@@ -340,17 +342,17 @@ def _replication_policy_id(
 
     if value is None:
         return None
-    if isinstance(value, api.ReplicationPolicyRecord):
+    if isinstance(value, manager_api.ReplicationPolicyRecord):
         return value.replication_policy_id
     identifier = int(value)
     if identifier <= 0:
         raise TypeError("replication must be a positive policy ID or policy record.")
-    return api.ReplicationPolicyID(identifier)
+    return manager_api.ReplicationPolicyID(identifier)
 
 
 def _backup_policy_id(
-    value: api.BackupPolicyID | api.BackupPolicyRecord | None,
-) -> api.BackupPolicyID | None:
+    value: manager_api.BackupPolicyID | manager_api.BackupPolicyRecord | None,
+) -> manager_api.BackupPolicyID | None:
     """
     Accept None, extract a backup-policy record ID, or coerce another value with int.
 
@@ -359,7 +361,7 @@ def _backup_policy_id(
     outside the annotated input types.
 
     Example:
-        >>> _backup_policy_id(api.BackupPolicyID(5))
+        >>> _backup_policy_id(manager_api.BackupPolicyID(5))
         5
         >>> _backup_policy_id(None) is None
         True
@@ -371,19 +373,19 @@ def _backup_policy_id(
 
     if value is None:
         return None
-    if isinstance(value, api.BackupPolicyRecord):
+    if isinstance(value, manager_api.BackupPolicyRecord):
         return value.backup_policy_id
     identifier = int(value)
     if identifier <= 0:
         raise TypeError("backup must be a positive policy ID or policy record.")
-    return api.BackupPolicyID(identifier)
+    return manager_api.BackupPolicyID(identifier)
 
 
 def _backed_store_uuid(
-    asset_record: api.DigitalAssetRecord,
+    asset_record: manager_api.DigitalAssetRecord,
     kind: str,
     options: tuple[tuple[str, object], ...],
-) -> api.StoreUUID:
+) -> storage_models.StoreUUID:
     """
     Derive a UUID5 Store-view key from size, one preferred digest, normalized kind, and option
     representation.
@@ -395,7 +397,7 @@ def _backed_store_uuid(
     deterministic only when those representations are stable.
 
     Example:
-        >>> asset = api.DigitalAssetRecord(api.DigitalAssetID(1), 4, (api.Digest("sha256", "abcd"),))
+        >>> asset = manager_api.DigitalAssetRecord(manager_api.DigitalAssetID(1), 4, (storage_models.Digest("sha256", "abcd"),))
         >>> _backed_store_uuid(asset, " ZIP ", ()) == _backed_store_uuid(asset, "zip", ())
         True
 

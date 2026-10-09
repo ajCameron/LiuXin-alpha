@@ -19,7 +19,7 @@ _SOURCE_ROOTS = (
     _STORAGE_ROOT / "api" / "storage_manager_api",
     _STORAGE_ROOT / "storage_manager",
 )
-_SOURCE_FILES = (_STORAGE_ROOT / "store_manager.py",)
+_SOURCE_FILES = (_STORAGE_ROOT / "durable_manager.py",)
 _DOCUMENTABLE_NODES = (
     ast.Module,
     ast.ClassDef,
@@ -41,7 +41,7 @@ def _source_paths() -> tuple[Path, ...]:
 
     Example:
         >>> paths = _source_paths()
-        >>> _STORAGE_ROOT / "store_manager.py" in paths
+        >>> _STORAGE_ROOT / "durable_manager.py" in paths
         True
 
 

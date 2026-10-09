@@ -10,6 +10,8 @@ and outstanding work, not as a replacement for the subsystem guides.
 
 - [Local setup](../README.md): environment, entry points, and common commands.
 - [Style guide](<00 - Style Guide.md>): naming and useful docstrings.
+- [Project-level goals](project-level-goals.md): safety, usability,
+  verifiability, and explicit human/AI readability goals.
 - [Top-level structure](<02 - Top Level Structure.md>) and
   [responsibility boundaries](<04 - Seperation of Concerns.md>): where code belongs.
 - [Maintainability quality gates](maintainability-quality-gates.md): enforced
@@ -59,10 +61,13 @@ and outstanding work, not as a replacement for the subsystem guides.
 
 ## Storage and databases
 
-- [Storage terminology](storage/liuxin_terminology_and_conceptual_model.md),
+- [Storage developer guide](storage/README.md),
+  [storage terminology](storage/liuxin_terminology_and_conceptual_model.md),
   [assets, files, and replicas](storage/assets_files_and_replicas.md),
-  [storage API](storage/storage_api.md), and [component status](storage/storage_component_status.md).
-- [Storage overview](<06 - Storage.md>), [cache backends](<08 - Storage Cache Backends.md>),
+  [storage API](storage/storage_api.md), [storage design patterns](storage/design-patterns.md),
+  and [component status](storage/storage_component_status.md).
+- [Historical storage overview](<06 - Storage.md>) (deprecated design material),
+  [cache backends](<08 - Storage Cache Backends.md>),
   [cache benchmark](storage/storage_cache_benchmark.md), and
   [mixed-ingest operations](storage/mixed_ingest_operations.md).
 - [Live storage CI](storage/live_storage_ci.md) and

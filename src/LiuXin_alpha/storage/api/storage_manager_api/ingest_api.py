@@ -365,6 +365,14 @@ class DigitalAssetIngestAPI(abc.ABC):
 
         :param source: Configured Store owning the described source object.
         :param info: Source object metadata and Location.
+        :param operation_id: Optional stable identity for retry-safe ingest.
+        :param item_id: Optional Item to link to the resulting Asset.
+        :param role: Optional role for the Item link.
+        :param metadata: Optional descriptive Asset metadata override.
+        :param placement_hints: Optional advisory destination hints.
+        :param preferred_store_ref: Optional preferred destination Store.
+        :param replica_mode: Mode assigned to a newly registered Replica.
+        :param verify: Whether to inspect the resulting Replica after ingest.
         :return: The result returned by ingest_store_object.
         """
         return self.ingest_store_object(
@@ -518,6 +526,14 @@ class DigitalAssetIngestAPI(abc.ABC):
 
         :param source: Store that produced and can open the preparation.
         :param prepared: Validated preparation describing one source object.
+        :param operation_id: Optional stable identity for retry-safe ingest.
+        :param item_id: Optional Item to link to the resulting Asset.
+        :param role: Optional role for the Item link.
+        :param metadata: Optional descriptive Asset metadata override.
+        :param placement_hints: Optional advisory destination hints.
+        :param preferred_store_ref: Optional preferred destination Store.
+        :param replica_mode: Mode assigned to a newly registered Replica.
+        :param verify: Whether to inspect the resulting Replica after ingest.
         :return: The result returned by ingest_prepared_store_object.
         """
         return self.ingest_prepared_store_object(

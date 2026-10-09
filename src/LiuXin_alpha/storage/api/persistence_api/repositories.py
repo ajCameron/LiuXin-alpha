@@ -10,23 +10,33 @@ Repository operations coordinate through a metadata unit of work. Managers own
 content verification, reference and policy decisions, and external publication;
 metadata rollback cannot undo bytes already published by a Store. Descriptions
 identify the shipped database adapter's behavior where providers may differ.
+
+Runtime-checkable repository protocols retain their minimal structural contract.
+Companion ``*RepositoryConvenienceAPI`` protocols construct declarations and
+delegate to those precise operations; shipped adapters inherit the companions.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
+from datetime import datetime
 from types import TracebackType
 from typing import Protocol, runtime_checkable
 
-from LiuXin_alpha.storage.api.models import Digest, StoreUUID
+from LiuXin_alpha.storage.api.models import Digest, Location, StoreUUID
+from LiuXin_alpha.storage.api.placement_hints_api import StoragePlacementHints
 from LiuXin_alpha.storage.api.storage_manager_api.models import (
+    BackupPolicyID,
     CompositeDigitalAssetDeclaration,
     CompositeDigitalAssetID,
+    CompositeDigitalAssetMembership,
     CompositeDigitalAssetRecord,
     DigitalAssetDeclaration,
     DigitalAssetDerivationDeclaration,
     DigitalAssetDerivationID,
+    DigitalAssetDerivationKind,
     DigitalAssetDerivationRecord,
+    DigitalAssetDerivationSourceReference,
     DigitalAssetID,
     DigitalAssetMetadata,
     DigitalAssetRecord,
@@ -35,6 +45,8 @@ from LiuXin_alpha.storage.api.storage_manager_api.models import (
     ReplicaMode,
     ReplicaObservation,
     ReplicaRecord,
+    ReplicationPolicyID,
+    ReproductionRecipe,
 )
 
 
@@ -57,19 +69,22 @@ class DigitalAssetRepositoryAPI(Protocol):
         True
     """
 
-    def add(self, declaration: DigitalAssetDeclaration) -> DigitalAssetRecord:
+    def add_from_declaration(
+        self,
+        declaration: DigitalAssetDeclaration,
+    ) -> DigitalAssetRecord:
         """
         Persist the supplied content identity and metadata with an assigned Asset ID.
 
         The declaration carries size, digests, metadata, and policy references. This operation
         records that evidence; it does not read bytes, verify the digests, or promise to reuse an
         existing content identity. The owning manager must establish any required validation and
-        deduplication before calling the port. A separate add operation is required because the
-        immutable declaration intentionally has no database identity or revision until persistence
-        assigns them.
+        deduplication before calling the port. A separate add_from_declaration operation is required
+        because the immutable declaration intentionally has no database identity or revision until
+        persistence assigns them.
 
         Example:
-            >>> record = repository.add(declaration)  # doctest: +SKIP
+            >>> record = repository.add_from_declaration(declaration)  # doctest: +SKIP
 
 
         :param declaration: Asset content identity, descriptive metadata, and optional policy references to persist.
@@ -123,23 +138,26 @@ class DigitalAssetRepositoryAPI(Protocol):
 
     def find_by_digest(
         self,
-        digest: Digest,
+        digest: Digest | str,
         *,
+        algorithm: str = "sha256",
         size_bytes: int | None = None,
     ) -> DigitalAssetRecord | None:
         """
         Find a stored Asset containing one digest and, optionally, an exact byte size.
 
-        This searches declared metadata without reading or hashing Replica bytes. A match for one
-        digest does not establish agreement on every digest in an incoming identity. The database
-        adapter chooses the first match in Asset-ID order; the protocol supplies no uniqueness or
-        query-performance guarantee.
+        A Digest retains its algorithm. A plain string is digest text using algorithm, which
+        defaults to SHA-256 consistently with manager file conveniences. This searches declared
+        metadata without reading or hashing Replica bytes. A match for one digest does not establish
+        agreement on every digest in an incoming identity. The database adapter chooses the first
+        match in Asset-ID order; the protocol supplies no uniqueness or query-performance guarantee.
 
         Example:
-            >>> found = repository.find_by_digest(digest)  # doctest: +SKIP
+            >>> found = repository.find_by_digest("a" * 64)  # doctest: +SKIP
 
 
-        :param digest: Algorithm/value digest pair sought among the stored Asset digests.
+        :param digest: Digest value object, or digest text interpreted using algorithm.
+        :param algorithm: Algorithm used only for plain digest text; defaults to sha256.
         :param size_bytes: Optional exact stored byte count; None imposes no size constraint.
         :return: One matching Asset record, or None when no record matches the requested evidence.
         """
@@ -187,6 +205,62 @@ class DigitalAssetRepositoryAPI(Protocol):
         ...
 
 
+class DigitalAssetRepositoryConvenienceAPI(
+    DigitalAssetRepositoryAPI,
+    Protocol,
+):
+    """
+    Extend the structural Asset repository with declaration construction.
+
+    Implementations inheriting this protocol receive add while the runtime-checkable base
+    remains compatible with structural repositories that implement only precise persistence
+    operations.
+
+    Example:
+        >>> record = repository.add(4, (digest,))  # doctest: +SKIP
+    """
+
+    def add(
+        self,
+        size_bytes: int,
+        digests: Iterable[Digest],
+        *,
+        metadata: DigitalAssetMetadata | None = None,
+        replication_policy_id: ReplicationPolicyID | None = None,
+        backup_policy_id: BackupPolicyID | None = None,
+    ) -> DigitalAssetRecord:
+        """
+        Construct an Asset declaration from field values and delegate to add_from_declaration.
+
+        Materialize digests once and use an empty metadata value when omitted. Declaration
+        validation and all persistence behaviour remain on DigitalAssetDeclaration and
+        add_from_declaration; this convenience allocates no identity or revision itself.
+
+        Example:
+            >>> record = repository.add(  # doctest: +SKIP
+            ...     4, (Digest("sha256", "abcd"),),
+            ... )
+
+
+        :param size_bytes: Expected byte count forwarded to the declaration.
+        :param digests: Digest iterable materialized into declaration order.
+        :param metadata: Optional descriptive metadata; None creates an empty metadata value.
+        :param replication_policy_id: Optional registered replication-policy reference to retain.
+        :param backup_policy_id: Optional registered backup-policy reference to retain.
+        :return: The record returned by add_from_declaration for the constructed declaration.
+        """
+
+        return self.add_from_declaration(
+            DigitalAssetDeclaration(
+                size_bytes,
+                tuple(digests),
+                DigitalAssetMetadata() if metadata is None else metadata,
+                replication_policy_id,
+                backup_policy_id,
+            )
+        )
+
+
 @runtime_checkable
 class ReplicaRepositoryAPI(Protocol):
     """
@@ -203,7 +277,7 @@ class ReplicaRepositoryAPI(Protocol):
         True
     """
 
-    def add(self, declaration: ReplicaDeclaration) -> ReplicaRecord:
+    def add_from_declaration(self, declaration: ReplicaDeclaration) -> ReplicaRecord:
         """
         Store a complete Replica claim with an assigned identity and revision.
 
@@ -213,7 +287,7 @@ class ReplicaRepositoryAPI(Protocol):
         lower-level persistence adapter.
 
         Example:
-            >>> replica = repository.add(declaration)  # doctest: +SKIP
+            >>> replica = repository.add_from_declaration(declaration)  # doctest: +SKIP
 
 
         :param declaration: Complete supplied Replica claim and observation to persist.
@@ -323,6 +397,64 @@ class ReplicaRepositoryAPI(Protocol):
         ...
 
 
+class ReplicaRepositoryConvenienceAPI(ReplicaRepositoryAPI, Protocol):
+    """
+    Extend the structural Replica repository with declaration construction.
+
+    The runtime-checkable base remains the minimal persistence port; shipped repositories inherit
+    this convenience surface so callers can avoid manual declaration boilerplate.
+
+    Example:
+        >>> record = repository.add(asset_id, location)  # doctest: +SKIP
+    """
+
+    def add(
+        self,
+        digital_asset_id: DigitalAssetID,
+        location: Location,
+        *,
+        mode: ReplicaMode = ReplicaMode.ACTIVE,
+        observation: ReplicaObservation | None = None,
+        placement_hints: StoragePlacementHints | None = None,
+    ) -> ReplicaRecord:
+        """
+        Construct a Replica declaration from field values and delegate to add_from_declaration.
+
+        Omitted observation uses ReplicaDeclaration's fresh UNVERIFIED default. This helper records
+        no physical evidence and performs no Store operation before the declaration-taking method.
+
+        Example:
+            >>> replica = repository.add(  # doctest: +SKIP
+            ...     DigitalAssetID(7), location,
+            ... )
+
+
+        :param digital_asset_id: Existing Asset identity claimed by the Replica.
+        :param location: Concrete Store location to retain in the claim.
+        :param mode: Operational Replica role, defaulting to ACTIVE.
+        :param observation: Optional initial evidence; None selects the declaration default.
+        :param placement_hints: Optional advisory placement metadata retained with the claim.
+        :return: The record returned by add_from_declaration for the constructed declaration.
+        """
+
+        if observation is None:
+            declaration = ReplicaDeclaration(
+                digital_asset_id,
+                location,
+                mode=mode,
+                placement_hints=placement_hints,
+            )
+        else:
+            declaration = ReplicaDeclaration(
+                digital_asset_id,
+                location,
+                mode=mode,
+                observation=observation,
+                placement_hints=placement_hints,
+            )
+        return self.add_from_declaration(declaration)
+
+
 @runtime_checkable
 class CompositeDigitalAssetRepositoryAPI(Protocol):
     """
@@ -339,7 +471,7 @@ class CompositeDigitalAssetRepositoryAPI(Protocol):
         True
     """
 
-    def add(
+    def add_from_declaration(
         self,
         declaration: CompositeDigitalAssetDeclaration,
     ) -> CompositeDigitalAssetRecord:
@@ -351,7 +483,7 @@ class CompositeDigitalAssetRepositoryAPI(Protocol):
         lower-level port.
 
         Example:
-            >>> composite = repository.add(declaration)  # doctest: +SKIP
+            >>> composite = repository.add_from_declaration(declaration)  # doctest: +SKIP
 
 
         :param declaration: Complete logical membership and descriptive values to persist.
@@ -380,7 +512,7 @@ class CompositeDigitalAssetRepositoryAPI(Protocol):
         """
         ...
 
-    def replace(
+    def replace_from_declaration(
         self,
         composite_digital_asset_id: CompositeDigitalAssetID,
         declaration: CompositeDigitalAssetDeclaration,
@@ -396,7 +528,7 @@ class CompositeDigitalAssetRepositoryAPI(Protocol):
         validation.
 
         Example:
-            >>> updated = repository.replace(  # doctest: +SKIP
+            >>> updated = repository.replace_from_declaration(  # doctest: +SKIP
             ...     CompositeDigitalAssetID(3), declaration,
             ... )
 
@@ -450,6 +582,94 @@ class CompositeDigitalAssetRepositoryAPI(Protocol):
         ...
 
 
+class CompositeDigitalAssetRepositoryConvenienceAPI(
+    CompositeDigitalAssetRepositoryAPI,
+    Protocol,
+):
+    """
+    Extend the structural Composite repository with value-based mutations.
+
+    Existing structural implementations remain valid against the runtime-checkable base. Concrete
+    repositories can inherit this protocol to expose declaration construction without duplicating
+    persistence behaviour.
+
+    Example:
+        >>> record = repository.add((membership,), name="book")  # doctest: +SKIP
+    """
+
+    def add(
+        self,
+        members: Iterable[CompositeDigitalAssetMembership],
+        *,
+        name: str | None = None,
+        attributes: Iterable[tuple[str, str]] = (),
+    ) -> CompositeDigitalAssetRecord:
+        """
+        Construct a Composite declaration from field values and delegate to add_from_declaration.
+
+        Materialize members and attributes once in caller order. The declaration validates their
+        value shape, while add_from_declaration remains responsible for persistence and assigned
+        identity.
+
+        Example:
+            >>> composite = repository.add((membership,), name="book")  # doctest: +SKIP
+
+
+        :param members: Ordered membership values materialized into the declaration.
+        :param name: Optional Composite display name.
+        :param attributes: Ordered extension pairs materialized into the declaration.
+        :return: The record returned by add_from_declaration for the constructed declaration.
+        """
+
+        return self.add_from_declaration(
+            CompositeDigitalAssetDeclaration(
+                tuple(members),
+                name=name,
+                attributes=tuple(attributes),
+            )
+        )
+
+    def replace(
+        self,
+        composite_digital_asset_id: CompositeDigitalAssetID,
+        members: Iterable[CompositeDigitalAssetMembership],
+        *,
+        name: str | None = None,
+        attributes: Iterable[tuple[str, str]] = (),
+        if_revision: str | None = None,
+    ) -> CompositeDigitalAssetRecord:
+        """
+        Construct complete replacement intent and delegate to replace_from_declaration.
+
+        Materialize members and attributes in caller order, then pass the resulting declaration and
+        revision precondition to the precise replacement operation. No partial update or separate
+        persistence path is introduced.
+
+        Example:
+            >>> updated = repository.replace(  # doctest: +SKIP
+            ...     composite_id, (membership,), if_revision=current.revision,
+            ... )
+
+
+        :param composite_digital_asset_id: Existing Composite identity to retain.
+        :param members: Complete ordered replacement memberships.
+        :param name: Optional replacement display name.
+        :param attributes: Complete ordered replacement extension pairs.
+        :param if_revision: Optional expected revision forwarded unchanged to replace_from_declaration.
+        :return: The replacement record returned by replace_from_declaration.
+        """
+
+        return self.replace_from_declaration(
+            composite_digital_asset_id,
+            CompositeDigitalAssetDeclaration(
+                tuple(members),
+                name=name,
+                attributes=tuple(attributes),
+            ),
+            if_revision=if_revision,
+        )
+
+
 @runtime_checkable
 class DigitalAssetDerivationRepositoryAPI(Protocol):
     """
@@ -465,7 +685,7 @@ class DigitalAssetDerivationRepositoryAPI(Protocol):
         True
     """
 
-    def add(
+    def add_from_declaration(
         self,
         declaration: DigitalAssetDerivationDeclaration,
     ) -> DigitalAssetDerivationRecord:
@@ -477,7 +697,7 @@ class DigitalAssetDerivationRepositoryAPI(Protocol):
         constraints before using this port.
 
         Example:
-            >>> derivation = repository.add(declaration)  # doctest: +SKIP
+            >>> derivation = repository.add_from_declaration(declaration)  # doctest: +SKIP
 
 
         :param declaration: Result, source, workflow, and optional recreation-recipe evidence to persist.
@@ -575,6 +795,77 @@ class DigitalAssetDerivationRepositoryAPI(Protocol):
         ...
 
 
+class DigitalAssetDerivationRepositoryConvenienceAPI(
+    DigitalAssetDerivationRepositoryAPI,
+    Protocol,
+):
+    """
+    Extend the structural derivation repository with declaration construction.
+
+    The runtime-checkable base remains suitable for minimal structural providers. Implementations
+    inheriting this protocol gain the value-based add façade over their existing
+    add_from_declaration method.
+
+    Example:
+        >>> record = repository.add(result_id, (source,), kind)  # doctest: +SKIP
+    """
+
+    def add(
+        self,
+        result_digital_asset_id: DigitalAssetID,
+        sources: Iterable[DigitalAssetDerivationSourceReference],
+        kind: DigitalAssetDerivationKind,
+        *,
+        recipe: ReproductionRecipe | None = None,
+        output_role: str | None = None,
+        created_at: datetime | None = None,
+        operator: str | None = None,
+        notes: str | None = None,
+        workflow_id: int | None = None,
+        workflow_reference: str | None = None,
+    ) -> DigitalAssetDerivationRecord:
+        """
+        Construct provenance intent from field values and delegate to add_from_declaration.
+
+        Sources are materialized once in caller order. Declaration validation owns value-level
+        constraints, while add_from_declaration retains reference, graph, identity, and persistence
+        ownership.
+
+        Example:
+            >>> derivation = repository.add(  # doctest: +SKIP
+            ...     result_id, (source,), DigitalAssetDerivationKind.EXTRACT,
+            ... )
+
+
+        :param result_digital_asset_id: Existing atomic Asset produced by the derivation.
+        :param sources: Ordered provenance references materialized into the declaration.
+        :param kind: Semantic derivation kind retained by the declaration.
+        :param recipe: Optional replay evidence.
+        :param output_role: Optional role of the result in the recorded operation.
+        :param created_at: Optional timezone-aware provenance timestamp.
+        :param operator: Optional operator attribution.
+        :param notes: Optional explanatory provenance text.
+        :param workflow_id: Optional positive legacy workflow identifier.
+        :param workflow_reference: Optional namespaced external workflow reference.
+        :return: The record returned by add_from_declaration for the constructed declaration.
+        """
+
+        return self.add_from_declaration(
+            DigitalAssetDerivationDeclaration(
+                result_digital_asset_id=result_digital_asset_id,
+                sources=tuple(sources),
+                kind=kind,
+                recipe=recipe,
+                output_role=output_role,
+                created_at=created_at,
+                operator=operator,
+                notes=notes,
+                workflow_id=workflow_id,
+                workflow_reference=workflow_reference,
+            )
+        )
+
+
 @runtime_checkable
 class StorageUnitOfWorkAPI(Protocol):
     """
@@ -592,12 +883,12 @@ class StorageUnitOfWorkAPI(Protocol):
 
     Example:
         >>> with factory.begin() as unit_of_work:  # doctest: +SKIP
-        ...     record = unit_of_work.assets.add(declaration)
+        ...     record = unit_of_work.assets.add(size_bytes, digests)
         ...     unit_of_work.commit()
     """
 
     @property
-    def assets(self) -> DigitalAssetRepositoryAPI:
+    def assets(self) -> DigitalAssetRepositoryConvenienceAPI:
         """
         Expose the repository for Asset identity and descriptive metadata in this metadata context.
 
@@ -609,12 +900,12 @@ class StorageUnitOfWorkAPI(Protocol):
             >>> repository = unit_of_work.assets  # doctest: +SKIP
 
 
-        :return: The DigitalAssetRepositoryAPI port to use within the active transaction.
+        :return: The Asset repository convenience port to use within the active transaction.
         """
         ...
 
     @property
-    def replicas(self) -> ReplicaRepositoryAPI:
+    def replicas(self) -> ReplicaRepositoryConvenienceAPI:
         """
         Expose the repository for Replica claims, placement hints, and supplied observations in this
         metadata context.
@@ -627,12 +918,12 @@ class StorageUnitOfWorkAPI(Protocol):
             >>> repository = unit_of_work.replicas  # doctest: +SKIP
 
 
-        :return: The ReplicaRepositoryAPI port to use within the active transaction.
+        :return: The Replica repository convenience port to use within the active transaction.
         """
         ...
 
     @property
-    def composites(self) -> CompositeDigitalAssetRepositoryAPI:
+    def composites(self) -> CompositeDigitalAssetRepositoryConvenienceAPI:
         """
         Expose the repository for Composite membership and descriptive metadata in this metadata
         context.
@@ -645,12 +936,12 @@ class StorageUnitOfWorkAPI(Protocol):
             >>> repository = unit_of_work.composites  # doctest: +SKIP
 
 
-        :return: The CompositeDigitalAssetRepositoryAPI port to use within the active transaction.
+        :return: The Composite repository convenience port to use within the active transaction.
         """
         ...
 
     @property
-    def derivations(self) -> DigitalAssetDerivationRepositoryAPI:
+    def derivations(self) -> DigitalAssetDerivationRepositoryConvenienceAPI:
         """
         Expose the repository for provenance declarations and optional recreation recipes in this
         metadata context.
@@ -663,7 +954,7 @@ class StorageUnitOfWorkAPI(Protocol):
             >>> repository = unit_of_work.derivations  # doctest: +SKIP
 
 
-        :return: The DigitalAssetDerivationRepositoryAPI port to use within the active transaction.
+        :return: The derivation repository convenience port to use within the active transaction.
         """
         ...
 
@@ -775,9 +1066,13 @@ class StorageUnitOfWorkFactoryAPI(Protocol):
 
 
 __all__ = [
+    "CompositeDigitalAssetRepositoryConvenienceAPI",
     "CompositeDigitalAssetRepositoryAPI",
+    "DigitalAssetDerivationRepositoryConvenienceAPI",
     "DigitalAssetDerivationRepositoryAPI",
+    "DigitalAssetRepositoryConvenienceAPI",
     "DigitalAssetRepositoryAPI",
+    "ReplicaRepositoryConvenienceAPI",
     "ReplicaRepositoryAPI",
     "StorageUnitOfWorkAPI",
     "StorageUnitOfWorkFactoryAPI",

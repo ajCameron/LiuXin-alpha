@@ -11,7 +11,9 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import override
 
-import LiuXin_alpha.storage.api as api
+from LiuXin_alpha.storage.api import errors as storage_errors
+from LiuXin_alpha.storage.api import models as storage_models
+from LiuXin_alpha.storage.api import storage_manager_api as manager_api
 from LiuXin_alpha.storage.storage_manager.mixins._state import _StorageManagerState
 
 
@@ -32,12 +34,12 @@ class DigitalAssetRetrievalMixin(_StorageManagerState):
     @override
     def select_replica(
         self,
-        digital_asset_id: api.DigitalAssetID,
+        digital_asset_id: manager_api.DigitalAssetID,
         *,
-        preferred_store_ref: api.StoreUUID | None = None,
-        mode: api.ReplicaMode = api.ReplicaMode.ACTIVE,
+        preferred_store_ref: storage_models.StoreUUID | None = None,
+        mode: manager_api.ReplicaMode = manager_api.ReplicaMode.ACTIVE,
         require_verified: bool = False,
-    ) -> api.ReplicaRecord:
+    ) -> manager_api.ReplicaRecord:
         """
         Find the first eligible size-matching claim after ranking Store preference, recorded state,
         and Replica ID.
@@ -72,9 +74,9 @@ class DigitalAssetRetrievalMixin(_StorageManagerState):
             )
         )
         state_rank = {
-            api.ReplicaState.VERIFIED: 0,
-            api.ReplicaState.PRESENT: 1,
-            api.ReplicaState.UNVERIFIED: 2,
+            manager_api.ReplicaState.VERIFIED: 0,
+            manager_api.ReplicaState.PRESENT: 1,
+            manager_api.ReplicaState.UNVERIFIED: 2,
         }
         candidates.sort(
             key=lambda record: (
@@ -86,30 +88,33 @@ class DigitalAssetRetrievalMixin(_StorageManagerState):
             )
         )
         for record in candidates:
-            if require_verified and record.state is not api.ReplicaState.VERIFIED:
+            if (
+                require_verified
+                and record.state is not manager_api.ReplicaState.VERIFIED
+            ):
                 continue
             if record.state not in state_rank:
                 continue
             try:
                 info = self.stat(record.location)
-            except api.StorageError:
+            except storage_errors.StorageError:
                 continue
             if info.size != asset_record.size_bytes:
                 continue
             return record
-        raise api.NoReadableReplica(
+        raise manager_api.NoReadableReplica(
             f"Digital Asset {digital_asset_id} has no readable {mode.value} Replica."
         )
 
     @override
     def resolve_digital_asset(
         self,
-        digital_asset_id: api.DigitalAssetID,
+        digital_asset_id: manager_api.DigitalAssetID,
         *,
-        preferred_store_ref: api.StoreUUID | None = None,
-        mode: api.ReplicaMode = api.ReplicaMode.ACTIVE,
+        preferred_store_ref: storage_models.StoreUUID | None = None,
+        mode: manager_api.ReplicaMode = manager_api.ReplicaMode.ACTIVE,
         require_verified: bool = False,
-    ) -> api.DigitalAssetResolution:
+    ) -> manager_api.DigitalAssetResolution:
         """
         Read the Asset record, select a Replica with the forwarded controls, and construct their
         resolution value.
@@ -129,7 +134,7 @@ class DigitalAssetRetrievalMixin(_StorageManagerState):
         :return: New resolution retaining the first Asset record and the selected Replica record.
         """
 
-        return api.DigitalAssetResolution(
+        return manager_api.DigitalAssetResolution(
             self.get_digital_asset_record(digital_asset_id),
             self.select_replica(
                 digital_asset_id,
@@ -140,7 +145,9 @@ class DigitalAssetRetrievalMixin(_StorageManagerState):
         )
 
     @override
-    def locate_replica(self, replica_id: api.ReplicaID) -> api.Location:
+    def locate_replica(
+        self, replica_id: manager_api.ReplicaID
+    ) -> storage_models.Location:
         """
         Return the Location from an exact Replica-record lookup without checking state, Store
         availability, or current bytes.
@@ -161,14 +168,16 @@ class DigitalAssetRetrievalMixin(_StorageManagerState):
     @override
     def materialize_digital_asset(
         self,
-        digital_asset_id: api.DigitalAssetID,
+        digital_asset_id: manager_api.DigitalAssetID,
         *,
-        preferred_store_ref: api.StoreUUID | None = None,
-        source_replica_id: api.ReplicaID | None = None,
-        source_modes: Iterable[api.ReplicaMode | str] = (api.ReplicaMode.ACTIVE,),
-        cache_store_ref: api.StoreUUID | None = None,
+        preferred_store_ref: storage_models.StoreUUID | None = None,
+        source_replica_id: manager_api.ReplicaID | None = None,
+        source_modes: Iterable[manager_api.ReplicaMode | str] = (
+            manager_api.ReplicaMode.ACTIVE,
+        ),
+        cache_store_ref: storage_models.StoreUUID | None = None,
         verify: bool = True,
-    ) -> api.DigitalAssetResolution:
+    ) -> manager_api.DigitalAssetResolution:
         """
         Reuse a readable claim in the requested cache Store or select a source and optionally
         replicate it there.
@@ -202,10 +211,10 @@ class DigitalAssetRetrievalMixin(_StorageManagerState):
                 cached = self.resolve_digital_asset(
                     digital_asset_id,
                     preferred_store_ref=cache_store_ref,
-                    mode=api.ReplicaMode.CACHE,
+                    mode=manager_api.ReplicaMode.CACHE,
                     require_verified=verify,
                 )
-            except api.NoReadableReplica:
+            except manager_api.NoReadableReplica:
                 pass
             else:
                 if cached.location.store_ref == cache_store_ref:
@@ -219,7 +228,7 @@ class DigitalAssetRetrievalMixin(_StorageManagerState):
             require_verified=verify and cache_store_ref is None,
         )
         if cache_store_ref is None:
-            return api.DigitalAssetResolution(
+            return manager_api.DigitalAssetResolution(
                 self.get_digital_asset_record(digital_asset_id),
                 source_record,
             )
@@ -227,23 +236,23 @@ class DigitalAssetRetrievalMixin(_StorageManagerState):
             digital_asset_id,
             destination_store_ref=cache_store_ref,
             source_replica_id=source_record.replica_id,
-            mode=api.ReplicaMode.CACHE,
+            mode=manager_api.ReplicaMode.CACHE,
             verify=verify,
         )
-        return api.DigitalAssetResolution(
+        return manager_api.DigitalAssetResolution(
             self.get_digital_asset_record(digital_asset_id),
             replica_record,
         )
 
     def _select_materialization_source(
         self,
-        digital_asset_id: api.DigitalAssetID,
+        digital_asset_id: manager_api.DigitalAssetID,
         *,
-        preferred_store_ref: api.StoreUUID | None,
-        source_replica_id: api.ReplicaID | None,
-        source_modes: Iterable[api.ReplicaMode | str],
+        preferred_store_ref: storage_models.StoreUUID | None,
+        source_replica_id: manager_api.ReplicaID | None,
+        source_modes: Iterable[manager_api.ReplicaMode | str],
         require_verified: bool,
-    ) -> api.ReplicaRecord:
+    ) -> manager_api.ReplicaRecord:
         """
         Select an exact eligible Replica or search fully normalized source modes in caller order.
 
@@ -273,36 +282,41 @@ class DigitalAssetRetrievalMixin(_StorageManagerState):
         if source_replica_id is not None:
             record = self.get_replica_record(source_replica_id)
             if record.digital_asset_id != digital_asset_id:
-                raise api.StoragePreconditionFailed(
+                raise storage_errors.StoragePreconditionFailed(
                     "source Replica belongs to another Digital Asset."
                 )
-            if require_verified and record.state is not api.ReplicaState.VERIFIED:
-                raise api.NoReadableReplica(
+            if (
+                require_verified
+                and record.state is not manager_api.ReplicaState.VERIFIED
+            ):
+                raise manager_api.NoReadableReplica(
                     f"Replica {source_replica_id} is not verified."
                 )
             if record.state not in {
-                api.ReplicaState.VERIFIED,
-                api.ReplicaState.PRESENT,
-                api.ReplicaState.UNVERIFIED,
+                manager_api.ReplicaState.VERIFIED,
+                manager_api.ReplicaState.PRESENT,
+                manager_api.ReplicaState.UNVERIFIED,
             }:
-                raise api.NoReadableReplica(
+                raise manager_api.NoReadableReplica(
                     f"Replica {source_replica_id} is not currently readable."
                 )
             try:
                 info = self.stat(record.location)
-            except api.StorageError as error:
-                raise api.NoReadableReplica(
+            except storage_errors.StorageError as error:
+                raise manager_api.NoReadableReplica(
                     f"Replica {source_replica_id} is not currently readable."
                 ) from error
             asset = self.get_digital_asset_record(digital_asset_id)
             if info.size != asset.size_bytes:
-                raise api.NoReadableReplica(
+                raise manager_api.NoReadableReplica(
                     f"Replica {source_replica_id} has the wrong size."
                 )
             return record
 
         modes = tuple(
-            mode if isinstance(mode, api.ReplicaMode) else api.ReplicaMode(mode)
+            mode
+            if isinstance(mode, manager_api.ReplicaMode)
+            else manager_api.ReplicaMode(mode)
             for mode in source_modes
         )
         if not modes:
@@ -315,10 +329,10 @@ class DigitalAssetRetrievalMixin(_StorageManagerState):
                     mode=mode,
                     require_verified=require_verified,
                 )
-            except api.NoReadableReplica:
+            except manager_api.NoReadableReplica:
                 continue
         rendered = ", ".join(mode.value for mode in dict.fromkeys(modes))
-        raise api.NoReadableReplica(
+        raise manager_api.NoReadableReplica(
             f"Digital Asset {digital_asset_id} has no readable Replica in "
             f"source modes: {rendered}."
         )
@@ -326,12 +340,12 @@ class DigitalAssetRetrievalMixin(_StorageManagerState):
     @override
     def resolve_item_digital_asset(
         self,
-        item_id: api.ItemID,
+        item_id: manager_api.ItemID,
         *,
         role: str = "primary_payload",
-        preferred_store_ref: api.StoreUUID | None = None,
+        preferred_store_ref: storage_models.StoreUUID | None = None,
         require_verified: bool = False,
-    ) -> api.ItemDigitalAssetResolution:
+    ) -> manager_api.ItemDigitalAssetResolution:
         """
         Read an exact Item-role target under the lock, then resolve its Asset or Composite outside
         that lock.
@@ -360,34 +374,32 @@ class DigitalAssetRetrievalMixin(_StorageManagerState):
         with self._lock:
             target = self._item_targets.get((item_id, role))
         if target is None:
-            raise api.StorageManagementError(
+            raise manager_api.StorageManagementError(
                 f"Item {item_id} has no Digital Asset link for role {role!r}."
             )
         kind, target_id = target
         if kind == "digital_asset":
-            return api.ItemDigitalAssetResolution(
+            return manager_api.ItemDigitalAssetResolution(
                 item_id,
                 role,
                 digital_asset_resolution=self.resolve_digital_asset(
-                    api.DigitalAssetID(target_id),
+                    manager_api.DigitalAssetID(target_id),
                     preferred_store_ref=preferred_store_ref,
                     require_verified=require_verified,
                 ),
             )
-        composite_id = api.CompositeDigitalAssetID(target_id)
+        composite_id = manager_api.CompositeDigitalAssetID(target_id)
         record = self.get_composite_digital_asset_record(composite_id)
         composite_resolution = self.resolve_composite_digital_asset(
             composite_id,
             preferred_store_ref=preferred_store_ref,
             require_verified=require_verified,
         )
-        return api.ItemDigitalAssetResolution(
+        return manager_api.ItemDigitalAssetResolution(
             item_id,
             role,
             composite_digital_asset_record=record,
-            composite_member_resolutions=(
-                composite_resolution.member_resolutions
-            ),
+            composite_member_resolutions=(composite_resolution.member_resolutions),
         )
 
 

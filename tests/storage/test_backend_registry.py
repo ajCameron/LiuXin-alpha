@@ -10,6 +10,8 @@ case checks staged bytes rather than sealing an archive or invoking its tool.
 from __future__ import annotations
 
 import json
+import re
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -45,7 +47,7 @@ from LiuXin_alpha.storage.store_backend_plugins.zip_readonly import (
 from LiuXin_alpha.storage.store_backend_plugins.zip_writable import (
     ZipWritableStorageBackend,
 )
-from LiuXin_alpha.storage.store_manager import StorageManager
+from LiuXin_alpha.storage.durable_manager import StorageManager
 from LiuXin_alpha.storage.store_spec_utils import (
     store_configuration_from_row,
     store_configuration_to_row_dict,
@@ -57,6 +59,28 @@ from LiuXin_alpha.storage.stores import (
     StaticEncryptionKeyProvider,
 )
 from tests.fixtures.iso_image import build_joliet_iso
+
+
+def test_backend_reference_lists_every_registered_canonical_kind() -> None:
+    """Keep the developer-facing backend table synchronized with the live registry.
+
+    Example:
+        >>> test_backend_reference_lists_every_registered_canonical_kind()
+
+    :return: None when the table and registry contain the same canonical kind set.
+    """
+
+    guide = (
+        Path(__file__).parents[2]
+        / "dev-docs"
+        / "storage"
+        / "backend-behavior.md"
+    ).read_text(encoding="utf-8")
+    reference = guide.split("## Registered backend reference", 1)[1].split(
+        "## Durable option defaults", 1
+    )[0]
+    documented = set(re.findall(r"^\| `([^`]+)` \|", reference, re.MULTILINE))
+    assert documented == {descriptor.kind for descriptor in DEFAULT_BACKEND_REGISTRY}
 
 
 def _configuration(kind: str, root: str, **kwargs) -> api.StoreConfiguration:

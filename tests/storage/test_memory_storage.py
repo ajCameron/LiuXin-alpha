@@ -3,19 +3,44 @@
 from __future__ import annotations
 
 import hashlib
-
 from uuid import UUID
 
 import pytest
 
 import LiuXin_alpha.storage.api as api
-
 from LiuXin_alpha.storage.backend_registry import DEFAULT_BACKEND_REGISTRY
 from LiuXin_alpha.storage.drivers import MemoryStorageDriver
 from LiuXin_alpha.storage.stores import MemoryStore
-
+from tests.fixtures.storage_unicode import (
+    TORTURED_UNICODE_PATH_CASES,
+    StoragePathCase,
+)
+from tests.storage.contracts.unicode_paths import exercise_unicode_path_case
 
 STORE_UUID = UUID("00000000-0000-0000-0000-000000000123")
+
+
+@pytest.mark.parametrize(
+    "case",
+    TORTURED_UNICODE_PATH_CASES,
+    ids=lambda case: case.case_id,
+)
+def test_memory_store_obeys_unicode_path_contract(case: StoragePathCase) -> None:
+    """Preserve each opaque Unicode key through memory routing, inventory, reads, and URI parsing.
+
+    :param case: Exact key, filename hint, and payload from the shared Unicode matrix.
+    :return: None after the shared Store contract passes for a fresh process-local backend.
+    """
+
+    store = MemoryStore()
+    store.startup()
+    exercise_unicode_path_case(
+        store,
+        case,
+        seed=lambda key, payload: store.store_bytes(payload, location=key),
+        check_uri_round_trip=True,
+    )
+    store.close()
 
 
 def test_memory_store_round_trips_versions_ranges_inventory_and_lifecycle() -> None:

@@ -25,7 +25,6 @@ import math
 import mimetypes
 import os
 import time
-
 from collections import Counter, deque
 from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path, PurePosixPath
@@ -33,11 +32,13 @@ from typing import TypedDict, Unpack, final
 from urllib.parse import unquote_to_bytes, urlparse
 from uuid import UUID, uuid4, uuid5
 
-from LiuXin_alpha.storage import api
+from LiuXin_alpha.storage.api import errors as storage_errors
+from LiuXin_alpha.storage.api import models as storage_models
+from LiuXin_alpha.storage.api import storage_manager_api as manager_api
+from LiuXin_alpha.storage.api import store_api
 from LiuXin_alpha.storage.utils.backend_registry import DEFAULT_BACKEND_REGISTRY
 from LiuXin_alpha.utils.logging import get_compat_logger
 from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
-
 
 _GIB = 1024 * 1024 * 1024
 _OPERATION_NAMESPACE = UUID("51808ce6-c0a8-5f87-bb93-3844742822cc")
@@ -75,7 +76,7 @@ ProgressCallback = Callable[[str, Mapping[str, object]], None]
 CancellationCallback = Callable[[], bool]
 RangeReader = Callable[[int, int], bytes]
 SourceMetadataFactory = Callable[
-    [Path, str, "ContainerHandler | None"], api.DigitalAssetMetadata
+    [Path, str, "ContainerHandler | None"], manager_api.DigitalAssetMetadata
 ]
 
 
@@ -274,7 +275,7 @@ class ContainerMemberContext:
     may contain synthetic !/ ancestry separators and are not necessarily filesystem paths.
 
     Example:
-        >>> context = ContainerMemberContext("pack.zip", "zip", 1, api.DigitalAssetID(7), ("pack.zip",))
+        >>> context = ContainerMemberContext("pack.zip", "zip", 1, manager_api.DigitalAssetID(7), ("pack.zip",))
         >>> context.depth
         1
 
@@ -289,12 +290,12 @@ class ContainerMemberContext:
     container_path: str
     format_name: str
     depth: int
-    parent_digital_asset_id: api.DigitalAssetID
+    parent_digital_asset_id: manager_api.DigitalAssetID
     container_chain: tuple[str, ...]
 
 
 MemberMetadataFactory = Callable[
-    [ContainerMemberContext, api.StoreInventoryEntry], api.DigitalAssetMetadata
+    [ContainerMemberContext, storage_models.StoreInventoryEntry], manager_api.DigitalAssetMetadata
 ]
 
 
@@ -594,8 +595,8 @@ class _ContainerCandidate:
     display_path: str
     filename: str
     handler: ContainerHandler
-    digital_asset_id: api.DigitalAssetID
-    source_replica_id: api.ReplicaID
+    digital_asset_id: manager_api.DigitalAssetID
+    source_replica_id: manager_api.ReplicaID
     size_bytes: int
     depth: int
     ancestry: tuple[str, ...]
@@ -710,7 +711,7 @@ class MixedFormatIngestCoordinator:
 
     def __init__(
         self,
-        manager: api.StorageManagerAPI,
+        manager: manager_api.StorageManagerAPI,
         *,
         budget: MixedIngestBudget | None = None,
         handlers: Iterable[ContainerHandler] | None = None,
@@ -812,7 +813,7 @@ class MixedFormatIngestCoordinator:
         self.member_metadata_factory = member_metadata_factory or _member_metadata
         self.log_checkpoint_every = int(log_checkpoint_every)
         self.clock = clock
-        self._replica_locations_by_store: dict[UUID, set[api.Location]] = {}
+        self._replica_locations_by_store: dict[UUID, set[storage_models.Location]] = {}
         self._active_run_id: UUID | None = None
 
     def ingest(
@@ -840,7 +841,7 @@ class MixedFormatIngestCoordinator:
         """
 
         if self._active_run_id is not None:
-            raise api.StoragePreconditionFailed(
+            raise storage_errors.StoragePreconditionFailed(
                 "one MixedFormatIngestCoordinator cannot run concurrently"
             )
         effective_run_id = uuid4() if run_id is None else run_id
@@ -974,7 +975,7 @@ class MixedFormatIngestCoordinator:
                         info.version or str(info.size),
                     ),
                     metadata=self.source_metadata_factory(path, relative, handler),
-                    replica_mode=api.ReplicaMode.UNMANAGED,
+                    replica_mode=manager_api.ReplicaMode.UNMANAGED,
                     verify=self.verify_source_files,
                 )
                 state.files_adopted += 1
@@ -1290,7 +1291,7 @@ class MixedFormatIngestCoordinator:
         issues: list[MixedIngestIssue] = []
         materialized = 0
         cache_ref: UUID | None = None
-        configuration: api.StoreConfiguration | None = None
+        configuration: manager_api.StoreConfiguration | None = None
         created = False
         members_discovered = members_adopted = 0
         assets_created = replicas_created = nested_discovered = expanded_bytes = 0
@@ -1311,14 +1312,14 @@ class MixedFormatIngestCoordinator:
             if not candidate.top_level:
                 cache_ref = self._ensure_materialization_store()
                 if cache_ref is None:
-                    raise api.StoragePreconditionFailed(
+                    raise storage_errors.StoragePreconditionFailed(
                         "nested container expansion requires a local writable "
                         + "materialization Store; supply materialization_store_ref "
                         + "or materialization_root"
                     )
                 if not self._has_cache_replica(candidate.digital_asset_id, cache_ref):
                     if candidate.size_bytes > self.budget.max_temporary_bytes:
-                        raise api.StoragePreconditionFailed(
+                        raise storage_errors.StoragePreconditionFailed(
                             f"nested container is {candidate.size_bytes} bytes, above "
                             + "the single-materialization limit "
                             + str(self.budget.max_temporary_bytes)
@@ -1327,7 +1328,7 @@ class MixedFormatIngestCoordinator:
                         state.materialized_bytes + candidate.size_bytes
                         > self.budget.max_materialized_bytes
                     ):
-                        raise api.StoragePreconditionFailed(
+                        raise storage_errors.StoragePreconditionFailed(
                             "run-wide materialization byte limit would be exceeded"
                         )
                     state.materialized_bytes += candidate.size_bytes
@@ -1441,7 +1442,7 @@ class MixedFormatIngestCoordinator:
                             ),
                             entry,
                         ),
-                        replica_mode=api.ReplicaMode.ARCHIVE,
+                        replica_mode=manager_api.ReplicaMode.ARCHIVE,
                         verify=self.verify_members,
                     )
                     members_adopted += 1
@@ -1737,7 +1738,7 @@ class MixedFormatIngestCoordinator:
         return self._identify(path.name, read_range)
 
     def _identify_store_entry(
-        self, store: api.StoreAPI, entry: api.StoreInventoryEntry
+        self, store: store_api.StoreAPI, entry: storage_models.StoreInventoryEntry
     ) -> ContainerHandler | None:
         """
         Identify a member using its suggested name or key basename and optional Store range reads.
@@ -1822,7 +1823,7 @@ class MixedFormatIngestCoordinator:
 
     def _ensure_source_store(
         self, root: Path
-    ) -> tuple[api.StoreConfiguration, bool]:
+    ) -> tuple[manager_api.StoreConfiguration, bool]:
         """
         Reuse an available compatible UNMANAGED-capable source Store or create a read-only unmanaged
         one.
@@ -1846,24 +1847,24 @@ class MixedFormatIngestCoordinator:
                 "on_disk_existing_managed_drive",
                 "on_disk_existing_unmanaged_drive",
             }:
-                raise api.StoragePreconditionFailed(
+                raise storage_errors.StoragePreconditionFailed(
                     f"Store root {root_uri!r} is configured as incompatible "
                     + f"backend {existing.store_kind!r}."
                 )
-            if api.ReplicaMode.UNMANAGED not in existing.supported_replica_modes:
-                raise api.StoragePreconditionFailed(
+            if manager_api.ReplicaMode.UNMANAGED not in existing.supported_replica_modes:
+                raise storage_errors.StoragePreconditionFailed(
                     f"Store root {root_uri!r} does not permit UNMANAGED "
                     + "Replica adoption."
                 )
             self._require_available(existing)
             return existing, False
-        configuration = api.StoreConfiguration.for_backend(
+        configuration = manager_api.StoreConfiguration.for_backend(
             _store_name("ingest-source", root),
             "on_disk_existing_unmanaged_drive",
             root,
             protocol="file",
             tags=("ingest-source", "unmanaged", "mixed-ingest"),
-            modes=(api.ReplicaMode.UNMANAGED,),
+            modes=(manager_api.ReplicaMode.UNMANAGED,),
             operational_role="live",
             read_only=True,
             folders=True,
@@ -1920,13 +1921,13 @@ class MixedFormatIngestCoordinator:
                 configured_by="root",
             )
             return existing.store_uuid
-        configuration = api.StoreConfiguration.for_backend(
+        configuration = manager_api.StoreConfiguration.for_backend(
             _store_name("ingest-cache", root),
             "filesystem",
             root,
             protocol="file",
             tags=("cache", "ingest-materialization", "mixed-ingest"),
-            modes=(api.ReplicaMode.CACHE,),
+            modes=(manager_api.ReplicaMode.CACHE,),
             operational_role="cache",
             read_only=False,
             folders=True,
@@ -1949,7 +1950,7 @@ class MixedFormatIngestCoordinator:
         candidate: _ContainerCandidate,
         *,
         cache_ref: UUID | None,
-    ) -> tuple[api.StoreConfiguration, bool]:
+    ) -> tuple[manager_api.StoreConfiguration, bool]:
         """
         Reuse a unique equivalent backed Store or ask the manager to create one for the container
         Asset.
@@ -1984,7 +1985,7 @@ class MixedFormatIngestCoordinator:
             and dict(configuration.backend_options) == options
         )
         if len(matches) > 1:
-            raise api.StoragePreconditionFailed(
+            raise storage_errors.StoragePreconditionFailed(
                 "multiple equivalent backed Stores expose one container Asset"
             )
         if matches:
@@ -2014,7 +2015,7 @@ class MixedFormatIngestCoordinator:
             materialization_store_ref=cache_ref,
             protocol=candidate.handler.protocol,
             tags=("archive", candidate.handler.format_name, "mixed-ingest"),
-            modes=(api.ReplicaMode.ARCHIVE,),
+            modes=(manager_api.ReplicaMode.ARCHIVE,),
             operational_role="archive",
             folders=True,
             options=option_pairs,
@@ -2093,7 +2094,7 @@ class MixedFormatIngestCoordinator:
         :return: None on accepted bounds; negative sizes raise StorageIntegrityError and ceilings raise _ContainerLimit.
         """
         if size < 0:
-            raise api.StorageIntegrityError("container member reports a negative size")
+            raise storage_errors.StorageIntegrityError("container member reports a negative size")
         if size > self.budget.max_member_bytes:
             raise _ContainerLimit(
                 f"member is {size} bytes, above limit {self.budget.max_member_bytes}"
@@ -2105,7 +2106,7 @@ class MixedFormatIngestCoordinator:
             raise _ContainerLimit("member path exceeds component-depth limit")
 
     def _validate_cache_configuration(
-        self, configuration: api.StoreConfiguration
+        self, configuration: manager_api.StoreConfiguration
     ) -> None:
         """
         Require a writable declaration supporting CACHE mode and the canonical filesystem backend.
@@ -2121,15 +2122,15 @@ class MixedFormatIngestCoordinator:
         :return: None when policy qualifies; otherwise raise StoragePreconditionFailed.
         """
         if configuration.read_only:
-            raise api.StoragePreconditionFailed(
+            raise storage_errors.StoragePreconditionFailed(
                 "materialization Store must be writable"
             )
-        if api.ReplicaMode.CACHE not in configuration.supported_replica_modes:
-            raise api.StoragePreconditionFailed(
+        if manager_api.ReplicaMode.CACHE not in configuration.supported_replica_modes:
+            raise storage_errors.StoragePreconditionFailed(
                 "materialization Store must support CACHE Replicas"
             )
         if DEFAULT_BACKEND_REGISTRY.canonical_kind(configuration.store_kind) != "filesystem":
-            raise api.StoragePreconditionFailed(
+            raise storage_errors.StoragePreconditionFailed(
                 "materialization Store must currently be a local filesystem Store"
             )
 
@@ -2162,7 +2163,7 @@ class MixedFormatIngestCoordinator:
 
     def _configuration_for_root(
         self, root_uri: str
-    ) -> api.StoreConfiguration | None:
+    ) -> manager_api.StoreConfiguration | None:
         """
         Select one configured root by canonical local-URI equality, rejecting multiple claims.
 
@@ -2182,12 +2183,12 @@ class MixedFormatIngestCoordinator:
             if _canonical_local_uri(configuration.store_root_uri) == target
         )
         if len(matches) > 1:
-            raise api.StoragePreconditionFailed(
+            raise storage_errors.StoragePreconditionFailed(
                 f"multiple configured Stores claim local root {root_uri!r}"
             )
         return matches[0] if matches else None
 
-    def _require_available(self, configuration: api.StoreConfiguration) -> None:
+    def _require_available(self, configuration: manager_api.StoreConfiguration) -> None:
         """
         Resolve a Store, rebind its configuration after StoreUnavailable, and require an available
         refreshed status.
@@ -2204,18 +2205,18 @@ class MixedFormatIngestCoordinator:
         """
         try:
             store = self.manager.get_store(configuration.store_uuid)
-        except api.StoreUnavailable:
+        except storage_errors.StoreUnavailable:
             _ = self.manager.update_store(
                 configuration.store_uuid, configuration
             )
             store = self.manager.get_store(configuration.store_uuid)
         status = store.status(refresh=True)
         if not status.available:
-            raise api.StoreUnavailable(
+            raise storage_errors.StoreUnavailable(
                 status.message or f"Store {configuration.store_name!r} is unavailable."
             )
 
-    def _has_replica_at(self, location: api.Location) -> bool:
+    def _has_replica_at(self, location: storage_models.Location) -> bool:
         """
         Check a lazily populated per-Store set of nondeleted Replica Locations.
 
@@ -2237,12 +2238,12 @@ class MixedFormatIngestCoordinator:
                 for record in self.manager.iter_replica_records(
                     store_ref=location.store_ref
                 )
-                if record.state is not api.ReplicaState.DELETED
+                if record.state is not manager_api.ReplicaState.DELETED
             }
             self._replica_locations_by_store[location.store_ref] = locations
         return location in locations
 
-    def _remember_replica(self, location: api.Location) -> None:
+    def _remember_replica(self, location: storage_models.Location) -> None:
         """
         Add an adopted Location to the per-Store cache without querying remaining Replicas.
 
@@ -2260,7 +2261,7 @@ class MixedFormatIngestCoordinator:
         )
 
     def _has_cache_replica(
-        self, digital_asset_id: api.DigitalAssetID, store_ref: UUID
+        self, digital_asset_id: manager_api.DigitalAssetID, store_ref: UUID
     ) -> bool:
         """
         Find a nondeleted CACHE Replica of the Asset whose stat size matches the Asset size.
@@ -2281,13 +2282,13 @@ class MixedFormatIngestCoordinator:
         for record in self.manager.iter_replica_records(store_ref=store_ref):
             if (
                 record.digital_asset_id != digital_asset_id
-                or record.mode is not api.ReplicaMode.CACHE
-                or record.state is api.ReplicaState.DELETED
+                or record.mode is not manager_api.ReplicaMode.CACHE
+                or record.state is manager_api.ReplicaState.DELETED
             ):
                 continue
             try:
                 info = self.manager.stat(record.location)
-            except api.StorageError:
+            except storage_errors.StorageError:
                 continue
             if info.size == asset.size_bytes:
                 return True
@@ -2685,7 +2686,7 @@ class _MixedIngestOptions(TypedDict, total=False):
 
 
 def ingest_mixed_local_tree(
-    manager: api.StorageManagerAPI,
+    manager: manager_api.StorageManagerAPI,
     source_root: str | os.PathLike[str],
     *,
     discovery_only: bool = False,
@@ -2717,7 +2718,7 @@ def ingest_mixed_local_tree(
 
 def _source_metadata(
     path: Path, relative: str, handler: ContainerHandler | None
-) -> api.DigitalAssetMetadata:
+) -> manager_api.DigitalAssetMetadata:
     """
     Describe a source file using its basename, relative path, and optional selected format.
 
@@ -2741,7 +2742,7 @@ def _source_metadata(
     if handler is not None:
         attributes.append(("container.format", handler.format_name))
     media_type = _container_media_type(handler) or mimetypes.guess_type(path.name)[0]
-    return api.DigitalAssetMetadata(
+    return manager_api.DigitalAssetMetadata(
         name=path.name,
         media_type=media_type,
         original_name=path.name,
@@ -2750,8 +2751,8 @@ def _source_metadata(
 
 
 def _member_metadata(
-    context: ContainerMemberContext, entry: api.StoreInventoryEntry
-) -> api.DigitalAssetMetadata:
+    context: ContainerMemberContext, entry: storage_models.StoreInventoryEntry
+) -> manager_api.DigitalAssetMetadata:
     """
     Combine parent context and advisory member hints into Asset metadata.
 
@@ -2780,7 +2781,7 @@ def _member_metadata(
     ]
     attributes.extend(entry.hints.metadata)
     deduplicated = tuple(dict(attributes).items())
-    return api.DigitalAssetMetadata(
+    return manager_api.DigitalAssetMetadata(
         name=filename,
         media_type=entry.hints.media_type or mimetypes.guess_type(filename)[0],
         original_name=filename,
@@ -2889,7 +2890,7 @@ def _operation_id(kind: str, *parts: str) -> UUID:
     )
 
 
-def _sha256_value(record: api.DigitalAssetRecord) -> str:
+def _sha256_value(record: manager_api.DigitalAssetRecord) -> str:
     """
     Read the first exactly named sha256 digest claim from the Asset record.
 
@@ -2905,7 +2906,7 @@ def _sha256_value(record: api.DigitalAssetRecord) -> str:
     for digest in record.digests:
         if digest.algorithm == "sha256":
             return digest.value
-    raise api.StorageIntegrityError(
+    raise storage_errors.StorageIntegrityError(
         f"Digital Asset {record.digital_asset_id} has no SHA-256 identity."
     )
 

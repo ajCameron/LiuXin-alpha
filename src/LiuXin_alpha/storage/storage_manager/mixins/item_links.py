@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import override
 
-import LiuXin_alpha.storage.api as api
+from LiuXin_alpha.storage.api import storage_manager_api as manager_api
 from LiuXin_alpha.storage.storage_manager.mixins._state import _StorageManagerState
 
 
@@ -30,8 +30,8 @@ class ItemDigitalAssetLinkMixin(_StorageManagerState):
     @override
     def link_item_to_digital_asset(
         self,
-        item_id: api.ItemID,
-        digital_asset_id: api.DigitalAssetID,
+        item_id: manager_api.ItemID,
+        digital_asset_id: manager_api.DigitalAssetID,
         *,
         role: str = "primary_payload",
     ) -> None:
@@ -59,8 +59,8 @@ class ItemDigitalAssetLinkMixin(_StorageManagerState):
     @override
     def link_item_to_composite_digital_asset(
         self,
-        item_id: api.ItemID,
-        composite_digital_asset_id: api.CompositeDigitalAssetID,
+        item_id: manager_api.ItemID,
+        composite_digital_asset_id: manager_api.CompositeDigitalAssetID,
         *,
         role: str = "primary_payload",
     ) -> None:
@@ -92,7 +92,7 @@ class ItemDigitalAssetLinkMixin(_StorageManagerState):
     @override
     def unlink_item_digital_asset(
         self,
-        item_id: api.ItemID,
+        item_id: manager_api.ItemID,
         *,
         role: str = "primary_payload",
     ) -> bool:

@@ -12,7 +12,8 @@ from collections import deque
 from collections.abc import Iterator, Mapping
 from typing import override
 
-import LiuXin_alpha.storage.api as api
+from LiuXin_alpha.storage.api import errors as storage_errors
+from LiuXin_alpha.storage.api import storage_manager_api as manager_api
 from LiuXin_alpha.storage.storage_manager.mixins._state import _StorageManagerState
 
 
@@ -33,20 +34,20 @@ class _DerivationGraphTraversal:
 
     def __init__(
         self,
-        digital_asset_id: api.DigitalAssetID,
+        digital_asset_id: manager_api.DigitalAssetID,
         *,
         max_depth: int | None,
         sources_by_derivation: Mapping[
-            api.DigitalAssetDerivationID,
-            tuple[api.DigitalAssetID, ...],
+            manager_api.DigitalAssetDerivationID,
+            tuple[manager_api.DigitalAssetID, ...],
         ],
         by_result: Mapping[
-            api.DigitalAssetID,
-            list[api.DigitalAssetDerivationRecord],
+            manager_api.DigitalAssetID,
+            list[manager_api.DigitalAssetDerivationRecord],
         ],
         by_source: Mapping[
-            api.DigitalAssetID,
-            list[api.DigitalAssetDerivationRecord],
+            manager_api.DigitalAssetID,
+            list[manager_api.DigitalAssetDerivationRecord],
         ],
     ) -> None:
         """
@@ -77,15 +78,15 @@ class _DerivationGraphTraversal:
         self.by_source = by_source
         self.asset_ids = [digital_asset_id]
         self.seen_asset_ids = {digital_asset_id}
-        self.composite_ids: list[api.CompositeDigitalAssetID] = []
-        self.seen_composite_ids: set[api.CompositeDigitalAssetID] = set()
-        self.records: list[api.DigitalAssetDerivationRecord] = []
-        self.seen_derivation_ids: set[api.DigitalAssetDerivationID] = set()
+        self.composite_ids: list[manager_api.CompositeDigitalAssetID] = []
+        self.seen_composite_ids: set[manager_api.CompositeDigitalAssetID] = set()
+        self.records: list[manager_api.DigitalAssetDerivationRecord] = []
+        self.seen_derivation_ids: set[manager_api.DigitalAssetDerivationID] = set()
         self.truncated = False
 
     def walk(
         self,
-        direction: api.DigitalAssetDerivationGraphDirection,
+        direction: manager_api.DigitalAssetDerivationGraphDirection,
     ) -> None:
         """
         Traverse one direction from the root and append first-encounter evidence to shared
@@ -102,23 +103,25 @@ class _DerivationGraphTraversal:
         after partial state accumulation.
 
         Example:
-            >>> traversal.walk(api.DigitalAssetDerivationGraphDirection.ANCESTORS)  # doctest: +SKIP
+            >>> traversal.walk(manager_api.DigitalAssetDerivationGraphDirection.ANCESTORS)  # doctest: +SKIP
 
 
         :param direction: Single ancestor or descendant direction; this helper does not expand BOTH or coerce strings.
         :return: None after mutating node/record inventories and possibly setting truncated.
         """
 
-        queue: deque[tuple[api.DigitalAssetID, int]] = deque(
+        queue: deque[tuple[manager_api.DigitalAssetID, int]] = deque(
             ((self.digital_asset_id, 0),)
         )
-        walked: set[api.DigitalAssetID] = set()
+        walked: set[manager_api.DigitalAssetID] = set()
         while queue:
             current_id, depth = queue.popleft()
             if current_id in walked:
                 continue
             walked.add(current_id)
-            ancestors = direction is api.DigitalAssetDerivationGraphDirection.ANCESTORS
+            ancestors = (
+                direction is manager_api.DigitalAssetDerivationGraphDirection.ANCESTORS
+            )
             adjacent = (
                 self.by_result.get(current_id, ())
                 if ancestors
@@ -145,7 +148,7 @@ class _DerivationGraphTraversal:
 
     def _remember_record(
         self,
-        record: api.DigitalAssetDerivationRecord,
+        record: manager_api.DigitalAssetDerivationRecord,
     ) -> None:
         """
         Append a previously unseen derivation and its first-encounter Composite source IDs.
@@ -190,8 +193,8 @@ class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
     @override
     def record_digital_asset_derivation(
         self,
-        declaration: api.DigitalAssetDerivationDeclaration,
-    ) -> api.DigitalAssetDerivationRecord:
+        declaration: manager_api.DigitalAssetDerivationDeclaration,
+    ) -> manager_api.DigitalAssetDerivationRecord:
         """
         Validate provenance and allocate a fresh metadata record for an existing result Asset.
 
@@ -215,14 +218,14 @@ class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
         """
 
         result = self.get_digital_asset_record(declaration.result_digital_asset_id)
-        source_asset_ids: set[api.DigitalAssetID] = set()
+        source_asset_ids: set[manager_api.DigitalAssetID] = set()
         for source in declaration.sources:
             if source.digital_asset_id is not None:
                 self.get_digital_asset_record(source.digital_asset_id)
                 source_asset_ids.add(source.digital_asset_id)
                 continue
             if source.composite_digital_asset_id is None:
-                raise api.StoragePreconditionFailed(
+                raise storage_errors.StoragePreconditionFailed(
                     "derivation source has no Asset identity."
                 )
             composite = self.get_composite_digital_asset_record(
@@ -237,7 +240,7 @@ class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
             recipe_asset_ids = {input_.digital_asset_id for input_ in recipe.inputs}
             if recipe.complete and not source_asset_ids <= recipe_asset_ids:
                 missing = sorted(source_asset_ids - recipe_asset_ids)
-                raise api.StoragePreconditionFailed(
+                raise storage_errors.StoragePreconditionFailed(
                     "complete recipe does not pin every provenance source: "
                     + ", ".join(str(value) for value in missing)
                 )
@@ -266,7 +269,7 @@ class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
             source_asset_ids.update(recipe_asset_ids)
             if recipe.can_recreate_exactly:
                 if recipe.expected_output_size != result.size_bytes:
-                    raise api.StorageIntegrityError(
+                    raise storage_errors.StorageIntegrityError(
                         "exact recipe output size differs from the result Asset."
                     )
                 self._require_expected_digests(
@@ -279,10 +282,10 @@ class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
             source_asset_ids,
         )
         with self._lock, self._metadata_transaction():
-            derivation_id = api.DigitalAssetDerivationID(
+            derivation_id = manager_api.DigitalAssetDerivationID(
                 self._allocate_metadata_id_locked("derivation")
             )
-            record = api.DigitalAssetDerivationRecord(
+            record = manager_api.DigitalAssetDerivationRecord(
                 derivation_id,
                 declaration,
                 self._new_revision_locked(),
@@ -293,8 +296,8 @@ class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
     @override
     def get_digital_asset_derivation_record(
         self,
-        digital_asset_derivation_id: api.DigitalAssetDerivationID,
-    ) -> api.DigitalAssetDerivationRecord:
+        digital_asset_derivation_id: manager_api.DigitalAssetDerivationID,
+    ) -> manager_api.DigitalAssetDerivationRecord:
         """
         Read the retained derivation mapping under the manager lock.
 
@@ -313,7 +316,7 @@ class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
             try:
                 return self._derivations[digital_asset_derivation_id]
             except KeyError as error:
-                raise api.DigitalAssetDerivationNotFound(
+                raise manager_api.DigitalAssetDerivationNotFound(
                     "Digital Asset derivation "
                     f"{digital_asset_derivation_id} is not registered."
                 ) from error
@@ -322,13 +325,15 @@ class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
     def iter_digital_asset_derivation_records(
         self,
         *,
-        result_digital_asset_id: api.DigitalAssetID | None = None,
-        source_digital_asset_id: api.DigitalAssetID | None = None,
-        source_composite_digital_asset_id: (api.CompositeDigitalAssetID | None) = None,
+        result_digital_asset_id: manager_api.DigitalAssetID | None = None,
+        source_digital_asset_id: manager_api.DigitalAssetID | None = None,
+        source_composite_digital_asset_id: (
+            manager_api.CompositeDigitalAssetID | None
+        ) = None,
         workflow_id: int | None = None,
         workflow_reference: str | None = None,
         exact_only: bool = False,
-    ) -> Iterator[api.DigitalAssetDerivationRecord]:
+    ) -> Iterator[manager_api.DigitalAssetDerivationRecord]:
         """
         Validate workflow filters and capture matching records under the lock in sorted mapping-key
         order.
@@ -395,16 +400,16 @@ class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
     @override
     def get_derivation_graph(
         self,
-        digital_asset_id: api.DigitalAssetID,
+        digital_asset_id: manager_api.DigitalAssetID,
         *,
         direction: (
-            api.DigitalAssetDerivationGraphDirection | str
-        ) = api.DigitalAssetDerivationGraphDirection.BOTH,
+            manager_api.DigitalAssetDerivationGraphDirection | str
+        ) = manager_api.DigitalAssetDerivationGraphDirection.BOTH,
         max_depth: int | None = None,
         workflow_id: int | None = None,
         workflow_reference: str | None = None,
         exact_only: bool = False,
-    ) -> api.DigitalAssetDerivationGraph:
+    ) -> manager_api.DigitalAssetDerivationGraph:
         """
         Index filtered provenance and combine stable breadth-first walks rooted at one registered
         Asset.
@@ -438,7 +443,9 @@ class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
         if max_depth is not None and max_depth < 0:
             raise ValueError("max_depth must not be negative.")
         try:
-            graph_direction = api.DigitalAssetDerivationGraphDirection(direction)
+            graph_direction = manager_api.DigitalAssetDerivationGraphDirection(
+                direction
+            )
         except ValueError as error:
             raise ValueError(
                 "direction must be 'ancestors', 'descendants', or 'both'."
@@ -462,21 +469,21 @@ class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
             by_source=by_source,
         )
         directions = {
-            api.DigitalAssetDerivationGraphDirection.ANCESTORS: (
-                api.DigitalAssetDerivationGraphDirection.ANCESTORS,
+            manager_api.DigitalAssetDerivationGraphDirection.ANCESTORS: (
+                manager_api.DigitalAssetDerivationGraphDirection.ANCESTORS,
             ),
-            api.DigitalAssetDerivationGraphDirection.DESCENDANTS: (
-                api.DigitalAssetDerivationGraphDirection.DESCENDANTS,
+            manager_api.DigitalAssetDerivationGraphDirection.DESCENDANTS: (
+                manager_api.DigitalAssetDerivationGraphDirection.DESCENDANTS,
             ),
-            api.DigitalAssetDerivationGraphDirection.BOTH: (
-                api.DigitalAssetDerivationGraphDirection.ANCESTORS,
-                api.DigitalAssetDerivationGraphDirection.DESCENDANTS,
+            manager_api.DigitalAssetDerivationGraphDirection.BOTH: (
+                manager_api.DigitalAssetDerivationGraphDirection.ANCESTORS,
+                manager_api.DigitalAssetDerivationGraphDirection.DESCENDANTS,
             ),
         }[graph_direction]
         for walk_direction in directions:
             traversal.walk(walk_direction)
 
-        return api.DigitalAssetDerivationGraph(
+        return manager_api.DigitalAssetDerivationGraph(
             digital_asset_id,
             graph_direction,
             tuple(traversal.asset_ids),
@@ -488,13 +495,13 @@ class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
     @override
     def find_digital_asset_derivation_path(
         self,
-        source_digital_asset_id: api.DigitalAssetID,
-        result_digital_asset_id: api.DigitalAssetID,
+        source_digital_asset_id: manager_api.DigitalAssetID,
+        result_digital_asset_id: manager_api.DigitalAssetID,
         *,
         workflow_id: int | None = None,
         workflow_reference: str | None = None,
         exact_only: bool = False,
-    ) -> api.DigitalAssetDerivationGraph | None:
+    ) -> manager_api.DigitalAssetDerivationGraph | None:
         """
         Breadth-first search filtered, expanded provenance edges and reconstruct one shortest path.
 
@@ -520,9 +527,9 @@ class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
         self.get_digital_asset_record(source_digital_asset_id)
         self.get_digital_asset_record(result_digital_asset_id)
         if source_digital_asset_id == result_digital_asset_id:
-            return api.DigitalAssetDerivationGraph(
+            return manager_api.DigitalAssetDerivationGraph(
                 source_digital_asset_id,
-                api.DigitalAssetDerivationGraphDirection.DESCENDANTS,
+                manager_api.DigitalAssetDerivationGraphDirection.DESCENDANTS,
                 (source_digital_asset_id,),
             )
 
@@ -535,8 +542,8 @@ class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
         )
         _, _, by_source = self._index_derivation_graph(records)
         predecessors: dict[
-            api.DigitalAssetID,
-            tuple[api.DigitalAssetID, api.DigitalAssetDerivationRecord],
+            manager_api.DigitalAssetID,
+            tuple[manager_api.DigitalAssetID, manager_api.DigitalAssetDerivationRecord],
         ] = {}
         visited = {source_digital_asset_id}
         pending = deque((source_digital_asset_id,))
@@ -557,7 +564,7 @@ class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
             return None
 
         reverse_nodes = [result_digital_asset_id]
-        reverse_records: list[api.DigitalAssetDerivationRecord] = []
+        reverse_records: list[manager_api.DigitalAssetDerivationRecord] = []
         current = result_digital_asset_id
         while current != source_digital_asset_id:
             previous, record = predecessors[current]
@@ -573,9 +580,9 @@ class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
                 if source.composite_digital_asset_id is not None
             )
         )
-        return api.DigitalAssetDerivationGraph(
+        return manager_api.DigitalAssetDerivationGraph(
             source_digital_asset_id,
-            api.DigitalAssetDerivationGraphDirection.DESCENDANTS,
+            manager_api.DigitalAssetDerivationGraphDirection.DESCENDANTS,
             tuple(reversed(reverse_nodes)),
             composite_ids,
             path_records,
@@ -583,11 +590,17 @@ class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
 
     def _index_derivation_graph(
         self,
-        records: tuple[api.DigitalAssetDerivationRecord, ...],
+        records: tuple[manager_api.DigitalAssetDerivationRecord, ...],
     ) -> tuple[
-        dict[api.DigitalAssetDerivationID, tuple[api.DigitalAssetID, ...]],
-        dict[api.DigitalAssetID, list[api.DigitalAssetDerivationRecord]],
-        dict[api.DigitalAssetID, list[api.DigitalAssetDerivationRecord]],
+        dict[
+            manager_api.DigitalAssetDerivationID, tuple[manager_api.DigitalAssetID, ...]
+        ],
+        dict[
+            manager_api.DigitalAssetID, list[manager_api.DigitalAssetDerivationRecord]
+        ],
+        dict[
+            manager_api.DigitalAssetID, list[manager_api.DigitalAssetDerivationRecord]
+        ],
     ]:
         """
         Build result/source adjacency indexes from supplied records and expanded atomic inputs.
@@ -617,12 +630,12 @@ class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
             for record in records
         }
         by_result: dict[
-            api.DigitalAssetID,
-            list[api.DigitalAssetDerivationRecord],
+            manager_api.DigitalAssetID,
+            list[manager_api.DigitalAssetDerivationRecord],
         ] = {}
         by_source: dict[
-            api.DigitalAssetID,
-            list[api.DigitalAssetDerivationRecord],
+            manager_api.DigitalAssetID,
+            list[manager_api.DigitalAssetDerivationRecord],
         ] = {}
         for record in records:
             by_result.setdefault(
@@ -636,8 +649,8 @@ class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
     @override
     def plan_digital_asset_recreation(
         self,
-        digital_asset_id: api.DigitalAssetID,
-    ) -> api.DigitalAssetRecreationPlan:
+        digital_asset_id: manager_api.DigitalAssetID,
+    ) -> manager_api.DigitalAssetRecreationPlan:
         """
         Validate the requested Asset and project a recursively selected branch into a public replay
         plan.
@@ -671,7 +684,7 @@ class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
             for derivation_id in dict.fromkeys(branch.alternative_derivation_ids)
             if derivation_id != branch.selected_derivation_id
         )
-        return api.DigitalAssetRecreationPlan(
+        return manager_api.DigitalAssetRecreationPlan(
             digital_asset_id,
             steps=branch.steps,
             available_digital_asset_ids=tuple(
@@ -688,7 +701,7 @@ class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
     @override
     def forget_digital_asset_derivation(
         self,
-        digital_asset_derivation_id: api.DigitalAssetDerivationID,
+        digital_asset_derivation_id: manager_api.DigitalAssetDerivationID,
         *,
         if_revision: str | None = None,
     ) -> bool:

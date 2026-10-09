@@ -485,14 +485,17 @@ class StorageDriverConvenienceBase(Generic[DriverObjectAddressT]):
 
         from LiuXin_alpha.storage.utils.driver import put_object
 
-        return put_object(
-            reader,
-            destination,
-            source,
-            mode=_write_mode_argument(write_mode, mode),
-            expected_size=expected_size,
-            expected_digest=expected_digest,
-            metadata=native_metadata,
+        return cast(
+            DriverObjectInfo[DriverObjectAddressT],
+            put_object(
+                reader,
+                destination,
+                source,
+                mode=_write_mode_argument(write_mode, mode),
+                expected_size=expected_size,
+                expected_digest=expected_digest,
+                metadata=native_metadata,
+            ),
         )
 
     def store_file(

@@ -26,6 +26,10 @@ from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.databases.runtime import bootstrap_storage_manager
 from LiuXin_alpha.caches import CacheLookupStatus, create_cache
 from LiuXin_alpha.storage.api import (
+    Digest,
+    DigitalAssetDeclaration,
+    DigitalAssetMetadata,
+    DigitalAssetNotFound,
     NoReadableReplica,
     StorageBootstrapIssue,
     StorageBootstrapReport,
@@ -34,7 +38,7 @@ from LiuXin_alpha.storage.api import (
     StoreConfigurationNotFound,
     StoreUnavailable,
 )
-from LiuXin_alpha.storage.store_manager import StorageManager
+from LiuXin_alpha.storage.durable_manager import StorageManager
 from LiuXin_alpha.storage.stores import EncryptedStore, StaticEncryptionKeyProvider
 
 
@@ -119,6 +123,76 @@ def _live_refs(database: Database) -> set[UUID]:
     return {store.store_ref for store in database.storage.iter_stores()}
 
 
+def test_database_rebinding_moves_every_metadata_view_together(
+    driver_spec,
+    tmp_path: Path,
+) -> None:
+    """Rebind one manager between catalogues without retaining repository views from the old owner.
+
+    Each catalogue receives an Asset with the same allocated ID but distinct metadata. Reads after
+    each rebind must return the value owned by the selected catalogue. A rejected downgrade leaves
+    both the database reference and durable repository views unchanged.
+
+    Example:
+        >>> test_database_rebinding_moves_every_metadata_view_together(driver_spec, tmp_path)  # doctest: +SKIP
+
+    :param driver_spec: Fixture selecting the database adapter for both temporary catalogues.
+    :param tmp_path: Pytest directory containing the independent catalogue files.
+    :return: None after atomic binding and rejected-downgrade assertions pass.
+    """
+
+    first_path = tmp_path / "first.sqlite"
+    second_path = tmp_path / "second.sqlite"
+    with Database(
+        metadata={"database_path": str(first_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        enable_storage_manager=False,
+    ) as first, Database(
+        metadata={"database_path": str(second_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        enable_storage_manager=False,
+    ) as second, StorageManager(db=first, startup_on_add=False) as manager:
+        first_declaration = DigitalAssetDeclaration(
+            4,
+            (Digest("sha256", "1" * 64),),
+            DigitalAssetMetadata(original_name="first.epub"),
+        )
+        with manager.metadata_unit_of_work_factory.begin() as unit:
+            first_record = unit.assets.add_from_declaration(first_declaration)
+            unit.commit()
+
+        manager.bind_database(second)
+        with pytest.raises(DigitalAssetNotFound):
+            manager.metadata_unit_of_work_factory.assets.get(
+                first_record.digital_asset_id
+            )
+        second_declaration = DigitalAssetDeclaration(
+            4,
+            (Digest("sha256", "2" * 64),),
+            DigitalAssetMetadata(original_name="second.epub"),
+        )
+        with manager.metadata_unit_of_work_factory.begin() as unit:
+            second_record = unit.assets.add_from_declaration(second_declaration)
+            unit.commit()
+        assert second_record.digital_asset_id == first_record.digital_asset_id
+
+        manager.bind_database(first)
+        restored = manager.metadata_unit_of_work_factory.assets.get(
+            first_record.digital_asset_id
+        )
+        assert restored.metadata.original_name == "first.epub"
+        with pytest.raises(StorageManagementError, match="cannot rebind"):
+            manager.bind_database(object())
+        assert manager.db is first
+        assert manager.metadata_unit_of_work_factory.assets.get(
+            first_record.digital_asset_id
+        ).metadata.original_name == "first.epub"
+
+
 def test_database_metadata_unit_of_work_ports_commit_and_rollback(
     driver_spec,
     tmp_path: Path,
@@ -187,7 +261,7 @@ def test_database_metadata_unit_of_work_ports_commit_and_rollback(
                 unit_of_work.derivations,
                 api.DigitalAssetDerivationRepositoryAPI,
             )
-            rolled_back = unit_of_work.assets.add(declaration)
+            rolled_back = unit_of_work.assets.add_from_declaration(declaration)
             assert unit_of_work.assets.get(
                 rolled_back.digital_asset_id
             ) == rolled_back
@@ -199,17 +273,24 @@ def test_database_metadata_unit_of_work_ports_commit_and_rollback(
 
         with factory.begin() as unit_of_work:
             committed = unit_of_work.assets.add(
-                dataclasses.replace(
-                    declaration,
-                    metadata=api.DigitalAssetMetadata(
-                        original_name="committed.epub"
-                    ),
-                )
+                declaration.size_bytes,
+                declaration.digests,
+                metadata=api.DigitalAssetMetadata(
+                    original_name="committed.epub"
+                ),
             )
             unit_of_work.commit()
         assert manager.get_digital_asset_record(
             committed.digital_asset_id
         ) == committed
+        assert factory.assets.find_by_digest("A" * 64) == committed
+        assert factory.assets.find_by_digest(
+            api.Digest("sha256", "a" * 64)
+        ) == committed
+        assert (
+            factory.assets.find_by_digest("a" * 64, algorithm="md5")
+            is None
+        )
 
         with factory.begin() as unit_of_work:
             unit_of_work.assets.replace_metadata(

@@ -9,8 +9,8 @@ values describe proposed work without reservations or publication side effects.
 from __future__ import annotations
 
 import dataclasses
-
 from enum import StrEnum
+from typing import cast
 from uuid import UUID
 
 from LiuXin_alpha.storage.api.models import StoreUUID
@@ -18,14 +18,14 @@ from LiuXin_alpha.storage.api.storage_manager_api.models.composites import (
     CompositeDigitalAssetMembership,
     CompositeDigitalAssetRecord,
 )
-from LiuXin_alpha.storage.api.storage_manager_api.models.replicas import ReplicaMode
 from LiuXin_alpha.storage.api.storage_manager_api.models.identifiers import (
-    DigitalAssetDerivationID,
     BackupPolicyID,
+    DigitalAssetDerivationID,
     DigitalAssetID,
-    ReplicationPolicyID,
     ReplicaID,
+    ReplicationPolicyID,
 )
+from LiuXin_alpha.storage.api.storage_manager_api.models.replicas import ReplicaMode
 
 
 class ReplicaSeparationDimension(StrEnum):
@@ -512,7 +512,10 @@ class DigitalAssetReplacementAssessment:
 
     @property
     def can_be_replaced(self) -> bool | None:
-        """Return true/false for a known conclusion and None when replacement is unknown."""
+        """Return true/false for a known conclusion and None when replacement is unknown.
+
+        :return: Tri-state equivalent-content replacement conclusion.
+        """
         if self.status is DigitalAssetReplacementStatus.UNKNOWN:
             return None
         return self.status is DigitalAssetReplacementStatus.AVAILABLE
@@ -725,6 +728,8 @@ class DigitalAssetStorageAssessment:
 
         This does not affect ``recoverable`` or ``irrecoverable`` because replacement content may
         have different bytes and therefore a different Digital Asset identity.
+
+        :return: Tri-state conclusion reported by the retained replacement assessment.
         """
         return self.replacement_assessment.can_be_replaced
 
@@ -781,7 +786,10 @@ class CompositeDigitalAssetStorageAssessment:
 
     @property
     def readable(self) -> bool:
-        """Return whether every required member currently reports a readable Replica."""
+        """Return whether every required member currently reports a readable Replica.
+
+        :return: True when every required member is currently readable.
+        """
 
         return all(
             not member.membership.required or member.assessment.readable
@@ -790,7 +798,10 @@ class CompositeDigitalAssetStorageAssessment:
 
     @property
     def recoverable(self) -> bool:
-        """Return whether every required member is readable, backed up, or exactly recreatable."""
+        """Return whether every required member is readable, backed up, or exactly recreatable.
+
+        :return: True when every required member has at least one recovery route.
+        """
 
         return all(
             not member.membership.required or member.assessment.recoverable
@@ -799,13 +810,19 @@ class CompositeDigitalAssetStorageAssessment:
 
     @property
     def irrecoverable(self) -> bool:
-        """Negate required-member recoverability without performing another assessment."""
+        """Negate required-member recoverability without performing another assessment.
+
+        :return: True when at least one required member has no recovery route.
+        """
 
         return not self.recoverable
 
     @property
     def replication_satisfied(self) -> bool:
-        """Return whether every required member meets its effective replication minimum."""
+        """Return whether every required member meets its effective replication minimum.
+
+        :return: True when all required member replication assessments are satisfied.
+        """
 
         return all(
             not member.membership.required or member.assessment.replication_satisfied
@@ -814,7 +831,10 @@ class CompositeDigitalAssetStorageAssessment:
 
     @property
     def backup_satisfied(self) -> bool:
-        """Return whether every required member meets its effective backup minimum."""
+        """Return whether every required member meets its effective backup minimum.
+
+        :return: True when all required member backup assessments are satisfied.
+        """
 
         return all(
             not member.membership.required or member.assessment.backup_satisfied
@@ -823,13 +843,19 @@ class CompositeDigitalAssetStorageAssessment:
 
     @property
     def policies_satisfied(self) -> bool:
-        """Return whether required members satisfy both replication and backup minima."""
+        """Return whether required members satisfy both replication and backup minima.
+
+        :return: True when both aggregate policy predicates are satisfied.
+        """
 
         return self.replication_satisfied and self.backup_satisfied
 
     @property
     def at_risk(self) -> bool:
-        """Return whether any required readable member reports unsatisfied policy protection."""
+        """Return whether any required readable member reports unsatisfied policy protection.
+
+        :return: True when readable required content lacks its requested protection.
+        """
 
         return any(
             member.membership.required and member.assessment.at_risk
@@ -887,7 +913,10 @@ class DigitalAssetReplicationPlan:
                 "a Replica cannot be both verified and removed by one plan."
             )
         if self.exact_recreation_derivation_id is not None and (
-            isinstance(self.exact_recreation_derivation_id, bool)
+            isinstance(
+                cast(object, self.exact_recreation_derivation_id),
+                bool,
+            )
             or not isinstance(self.exact_recreation_derivation_id, int)
         ):
             raise TypeError(
@@ -905,12 +934,18 @@ class DigitalAssetReplicationPlan:
 
     @property
     def implementable(self) -> bool:
-        """Return whether planning found every currently known prerequisite."""
+        """Return whether planning found every currently known prerequisite.
+
+        :return: True when the plan records no blocking reason.
+        """
         return not self.blocking_reasons
 
     @property
     def has_work(self) -> bool:
-        """Return whether the plan proposes any verification, publication, removal, or recreation."""
+        """Return whether the plan proposes verification, publication, removal, or recreation.
+
+        :return: True when at least one proposed action is present.
+        """
         return bool(
             self.destination_store_refs
             or self.replica_ids_to_verify
@@ -974,12 +1009,18 @@ class DigitalAssetBackupPlan:
 
     @property
     def implementable(self) -> bool:
-        """Return whether planning found every currently known prerequisite."""
+        """Return whether planning found every currently known prerequisite.
+
+        :return: True when the plan records no blocking reason.
+        """
         return not self.blocking_reasons
 
     @property
     def has_work(self) -> bool:
-        """Return whether the plan proposes any source, verification, publication, or removal."""
+        """Return whether the plan proposes a source, verification, publication, or removal.
+
+        :return: True when at least one proposed action or source is present.
+        """
         return bool(
             self.destination_store_refs
             or self.source_replica_ids
@@ -1010,7 +1051,10 @@ def _validate_policy_record(
 
 def _validate_plan_identity(digital_asset_id: DigitalAssetID) -> None:
     """Require a positive integer Asset identity for a policy plan."""
-    if isinstance(digital_asset_id, bool) or not isinstance(digital_asset_id, int):
+    if isinstance(cast(object, digital_asset_id), bool) or not isinstance(
+        digital_asset_id,
+        int,
+    ):
         raise TypeError("digital_asset_id must be an integer.")
     if digital_asset_id <= 0:
         raise ValueError("digital_asset_id must be positive.")
@@ -1031,7 +1075,7 @@ def _validate_replica_ids(field_name: str, replica_ids: tuple[ReplicaID, ...]) -
     if not isinstance(replica_ids, tuple):
         raise TypeError(f"{field_name} must be a tuple.")
     if any(
-        isinstance(replica_id, bool) or not isinstance(replica_id, int)
+        isinstance(cast(object, replica_id), bool) or not isinstance(replica_id, int)
         for replica_id in replica_ids
     ):
         raise TypeError(f"{field_name} must contain integer Replica IDs.")

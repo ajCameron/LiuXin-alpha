@@ -12,7 +12,9 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import BinaryIO, override
 
-import LiuXin_alpha.storage.api as api
+from LiuXin_alpha.storage.api import errors as storage_errors
+from LiuXin_alpha.storage.api import models as storage_models
+from LiuXin_alpha.storage.api import store_api
 from LiuXin_alpha.storage.storage_manager.mixins._state import _StorageManagerState
 
 
@@ -32,7 +34,7 @@ class StorageRouterMixin(_StorageManagerState):
     """
 
     @override
-    def stat(self, location: api.Location) -> api.FileInfo:
+    def stat(self, location: storage_models.Location) -> storage_models.FileInfo:
         """
         Return the owning Store's metadata for one opaque Location.
 
@@ -53,7 +55,7 @@ class StorageRouterMixin(_StorageManagerState):
     @override
     def get(
         self,
-        location: api.Location,
+        location: storage_models.Location,
         *,
         offset: int = 0,
         length: int | None = None,
@@ -89,13 +91,13 @@ class StorageRouterMixin(_StorageManagerState):
     @override
     def put(
         self,
-        location: api.Location,
+        location: storage_models.Location,
         source: BinaryIO,
         *,
-        mode: api.WriteMode = api.WriteMode.CREATE_ONLY,
+        mode: storage_models.WriteMode = storage_models.WriteMode.CREATE_ONLY,
         expected_size: int | None = None,
-        expected_digest: api.Digest | None = None,
-    ) -> api.FileInfo:
+        expected_digest: storage_models.Digest | None = None,
+    ) -> storage_models.FileInfo:
         """
         Preflight a known object size, then delegate complete publication to its Store.
 
@@ -131,7 +133,7 @@ class StorageRouterMixin(_StorageManagerState):
     @override
     def delete(
         self,
-        location: api.Location,
+        location: storage_models.Location,
         *,
         missing_ok: bool = False,
         if_version: str | None = None,
@@ -164,9 +166,9 @@ class StorageRouterMixin(_StorageManagerState):
     def iter_locations(
         self,
         *,
-        store_ref: api.StoreUUID | None = None,
-        prefix: api.Location | None = None,
-    ) -> Iterator[api.Location]:
+        store_ref: storage_models.StoreUUID | None = None,
+        prefix: storage_models.Location | None = None,
+    ) -> Iterator[storage_models.Location]:
         """
         Lazily enumerate one Store or a snapshot of all attached Store facades.
 
@@ -192,7 +194,7 @@ class StorageRouterMixin(_StorageManagerState):
 
         if prefix is not None:
             if store_ref is not None and prefix.store_ref != store_ref:
-                raise api.StoreInvalidLocation(
+                raise storage_errors.StoreInvalidLocation(
                     "prefix Location does not belong to the requested Store."
                 )
             store_ref = prefix.store_ref
@@ -205,7 +207,9 @@ class StorageRouterMixin(_StorageManagerState):
             yield from store.iter_locations(prefix=prefix)
 
     @override
-    def capabilities(self, store_ref: api.StoreUUID) -> api.StoreCapabilities:
+    def capabilities(
+        self, store_ref: storage_models.StoreUUID
+    ) -> storage_models.StoreCapabilities:
         """
         Return the attached Store's capability value without probing availability.
 
@@ -226,8 +230,8 @@ class StorageRouterMixin(_StorageManagerState):
     @override
     def characteristics(
         self,
-        store_ref: api.StoreUUID,
-    ) -> api.StorageCharacteristics:
+        store_ref: storage_models.StoreUUID,
+    ) -> store_api.StorageCharacteristics:
         """
         Read the optional Store characteristics interface or return unknown constraints.
 
@@ -246,12 +250,12 @@ class StorageRouterMixin(_StorageManagerState):
         """
 
         store = self.get_store(store_ref)
-        if isinstance(store, api.StoreCharacteristicsAPI):
+        if isinstance(store, store_api.StoreCharacteristicsAPI):
             return store.characteristics
-        return api.StorageCharacteristics()
+        return store_api.StorageCharacteristics()
 
     @override
-    def status(self, store_ref: api.StoreUUID) -> api.StoreStatus:
+    def status(self, store_ref: storage_models.StoreUUID) -> storage_models.StoreStatus:
         """
         Call the attached Store's status method without requesting a refresh.
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, TYPE_CHECKING
 
-from LiuXin_alpha.storage.store_manager import (
+from LiuXin_alpha.storage.durable_manager import (
     StorageBootstrapIssue,
     StorageBootstrapReport,
     StorageManager,
@@ -74,7 +74,13 @@ def bootstrap_storage_manager(
     """
     Create or refresh the storage manager and retain its bootstrap report.
 
-    If storage is absent, construct StorageManager before the guarded load; construction errors propagate even in non-strict mode. Otherwise rebind the manager’s db and startup policy, which does not itself rebuild durable repository bindings. Non-strict loading exceptions are logged and converted to one discovered/failed configuration with the error text; partial load effects remain. Strict loading exceptions propagate before a new report is stored. A returned failed report is stored before strict mode raises StorageManagementError. Skips alone do not make report.ok false.
+    If storage is absent, construct StorageManager before the guarded load; construction errors
+    propagate even in non-strict mode. Otherwise atomically rebind the manager and its durable
+    repository views before applying the startup policy. Non-strict loading exceptions are logged
+    and converted to one discovered/failed configuration with the error text; partial load effects
+    remain. Strict loading exceptions propagate before a new report is stored. A returned failed
+    report is stored before strict mode raises StorageManagementError. Skips alone do not make
+    report.ok false.
 
     Example:
         Given an open db, report = bootstrap_storage_manager(db, startup_on_add=False) refreshes configured Stores without requesting candidate startup; inspect report.issues for reported skips or failures.
@@ -92,9 +98,12 @@ def bootstrap_storage_manager(
     if getattr(db, "storage", None) is None:
         db.storage = StorageManager(db=db, startup_on_add=startup_on_add)
     else:
-        # Existing managers can outlive one database instance during test/runtime
-        # wiring; keep the live database bound before reading store rows.
-        db.storage.db = db
+        bind_database = getattr(db.storage, "bind_database", None)
+        if bind_database is None:
+            # Small test doubles may model only the legacy mutable surface.
+            db.storage.db = db
+        else:
+            bind_database(db)
         db.storage.startup_on_add = bool(startup_on_add)
 
     try:
