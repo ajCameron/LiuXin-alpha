@@ -43,6 +43,7 @@ class _MemoryDriverObjectAddress(api.DriverObjectAddress):
         >>> str(_MemoryDriverObjectAddress("book", MEMORY_STORE_UUID))
         'book'
     """
+
     pass
 
 
@@ -61,6 +62,7 @@ class _MemoryDriverWriteSession:
         4
         >>> session.abort()
     """
+
     def __init__(
         self,
         driver: _MemoryDriver,
@@ -212,6 +214,7 @@ class _MemoryDriver(api.StorageDriverAPI[_MemoryDriverObjectAddress]):
         >>> _MemoryDriver().status().object_count
         0
     """
+
     def __init__(self, address_space_uuid: UUID = MEMORY_STORE_UUID) -> None:
         """
         Configure scoped address checking, empty content/metadata/version maps, and supported
@@ -320,9 +323,7 @@ class _MemoryDriver(api.StorageDriverAPI[_MemoryDriverObjectAddress]):
             return self.check_object_address(identifier)
         return _MemoryDriverObjectAddress(
             str(identifier).lstrip("/"),
-            address_space_uuid=(
-                self._object_address_checker.address_space_uuid
-            ),
+            address_space_uuid=(self._object_address_checker.address_space_uuid),
         )
 
     def object_address_from_uri(self, uri: str) -> _MemoryDriverObjectAddress:
@@ -378,9 +379,7 @@ class _MemoryDriver(api.StorageDriverAPI[_MemoryDriverObjectAddress]):
         parts = [token.strip("/") for token in tokens if token.strip("/")]
         return _MemoryDriverObjectAddress(
             "/".join(parts),
-            address_space_uuid=(
-                self._object_address_checker.address_space_uuid
-            ),
+            address_space_uuid=(self._object_address_checker.address_space_uuid),
         )
 
     def allocate_object_address(
@@ -408,7 +407,9 @@ class _MemoryDriver(api.StorageDriverAPI[_MemoryDriverObjectAddress]):
         """
         if expected_digest is not None:
             return self.join_object_address(
-                "objects", expected_digest.algorithm, expected_digest.value,
+                "objects",
+                expected_digest.algorithm,
+                expected_digest.value,
             )
         self.allocation_counter += 1
         name = "object" if name_hint is None else name_hint
@@ -685,9 +686,7 @@ class _MemoryDriver(api.StorageDriverAPI[_MemoryDriverObjectAddress]):
                 )
 
 
-class _MemoryDriverStore(
-    api.DriverBackedStoreAPI[_MemoryDriverObjectAddress]
-):
+class _MemoryDriverStore(api.DriverBackedStoreAPI[_MemoryDriverObjectAddress]):
     """
     Adapt a fixture driver through the real DriverBackedStoreAPI using a fixed Store UUID.
 
@@ -698,6 +697,7 @@ class _MemoryDriverStore(
         >>> _MemoryDriverStore(_MemoryDriver()).store_ref == MEMORY_STORE_UUID
         True
     """
+
     def __init__(self, driver: _MemoryDriver, *, read_only: bool = False) -> None:
         """
         Borrow the supplied fixture driver and construct its fixed-identity Store configuration.
@@ -751,6 +751,21 @@ class _MemoryDriverStore(
         return self.__driver
 
 
+class _SizeLimitedMemoryDriver(_MemoryDriver):
+    """Advertise a four-byte object ceiling for Store-boundary enforcement tests."""
+
+    @property
+    def storage_characteristics(self) -> api.StorageCharacteristics:
+        """Return a per-object profile whose known logical-size ceiling is four bytes."""
+
+        return api.StorageCharacteristics(
+            publication_model=api.StoragePublicationModel.PER_OBJECT,
+            temporary_space=api.StorageTemporarySpaceRequirement.OBJECT_STAGE,
+            recommended_write_usage=api.StorageWriteUsage.GENERAL,
+            max_object_bytes=4,
+        )
+
+
 def _sha256(data: bytes) -> api.Digest:
     """
     Build a shared Digest value from the supplied in-memory bytes.
@@ -764,6 +779,34 @@ def _sha256(data: bytes) -> api.Digest:
     :return: SHA-256 Digest with lowercase hex value.
     """
     return api.Digest("sha256", hashlib.sha256(data).hexdigest())
+
+
+def test_driver_backed_store_enforces_known_object_size_characteristic() -> None:
+    """
+    Reject an announced over-limit write before opening driver staging and accept the exact ceiling.
+
+    This proves generic enforcement only for a known logical object size. Driver-defined address
+    limits and advisory staging/write-usage characteristics remain owned by their appropriate
+    parsing and planning boundaries.
+
+    :return: None after the over-limit rejection and exact-limit publication assertions pass.
+    """
+
+    driver = _SizeLimitedMemoryDriver()
+    store = _MemoryDriverStore(driver)
+    location = store.location("four-bytes.bin")
+
+    with pytest.raises(api.StoreUnsupportedOperation, match="up to 4 bytes"):
+        store.begin_write(location, expected_size=5)
+    assert driver.files == {}
+
+    with store.begin_write(location, expected_size=4) as session:
+        assert session.location == location
+        assert session.write(b"book") == 4
+        info = session.commit()
+
+    assert info.size == 4
+    assert driver.files[location.key] == b"book"
 
 
 def test_driver_package_has_small_core_and_independent_capabilities() -> None:
@@ -802,9 +845,7 @@ def test_driver_package_has_small_core_and_independent_capabilities() -> None:
     assert issubclass(api.StorageDriverAPI, StorageDriverConvenienceAPI)
     assert api.StorageDriverConvenienceAPI is StorageDriverConvenienceAPI
     assert (
-        inspect.signature(api.StorageDriverAPI.store)
-        .parameters["source"]
-        .annotation
+        inspect.signature(api.StorageDriverAPI.store).parameters["source"].annotation
         == "StorageDriverSource"
     )
     assert (
@@ -824,13 +865,8 @@ def test_driver_package_has_small_core_and_independent_capabilities() -> None:
         "stat",
         "status",
     }
-    assert len(store_driver_api.__all__) == len(
-        set(store_driver_api.__all__)
-    )
-    assert all(
-        hasattr(store_driver_api, name)
-        for name in store_driver_api.__all__
-    )
+    assert len(store_driver_api.__all__) == len(set(store_driver_api.__all__))
+    assert all(hasattr(store_driver_api, name) for name in store_driver_api.__all__)
     assert {
         "DriverFileIdentifier",
         "DriverNativeMetadata",
@@ -840,6 +876,8 @@ def test_driver_package_has_small_core_and_independent_capabilities() -> None:
         "DriverObjectAddressT",
         "ScopedDriverObjectAddressChecker",
         "StorageDriverObjectAddressAPI",
+        "StorageDriverObjectAddressBase",
+        "StorageDriverObjectAddressContract",
         "EnumerableStorageDriverAPI",
         "WritableStorageDriverAPI",
         "StorageDriverConvenienceAPI",
@@ -856,6 +894,52 @@ def test_driver_package_has_small_core_and_independent_capabilities() -> None:
     } & set(store_driver_api.__all__)
     with pytest.raises(TypeError):
         api.StorageDriverAPI()
+
+
+def test_object_address_api_preserves_direct_subclass_defaults() -> None:
+    """
+    Instantiate a historical direct API subclass that implements only endpoint-specific members.
+
+    This guards the compatibility surface separately from the declaration-only contract and proves
+    the shared checker, canonical round-trip, naming, and conservative URI defaults remain concrete.
+    """
+
+    class _LegacyAddressDriver(
+        api.StorageDriverObjectAddressAPI[_MemoryDriverObjectAddress]
+    ):
+        def __init__(self) -> None:
+            self._checker = api.ScopedDriverObjectAddressChecker(
+                _MemoryDriverObjectAddress,
+                MEMORY_STORE_UUID,
+            )
+
+        @property
+        def object_address_checker(
+            self,
+        ) -> api.DriverObjectAddressCheckerAPI[_MemoryDriverObjectAddress]:
+            return self._checker
+
+        @property
+        def root_uri(self) -> str:
+            return "legacy://driver"
+
+        def parse_object_address(
+            self,
+            identifier: api.DriverObjectAddressInput[_MemoryDriverObjectAddress],
+        ) -> _MemoryDriverObjectAddress:
+            if isinstance(identifier, api.DriverObjectAddress):
+                return self.check_object_address(identifier)
+            return _MemoryDriverObjectAddress(str(identifier), MEMORY_STORE_UUID)
+
+    driver = _LegacyAddressDriver()
+    address = driver.parse_object_address("book")
+
+    assert driver.require_canonical_object_address(address) == address
+    assert driver.driver_kind == "_LegacyAddressDriver"
+    assert driver.suggest_endpoint_name() == "_LegacyAddressDriver"
+    assert driver.object_uri(address) is None
+    with pytest.raises(api.StorageUnsupportedOperation):
+        driver.object_address_from_uri("legacy://driver/book")
 
 
 def test_store_facade_exposes_concrete_convenience_writes() -> None:
@@ -883,9 +967,7 @@ def test_store_facade_exposes_concrete_convenience_writes() -> None:
         == "StoreSource"
     )
     assert (
-        inspect.signature(api.StoreAPI.get_file)
-        .parameters["identifier"]
-        .annotation
+        inspect.signature(api.StoreAPI.get_file).parameters["identifier"].annotation
         == "StoreFileIdentifier"
     )
     assert {
@@ -1157,6 +1239,17 @@ def test_driver_staged_write_metadata_ranges_and_safe_replacement() -> None:
     assert driver.file_size(object_address) == 4
     assert driver.read_bytes(object_address, offset=1, length=2) == b"oo"
     assert driver.compute_digest(object_address) == _sha256(b"book")
+    with driver.try_get(object_address) as source:
+        assert source.read() == b"book"
+    assert driver.try_file_size(object_address) == 4
+    assert driver.try_read_bytes(object_address) == b"book"
+    assert driver.try_compute_digest(object_address) == _sha256(b"book")
+
+    missing = driver.join_object_address("objects", "missing")
+    assert driver.try_get(missing) is None
+    assert driver.try_file_size(missing) is None
+    assert driver.try_read_bytes(missing) is None
+    assert driver.try_compute_digest(missing) is None
 
     with pytest.raises(api.StoreAlreadyExists):
         storage_utils.write_object_bytes(driver, object_address, b"replacement")
@@ -1203,9 +1296,7 @@ def test_driver_convenience_writes_allocate_parse_and_normalize_inputs(
     from_file = driver.store(local_path)
 
     assert str(allocated.object_address).endswith("book.epub")
-    assert allocated.hints.metadata == (
-        ("content-type", "application/epub+zip"),
-    )
+    assert allocated.hints.metadata == (("content-type", "application/epub+zip"),)
     assert str(streamed.object_address) == "explicit/cover.jpg"
     assert driver.read_bytes(streamed.object_address) == b"cover"
     with driver.open_file(streamed) as source:
@@ -1310,13 +1401,14 @@ def test_driver_copy_move_inventory_and_typed_failures() -> None:
     moved = driver.join_object_address("objects", "moved")
     storage_utils.write_object_bytes(driver, source, b"payload")
 
-    assert storage_utils.transfer_between_drivers(
-        driver, source, driver, copied
-    ).size == 7
+    assert (
+        storage_utils.transfer_between_drivers(driver, source, driver, copied).size == 7
+    )
     assert driver.read_bytes(copied) == b"payload"
-    assert storage_utils.move_between_drivers(
-        driver, copied, driver, moved
-    ).object_address == moved
+    assert (
+        storage_utils.move_between_drivers(driver, copied, driver, moved).object_address
+        == moved
+    )
     assert not driver.exists(copied)
     assert list(
         storage_utils.iter_object_addresses(
@@ -1329,9 +1421,7 @@ def test_driver_copy_move_inventory_and_typed_failures() -> None:
     ]
 
     stale_version = driver.stat(source).version
-    storage_utils.write_object_bytes(
-        driver, source, b"new", mode=api.WriteMode.REPLACE
-    )
+    storage_utils.write_object_bytes(driver, source, b"new", mode=api.WriteMode.REPLACE)
     with pytest.raises(api.StorePreconditionFailed):
         driver.delete(source, if_version=stale_version)
 
@@ -1359,6 +1449,7 @@ def test_driver_backed_store_translates_native_accelerators() -> None:
 
     :return: None after the stated regression assertions pass.
     """
+
     class NativeMemoryDriver(_MemoryDriver):
         """
         Expose counted native accelerator seams over the memory driver for Store translation tests.
@@ -1369,6 +1460,7 @@ def test_driver_backed_store_translates_native_accelerators() -> None:
         Example:
             >>> driver = NativeMemoryDriver()  # doctest: +SKIP
         """
+
         def __init__(self) -> None:
             """
             Initialize the normal memory fixture and enable all three counted native capability
@@ -1442,10 +1534,7 @@ def test_driver_backed_store_translates_native_accelerators() -> None:
             """
             self.native_move_calls += 1
             info = self.stat(source)
-            if (
-                if_source_version is not None
-                and info.version != if_source_version
-            ):
+            if if_source_version is not None and info.version != if_source_version:
                 raise api.StoragePreconditionFailed(str(source))
             result = storage_utils.write_object_bytes(
                 self,
@@ -1669,6 +1758,7 @@ def test_readable_core_does_not_require_listing_or_mutation_protocols() -> None:
 
     :return: None after the stated regression assertions pass.
     """
+
     class ReadOnlyDriver(api.StorageDriverAPI[_MemoryDriverObjectAddress]):
         """
         Implement only the minimal readable core, serving one constant payload for any accepted
@@ -1679,6 +1769,7 @@ def test_readable_core_does_not_require_listing_or_mutation_protocols() -> None:
         Example:
             >>> driver = ReadOnlyDriver()  # doctest: +SKIP
         """
+
         def __init__(self) -> None:
             """
             Create the fixed-scope memory-address checker without allocating backend resources.
@@ -1883,9 +1974,7 @@ def test_cross_driver_transfer_inventory_hints_and_materialisation() -> None:
     assert destination_driver.read_bytes(destination) == b"book"
     assert destination_driver.stat(destination).hints.metadata == ()
 
-    translated = destination_driver.join_object_address(
-        "objects", "translated"
-    )
+    translated = destination_driver.join_object_address("objects", "translated")
     translated_metadata = (("content-type", "application/epub+zip"),)
     storage_utils.transfer_between_drivers(
         source_driver,
@@ -1894,10 +1983,7 @@ def test_cross_driver_transfer_inventory_hints_and_materialisation() -> None:
         translated,
         destination_metadata=translated_metadata,
     )
-    assert (
-        destination_driver.stat(translated).hints.metadata
-        == translated_metadata
-    )
+    assert destination_driver.stat(translated).hints.metadata == translated_metadata
 
     with storage_utils.materialize_object(
         source_driver, source, entry=entry
@@ -1935,6 +2021,7 @@ def test_driver_results_and_inventory_must_report_owned_expected_addresses() -> 
         Example:
             >>> driver = WrongStatDriver()  # doctest: +SKIP
         """
+
         def stat(self, object_address):
             """
             Perform normal memory stat, then replace only the reported object_address.
@@ -1963,6 +2050,7 @@ def test_driver_results_and_inventory_must_report_owned_expected_addresses() -> 
         Example:
             >>> session = WrongCommitSession(wrapped)  # doctest: +SKIP
         """
+
         def __init__(self, wrapped):
             """
             Retain the underlying session by reference without starting or modifying it.
@@ -2003,9 +2091,7 @@ def test_driver_results_and_inventory_must_report_owned_expected_addresses() -> 
 
             :return: Committed metadata with an intentionally incorrect object_address.
             """
-            return dataclasses.replace(
-                self.wrapped.commit(), object_address=wrong
-            )
+            return dataclasses.replace(self.wrapped.commit(), object_address=wrong)
 
         def abort(self):
             """
@@ -2054,6 +2140,7 @@ def test_driver_results_and_inventory_must_report_owned_expected_addresses() -> 
         Example:
             >>> driver = WrongCommitDriver()  # doctest: +SKIP
         """
+
         def begin_write(self, *args, **kwargs):
             """
             Construct the normal checked session and wrap it with WrongCommitSession.
@@ -2083,6 +2170,7 @@ def test_driver_results_and_inventory_must_report_owned_expected_addresses() -> 
         Example:
             >>> driver = DuplicateInventoryDriver()  # doctest: +SKIP
         """
+
         def iter_inventory(self, *, prefix=None):
             """
             Materialize the normal inventory once and yield those entries twice.
@@ -2118,6 +2206,7 @@ def test_fallback_move_refuses_unprotected_source_deletion() -> None:
 
     :return: None after the stated regression assertions pass.
     """
+
     class UnversionedDriver(_MemoryDriver):
         """
         Remove version claims from normal memory metadata to test fallback move preconditions.
@@ -2125,6 +2214,7 @@ def test_fallback_move_refuses_unprotected_source_deletion() -> None:
         Example:
             >>> driver = UnversionedDriver()  # doctest: +SKIP
         """
+
         def stat(self, object_address):
             """
             Perform normal stat and erase only its version token.
@@ -2136,18 +2226,14 @@ def test_fallback_move_refuses_unprotected_source_deletion() -> None:
             :param object_address: Existing fixture address to inspect.
             :return: Otherwise unchanged metadata with version=None.
             """
-            return dataclasses.replace(
-                super().stat(object_address), version=None
-            )
+            return dataclasses.replace(super().stat(object_address), version=None)
 
     driver = UnversionedDriver()
     source = driver.join_object_address("objects", "source")
     destination = driver.join_object_address("objects", "destination")
     storage_utils.write_object_bytes(driver, source, b"book")
 
-    with pytest.raises(
-        api.StorageUnsupportedOperation, match="conditional deletion"
-    ):
+    with pytest.raises(api.StorageUnsupportedOperation, match="conditional deletion"):
         storage_utils.move_between_drivers(driver, source, driver, destination)
     assert driver.exists(source)
     assert not driver.exists(destination)
@@ -2180,19 +2266,11 @@ def test_conditional_delete_is_explicitly_capability_gated() -> None:
     store = _MemoryDriverStore(driver)
     source_location = store.locate(str(source))
     destination_location = store.locate(str(destination))
-    with pytest.raises(
-        api.StoreUnsupportedOperation, match="conditional deletion"
-    ):
+    with pytest.raises(api.StoreUnsupportedOperation, match="conditional deletion"):
         store.delete(source_location, if_version=version)
-    with pytest.raises(
-        api.StorageUnsupportedOperation, match="conditional deletion"
-    ):
-        storage_utils.move_between_drivers(
-            driver, source, driver, destination
-        )
-    with pytest.raises(
-        api.StoreUnsupportedOperation, match="conditional deletion"
-    ):
+    with pytest.raises(api.StorageUnsupportedOperation, match="conditional deletion"):
+        storage_utils.move_between_drivers(driver, source, driver, destination)
+    with pytest.raises(api.StoreUnsupportedOperation, match="conditional deletion"):
         store.move(source_location, destination_location)
 
     assert driver.exists(source)
@@ -2220,6 +2298,7 @@ def test_unknown_raw_size_and_stat_hints_support_single_object_sources() -> None
 
     :return: None after the stated regression assertions pass.
     """
+
     class UnknownSizeDriver(_MemoryDriver):
         """
         Expose unknown raw size and EPUB naming/media hints while retaining authoritative fixture
@@ -2228,6 +2307,7 @@ def test_unknown_raw_size_and_stat_hints_support_single_object_sources() -> None
         Example:
             >>> driver = UnknownSizeDriver()  # doctest: +SKIP
         """
+
         def stat(self, object_address):
             """
             Replace known size with None and supply response hints over the normal memory stat
@@ -2272,9 +2352,7 @@ def test_unknown_raw_size_and_stat_hints_support_single_object_sources() -> None
     assert transferred.size == 4
     assert destination_driver.read_bytes(destination) == b"book"
 
-    with storage_utils.materialize_object(
-        source_driver, source
-    ) as local_path:
+    with storage_utils.materialize_object(source_driver, source) as local_path:
         assert local_path.suffix == ".epub"
         assert local_path.read_bytes() == b"book"
 
@@ -2312,15 +2390,11 @@ def test_prefix_enumeration_is_explicitly_capability_gated() -> None:
     )
 
     assert list(storage_utils.iter_object_addresses(driver)) == [address]
-    with pytest.raises(
-        api.StorageUnsupportedOperation, match="prefix enumeration"
-    ):
+    with pytest.raises(api.StorageUnsupportedOperation, match="prefix enumeration"):
         list(storage_utils.iter_object_addresses(driver, prefix=address))
 
     store = _MemoryDriverStore(driver)
-    with pytest.raises(
-        api.StoreUnsupportedOperation, match="prefix enumeration"
-    ):
+    with pytest.raises(api.StoreUnsupportedOperation, match="prefix enumeration"):
         list(store.iter_locations(prefix=store.locate(str(address))))
 
     with pytest.raises(ValueError, match="requires object enumeration"):

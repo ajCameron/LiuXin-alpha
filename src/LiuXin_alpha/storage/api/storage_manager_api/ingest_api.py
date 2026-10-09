@@ -6,14 +6,13 @@ distinct boundaries. Source readers are closed by wrappers that open them;
 caller-provided stream ownership remains with the caller. Concrete managers supply
 publication/recovery behavior and may override identified or native transfer paths.
 """
-# Todo: Add this to all files - and switch to using annotations primarily as type hinting
+
 from __future__ import annotations
 
 import abc
 import dataclasses
 import io
 import os
-
 from pathlib import Path
 from typing import BinaryIO
 from uuid import UUID
@@ -29,8 +28,8 @@ from LiuXin_alpha.storage.api.models import (
 from LiuXin_alpha.storage.api.placement_hints_api import StoragePlacementHints
 from LiuXin_alpha.storage.api.storage_manager_api.models import (
     DigitalAssetID,
-    DigitalAssetMetadata,
     DigitalAssetIngestResult,
+    DigitalAssetMetadata,
     ItemID,
     ReplicaMode,
 )
@@ -41,7 +40,6 @@ from LiuXin_alpha.storage.api.store_api.ingest_source_api import (
 )
 
 
-# Todo: Formatting wise, we have some run on lines in the docstrings
 class DigitalAssetIngestAPI(abc.ABC):
     """
     Define streamed publication, source-Store transfer, and adoption of existing bytes.
@@ -92,21 +90,33 @@ class DigitalAssetIngestAPI(abc.ABC):
             >>> result = manager.ingest_stream(io.BytesIO(b"book"), expected_size=4)  # doctest: +SKIP
 
 
-        :param stream: Caller-owned binary reader consumed from its current position; the manager does not close it.
-        :param operation_id: Optional logical-operation UUID; None allocates a new one. Completed retries require an equal normalized request.
-        :param expected_size: Optional exact remaining byte count checked after consumption; it is not a read limit.
-        :param expected_digests: Expected digests to compare with computed input bytes; ordinary ingest also computes SHA-256.
-        # Todo: We should probably record that an injest event has occured somewhere "what are the unregistered file on an injested store" is a good question to ask
-        :param item_id: Optional Item identity to link after registration; None omits linking.
-        # Todo: This should, probably, be an enumerate list
-        :param role: Optional link role; None selects primary_payload when item_id is supplied.
-        :param metadata: Optional Asset description used for a new identity; existing deduplicated Asset metadata is retained.
-        :param placement_hints: Advisory destination placement metadata, retained in retry identity and forwarded during publication.
-        :param preferred_store_ref: Optional destination Store UUID; None selects the manager default.
-        :param replica_mode: Requested mode for a new or selected destination Replica; default ACTIVE.
-        :param verify: Whether to inspect the registered Replica after publication/reuse; False still permits identity hashing and Store commit checks.
+        :param stream: Caller-owned binary reader consumed from its current position;
+            the manager does not close it.
+        :param operation_id: Optional logical-operation UUID; None allocates a new one.
+            Completed retries require an equal normalized request.
+        :param expected_size: Optional exact remaining byte count checked after
+            consumption; it is not a read limit.
+        :param expected_digests: Expected digests to compare with computed input bytes;
+            ordinary ingest also computes SHA-256.
+        :param item_id: Optional Item identity to link after registration; None omits
+            linking.
+        :param role: Optional extensible link-role text; None selects primary_payload
+            when item_id is supplied.
+        :param metadata: Optional Asset description used for a new identity; existing
+            deduplicated Asset metadata is retained.
+        :param placement_hints: Advisory destination placement metadata, retained in
+            retry identity and forwarded during publication.
+        :param preferred_store_ref: Optional destination Store UUID; None selects the
+            manager default.
+        :param replica_mode: Requested mode for a new or selected destination Replica;
+            default ACTIVE.
+        :param verify: Whether to inspect the registered Replica after
+            publication/reuse; False still permits identity hashing and Store commit
+            checks.
 
-        :return: Completed ingest result, including creation/deduplication flags and reported verification; failures may follow publication or earlier metadata writes.
+        :return: Completed ingest result, including creation/deduplication flags and
+            reported verification; failures may follow publication or earlier metadata
+            writes.
         """
         ...
 
@@ -141,19 +151,33 @@ class DigitalAssetIngestAPI(abc.ABC):
             ... )
 
 
-        :param stream: Caller-owned stream positioned at the identified bytes; a completed retry or reused Replica may leave it unread.
-        :param size_bytes: Authoritative remaining byte count; the composed implementation rejects values below zero.
-        :param authoritative_digests: Trusted source identity including SHA-256; the composed implementation requires unique algorithms.
-        :param operation_id: Optional logical-operation UUID; None allocates a new one. Completed retries require an equal normalized request.
-        :param item_id: Optional Item identity to link after registration; None omits linking.
-        :param role: Optional link role; None selects primary_payload when item_id is supplied.
-        :param metadata: Optional Asset description used for a new identity; existing deduplicated Asset metadata is retained.
-        :param placement_hints: Advisory destination placement metadata, retained in retry identity and forwarded during publication.
-        :param preferred_store_ref: Optional destination Store UUID; None selects the manager default.
-        :param replica_mode: Requested mode for a new or selected destination Replica; default ACTIVE.
-        :param verify: Whether to inspect the registered Replica after publication/reuse; False still permits identity hashing and Store commit checks.
+        :param stream: Caller-owned stream positioned at the identified bytes; a
+            completed retry or reused Replica may leave it unread.
+        :param size_bytes: Authoritative remaining byte count; the composed
+            implementation rejects values below zero.
+        :param authoritative_digests: Trusted source identity including SHA-256; the
+            composed implementation requires unique algorithms.
+        :param operation_id: Optional logical-operation UUID; None allocates a new one.
+            Completed retries require an equal normalized request.
+        :param item_id: Optional Item identity to link after registration; None omits
+            linking.
+        :param role: Optional link role; None selects primary_payload when item_id is
+            supplied.
+        :param metadata: Optional Asset description used for a new identity; existing
+            deduplicated Asset metadata is retained.
+        :param placement_hints: Advisory destination placement metadata, retained in
+            retry identity and forwarded during publication.
+        :param preferred_store_ref: Optional destination Store UUID; None selects the
+            manager default.
+        :param replica_mode: Requested mode for a new or selected destination Replica;
+            default ACTIVE.
+        :param verify: Whether to inspect the registered Replica after
+            publication/reuse; False still permits identity hashing and Store commit
+            checks.
 
-        :return: Completed ingest result, including creation/deduplication flags and reported verification; failures may follow publication or earlier metadata writes.
+        :return: Completed ingest result, including creation/deduplication flags and
+            reported verification; failures may follow publication or earlier metadata
+            writes.
         """
         return self.ingest_stream(
             stream,
@@ -170,18 +194,20 @@ class DigitalAssetIngestAPI(abc.ABC):
         )
 
     def ingest_bytes(
-        self, data: bytes,
+        self,
+        data: bytes,
         *,
         operation_id: UUID | None = None,
         expected_digests: tuple[Digest, ...] = (),
-        item_id: ItemID | None = None, role: str | None = None,
+        item_id: ItemID | None = None,
+        role: str | None = None,
         metadata: DigitalAssetMetadata | None = None,
         placement_hints: StoragePlacementHints | None = None,
         preferred_store_ref: StoreUUID | None = None,
-        replica_mode: ReplicaMode = ReplicaMode.ACTIVE, verify: bool = True,
+        replica_mode: ReplicaMode = ReplicaMode.ACTIVE,
+        verify: bool = True,
     ) -> DigitalAssetIngestResult:
         """
-        # Todo: Check - just call this to add bytes to the system?
         Wrap an in-memory payload in BytesIO and delegate with its exact length as the size
         expectation.
 
@@ -193,26 +219,43 @@ class DigitalAssetIngestAPI(abc.ABC):
             >>> result = manager.ingest_bytes(b"cover", item_id=ItemID(9), role="cover")  # doctest: +SKIP
 
         :param data: In-memory bytes copied into a new BytesIO reader.
-        :param operation_id: Optional logical-operation UUID; None allocates a new one. Completed retries require an equal normalized request.
-        :param expected_digests: Expected digests to compare with computed input bytes; ordinary ingest also computes SHA-256.
-        :param item_id: Optional Item identity to link after registration; None omits linking.
-        :param role: Optional link role; None selects primary_payload when item_id is supplied.
-        :param metadata: Optional Asset description used for a new identity; existing deduplicated Asset metadata is retained.
-        :param placement_hints: Advisory destination placement metadata, retained in retry identity and forwarded during publication.
-        :param preferred_store_ref: Optional destination Store UUID; None selects the manager default.
-        :param replica_mode: Requested mode for a new or selected destination Replica; default ACTIVE.
-        :param verify: Whether to inspect the registered Replica after publication/reuse; False still permits identity hashing and Store commit checks.
+        :param operation_id: Optional logical-operation UUID; None allocates a new one.
+            Completed retries require an equal normalized request.
+        :param expected_digests: Expected digests to compare with computed input bytes;
+            ordinary ingest also computes SHA-256.
+        :param item_id: Optional Item identity to link after registration; None omits
+            linking.
+        :param role: Optional link role; None selects primary_payload when item_id is
+            supplied.
+        :param metadata: Optional Asset description used for a new identity; existing
+            deduplicated Asset metadata is retained.
+        :param placement_hints: Advisory destination placement metadata, retained in
+            retry identity and forwarded during publication.
+        :param preferred_store_ref: Optional destination Store UUID; None selects the
+            manager default.
+        :param replica_mode: Requested mode for a new or selected destination Replica;
+            default ACTIVE.
+        :param verify: Whether to inspect the registered Replica after
+            publication/reuse; False still permits identity hashing and Store commit
+            checks.
 
-        :return: Completed ingest result, including creation/deduplication flags and reported verification; failures may follow publication or earlier metadata writes.
+        :return: Completed ingest result, including creation/deduplication flags and
+            reported verification; failures may follow publication or earlier metadata
+            writes.
         """
 
         return self.ingest_stream(
-            io.BytesIO(data), operation_id=operation_id,
-            expected_size=len(data), expected_digests=expected_digests,
-            item_id=item_id, role=role,
-            metadata=metadata, placement_hints=placement_hints,
+            io.BytesIO(data),
+            operation_id=operation_id,
+            expected_size=len(data),
+            expected_digests=expected_digests,
+            item_id=item_id,
+            role=role,
+            metadata=metadata,
+            placement_hints=placement_hints,
             preferred_store_ref=preferred_store_ref,
-            replica_mode=replica_mode, verify=verify,
+            replica_mode=replica_mode,
+            verify=verify,
         )
 
     def ingest_file(
@@ -244,18 +287,31 @@ class DigitalAssetIngestAPI(abc.ABC):
 
 
         :param path: Local path accepted by pathlib.Path and opened in binary mode.
-        :param operation_id: Optional logical-operation UUID; None allocates a new one. Completed retries require an equal normalized request.
-        :param expected_size: Optional byte count compared with stat before opening; observed size is passed to ingest_stream.
-        :param expected_digests: Expected digests to compare with computed input bytes; ordinary ingest also computes SHA-256.
-        :param item_id: Optional Item identity to link after registration; None omits linking.
-        :param role: Optional link role; None selects primary_payload when item_id is supplied.
-        :param metadata: Optional Asset description used for a new identity; existing deduplicated Asset metadata is retained.
-        :param placement_hints: Advisory destination placement metadata, retained in retry identity and forwarded during publication.
-        :param preferred_store_ref: Optional destination Store UUID; None selects the manager default.
-        :param replica_mode: Requested mode for a new or selected destination Replica; default ACTIVE.
-        :param verify: Whether to inspect the registered Replica after publication/reuse; False still permits identity hashing and Store commit checks.
+        :param operation_id: Optional logical-operation UUID; None allocates a new one.
+            Completed retries require an equal normalized request.
+        :param expected_size: Optional byte count compared with stat before opening;
+            observed size is passed to ingest_stream.
+        :param expected_digests: Expected digests to compare with computed input bytes;
+            ordinary ingest also computes SHA-256.
+        :param item_id: Optional Item identity to link after registration; None omits
+            linking.
+        :param role: Optional link role; None selects primary_payload when item_id is
+            supplied.
+        :param metadata: Optional Asset description used for a new identity; existing
+            deduplicated Asset metadata is retained.
+        :param placement_hints: Advisory destination placement metadata, retained in
+            retry identity and forwarded during publication.
+        :param preferred_store_ref: Optional destination Store UUID; None selects the
+            manager default.
+        :param replica_mode: Requested mode for a new or selected destination Replica;
+            default ACTIVE.
+        :param verify: Whether to inspect the registered Replica after
+            publication/reuse; False still permits identity hashing and Store commit
+            checks.
 
-        :return: Completed ingest result, including creation/deduplication flags and reported verification; failures may follow publication or earlier metadata writes.
+        :return: Completed ingest result, including creation/deduplication flags and
+            reported verification; failures may follow publication or earlier metadata
+            writes.
         """
 
         source_path = Path(path)
@@ -265,9 +321,7 @@ class DigitalAssetIngestAPI(abc.ABC):
                 f"expected {expected_size} bytes, found {observed_size}."
             )
         if metadata is None:
-            normalized_metadata = DigitalAssetMetadata(
-                original_name=source_path.name
-            )
+            normalized_metadata = DigitalAssetMetadata(original_name=source_path.name)
         elif metadata.original_name is None:
             normalized_metadata = dataclasses.replace(
                 metadata,
@@ -290,7 +344,50 @@ class DigitalAssetIngestAPI(abc.ABC):
                 verify=verify,
             )
 
-    # Todo: Clearer name - ingest_object_from_store - but keep this as an alias
+    def ingest_object_from_store(
+        self,
+        source: StoreAPI,
+        info: FileInfo | StoreInventoryEntry,
+        *,
+        operation_id: UUID | None = None,
+        item_id: ItemID | None = None,
+        role: str | None = None,
+        metadata: DigitalAssetMetadata | None = None,
+        placement_hints: StoragePlacementHints | None = None,
+        preferred_store_ref: StoreUUID | None = None,
+        replica_mode: ReplicaMode = ReplicaMode.ACTIVE,
+        verify: bool = True,
+    ) -> DigitalAssetIngestResult:
+        """Ingest one described source-Store object through the compatibility implementation.
+
+        This clearer spelling is equivalent to ``ingest_store_object`` and dispatches through that
+        method so existing concrete overrides retain native-transfer behavior.
+
+        :param source: Configured Store owning the described source object.
+        :param info: Source object metadata and Location.
+        :param operation_id: Optional stable identity for retry-safe ingest.
+        :param item_id: Optional Item to link to the resulting Asset.
+        :param role: Optional role for the Item link.
+        :param metadata: Optional descriptive Asset metadata override.
+        :param placement_hints: Optional advisory destination hints.
+        :param preferred_store_ref: Optional preferred destination Store.
+        :param replica_mode: Mode assigned to a newly registered Replica.
+        :param verify: Whether to inspect the resulting Replica after ingest.
+        :return: The result returned by ingest_store_object.
+        """
+        return self.ingest_store_object(
+            source,
+            info,
+            operation_id=operation_id,
+            item_id=item_id,
+            role=role,
+            metadata=metadata,
+            placement_hints=placement_hints,
+            preferred_store_ref=preferred_store_ref,
+            replica_mode=replica_mode,
+            verify=verify,
+        )
+
     def ingest_store_object(
         self,
         source: StoreAPI,
@@ -321,18 +418,31 @@ class DigitalAssetIngestAPI(abc.ABC):
         Example:
             >>> result = manager.ingest_store_object(source_store, source_store.stat(location))  # doctest: +SKIP
 
-        :param source: Configured source Store supplying inventory/stat metadata and readable bytes.
-        :param info: Source Location, size, digest, and optional version evidence; no fresh stat is implicit here.
-        :param operation_id: Optional logical-operation UUID; None allocates a new one. Completed retries require an equal normalized request.
-        :param item_id: Optional Item identity to link after registration; None omits linking.
-        :param role: Optional link role; None selects primary_payload when item_id is supplied.
-        :param metadata: Optional Asset description used for a new identity; existing deduplicated Asset metadata is retained.
-        :param placement_hints: Advisory destination placement metadata, retained in retry identity and forwarded during publication.
-        :param preferred_store_ref: Optional destination Store UUID; None selects the manager default.
-        :param replica_mode: Requested mode for a new or selected destination Replica; default ACTIVE.
-        :param verify: Whether to inspect the registered Replica after publication/reuse; False still permits identity hashing and Store commit checks.
+        :param source: Configured source Store supplying inventory/stat metadata and
+            readable bytes.
+        :param info: Source Location, size, digest, and optional version evidence; no
+            fresh stat is implicit here.
+        :param operation_id: Optional logical-operation UUID; None allocates a new one.
+            Completed retries require an equal normalized request.
+        :param item_id: Optional Item identity to link after registration; None omits
+            linking.
+        :param role: Optional link role; None selects primary_payload when item_id is
+            supplied.
+        :param metadata: Optional Asset description used for a new identity; existing
+            deduplicated Asset metadata is retained.
+        :param placement_hints: Advisory destination placement metadata, retained in
+            retry identity and forwarded during publication.
+        :param preferred_store_ref: Optional destination Store UUID; None selects the
+            manager default.
+        :param replica_mode: Requested mode for a new or selected destination Replica;
+            default ACTIVE.
+        :param verify: Whether to inspect the registered Replica after
+            publication/reuse; False still permits identity hashing and Store commit
+            checks.
 
-        :return: Completed ingest result, including creation/deduplication flags and reported verification; failures may follow publication or earlier metadata writes.
+        :return: Completed ingest result, including creation/deduplication flags and
+            reported verification; failures may follow publication or earlier metadata
+            writes.
         """
 
         if isinstance(source, IngestSourceStoreAPI):
@@ -354,26 +464,18 @@ class DigitalAssetIngestAPI(abc.ABC):
                 verify=verify,
             )
         authoritative = (
-            source.capabilities.stat_digest_authoritative
-            and info.digest is not None
+            source.capabilities.stat_digest_authoritative and info.digest is not None
         )
-        digests = (
-            (info.digest,)
-            if authoritative and info.digest is not None
-            else ()
-        )
-        version = (
-            info.version if source.capabilities.conditional_read else None
-        )
+        digests = (info.digest,) if authoritative and info.digest is not None else ()
+        version = info.version if source.capabilities.conditional_read else None
         reader = (
             source.open_read(info.location)
             if version is None
             else source.open_read(info.location, if_version=version)
         )
         with reader as stream:
-            if (
-                info.size is not None
-                and any(digest.algorithm == "sha256" for digest in digests)
+            if info.size is not None and any(
+                digest.algorithm == "sha256" for digest in digests
             ):
                 return self.ingest_identified_stream(
                     stream,
@@ -402,11 +504,55 @@ class DigitalAssetIngestAPI(abc.ABC):
                 verify=verify,
             )
 
-    # Todo: Bad naming - it's doesn't have to be a prepared object in a store? Just prepared_object? Or clarify the doc string.
+    def ingest_prepared_object(
+        self,
+        source: StoreAPI,
+        prepared: PreparedIngestObject,
+        *,
+        operation_id: UUID | None = None,
+        item_id: ItemID | None = None,
+        role: str | None = None,
+        metadata: DigitalAssetMetadata | None = None,
+        placement_hints: StoragePlacementHints | None = None,
+        preferred_store_ref: StoreUUID | None = None,
+        replica_mode: ReplicaMode = ReplicaMode.ACTIVE,
+        verify: bool = True,
+    ) -> DigitalAssetIngestResult:
+        """Ingest a prepared source object through the compatibility implementation.
+
+        The preparation is Store-produced even though the value itself is a portable description.
+        Dispatch through ``ingest_prepared_store_object`` preserves concrete native-transfer
+        overrides while offering a shorter public spelling.
+
+        :param source: Store that produced and can open the preparation.
+        :param prepared: Validated preparation describing one source object.
+        :param operation_id: Optional stable identity for retry-safe ingest.
+        :param item_id: Optional Item to link to the resulting Asset.
+        :param role: Optional role for the Item link.
+        :param metadata: Optional descriptive Asset metadata override.
+        :param placement_hints: Optional advisory destination hints.
+        :param preferred_store_ref: Optional preferred destination Store.
+        :param replica_mode: Mode assigned to a newly registered Replica.
+        :param verify: Whether to inspect the resulting Replica after ingest.
+        :return: The result returned by ingest_prepared_store_object.
+        """
+        return self.ingest_prepared_store_object(
+            source,
+            prepared,
+            operation_id=operation_id,
+            item_id=item_id,
+            role=role,
+            metadata=metadata,
+            placement_hints=placement_hints,
+            preferred_store_ref=preferred_store_ref,
+            replica_mode=replica_mode,
+            verify=verify,
+        )
+
     def ingest_prepared_store_object(
         self,
         source: StoreAPI,
-        prepared: "PreparedIngestObject",
+        prepared: PreparedIngestObject,
         *,
         operation_id: UUID | None = None,
         item_id: ItemID | None = None,
@@ -432,23 +578,34 @@ class DigitalAssetIngestAPI(abc.ABC):
             >>> result = manager.ingest_prepared_store_object(source, prepared)  # doctest: +SKIP
 
 
-        :param source: Store implementing IngestSourceStoreAPI and owning the preparation Location.
-        :param prepared: Existing preparation whose advertised authority/read-consistency constraints are validated before opening.
-        :param operation_id: Optional logical-operation UUID; None allocates a new one. Completed retries require an equal normalized request.
-        :param item_id: Optional Item identity to link after registration; None omits linking.
-        :param role: Optional link role; None selects primary_payload when item_id is supplied.
-        :param metadata: Optional Asset description used for a new identity; existing deduplicated Asset metadata is retained.
-        :param placement_hints: Advisory destination placement metadata, retained in retry identity and forwarded during publication.
-        :param preferred_store_ref: Optional destination Store UUID; None selects the manager default.
-        :param replica_mode: Requested mode for a new or selected destination Replica; default ACTIVE.
-        :param verify: Whether to inspect the registered Replica after publication/reuse; False still permits identity hashing and Store commit checks.
-        :return: Completed ingest result, including creation/deduplication flags and reported verification; failures may follow publication or earlier metadata writes.
+        :param source: Store implementing IngestSourceStoreAPI and owning the
+            preparation Location.
+        :param prepared: Existing preparation whose advertised
+            authority/read-consistency constraints are validated before opening.
+        :param operation_id: Optional logical-operation UUID; None allocates a new one.
+            Completed retries require an equal normalized request.
+        :param item_id: Optional Item identity to link after registration; None omits
+            linking.
+        :param role: Optional link role; None selects primary_payload when item_id is
+            supplied.
+        :param metadata: Optional Asset description used for a new identity; existing
+            deduplicated Asset metadata is retained.
+        :param placement_hints: Advisory destination placement metadata, retained in
+            retry identity and forwarded during publication.
+        :param preferred_store_ref: Optional destination Store UUID; None selects the
+            manager default.
+        :param replica_mode: Requested mode for a new or selected destination Replica;
+            default ACTIVE.
+        :param verify: Whether to inspect the registered Replica after
+            publication/reuse; False still permits identity hashing and Store commit
+            checks.
+        :return: Completed ingest result, including creation/deduplication flags and
+            reported verification; failures may follow publication or earlier metadata
+            writes.
         """
 
         if not isinstance(source, IngestSourceStoreAPI):
-            raise TypeError(
-                "prepared Store ingest requires IngestSourceStoreAPI."
-            )
+            raise TypeError("prepared Store ingest requires IngestSourceStoreAPI.")
         source.require_location(prepared.info.location)
         try:
             source.ingest_capabilities.validate_prepared(prepared)
@@ -456,9 +613,8 @@ class DigitalAssetIngestAPI(abc.ABC):
             raise StorageIntegrityError(str(error)) from error
         digests = prepared.authoritative_digests
         with source.open_prepared_ingest(prepared) as stream:
-            if (
-                prepared.info.size is not None
-                and any(digest.algorithm == "sha256" for digest in digests)
+            if prepared.info.size is not None and any(
+                digest.algorithm == "sha256" for digest in digests
             ):
                 return self.ingest_identified_stream(
                     stream,
@@ -487,7 +643,6 @@ class DigitalAssetIngestAPI(abc.ABC):
                 verify=verify,
             )
 
-    # Todo: If we have a location... why do we need to adopt it? Spec use case
     @abc.abstractmethod
     def adopt_location(
         self,
@@ -495,12 +650,19 @@ class DigitalAssetIngestAPI(abc.ABC):
         *,
         operation_id: UUID | None = None,
         digital_asset_id: DigitalAssetID | None = None,
-        item_id: ItemID | None = None, role: str | None = None,
+        item_id: ItemID | None = None,
+        role: str | None = None,
         metadata: DigitalAssetMetadata | None = None,
-        replica_mode: ReplicaMode = ReplicaMode.UNMANAGED, verify: bool = False,
+        replica_mode: ReplicaMode = ReplicaMode.UNMANAGED,
+        verify: bool = False,
     ) -> DigitalAssetIngestResult:
         """
         Identify and register bytes already stored at a Location without copying them elsewhere.
+
+        This supports unmanaged imports, pre-existing library roots, and recovery of Store objects
+        that were published before their catalogue transaction completed. A Location addresses
+        bytes but does not itself establish Asset identity or a Replica claim; adoption supplies
+        that missing catalogue relationship.
 
         The composed manager hashes for identity even when verify is false. A supplied Asset ID must
         match size and comparable digests; otherwise identity is found or declared. New metadata
@@ -515,16 +677,25 @@ class DigitalAssetIngestAPI(abc.ABC):
             ... )
 
 
-        :param location: Concrete registered Store address whose existing bytes should be identified and claimed.
-        :param operation_id: Optional logical-operation UUID; None allocates a new one. Completed retries require an equal normalized request.
-        :param digital_asset_id: Optional existing Asset identity that the observed size and comparable digests must match.
-        :param item_id: Optional Item identity to link after registration; None omits linking.
-        :param role: Optional link role; None selects primary_payload when item_id is supplied.
-        :param metadata: Optional Asset description used for a new identity; existing deduplicated Asset metadata is retained.
-        :param replica_mode: Mode for a newly created claim, default UNMANAGED; a reused claim retains its mode.
-        :param verify: Request another Replica verification after registration; False still hashes bytes for adoption identity.
+        :param location: Concrete registered Store address whose existing bytes should
+            be identified and claimed.
+        :param operation_id: Optional logical-operation UUID; None allocates a new one.
+            Completed retries require an equal normalized request.
+        :param digital_asset_id: Optional existing Asset identity that the observed
+            size and comparable digests must match.
+        :param item_id: Optional Item identity to link after registration; None omits
+            linking.
+        :param role: Optional link role; None selects primary_payload when item_id is
+            supplied.
+        :param metadata: Optional Asset description used for a new identity; existing
+            deduplicated Asset metadata is retained.
+        :param replica_mode: Mode for a newly created claim, default UNMANAGED; a
+            reused claim retains its mode.
+        :param verify: Request another Replica verification after registration; False
+            still hashes bytes for adoption identity.
 
-        :return: Completed ingest result, including creation/deduplication flags and reported verification;
+        :return: Completed ingest result, including creation/deduplication flags and
+            reported verification;
                  failures may follow publication or earlier metadata writes.
         """
         ...

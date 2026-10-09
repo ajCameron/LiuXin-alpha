@@ -32,7 +32,7 @@ from LiuXin_alpha.storage.ingest import (
     MixedFormatIngestCoordinator,
     MixedIngestBudget,
 )
-from LiuXin_alpha.storage.store_manager import StorageManager
+from LiuXin_alpha.storage.durable_manager import StorageManager
 from tests.fixtures.storage_unicode import (
     POSIX_BAD_BYTES_FILENAME,
     POSIX_BAD_BYTES_PAYLOAD,

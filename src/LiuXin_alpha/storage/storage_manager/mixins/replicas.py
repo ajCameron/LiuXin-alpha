@@ -13,7 +13,10 @@ from collections.abc import Iterable, Iterator
 from datetime import UTC, datetime
 from typing import override
 
-import LiuXin_alpha.storage.api as api
+from LiuXin_alpha.storage.api import errors as storage_errors
+from LiuXin_alpha.storage.api import models as storage_models
+from LiuXin_alpha.storage.api import placement_hints_api
+from LiuXin_alpha.storage.api import storage_manager_api as manager_api
 from LiuXin_alpha.storage.storage_manager.mixins._state import _StorageManagerState
 
 
@@ -33,8 +36,8 @@ class ReplicaLifecycleMixin(_StorageManagerState):
     @override
     def get_replica_record(
         self,
-        replica_id: api.ReplicaID,
-    ) -> api.ReplicaRecord:
+        replica_id: manager_api.ReplicaID,
+    ) -> manager_api.ReplicaRecord:
         """
         Look up the exact Replica key under the manager lock.
 
@@ -53,7 +56,7 @@ class ReplicaLifecycleMixin(_StorageManagerState):
             try:
                 return self._replicas[replica_id]
             except KeyError as error:
-                raise api.ReplicaNotFound(
+                raise manager_api.ReplicaNotFound(
                     f"Replica {replica_id} is not registered."
                 ) from error
 
@@ -61,10 +64,10 @@ class ReplicaLifecycleMixin(_StorageManagerState):
     def iter_replica_records(
         self,
         *,
-        digital_asset_id: api.DigitalAssetID | None = None,
-        store_ref: api.StoreUUID | None = None,
-        mode: api.ReplicaMode | None = None,
-    ) -> Iterator[api.ReplicaRecord]:
+        digital_asset_id: manager_api.DigitalAssetID | None = None,
+        store_ref: storage_models.StoreUUID | None = None,
+        mode: manager_api.ReplicaMode | None = None,
+    ) -> Iterator[manager_api.ReplicaRecord]:
         """
         Capture Replica records under the lock in ascending ID-key order, applying every supplied
         filter.
@@ -99,14 +102,14 @@ class ReplicaLifecycleMixin(_StorageManagerState):
     @override
     def replicate_digital_asset(
         self,
-        digital_asset_id: api.DigitalAssetID,
+        digital_asset_id: manager_api.DigitalAssetID,
         *,
-        destination_store_ref: api.StoreUUID | None = None,
-        source_replica_id: api.ReplicaID | None = None,
-        placement_hints: api.StoragePlacementHints | None = None,
-        mode: api.ReplicaMode = api.ReplicaMode.ACTIVE,
+        destination_store_ref: storage_models.StoreUUID | None = None,
+        source_replica_id: manager_api.ReplicaID | None = None,
+        placement_hints: placement_hints_api.StoragePlacementHints | None = None,
+        mode: manager_api.ReplicaMode = manager_api.ReplicaMode.ACTIVE,
         verify: bool = True,
-    ) -> api.ReplicaRecord:
+    ) -> manager_api.ReplicaRecord:
         """
         Select or resolve a source, publish its bytes to a destination, then register and optionally
         verify the copy.
@@ -146,7 +149,7 @@ class ReplicaLifecycleMixin(_StorageManagerState):
             else self.get_replica_record(source_replica_id)
         )
         if source_record.digital_asset_id != digital_asset_id:
-            raise api.StoragePreconditionFailed(
+            raise storage_errors.StoragePreconditionFailed(
                 "source Replica belongs to another Digital Asset."
             )
         effective_placement_hints = (
@@ -178,11 +181,11 @@ class ReplicaLifecycleMixin(_StorageManagerState):
                 placement_hints=effective_placement_hints,
             )
         replica_record = self._add_replica(
-            api.ReplicaDeclaration(
+            manager_api.ReplicaDeclaration(
                 digital_asset_id,
                 location,
                 mode,
-                api.ReplicaObservation(api.ReplicaState.PRESENT),
+                manager_api.ReplicaObservation(manager_api.ReplicaState.PRESENT),
                 placement_hints=effective_placement_hints,
             )
         )
@@ -194,10 +197,10 @@ class ReplicaLifecycleMixin(_StorageManagerState):
     @override
     def verify_replica(
         self,
-        replica_id: api.ReplicaID,
+        replica_id: manager_api.ReplicaID,
         *,
         calculate_digests: bool = True,
-    ) -> api.ReplicaVerificationReport:
+    ) -> manager_api.ReplicaVerificationReport:
         """
         Inspect a Replica against its Asset and persist the resulting observation before returning
         the report.
@@ -229,7 +232,7 @@ class ReplicaLifecycleMixin(_StorageManagerState):
             asset_record,
             calculate_digests=calculate_digests,
         )
-        observation = api.ReplicaObservation(
+        observation = manager_api.ReplicaObservation(
             report.state,
             observed_size_bytes=report.observed_size_bytes,
             observed_digests=report.observed_digests,
@@ -242,12 +245,12 @@ class ReplicaLifecycleMixin(_StorageManagerState):
     @override
     def verify_digital_asset(
         self,
-        digital_asset_id: api.DigitalAssetID,
+        digital_asset_id: manager_api.DigitalAssetID,
         *,
-        replica_ids: Iterable[api.ReplicaID] | None = None,
+        replica_ids: Iterable[manager_api.ReplicaID] | None = None,
         stop_after_first_healthy: bool | None = None,
         all_replicas: bool | None = None,
-    ) -> api.DigitalAssetVerificationReport:
+    ) -> manager_api.DigitalAssetVerificationReport:
         """
         Resolve the Asset and selected claims before sequentially verifying records in the chosen
         order.
@@ -292,11 +295,11 @@ class ReplicaLifecycleMixin(_StorageManagerState):
             )
             for record in records:
                 if record.digital_asset_id != digital_asset_id:
-                    raise api.StoragePreconditionFailed(
+                    raise storage_errors.StoragePreconditionFailed(
                         "selected Replica belongs to another Digital Asset."
                     )
-                if record.state is api.ReplicaState.DELETED:
-                    raise api.StoragePreconditionFailed(
+                if record.state is manager_api.ReplicaState.DELETED:
+                    raise storage_errors.StoragePreconditionFailed(
                         "selected Replica has been deleted."
                     )
         else:
@@ -305,32 +308,86 @@ class ReplicaLifecycleMixin(_StorageManagerState):
                 for record in self.iter_replica_records(
                     digital_asset_id=digital_asset_id
                 )
-                if record.state is not api.ReplicaState.DELETED
+                if record.state is not manager_api.ReplicaState.DELETED
             )
         should_stop = (
             selected_ids is None
             if stop_after_first_healthy is None
             else stop_after_first_healthy
         )
-        reports: list[api.ReplicaVerificationReport] = []
+        reports: list[manager_api.ReplicaVerificationReport] = []
         for record in records:
             report = self.verify_replica(record.replica_id)
             reports.append(report)
             if report.healthy and should_stop:
                 break
-        return api.DigitalAssetVerificationReport(
+        return manager_api.DigitalAssetVerificationReport(
             digital_asset_id,
             tuple(reports),
         )
 
     @override
+    def verify_composite_digital_asset(
+        self,
+        composite_digital_asset_id: manager_api.CompositeDigitalAssetID,
+        *,
+        all_replicas: bool = False,
+    ) -> manager_api.CompositeDigitalAssetVerificationReport:
+        """
+        Verify each distinct atomic member once and project the result onto every relationship.
+
+        The Composite record is resolved before any physical inspection. Membership order drives
+        the returned report. A per-call dictionary reuses the first atomic report for repeated Asset
+        identities; consequently repeated relationships do not trigger additional reads or
+        observation updates. Every member, including optional ones, is inspected. Atomic reports
+        with no nondeleted claims remain valid unreadable evidence rather than raising.
+
+        ``all_replicas`` is forwarded to every first atomic verification. Unexpected errors abort
+        aggregation, but observation updates completed for earlier Assets are not rolled back.
+
+        Example:
+            >>> report = manager.verify_composite_digital_asset(composite_id)  # doctest: +SKIP
+
+        :param composite_digital_asset_id: Registered Composite identity whose declared members are verified.
+        :param all_replicas: Whether each distinct member verifies every nondeleted claim.
+        :return: Ordered relationship-specific evidence retaining the selected Composite record.
+        """
+
+        record = self.get_composite_digital_asset_record(composite_digital_asset_id)
+        by_asset: dict[
+            manager_api.DigitalAssetID,
+            manager_api.DigitalAssetVerificationReport,
+        ] = {}
+        member_reports: list[
+            manager_api.CompositeDigitalAssetMemberVerificationReport
+        ] = []
+        for membership in record.members:
+            verification = by_asset.get(membership.digital_asset_id)
+            if verification is None:
+                verification = self.verify_digital_asset(
+                    membership.digital_asset_id,
+                    all_replicas=all_replicas,
+                )
+                by_asset[membership.digital_asset_id] = verification
+            member_reports.append(
+                manager_api.CompositeDigitalAssetMemberVerificationReport(
+                    membership,
+                    verification,
+                )
+            )
+        return manager_api.CompositeDigitalAssetVerificationReport(
+            record,
+            tuple(member_reports),
+        )
+
+    @override
     def remove_replica(
         self,
-        replica_id: api.ReplicaID,
+        replica_id: manager_api.ReplicaID,
         *,
         delete_bytes: bool = True,
         retain_tombstone: bool = True,
-    ) -> api.ReplicaRemovalReport:
+    ) -> manager_api.ReplicaRemovalReport:
         """
         Optionally delete the claimed bytes, then tombstone or remove the current Replica record.
 
@@ -361,7 +418,7 @@ class ReplicaLifecycleMixin(_StorageManagerState):
         if delete_bytes:
             try:
                 info = self.stat(record.location)
-            except api.StoreNotFound:
+            except storage_errors.StoreNotFound:
                 pass
             else:
                 capabilities = self.capabilities(record.location.store_ref)
@@ -380,8 +437,8 @@ class ReplicaLifecycleMixin(_StorageManagerState):
             if retain_tombstone:
                 self._replicas[replica_id] = dataclasses.replace(
                     current,
-                    observation=api.ReplicaObservation(
-                        api.ReplicaState.DELETED,
+                    observation=manager_api.ReplicaObservation(
+                        manager_api.ReplicaState.DELETED,
                         checked_at=datetime.now(UTC),
                     ),
                     revision=self._new_revision_locked(),
@@ -391,7 +448,7 @@ class ReplicaLifecycleMixin(_StorageManagerState):
                 del self._replicas[replica_id]
                 replica_forgotten = True
             self._replica_generation += 1
-        return api.ReplicaRemovalReport(
+        return manager_api.ReplicaRemovalReport(
             replica_id,
             bytes_deleted,
             replica_forgotten,
@@ -402,7 +459,7 @@ class ReplicaLifecycleMixin(_StorageManagerState):
     @override
     def forget_replica(
         self,
-        replica_id: api.ReplicaID,
+        replica_id: manager_api.ReplicaID,
         *,
         require_bytes_absent: bool = True,
         if_revision: str | None = None,
@@ -438,10 +495,10 @@ class ReplicaLifecycleMixin(_StorageManagerState):
         if require_bytes_absent:
             try:
                 self.stat(record.location)
-            except api.StoreNotFound:
+            except storage_errors.StoreNotFound:
                 pass
             else:
-                raise api.StoragePreconditionFailed(
+                raise storage_errors.StoragePreconditionFailed(
                     "Replica bytes still exist at the claimed Location."
                 )
         with self._lock, self._metadata_transaction():

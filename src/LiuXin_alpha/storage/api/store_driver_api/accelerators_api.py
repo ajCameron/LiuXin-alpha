@@ -1,10 +1,11 @@
 """
 Specify optional native copy, move, and digest operations within one driver.
 
-These runtime-checkable protocols describe required accelerator semantics;
-implementations and matching capability flags provide actual support. Protocol
-membership alone does not verify complete publication, source-version protection,
-or digest correctness. Cross-driver orchestration belongs to transfer helpers.
+These runtime-checkable protocols cover the native operations currently consumed
+by transfer orchestration: same-endpoint copy and move, plus backend digesting.
+New accelerators should be added only with a capability flag and an orchestrator
+fast path. Protocol membership alone does not verify complete publication,
+source-version protection, or digest correctness.
 
 Example:
     >>> info = driver.native_copy(source, destination)  # doctest: +SKIP
@@ -29,7 +30,6 @@ _DriverObjectAddressContraT = TypeVar(
 )
 
 
-# Todo: Are there any other things we can add as native capabilities?
 @runtime_checkable
 class NativeCopyStorageDriverAPI(Protocol[DriverObjectAddressT]):
     """

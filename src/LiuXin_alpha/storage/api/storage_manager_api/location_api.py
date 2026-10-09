@@ -19,7 +19,6 @@ from LiuXin_alpha.storage.api.models import (
 )
 
 
-# Todo: This could be public?
 class _StorageRouterLike(Protocol):
     """
     Describe only the manager operations needed by BoundLocation.

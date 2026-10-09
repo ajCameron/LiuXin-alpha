@@ -194,7 +194,7 @@ for name in ('StorageManager', 'StoreContainer', 'StorageError', 'SealedArtifact
         "LiuXin_alpha.storage.api",
         "LiuXin_alpha.storage.utils.driver",
         "LiuXin_alpha.storage.utils.workflow",
-        "LiuXin_alpha.storage.store_manager",
+        "LiuXin_alpha.storage.durable_manager",
         "LiuXin_alpha.storage.reconcile",
         "LiuXin_alpha.storage.ingest",
         "LiuXin_alpha.ingest.remote_html",
@@ -220,7 +220,7 @@ def test_storage_owners_import_independently(first_module: str) -> None:
 import LiuXin_alpha.storage as storage
 from LiuXin_alpha.storage import api, ingest, reconcile, utils
 from LiuXin_alpha.storage.backend_registry import StorageBackendRegistry
-from LiuXin_alpha.storage.store_manager import StorageManager
+from LiuXin_alpha.storage.durable_manager import StorageManager
 from LiuXin_alpha.storage.store_container import StoreContainer
 from LiuXin_alpha.storage.workflows.sealed_artifact_workflow import SealedArtifactWorkflow
 from LiuXin_alpha.storage.backup import StoreBackupPlanner
@@ -231,3 +231,18 @@ for name in ('StorageManager', 'StoreContainer', 'StorageError', 'SealedArtifact
     assert not hasattr(storage, name), name
 """
     )
+
+
+def test_store_manager_module_is_a_compatibility_alias() -> None:
+    """Keep the historical module usable without creating a second manager identity.
+
+    Example:
+        >>> test_store_manager_module_is_a_compatibility_alias()
+    """
+
+    from LiuXin_alpha.storage.durable_manager import StorageManager
+    from LiuXin_alpha.storage.store_manager import (
+        StorageManager as LegacyStorageManager,
+    )
+
+    assert LegacyStorageManager is StorageManager

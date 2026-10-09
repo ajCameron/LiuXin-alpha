@@ -19,7 +19,6 @@ from LiuXin_alpha.storage.api.storage_manager_api.models.replicas import (
 )
 
 
-# Todo: This makes sense to be larger, if it's all operational matters
 class StorageOperationalStatusAPI(abc.ABC):
     """
     Separate health/journal inspection from explicit recovery and retry operations. Health
@@ -48,6 +47,24 @@ class StorageOperationalStatusAPI(abc.ABC):
 
         :param refresh_stores: Whether Store plugins are explicitly asked for fresh status observations.
         :return: Timestamped StorageOperationalStatus assembled from the implementation's observations.
+        """
+
+        ...
+
+    @abc.abstractmethod
+    def get_operational_status_history(
+        self,
+        *,
+        limit: int | None = None,
+    ) -> tuple[StorageOperationalStatus, ...]:
+        """Return retained status snapshots in oldest-to-newest order.
+
+        History is implementation-owned operational memory rather than a recursive field on each
+        immutable snapshot. ``limit`` selects the newest observations while retaining chronological
+        order. Reading history performs no Store refresh and does not create another observation.
+
+        :param limit: Optional nonnegative maximum number of newest snapshots to return.
+        :return: Retained immutable status values ordered from oldest to newest.
         """
 
         ...

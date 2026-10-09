@@ -15,6 +15,8 @@ from collections.abc import Iterable, Iterator
 from LiuXin_alpha.storage.api.models import StoreUUID
 from LiuXin_alpha.storage.api.placement_hints_api import StoragePlacementHints
 from LiuXin_alpha.storage.api.storage_manager_api.models import (
+    CompositeDigitalAssetID,
+    CompositeDigitalAssetVerificationReport,
     DigitalAssetVerificationReport,
     DigitalAssetID,
     ReplicaRecord,
@@ -52,7 +54,6 @@ class ReplicaLifecycleAPI(abc.ABC):
         """
         ...
 
-    # Todo: A method to just get all the replicas?
     @abc.abstractmethod
     def iter_replica_records(
         self,
@@ -78,8 +79,6 @@ class ReplicaLifecycleAPI(abc.ABC):
         :return: Iterator of Replica records satisfying the selected filters.
         """
         ...
-
-    # Todo: Some form of composite digital asset methods? Check all elements of a compositie digital asset at once.
 
     @abc.abstractmethod
     def replicate_digital_asset(
@@ -139,7 +138,6 @@ class ReplicaLifecycleAPI(abc.ABC):
         """
         ...
 
-    # Todo: verify_composite_digital_asset
     @abc.abstractmethod
     def verify_digital_asset(
         self,
@@ -167,6 +165,36 @@ class ReplicaLifecycleAPI(abc.ABC):
         :param stop_after_first_healthy: Explicit early-stop policy; None selects the implicit-scan or explicit-subset default.
         :param all_replicas: Compatibility inverse of the stop policy, mutually exclusive with an explicit stop_after_first_healthy value.
         :return: Aggregate of reports actually produced, potentially a prefix of the selected records.
+        """
+        ...
+
+    @abc.abstractmethod
+    def verify_composite_digital_asset(
+        self,
+        composite_digital_asset_id: CompositeDigitalAssetID,
+        *,
+        all_replicas: bool = False,
+    ) -> CompositeDigitalAssetVerificationReport:
+        """
+        Verify every distinct member Asset and retain evidence for each membership occurrence.
+
+        By default each atomic verification stops after its first healthy Replica; ``all_replicas``
+        requests inspection of every nondeleted claim. Repeated memberships reuse one atomic
+        verification result during this call, avoiding duplicate Store reads while preserving
+        relationship-specific report entries. Optional members are verified and reported but do not
+        determine the aggregate readable predicate.
+
+        Verification proceeds member by member without a cross-Asset transaction or Store snapshot.
+        Earlier Replica observations can remain persisted if a later member fails unexpectedly.
+
+        Example:
+            >>> report = manager.verify_composite_digital_asset(  # doctest: +SKIP
+            ...     composite_id, all_replicas=True,
+            ... )
+
+        :param composite_digital_asset_id: Registered Composite identity whose members are inspected.
+        :param all_replicas: Whether each distinct Asset verifies every nondeleted Replica instead of stopping after the first healthy result.
+        :return: Composite record and ordered verification evidence for every declared relationship.
         """
         ...
 
@@ -221,7 +249,5 @@ class ReplicaLifecycleAPI(abc.ABC):
         :return: True when the claim is forgotten, False if already absent; precondition and storage failures can propagate.
         """
         ...
-
-    # Todo: We seem to have good options for regular digital assets - but not composite digital assets
 
 __all__ = ["ReplicaLifecycleAPI"]

@@ -26,7 +26,7 @@ from LiuXin_alpha.storage.ingest import (
     MixedIngestBudget,
     MixedIngestReport,
 )
-from LiuXin_alpha.storage.store_manager import StorageManager
+from LiuXin_alpha.storage.durable_manager import StorageManager
 
 type ProgressCallback = Callable[[str, Mapping[str, object]], None]
 type CancellationCallback = Callable[[], bool]

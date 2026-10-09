@@ -8,9 +8,9 @@ reported issues rather than probing Stores or performing recovery.
 from __future__ import annotations
 
 import dataclasses
-
 from datetime import datetime
 from enum import StrEnum
+from typing import cast
 from uuid import UUID
 
 from LiuXin_alpha.storage.api.models import StoreUUID
@@ -23,7 +23,6 @@ from LiuXin_alpha.storage.api.storage_manager_api.models.stores import (
 )
 
 
-# Todo: "error" might be recoverable or not... worth making the distinction
 class StorageOperationalSeverity(StrEnum):
     """
     Classify an operator-visible condition as information, warning, or error.
@@ -40,14 +39,31 @@ class StorageOperationalSeverity(StrEnum):
     ERROR = "error"
 
 
-# Todo: Add the capacity to pull the store log table?
-# Todo: Need to build out the logger
+class StorageOperationalRecoverability(StrEnum):
+    """Classify whether and how an observed issue can be recovered.
+
+    Severity describes impact; this value independently distinguishes conditions whose recovery is
+    unknown, expected automatically, safe to retry explicitly, requires operator intervention, or
+    is terminal under the available evidence.
+
+    Example:
+        >>> StorageOperationalRecoverability.RETRYABLE.value
+        'retryable'
+    """
+
+    UNKNOWN = "unknown"
+    AUTOMATIC = "automatic"
+    RETRYABLE = "retryable"
+    MANUAL = "manual"
+    TERMINAL = "terminal"
+
+
 @dataclasses.dataclass(slots=True, frozen=True)
 class StorageOperationalIssue:
     """
     Retain an attributable condition with a severity and explanation. Construction rejects blank
-    code/message text but preserves their spelling. Severity and attribution fields are not coerced
-    or type-validated.
+    code/message text but preserves their spelling. Severity and recoverability are normalized to
+    their enums; attribution fields receive local identity validation.
 
     Example:
         >>> StorageOperationalIssue(
@@ -65,6 +81,7 @@ class StorageOperationalIssue:
     :ivar digital_asset_id: Optional affected Asset identity.
     :ivar replica_id: Optional affected Replica identity.
     :ivar store_ref: Optional affected configured Store UUID.
+    :ivar recoverability: Recovery classification independent of issue severity.
     """
 
     code: str
@@ -74,11 +91,14 @@ class StorageOperationalIssue:
     digital_asset_id: DigitalAssetID | None = None
     replica_id: ReplicaID | None = None
     store_ref: StoreUUID | None = None
+    recoverability: StorageOperationalRecoverability = (
+        StorageOperationalRecoverability.UNKNOWN
+    )
 
     def __post_init__(self) -> None:
         """
-        Reject code or message values whose strip result is empty. Original strings remain
-        unchanged; severity and attribution are not validated, and string-method errors propagate.
+        Reject nonstring/blank code or message values, normalize the two enums, and validate
+        optional UUID/positive-integer attribution. Original text spelling remains unchanged.
 
         Example:
             >>> StorageOperationalIssue("", StorageOperationalSeverity.ERROR, "bad")
@@ -90,10 +110,49 @@ class StorageOperationalIssue:
         :return: None for nonblank code/message; blank values raise ValueError.
         """
 
+        if not isinstance(self.code, str):
+            raise TypeError("operational issue code must be a string.")
         if not self.code.strip():
             raise ValueError("operational issue code must not be empty.")
+        if not isinstance(self.message, str):
+            raise TypeError("operational issue message must be a string.")
         if not self.message.strip():
             raise ValueError("operational issue message must not be empty.")
+        object.__setattr__(
+            self,
+            "severity",
+            StorageOperationalSeverity(self.severity),
+        )
+        object.__setattr__(
+            self,
+            "recoverability",
+            StorageOperationalRecoverability(self.recoverability),
+        )
+        if self.operation_id is not None and not isinstance(self.operation_id, UUID):
+            raise TypeError("operation_id must be a UUID or None.")
+        if self.store_ref is not None and not isinstance(self.store_ref, UUID):
+            raise TypeError("store_ref must be a UUID or None.")
+        for field_name, identifier in (
+            ("digital_asset_id", self.digital_asset_id),
+            ("replica_id", self.replica_id),
+        ):
+            if identifier is not None and (
+                isinstance(cast(object, identifier), bool)
+                or not isinstance(identifier, int)
+            ):
+                raise TypeError(f"{field_name} must be an integer or None.")
+            if identifier is not None and identifier <= 0:
+                raise ValueError(f"{field_name} must be positive when supplied.")
+
+    @property
+    def can_recover(self) -> bool | None:
+        """Return false for terminal issues, true for known routes, and None when unknown.
+
+        :return: Tri-state recovery conclusion derived from the reported classification.
+        """
+        if self.recoverability is StorageOperationalRecoverability.UNKNOWN:
+            return None
+        return self.recoverability is not StorageOperationalRecoverability.TERMINAL
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -144,15 +203,15 @@ class StorageRecoveryAction:
             raise ValueError("recovery action reason must not be empty.")
 
 
-# Todo: It'd be good if we could store a history of status in this class
 @dataclasses.dataclass(slots=True, frozen=True)
 class StorageOperationalStatus:
     """
     Retain a timestamp, Store observations, issues, and suggested recovery actions.
 
-    The timestamp must be aware; supplied collections are not copied, coerced, or cross-validated. healthy derives
-    only from issue severities and does not independently inspect Store status or execute suggested
-    actions.
+    The timestamp must be aware; supplied collections are not copied, coerced, or cross-validated.
+    ``healthy`` derives only from issue severities and does not independently inspect Store status
+    or execute suggested actions. Managers retain bounded history separately so an immutable status
+    snapshot does not recursively contain earlier snapshots.
 
     Example:
         >>> from datetime import UTC, datetime
@@ -236,6 +295,7 @@ class StorageOperationalStatus:
 
 __all__ = [
     "StorageOperationalIssue",
+    "StorageOperationalRecoverability",
     "StorageOperationalSeverity",
     "StorageOperationalStatus",
     "StorageRecoveryAction",

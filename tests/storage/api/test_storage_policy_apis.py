@@ -14,6 +14,8 @@ import pytest
 
 from LiuXin_alpha.storage.api import (
     BackupPolicy,
+    BackupPolicyID,
+    BackupPolicyRecord,
     DigitalAssetBackupPlan,
     DigitalAssetID,
     DigitalAssetLossAction,
@@ -22,8 +24,47 @@ from LiuXin_alpha.storage.api import (
     ReplicaMode,
     ReplicaSeparationDimension,
     ReplicationPolicy,
+    ReplicationPolicyID,
+    ReplicationPolicyRecord,
+    ResolvedStoragePolicies,
     StoragePolicyAssessment,
 )
+
+
+def test_policy_records_validate_identity_payload_revision_and_resolution_source() -> None:
+    """Keep passive records safe without coupling construction to persistence writes."""
+    replication = ReplicationPolicyRecord(
+        ReplicationPolicyID(1),
+        ReplicationPolicy(),
+        revision="r1",
+    )
+    backup = BackupPolicyRecord(
+        BackupPolicyID(2),
+        BackupPolicy(),
+        revision="r2",
+    )
+    resolved = ResolvedStoragePolicies(
+        replication.policy,
+        backup.policy,
+        "digital_asset",
+        "manager_default",
+    )
+
+    assert resolved.replication is replication.policy
+    assert resolved.backup_source == "manager_default"
+    with pytest.raises(ValueError, match="must be positive"):
+        ReplicationPolicyRecord(ReplicationPolicyID(0), ReplicationPolicy())
+    with pytest.raises(TypeError, match="BackupPolicy"):
+        BackupPolicyRecord(BackupPolicyID(1), ReplicationPolicy())  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="revision"):
+        BackupPolicyRecord(BackupPolicyID(1), BackupPolicy(), revision=" ")
+    with pytest.raises(ValueError, match="replication_source"):
+        ResolvedStoragePolicies(
+            ReplicationPolicy(),
+            BackupPolicy(),
+            " ",
+            "manager_default",
+        )
 
 
 def test_replication_policy_defaults_are_explicit_and_safe() -> None:
@@ -156,7 +197,21 @@ def test_policy_assessment_and_plans_keep_typed_asset_replica_and_store_ids() ->
 
     assert assessment.errors == ("missing second copy",)
     assert replication.destination_store_refs == (store_ref,)
+    assert replication.implementable and replication.has_work
     assert backup.source_replica_ids == (replica_id,)
+    assert backup.implementable and backup.has_work
+    blocked = DigitalAssetReplicationPlan(
+        digital_asset_id=asset_id,
+        warnings=("no destination",),
+        blocking_reasons=("no destination",),
+    )
+    assert not blocked.implementable and not blocked.has_work
+    with pytest.raises(ValueError, match="both verified and removed"):
+        DigitalAssetReplicationPlan(
+            digital_asset_id=asset_id,
+            replica_ids_to_verify=(replica_id,),
+            replica_ids_to_remove=(replica_id,),
+        )
     with pytest.raises(ValueError, match="meeting a target"):
         StoragePolicyAssessment(
             digital_asset_id=asset_id,

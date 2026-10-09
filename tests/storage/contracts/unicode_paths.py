@@ -11,13 +11,11 @@ an optional dependency was exercised in a particular test run.
 from __future__ import annotations
 
 import dataclasses
-
 from collections.abc import Callable, Iterable
 from typing import Any
 
 from LiuXin_alpha.storage.api import FileInfo, Location, StoreAPI
 from tests.fixtures.storage_unicode import StoragePathCase
-
 
 UNICODE_CONTRACT_BACKEND_KINDS = frozenset(
     {
@@ -27,6 +25,7 @@ UNICODE_CONTRACT_BACKEND_KINDS = frozenset(
         "http_readonly",
         "iso_readonly",
         "iso_writable",
+        "memory",
         "native_html_readonly",
         "on_disk_calibre_like",
         "on_disk_existing_managed_drive",
@@ -112,9 +111,7 @@ def exercise_unicode_path_case(
     expected_key = case.key if key is None else key
     stored = None if seed is None else seed(expected_key, case.payload)
     discovered = [
-        location
-        for location in store.iter_locations()
-        if location.key == expected_key
+        location for location in store.iter_locations() if location.key == expected_key
     ]
     assert len(discovered) == 1, (
         f"{store.store_kind} inventory did not return exactly one {expected_key!r}"
@@ -133,8 +130,9 @@ def exercise_unicode_path_case(
     if case.payload:
         offset = min(1, len(case.payload))
         length = min(7, len(case.payload) - offset)
-        assert store.read_file(location, offset=offset, length=length) == (
-            case.payload[offset : offset + length]
+        assert (
+            store.read_file(location, offset=offset, length=length)
+            == (case.payload[offset : offset + length])
         )
     uri = store.location_uri(location)
     if check_uri_round_trip:

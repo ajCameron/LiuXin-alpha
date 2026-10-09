@@ -55,7 +55,7 @@ from LiuXin_alpha.storage.reconcile import (
     register_existing_disk_as_unmanaged_store,
     register_rclone_http_readonly_store_files,
 )
-from LiuXin_alpha.storage.store_manager import StorageBootstrapReport, StorageManager
+from LiuXin_alpha.storage.durable_manager import StorageBootstrapReport, StorageManager
 
 
 class Library:

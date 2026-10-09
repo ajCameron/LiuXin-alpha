@@ -20,6 +20,8 @@ from LiuXin_alpha.storage.api.storage_manager_api.models.composites import (
     CompositeDigitalAssetRecord,
 )
 from LiuXin_alpha.storage.api.storage_manager_api.models.replicas import (
+    CompositeDigitalAssetMemberVerificationReport,
+    CompositeDigitalAssetVerificationReport,
     DigitalAssetIngestResult,
     DigitalAssetVerificationReport,
     ReplicaDeclaration,
@@ -32,6 +34,7 @@ from LiuXin_alpha.storage.api.storage_manager_api.models.replicas import (
 )
 from LiuXin_alpha.storage.api.storage_manager_api.models.resolutions import (
     CompositeDigitalAssetMemberResolution,
+    CompositeDigitalAssetResolution,
     DigitalAssetResolution,
     ItemDigitalAssetResolution,
 )
@@ -43,6 +46,8 @@ from LiuXin_alpha.storage.api.storage_manager_api.models.derivations import (
     DigitalAssetDerivationKind,
     DigitalAssetDerivationSourceReference,
     DigitalAssetRecreationPlan,
+    ExternalReproductionCommand,
+    ReproductionNormalizationDigest,
     ReproductionRecipeArtifactReference,
     ReproductionRecipeInputReference,
     Reproducibility,
@@ -59,13 +64,18 @@ from LiuXin_alpha.storage.api.storage_manager_api.models.identifiers import (
 )
 from LiuXin_alpha.storage.api.storage_manager_api.models.operational import (
     StorageOperationalIssue,
+    StorageOperationalRecoverability,
     StorageOperationalSeverity,
     StorageOperationalStatus,
     StorageRecoveryAction,
 )
 from LiuXin_alpha.storage.api.storage_manager_api.models.policies import (
+    CompositeDigitalAssetMemberStorageAssessment,
+    CompositeDigitalAssetStorageAssessment,
     DigitalAssetLossAction,
     DigitalAssetBackupPlan,
+    DigitalAssetReplacementAssessment,
+    DigitalAssetReplacementStatus,
     BackupPolicy,
     BackupPolicyRecord,
     DigitalAssetStorageAssessment,
@@ -96,6 +106,8 @@ __all__ = [
     "DigitalAssetDerivationRecord",
     "DigitalAssetLossAction",
     "DigitalAssetBackupPlan",
+    "DigitalAssetReplacementAssessment",
+    "DigitalAssetReplacementStatus",
     "BackupPolicy",
     "BackupPolicyID",
     "BackupPolicyRecord",
@@ -103,6 +115,11 @@ __all__ = [
     "CompositeDigitalAssetDeclaration",
     "CompositeDigitalAssetID",
     "CompositeDigitalAssetMemberResolution",
+    "CompositeDigitalAssetMemberStorageAssessment",
+    "CompositeDigitalAssetMemberVerificationReport",
+    "CompositeDigitalAssetResolution",
+    "CompositeDigitalAssetStorageAssessment",
+    "CompositeDigitalAssetVerificationReport",
     "CompositeDigitalAssetMembership",
     "CompositeDigitalAssetRecord",
     "DigitalAssetDeclaration",
@@ -116,12 +133,14 @@ __all__ = [
     "DigitalAssetDerivationKind",
     "DigitalAssetDerivationSourceReference",
     "DigitalAssetRecreationPlan",
+    "ExternalReproductionCommand",
     "ReplicaSeparationDimension",
     "ItemDigitalAssetResolution",
     "ItemID",
     "StoreReconciliationPlan",
     "StoreReconciliationReport",
     "ReproductionRecipeArtifactReference",
+    "ReproductionNormalizationDigest",
     "ReproductionRecipeInputReference",
     "ReplicaDeclaration",
     "ReplicaID",
@@ -143,6 +162,7 @@ __all__ = [
     "StoreBackingReference",
     "StoragePolicyAssessment",
     "StorageOperationalIssue",
+    "StorageOperationalRecoverability",
     "StorageOperationalSeverity",
     "StorageOperationalStatus",
     "StorageRecoveryAction",

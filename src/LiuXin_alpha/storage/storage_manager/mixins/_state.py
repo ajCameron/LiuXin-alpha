@@ -9,11 +9,14 @@ state and transaction behavior elsewhere in the manager composition.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections import deque
+from collections.abc import Iterable, MutableMapping
 from threading import RLock
 from uuid import UUID
 
-import LiuXin_alpha.storage.api as api
+from LiuXin_alpha.storage.api import models as storage_models
+from LiuXin_alpha.storage.api import storage_manager_api as manager_api
+from LiuXin_alpha.storage.api import store_api
 from LiuXin_alpha.storage.api.storage_manager_api import StorageManagerAPI
 from LiuXin_alpha.storage.storage_manager.mixins._contracts import (
     _StorageManagerMechanics,
@@ -51,10 +54,12 @@ class _StorageManagerState(
         *,
         store_registrations: Iterable[StoreRegistration] = (),
         store_factory: StoreFactory | None = None,
-        default_store_ref: api.StoreUUID | None = None,
-        default_replication_policy: api.ReplicationPolicy | None = None,
-        default_backup_policy: api.BackupPolicy | None = None,
-        artifact_resolver: (api.ReproductionRecipeArtifactResolverAPI | None) = None,
+        default_store_ref: storage_models.StoreUUID | None = None,
+        default_replication_policy: manager_api.ReplicationPolicy | None = None,
+        default_backup_policy: manager_api.BackupPolicy | None = None,
+        artifact_resolver: (
+            manager_api.ReproductionRecipeArtifactResolverAPI | None
+        ) = None,
     ) -> None:
         """
         Allocate empty state, retain configured helpers/default policies, and attach supplied Stores
@@ -88,27 +93,41 @@ class _StorageManagerState(
         self._lock = RLock()
         self._store_factory = store_factory
         self._artifact_resolver = artifact_resolver
-        self._store_configurations: dict[api.StoreUUID, api.StoreConfiguration] = {}
-        self._stores: dict[api.StoreUUID, api.StoreAPI] = {}
+        self._store_configurations: dict[
+            storage_models.StoreUUID, manager_api.StoreConfiguration
+        ] = {}
+        self._stores: dict[storage_models.StoreUUID, store_api.StoreAPI] = {}
         self._default_store_ref = default_store_ref
 
-        self._assets: dict[api.DigitalAssetID, api.DigitalAssetRecord] = {}
-        self._replicas: dict[api.ReplicaID, api.ReplicaRecord] = {}
-        self._composites: dict[
-            api.CompositeDigitalAssetID, api.CompositeDigitalAssetRecord
+        self._assets: MutableMapping[
+            manager_api.DigitalAssetID, manager_api.DigitalAssetRecord
         ] = {}
-        self._derivations: dict[
-            api.DigitalAssetDerivationID, api.DigitalAssetDerivationRecord
+        self._replicas: MutableMapping[
+            manager_api.ReplicaID, manager_api.ReplicaRecord
         ] = {}
-        self._replication_policies: dict[
-            api.ReplicationPolicyID, api.ReplicationPolicyRecord
+        self._composites: MutableMapping[
+            manager_api.CompositeDigitalAssetID, manager_api.CompositeDigitalAssetRecord
         ] = {}
-        self._backup_policies: dict[api.BackupPolicyID, api.BackupPolicyRecord] = {}
-        self._item_targets: dict[tuple[api.ItemID, str], _ItemTarget] = {}
-        self._ingest_operations: dict[UUID, _IngestOperation] = {}
+        self._derivations: MutableMapping[
+            manager_api.DigitalAssetDerivationID,
+            manager_api.DigitalAssetDerivationRecord,
+        ] = {}
+        self._replication_policies: MutableMapping[
+            manager_api.ReplicationPolicyID, manager_api.ReplicationPolicyRecord
+        ] = {}
+        self._backup_policies: MutableMapping[
+            manager_api.BackupPolicyID, manager_api.BackupPolicyRecord
+        ] = {}
+        self._item_targets: MutableMapping[
+            tuple[manager_api.ItemID, str], _ItemTarget
+        ] = {}
+        self._ingest_operations: MutableMapping[UUID, _IngestOperation] = {}
         self._ingest_identity_locks: dict[
-            tuple[int, tuple[api.Digest, ...]], RLock
+            tuple[int, tuple[storage_models.Digest, ...]], RLock
         ] = {}
+        self._operational_status_history: deque[
+            manager_api.StorageOperationalStatus
+        ] = deque(maxlen=100)
 
         self._next_asset_id = 1
         self._next_replica_id = 1
@@ -120,12 +139,12 @@ class _StorageManagerState(
         self._replica_generation = 0
 
         self._default_replication_policy = (
-            api.ReplicationPolicy()
+            manager_api.ReplicationPolicy()
             if default_replication_policy is None
             else default_replication_policy
         )
         self._default_backup_policy = (
-            api.BackupPolicy()
+            manager_api.BackupPolicy()
             if default_backup_policy is None
             else default_backup_policy
         )

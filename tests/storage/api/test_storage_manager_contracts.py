@@ -17,16 +17,36 @@ import pytest
 
 from LiuXin_alpha.storage.api import (
     Digest,
-    StorageManagementError,
     StorageBootstrapReport,
+    StorageManagementError,
     StoreAlreadyExists,
     StoreConfiguration,
     StoreConfigurationNotFound,
     StoreUnavailable,
 )
-from LiuXin_alpha.storage.store_manager import StorageManager
+from LiuXin_alpha.storage.durable_manager import StorageManager
 from LiuXin_alpha.storage.storage_manager import TransientStorageManager
-from LiuXin_alpha.storage.stores import FilesystemStore
+from LiuXin_alpha.storage.stores import FilesystemStore, MemoryStore
+
+
+def test_storage_developer_guide_quickstart_is_executable() -> None:
+    """Keep the in-memory introductory workflow aligned with Replica-mode policy.
+
+    Example:
+        >>> test_storage_developer_guide_quickstart_is_executable()
+
+    :return: None after the documented payload is stored and read through a transient Replica.
+    """
+
+    with StorageManager(stores=(MemoryStore(name="scratch"),)) as manager:
+        asset = manager.store_bytes(
+            b"book",
+            name="book.epub",
+            replica_mode="transient",
+        )
+        payload = manager.read_asset(asset, replica_mode="transient")
+
+    assert payload == b"book"
 
 
 def _store(path: Path, name: str) -> FilesystemStore:
@@ -108,7 +128,7 @@ def test_manager_registration_is_uuid_routed_and_duplicate_safe(tmp_path: Path) 
     manager = StorageManager(stores=[first], startup_on_add=False)
 
     with pytest.raises(StoreAlreadyExists):
-        manager.add_store(second, startup=False)
+        manager.add_store_instance(second, startup=False)
     with pytest.raises(StoreConfigurationNotFound):
         manager.get_store(uuid4())
 
@@ -156,18 +176,18 @@ def test_manager_adds_filesystem_store_from_a_path_without_configuration_boilerp
         assert root.is_dir()
 
 
-def test_concrete_manager_add_store_supports_generic_and_object_forms(
+def test_concrete_manager_separates_store_creation_from_object_attachment(
     tmp_path: Path,
 ) -> None:
     """
-    Check positional and keyword configuration forms alongside attachment of an existing Store.
+    Check positional and keyword configuration forms alongside explicit object attachment.
 
     Configured filesystem Stores start successfully, while the attached object retains identity.
-    Extra configuration arguments with an existing Store raise TypeError. The manager context closes
-    the attached Stores.
+    The distinct method names keep configuration creation and dependency injection unambiguous. The
+    manager context closes the attached Stores.
 
     Example:
-        >>> test_concrete_manager_add_store_supports_generic_and_object_forms(tmp_path)  # doctest: +SKIP
+        >>> test_concrete_manager_separates_store_creation_from_object_attachment(tmp_path)  # doctest: +SKIP
 
 
     :param tmp_path: Temporary root for filesystem Store paths; catalogue rows and manager metadata are disposable test state.
@@ -181,31 +201,26 @@ def test_concrete_manager_add_store_supports_generic_and_object_forms(
             "filesystem",
             tmp_path / "generic",
             protocol="file",
-            startup=True,
+            start=True,
         )
         keyword = manager.add_store(
             name="keyword",
             kind="filesystem",
             root=tmp_path / "keyword",
         )
-        attached_configuration = manager.add_store(attached)
+        attached_configuration = manager.add_store_instance(attached)
 
-        assert generic.store_root_uri == (
-            tmp_path / "generic"
-        ).resolve().as_uri()
+        assert generic.store_root_uri == (tmp_path / "generic").resolve().as_uri()
         assert manager.get_store(generic.store_uuid).status().available
-        assert keyword.store_root_uri == (
-            tmp_path / "keyword"
-        ).resolve().as_uri()
+        assert keyword.store_root_uri == (tmp_path / "keyword").resolve().as_uri()
         assert manager.get_store(keyword.store_uuid).status().available
         assert attached_configuration == attached.configuration
         assert manager.get_store(attached.store_ref) is attached
 
-        with pytest.raises(TypeError, match="only configuration and startup"):
-            manager.add_store(attached, "filesystem", tmp_path / "invalid")
 
-
-def test_manager_convenience_stores_and_reads_by_asset_id_or_hash(tmp_path: Path) -> None:
+def test_manager_convenience_stores_and_reads_by_asset_id_or_hash(
+    tmp_path: Path,
+) -> None:
     """
     Round-trip real filesystem bytes through Asset ID, Digest, digest-text, and range lookups.
 
@@ -227,11 +242,7 @@ def test_manager_convenience_stores_and_reads_by_asset_id_or_hash(tmp_path: Path
         original_name="book.epub",
         verify=True,
     )
-    digest = next(
-        digest
-        for digest in asset.digests
-        if digest.algorithm == "sha256"
-    )
+    digest = next(digest for digest in asset.digests if digest.algorithm == "sha256")
 
     assert manager.read_file(asset.digital_asset_id) == b"manager-payload"
     assert manager.read_file(digest) == b"manager-payload"
@@ -281,6 +292,7 @@ class _RowsDatabase:
         >>> database.get_row_from_id("stores", 1)
         {'store_id': 1}
     """
+
     def __init__(self, rows):
         """
         Retain the supplied rows without copying their list or dictionaries.
@@ -365,6 +377,7 @@ class _RowsMacros:
         >>> rows[0]["store_name"]
         'archive'
     """
+
     def __init__(self, rows):
         """
         Retain the same mutable row list exposed by the companion database double.
@@ -419,6 +432,7 @@ class _WritableRowsDatabase(_RowsDatabase):
         >>> database.macros.rows is database.rows is rows
         True
     """
+
     def __init__(self, rows):
         """
         Initialize the read interface and attach macros over the same row list.
@@ -447,6 +461,7 @@ class _IncompleteCatalogueDatabase(_RowsDatabase):
         >>> _IncompleteCatalogueDatabase([]).get_tables()
         ['stores', 'digital_assets']
     """
+
     def get_tables(self):
         """
         Report Store and Asset table names while leaving the catalogue incomplete.
@@ -574,7 +589,9 @@ def test_database_rows_without_uuid_get_stable_derived_identity(tmp_path: Path) 
     assert first.store_uuid == second.store_uuid
 
 
-def test_database_bootstrap_persists_a_derived_legacy_store_uuid(tmp_path: Path) -> None:
+def test_database_bootstrap_persists_a_derived_legacy_store_uuid(
+    tmp_path: Path,
+) -> None:
     """
     Observe bootstrap write a derived UUID through the fake Store-row update hook.
 
@@ -647,9 +664,7 @@ def test_database_bound_reload_reconciles_added_changed_and_removed_rows(
     first_primary = manager.get_store(primary_ref)
 
     primary_row["store_name"] = "primary-renamed"
-    primary_row["store_root_uri"] = (
-        tmp_path / "primary-v2"
-    ).resolve().as_uri()
+    primary_row["store_root_uri"] = (tmp_path / "primary-v2").resolve().as_uri()
     database.rows.append(archive_row)
     changed = manager.reload_stores()
 
@@ -932,11 +947,14 @@ def test_manager_factory_can_create_configured_store_without_manual_construction
 
     store = manager.get_store(configuration.store_uuid)
     assert store.store_ref == configuration.store_uuid
-    assert store.store_bytes(
-        b"created",
-        location="created.bin",
-        expected_digest=Digest(
-            "sha256",
-            "406effb1e9c59672c66a598c2b21e331b23b16c54024e96d6df3e7c173549791",
-        ),
-    ).size == 7
+    assert (
+        store.store_bytes(
+            b"created",
+            location="created.bin",
+            expected_digest=Digest(
+                "sha256",
+                "406effb1e9c59672c66a598c2b21e331b23b16c54024e96d6df3e7c173549791",
+            ),
+        ).size
+        == 7
+    )

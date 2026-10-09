@@ -27,7 +27,7 @@ from _example_utils import (  # pyright: ignore[reportImplicitRelativeImport]
 _ = bootstrap_src_path()
 
 from LiuXin_alpha.databases.database import Database
-from LiuXin_alpha.storage.store_manager import StorageManager
+from LiuXin_alpha.storage.durable_manager import StorageManager
 from LiuXin_alpha.storage.stores import FilesystemStore
 
 

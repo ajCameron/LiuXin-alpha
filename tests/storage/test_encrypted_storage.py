@@ -267,6 +267,7 @@ def test_known_size_encrypted_writes_stream_into_inner_staging(tmp_path) -> None
             "sha256", hashlib.sha256(payload).hexdigest()
         ),
     ) as session:
+        assert session.location == location
         session.write(payload)
         assert list(staging.iterdir()) == []
         assert list(inner.iter_locations()) == []

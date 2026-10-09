@@ -9,6 +9,8 @@ current physical availability.
 from __future__ import annotations
 
 import dataclasses
+from collections.abc import Iterator
+from typing import overload
 
 from LiuXin_alpha.storage.api.models import Location
 from LiuXin_alpha.storage.api.storage_manager_api.models.asset_identity import (
@@ -62,13 +64,8 @@ class DigitalAssetResolution:
         :return: None when the Asset IDs agree; disagreement raises ValueError.
         """
 
-        if (
-            self.asset_record.digital_asset_id
-            != self.replica_record.digital_asset_id
-        ):
-            raise ValueError(
-                "Replica does not belong to the resolved Digital Asset."
-            )
+        if self.asset_record.digital_asset_id != self.replica_record.digital_asset_id:
+            raise ValueError("Replica does not belong to the resolved Digital Asset.")
 
     @property
     def location(self) -> Location:
@@ -132,9 +129,7 @@ class CompositeDigitalAssetMemberResolution:
             self.membership.digital_asset_id
             != self.resolution.asset_record.digital_asset_id
         ):
-            raise ValueError(
-                "resolved Asset does not match the Composite member."
-            )
+            raise ValueError("resolved Asset does not match the Composite member.")
 
     @property
     def location(self) -> Location:
@@ -149,6 +144,114 @@ class CompositeDigitalAssetMemberResolution:
         """
 
         return self.resolution.location
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class CompositeDigitalAssetResolution:
+    """
+    Retain one Composite record together with its currently selected member Replicas.
+
+    Every supplied relationship must belong to the retained Composite and every required
+    relationship must be represented. Optional unavailable relationships may be absent. The value
+    is sequence-compatible for migration from the former bare member tuple: iteration, length, and
+    indexing operate on ``member_resolutions`` while the Composite identity remains available.
+
+    Construction validates relationship coverage, not current byte readability or an atomic
+    cross-Store snapshot. Duplicate member-resolution values remain retained, although set-based
+    coverage validation collapses equal relationships.
+
+    Example:
+        >>> len(composite_resolution) == len(composite_resolution.member_resolutions)  # doctest: +SKIP
+        True
+
+    :ivar composite_digital_asset_record: Composite identity and complete declared membership.
+    :ivar member_resolutions: Available member selections in delivery order.
+    """
+
+    composite_digital_asset_record: CompositeDigitalAssetRecord
+    member_resolutions: tuple[CompositeDigitalAssetMemberResolution, ...] = ()
+
+    def __post_init__(self) -> None:
+        """
+        Require every resolved relationship to be declared and every required relationship resolved.
+
+        Relationship equality includes Asset identity, sequence, role, names, path, title, and
+        required status. The checks do not require optional members, enforce order, or revalidate the
+        nested Asset/Replica records.
+
+        :return: None for valid coverage; undeclared or missing required relationships raise ValueError.
+        """
+
+        declared_members = set(self.composite_digital_asset_record.members)
+        resolved_relationships = {
+            member.membership for member in self.member_resolutions
+        }
+        if not resolved_relationships <= declared_members:
+            raise ValueError(
+                "resolved member does not belong to the selected Composite."
+            )
+        required_members = {
+            member
+            for member in self.composite_digital_asset_record.members
+            if member.required
+        }
+        if not required_members <= resolved_relationships:
+            raise ValueError("a required Composite member has not been resolved.")
+
+    def __len__(self) -> int:
+        """Return the number of retained available member selections."""
+
+        return len(self.member_resolutions)
+
+    def __iter__(self) -> Iterator[CompositeDigitalAssetMemberResolution]:
+        """Iterate retained member selections in delivery order."""
+
+        return iter(self.member_resolutions)
+
+    @overload
+    def __getitem__(
+        self,
+        index: int,
+    ) -> CompositeDigitalAssetMemberResolution:
+        """Describe integer indexing for static type checkers.
+
+        Example:
+            >>> resolution[0]  # doctest: +SKIP
+        """
+        ...
+
+    @overload
+    def __getitem__(
+        self,
+        index: slice,
+    ) -> tuple[CompositeDigitalAssetMemberResolution, ...]:
+        """Describe slice indexing for static type checkers.
+
+        Example:
+            >>> resolution[:1]  # doctest: +SKIP
+        """
+        ...
+
+    def __getitem__(
+        self,
+        index: int | slice,
+    ) -> (
+        CompositeDigitalAssetMemberResolution
+        | tuple[CompositeDigitalAssetMemberResolution, ...]
+    ):
+        """Return one member or a tuple slice using ordinary tuple indexing semantics."""
+
+        return self.member_resolutions[index]
+
+    @property
+    def locations(self) -> tuple[Location, ...]:
+        """
+        Project each selected member Location without performing another resolution.
+
+        :return: Locations in retained member delivery order, including duplicates.
+        """
+
+        return tuple(member.location for member in self.member_resolutions)
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -179,9 +282,7 @@ class ItemDigitalAssetResolution:
     role: str
     digital_asset_resolution: DigitalAssetResolution | None = None
     composite_digital_asset_record: CompositeDigitalAssetRecord | None = None
-    composite_member_resolutions: tuple[
-        CompositeDigitalAssetMemberResolution, ...
-    ] = ()
+    composite_member_resolutions: tuple[CompositeDigitalAssetMemberResolution, ...] = ()
 
     def __post_init__(self) -> None:
         """
@@ -210,9 +311,7 @@ class ItemDigitalAssetResolution:
         if (self.digital_asset_resolution is None) == (
             self.composite_digital_asset_record is None
         ):
-            raise ValueError(
-                "exactly one atomic or Composite Asset is required."
-            )
+            raise ValueError("exactly one atomic or Composite Asset is required.")
         if not self.role.strip():
             raise ValueError("role must not be empty.")
         if self.item_id <= 0:
@@ -227,8 +326,7 @@ class ItemDigitalAssetResolution:
         if self.composite_digital_asset_record is not None:
             declared_members = set(self.composite_digital_asset_record.members)
             resolved_relationships = {
-                member.membership
-                for member in self.composite_member_resolutions
+                member.membership for member in self.composite_member_resolutions
             }
             if not resolved_relationships <= declared_members:
                 raise ValueError(
@@ -240,9 +338,7 @@ class ItemDigitalAssetResolution:
                 if member.required
             }
             if not required_members <= resolved_relationships:
-                raise ValueError(
-                    "a required Composite member has not been resolved."
-                )
+                raise ValueError("a required Composite member has not been resolved.")
 
     @property
     def locations(self) -> tuple[Location, ...]:
@@ -262,13 +358,12 @@ class ItemDigitalAssetResolution:
 
         if self.digital_asset_resolution is not None:
             return (self.digital_asset_resolution.location,)
-        return tuple(
-            member.location for member in self.composite_member_resolutions
-        )
+        return tuple(member.location for member in self.composite_member_resolutions)
 
 
 __all__ = [
     "CompositeDigitalAssetMemberResolution",
+    "CompositeDigitalAssetResolution",
     "DigitalAssetResolution",
     "ItemDigitalAssetResolution",
 ]

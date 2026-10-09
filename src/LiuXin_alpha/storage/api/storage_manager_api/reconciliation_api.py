@@ -15,7 +15,6 @@ from LiuXin_alpha.storage.api.storage_manager_api.models import (
 )
 
 
-# Todo: What is reconciliation? I think I know, but some clarity would be good.
 class StorageReconciliationAPI(abc.ABC):
     """
     Separate inventory comparison from applying classified Replica observations.
@@ -32,7 +31,6 @@ class StorageReconciliationAPI(abc.ABC):
     @abc.abstractmethod
     def plan_reconciliation(
         self,
-        # Todo: If this is a StoreUUID ... call it that?
         store_ref: StoreUUID,
         *,
         verify_digests: bool = False,
@@ -57,7 +55,6 @@ class StorageReconciliationAPI(abc.ABC):
         """
         ...
 
-    # Todo: Not clear what this plan is intended to do...
     @abc.abstractmethod
     def apply_reconciliation(
         self,

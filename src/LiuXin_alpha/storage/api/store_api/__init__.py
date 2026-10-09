@@ -21,10 +21,12 @@ from LiuXin_alpha.storage.api.store_api.file_api import (
     NativeImportStoreAPI,
     NativeCopyStoreAPI,
     NativeMoveStoreAPI,
+    StoreFileBase,
     StoreFileAPI,
     WriteSessionAPI,
 )
 from LiuXin_alpha.storage.api.store_api.convenience_api import (
+    StoreConvenienceBase,
     StoreConvenienceAPI,
     StoreFileIdentifier,
     StoreSource,
@@ -55,12 +57,16 @@ from LiuXin_alpha.storage.api.characteristics_api import (
 )
 
 
-from LiuXin_alpha.storage.api.store_api.driver_backed_api import DriverBackedStoreAPI
+from LiuXin_alpha.storage.api.store_api.driver_backed_api import (
+    DriverBackedStoreAPI,
+    DriverBackedStoreBase,
+)
 
 
 __all__ = [
     "DigestingStoreAPI",
     "DriverBackedStoreAPI",
+    "DriverBackedStoreBase",
     "IngestInventoryResume",
     "IngestMetadataAvailability",
     "IngestObjectDelivery",
@@ -70,8 +76,10 @@ __all__ = [
     "IngestSourceStoreAPI",
     "PreparedIngestObject",
     "StoreCoreAPI",
+    "StoreConvenienceBase",
     "StoreConvenienceAPI",
     "StoreFileIdentifier",
+    "StoreFileBase",
     "StoreSource",
     "NativeCopyStoreAPI",
     "NativeImportStoreAPI",

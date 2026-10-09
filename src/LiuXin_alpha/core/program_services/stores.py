@@ -353,7 +353,7 @@ def storage_backends_list(
     :param query: Query with optional truth-tested include_internal, defaulting to False.
     :return: Backend descriptor list, count, and non-secret configuration guidance.
     """
-    from LiuXin_alpha.storage.backend_registry import (
+    from LiuXin_alpha.storage.utils.backend_registry import (
         DEFAULT_BACKEND_REGISTRY,
     )
 

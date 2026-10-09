@@ -19,7 +19,7 @@ from uuid import UUID
 
 from LiuXin_alpha.core.program_services.payloads import _payload, plain
 from LiuXin_alpha.storage import api as storage_api
-from LiuXin_alpha.storage.store_spec_utils import store_configuration_from_row
+from LiuXin_alpha.storage.utils.store_configuration import store_configuration_from_row
 
 if TYPE_CHECKING:
     from LiuXin_alpha.core.queries import CoreQuery

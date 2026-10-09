@@ -1,11 +1,15 @@
 """
-Describe backup sources, durable intent, checkpoints, outcomes, and pack estimates.
+Describe backup sources, persisted workflow declarations, checkpoints, outcomes, and pack estimates.
 
 Frozen dataclasses enforce selected local invariants without reading bytes or resolving
 catalogue references. They do not generally coerce enum/identifier types or deep-copy
 collections. Member paths use the shared lexical normalizer; option pairs alone receive
 canonical string conversion and ordering. Successful result flags are reported state,
 not a fresh verification of the referenced artifact.
+
+A BackupWorkflowDeclaration becomes durable workflow intent only after a repository
+persists it. Checkpoints retain the same declaration so resumed work can be rejected
+when its requested targets, sources, or build options no longer match that intent.
 """
 
 from __future__ import annotations
@@ -190,7 +194,7 @@ class BackupSourceDeclaration:
 @dataclasses.dataclass(slots=True, frozen=True)
 class BackupWorkflowDeclaration:
     """
-    Collect backup intent, ordered sources, and implementation-specific build settings.
+    Collect persistable backup intent, ordered sources, and implementation-specific build settings.
 
     Frozen fields prevent reassignment but do not deep-copy caller-supplied sources or normalize
     them to a tuple. Only options are stringified, sorted, and tuple-collected. Construction permits
@@ -263,8 +267,8 @@ class BackupWorkflowDeclaration:
         option_keys = tuple(key for key, _value in normalized_options)
         if len(option_keys) != len(set(option_keys)):
             raise ValueError("backup workflow option keys must be unique.")
-        # Options are map-like durable intent.  Canonical ordering keeps
-        # equality stable across JSON object persistence and reconstruction.
+        # Options become part of persisted workflow intent. Canonical ordering
+        # keeps equality stable across JSON object persistence and reconstruction.
         object.__setattr__(self, "options", normalized_options)
 
     def option_map(self) -> dict[str, str]:

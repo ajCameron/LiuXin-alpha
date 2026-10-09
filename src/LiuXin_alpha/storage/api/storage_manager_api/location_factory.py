@@ -17,7 +17,6 @@ from LiuXin_alpha.storage.api.storage_manager_api.models import (
 )
 
 
-# Todo: This could be public.
 class _AssetLocator(Protocol):
     """
     Describe the manager selection methods needed by LocationFactory. This structural typing seam

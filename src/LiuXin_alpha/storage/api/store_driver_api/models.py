@@ -22,6 +22,7 @@ from uuid import UUID
 
 from LiuXin_alpha.storage.api.errors import StorageInvalidAddress
 from LiuXin_alpha.storage.api.models import Digest, EnumerationCompleteness
+from LiuXin_alpha.storage.utils.validation import require_unique_metadata
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -254,7 +255,7 @@ class DriverObjectHints:
             raise ValueError("suggested_filename must not be empty.")
         if self.media_type == "":
             raise ValueError("media_type must not be empty.")
-        _require_unique_metadata(self.metadata)
+        require_unique_metadata(self.metadata)
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -316,7 +317,6 @@ class DriverObjectInfo(Generic[DriverObjectAddressT]):
         _require_aware_datetime(self.modified_at, "modified_at")
 
 
-# Todo: What does a discovery hint mean in this context?
 @dataclasses.dataclass(slots=True, frozen=True)
 class DriverInventoryEntry(Generic[DriverObjectAddressT]):
     """
@@ -377,7 +377,6 @@ class DriverInventoryEntry(Generic[DriverObjectAddressT]):
         _require_aware_datetime(self.modified_at, "modified_at")
 
 
-# Todo: Emphasize that this is only used for some drivers
 @dataclasses.dataclass(slots=True, frozen=True)
 class DriverInventoryPage(Generic[DriverObjectAddressT]):
     """
@@ -417,7 +416,6 @@ class DriverInventoryPage(Generic[DriverObjectAddressT]):
 
         :return: None after rejecting exact empty cursor/snapshot strings and duplicate addresses within this page.
         """
-        # Todo: Also check if explicitly None?
         if self.next_cursor == "":
             raise ValueError("driver inventory cursor must not be empty.")
         if self.snapshot_token == "":
@@ -700,27 +698,7 @@ class DriverStatus:
         ):
             raise ValueError("free_bytes must not exceed total_bytes.")
         _require_aware_datetime(self.checked_at, "checked_at")
-        _require_unique_metadata(self.details)
-
-
-# Todo: Again, should be in utils. Not here.
-def _require_unique_metadata(metadata: tuple[tuple[str, str], ...]) -> None:
-    """
-    Reject duplicate native metadata keys.
-
-    This helper neither rejects empty keys nor validates the declared string types. It leaves the
-    original sequence unchanged.
-
-    Example:
-        >>> _require_unique_metadata((("kind", "file"),))
-
-
-    :param metadata: Ordered key/value pairs; keys must be hashable for duplicate detection.
-    :return: None for unique keys; duplicate keys raise ValueError and malformed pairs propagate their ordinary errors.
-    """
-    keys = tuple(key for key, _value in metadata)
-    if len(keys) != len(set(keys)):
-        raise ValueError("driver metadata keys must be unique.")
+        require_unique_metadata(self.details)
 
 
 def _require_aware_datetime(value: datetime | None, field_name: str) -> None:

@@ -6,8 +6,6 @@ those operations with explicit stream lifetimes and failure boundaries; they
 do not create catalogue records or atomic transactions across Stores.
 """
 
-# Todo: Not very clear why this is called router, or what it does in this context
-
 from __future__ import annotations
 
 import abc
@@ -145,7 +143,6 @@ class StorageRouterAPI(abc.ABC):
         """
         ...
 
-    # Todo: Add the capacity - or another method - to call by store id
     @abc.abstractmethod
     def capabilities(self, store_ref: StoreUUID) -> StoreCapabilities:
         """
@@ -163,8 +160,6 @@ class StorageRouterAPI(abc.ABC):
         """
         ...
 
-    # Todo: This does... not seem to a router method
-    # Todo: It would be good if we could check the status via store id
     def characteristics(self, store_ref: StoreUUID) -> StorageCharacteristics:
         """
         Return a new all-unknown characteristics profile without looking up the Store. This
@@ -182,8 +177,6 @@ class StorageRouterAPI(abc.ABC):
         del store_ref
         return StorageCharacteristics()
 
-    # Todo: Would be good to be able to get the status for all stores at once
-    # Todo: Some kinda method - is the manager happy or not?
     @abc.abstractmethod
     def status(self, store_ref: StoreUUID) -> StoreStatus:
         """
@@ -199,7 +192,6 @@ class StorageRouterAPI(abc.ABC):
         """
         ...
 
-    # Todo: Do we need both Location and BoundLocation?
     def bind(self, location: Location) -> BoundLocation:
         """
         Create a fresh operational handle retaining this router and the exact Location. Construction
@@ -218,8 +210,6 @@ class StorageRouterAPI(abc.ABC):
 
         return BoundLocation(self, location)
 
-    # Todo: safe_stat better name - likewise for the rest of these types of methods
-    # Todo: safe_* method for quite a lot of the rest of this interface would be good
     def try_stat(self, location: Location) -> FileInfo | None:
         """
         Call stat and suppress only StoreNotFound. Unknown configuration, unavailable Stores,

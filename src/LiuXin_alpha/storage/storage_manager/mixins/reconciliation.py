@@ -13,7 +13,9 @@ from datetime import UTC, datetime
 from typing import override
 from uuid import uuid4
 
-import LiuXin_alpha.storage.api as api
+from LiuXin_alpha.storage.api import errors as storage_errors
+from LiuXin_alpha.storage.api import models as storage_models
+from LiuXin_alpha.storage.api import storage_manager_api as manager_api
 from LiuXin_alpha.storage.storage_manager.mixins._state import _StorageManagerState
 
 
@@ -34,10 +36,10 @@ class StorageReconciliationMixin(_StorageManagerState):
     @override
     def plan_reconciliation(
         self,
-        store_ref: api.StoreUUID,
+        store_ref: storage_models.StoreUUID,
         *,
         verify_digests: bool = False,
-    ) -> api.StoreReconciliationPlan:
+    ) -> manager_api.StoreReconciliationPlan:
         """
         Capture nondeleted claims, enumerate when supported, and classify each expected Replica.
 
@@ -68,29 +70,29 @@ class StorageReconciliationMixin(_StorageManagerState):
         expected = tuple(
             record
             for record in self.iter_replica_records(store_ref=store_ref)
-            if record.state is not api.ReplicaState.DELETED
+            if record.state is not manager_api.ReplicaState.DELETED
         )
-        inventory: set[api.Location] = set()
+        inventory: set[storage_models.Location] = set()
         warnings: list[str] = []
         errors: list[str] = []
-        if enumeration is api.EnumerationCompleteness.UNAVAILABLE:
+        if enumeration is storage_models.EnumerationCompleteness.UNAVAILABLE:
             warnings.append(
                 "Store cannot enumerate inventory; claims were checked individually."
             )
         else:
             try:
                 inventory.update(store.iter_locations())
-            except api.StorageError as error:
-                enumeration = api.EnumerationCompleteness.UNAVAILABLE
+            except storage_errors.StorageError as error:
+                enumeration = storage_models.EnumerationCompleteness.UNAVAILABLE
                 errors.append(f"inventory enumeration failed: {error}")
 
-        missing: list[api.ReplicaID] = []
-        corrupt: list[api.ReplicaID] = []
-        unavailable: list[api.ReplicaID] = []
+        missing: list[manager_api.ReplicaID] = []
+        corrupt: list[manager_api.ReplicaID] = []
+        unavailable: list[manager_api.ReplicaID] = []
         matched = 0
         for record in expected:
             if (
-                enumeration is api.EnumerationCompleteness.COMPLETE
+                enumeration is storage_models.EnumerationCompleteness.COMPLETE
                 and record.location not in inventory
             ):
                 missing.append(record.replica_id)
@@ -105,7 +107,7 @@ class StorageReconciliationMixin(_StorageManagerState):
             elif report.exists is None:
                 unavailable.append(record.replica_id)
                 errors.extend(report.errors)
-            elif report.state is api.ReplicaState.CORRUPT:
+            elif report.state is manager_api.ReplicaState.CORRUPT:
                 corrupt.append(record.replica_id)
                 inventory.add(record.location)
             else:
@@ -121,7 +123,7 @@ class StorageReconciliationMixin(_StorageManagerState):
         )
         with self._lock:
             repository_revision = str(self._replica_generation)
-        return api.StoreReconciliationPlan(
+        return manager_api.StoreReconciliationPlan(
             uuid4(),
             store_ref,
             verify_digests,
@@ -141,8 +143,8 @@ class StorageReconciliationMixin(_StorageManagerState):
     @override
     def apply_reconciliation(
         self,
-        plan: api.StoreReconciliationPlan,
-    ) -> api.StoreReconciliationReport:
+        plan: manager_api.StoreReconciliationPlan,
+    ) -> manager_api.StoreReconciliationReport:
         """
         Check the global Replica generation and replace the plan's adverse observations in order.
 
@@ -168,30 +170,30 @@ class StorageReconciliationMixin(_StorageManagerState):
 
         with self._lock, self._metadata_transaction():
             if plan.repository_revision != str(self._replica_generation):
-                raise api.StoreReconciliationPlanStale(
+                raise manager_api.StoreReconciliationPlanStale(
                     "Replica repository changed after reconciliation planning."
                 )
             classifications = (
-                (plan.missing_replica_ids, api.ReplicaState.MISSING),
-                (plan.corrupt_replica_ids, api.ReplicaState.CORRUPT),
-                (plan.unavailable_replica_ids, api.ReplicaState.UNAVAILABLE),
+                (plan.missing_replica_ids, manager_api.ReplicaState.MISSING),
+                (plan.corrupt_replica_ids, manager_api.ReplicaState.CORRUPT),
+                (plan.unavailable_replica_ids, manager_api.ReplicaState.UNAVAILABLE),
             )
-            updated: list[api.ReplicaID] = []
+            updated: list[manager_api.ReplicaID] = []
             for replica_ids, state in classifications:
                 for replica_id in replica_ids:
                     record = self._require_replica_locked(replica_id)
                     if record.location.store_ref != plan.store_ref:
-                        raise api.StoreReconciliationPlanStale(
+                        raise manager_api.StoreReconciliationPlanStale(
                             "reconciliation plan contains a Replica from another Store."
                         )
                     self._replicas[replica_id] = dataclasses.replace(
                         record,
-                        observation=api.ReplicaObservation(
+                        observation=manager_api.ReplicaObservation(
                             state,
                             checked_at=datetime.now(UTC),
                             failure_reason=(
                                 "reconciliation observed missing bytes"
-                                if state is api.ReplicaState.MISSING
+                                if state is manager_api.ReplicaState.MISSING
                                 else "reconciliation could not confirm healthy bytes"
                             ),
                         ),
@@ -200,7 +202,7 @@ class StorageReconciliationMixin(_StorageManagerState):
                     updated.append(replica_id)
             if updated:
                 self._replica_generation += 1
-        return api.StoreReconciliationReport(
+        return manager_api.StoreReconciliationReport(
             plan,
             applied=True,
             updated_replica_ids=tuple(updated),

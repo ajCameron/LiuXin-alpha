@@ -9,6 +9,7 @@ belong to separate ingest and Replica operations.
 import abc
 
 from collections.abc import Iterator
+from enum import StrEnum
 
 from LiuXin_alpha.storage.api.models import Digest
 from LiuXin_alpha.storage.api.storage_manager_api.models import (
@@ -17,6 +18,22 @@ from LiuXin_alpha.storage.api.storage_manager_api.models import (
     DigitalAssetMetadata,
     DigitalAssetRecord,
 )
+
+
+class DigitalAssetRecordOrder(StrEnum):
+    """
+    Name stable catalogue ordering keys for Asset-record iteration.
+
+    ID follows manager identity, SIZE follows expected logical bytes, and descriptive fields compare
+    case-folded text. Ordering reads catalogue metadata only and says nothing about Replica
+    availability or physical Store layout.
+    """
+
+    ID = "id"
+    SIZE = "size"
+    NAME = "name"
+    MEDIA_TYPE = "media_type"
+    ORIGINAL_NAME = "original_name"
 
 
 class DigitalAssetRegistryAPI(abc.ABC):
@@ -31,9 +48,6 @@ class DigitalAssetRegistryAPI(abc.ABC):
         >>> asset = registry.get_digital_asset_record(asset_id)  # doctest: +SKIP
     """
 
-    # Todo: As a general design principle, "create declare, then add it" is one necessary step.
-    #  Just make the signature of the function the sig of the dataclass?
-    #  Use the declaration internally if it's needed
     @abc.abstractmethod
     def declare_digital_asset(
         self,
@@ -73,7 +87,6 @@ class DigitalAssetRegistryAPI(abc.ABC):
         """
         ...
 
-    # Todo: Methods to update all the metadata individually
     @abc.abstractmethod
     def update_digital_asset_metadata(
         self,
@@ -100,18 +113,94 @@ class DigitalAssetRegistryAPI(abc.ABC):
         """
         ...
 
-    # Todo: Add itterators with different ordering requirements
     @abc.abstractmethod
-    def iter_digital_asset_records(self) -> Iterator[DigitalAssetRecord]:
-        """
-        Iterate known Asset domain records without discovering physical Store contents.
+    def set_digital_asset_name(
+        self,
+        digital_asset_id: DigitalAssetID,
+        name: str | None,
+        *,
+        if_revision: str | None = None,
+    ) -> DigitalAssetRecord:
+        """Replace or clear only an Asset's display name while preserving other metadata fields.
 
-        Ordering and snapshot guarantees belong to the implementation.
+        :param digital_asset_id: Manager-assigned atomic Asset identity to update.
+        :param name: Nonblank display name, or None to clear it.
+        :param if_revision: Expected current revision, or None to omit the optimistic precondition.
+        :return: Updated Asset record with a new revision.
+        """
+        ...
+
+    @abc.abstractmethod
+    def set_digital_asset_media_type(
+        self,
+        digital_asset_id: DigitalAssetID,
+        media_type: str | None,
+        *,
+        if_revision: str | None = None,
+    ) -> DigitalAssetRecord:
+        """Replace or clear only an Asset's media type while preserving other metadata fields.
+
+        :param digital_asset_id: Manager-assigned atomic Asset identity to update.
+        :param media_type: Nonblank media-type text, or None to clear it.
+        :param if_revision: Expected current revision, or None to omit the optimistic precondition.
+        :return: Updated Asset record with a new revision.
+        """
+        ...
+
+    @abc.abstractmethod
+    def set_digital_asset_original_name(
+        self,
+        digital_asset_id: DigitalAssetID,
+        original_name: str | None,
+        *,
+        if_revision: str | None = None,
+    ) -> DigitalAssetRecord:
+        """Replace or clear only an Asset's original-name label.
+
+        :param digital_asset_id: Manager-assigned atomic Asset identity to update.
+        :param original_name: Nonblank filename/source label, or None to clear it.
+        :param if_revision: Expected current revision, or None to omit the optimistic precondition.
+        :return: Updated Asset record with a new revision.
+        """
+        ...
+
+    @abc.abstractmethod
+    def set_digital_asset_attributes(
+        self,
+        digital_asset_id: DigitalAssetID,
+        attributes: tuple[tuple[str, str], ...],
+        *,
+        if_revision: str | None = None,
+    ) -> DigitalAssetRecord:
+        """Replace only an Asset's ordered extension attributes.
+
+        :param digital_asset_id: Manager-assigned atomic Asset identity to update.
+        :param attributes: Complete replacement attribute pairs validated by DigitalAssetMetadata.
+        :param if_revision: Expected current revision, or None to omit the optimistic precondition.
+        :return: Updated Asset record with a new revision.
+        """
+        ...
+
+    @abc.abstractmethod
+    def iter_digital_asset_records(
+        self,
+        *,
+        order_by: DigitalAssetRecordOrder | str = DigitalAssetRecordOrder.ID,
+        descending: bool = False,
+    ) -> Iterator[DigitalAssetRecord]:
+        """
+        Iterate known Asset records in a requested deterministic catalogue order.
+
+        Descriptive ordering is case-insensitive and uses Asset ID as a stable tie breaker. Missing
+        descriptive values sort after present values in ascending order and before them when the
+        complete ordering is reversed. The operation does not discover physical Store contents.
 
         Example:
             >>> assets = tuple(registry.iter_digital_asset_records())  # doctest: +SKIP
 
 
+        :param order_by: ID, size, name, media type, or original-name enum/value.
+        :param descending: Whether to reverse the complete selected ordering.
         :return: Iterator of registered Asset records, including identities with no available Replica.
         """
         ...
@@ -166,4 +255,4 @@ class DigitalAssetRegistryAPI(abc.ABC):
         ...
 
 
-__all__ = ["DigitalAssetRegistryAPI"]
+__all__ = ["DigitalAssetRecordOrder", "DigitalAssetRegistryAPI"]

@@ -32,7 +32,7 @@ bootstrap_src_path()
 
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.storage.ingest import SquashfsDriveIngestWorkflow
-from LiuXin_alpha.storage.store_manager import StorageManager
+from LiuXin_alpha.storage.durable_manager import StorageManager
 
 
 def parse_args() -> argparse.Namespace:

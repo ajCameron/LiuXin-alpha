@@ -13,7 +13,10 @@ from collections.abc import Iterable, Iterator, Mapping
 from typing import cast, override
 from uuid import UUID
 
-import LiuXin_alpha.storage.api as api
+from LiuXin_alpha.storage.api import errors as storage_errors
+from LiuXin_alpha.storage.api import models as storage_models
+from LiuXin_alpha.storage.api import storage_manager_api as manager_api
+from LiuXin_alpha.storage.api import store_api
 from LiuXin_alpha.storage.storage_manager.mixins._state import _StorageManagerState
 from LiuXin_alpha.storage.storage_manager.mixins._types import (
     _backed_store_uuid,
@@ -37,14 +40,15 @@ class StoreAdministrationMixin(_StorageManagerState):
         >>> configuration = manager.create_store(configuration)  # doctest: +SKIP
     """
 
+    @override
     def attach_store(
         self,
-        configuration: api.StoreConfiguration,
-        store: api.StoreAPI,
+        configuration: manager_api.StoreConfiguration,
+        store: store_api.StoreAPI,
         *,
         startup: bool = True,
         replace_existing: bool = False,
-    ) -> api.StoreConfiguration:
+    ) -> manager_api.StoreConfiguration:
         """
         Require Store/configuration UUID agreement and registered default policies, then check
         duplicate configuration under the lock. Optional startup runs before registry replacement
@@ -67,14 +71,14 @@ class StoreAdministrationMixin(_StorageManagerState):
         """
 
         if store.store_ref != configuration.store_uuid:
-            raise api.StoreInvalidLocation(
+            raise storage_errors.StoreInvalidLocation(
                 "Store instance UUID does not match its manager configuration."
             )
         self._validate_store_policy_references(configuration)
         with self._lock:
             exists = configuration.store_uuid in self._store_configurations
             if exists and not replace_existing:
-                raise api.StoreAlreadyExists(str(configuration.store_uuid))
+                raise storage_errors.StoreAlreadyExists(str(configuration.store_uuid))
             old_store = self._stores.get(configuration.store_uuid)
         if startup:
             store.startup()
@@ -90,10 +94,10 @@ class StoreAdministrationMixin(_StorageManagerState):
     @override
     def create_store(
         self,
-        configuration: api.StoreConfiguration,
+        configuration: manager_api.StoreConfiguration,
         *,
         startup: bool = True,
-    ) -> api.StoreConfiguration:
+    ) -> manager_api.StoreConfiguration:
         """
         Require a configured factory and reject an already configured UUID, then construct a
         candidate and call attach_store. Factory lookup precedes duplicate checking. Candidate
@@ -111,7 +115,7 @@ class StoreAdministrationMixin(_StorageManagerState):
         factory = self._require_store_factory()
         with self._lock:
             if configuration.store_uuid in self._store_configurations:
-                raise api.StoreAlreadyExists(str(configuration.store_uuid))
+                raise storage_errors.StoreAlreadyExists(str(configuration.store_uuid))
         return self.attach_store(
             configuration,
             factory(configuration),
@@ -125,7 +129,7 @@ class StoreAdministrationMixin(_StorageManagerState):
         kind: str,
         root: str | os.PathLike[str],
         *,
-        store_uuid: api.StoreUUID | None = None,
+        store_uuid: storage_models.StoreUUID | None = None,
         url: str | None = None,
         protocol: str | None = None,
         failure_domain: str | None = None,
@@ -134,20 +138,22 @@ class StoreAdministrationMixin(_StorageManagerState):
         device: UUID | None = None,
         tags: Iterable[str] = (),
         replication: (
-            api.ReplicationPolicyID | api.ReplicationPolicyRecord | None
+            manager_api.ReplicationPolicyID | manager_api.ReplicationPolicyRecord | None
         ) = None,
-        backup: api.BackupPolicyID | api.BackupPolicyRecord | None = None,
-        modes: Iterable[api.ReplicaMode | str] = (
-            api.ReplicaMode.ACTIVE,
-            api.ReplicaMode.BACKUP,
-            api.ReplicaMode.ARCHIVE,
+        backup: manager_api.BackupPolicyID
+        | manager_api.BackupPolicyRecord
+        | None = None,
+        modes: Iterable[manager_api.ReplicaMode | str] = (
+            manager_api.ReplicaMode.ACTIVE,
+            manager_api.ReplicaMode.BACKUP,
+            manager_api.ReplicaMode.ARCHIVE,
         ),
         operational_role: str | None = None,
         read_only: bool = False,
         folders: bool = True,
         options: (Mapping[str, object] | Iterable[tuple[str, object]]) = (),
         start: bool = True,
-    ) -> api.StoreConfiguration:
+    ) -> manager_api.StoreConfiguration:
         """
         Convert optional policy records/IDs and build StoreConfiguration.for_backend, then call
         create_store with start as startup. Factory normalization and policy/construction failures
@@ -179,7 +185,7 @@ class StoreAdministrationMixin(_StorageManagerState):
         :return: Configuration returned by create_store.
         """
 
-        configuration = api.StoreConfiguration.for_backend(
+        configuration = manager_api.StoreConfiguration.for_backend(
             name,
             kind,
             root,
@@ -207,26 +213,28 @@ class StoreAdministrationMixin(_StorageManagerState):
         name: str,
         root: str | os.PathLike[str],
         *,
-        store_uuid: api.StoreUUID | None = None,
+        store_uuid: storage_models.StoreUUID | None = None,
         failure_domain: str | None = None,
         region: str | None = None,
         host: UUID | None = None,
         device: UUID | None = None,
         tags: Iterable[str] = (),
         replication: (
-            api.ReplicationPolicyID | api.ReplicationPolicyRecord | None
+            manager_api.ReplicationPolicyID | manager_api.ReplicationPolicyRecord | None
         ) = None,
-        backup: api.BackupPolicyID | api.BackupPolicyRecord | None = None,
-        modes: Iterable[api.ReplicaMode | str] = (
-            api.ReplicaMode.ACTIVE,
-            api.ReplicaMode.BACKUP,
-            api.ReplicaMode.ARCHIVE,
+        backup: manager_api.BackupPolicyID
+        | manager_api.BackupPolicyRecord
+        | None = None,
+        modes: Iterable[manager_api.ReplicaMode | str] = (
+            manager_api.ReplicaMode.ACTIVE,
+            manager_api.ReplicaMode.BACKUP,
+            manager_api.ReplicaMode.ARCHIVE,
         ),
         operational_role: str | None = None,
         read_only: bool = False,
         options: (Mapping[str, object] | Iterable[tuple[str, object]]) = (),
         start: bool = True,
-    ) -> api.StoreConfiguration:
+    ) -> manager_api.StoreConfiguration:
         """
         Convert policy inputs, build StoreConfiguration.filesystem, and delegate to create_store.
         Path normalization occurs before backend construction; start controls the delegated startup
@@ -254,7 +262,7 @@ class StoreAdministrationMixin(_StorageManagerState):
         :return: Configuration returned by create_store for the filesystem backend.
         """
 
-        configuration = api.StoreConfiguration.filesystem(
+        configuration = manager_api.StoreConfiguration.filesystem(
             name,
             root,
             store_uuid=store_uuid,
@@ -277,19 +285,21 @@ class StoreAdministrationMixin(_StorageManagerState):
         self,
         name: str,
         kind: str,
-        digital_asset_id: api.DigitalAssetID,
+        digital_asset_id: manager_api.DigitalAssetID,
         *,
-        source_replica_id: api.ReplicaID | None = None,
-        materialization_store_ref: api.StoreUUID | None = None,
-        store_uuid: api.StoreUUID | None = None,
+        source_replica_id: manager_api.ReplicaID | None = None,
+        materialization_store_ref: storage_models.StoreUUID | None = None,
+        store_uuid: storage_models.StoreUUID | None = None,
         protocol: str | None = None,
         tags: Iterable[str] = (),
-        modes: Iterable[api.ReplicaMode | str] = (api.ReplicaMode.ARCHIVE,),
+        modes: Iterable[manager_api.ReplicaMode | str] = (
+            manager_api.ReplicaMode.ARCHIVE,
+        ),
         operational_role: str | None = "archive",
         folders: bool = True,
         options: (Mapping[str, object] | Iterable[tuple[str, object]]) = (),
         start: bool = True,
-    ) -> api.StoreConfiguration:
+    ) -> manager_api.StoreConfiguration:
         """
         Look up the backing Asset and require a supplied source Replica to belong to it. Shallowly
         collect options and use a truthy supplied UUID or derive one from Asset size/digest,
@@ -325,7 +335,7 @@ class StoreAdministrationMixin(_StorageManagerState):
         if source_replica_id is not None:
             source = self.get_replica_record(source_replica_id)
             if source.digital_asset_id != digital_asset_id:
-                raise api.StoragePreconditionFailed(
+                raise storage_errors.StoragePreconditionFailed(
                     "source Replica belongs to another Digital Asset."
                 )
         option_pairs = (
@@ -338,7 +348,7 @@ class StoreAdministrationMixin(_StorageManagerState):
             kind,
             option_pairs,
         )
-        configuration = api.StoreConfiguration.for_backed_backend(
+        configuration = manager_api.StoreConfiguration.for_backed_backend(
             name,
             kind,
             digital_asset_id,
@@ -357,9 +367,9 @@ class StoreAdministrationMixin(_StorageManagerState):
     @override
     def update_store(
         self,
-        store_ref: api.StoreUUID,
-        configuration: api.StoreConfiguration,
-    ) -> api.StoreConfiguration:
+        store_ref: storage_models.StoreUUID,
+        configuration: manager_api.StoreConfiguration,
+    ) -> manager_api.StoreConfiguration:
         """
         Require unchanged UUID and existing configuration, then build a replacement and attach it
         with startup/replacement enabled. Startup happens before registry assignment; old-facade
@@ -376,7 +386,7 @@ class StoreAdministrationMixin(_StorageManagerState):
         """
 
         if configuration.store_uuid != store_ref:
-            raise api.StoreInvalidLocation(
+            raise storage_errors.StoreInvalidLocation(
                 "updated Store configuration must retain its Store UUID."
             )
         self.get_store_configuration(store_ref)
@@ -392,7 +402,7 @@ class StoreAdministrationMixin(_StorageManagerState):
     @override
     def remove_store(
         self,
-        store_ref: api.StoreUUID,
+        store_ref: storage_models.StoreUUID,
         *,
         forget_configuration: bool = False,
     ) -> bool:
@@ -414,10 +424,10 @@ class StoreAdministrationMixin(_StorageManagerState):
         with self._lock:
             if forget_configuration and any(
                 record.location.store_ref == store_ref
-                and record.state is not api.ReplicaState.DELETED
+                and record.state is not manager_api.ReplicaState.DELETED
                 for record in self._replicas.values()
             ):
-                raise api.StoragePreconditionFailed(
+                raise storage_errors.StoragePreconditionFailed(
                     "cannot forget Store configuration with live Replica claims."
                 )
             store = self._stores.pop(store_ref, None)
@@ -437,8 +447,8 @@ class StoreAdministrationMixin(_StorageManagerState):
     @override
     def get_store_configuration(
         self,
-        store_ref: api.StoreUUID,
-    ) -> api.StoreConfiguration:
+        store_ref: storage_models.StoreUUID,
+    ) -> manager_api.StoreConfiguration:
         """
         Look up the exact UUID under the registry lock. Missing keys become
         StoreConfigurationNotFound chained from KeyError; no Store is constructed or probed.
@@ -455,10 +465,10 @@ class StoreAdministrationMixin(_StorageManagerState):
             try:
                 return self._store_configurations[store_ref]
             except KeyError as error:
-                raise api.StoreConfigurationNotFound(str(store_ref)) from error
+                raise manager_api.StoreConfigurationNotFound(str(store_ref)) from error
 
     @override
-    def iter_store_configurations(self) -> Iterator[api.StoreConfiguration]:
+    def iter_store_configurations(self) -> Iterator[manager_api.StoreConfiguration]:
         """
         Snapshot retained configurations under the lock in ascending UUID integer order. The
         returned iterator owns a tuple of references; later registry changes do not change that
@@ -481,7 +491,7 @@ class StoreAdministrationMixin(_StorageManagerState):
         return iter(values)
 
     @override
-    def get_store(self, store_ref: api.StoreUUID) -> api.StoreAPI:
+    def get_store(self, store_ref: storage_models.StoreUUID) -> store_api.StoreAPI:
         """
         Read facade/configuration presence under the lock, then return an attached facade without
         checking its online state. An absent unknown identity raises StoreConfigurationNotFound; a
@@ -501,11 +511,13 @@ class StoreAdministrationMixin(_StorageManagerState):
         if store is not None:
             return store
         if not configured:
-            raise api.StoreConfigurationNotFound(str(store_ref))
-        raise api.StoreUnavailable(f"configured Store {store_ref} has no live facade")
+            raise manager_api.StoreConfigurationNotFound(str(store_ref))
+        raise storage_errors.StoreUnavailable(
+            f"configured Store {store_ref} has no live facade"
+        )
 
     @override
-    def iter_stores(self) -> Iterator[api.StoreAPI]:
+    def iter_stores(self) -> Iterator[store_api.StoreAPI]:
         """
         Snapshot attached facade references under the lock in ascending UUID integer order.
         Iteration neither probes availability nor transfers resource ownership.
@@ -529,7 +541,7 @@ class StoreAdministrationMixin(_StorageManagerState):
         self,
         *,
         refresh: bool = False,
-    ) -> Iterator[api.StoreStatusObservation]:
+    ) -> Iterator[manager_api.StoreStatusObservation]:
         """
         Delegate attributable status iteration through the inherited administration helper. The
         helper translates only StoreUnavailable; this wrapper adds no cache, eager consumption, or
@@ -551,7 +563,7 @@ class StoreAdministrationMixin(_StorageManagerState):
         *,
         include_offline: bool = False,
         replace_existing: bool = True,
-    ) -> api.StorageBootstrapReport:
+    ) -> manager_api.StorageBootstrapReport:
         """
         Snapshot configurations and process each separately. Existing facades skip when replacement
         is disabled. Otherwise construct/start a candidate; unavailable candidates close and skip
@@ -572,7 +584,7 @@ class StoreAdministrationMixin(_StorageManagerState):
         """
 
         configurations = tuple(self.iter_store_configurations())
-        issues: list[api.StorageBootstrapIssue] = []
+        issues: list[manager_api.StorageBootstrapIssue] = []
         loaded = skipped = failed = 0
         for configuration in configurations:
             with self._lock:
@@ -588,7 +600,7 @@ class StoreAdministrationMixin(_StorageManagerState):
                     store.close()
                     skipped += 1
                     issues.append(
-                        api.StorageBootstrapIssue(
+                        manager_api.StorageBootstrapIssue(
                             configuration.store_uuid,
                             configuration.store_name,
                             "Store is offline.",
@@ -605,13 +617,13 @@ class StoreAdministrationMixin(_StorageManagerState):
             except Exception as error:
                 failed += 1
                 issues.append(
-                    api.StorageBootstrapIssue(
+                    manager_api.StorageBootstrapIssue(
                         configuration.store_uuid,
                         configuration.store_name,
                         str(error) or type(error).__name__,
                     )
                 )
-        return api.StorageBootstrapReport(
+        return manager_api.StorageBootstrapReport(
             discovered_configurations=len(configurations),
             loaded_stores=loaded,
             skipped_configurations=skipped,
@@ -620,7 +632,7 @@ class StoreAdministrationMixin(_StorageManagerState):
         )
 
     @override
-    def set_default_store(self, store_ref: api.StoreUUID) -> None:
+    def set_default_store(self, store_ref: storage_models.StoreUUID) -> None:
         """
         Require an attached facade through get_store, then assign the UUID under the lock. This
         validates registry presence rather than endpoint availability, writability, or placement
@@ -639,7 +651,7 @@ class StoreAdministrationMixin(_StorageManagerState):
             self._default_store_ref = store_ref
 
     @override
-    def get_default_store_ref(self) -> api.StoreUUID:
+    def get_default_store_ref(self) -> storage_models.StoreUUID:
         """
         Read the default UUID under the lock, reject None, and require a facade through get_store
         before returning it. No online or writable check is performed.
@@ -654,7 +666,9 @@ class StoreAdministrationMixin(_StorageManagerState):
         with self._lock:
             store_ref = self._default_store_ref
         if store_ref is None:
-            raise api.StoreConfigurationNotFound("no default Store is configured")
+            raise manager_api.StoreConfigurationNotFound(
+                "no default Store is configured"
+            )
         self.get_store(store_ref)
         return store_ref
 

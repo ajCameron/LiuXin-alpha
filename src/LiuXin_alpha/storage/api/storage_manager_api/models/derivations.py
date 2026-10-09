@@ -10,7 +10,10 @@ original values while checking text, digest algorithms, numbering, paths, and JS
 from __future__ import annotations
 
 import dataclasses
+import json
+import shutil
 
+from collections.abc import Callable
 from datetime import datetime
 from enum import StrEnum
 from pathlib import PurePosixPath
@@ -35,13 +38,11 @@ class DigitalAssetDerivationKind(StrEnum):
         'extract'
     """
 
-    # Todo: convert instead of transcode? Or as well?
-    # Todo: compress
-    # Todo: denoise
-
     EXTRACT = "extract"
     CONVERT = "convert"
     TRANSCODE = "transcode"
+    COMPRESS = "compress"
+    DENOISE = "denoise"
     OCR = "ocr"
     PACKAGE = "package"
     GENERATE = "generate"
@@ -289,6 +290,150 @@ class ReproductionRecipeArtifactReference:
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
+class ExternalReproductionCommand:
+    """
+    Represent one argument-vector invocation of an external executable.
+
+    The value is shell-neutral: arguments are retained separately and never joined or evaluated by
+    a shell. Canonical JSON supports durable interchange, while executable discovery is an explicit
+    environment observation that can use an injected resolver in tests or sandboxed runtimes.
+
+    Example:
+        >>> command = ExternalReproductionCommand(("converter", "in.epub", "out.pdf"))
+        >>> ExternalReproductionCommand.from_json(command.to_json()) == command
+        True
+
+
+    :ivar arguments: Nonempty argument vector whose first entry names or paths the executable.
+    """
+
+    arguments: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        """Require a nonempty tuple of nonempty string arguments."""
+        if not isinstance(self.arguments, tuple):
+            raise TypeError("external command arguments must be a tuple.")
+        if not self.arguments:
+            raise ValueError("an external command requires an executable argument.")
+        if any(not isinstance(argument, str) for argument in self.arguments):
+            raise TypeError("external command arguments must be strings.")
+        if any(not argument for argument in self.arguments):
+            raise ValueError("external command arguments must not be empty.")
+
+    @property
+    def executable(self) -> str:
+        """Return the first argument without resolving or executing it.
+
+        :return: Executable name or path retained as the first argument.
+        """
+        return self.arguments[0]
+
+    def resolve_executable(
+        self,
+        resolver: Callable[[str], str | None] = shutil.which,
+    ) -> str | None:
+        """
+        Ask a caller-controlled resolver whether the executable is currently available.
+
+        :param resolver: Callable receiving the executable text and returning a resolved path or None.
+        :return: Resolver result unchanged; no command is executed.
+        """
+        return resolver(self.executable)
+
+    def to_json(self) -> str:
+        """Serialize the versioned external-command document in canonical JSON spelling.
+
+        :return: Canonical version-one external-command JSON document.
+        """
+        return json.dumps(
+            {
+                "arguments": self.arguments,
+                "kind": "external",
+                "version": 1,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+
+    @classmethod
+    def from_json(cls, document: str) -> ExternalReproductionCommand:
+        """
+        Parse the exact supported external-command document schema.
+
+        The version must be a JSON integer exactly equal to one. JSON booleans are rejected
+        explicitly even though Python's decoded ``True`` compares equal to integer one.
+
+        Example:
+            >>> ExternalReproductionCommand.from_json(
+            ...     '{"arguments":["tool"],"kind":"external","version":1}'
+            ... ).arguments
+            ('tool',)
+
+        :param document: JSON object containing integer version 1, kind external, and a string argument list.
+        :return: Validated command; malformed JSON, unknown fields/kinds/versions, and bad arguments raise ValueError or TypeError.
+        """
+        try:
+            value: object = json.loads(document)  # pyright: ignore[reportAny]
+        except (TypeError, json.JSONDecodeError) as error:
+            raise ValueError("external command must be valid JSON.") from error
+        if not isinstance(value, dict):
+            raise ValueError("external command JSON must contain an object.")
+        if set(value) != {"arguments", "kind", "version"}:
+            raise ValueError("external command JSON has unsupported fields.")
+        version = value["version"]
+        if (
+            value["kind"] != "external"
+            or isinstance(version, bool)
+            or not isinstance(version, int)
+            or version != 1
+        ):
+            raise ValueError("unsupported external command kind or version.")
+        arguments = value["arguments"]
+        if not isinstance(arguments, list):
+            raise TypeError("external command arguments must be a JSON array.")
+        if any(not isinstance(argument, str) for argument in arguments):
+            raise TypeError("external command arguments must be strings.")
+        return cls(tuple(arguments))
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class ReproductionNormalizationDigest:
+    """
+    Pin a digest calculated after a named deterministic normalization profile.
+
+    This records comparison evidence for outputs whose irrelevant representation details may vary.
+    It does not implement the normalizer, claim byte identity, or make an otherwise incomplete
+    recipe replayable.
+
+    Example:
+        >>> evidence = ReproductionNormalizationDigest(
+        ...     "epub-metadata-v1", Digest("sha256", "abcd"),
+        ... )
+        >>> evidence.normalizer
+        'epub-metadata-v1'
+
+
+    :ivar normalizer: Nonblank stable profile or implementation identifier.
+    :ivar digest: Expected digest of the normalized output bytes.
+    :ivar normalizer_version: Optional nonblank version independent of the profile identifier.
+    :ivar parameters_json: Canonical JSON object configuring normalization, defaulting to empty.
+    """
+
+    normalizer: str
+    digest: Digest
+    normalizer_version: str | None = None
+    parameters_json: str = "{}"
+
+    def __post_init__(self) -> None:
+        """Validate profile text, Digest type, optional version, and canonical parameters."""
+        _require_text(self.normalizer, "normalizer")
+        if not isinstance(self.digest, Digest):
+            raise TypeError("normalization digest must be a Digest.")
+        _require_optional_text(self.normalizer_version, "normalizer_version")
+        _require_json_object(self.parameters_json, "parameters_json")
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
 class ReproductionRecipe:
     """
     Retain replay instructions, pinned inputs/artefacts, and an output-identity claim.
@@ -330,8 +475,6 @@ class ReproductionRecipe:
     :ivar dependencies: Pinned dependency artefacts with exactly unique names; complete recipes require retrieval hints.
     :ivar parameters_json: JSON object text equal to sorted, compact json.dumps output with default escaping.
     :ivar environment_json: Environment object text checked by the same canonical JSON rule.
-    # Todo: we might want subtyped commands, and a to and from json on that method
-    # Todo: Might also want a class to represent external commands? So we can check what's available.
     :ivar command: Retained argument sequence; false entries reject, but whitespace-only arguments are allowed.
     :ivar working_directory: Canonical relative POSIX workspace directory; the literal current directory is allowed.
     :ivar output_path: Optional canonical relative POSIX output path, required when complete is truthy.
@@ -354,9 +497,9 @@ class ReproductionRecipe:
     output_path: str | None = None
     instructions: str | None = None
     expected_output_size: int | None = None
-    # Todo: We want normalization digests to check to see if things are "close enough" - e.g. the creation date of an epub does not matter
     expected_output_digests: tuple[Digest, ...] = ()
     recipe_version: int = 1
+    normalized_output_digests: tuple[ReproductionNormalizationDigest, ...] = ()
 
     def __post_init__(self) -> None:
         """
@@ -407,6 +550,19 @@ class ReproductionRecipe:
         if self.expected_output_size is not None and self.expected_output_size < 0:
             raise ValueError("expected_output_size must not be negative.")
         _require_unique_digests(self.expected_output_digests)
+        normalization_keys = tuple(
+            (
+                evidence.normalizer,
+                evidence.normalizer_version,
+                evidence.parameters_json,
+                evidence.digest.algorithm,
+            )
+            for evidence in self.normalized_output_digests
+        )
+        if len(normalization_keys) != len(set(normalization_keys)):
+            raise ValueError(
+                "normalized output digests must be unique by profile and algorithm."
+            )
         artifact_names = [artifact.name for artifact in self.dependencies]
         if len(artifact_names) != len(set(artifact_names)):
             raise ValueError("recipe dependency names must be unique.")
@@ -422,8 +578,7 @@ class ReproductionRecipe:
                     "a complete recipe requires a retrievable executor artefact."
                 )
             if any(
-                not dependency.has_retrieval_source
-                for dependency in self.dependencies
+                not dependency.has_retrieval_source for dependency in self.dependencies
             ):
                 raise ValueError(
                     "a complete recipe requires retrievable dependency artefacts."
@@ -459,6 +614,32 @@ class ReproductionRecipe:
         """
 
         return self.complete and self.reproducibility is Reproducibility.EXACT
+
+    @property
+    def external_command(self) -> ExternalReproductionCommand | None:
+        """Return a typed external command for a nonempty argument vector, otherwise None.
+
+        :return: Parsed command value, or None when no command was recorded.
+        """
+        if not self.command:
+            return None
+        return ExternalReproductionCommand(self.command)
+
+    @property
+    def can_verify_normalized_equivalence(self) -> bool:
+        """
+        Report complete replay evidence with exact or normalization-based output identity.
+
+        Exact recipes already provide stronger byte identity. For other complete recipes, at least
+        one normalization digest permits a caller with the named normalizer to compare semantic or
+        representation-insensitive output. No normalizer is run here.
+
+        :return: Whether the recipe carries complete exact or normalized identity evidence.
+        """
+        return self.complete and (
+            self.reproducibility is Reproducibility.EXACT
+            or bool(self.normalized_output_digests)
+        )
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -627,8 +808,6 @@ class DigitalAssetDerivationRecord:
         )
 
 
-# Todo: Increased detail - this includes a derivation graph for a digital asset
-# Todo: Need more and better traversal methods
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetDerivationGraph:
     """
@@ -696,14 +875,121 @@ class DigitalAssetDerivationGraph:
         ):
             raise ValueError("composite_digital_asset_ids must be unique.")
         derivation_ids = tuple(
-            record.digital_asset_derivation_id
-            for record in self.derivation_records
+            record.digital_asset_derivation_id for record in self.derivation_records
         )
         if len(derivation_ids) != len(set(derivation_ids)):
             raise ValueError("derivation_records must be unique.")
 
+    def derivations_producing(
+        self,
+        digital_asset_id: DigitalAssetID,
+        *,
+        exact_only: bool = False,
+    ) -> tuple[DigitalAssetDerivationRecord, ...]:
+        """Return ordered records whose declared result is the selected Asset.
 
-# Todo: Tools to get the derivation graph from this, and the recreation plan from the graph
+        ``exact_only`` filters on recorded complete exact recipe evidence; it does not check current
+        source or executor availability.
+
+        :param digital_asset_id: Result identity to match exactly.
+        :param exact_only: Whether to retain only records claiming exact recreation.
+        :return: Matching records in graph traversal order.
+        """
+        return tuple(
+            record
+            for record in self.derivation_records
+            if record.declaration.result_digital_asset_id == digital_asset_id
+            and (not exact_only or record.can_recreate_exactly)
+        )
+
+    def derivations_using(
+        self,
+        digital_asset_id: DigitalAssetID,
+    ) -> tuple[DigitalAssetDerivationRecord, ...]:
+        """Return ordered records directly naming the selected atomic Asset as a source.
+
+        :param digital_asset_id: Atomic source identity to match.
+        :return: Matching records in graph traversal order.
+        """
+        return tuple(
+            record
+            for record in self.derivation_records
+            if any(
+                source.digital_asset_id == digital_asset_id
+                for source in record.declaration.sources
+            )
+        )
+
+    def direct_predecessor_ids(
+        self,
+        digital_asset_id: DigitalAssetID,
+    ) -> tuple[DigitalAssetID, ...]:
+        """Return unique direct atomic inputs of records producing the selected Asset.
+
+        :param digital_asset_id: Result identity whose immediate inputs are requested.
+        :return: Unique immediate atomic input identities in traversal order.
+        """
+        return tuple(
+            dict.fromkeys(
+                source.digital_asset_id
+                for record in self.derivations_producing(digital_asset_id)
+                for source in record.declaration.sources
+                if source.digital_asset_id is not None
+            )
+        )
+
+    def direct_successor_ids(
+        self,
+        digital_asset_id: DigitalAssetID,
+    ) -> tuple[DigitalAssetID, ...]:
+        """Return unique direct results of records using the selected atomic Asset.
+
+        :param digital_asset_id: Source identity whose immediate results are requested.
+        :return: Unique immediate result identities in traversal order.
+        """
+        return tuple(
+            dict.fromkeys(
+                record.declaration.result_digital_asset_id
+                for record in self.derivations_using(digital_asset_id)
+            )
+        )
+
+    def to_dot(self) -> str:
+        """Render a deterministic Graphviz DOT description without executing Graphviz.
+
+        Atomic and Composite nodes use distinct shapes. Every retained provenance source produces
+        one labelled directed edge to its result. The returned text contains no Store locations,
+        recipe commands, or other potentially sensitive execution details.
+
+        :return: Complete DOT document suitable for a CLI or UI renderer.
+        """
+        lines = ["digraph derivations {"]
+        for digital_asset_id in self.digital_asset_ids:
+            lines.append(
+                f'  "asset:{digital_asset_id}" [label="Asset {digital_asset_id}", shape=ellipse];'
+            )
+        for composite_id in self.composite_digital_asset_ids:
+            lines.append(
+                f'  "composite:{composite_id}" [label="Composite {composite_id}", shape=box];'
+            )
+        for record in self.derivation_records:
+            result = record.declaration.result_digital_asset_id
+            label = _dot_quote(
+                f"Derivation {record.digital_asset_derivation_id}: "
+                f"{record.declaration.kind.value}"
+            )
+            for source in record.declaration.sources:
+                if source.digital_asset_id is not None:
+                    source_node = f"asset:{source.digital_asset_id}"
+                else:
+                    source_node = f"composite:{source.composite_digital_asset_id}"
+                lines.append(
+                    f'  "{source_node}" -> "asset:{result}" [label="{label}"];'
+                )
+        lines.append("}")
+        return "\n".join(lines)
+
+
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetRecreationPlan:
     """
@@ -769,9 +1055,7 @@ class DigitalAssetRecreationPlan:
             raise ValueError("unavailable_digital_asset_ids must be unique.")
         if available & unavailable:
             raise ValueError("available and unavailable Asset IDs must be disjoint.")
-        step_ids = tuple(
-            step.digital_asset_derivation_id for step in self.steps
-        )
+        step_ids = tuple(step.digital_asset_derivation_id for step in self.steps)
         if len(step_ids) != len(set(step_ids)):
             raise ValueError("recreation steps must be unique.")
         if self.selected_derivation_id is not None:
@@ -780,13 +1064,9 @@ class DigitalAssetRecreationPlan:
             selected = next(
                 step
                 for step in self.steps
-                if step.digital_asset_derivation_id
-                == self.selected_derivation_id
+                if step.digital_asset_derivation_id == self.selected_derivation_id
             )
-            if (
-                selected.declaration.result_digital_asset_id
-                != self.digital_asset_id
-            ):
+            if selected.declaration.result_digital_asset_id != self.digital_asset_id:
                 raise ValueError(
                     "selected_derivation_id must produce the requested Asset."
                 )
@@ -859,7 +1139,11 @@ class DigitalAssetRecreationPlan:
         )
 
 
-# Todo: This should not be here
+def _dot_quote(value: str) -> str:
+    """Escape text for one double-quoted Graphviz DOT label."""
+    return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+
+
 def _require_text(value: str, field_name: str) -> None:
     """
     Require text that remains nonempty after stripping for the check.
@@ -1015,6 +1299,8 @@ __all__ = [
     "DigitalAssetDerivationKind",
     "DigitalAssetDerivationSourceReference",
     "DigitalAssetRecreationPlan",
+    "ExternalReproductionCommand",
+    "ReproductionNormalizationDigest",
     "ReproductionRecipeArtifactReference",
     "ReproductionRecipeInputReference",
     "Reproducibility",

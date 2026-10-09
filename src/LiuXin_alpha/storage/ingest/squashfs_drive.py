@@ -14,16 +14,16 @@ from __future__ import annotations
 import dataclasses
 import mimetypes
 import os
-
 from collections.abc import Callable, Mapping
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote_to_bytes, urlparse
 from uuid import UUID, uuid5
 
-from LiuXin_alpha.storage import api
-from LiuXin_alpha.storage.backend_registry import DEFAULT_BACKEND_REGISTRY
+from LiuXin_alpha.storage.api import errors as storage_errors
+from LiuXin_alpha.storage.api import models as storage_models
+from LiuXin_alpha.storage.api import storage_manager_api as manager_api
+from LiuXin_alpha.storage.utils.backend_registry import DEFAULT_BACKEND_REGISTRY
 from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
-
 
 _SQUASHFS_MAGIC = b"hsqs"
 _SQUASHFS_SUFFIXES = frozenset({".sfs", ".sqfs", ".sqsh", ".squashfs"})
@@ -32,7 +32,7 @@ _WORKFLOW_VERSION = "squashfs-drive-v1"
 
 ProgressCallback = Callable[[str, Mapping[str, object]], None]
 MemberMetadataFactory = Callable[
-    [Path, api.StoreInventoryEntry], api.DigitalAssetMetadata
+    [Path, storage_models.StoreInventoryEntry], manager_api.DigitalAssetMetadata
 ]
 
 
@@ -294,7 +294,7 @@ class SquashfsDriveIngestWorkflow:
 
     def __init__(
         self,
-        manager: api.StorageManagerAPI,
+        manager: manager_api.StorageManagerAPI,
         *,
         recursive: bool = True,
         continue_on_error: bool = True,
@@ -352,7 +352,7 @@ class SquashfsDriveIngestWorkflow:
             member_metadata_factory or _default_member_metadata
         )
         self.progress_callback = progress_callback
-        self._replica_locations_by_store: dict[UUID, set[api.Location]] = {}
+        self._replica_locations_by_store: dict[UUID, set[storage_models.Location]] = {}
 
     def ingest(self, source_root: str | os.PathLike[str]) -> SquashfsDriveIngestReport:
         """
@@ -604,7 +604,7 @@ class SquashfsDriveIngestWorkflow:
                     source_info.version or str(source_info.size),
                 ),
                 metadata=_archive_metadata(archive_path),
-                replica_mode=api.ReplicaMode.UNMANAGED,
+                replica_mode=manager_api.ReplicaMode.UNMANAGED,
                 verify=self.verify_archive_images,
             )
             archive_asset_id = int(
@@ -679,7 +679,7 @@ class SquashfsDriveIngestWorkflow:
                         metadata=self.member_metadata_factory(
                             archive_path, entry
                         ),
-                        replica_mode=api.ReplicaMode.ARCHIVE,
+                        replica_mode=manager_api.ReplicaMode.ARCHIVE,
                         verify=self.verify_members,
                     )
                     asset_created_now = (
@@ -739,7 +739,7 @@ class SquashfsDriveIngestWorkflow:
 
     def _ensure_source_store(
         self, root: Path
-    ) -> tuple[api.StoreConfiguration, bool]:
+    ) -> tuple[manager_api.StoreConfiguration, bool]:
         """
         Reuse a compatible Store claiming the source root or create a read-only unmanaged
         declaration.
@@ -766,20 +766,20 @@ class SquashfsDriveIngestWorkflow:
                 "on_disk_existing_managed_drive",
                 "on_disk_existing_unmanaged_drive",
             }:
-                raise api.StoragePreconditionFailed(
+                raise storage_errors.StoragePreconditionFailed(
                     f"Store root {root_uri!r} is already configured as "
                     f"incompatible backend {existing.store_kind!r}."
                 )
             self._require_available(existing, created=False)
             return existing, False
 
-        configuration = api.StoreConfiguration.for_backend(
+        configuration = manager_api.StoreConfiguration.for_backend(
             _store_name("ingest-source", root),
             "on_disk_existing_unmanaged_drive",
             root,
             protocol="file",
             tags=("ingest-source", "unmanaged"),
-            modes=(api.ReplicaMode.UNMANAGED,),
+            modes=(manager_api.ReplicaMode.UNMANAGED,),
             # The portable schema's operational vocabulary predates this
             # workflow; tags carry the more precise ingest-source meaning.
             operational_role="live",
@@ -799,7 +799,7 @@ class SquashfsDriveIngestWorkflow:
         source_root: Path,
         source_store_ref: UUID,
         archive_path: Path,
-    ) -> tuple[api.StoreConfiguration, bool]:
+    ) -> tuple[manager_api.StoreConfiguration, bool]:
         """
         Reuse the image-root or backing-Asset SquashFS Store, otherwise create a read-only archive
         declaration.
@@ -832,7 +832,7 @@ class SquashfsDriveIngestWorkflow:
                 DEFAULT_BACKEND_REGISTRY.canonical_kind(existing.store_kind)
                 != "squashfs_readonly"
             ):
-                raise api.StoragePreconditionFailed(
+                raise storage_errors.StoragePreconditionFailed(
                     f"Archive {root_uri!r} is already configured as "
                     f"backend {existing.store_kind!r}, not SquashFS."
                 )
@@ -840,13 +840,13 @@ class SquashfsDriveIngestWorkflow:
             return existing, False
 
         relative = archive_path.relative_to(source_root)
-        configuration = api.StoreConfiguration.for_backend(
+        configuration = manager_api.StoreConfiguration.for_backend(
             _store_name("squashfs", relative),
             "squashfs_readonly",
             archive_path,
             protocol="squashfs",
             tags=("ingest-source", "archive", "squashfs"),
-            modes=(api.ReplicaMode.ARCHIVE,),
+            modes=(manager_api.ReplicaMode.ARCHIVE,),
             operational_role="archive",
             read_only=True,
             folders=True,
@@ -865,8 +865,8 @@ class SquashfsDriveIngestWorkflow:
 
     def _configuration_for_backing_location(
         self,
-        location: api.Location,
-    ) -> api.StoreConfiguration | None:
+        location: storage_models.Location,
+    ) -> manager_api.StoreConfiguration | None:
         """
         Find one SquashFS configuration backed by any nondeleted Replica Asset at the given
         Location.
@@ -889,7 +889,7 @@ class SquashfsDriveIngestWorkflow:
                 store_ref=location.store_ref
             )
             if record.location == location
-            and record.state is not api.ReplicaState.DELETED
+            and record.state is not manager_api.ReplicaState.DELETED
         }
         matches = tuple(
             configuration
@@ -902,17 +902,17 @@ class SquashfsDriveIngestWorkflow:
             == "squashfs_readonly"
         )
         if len(matches) > 1:
-            raise api.StoragePreconditionFailed(
+            raise storage_errors.StoragePreconditionFailed(
                 f"Multiple SquashFS Stores expose the Asset at {location!r}."
             )
         return matches[0] if matches else None
 
     def _bind_archive_backing(
         self,
-        configuration: api.StoreConfiguration,
-        result: api.DigitalAssetIngestResult,
+        configuration: manager_api.StoreConfiguration,
+        result: manager_api.DigitalAssetIngestResult,
         archive_path: Path,
-    ) -> api.StoreConfiguration:
+    ) -> manager_api.StoreConfiguration:
         """
         Point the archive configuration at the adopted Asset and preferred source-image Replica.
 
@@ -931,7 +931,7 @@ class SquashfsDriveIngestWorkflow:
         :return: Original configuration or the manager update result; conflicting backing raises.
         """
 
-        expected = api.StoreBackingReference(
+        expected = manager_api.StoreBackingReference(
             result.asset_record.digital_asset_id,
             preferred_replica_id=result.replica_record.replica_id,
         )
@@ -942,7 +942,7 @@ class SquashfsDriveIngestWorkflow:
             and configuration.backing.digital_asset_id
             != result.asset_record.digital_asset_id
         ):
-            raise api.StoragePreconditionFailed(
+            raise storage_errors.StoragePreconditionFailed(
                 "configured SquashFS Store is backed by another Digital Asset."
             )
         replacement = dataclasses.replace(
@@ -962,7 +962,7 @@ class SquashfsDriveIngestWorkflow:
 
     def _configuration_for_root(
         self, root_uri: str
-    ) -> api.StoreConfiguration | None:
+    ) -> manager_api.StoreConfiguration | None:
         """
         Select the unique configuration whose root canonicalizes to the requested local URI.
 
@@ -983,12 +983,12 @@ class SquashfsDriveIngestWorkflow:
             if _canonical_local_uri(configuration.store_root_uri) == target
         )
         if len(matches) > 1:
-            raise api.StoragePreconditionFailed(
+            raise storage_errors.StoragePreconditionFailed(
                 f"Multiple configured Stores claim local root {root_uri!r}."
             )
         return matches[0] if matches else None
 
-    def _has_replica_at(self, location: api.Location) -> bool:
+    def _has_replica_at(self, location: storage_models.Location) -> bool:
         """
         Check the lazily cached set of nondeleted Replica Locations for one Store.
 
@@ -1009,12 +1009,12 @@ class SquashfsDriveIngestWorkflow:
                 for record in self.manager.iter_replica_records(
                     store_ref=location.store_ref
                 )
-                if record.state is not api.ReplicaState.DELETED
+                if record.state is not manager_api.ReplicaState.DELETED
             }
             self._replica_locations_by_store[location.store_ref] = locations
         return location in locations
 
-    def _remember_replica(self, location: api.Location) -> None:
+    def _remember_replica(self, location: storage_models.Location) -> None:
         """
         Add an adopted Location to the per-Store observation cache.
 
@@ -1034,7 +1034,7 @@ class SquashfsDriveIngestWorkflow:
 
     def _require_available(
         self,
-        configuration: api.StoreConfiguration,
+        configuration: manager_api.StoreConfiguration,
         *,
         created: bool,
     ) -> None:
@@ -1056,14 +1056,14 @@ class SquashfsDriveIngestWorkflow:
         """
         try:
             store = self.manager.get_store(configuration.store_uuid)
-        except api.StoreUnavailable:
+        except storage_errors.StoreUnavailable:
             if created:
                 raise
             self.manager.update_store(configuration.store_uuid, configuration)
             store = self.manager.get_store(configuration.store_uuid)
         status = store.status(refresh=True)
         if not status.available:
-            raise api.StoreUnavailable(
+            raise storage_errors.StoreUnavailable(
                 status.message
                 or f"Store {configuration.store_name!r} is unavailable."
             )
@@ -1111,7 +1111,7 @@ class SquashfsDriveIngestWorkflow:
 
 
 def ingest_squashfs_drive(
-    manager: api.StorageManagerAPI,
+    manager: manager_api.StorageManagerAPI,
     source_root: str | os.PathLike[str],
     *,
     recursive: bool = True,
@@ -1211,7 +1211,7 @@ def _operation_id(kind: str, *parts: str) -> UUID:
     )
 
 
-def _sha256_value(record: api.DigitalAssetRecord) -> str:
+def _sha256_value(record: manager_api.DigitalAssetRecord) -> str:
     """
     Read the first exactly named sha256 digest claim from an Asset record.
 
@@ -1227,12 +1227,12 @@ def _sha256_value(record: api.DigitalAssetRecord) -> str:
     for digest in record.digests:
         if digest.algorithm == "sha256":
             return digest.value
-    raise api.StorageIntegrityError(
+    raise storage_errors.StorageIntegrityError(
         f"Digital Asset {record.digital_asset_id} has no SHA-256 identity."
     )
 
 
-def _archive_metadata(path: Path) -> api.DigitalAssetMetadata:
+def _archive_metadata(path: Path) -> manager_api.DigitalAssetMetadata:
     """
     Describe the image by its path basename and fixed SquashFS provenance.
 
@@ -1246,7 +1246,7 @@ def _archive_metadata(path: Path) -> api.DigitalAssetMetadata:
     :param path: Image path supplying its name and original_name.
     :return: DigitalAssetMetadata carrying the image name, MIME, and workflow/format attributes.
     """
-    return api.DigitalAssetMetadata(
+    return manager_api.DigitalAssetMetadata(
         name=path.name,
         media_type="application/vnd.squashfs",
         original_name=path.name,
@@ -1259,8 +1259,8 @@ def _archive_metadata(path: Path) -> api.DigitalAssetMetadata:
 
 def _default_member_metadata(
     _archive_path: Path,
-    entry: api.StoreInventoryEntry,
-) -> api.DigitalAssetMetadata:
+    entry: storage_models.StoreInventoryEntry,
+) -> manager_api.DigitalAssetMetadata:
     """
     Build member metadata from advisory hints with a POSIX-key basename fallback.
 
@@ -1288,7 +1288,7 @@ def _default_member_metadata(
     attributes.extend(entry.hints.metadata)
     # Driver metadata is advisory and must not create duplicate attribute keys.
     deduplicated = tuple(dict(attributes).items())
-    return api.DigitalAssetMetadata(
+    return manager_api.DigitalAssetMetadata(
         name=filename,
         media_type=media_type,
         original_name=filename,

@@ -1,8 +1,9 @@
 
-# Todo: There has to be a better name for this...
-
 """
 Compose configured-Store identity, lifecycle, file primitives, and convenience methods.
+
+This module is the facade boundary: it adds no backend mechanics, but combines the
+separate identity, lifecycle, file, and convenience surfaces into ``StoreAPI``.
 
 StoreAPI remains abstract until its primitive contracts are implemented. Context
 entry returns the same Store without starting or probing it; context exit closes

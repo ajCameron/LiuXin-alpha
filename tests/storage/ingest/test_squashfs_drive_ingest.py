@@ -20,7 +20,7 @@ import pytest
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.storage import api
 from LiuXin_alpha.storage.ingest import SquashfsDriveIngestWorkflow
-from LiuXin_alpha.storage.store_manager import StorageManager
+from LiuXin_alpha.storage.durable_manager import StorageManager
 from tests.fixtures.storage_unicode import (
     POSIX_BAD_BYTES_FILENAME,
     POSIX_BAD_BYTES_FILENAME_BYTES,

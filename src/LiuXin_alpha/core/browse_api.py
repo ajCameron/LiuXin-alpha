@@ -23,7 +23,7 @@ from urllib.parse import urljoin
 from LiuXin_alpha.core.description import CorePayloadFieldDescription
 from LiuXin_alpha.core.errors import CoreDispatchError
 from LiuXin_alpha.storage.api import Location
-from LiuXin_alpha.storage.store_spec_utils import store_configuration_from_row
+from LiuXin_alpha.storage.utils.store_configuration import store_configuration_from_row
 
 if TYPE_CHECKING:
     from LiuXin_alpha.core.queries import CoreQuery

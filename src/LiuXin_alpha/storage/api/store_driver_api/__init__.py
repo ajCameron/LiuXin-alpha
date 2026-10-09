@@ -21,6 +21,7 @@ from typing import Generic
 from LiuXin_alpha.storage.api.store_driver_api.convenience_api import (
     DriverFileIdentifier,
     DriverNativeMetadata,
+    StorageDriverConvenienceBase,
     StorageDriverConvenienceAPI,
     StorageDriverSource,
 )
@@ -48,6 +49,8 @@ from LiuXin_alpha.storage.api.store_driver_api.models import (
 )
 from LiuXin_alpha.storage.api.store_driver_api.object_address_api import (
     StorageDriverObjectAddressAPI,
+    StorageDriverObjectAddressBase,
+    StorageDriverObjectAddressContract,
 )
 from LiuXin_alpha.storage.api.store_driver_api.optional_api import (
     DeletableStorageDriverAPI,
@@ -66,7 +69,7 @@ from LiuXin_alpha.storage.api.store_driver_api.readable_api import (
 
 class StorageDriverAPI(
     StorageDriverConvenienceAPI[DriverObjectAddressT],
-    StorageDriverObjectAddressAPI[DriverObjectAddressT],
+    StorageDriverObjectAddressBase[DriverObjectAddressT],
     StorageDriverLifecycleAPI,
     ReadableStorageDriverAPI[DriverObjectAddressT],
     Generic[DriverObjectAddressT],
@@ -154,9 +157,12 @@ __all__ = [
     "ScopedDriverObjectAddressChecker",
     "StorageDriverAPI",
     "StorageDriverCharacteristicsAPI",
+    "StorageDriverConvenienceBase",
     "StorageDriverConvenienceAPI",
     "StorageDriverSource",
     "StorageDriverLifecycleAPI",
     "StorageDriverObjectAddressAPI",
+    "StorageDriverObjectAddressBase",
+    "StorageDriverObjectAddressContract",
     "WritableStorageDriverAPI",
 ]

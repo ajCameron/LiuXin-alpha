@@ -16,7 +16,10 @@ from datetime import UTC, datetime
 from typing import BinaryIO, cast, override
 from uuid import UUID, uuid4
 
-import LiuXin_alpha.storage.api as api
+from LiuXin_alpha.storage.api import errors as storage_errors
+from LiuXin_alpha.storage.api import models as storage_models
+from LiuXin_alpha.storage.api import placement_hints_api, store_api
+from LiuXin_alpha.storage.api import storage_manager_api as manager_api
 from LiuXin_alpha.storage.storage_manager.mixins._state import _StorageManagerState
 from LiuXin_alpha.storage.storage_manager.mixins._types import (
     _AdoptIngestRequest,
@@ -49,15 +52,15 @@ class DigitalAssetIngestMixin(_StorageManagerState):
         *,
         operation_id: UUID | None = None,
         expected_size: int | None = None,
-        expected_digests: tuple[api.Digest, ...] = (),
-        item_id: api.ItemID | None = None,
+        expected_digests: tuple[storage_models.Digest, ...] = (),
+        item_id: manager_api.ItemID | None = None,
         role: str | None = None,
-        metadata: api.DigitalAssetMetadata | None = None,
-        placement_hints: api.StoragePlacementHints | None = None,
-        preferred_store_ref: api.StoreUUID | None = None,
-        replica_mode: api.ReplicaMode = api.ReplicaMode.ACTIVE,
+        metadata: manager_api.DigitalAssetMetadata | None = None,
+        placement_hints: placement_hints_api.StoragePlacementHints | None = None,
+        preferred_store_ref: storage_models.StoreUUID | None = None,
+        replica_mode: manager_api.ReplicaMode = manager_api.ReplicaMode.ACTIVE,
         verify: bool = True,
-    ) -> api.DigitalAssetIngestResult:
+    ) -> manager_api.DigitalAssetIngestResult:
         """
         Spool the remaining stream, calculate SHA-256 plus expected algorithms, and delegate
         publication/registration.
@@ -108,17 +111,17 @@ class DigitalAssetIngestMixin(_StorageManagerState):
                 for hasher in hashers.values():
                     hasher.update(chunk)
             if expected_size is not None and total != expected_size:
-                raise api.StorageIntegrityError(
+                raise storage_errors.StorageIntegrityError(
                     f"expected {expected_size} bytes, received {total}."
                 )
             observed_digests = tuple(
-                api.Digest(algorithm, hashers[algorithm].hexdigest())
+                storage_models.Digest(algorithm, hashers[algorithm].hexdigest())
                 for algorithm in sorted(hashers)
             )
             self._require_expected_digests(expected_digests, observed_digests)
 
             normalized_metadata = (
-                api.DigitalAssetMetadata() if metadata is None else metadata
+                manager_api.DigitalAssetMetadata() if metadata is None else metadata
             )
             request = _StreamIngestRequest(
                 total,
@@ -140,9 +143,9 @@ class DigitalAssetIngestMixin(_StorageManagerState):
             )
 
             def _publish(
-                store: api.StoreAPI,
-                location: api.Location,
-                digest: api.Digest,
+                store: store_api.StoreAPI,
+                location: storage_models.Location,
+                digest: storage_models.Digest,
             ) -> None:
                 """
                 Rewind the enclosing identified spool and publish it at the allocated destination.
@@ -191,16 +194,16 @@ class DigitalAssetIngestMixin(_StorageManagerState):
         stream: BinaryIO,
         *,
         size_bytes: int,
-        authoritative_digests: tuple[api.Digest, ...],
+        authoritative_digests: tuple[storage_models.Digest, ...],
         operation_id: UUID | None = None,
-        item_id: api.ItemID | None = None,
+        item_id: manager_api.ItemID | None = None,
         role: str | None = None,
-        metadata: api.DigitalAssetMetadata | None = None,
-        placement_hints: api.StoragePlacementHints | None = None,
-        preferred_store_ref: api.StoreUUID | None = None,
-        replica_mode: api.ReplicaMode = api.ReplicaMode.ACTIVE,
+        metadata: manager_api.DigitalAssetMetadata | None = None,
+        placement_hints: placement_hints_api.StoragePlacementHints | None = None,
+        preferred_store_ref: storage_models.StoreUUID | None = None,
+        replica_mode: manager_api.ReplicaMode = manager_api.ReplicaMode.ACTIVE,
         verify: bool = True,
-    ) -> api.DigitalAssetIngestResult:
+    ) -> manager_api.DigitalAssetIngestResult:
         """
         Validate authoritative size/digest structure and delegate without spooling or hashing the
         caller stream.
@@ -257,7 +260,7 @@ class DigitalAssetIngestMixin(_StorageManagerState):
             )
         operation_id = uuid4() if operation_id is None else operation_id
         normalized_metadata = (
-            api.DigitalAssetMetadata() if metadata is None else metadata
+            manager_api.DigitalAssetMetadata() if metadata is None else metadata
         )
         request = _IdentifiedStreamIngestRequest(
             size_bytes,
@@ -272,9 +275,9 @@ class DigitalAssetIngestMixin(_StorageManagerState):
         )
 
         def _publish(
-            store: api.StoreAPI,
-            location: api.Location,
-            digest: api.Digest,
+            store: store_api.StoreAPI,
+            location: storage_models.Location,
+            digest: storage_models.Digest,
         ) -> None:
             """
             Pass the enclosing caller stream directly to Store.put with its authoritative size and
@@ -319,18 +322,18 @@ class DigitalAssetIngestMixin(_StorageManagerState):
     @override
     def ingest_store_object(
         self,
-        source: api.StoreAPI,
-        info: api.FileInfo | api.StoreInventoryEntry,
+        source: store_api.StoreAPI,
+        info: storage_models.FileInfo | storage_models.StoreInventoryEntry,
         *,
         operation_id: UUID | None = None,
-        item_id: api.ItemID | None = None,
+        item_id: manager_api.ItemID | None = None,
         role: str | None = None,
-        metadata: api.DigitalAssetMetadata | None = None,
-        placement_hints: api.StoragePlacementHints | None = None,
-        preferred_store_ref: api.StoreUUID | None = None,
-        replica_mode: api.ReplicaMode = api.ReplicaMode.ACTIVE,
+        metadata: manager_api.DigitalAssetMetadata | None = None,
+        placement_hints: placement_hints_api.StoragePlacementHints | None = None,
+        preferred_store_ref: storage_models.StoreUUID | None = None,
+        replica_mode: manager_api.ReplicaMode = manager_api.ReplicaMode.ACTIVE,
         verify: bool = True,
-    ) -> api.DigitalAssetIngestResult:
+    ) -> manager_api.DigitalAssetIngestResult:
         """
         Route advanced sources through preparation, otherwise consider native import using
         authoritative stat identity.
@@ -357,8 +360,8 @@ class DigitalAssetIngestMixin(_StorageManagerState):
         :return: Completed ingest result, including creation/deduplication flags and reported verification; failures may follow publication or earlier metadata writes.
         """
 
-        if isinstance(source, api.IngestSourceStoreAPI):
-            return api.DigitalAssetIngestAPI.ingest_store_object(
+        if isinstance(source, store_api.IngestSourceStoreAPI):
+            return manager_api.DigitalAssetIngestAPI.ingest_store_object(
                 self,
                 source,
                 info,
@@ -374,7 +377,7 @@ class DigitalAssetIngestMixin(_StorageManagerState):
 
         def _fallback(
             fallback_operation_id: UUID | None,
-        ) -> api.DigitalAssetIngestResult:
+        ) -> manager_api.DigitalAssetIngestResult:
             """
             Open the enclosing conventional source through the API wrapper using the selected retry
             UUID.
@@ -391,7 +394,7 @@ class DigitalAssetIngestMixin(_StorageManagerState):
             :return: Completed ingest result, including creation/deduplication flags and reported verification; failures may follow publication or earlier metadata writes.
             """
 
-            return api.DigitalAssetIngestAPI.ingest_store_object(
+            return manager_api.DigitalAssetIngestAPI.ingest_store_object(
                 self,
                 source,
                 info,
@@ -424,18 +427,18 @@ class DigitalAssetIngestMixin(_StorageManagerState):
     @override
     def ingest_prepared_store_object(
         self,
-        source: api.StoreAPI,
-        prepared: api.PreparedIngestObject,
+        source: store_api.StoreAPI,
+        prepared: store_api.PreparedIngestObject,
         *,
         operation_id: UUID | None = None,
-        item_id: api.ItemID | None = None,
+        item_id: manager_api.ItemID | None = None,
         role: str | None = None,
-        metadata: api.DigitalAssetMetadata | None = None,
-        placement_hints: api.StoragePlacementHints | None = None,
-        preferred_store_ref: api.StoreUUID | None = None,
-        replica_mode: api.ReplicaMode = api.ReplicaMode.ACTIVE,
+        metadata: manager_api.DigitalAssetMetadata | None = None,
+        placement_hints: placement_hints_api.StoragePlacementHints | None = None,
+        preferred_store_ref: storage_models.StoreUUID | None = None,
+        replica_mode: manager_api.ReplicaMode = manager_api.ReplicaMode.ACTIVE,
         verify: bool = True,
-    ) -> api.DigitalAssetIngestResult:
+    ) -> manager_api.DigitalAssetIngestResult:
         """
         Validate one retained preparation and consider native transfer using its authoritative
         SHA-256.
@@ -463,17 +466,17 @@ class DigitalAssetIngestMixin(_StorageManagerState):
         :return: Completed ingest result, including creation/deduplication flags and reported verification; failures may follow publication or earlier metadata writes.
         """
 
-        if not isinstance(source, api.IngestSourceStoreAPI):
+        if not isinstance(source, store_api.IngestSourceStoreAPI):
             raise TypeError("prepared Store ingest requires IngestSourceStoreAPI.")
         source.require_location(prepared.info.location)
         try:
             source.ingest_capabilities.validate_prepared(prepared)
         except ValueError as error:
-            raise api.StoreIntegrityError(str(error)) from error
+            raise storage_errors.StoreIntegrityError(str(error)) from error
 
         def _fallback(
             fallback_operation_id: UUID | None,
-        ) -> api.DigitalAssetIngestResult:
+        ) -> manager_api.DigitalAssetIngestResult:
             """
             Reuse the enclosing preparation through the API reader path with the chosen operation
             UUID.
@@ -489,7 +492,7 @@ class DigitalAssetIngestMixin(_StorageManagerState):
             :return: Completed ingest result, including creation/deduplication flags and reported verification; failures may follow publication or earlier metadata writes.
             """
 
-            return api.DigitalAssetIngestAPI.ingest_prepared_store_object(
+            return manager_api.DigitalAssetIngestAPI.ingest_prepared_store_object(
                 self,
                 source,
                 prepared,
@@ -528,23 +531,23 @@ class DigitalAssetIngestMixin(_StorageManagerState):
 
     def _ingest_store_object_natively_or_fallback(
         self,
-        source: api.StoreAPI,
-        info: api.FileInfo | api.StoreInventoryEntry,
-        digest: api.Digest | None,
+        source: store_api.StoreAPI,
+        info: storage_models.FileInfo | storage_models.StoreInventoryEntry,
+        digest: storage_models.Digest | None,
         *,
         operation_id: UUID | None,
-        item_id: api.ItemID | None,
+        item_id: manager_api.ItemID | None,
         role: str | None,
-        metadata: api.DigitalAssetMetadata | None,
-        placement_hints: api.StoragePlacementHints | None,
-        preferred_store_ref: api.StoreUUID | None,
-        replica_mode: api.ReplicaMode,
+        metadata: manager_api.DigitalAssetMetadata | None,
+        placement_hints: placement_hints_api.StoragePlacementHints | None,
+        preferred_store_ref: storage_models.StoreUUID | None,
+        replica_mode: manager_api.ReplicaMode,
         verify: bool,
         fallback: Callable[
             [UUID | None],
-            api.DigitalAssetIngestResult,
+            manager_api.DigitalAssetIngestResult,
         ],
-    ) -> api.DigitalAssetIngestResult:
+    ) -> manager_api.DigitalAssetIngestResult:
         """
         Resolve a destination and try native import only with supported transfer, known size, and
         SHA-256 identity.
@@ -565,7 +568,7 @@ class DigitalAssetIngestMixin(_StorageManagerState):
             >>> result = manager._ingest_store_object_natively_or_fallback(  # doctest: +SKIP
             ...     source, info, digest, operation_id=operation_id, item_id=None, role=None,
             ...     metadata=None, placement_hints=None, preferred_store_ref=None,
-            ...     replica_mode=api.ReplicaMode.ACTIVE, verify=True, fallback=fallback,
+            ...     replica_mode=manager_api.ReplicaMode.ACTIVE, verify=True, fallback=fallback,
             ... )
 
 
@@ -591,7 +594,7 @@ class DigitalAssetIngestMixin(_StorageManagerState):
         )
         destination = self.get_store(destination_ref)
         if (
-            not isinstance(destination, api.NativeImportStoreAPI)
+            not isinstance(destination, store_api.NativeImportStoreAPI)
             or not destination.can_import_from(source)
             or info.size is None
             or digest is None
@@ -602,7 +605,7 @@ class DigitalAssetIngestMixin(_StorageManagerState):
         selected_operation_id = uuid4() if operation_id is None else operation_id
         digests = (digest,)
         normalized_metadata = (
-            api.DigitalAssetMetadata() if metadata is None else metadata
+            manager_api.DigitalAssetMetadata() if metadata is None else metadata
         )
         request = _StoreObjectIngestRequest(
             info.location,
@@ -619,9 +622,9 @@ class DigitalAssetIngestMixin(_StorageManagerState):
         )
 
         def _publish(
-            store: api.StoreAPI,
-            location: api.Location,
-            expected_digest: api.Digest,
+            store: store_api.StoreAPI,
+            location: storage_models.Location,
+            expected_digest: storage_models.Digest,
         ) -> None:
             """
             Ask the selected native-capable Store to import the enclosing source Location.
@@ -640,7 +643,7 @@ class DigitalAssetIngestMixin(_StorageManagerState):
             :return: None after native import returns; assertion or transfer failures propagate to the completion/fallback boundary.
             """
 
-            assert isinstance(store, api.NativeImportStoreAPI)
+            assert isinstance(store, store_api.NativeImportStoreAPI)
             assert info.size is not None
             store.import_from(
                 source,
@@ -666,22 +669,22 @@ class DigitalAssetIngestMixin(_StorageManagerState):
                 verify=verify,
                 publish=_publish,
             )
-        except api.StoreUnsupportedOperation:
+        except storage_errors.StoreUnsupportedOperation:
             return fallback(selected_operation_id)
 
     @override
     def adopt_location(
         self,
-        location: api.Location,
+        location: storage_models.Location,
         *,
         operation_id: UUID | None = None,
-        digital_asset_id: api.DigitalAssetID | None = None,
-        item_id: api.ItemID | None = None,
+        digital_asset_id: manager_api.DigitalAssetID | None = None,
+        item_id: manager_api.ItemID | None = None,
         role: str | None = None,
-        metadata: api.DigitalAssetMetadata | None = None,
-        replica_mode: api.ReplicaMode = api.ReplicaMode.UNMANAGED,
+        metadata: manager_api.DigitalAssetMetadata | None = None,
+        replica_mode: manager_api.ReplicaMode = manager_api.ReplicaMode.UNMANAGED,
         verify: bool = False,
-    ) -> api.DigitalAssetIngestResult:
+    ) -> manager_api.DigitalAssetIngestResult:
         """
         Hash existing Store bytes and create or reuse their Asset identity and Location claim.
 
@@ -715,7 +718,7 @@ class DigitalAssetIngestMixin(_StorageManagerState):
 
         operation_id = uuid4() if operation_id is None else operation_id
         normalized_metadata = (
-            api.DigitalAssetMetadata() if metadata is None else metadata
+            manager_api.DigitalAssetMetadata() if metadata is None else metadata
         )
         request = _AdoptIngestRequest(
             location,
@@ -730,7 +733,7 @@ class DigitalAssetIngestMixin(_StorageManagerState):
             prior = self._ingest_operations.get(operation_id)
         if prior is not None:
             if prior.request != request:
-                raise api.StoragePreconditionFailed(
+                raise storage_errors.StoragePreconditionFailed(
                     "ingest operation ID was already used for a different request."
                 )
             return prior.result
@@ -746,7 +749,7 @@ class DigitalAssetIngestMixin(_StorageManagerState):
             )
             asset_record = (
                 self.declare_digital_asset(
-                    api.DigitalAssetDeclaration(
+                    manager_api.DigitalAssetDeclaration(
                         info.size,
                         observed,
                         normalized_metadata,
@@ -778,25 +781,25 @@ class DigitalAssetIngestMixin(_StorageManagerState):
                     record
                     for record in self._replicas.values()
                     if record.location == location
-                    and record.state is not api.ReplicaState.DELETED
+                    and record.state is not manager_api.ReplicaState.DELETED
                 ),
                 None,
             )
         if conflicting is not None:
             if conflicting.digital_asset_id != asset_record.digital_asset_id:
-                raise api.StoragePreconditionFailed(
+                raise storage_errors.StoragePreconditionFailed(
                     "Location is already claimed by another Digital Asset."
                 )
             replica_record = conflicting
             replica_created = False
         else:
             replica_record = self._add_replica(
-                api.ReplicaDeclaration(
+                manager_api.ReplicaDeclaration(
                     asset_record.digital_asset_id,
                     location,
                     replica_mode,
-                    api.ReplicaObservation(
-                        api.ReplicaState.PRESENT,
+                    manager_api.ReplicaObservation(
+                        manager_api.ReplicaState.PRESENT,
                         observed_size_bytes=info.size,
                         observed_digests=observed,
                         checked_at=datetime.now(UTC),
@@ -809,8 +812,8 @@ class DigitalAssetIngestMixin(_StorageManagerState):
             replica_record = self.get_replica_record(replica_record.replica_id)
             verified = report.healthy
         else:
-            verified = replica_record.state is api.ReplicaState.VERIFIED
-        result = api.DigitalAssetIngestResult(
+            verified = replica_record.state is manager_api.ReplicaState.VERIFIED
+        result = manager_api.DigitalAssetIngestResult(
             operation_id,
             asset_record,
             replica_record,

@@ -10,6 +10,8 @@ case checks staged bytes rather than sealing an archive or invoking its tool.
 from __future__ import annotations
 
 import json
+import re
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -45,7 +47,7 @@ from LiuXin_alpha.storage.store_backend_plugins.zip_readonly import (
 from LiuXin_alpha.storage.store_backend_plugins.zip_writable import (
     ZipWritableStorageBackend,
 )
-from LiuXin_alpha.storage.store_manager import StorageManager
+from LiuXin_alpha.storage.durable_manager import StorageManager
 from LiuXin_alpha.storage.store_spec_utils import (
     store_configuration_from_row,
     store_configuration_to_row_dict,
@@ -57,6 +59,28 @@ from LiuXin_alpha.storage.stores import (
     StaticEncryptionKeyProvider,
 )
 from tests.fixtures.iso_image import build_joliet_iso
+
+
+def test_backend_reference_lists_every_registered_canonical_kind() -> None:
+    """Keep the developer-facing backend table synchronized with the live registry.
+
+    Example:
+        >>> test_backend_reference_lists_every_registered_canonical_kind()
+
+    :return: None when the table and registry contain the same canonical kind set.
+    """
+
+    guide = (
+        Path(__file__).parents[2]
+        / "dev-docs"
+        / "storage"
+        / "backend-behavior.md"
+    ).read_text(encoding="utf-8")
+    reference = guide.split("## Registered backend reference", 1)[1].split(
+        "## Durable option defaults", 1
+    )[0]
+    documented = set(re.findall(r"^\| `([^`]+)` \|", reference, re.MULTILINE))
+    assert documented == {descriptor.kind for descriptor in DEFAULT_BACKEND_REGISTRY}
 
 
 def _configuration(kind: str, root: str, **kwargs) -> api.StoreConfiguration:
@@ -156,6 +180,7 @@ def test_every_default_backend_advertises_storage_characteristics() -> None:
         for descriptor in DEFAULT_BACKEND_REGISTRY
     }
     expected_publication_models = {
+        "memory": api.StoragePublicationModel.PER_OBJECT,
         "filesystem": api.StoragePublicationModel.PER_OBJECT,
         "on_disk_existing_managed_drive": api.StoragePublicationModel.PER_OBJECT,
         "on_disk_existing_unmanaged_drive": api.StoragePublicationModel.READ_ONLY,
@@ -205,9 +230,14 @@ def test_every_default_backend_advertises_storage_characteristics() -> None:
                 else api.StorageTemporarySpaceRequirement.NONE
             )
             assert profile.temporary_space is expected_temporary_space
-            assert profile.recommended_write_usage is api.StorageWriteUsage.NOT_APPLICABLE
+            assert (
+                profile.recommended_write_usage is api.StorageWriteUsage.NOT_APPLICABLE
+            )
         elif descriptor.kind != "encrypted":
-            assert profile.temporary_space is not api.StorageTemporarySpaceRequirement.UNKNOWN
+            assert (
+                profile.temporary_space
+                is not api.StorageTemporarySpaceRequirement.UNKNOWN
+            )
             assert profile.recommended_write_usage is not api.StorageWriteUsage.UNKNOWN
 
     for kind in {
@@ -225,9 +255,10 @@ def test_every_default_backend_advertises_storage_characteristics() -> None:
     }:
         assert profiles[kind].limitation("nested_expansion_budget_external")
 
-    assert profiles["rclone_writable"].limitation(
-        "rclone_backend_dependent_limits"
-    ) is not None
+    assert (
+        profiles["rclone_writable"].limitation("rclone_backend_dependent_limits")
+        is not None
+    )
     assert profiles["s3"].limitation("s3_service_limits_apply") is not None
     assert profiles["encrypted"].limitation("inner_store_dependent") is not None
 
@@ -288,6 +319,95 @@ def test_s3_factory_uses_injected_client_and_persisted_non_secret_options() -> N
     assert store.configuration is configuration
     assert store.options.endpoint_url == "https://objects.example"
     assert store.driver._client is client
+
+
+def test_s3_factory_prefers_generic_backend_client_mapping() -> None:
+    """
+    Select the generic backend-client entry ahead of the legacy S3 shortcut. This proves new
+    integrations can inject clients without adding another backend-specific context field; neither
+    inert object is asked to perform an S3 operation.
+
+    Example:
+        >>> test_s3_factory_prefers_generic_backend_client_mapping()  # doctest: +SKIP
+
+
+    :return: None after the generic mapped client is retained by the constructed S3 driver.
+    """
+    generic_client = object()
+    configuration = _configuration("s3", "s3://library/books")
+
+    store = DEFAULT_BACKEND_REGISTRY.build(
+        configuration,
+        context=StoreConstructionContext(
+            backend_clients={"s3": generic_client},
+            s3_client=object(),
+        ),
+    )
+
+    assert isinstance(store, S3Store)
+    assert store.driver._client is generic_client
+
+
+def test_storage_manager_explicit_s3_client_overrides_generic_context_entry() -> None:
+    """
+    Give the manager both injection forms and require its documented explicit argument to win.
+
+    The manager copies the supplied client mapping before replacing only the canonical S3 entry;
+    unrelated generic clients remain available and the caller's original mapping is not mutated.
+    """
+
+    mapped_client = object()
+    explicit_client = object()
+    other_client = object()
+    supplied_clients = {"s3": mapped_client, "custom": other_client}
+
+    manager = StorageManager(
+        backend_context=StoreConstructionContext(
+            backend_clients=supplied_clients,
+        ),
+        s3_client=explicit_client,
+        startup_on_add=False,
+    )
+
+    assert manager.backend_context.client_for("s3") is explicit_client
+    assert manager.backend_context.client_for("custom") is other_client
+    assert supplied_clients["s3"] is mapped_client
+
+
+@pytest.mark.parametrize(
+    ("option_name", "option_value", "message"),
+    (
+        ("timeout_s", "slow", "must be numeric or None"),
+        ("max_requests_per_hour", True, "must be numeric or None"),
+        ("max_inventory_entries", 2.5, "must be an integer or None"),
+    ),
+)
+def test_http_factory_rejects_invalid_typed_options(
+    option_name: str,
+    option_value: object,
+    message: str,
+) -> None:
+    """
+    Reject invalid persisted HTTP option types at the registry adapter boundary. This avoids
+    forwarding opaque values into driver comparisons or transport calls and performs no request.
+
+    Example:
+        >>> test_http_factory_rejects_invalid_typed_options("timeout_s", "slow", "must be numeric or None")  # doctest: +SKIP
+
+
+    :param option_name: HTTP backend option under test.
+    :param option_value: Deliberately invalid scalar supplied in configuration.
+    :param message: Stable validation-message fragment expected from the adapter.
+    :return: None after TypeError is raised before a Store is returned.
+    """
+    configuration = _configuration(
+        "http_readonly",
+        "https://example.invalid/books/",
+        backend_options=((option_name, option_value),),
+    )
+
+    with pytest.raises(TypeError, match=message):
+        DEFAULT_BACKEND_REGISTRY.build(configuration)
 
 
 def test_encrypted_factory_requires_runtime_dependencies(tmp_path) -> None:
@@ -597,6 +717,7 @@ class _RowsDatabase:
         >>> _RowsDatabase(rows).get_all_rows("stores", iterator_return=False) is rows
         True
     """
+
     def __init__(self, rows):
         """
         Retain the supplied row collection by reference without copying or validation. Mutations to
@@ -920,9 +1041,7 @@ def test_manager_bootstraps_writable_archive_backends_from_database_rows(
                     "store_root_uri": archive.resolve().as_uri(),
                     "store_access_protocol": protocol,
                     "store_is_read_only": 0,
-                    "store_policy_json": json.dumps(
-                        {"backend": kind, kind: policy}
-                    ),
+                    "store_policy_json": json.dumps({"backend": kind, kind: policy}),
                 }
             ]
         ),
@@ -1019,6 +1138,7 @@ def test_registry_rejects_duplicate_aliases() -> None:
 
     :return: None after the stated regression assertions pass.
     """
+
     def builder(configuration, context):
         """
         Fail if a construction callback is invoked during alias registration. Registration should
@@ -1040,7 +1160,9 @@ def test_registry_rejects_duplicate_aliases() -> None:
     registry = StorageBackendRegistry((descriptor,))
 
     with pytest.raises(ValueError, match="already registered"):
-        registry.register(StorageBackendDescriptor("two", "Two", builder, aliases=("shared",)))
+        registry.register(
+            StorageBackendDescriptor("two", "Two", builder, aliases=("shared",))
+        )
 
 
 @pytest.mark.parametrize("kind", ["sqlite", "single_file_sqlite"])

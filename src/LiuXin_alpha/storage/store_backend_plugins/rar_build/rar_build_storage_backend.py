@@ -133,6 +133,19 @@ class _TrackedRarBuildWriteSession:
         self._size = 0
         self._released = False
 
+    @property
+    def location(self) -> Location:
+        """
+        Return the staged destination exposed by the wrapped Store session.
+
+        Tracking the RAR mutation lease and offered-byte ceiling does not alter the underlying
+        publication target. Access performs no Store lookup or staging mutation.
+
+        :return: Routed Location at which the wrapped session will publish.
+        """
+
+        return self._session.location
+
     def write(self, data: bytes) -> int:
         """
         Check the entire offered chunk against the cap, then forward it to staging.

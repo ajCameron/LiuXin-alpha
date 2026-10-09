@@ -43,7 +43,6 @@ from LiuXin_alpha.storage.api.models import (
 from LiuXin_alpha.storage.api.placement_hints_api import StoragePlacementHints
 
 
-# Todo: Session should store the location it's writing to and store - so it can be passed into other functions
 @runtime_checkable
 class WriteSessionAPI(Protocol):
     """
@@ -67,6 +66,7 @@ class WriteSessionAPI(Protocol):
 
     Example:
         >>> with store.begin_write(location, expected_size=len(payload)) as session:  # doctest: +SKIP
+        ...     assert session.location == location
         ...     remaining = payload
         ...     while remaining:
         ...         accepted = session.write(remaining)
@@ -75,6 +75,23 @@ class WriteSessionAPI(Protocol):
         ...         remaining = remaining[accepted:]
         ...     info = session.commit()
     """
+
+    @property
+    def location(self) -> Location:
+        """
+        Return the routed destination that successful commit will publish.
+
+        The immutable Location supplies Store identity and the opaque destination key without
+        exposing or transferring ownership of the concrete Store facade. Reading this property does
+        not stat, allocate, commit, or otherwise access storage.
+
+        Example:
+            >>> session.location == location  # doctest: +SKIP
+            True
+
+        :return: Final routed destination retained by this write session.
+        """
+        ...
 
     def write(self, data: bytes) -> int:
         """
@@ -147,7 +164,6 @@ class WriteSessionAPI(Protocol):
         ...
 
 
-# Todo: Why is this in the file api? Why is it called this?
 @runtime_checkable
 class StoreCoreAPI(Protocol):
     """
@@ -324,7 +340,8 @@ class StoreCoreAPI(Protocol):
         """
         ...
 
-    # Todo: Comment to explain this pyright ignores
+    # Protocol inheritance makes Pyright treat this abstract redeclaration as
+    # invalid even though it intentionally narrows the composed Store contract.
     @abc.abstractmethod
     def status(  # pyright: ignore[reportInvalidAbstractMethod]
         self,
@@ -344,7 +361,7 @@ class StoreCoreAPI(Protocol):
         ...
 
 
-class StoreFileAPI(StoreCoreAPI, abc.ABC):
+class StoreFileBase(StoreCoreAPI, abc.ABC):
     """
     Nominal configured-store byte API with safe convenience operations.
 
@@ -357,7 +374,6 @@ class StoreFileAPI(StoreCoreAPI, abc.ABC):
         ...     return store.read_bytes(location, length=16)
     """
 
-    # Todo: try_* for everything - need to be consistent
     def try_stat(self, location: Location) -> FileInfo | None:
         """
         Return ``None`` only when the store reports genuine absence.
@@ -404,6 +420,16 @@ class StoreFileAPI(StoreCoreAPI, abc.ABC):
         """
         return self.stat(location).size
 
+    def try_file_size(self, location: Location) -> int | None:
+        """Return an object's byte size, or None only for genuine absence.
+
+        :param location: Routed object Location belonging to this configured Store.
+        :return: Current logical size, or None when stat reports StoreNotFound.
+        """
+
+        info = self.try_stat(location)
+        return None if info is None else info.size
+
     def get(
         self,
         location: Location,
@@ -433,6 +459,32 @@ class StoreFileAPI(StoreCoreAPI, abc.ABC):
         return self.open_read(
             location, offset=offset, length=length, if_version=if_version
         )
+
+    def try_get(
+        self,
+        location: Location,
+        *,
+        offset: int = 0,
+        length: int | None = None,
+        if_version: str | None = None,
+    ) -> BinaryIO | None:
+        """Open a reader or return None only when opening reports genuine absence.
+
+        The caller owns a returned stream. Deferred not-found failures from a lazy reader remain
+        visible during later reads.
+
+        :return: Open reader, or None when get raises StoreNotFound.
+        """
+
+        try:
+            return self.get(
+                location,
+                offset=offset,
+                length=length,
+                if_version=if_version,
+            )
+        except StoreNotFound:
+            return None
 
     def read_bytes(
         self,
@@ -471,6 +523,31 @@ class StoreFileAPI(StoreCoreAPI, abc.ABC):
         )
         with reader as source:
             return source.read()
+
+    def try_read_bytes(
+        self,
+        location: Location,
+        *,
+        offset: int = 0,
+        length: int | None = None,
+        if_version: str | None = None,
+    ) -> bytes | None:
+        """Materialize bytes or return None only for absence during open, read, or cleanup.
+
+        Other validation, availability, permission, version, and integrity failures propagate.
+
+        :return: Materialized bytes, or None when read_bytes raises StoreNotFound.
+        """
+
+        try:
+            return self.read_bytes(
+                location,
+                offset=offset,
+                length=length,
+                if_version=if_version,
+            )
+        except StoreNotFound:
+            return None
 
     def put(
         self,
@@ -662,11 +739,10 @@ class StoreFileAPI(StoreCoreAPI, abc.ABC):
             f"{type(self).__name__} does not support resumable inventory pages."
         )
 
-    # Todo: Once again, lotta code in this API
     def compute_digest(
         self,
         location: Location,
-        algorithm: str = "sha256", # Todo: This should be an enum? Or a list of string values. Error message should include available algoriths.
+        algorithm: str = "sha256",
         *,
         chunk_size: int = 1024 * 1024,
     ) -> Digest:
@@ -674,6 +750,9 @@ class StoreFileAPI(StoreCoreAPI, abc.ABC):
         Compute an object digest by streaming through the configured store.
 
         A concrete store may override this method to expose an authoritative driver-side digest.
+        The algorithm remains a string because Python providers and backend-native implementations
+        can extend the supported set at runtime; a closed enum would incorrectly narrow that
+        contract.
 
         Validate chunk size, translate hashlib ValueError to StoreUnsupportedOperation, and then
         open an unversioned stream. Falsey reads mean EOF; nonempty reads must be bytes. Stream
@@ -684,7 +763,7 @@ class StoreFileAPI(StoreCoreAPI, abc.ABC):
 
 
         :param location: Routed object Location belonging to this configured Store.
-        :param algorithm: hashlib algorithm name; sha256 by default.
+        :param algorithm: Runtime-supported hashlib algorithm name; sha256 by default.
         :param chunk_size: Positive maximum bytes requested per source read; 1 MiB by default.
         :return: Normalized Digest of bytes observed through the opened stream.
         """
@@ -693,8 +772,10 @@ class StoreFileAPI(StoreCoreAPI, abc.ABC):
         try:
             digest = hashlib.new(algorithm)
         except ValueError as exc:
+            available = ", ".join(sorted(hashlib.algorithms_available))
             raise StoreUnsupportedOperation(
-                f"digest algorithm is not supported: {algorithm!r}"
+                f"digest algorithm is not supported: {algorithm!r}; "
+                f"available algorithms: {available}"
             ) from exc
 
         with self.open_read(location) as source:
@@ -707,7 +788,30 @@ class StoreFileAPI(StoreCoreAPI, abc.ABC):
                 digest.update(chunk)
         return Digest(algorithm=algorithm, value=digest.hexdigest())
 
-    # Todo: Lotta code in this API
+    def try_compute_digest(
+        self,
+        location: Location,
+        algorithm: str = "sha256",
+        *,
+        chunk_size: int = 1024 * 1024,
+    ) -> Digest | None:
+        """Compute an object digest or return None only for genuine absence.
+
+        Unsupported algorithms, invalid chunk sizes, and all non-absence Store failures remain
+        visible.
+
+        :return: Computed Digest, or None when compute_digest raises StoreNotFound.
+        """
+
+        try:
+            return self.compute_digest(
+                location,
+                algorithm,
+                chunk_size=chunk_size,
+            )
+        except StoreNotFound:
+            return None
+
     def copy(
         self,
         source: Location,
@@ -791,6 +895,16 @@ class StoreFileAPI(StoreCoreAPI, abc.ABC):
         result = self.copy(source, destination, mode=mode)
         self.delete(source, if_version=source_info.version)
         return result
+
+
+class StoreFileAPI(StoreFileBase, abc.ABC):
+    """
+    Preserve the established public file-surface name over its implementation base.
+
+    ``StoreCoreAPI`` defines the required primitives, while ``StoreFileBase`` implements the
+    reusable buffered reads, staged writes, digesting, copying, moving, and try-style helpers.
+    Existing subclasses continue to use this name unchanged.
+    """
 
 
 @runtime_checkable
@@ -961,6 +1075,7 @@ __all__ = [
     "NativeImportStoreAPI",
     "NativeCopyStoreAPI",
     "NativeMoveStoreAPI",
+    "StoreFileBase",
     "StoreFileAPI",
     "WriteSessionAPI",
 ]

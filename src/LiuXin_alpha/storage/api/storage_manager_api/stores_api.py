@@ -48,6 +48,39 @@ class StoreAdministrationAPI(abc.ABC):
     """
 
     @abc.abstractmethod
+    def attach_store(
+        self,
+        configuration: StoreConfiguration,
+        store: StoreAPI,
+        *,
+        startup: bool = True,
+        replace_existing: bool = False,
+    ) -> StoreConfiguration:
+        """
+        Register an already initialized Store facade under its portable configuration.
+
+        The Store and configuration must carry the same UUID. ``startup`` controls whether the
+        manager invokes the facade lifecycle before registration, while ``replace_existing``
+        explicitly permits replacement of an existing route. Implementations define persistence,
+        replacement cleanup, and rollback boundaries; callers retain no independent lifecycle
+        ownership after a successful attachment.
+
+        This is the injection-oriented counterpart to ``create_store``: use it for a caller-built,
+        decorated, test, or otherwise preconfigured Store instead of requiring a registered factory
+        to reconstruct one from configuration alone.
+
+        Example:
+            >>> registered = manager.attach_store(configuration, store, startup=False)  # doctest: +SKIP
+
+        :param configuration: Portable configuration whose UUID and policy references identify the route.
+        :param store: Existing Store facade with the same routing UUID as configuration.
+        :param startup: Whether the manager invokes startup before making the facade available.
+        :param replace_existing: Whether an existing configuration/facade with this UUID may be replaced.
+        :return: Registered configuration after attachment and any implementation-defined replacement cleanup.
+        """
+        ...
+
+    @abc.abstractmethod
     def create_store(
         self, configuration: StoreConfiguration, *, startup: bool = True,
     ) -> StoreConfiguration:
@@ -66,9 +99,6 @@ class StoreAdministrationAPI(abc.ABC):
         """
         ...
 
-    # Todo: As a dual to remove_store, a way to add an initialized store
-    # Todo: This style of function is clear and better than having to create a spec first, then use it
-    # Todo: Probably the best way to refer to stores is EITHER by UUID or ID
     @abc.abstractmethod
     def add_store(
         self,

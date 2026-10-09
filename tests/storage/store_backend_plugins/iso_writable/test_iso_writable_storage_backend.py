@@ -11,10 +11,8 @@ from __future__ import annotations
 
 import hashlib
 import os
-import pathlib
 import shutil
 import subprocess
-
 from concurrent.futures import ThreadPoolExecutor
 from uuid import UUID
 
@@ -48,7 +46,9 @@ from tests.fixtures.storage_unicode import (
 from tests.storage.contracts.unicode_paths import exercise_unicode_path_cases
 
 
-def test_writable_iso_creates_valid_empty_image_and_reports_capabilities(tmp_path) -> None:
+def test_writable_iso_creates_valid_empty_image_and_reports_capabilities(
+    tmp_path,
+) -> None:
     """
     Create and parse a real empty image, then check normalized volume ID, registry aliases, and
     advertised write limits.
@@ -107,7 +107,9 @@ def test_writable_iso_creates_valid_empty_image_and_reports_capabilities(tmp_pat
     assert store.characteristics.limitation("nested_expansion_budget_external")
 
 
-def test_registry_preserves_configured_read_only_policy_for_writable_iso(tmp_path) -> None:
+def test_registry_preserves_configured_read_only_policy_for_writable_iso(
+    tmp_path,
+) -> None:
     """
     Build the writable backend under read-only configuration and verify facade policy, startup
     status, reads, and write rejection.
@@ -138,8 +140,7 @@ def test_registry_preserves_configured_read_only_policy_for_writable_iso(tmp_pat
     assert store.configuration is configuration
     assert store.capabilities.create is False
     assert (
-        store.characteristics.publication_model
-        is api.StoragePublicationModel.READ_ONLY
+        store.characteristics.publication_model is api.StoragePublicationModel.READ_ONLY
     )
     assert (
         store.characteristics.temporary_space
@@ -297,7 +298,9 @@ def test_writable_iso_enforces_create_replace_upsert_and_delete(tmp_path) -> Non
         store.delete_file("book.txt")
 
 
-def test_writable_iso_abort_and_integrity_failure_leave_image_unchanged(tmp_path) -> None:
+def test_writable_iso_abort_and_integrity_failure_leave_image_unchanged(
+    tmp_path,
+) -> None:
     """
     Compare real image bytes before and after implicit context abort and an expected-digest failure.
 
@@ -331,7 +334,9 @@ def test_writable_iso_abort_and_integrity_failure_leave_image_unchanged(tmp_path
     assert store.file_exists("bad.bin") is False
 
 
-def test_writable_iso_enforces_streamed_member_limit_before_publication(tmp_path) -> None:
+def test_writable_iso_enforces_streamed_member_limit_before_publication(
+    tmp_path,
+) -> None:
     """
     Reject an offered payload above the four-byte ceiling and preserve the original image and absent
     key.
@@ -352,14 +357,19 @@ def test_writable_iso_enforces_streamed_member_limit_before_publication(tmp_path
     )
     original = image.read_bytes()
 
-    with pytest.raises(api.StorageUnsupportedOperation, match="write-size limit"):
+    with pytest.raises(
+        api.StorageUnsupportedOperation,
+        match=r"accepts objects up to 4 bytes; requested 5 bytes",
+    ):
         store.store_bytes(b"12345", location="large.bin")
 
     assert image.read_bytes() == original
     assert store.file_exists("large.bin") is False
 
 
-def test_writable_iso_preflights_total_logical_size_and_persists_policy(tmp_path) -> None:
+def test_writable_iso_preflights_total_logical_size_and_persists_policy(
+    tmp_path,
+) -> None:
     """
     Reject aggregate member-byte excess before publication and check persisted size/ratio/path
     options.
@@ -513,7 +523,9 @@ def test_writable_iso_can_require_an_existing_image(tmp_path) -> None:
     assert missing.exists() is False
 
 
-def test_writable_iso_rejects_file_directory_collisions_without_publication(tmp_path) -> None:
+def test_writable_iso_rejects_file_directory_collisions_without_publication(
+    tmp_path,
+) -> None:
     """
     Reject a child path descending through an existing file and preserve original image bytes.
 
@@ -715,7 +727,9 @@ def test_writable_iso_detects_boot_and_udf_bridge_features_before_rebuild(
         store.store_bytes(b"new", location="NEW.BIN")
 
 
-def test_writable_iso_emits_an_independently_readable_joliet_namespace(tmp_path) -> None:
+def test_writable_iso_emits_an_independently_readable_joliet_namespace(
+    tmp_path,
+) -> None:
     """
     Disable Rock Ridge recognition in a copied output and read its Unicode name through the
     remaining Joliet namespace.
@@ -774,12 +788,14 @@ def test_writable_iso_applies_generic_unicode_torture_contract(tmp_path) -> None
         case.key for case in TORTURED_UNICODE_PATH_CASES
     }
     reopened = IsoReadOnlyStorageBackend(str(store.image_path))
-    assert {
-        location.key for location in reopened.iter_locations()
-    } == {case.key for case in TORTURED_UNICODE_PATH_CASES}
+    assert {location.key for location in reopened.iter_locations()} == {
+        case.key for case in TORTURED_UNICODE_PATH_CASES
+    }
 
 
-@pytest.mark.skipif(os.name != "posix", reason="surrogateescape is a POSIX byte-name contract")
+@pytest.mark.skipif(
+    os.name != "posix", reason="surrogateescape is a POSIX byte-name contract"
+)
 def test_writable_iso_round_trips_surrogateescaped_name_bytes(tmp_path) -> None:
     """
     Preserve undecodable POSIX filename bytes through writing, readonly reopening, and payload
@@ -805,7 +821,9 @@ def test_writable_iso_round_trips_surrogateescaped_name_bytes(tmp_path) -> None:
     assert reopened.read_file(location) == POSIX_BAD_BYTES_PAYLOAD
 
 
-def test_writable_iso_uses_susp_continuation_for_long_rock_ridge_names(tmp_path) -> None:
+def test_writable_iso_uses_susp_continuation_for_long_rock_ridge_names(
+    tmp_path,
+) -> None:
     """
     Round-trip a 254-byte name requiring continuation data and reject a component exceeding 255
     encoded bytes.
@@ -828,7 +846,9 @@ def test_writable_iso_uses_susp_continuation_for_long_rock_ridge_names(tmp_path)
         store.locate("é" * 128)
 
 
-def test_writable_iso_serializes_concurrent_commits_without_losing_members(tmp_path) -> None:
+def test_writable_iso_serializes_concurrent_commits_without_losing_members(
+    tmp_path,
+) -> None:
     """
     Publish eight members through one Store with four worker threads and verify every final key and
     payload.
@@ -898,7 +918,9 @@ def test_writable_iso_deterministic_mode_reproduces_identical_image(tmp_path) ->
     assert first.image_path.read_bytes() == second.image_path.read_bytes()
 
 
-def test_writable_iso_rejects_native_metadata_and_oversized_declared_member(tmp_path) -> None:
+def test_writable_iso_rejects_native_metadata_and_oversized_declared_member(
+    tmp_path,
+) -> None:
     """
     Reject nonempty native metadata and a declared 2**32-byte member before allocating a write
     session.

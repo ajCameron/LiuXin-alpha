@@ -12,7 +12,8 @@ import dataclasses
 from collections.abc import Iterator
 from typing import override
 
-import LiuXin_alpha.storage.api as api
+from LiuXin_alpha.storage.api import errors as storage_errors
+from LiuXin_alpha.storage.api import storage_manager_api as manager_api
 from LiuXin_alpha.storage.storage_manager.mixins._state import _StorageManagerState
 
 
@@ -30,11 +31,47 @@ class StoragePolicyMixin(_StorageManagerState):
         >>> plan = manager.plan_replication(asset_id)  # doctest: +SKIP
     """
 
+    @property
+    @override
+    def default_replication_policy(self) -> manager_api.ReplicationPolicy:
+        """
+        Return the manager-level replication fallback retained during initialization.
+
+        ReplicationPolicy is frozen, so returning the retained value does not expose mutable manager
+        state. This lookup does not resolve an Asset assignment, registered record, or Store default.
+
+        Example:
+            >>> manager.default_replication_policy is manager._default_replication_policy  # doctest: +SKIP
+            True
+
+        :return: Retained manager-level fallback replication definition.
+        """
+
+        return self._default_replication_policy
+
+    @property
+    @override
+    def default_backup_policy(self) -> manager_api.BackupPolicy:
+        """
+        Return the manager-level backup fallback retained during initialization.
+
+        BackupPolicy is frozen, so callers cannot mutate manager state through the returned value.
+        Explicit Asset assignments and Store policy IDs are not consulted.
+
+        Example:
+            >>> manager.default_backup_policy is manager._default_backup_policy  # doctest: +SKIP
+            True
+
+        :return: Retained manager-level fallback backup/archive definition.
+        """
+
+        return self._default_backup_policy
+
     @override
     def create_replication_policy(
         self,
-        policy: api.ReplicationPolicy,
-    ) -> api.ReplicationPolicyRecord:
+        policy: manager_api.ReplicationPolicy,
+    ) -> manager_api.ReplicationPolicyRecord:
         """
         Allocate a new replication policy ID and revision, then store the supplied definition under
         the metadata lock/transaction.
@@ -52,10 +89,10 @@ class StoragePolicyMixin(_StorageManagerState):
         """
 
         with self._lock, self._metadata_transaction():
-            policy_id = api.ReplicationPolicyID(
+            policy_id = manager_api.ReplicationPolicyID(
                 self._allocate_metadata_id_locked("replication_policy")
             )
-            record = api.ReplicationPolicyRecord(
+            record = manager_api.ReplicationPolicyRecord(
                 policy_id,
                 policy,
                 self._new_revision_locked(),
@@ -66,8 +103,8 @@ class StoragePolicyMixin(_StorageManagerState):
     @override
     def get_replication_policy_record(
         self,
-        replication_policy_id: api.ReplicationPolicyID,
-    ) -> api.ReplicationPolicyRecord:
+        replication_policy_id: manager_api.ReplicationPolicyID,
+    ) -> manager_api.ReplicationPolicyRecord:
         """
         Look up the exact replication policy key under the lock.
 
@@ -86,18 +123,18 @@ class StoragePolicyMixin(_StorageManagerState):
             try:
                 return self._replication_policies[replication_policy_id]
             except KeyError as error:
-                raise api.StorageManagementError(
+                raise manager_api.StorageManagementError(
                     f"Replication policy {replication_policy_id} is not registered."
                 ) from error
 
     @override
     def update_replication_policy(
         self,
-        replication_policy_id: api.ReplicationPolicyID,
-        policy: api.ReplicationPolicy,
+        replication_policy_id: manager_api.ReplicationPolicyID,
+        policy: manager_api.ReplicationPolicy,
         *,
         if_revision: str | None = None,
-    ) -> api.ReplicationPolicyRecord:
+    ) -> manager_api.ReplicationPolicyRecord:
         """
         Replace a registered replication definition after checking its optional revision and all
         effective recreation dependencies.
@@ -125,11 +162,11 @@ class StoragePolicyMixin(_StorageManagerState):
         with self._lock, self._metadata_transaction():
             current = self._replication_policies.get(replication_policy_id)
             if current is None:
-                raise api.StorageManagementError(
+                raise manager_api.StorageManagementError(
                     f"Replication policy {replication_policy_id} is not registered."
                 )
             self._check_revision(current.revision, if_revision)
-            candidate = api.ReplicationPolicyRecord(
+            candidate = manager_api.ReplicationPolicyRecord(
                 replication_policy_id,
                 policy,
                 current.revision,
@@ -150,7 +187,7 @@ class StoragePolicyMixin(_StorageManagerState):
     @override
     def delete_replication_policy(
         self,
-        replication_policy_id: api.ReplicationPolicyID,
+        replication_policy_id: manager_api.ReplicationPolicyID,
     ) -> bool:
         """
         Remove a replication definition only when no Asset assignment or Store default references
@@ -179,7 +216,7 @@ class StoragePolicyMixin(_StorageManagerState):
                 == replication_policy_id
                 for configuration in self._store_configurations.values()
             ):
-                raise api.StoragePreconditionFailed(
+                raise storage_errors.StoragePreconditionFailed(
                     "replication policy is still assigned."
                 )
             del self._replication_policies[replication_policy_id]
@@ -188,7 +225,7 @@ class StoragePolicyMixin(_StorageManagerState):
     @override
     def iter_replication_policy_records(
         self,
-    ) -> Iterator[api.ReplicationPolicyRecord]:
+    ) -> Iterator[manager_api.ReplicationPolicyRecord]:
         """
         Capture replication records under the lock in ascending mapping-key order.
 
@@ -212,8 +249,8 @@ class StoragePolicyMixin(_StorageManagerState):
     @override
     def create_backup_policy(
         self,
-        policy: api.BackupPolicy,
-    ) -> api.BackupPolicyRecord:
+        policy: manager_api.BackupPolicy,
+    ) -> manager_api.BackupPolicyRecord:
         """
         Allocate a new backup/archive policy ID and revision, then store the supplied definition
         under the metadata lock/transaction.
@@ -231,10 +268,10 @@ class StoragePolicyMixin(_StorageManagerState):
         """
 
         with self._lock, self._metadata_transaction():
-            policy_id = api.BackupPolicyID(
+            policy_id = manager_api.BackupPolicyID(
                 self._allocate_metadata_id_locked("backup_policy")
             )
-            record = api.BackupPolicyRecord(
+            record = manager_api.BackupPolicyRecord(
                 policy_id,
                 policy,
                 self._new_revision_locked(),
@@ -245,8 +282,8 @@ class StoragePolicyMixin(_StorageManagerState):
     @override
     def get_backup_policy_record(
         self,
-        backup_policy_id: api.BackupPolicyID,
-    ) -> api.BackupPolicyRecord:
+        backup_policy_id: manager_api.BackupPolicyID,
+    ) -> manager_api.BackupPolicyRecord:
         """
         Look up the exact backup/archive policy key under the lock.
 
@@ -265,18 +302,18 @@ class StoragePolicyMixin(_StorageManagerState):
             try:
                 return self._backup_policies[backup_policy_id]
             except KeyError as error:
-                raise api.StorageManagementError(
+                raise manager_api.StorageManagementError(
                     f"Backup policy {backup_policy_id} is not registered."
                 ) from error
 
     @override
     def update_backup_policy(
         self,
-        backup_policy_id: api.BackupPolicyID,
-        policy: api.BackupPolicy,
+        backup_policy_id: manager_api.BackupPolicyID,
+        policy: manager_api.BackupPolicy,
         *,
         if_revision: str | None = None,
-    ) -> api.BackupPolicyRecord:
+    ) -> manager_api.BackupPolicyRecord:
         """
         Replace a registered backup/archive definition after checking its optional revision and all
         effective recreation dependencies.
@@ -304,11 +341,11 @@ class StoragePolicyMixin(_StorageManagerState):
         with self._lock, self._metadata_transaction():
             current = self._backup_policies.get(backup_policy_id)
             if current is None:
-                raise api.StorageManagementError(
+                raise manager_api.StorageManagementError(
                     f"Backup policy {backup_policy_id} is not registered."
                 )
             self._check_revision(current.revision, if_revision)
-            candidate = api.BackupPolicyRecord(
+            candidate = manager_api.BackupPolicyRecord(
                 backup_policy_id,
                 policy,
                 current.revision,
@@ -329,7 +366,7 @@ class StoragePolicyMixin(_StorageManagerState):
     @override
     def delete_backup_policy(
         self,
-        backup_policy_id: api.BackupPolicyID,
+        backup_policy_id: manager_api.BackupPolicyID,
     ) -> bool:
         """
         Remove a backup/archive definition only when no Asset assignment or Store default references
@@ -357,12 +394,14 @@ class StoragePolicyMixin(_StorageManagerState):
                 configuration.store_default_backup_policy_id == backup_policy_id
                 for configuration in self._store_configurations.values()
             ):
-                raise api.StoragePreconditionFailed("backup policy is still assigned.")
+                raise storage_errors.StoragePreconditionFailed(
+                    "backup policy is still assigned."
+                )
             del self._backup_policies[backup_policy_id]
             return True
 
     @override
-    def iter_backup_policy_records(self) -> Iterator[api.BackupPolicyRecord]:
+    def iter_backup_policy_records(self) -> Iterator[manager_api.BackupPolicyRecord]:
         """
         Capture backup/archive records under the lock in ascending mapping-key order.
 
@@ -385,12 +424,12 @@ class StoragePolicyMixin(_StorageManagerState):
     @override
     def set_digital_asset_policies(
         self,
-        digital_asset_id: api.DigitalAssetID,
+        digital_asset_id: manager_api.DigitalAssetID,
         *,
-        replication_policy_id: api.ReplicationPolicyID | None = None,
-        backup_policy_id: api.BackupPolicyID | None = None,
+        replication_policy_id: manager_api.ReplicationPolicyID | None = None,
+        backup_policy_id: manager_api.BackupPolicyID | None = None,
         if_revision: str | None = None,
-    ) -> api.DigitalAssetRecord:
+    ) -> manager_api.DigitalAssetRecord:
         """
         Validate supplied policy IDs, then replace both Asset references after optional revision
         checking.
@@ -415,17 +454,135 @@ class StoragePolicyMixin(_StorageManagerState):
         :return: Updated Asset record with both requested policy references and a new revision.
         """
 
-        self._validate_declared_policy_ids(
-            replication_policy_id,
-            backup_policy_id,
+        self._validate_declared_policy_ids(replication_policy_id, backup_policy_id)
+        return self._update_digital_asset_policy_references(
+            digital_asset_id,
+            replication_policy_id=replication_policy_id,
+            backup_policy_id=backup_policy_id,
+            replace_replication=True,
+            replace_backup=True,
+            if_revision=if_revision,
         )
+
+    @override
+    def set_digital_asset_replication_policy(
+        self,
+        digital_asset_id: manager_api.DigitalAssetID,
+        replication_policy_id: manager_api.ReplicationPolicyID | None,
+        *,
+        if_revision: str | None = None,
+    ) -> manager_api.DigitalAssetRecord:
+        """
+        Replace one Asset's replication reference while retaining its backup reference.
+
+        Validate a non-None policy identity before loading the Asset. The shared atomic update checks
+        the optional revision, validates all recreation dependencies against the candidate, restores
+        the old record on validation failure, and assigns a new revision on success.
+
+        Example:
+            >>> updated = manager.set_digital_asset_replication_policy(  # doctest: +SKIP
+            ...     asset_id, policy_id, if_revision=asset.revision,
+            ... )
+
+        :param digital_asset_id: Registered atomic Asset identity to update.
+        :param replication_policy_id: Registered replication policy, or None to clear the explicit reference.
+        :param if_revision: Expected current Asset revision, or None to omit the optimistic precondition.
+        :return: Updated Asset record preserving the previous backup-policy identity.
+        """
+
+        self._validate_declared_policy_ids(replication_policy_id, None)
+        return self._update_digital_asset_policy_references(
+            digital_asset_id,
+            replication_policy_id=replication_policy_id,
+            backup_policy_id=None,
+            replace_replication=True,
+            replace_backup=False,
+            if_revision=if_revision,
+        )
+
+    @override
+    def set_digital_asset_backup_policy(
+        self,
+        digital_asset_id: manager_api.DigitalAssetID,
+        backup_policy_id: manager_api.BackupPolicyID | None,
+        *,
+        if_revision: str | None = None,
+    ) -> manager_api.DigitalAssetRecord:
+        """
+        Replace one Asset's backup reference while retaining its replication reference.
+
+        Validate a non-None policy identity before loading the Asset. The shared atomic update checks
+        the optional revision, validates all recreation dependencies against the candidate, restores
+        the old record on validation failure, and assigns a new revision on success.
+
+        Example:
+            >>> updated = manager.set_digital_asset_backup_policy(  # doctest: +SKIP
+            ...     asset_id, policy_id, if_revision=asset.revision,
+            ... )
+
+        :param digital_asset_id: Registered atomic Asset identity to update.
+        :param backup_policy_id: Registered backup policy, or None to clear the explicit reference.
+        :param if_revision: Expected current Asset revision, or None to omit the optimistic precondition.
+        :return: Updated Asset record preserving the previous replication-policy identity.
+        """
+
+        self._validate_declared_policy_ids(None, backup_policy_id)
+        return self._update_digital_asset_policy_references(
+            digital_asset_id,
+            replication_policy_id=None,
+            backup_policy_id=backup_policy_id,
+            replace_replication=False,
+            replace_backup=True,
+            if_revision=if_revision,
+        )
+
+    def _update_digital_asset_policy_references(
+        self,
+        digital_asset_id: manager_api.DigitalAssetID,
+        *,
+        replication_policy_id: manager_api.ReplicationPolicyID | None,
+        backup_policy_id: manager_api.BackupPolicyID | None,
+        replace_replication: bool,
+        replace_backup: bool,
+        if_revision: str | None,
+    ) -> manager_api.DigitalAssetRecord:
+        """
+        Apply selected policy-reference replacements within one metadata transaction.
+
+        False replacement flags preserve the corresponding reference from the current Asset. Public
+        callers validate changed policy IDs before entering this helper. A candidate keeps the old
+        revision while global recreation feasibility is checked; any BaseException from that check
+        restores the original mapping entry. Successful validation assigns one fresh revision.
+
+        Example:
+            >>> updated = manager._update_digital_asset_policy_references(  # doctest: +SKIP
+            ...     asset_id, replication_policy_id=policy_id,
+            ...     backup_policy_id=None, replace_replication=True,
+            ...     replace_backup=False, if_revision=asset.revision,
+            ... )
+
+        :param digital_asset_id: Registered atomic Asset identity to update.
+        :param replication_policy_id: Replacement replication reference when replace_replication is true.
+        :param backup_policy_id: Replacement backup reference when replace_backup is true.
+        :param replace_replication: Whether to replace rather than preserve the replication reference.
+        :param replace_backup: Whether to replace rather than preserve the backup reference.
+        :param if_revision: Expected current revision, or None to omit the optimistic precondition.
+        :return: Updated Asset record with a new revision after recreation validation succeeds.
+        """
+
         with self._lock, self._metadata_transaction():
             current = self._require_asset_locked(digital_asset_id)
             self._check_revision(current.revision, if_revision)
             candidate = dataclasses.replace(
                 current,
-                replication_policy_id=replication_policy_id,
-                backup_policy_id=backup_policy_id,
+                replication_policy_id=(
+                    replication_policy_id
+                    if replace_replication
+                    else current.replication_policy_id
+                ),
+                backup_policy_id=(
+                    backup_policy_id if replace_backup else current.backup_policy_id
+                ),
                 revision=current.revision,
             )
             self._assets[digital_asset_id] = candidate
@@ -444,8 +601,8 @@ class StoragePolicyMixin(_StorageManagerState):
     @override
     def resolve_effective_policies(
         self,
-        digital_asset_id: api.DigitalAssetID,
-    ) -> api.ResolvedStoragePolicies:
+        digital_asset_id: manager_api.DigitalAssetID,
+    ) -> manager_api.ResolvedStoragePolicies:
         """
         Read the Asset and each explicit policy record, falling back independently to manager
         defaults.
@@ -463,8 +620,8 @@ class StoragePolicyMixin(_StorageManagerState):
         """
 
         asset_record = self.get_digital_asset_record(digital_asset_id)
-        replication: api.ReplicationPolicy | None = None
-        backup: api.BackupPolicy | None = None
+        replication: manager_api.ReplicationPolicy | None = None
+        backup: manager_api.BackupPolicy | None = None
         replication_source = "manager_default"
         backup_source = "manager_default"
         if asset_record.replication_policy_id is not None:
@@ -476,7 +633,7 @@ class StoragePolicyMixin(_StorageManagerState):
             backup = self.get_backup_policy_record(asset_record.backup_policy_id).policy
             backup_source = "digital_asset"
 
-        return api.ResolvedStoragePolicies(
+        return manager_api.ResolvedStoragePolicies(
             self._default_replication_policy if replication is None else replication,
             self._default_backup_policy if backup is None else backup,
             replication_source,
@@ -486,8 +643,8 @@ class StoragePolicyMixin(_StorageManagerState):
     @override
     def assess_replication(
         self,
-        digital_asset_id: api.DigitalAssetID,
-    ) -> api.StoragePolicyAssessment:
+        digital_asset_id: manager_api.DigitalAssetID,
+    ) -> manager_api.StoragePolicyAssessment:
         """
         Resolve effective policies and pass the replication definition to the shared assessment
         helper.
@@ -510,8 +667,8 @@ class StoragePolicyMixin(_StorageManagerState):
     @override
     def assess_backup(
         self,
-        digital_asset_id: api.DigitalAssetID,
-    ) -> api.StoragePolicyAssessment:
+        digital_asset_id: manager_api.DigitalAssetID,
+    ) -> manager_api.StoragePolicyAssessment:
         """
         Resolve effective policies and pass the backup definition to the shared assessment helper.
 
@@ -533,8 +690,8 @@ class StoragePolicyMixin(_StorageManagerState):
     @override
     def assess_digital_asset(
         self,
-        digital_asset_id: api.DigitalAssetID,
-    ) -> api.DigitalAssetStorageAssessment:
+        digital_asset_id: manager_api.DigitalAssetID,
+    ) -> manager_api.DigitalAssetStorageAssessment:
         """
         Collect currently readable claims across modes, recoverable exact derivations, and both
         policy assessments.
@@ -568,7 +725,7 @@ class StoragePolicyMixin(_StorageManagerState):
             )
             if self._derivation_is_recoverable(record, {digital_asset_id})
         )
-        return api.DigitalAssetStorageAssessment(
+        return manager_api.DigitalAssetStorageAssessment(
             digital_asset_id,
             self.assess_replication(digital_asset_id),
             self.assess_backup(digital_asset_id),
@@ -577,24 +734,74 @@ class StoragePolicyMixin(_StorageManagerState):
         )
 
     @override
+    def assess_composite_digital_asset_storage(
+        self,
+        composite_digital_asset_id: manager_api.CompositeDigitalAssetID,
+    ) -> manager_api.CompositeDigitalAssetStorageAssessment:
+        """
+        Assess each distinct member once and project its evidence onto every relationship.
+
+        Resolve the Composite first, then walk stored membership order. A per-call dictionary
+        avoids repeating repository, Store-status, policy, and derivation assessment for duplicate
+        Asset identities. Optional members are assessed normally and remain in the returned value;
+        only the result model's aggregate predicates treat them as non-blocking.
+
+        Atomic assessments are separate observations. An unexpected later failure aborts this call
+        without a partial aggregate, and no assessment performs physical mutation.
+
+        Example:
+            >>> assessment = manager.assess_composite_digital_asset_storage(composite_id)  # doctest: +SKIP
+
+        :param composite_digital_asset_id: Registered Composite identity whose relationships are assessed.
+        :return: Ordered relationship-specific storage assessments retaining the Composite record.
+        """
+
+        record = self.get_composite_digital_asset_record(composite_digital_asset_id)
+        by_asset: dict[
+            manager_api.DigitalAssetID,
+            manager_api.DigitalAssetStorageAssessment,
+        ] = {}
+        members: list[manager_api.CompositeDigitalAssetMemberStorageAssessment] = []
+        for membership in record.members:
+            assessment = by_asset.get(membership.digital_asset_id)
+            if assessment is None:
+                assessment = self.assess_digital_asset(membership.digital_asset_id)
+                by_asset[membership.digital_asset_id] = assessment
+            members.append(
+                manager_api.CompositeDigitalAssetMemberStorageAssessment(
+                    membership,
+                    assessment,
+                )
+            )
+        return manager_api.CompositeDigitalAssetStorageAssessment(
+            record,
+            tuple(members),
+        )
+
+    @override
     def plan_replication(
         self,
-        digital_asset_id: api.DigitalAssetID,
-    ) -> api.DigitalAssetReplicationPlan:
+        digital_asset_id: manager_api.DigitalAssetID,
+    ) -> manager_api.DigitalAssetReplicationPlan:
         """
         Propose replication work from recorded state, Store configuration eligibility, and declared
         spread limits.
 
-        The planning healthy set contains policy-mode VERIFIED claims passing configuration rules,
-        without checking current status, stat size, or digests. Needed copies use the shared
-        separated-capacity calculation. Destination planning excludes every Store with a nondeleted
-        claim for the Asset, regardless of mode or health.
+        The planning healthy set contains policy-mode VERIFIED claims passing configuration rules.
+        A jointly separation-compliant retained subset determines both needed copies and the bucket
+        counts used to choose destinations. Destination planning excludes every Store with a
+        nondeleted claim for the Asset, regardless of mode or health.
 
-        A zero target proposes every policy-mode claim for removal, including tombstones; otherwise
-        the ID-ordered healthy suffix after target is proposed without solving a separate
-        optimal-retention problem. PRESENT, UNVERIFIED, and STAGED claims are proposed for
-        verification. With no healthy claim and RECREATE loss action, select the first currently
-        recoverable exact derivation, warning if none exists.
+        A zero target proposes every policy-mode claim for removal, including tombstones. For a
+        positive target, surplus removals are proposed only after retained copies plus destinations
+        can reach the target, and only claims outside the jointly compliant retained subset are
+        selected. PRESENT, UNVERIFIED, and STAGED claims are proposed for verification.
+
+        When publication is needed, at least one currently readable claim is required as a source.
+        A RECREATE policy also reports the first currently recoverable exact derivation whenever no
+        readable claim remains, including for an intentional zero-copy policy. A missing required
+        source/recreation route is a blocker, as is a destination shortage; consequently
+        ``implementable`` describes all prerequisites this planner currently knows how to prove.
 
         Short destination lists become warnings. The method does not consult auto_heal or retention
         priority, reserve capacity, verify claims, or execute any proposal.
@@ -619,14 +826,15 @@ class StoragePolicyMixin(_StorageManagerState):
         healthy = tuple(
             record
             for record in records
-            if record.state is api.ReplicaState.VERIFIED
+            if record.state is manager_api.ReplicaState.VERIFIED
             and self._store_satisfies_policy(record.location.store_ref, policy)
         )
         target = policy.effective_target_copies
-        needed = max(0, target - self._separated_copy_capacity(healthy, policy))
+        retained = self._select_separated_records(healthy, policy, limit=target)
+        needed = max(0, target - len(retained))
         destinations = self._plan_destination_stores(
             policy,
-            healthy,
+            retained,
             needed,
             expected_size=asset.size_bytes,
             excluded_store_refs={
@@ -634,26 +842,43 @@ class StoragePolicyMixin(_StorageManagerState):
                 for record in self.iter_replica_records(
                     digital_asset_id=digital_asset_id
                 )
-                if record.state is not api.ReplicaState.DELETED
+                if record.state is not manager_api.ReplicaState.DELETED
             },
         )
+        retained_ids = {record.replica_id for record in retained}
         remove = (
             tuple(record.replica_id for record in records)
             if target == 0
-            else tuple(record.replica_id for record in healthy[target:])
+            else (
+                tuple(
+                    record.replica_id
+                    for record in healthy
+                    if record.replica_id not in retained_ids
+                )
+                if len(retained) + len(destinations) >= target
+                else ()
+            )
         )
         verify_ids = tuple(
             record.replica_id
             for record in records
             if record.state
             in {
-                api.ReplicaState.PRESENT,
-                api.ReplicaState.UNVERIFIED,
-                api.ReplicaState.STAGED,
+                manager_api.ReplicaState.PRESENT,
+                manager_api.ReplicaState.UNVERIFIED,
+                manager_api.ReplicaState.STAGED,
             }
         )
-        recreation_id: api.DigitalAssetDerivationID | None = None
-        if not healthy and policy.loss_action is api.DigitalAssetLossAction.RECREATE:
+        readable_sources = tuple(
+            record
+            for record in self.iter_replica_records(digital_asset_id=digital_asset_id)
+            if self._record_is_readable(record)
+        )
+        recreation_id: manager_api.DigitalAssetDerivationID | None = None
+        if (
+            not readable_sources
+            and policy.loss_action is manager_api.DigitalAssetLossAction.RECREATE
+        ):
             recreation_id = next(
                 (
                     record.digital_asset_derivation_id
@@ -673,39 +898,43 @@ class StoragePolicyMixin(_StorageManagerState):
             warnings.append(
                 f"only {len(destinations)} of {needed} required destinations are available"
             )
-        if (
-            policy.loss_action is api.DigitalAssetLossAction.RECREATE
-            and not healthy
-            and recreation_id is None
-        ):
-            warnings.append("no currently recoverable exact derivation is available")
-        return api.DigitalAssetReplicationPlan(
+        if not readable_sources and recreation_id is None:
+            if policy.loss_action is manager_api.DigitalAssetLossAction.RECREATE:
+                warnings.append(
+                    "no currently recoverable exact derivation is available"
+                )
+            elif needed > 0:
+                warnings.append("no currently readable source Replica is available")
+        return manager_api.DigitalAssetReplicationPlan(
             digital_asset_id,
             destination_store_refs=destinations,
             replica_ids_to_verify=verify_ids,
             replica_ids_to_remove=remove,
             exact_recreation_derivation_id=recreation_id,
             warnings=tuple(warnings),
+            blocking_reasons=tuple(warnings),
         )
 
     @override
     def plan_backup(
         self,
-        digital_asset_id: api.DigitalAssetID,
-    ) -> api.DigitalAssetBackupPlan:
+        digital_asset_id: manager_api.DigitalAssetID,
+    ) -> manager_api.DigitalAssetBackupPlan:
         """
         Propose backup destinations, sources, verification, and removals using recorded policy-mode
         claims.
 
         As in replication planning, healthy counts require recorded VERIFIED state and configuration
-        eligibility without a current physical check. Destination selection excludes all Stores with
-        any nondeleted claim for the Asset. Source IDs come from other modes and must pass the
-        current state/status/size readability helper.
+        eligibility. A jointly separation-compliant retained subset drives destination bucket
+        counts. Destination selection excludes all Stores with any nondeleted claim for the Asset.
+        Source IDs may come from any mode, including a retained backup copy, and must pass the current
+        state/status/size readability helper.
 
-        A zero target proposes all policy-mode claims for removal; otherwise the healthy suffix
-        after target is proposed. Every policy-mode claim except VERIFIED and DELETED is proposed
-        for verification, including unavailable or corrupt observations. Only destination shortages
-        produce warnings here; an empty source list adds no warning.
+        A zero target proposes all policy-mode claims for removal. For a positive target, surplus
+        healthy claims are proposed only when the retained subset plus planned destinations can
+        reach the target; removals therefore preserve the declared spread. Every policy-mode claim
+        except VERIFIED and DELETED is proposed for verification. Destination shortages and a
+        missing readable source for required publication are explicit blockers.
 
         This planner does not enforce retention_locked, auto_heal, periodic verification, or
         retention priority, and performs no copy, verification, or deletion. Execution must recheck
@@ -730,14 +959,15 @@ class StoragePolicyMixin(_StorageManagerState):
         healthy = tuple(
             record
             for record in records
-            if record.state is api.ReplicaState.VERIFIED
+            if record.state is manager_api.ReplicaState.VERIFIED
             and self._store_satisfies_policy(record.location.store_ref, policy)
         )
         target = policy.effective_target_copies
-        needed = max(0, target - self._separated_copy_capacity(healthy, policy))
+        retained = self._select_separated_records(healthy, policy, limit=target)
+        needed = max(0, target - len(retained))
         destinations = self._plan_destination_stores(
             policy,
-            healthy,
+            retained,
             needed,
             expected_size=asset.size_bytes,
             excluded_store_refs={
@@ -745,38 +975,49 @@ class StoragePolicyMixin(_StorageManagerState):
                 for record in self.iter_replica_records(
                     digital_asset_id=digital_asset_id
                 )
-                if record.state is not api.ReplicaState.DELETED
+                if record.state is not manager_api.ReplicaState.DELETED
             },
         )
         sources = tuple(
             record.replica_id
             for record in self.iter_replica_records(digital_asset_id=digital_asset_id)
-            if record.mode is not policy.mode and self._record_is_readable(record)
+            if self._record_is_readable(record)
         )
+        retained_ids = {record.replica_id for record in retained}
         remove = (
             tuple(record.replica_id for record in records)
             if target == 0
-            else tuple(record.replica_id for record in healthy[target:])
+            else (
+                tuple(
+                    record.replica_id
+                    for record in healthy
+                    if record.replica_id not in retained_ids
+                )
+                if len(retained) + len(destinations) >= target
+                else ()
+            )
         )
-        warnings = (
-            (
+        warnings: list[str] = []
+        if len(destinations) < needed:
+            warnings.append(
                 f"only {len(destinations)} of {needed} required destinations are available",
             )
-            if len(destinations) < needed
-            else ()
-        )
-        return api.DigitalAssetBackupPlan(
+        if needed > 0 and not sources:
+            warnings.append("no currently readable source Replica is available")
+        warning_values = tuple(warnings)
+        return manager_api.DigitalAssetBackupPlan(
             digital_asset_id,
             destination_store_refs=destinations,
             source_replica_ids=sources,
             replica_ids_to_verify=tuple(
                 record.replica_id
                 for record in records
-                if record.state is not api.ReplicaState.VERIFIED
-                and record.state is not api.ReplicaState.DELETED
+                if record.state is not manager_api.ReplicaState.VERIFIED
+                and record.state is not manager_api.ReplicaState.DELETED
             ),
             replica_ids_to_remove=remove,
-            warnings=warnings,
+            warnings=warning_values,
+            blocking_reasons=warning_values,
         )
 
 

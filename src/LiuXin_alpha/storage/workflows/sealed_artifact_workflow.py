@@ -13,16 +13,18 @@ import json
 import os
 import pathlib
 import shutil
-
 from collections.abc import Iterable, Mapping
 from typing import cast, override
 from urllib.parse import unquote, urlparse
 from uuid import UUID
 
-from LiuXin_alpha.storage import api
+from LiuXin_alpha.storage.api import errors as storage_errors
+from LiuXin_alpha.storage.api import models as storage_models
+from LiuXin_alpha.storage.api import storage_manager_api as manager_api
+from LiuXin_alpha.storage.api import workflow_api
 
 
-class SealedArtifactWorkflow(api.SealedArtifactWorkflowAPI):
+class SealedArtifactWorkflow(workflow_api.SealedArtifactWorkflowAPI):
     """
     Catalogue an existing container image and record its package derivation.
 
@@ -50,7 +52,7 @@ class SealedArtifactWorkflow(api.SealedArtifactWorkflowAPI):
         *,
         name: str | None = None,
         version: str | None = None,
-    ) -> api.ReproductionRecipeArtifactReference:
+    ) -> manager_api.ReproductionRecipeArtifactReference:
         """
         Hash a local tool file and record a resolved file URI with optional version metadata.
 
@@ -78,11 +80,11 @@ class SealedArtifactWorkflow(api.SealedArtifactWorkflowAPI):
         resolved_name = shutil.which(supplied)
         path = pathlib.Path(resolved_name or supplied).expanduser()
         if not path.is_file():
-            raise api.StoragePreconditionFailed(
+            raise storage_errors.StoragePreconditionFailed(
                 f"sealed-artifact executor is not a readable file: {supplied}."
             )
         path = path.resolve()
-        return api.ReproductionRecipeArtifactReference(
+        return manager_api.ReproductionRecipeArtifactReference(
             name=name or path.name,
             digest=_file_digest(path),
             version=version,
@@ -92,31 +94,31 @@ class SealedArtifactWorkflow(api.SealedArtifactWorkflowAPI):
     @override
     def record_artifact(
         self,
-        artifact: str | os.PathLike[str] | api.Location,
-        sources: api.SealedArtifactSources,
+        artifact: str | os.PathLike[str] | storage_models.Location,
+        sources: workflow_api.SealedArtifactSources,
         *,
-        artifact_format: api.SealedArtifactFormat | str,
-        executor: api.ReproductionRecipeArtifactReference | None,
+        artifact_format: workflow_api.SealedArtifactFormat | str,
+        executor: manager_api.ReproductionRecipeArtifactReference | None,
         command: Iterable[str],
         parameters: Mapping[str, object] | None = None,
         environment: Mapping[str, object] | None = None,
         dependencies: Iterable[
-            api.ReproductionRecipeArtifactReference
+            manager_api.ReproductionRecipeArtifactReference
         ] = (),
         reproducibility: (
-            api.Reproducibility | str
-        ) = api.Reproducibility.BEST_EFFORT,
+            manager_api.Reproducibility | str
+        ) = manager_api.Reproducibility.BEST_EFFORT,
         complete: bool = True,
         workflow_id: int | None = None,
         workflow_reference: str | None = None,
         operation_id: UUID | None = None,
-        preferred_store_ref: api.StoreUUID | None = None,
-        replica_mode: api.ReplicaMode = api.ReplicaMode.ARCHIVE,
-        metadata: api.DigitalAssetMetadata | None = None,
+        preferred_store_ref: storage_models.StoreUUID | None = None,
+        replica_mode: manager_api.ReplicaMode = manager_api.ReplicaMode.ARCHIVE,
+        metadata: manager_api.DigitalAssetMetadata | None = None,
         operator: str | None = None,
         notes: str | None = None,
         verify: bool = True,
-    ) -> api.SealedArtifactRegistration:
+    ) -> workflow_api.SealedArtifactRegistration:
         """
         Adopt or ingest an existing image and attach an ordered package derivation.
 
@@ -169,22 +171,22 @@ class SealedArtifactWorkflow(api.SealedArtifactWorkflowAPI):
         :return: SealedArtifactRegistration retaining the ingest result, selected format, recorded/reused derivation, and recipe.
         """
 
-        selected_format = api.SealedArtifactFormat(artifact_format)
-        selected_reproducibility = api.Reproducibility(reproducibility)
+        selected_format = workflow_api.SealedArtifactFormat(artifact_format)
+        selected_reproducibility = manager_api.Reproducibility(reproducibility)
         source_records = self._source_records(sources)
         command_tuple = tuple(str(argument) for argument in command)
         dependency_tuple = tuple(dependencies)
         parameters_document = dict(parameters or ())
         supplied_format = parameters_document.get("artifact_format")
         if supplied_format not in (None, selected_format.value):
-            raise api.StoragePreconditionFailed(
+            raise storage_errors.StoragePreconditionFailed(
                 "parameters.artifact_format conflicts with artifact_format."
             )
         parameters_document["artifact_format"] = selected_format.value
         parameters_json = _canonical_json(parameters_document, "parameters")
         environment_json = _canonical_json(dict(environment or ()), "environment")
         recipe_inputs = tuple(
-            api.ReproductionRecipeInputReference(
+            manager_api.ReproductionRecipeInputReference(
                 sequence_number=index,
                 digital_asset_id=record.digital_asset_id,
                 size_bytes=record.size_bytes,
@@ -195,23 +197,23 @@ class SealedArtifactWorkflow(api.SealedArtifactWorkflowAPI):
             for index, (logical_path, record) in enumerate(source_records)
         )
         if complete:
-            if selected_reproducibility is api.Reproducibility.NOT_REPRODUCIBLE:
-                raise api.StoragePreconditionFailed(
+            if selected_reproducibility is manager_api.Reproducibility.NOT_REPRODUCIBLE:
+                raise storage_errors.StoragePreconditionFailed(
                     "a non-reproducible sealed-artifact recipe cannot be complete."
                 )
             if executor is None or not executor.has_retrieval_source:
-                raise api.StoragePreconditionFailed(
+                raise storage_errors.StoragePreconditionFailed(
                     "a complete sealed-artifact recipe requires a retrievable pinned executor."
                 )
             if any(
                 not dependency.has_retrieval_source
                 for dependency in dependency_tuple
             ):
-                raise api.StoragePreconditionFailed(
+                raise storage_errors.StoragePreconditionFailed(
                     "complete sealed-artifact dependencies must be retrievable."
                 )
             if not command_tuple:
-                raise api.StoragePreconditionFailed(
+                raise storage_errors.StoragePreconditionFailed(
                     "a complete sealed-artifact recipe requires a replay command."
                 )
         if any(not argument for argument in command_tuple):
@@ -230,7 +232,7 @@ class SealedArtifactWorkflow(api.SealedArtifactWorkflowAPI):
             verify=verify,
         )
         output = ingest_result.asset_record
-        recipe = api.ReproductionRecipe(
+        recipe = manager_api.ReproductionRecipe(
             recipe_type=f"sealed_{selected_format.value}_artifact",
             reproducibility=selected_reproducibility,
             complete=complete,
@@ -249,17 +251,17 @@ class SealedArtifactWorkflow(api.SealedArtifactWorkflowAPI):
                 "recorded command from that directory."
             ),
         )
-        declaration = api.DigitalAssetDerivationDeclaration(
+        declaration = manager_api.DigitalAssetDerivationDeclaration(
             result_digital_asset_id=output.digital_asset_id,
             sources=tuple(
-                api.DigitalAssetDerivationSourceReference(
+                manager_api.DigitalAssetDerivationSourceReference(
                     sequence_number=index,
                     digital_asset_id=record.digital_asset_id,
                     role="archive_member",
                 )
                 for index, (_logical_path, record) in enumerate(source_records)
             ),
-            kind=api.DigitalAssetDerivationKind.PACKAGE,
+            kind=manager_api.DigitalAssetDerivationKind.PACKAGE,
             recipe=recipe,
             output_role=f"sealed_{selected_format.value}_artifact",
             operator=operator,
@@ -268,7 +270,7 @@ class SealedArtifactWorkflow(api.SealedArtifactWorkflowAPI):
             workflow_reference=workflow_reference,
         )
         derivation = self._record_once(declaration)
-        return api.SealedArtifactRegistration(
+        return workflow_api.SealedArtifactRegistration(
             selected_format,
             ingest_result,
             derivation,
@@ -278,20 +280,20 @@ class SealedArtifactWorkflow(api.SealedArtifactWorkflowAPI):
     @override
     def record_backup_result(
         self,
-        result: api.BackupWorkflowResult,
+        result: workflow_api.BackupWorkflowResult,
         *,
-        executor: api.ReproductionRecipeArtifactReference,
-        source_assets: api.SealedArtifactSources | None = None,
+        executor: manager_api.ReproductionRecipeArtifactReference,
+        source_assets: workflow_api.SealedArtifactSources | None = None,
         environment: Mapping[str, object] | None = None,
         dependencies: Iterable[
-            api.ReproductionRecipeArtifactReference
+            manager_api.ReproductionRecipeArtifactReference
         ] = (),
         operation_id: UUID | None = None,
-        preferred_store_ref: api.StoreUUID | None = None,
+        preferred_store_ref: storage_models.StoreUUID | None = None,
         operator: str | None = None,
         notes: str | None = None,
         verify: bool = True,
-    ) -> api.SealedArtifactRegistration:
+    ) -> workflow_api.SealedArtifactRegistration:
         """
         Translate a successful SquashFS backup result into a complete package recipe.
 
@@ -327,12 +329,12 @@ class SealedArtifactWorkflow(api.SealedArtifactWorkflowAPI):
         """
 
         if not result.successful or result.output_artifact_reference is None:
-            raise api.StoragePreconditionFailed(
+            raise storage_errors.StoragePreconditionFailed(
                 "only a successful backup result can become a derived artifact."
             )
         declaration = result.declaration
-        if declaration.workflow_kind is not api.BackupWorkflowKind.SQUASHFS_PACK:
-            raise api.StorageUnsupportedOperation(
+        if declaration.workflow_kind is not workflow_api.BackupWorkflowKind.SQUASHFS_PACK:
+            raise storage_errors.StorageUnsupportedOperation(
                 f"no sealed-artifact adapter exists for {declaration.workflow_kind}."
             )
         sources = (
@@ -346,7 +348,7 @@ class SealedArtifactWorkflow(api.SealedArtifactWorkflowAPI):
         command = [
             executor.name,
             ".",
-            api.SealedArtifactFormat.SQUASHFS.default_output_name,
+            workflow_api.SealedArtifactFormat.SQUASHFS.default_output_name,
             "-noappend",
             "-comp",
             compression,
@@ -365,16 +367,16 @@ class SealedArtifactWorkflow(api.SealedArtifactWorkflowAPI):
         return self.record_artifact(
             result.output_artifact_reference,
             sources,
-            artifact_format=api.SealedArtifactFormat.SQUASHFS,
+            artifact_format=workflow_api.SealedArtifactFormat.SQUASHFS,
             executor=executor,
             command=command,
             parameters=parameters,
             environment=environment,
             dependencies=dependencies,
             reproducibility=(
-                api.Reproducibility.EXACT
+                manager_api.Reproducibility.EXACT
                 if deterministic
-                else api.Reproducibility.BEST_EFFORT
+                else manager_api.Reproducibility.BEST_EFFORT
             ),
             complete=True,
             workflow_reference=(
@@ -384,7 +386,7 @@ class SealedArtifactWorkflow(api.SealedArtifactWorkflowAPI):
             ),
             operation_id=operation_id,
             preferred_store_ref=preferred_store_ref,
-            replica_mode=api.ReplicaMode.ARCHIVE,
+            replica_mode=manager_api.ReplicaMode.ARCHIVE,
             operator=operator,
             notes=notes,
             verify=verify,
@@ -392,24 +394,24 @@ class SealedArtifactWorkflow(api.SealedArtifactWorkflowAPI):
 
     def record_rar_artifact(
         self,
-        artifact: str | os.PathLike[str] | api.Location,
-        sources: api.SealedArtifactSources,
+        artifact: str | os.PathLike[str] | storage_models.Location,
+        sources: workflow_api.SealedArtifactSources,
         *,
-        executor: api.ReproductionRecipeArtifactReference,
+        executor: manager_api.ReproductionRecipeArtifactReference,
         compression_level: int = 3,
         quiet: bool = True,
         environment: Mapping[str, object] | None = None,
         dependencies: Iterable[
-            api.ReproductionRecipeArtifactReference
+            manager_api.ReproductionRecipeArtifactReference
         ] = (),
         workflow_id: int | None = None,
         workflow_reference: str | None = None,
         operation_id: UUID | None = None,
-        preferred_store_ref: api.StoreUUID | None = None,
+        preferred_store_ref: storage_models.StoreUUID | None = None,
         operator: str | None = None,
         notes: str | None = None,
         verify: bool = True,
-    ) -> api.SealedArtifactRegistration:
+    ) -> workflow_api.SealedArtifactRegistration:
         """
         Describe a build-once RAR 4 image with a complete best-effort package recipe.
 
@@ -461,11 +463,11 @@ class SealedArtifactWorkflow(api.SealedArtifactWorkflowAPI):
         ]
         if quiet:
             command.append("-inul")
-        command.extend((api.SealedArtifactFormat.RAR.default_output_name, "."))
+        command.extend((workflow_api.SealedArtifactFormat.RAR.default_output_name, "."))
         return self.record_artifact(
             artifact,
             sources,
-            artifact_format=api.SealedArtifactFormat.RAR,
+            artifact_format=workflow_api.SealedArtifactFormat.RAR,
             executor=executor,
             command=command,
             parameters={
@@ -475,13 +477,13 @@ class SealedArtifactWorkflow(api.SealedArtifactWorkflowAPI):
             },
             environment=environment,
             dependencies=dependencies,
-            reproducibility=api.Reproducibility.BEST_EFFORT,
+            reproducibility=manager_api.Reproducibility.BEST_EFFORT,
             complete=True,
             workflow_id=workflow_id,
             workflow_reference=workflow_reference,
             operation_id=operation_id,
             preferred_store_ref=preferred_store_ref,
-            replica_mode=api.ReplicaMode.ARCHIVE,
+            replica_mode=manager_api.ReplicaMode.ARCHIVE,
             operator=operator,
             notes=notes,
             verify=verify,
@@ -489,8 +491,8 @@ class SealedArtifactWorkflow(api.SealedArtifactWorkflowAPI):
 
     def _source_records(
         self,
-        sources: api.SealedArtifactSources,
-    ) -> tuple[tuple[str, api.DigitalAssetRecord], ...]:
+        sources: workflow_api.SealedArtifactSources,
+    ) -> tuple[tuple[str, manager_api.DigitalAssetRecord], ...]:
         """
         Collect ordered member/Asset pairs, reject duplicate stringified names, and refresh records.
 
@@ -512,7 +514,7 @@ class SealedArtifactWorkflow(api.SealedArtifactWorkflowAPI):
         paths = tuple(str(path) for path, _asset in values)
         if len(paths) != len(set(paths)):
             raise ValueError("sealed artifact logical paths must be unique.")
-        records: list[tuple[str, api.DigitalAssetRecord]] = []
+        records: list[tuple[str, manager_api.DigitalAssetRecord]] = []
         for path, asset in values:
             asset_id = _asset_id(asset)
             records.append(
@@ -522,14 +524,14 @@ class SealedArtifactWorkflow(api.SealedArtifactWorkflowAPI):
 
     def _catalogue_bytes(
         self,
-        artifact: str | os.PathLike[str] | api.Location,
+        artifact: str | os.PathLike[str] | storage_models.Location,
         *,
         operation_id: UUID | None,
-        preferred_store_ref: api.StoreUUID | None,
-        replica_mode: api.ReplicaMode,
-        metadata: api.DigitalAssetMetadata,
+        preferred_store_ref: storage_models.StoreUUID | None,
+        replica_mode: manager_api.ReplicaMode,
+        metadata: manager_api.DigitalAssetMetadata,
         verify: bool,
-    ) -> api.DigitalAssetIngestResult:
+    ) -> manager_api.DigitalAssetIngestResult:
         """
         Adopt a routed image in place or ingest an existing local image file.
 
@@ -542,7 +544,7 @@ class SealedArtifactWorkflow(api.SealedArtifactWorkflowAPI):
         Example:
             >>> outcome = recorder._catalogue_bytes(  # doctest: +SKIP
             ...     output, operation_id=None, preferred_store_ref=None,
-            ...     replica_mode=api.ReplicaMode.ARCHIVE, metadata=metadata, verify=True,
+            ...     replica_mode=manager_api.ReplicaMode.ARCHIVE, metadata=metadata, verify=True,
             ... )
 
 
@@ -554,12 +556,12 @@ class SealedArtifactWorkflow(api.SealedArtifactWorkflowAPI):
         :param verify: Verification request forwarded to manager ingest/adoption; does not inspect archive members or test replay.
         :return: Original DigitalAssetIngestResult from manager adoption or file ingest; lookup/read/publication failures propagate.
         """
-        if isinstance(artifact, api.Location):
+        if isinstance(artifact, storage_models.Location):
             if (
                 preferred_store_ref is not None
                 and preferred_store_ref != artifact.store_ref
             ):
-                raise api.StoragePreconditionFailed(
+                raise storage_errors.StoragePreconditionFailed(
                     "preferred_store_ref cannot redirect an adopted Location."
                 )
             return self.storage_manager.adopt_location(
@@ -571,7 +573,7 @@ class SealedArtifactWorkflow(api.SealedArtifactWorkflowAPI):
             )
         path = _local_artifact_path(artifact)
         if not path.is_file():
-            raise api.StorageNotFound(f"sealed artifact does not exist: {path}.")
+            raise storage_errors.StorageNotFound(f"sealed artifact does not exist: {path}.")
         return self.storage_manager.ingest_file(
             path,
             operation_id=operation_id,
@@ -583,8 +585,8 @@ class SealedArtifactWorkflow(api.SealedArtifactWorkflowAPI):
 
     def _record_once(
         self,
-        declaration: api.DigitalAssetDerivationDeclaration,
-    ) -> api.DigitalAssetDerivationRecord:
+        declaration: manager_api.DigitalAssetDerivationDeclaration,
+    ) -> manager_api.DigitalAssetDerivationRecord:
         """
         Reuse equal same-output provenance or reject a conflicting workflow association.
 
@@ -630,15 +632,15 @@ class SealedArtifactWorkflow(api.SealedArtifactWorkflowAPI):
                 )
             )
             if conflicting:
-                raise api.StoragePreconditionFailed(
+                raise storage_errors.StoragePreconditionFailed(
                     "this workflow already recorded different provenance for the sealed artifact."
                 )
         return self.storage_manager.record_digital_asset_derivation(declaration)
 
     def _backup_sources(
         self,
-        declaration: api.BackupWorkflowDeclaration,
-    ) -> tuple[tuple[str, api.DigitalAssetID], ...]:
+        declaration: workflow_api.BackupWorkflowDeclaration,
+    ) -> tuple[tuple[str, manager_api.DigitalAssetID], ...]:
         """
         Extract ordered member paths and required catalogue IDs from backup intent.
 
@@ -654,10 +656,10 @@ class SealedArtifactWorkflow(api.SealedArtifactWorkflowAPI):
         :param declaration: Backup intent whose sources carry member paths and atomic Asset provenance IDs.
         :return: Tuple of (archive_path, DigitalAssetID) pairs in declaration order.
         """
-        sources: list[tuple[str, api.DigitalAssetID]] = []
+        sources: list[tuple[str, manager_api.DigitalAssetID]] = []
         for index, source in enumerate(declaration.sources):
             if source.source_digital_asset_id is None:
-                raise api.StoragePreconditionFailed(
+                raise storage_errors.StoragePreconditionFailed(
                     "".join(
                         (
                             "backup source ",
@@ -673,9 +675,9 @@ class SealedArtifactWorkflow(api.SealedArtifactWorkflowAPI):
 
     def _validated_source_override(
         self,
-        declaration: api.BackupWorkflowDeclaration,
-        source_assets: api.SealedArtifactSources,
-    ) -> tuple[tuple[str, api.SealedArtifactAssetInput], ...]:
+        declaration: workflow_api.BackupWorkflowDeclaration,
+        source_assets: workflow_api.SealedArtifactSources,
+    ) -> tuple[tuple[str, workflow_api.SealedArtifactAssetInput], ...]:
         """
         Require override path spelling and order to equal the backup declaration exactly.
 
@@ -700,13 +702,13 @@ class SealedArtifactWorkflow(api.SealedArtifactWorkflowAPI):
         )
         supplied_paths = tuple(str(path) for path, _asset in values)
         if supplied_paths != expected_paths:
-            raise api.StoragePreconditionFailed(
+            raise storage_errors.StoragePreconditionFailed(
                 "source_assets paths and order must match the backup declaration."
             )
         return values
 
 
-def _asset_id(value: api.SealedArtifactAssetInput) -> api.DigitalAssetID:
+def _asset_id(value: workflow_api.SealedArtifactAssetInput) -> manager_api.DigitalAssetID:
     """
     Extract an atomic Asset ID or accept a strictly positive non-bool integer.
 
@@ -722,11 +724,11 @@ def _asset_id(value: api.SealedArtifactAssetInput) -> api.DigitalAssetID:
     :param value: Atomic Asset ID, record, ingest result, or resolution accepted by the public workflow.
     :return: Extracted DigitalAssetID, or TypeError for an unsupported direct value.
     """
-    if isinstance(value, api.DigitalAssetRecord):
+    if isinstance(value, manager_api.DigitalAssetRecord):
         return value.digital_asset_id
-    if isinstance(value, api.DigitalAssetIngestResult):
+    if isinstance(value, manager_api.DigitalAssetIngestResult):
         return value.asset_record.digital_asset_id
-    if isinstance(value, api.DigitalAssetResolution):
+    if isinstance(value, manager_api.DigitalAssetResolution):
         return value.asset_record.digital_asset_id
     candidate = cast(object, value)
     if (
@@ -734,7 +736,7 @@ def _asset_id(value: api.SealedArtifactAssetInput) -> api.DigitalAssetID:
         and not isinstance(candidate, bool)
         and candidate > 0
     ):
-        return api.DigitalAssetID(candidate)
+        return manager_api.DigitalAssetID(candidate)
     raise TypeError(
         "source assets must be positive IDs or atomic Asset records/results."
     )
@@ -765,8 +767,8 @@ def _canonical_json(value: Mapping[str, object], field_name: str) -> str:
 
 
 def _source_items(
-    sources: api.SealedArtifactSources,
-) -> tuple[tuple[str, api.SealedArtifactAssetInput], ...]:
+    sources: workflow_api.SealedArtifactSources,
+) -> tuple[tuple[str, workflow_api.SealedArtifactAssetInput], ...]:
     """
     Materialize source pairs while preserving mapping insertion order or iterable order.
 
@@ -784,7 +786,7 @@ def _source_items(
     """
     if isinstance(sources, Mapping):
         mapping = cast(
-            Mapping[str, api.SealedArtifactAssetInput],
+            Mapping[str, workflow_api.SealedArtifactAssetInput],
             sources,
         )
         return tuple(mapping.items())
@@ -816,16 +818,16 @@ def _local_artifact_path(
     if parsed.scheme == "file":
         return pathlib.Path(unquote(parsed.path)).resolve()
     if parsed.scheme:
-        raise api.StorageUnsupportedOperation(
+        raise storage_errors.StorageUnsupportedOperation(
             "sealed artifact strings must be local paths or file URIs; use a Location for managed Store bytes."
         )
     return pathlib.Path(value).expanduser().resolve()
 
 
 def _artifact_metadata(
-    artifact: str | os.PathLike[str] | api.Location,
-    artifact_format: api.SealedArtifactFormat,
-) -> api.DigitalAssetMetadata:
+    artifact: str | os.PathLike[str] | storage_models.Location,
+    artifact_format: workflow_api.SealedArtifactFormat,
+) -> manager_api.DigitalAssetMetadata:
     """
     Build default whole-image description from the declared format and source basename.
 
@@ -835,7 +837,7 @@ def _artifact_metadata(
 
     Example:
         >>> _artifact_metadata(
-        ...     api.Location(UUID(int=1), "packs/books.zip"), api.SealedArtifactFormat.ZIP,
+        ...     storage_models.Location(UUID(int=1), "packs/books.zip"), workflow_api.SealedArtifactFormat.ZIP,
         ... ).media_type
         'application/zip'
 
@@ -844,11 +846,11 @@ def _artifact_metadata(
     :param artifact_format: Selected format enum providing the label and conservative media type.
     :return: New DigitalAssetMetadata for the container image; invalid local URI spelling can raise.
     """
-    if isinstance(artifact, api.Location):
+    if isinstance(artifact, storage_models.Location):
         original_name = pathlib.PurePosixPath(artifact.key).name or None
     else:
         original_name = _local_artifact_path(artifact).name or None
-    return api.DigitalAssetMetadata(
+    return manager_api.DigitalAssetMetadata(
         name=f"sealed {artifact_format.value} artifact",
         media_type=artifact_format.media_type,
         original_name=original_name,
@@ -859,7 +861,7 @@ def _artifact_metadata(
     )
 
 
-def _file_digest(path: pathlib.Path) -> api.Digest:
+def _file_digest(path: pathlib.Path) -> storage_models.Digest:
     """
     Read a local tool file in 1 MiB chunks and return its SHA-256 identity.
 
@@ -880,7 +882,7 @@ def _file_digest(path: pathlib.Path) -> api.Digest:
     with path.open("rb") as source:
         while chunk := source.read(1024 * 1024):
             hasher.update(chunk)
-    return api.Digest("sha256", hasher.hexdigest())
+    return storage_models.Digest("sha256", hasher.hexdigest())
 
 
 __all__ = ["SealedArtifactWorkflow"]

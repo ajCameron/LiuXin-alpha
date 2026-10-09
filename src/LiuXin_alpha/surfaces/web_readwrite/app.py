@@ -37,7 +37,7 @@ from urllib.parse import parse_qs, quote, unquote, urlencode
 from wsgiref.simple_server import make_server
 
 from LiuXin_alpha.core import CoreClientAPI
-from LiuXin_alpha.storage.backend_registry import DEFAULT_BACKEND_REGISTRY
+from LiuXin_alpha.storage.utils.backend_registry import DEFAULT_BACKEND_REGISTRY
 from LiuXin_alpha.surfaces.core import (
     CoreRow,
     add_core_client_arguments,

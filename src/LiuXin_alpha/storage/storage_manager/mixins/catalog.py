@@ -10,9 +10,11 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import Iterator
-from typing import override
+from typing import cast, override
 
-import LiuXin_alpha.storage.api as api
+from LiuXin_alpha.storage.api import errors as storage_errors
+from LiuXin_alpha.storage.api import models as storage_models
+from LiuXin_alpha.storage.api import storage_manager_api as manager_api
 from LiuXin_alpha.storage.storage_manager.mixins._state import _StorageManagerState
 
 
@@ -32,8 +34,8 @@ class DigitalAssetRegistryMixin(_StorageManagerState):
     @override
     def declare_digital_asset(
         self,
-        declaration: api.DigitalAssetDeclaration,
-    ) -> api.DigitalAssetRecord:
+        declaration: manager_api.DigitalAssetDeclaration,
+    ) -> manager_api.DigitalAssetRecord:
         """
         Validate policy references, then reuse a matching identity or allocate a new Asset record.
 
@@ -62,8 +64,8 @@ class DigitalAssetRegistryMixin(_StorageManagerState):
             policy = self.get_replication_policy_record(
                 declaration.replication_policy_id
             ).policy
-            if policy.loss_action is api.DigitalAssetLossAction.RECREATE:
-                raise api.StoragePolicyUnsatisfied(
+            if policy.loss_action is manager_api.DigitalAssetLossAction.RECREATE:
+                raise manager_api.StoragePolicyUnsatisfied(
                     "declare the Asset and its exact derivation before assigning "
                     "a recreate-on-loss policy."
                 )
@@ -74,10 +76,10 @@ class DigitalAssetRegistryMixin(_StorageManagerState):
             )
             if existing is not None:
                 return existing
-            digital_asset_id = api.DigitalAssetID(
+            digital_asset_id = manager_api.DigitalAssetID(
                 self._allocate_metadata_id_locked("digital_asset")
             )
-            record = api.DigitalAssetRecord(
+            record = manager_api.DigitalAssetRecord(
                 digital_asset_id,
                 declaration.size_bytes,
                 declaration.digests,
@@ -92,8 +94,8 @@ class DigitalAssetRegistryMixin(_StorageManagerState):
     @override
     def get_digital_asset_record(
         self,
-        digital_asset_id: api.DigitalAssetID,
-    ) -> api.DigitalAssetRecord:
+        digital_asset_id: manager_api.DigitalAssetID,
+    ) -> manager_api.DigitalAssetRecord:
         """
         Look up the exact ID under the manager lock without probing physical storage.
 
@@ -112,18 +114,18 @@ class DigitalAssetRegistryMixin(_StorageManagerState):
             try:
                 return self._assets[digital_asset_id]
             except KeyError as error:
-                raise api.DigitalAssetNotFound(
+                raise manager_api.DigitalAssetNotFound(
                     f"Digital Asset {digital_asset_id} is not registered."
                 ) from error
 
     @override
     def update_digital_asset_metadata(
         self,
-        digital_asset_id: api.DigitalAssetID,
-        metadata: api.DigitalAssetMetadata,
+        digital_asset_id: manager_api.DigitalAssetID,
+        metadata: manager_api.DigitalAssetMetadata,
         *,
         if_revision: str | None = None,
-    ) -> api.DigitalAssetRecord:
+    ) -> manager_api.DigitalAssetRecord:
         """
         Require the record and optional matching revision, then replace metadata and advance its
         revision.
@@ -155,31 +157,228 @@ class DigitalAssetRegistryMixin(_StorageManagerState):
             return updated
 
     @override
-    def iter_digital_asset_records(self) -> Iterator[api.DigitalAssetRecord]:
-        """
-        Capture records under the lock in ascending Asset-key order and return a tuple iterator.
+    def set_digital_asset_name(
+        self,
+        digital_asset_id: manager_api.DigitalAssetID,
+        name: str | None,
+        *,
+        if_revision: str | None = None,
+    ) -> manager_api.DigitalAssetRecord:
+        """Replace only the display-name field through the shared atomic metadata updater.
 
-        The sequence is fixed before return, but its record and nested-value references are not deep
-        copies. Repository iteration or lookup failures propagate.
+        :param digital_asset_id: Registered Asset identity to update.
+        :param name: Replacement display name, or None to clear it.
+        :param if_revision: Expected revision, or None for no precondition.
+        :return: Updated Asset record with a new revision.
+        """
+
+        return self._update_digital_asset_metadata_field(
+            digital_asset_id,
+            field_name="name",
+            value=name,
+            if_revision=if_revision,
+        )
+
+    @override
+    def set_digital_asset_media_type(
+        self,
+        digital_asset_id: manager_api.DigitalAssetID,
+        media_type: str | None,
+        *,
+        if_revision: str | None = None,
+    ) -> manager_api.DigitalAssetRecord:
+        """Replace only the media-type field through the shared atomic metadata updater.
+
+        :param digital_asset_id: Registered Asset identity to update.
+        :param media_type: Replacement media type, or None to clear it.
+        :param if_revision: Expected revision, or None for no precondition.
+        :return: Updated Asset record with a new revision.
+        """
+
+        return self._update_digital_asset_metadata_field(
+            digital_asset_id,
+            field_name="media_type",
+            value=media_type,
+            if_revision=if_revision,
+        )
+
+    @override
+    def set_digital_asset_original_name(
+        self,
+        digital_asset_id: manager_api.DigitalAssetID,
+        original_name: str | None,
+        *,
+        if_revision: str | None = None,
+    ) -> manager_api.DigitalAssetRecord:
+        """Replace only the original-name field through the shared atomic metadata updater.
+
+        :param digital_asset_id: Registered Asset identity to update.
+        :param original_name: Replacement source filename, or None to clear it.
+        :param if_revision: Expected revision, or None for no precondition.
+        :return: Updated Asset record with a new revision.
+        """
+
+        return self._update_digital_asset_metadata_field(
+            digital_asset_id,
+            field_name="original_name",
+            value=original_name,
+            if_revision=if_revision,
+        )
+
+    @override
+    def set_digital_asset_attributes(
+        self,
+        digital_asset_id: manager_api.DigitalAssetID,
+        attributes: tuple[tuple[str, str], ...],
+        *,
+        if_revision: str | None = None,
+    ) -> manager_api.DigitalAssetRecord:
+        """Replace only extension attributes through the shared atomic metadata updater.
+
+        :param digital_asset_id: Registered Asset identity to update.
+        :param attributes: Complete replacement attribute sequence.
+        :param if_revision: Expected revision, or None for no precondition.
+        :return: Updated Asset record with a new revision.
+        """
+
+        return self._update_digital_asset_metadata_field(
+            digital_asset_id,
+            field_name="attributes",
+            value=attributes,
+            if_revision=if_revision,
+        )
+
+    def _update_digital_asset_metadata_field(
+        self,
+        digital_asset_id: manager_api.DigitalAssetID,
+        *,
+        field_name: str,
+        value: object,
+        if_revision: str | None,
+    ) -> manager_api.DigitalAssetRecord:
+        """
+        Replace one named metadata field under the manager lock and revision precondition.
+
+        Public callers supply one of the four DigitalAssetMetadata field names. Constructing the
+        replacement metadata applies its ordinary blank-label and attribute-name validation before
+        the Asset record is stored. Size, digests, policies, and the three unselected metadata
+        fields remain unchanged. Transaction hooks control durable rollback.
+
+        :param digital_asset_id: Registered Asset identity to update.
+        :param field_name: DigitalAssetMetadata field selected by a public wrapper.
+        :param value: Complete replacement value for that field.
+        :param if_revision: Expected current Asset revision, or None for no precondition.
+        :return: Updated Asset record with a newly allocated revision.
+        """
+
+        with self._lock, self._metadata_transaction():
+            current = self._require_asset_locked(digital_asset_id)
+            self._check_revision(current.revision, if_revision)
+            if field_name == "name":
+                metadata = dataclasses.replace(
+                    current.metadata,
+                    name=cast(str | None, value),
+                )
+            elif field_name == "media_type":
+                metadata = dataclasses.replace(
+                    current.metadata,
+                    media_type=cast(str | None, value),
+                )
+            elif field_name == "original_name":
+                metadata = dataclasses.replace(
+                    current.metadata,
+                    original_name=cast(str | None, value),
+                )
+            elif field_name == "attributes":
+                metadata = dataclasses.replace(
+                    current.metadata,
+                    attributes=cast(tuple[tuple[str, str], ...], value),
+                )
+            else:
+                raise AssertionError(f"unsupported metadata field: {field_name}")
+            updated = dataclasses.replace(
+                current,
+                metadata=metadata,
+                revision=self._new_revision_locked(),
+            )
+            self._assets[digital_asset_id] = updated
+            return updated
+
+    @override
+    def iter_digital_asset_records(
+        self,
+        *,
+        order_by: manager_api.DigitalAssetRecordOrder
+        | str = manager_api.DigitalAssetRecordOrder.ID,
+        descending: bool = False,
+    ) -> Iterator[manager_api.DigitalAssetRecord]:
+        """
+        Capture records under the lock, apply the selected stable key, and return a tuple iterator.
+
+        ID and size ordering use Asset ID as a tie breaker. Descriptive keys compare case-folded
+        text, place missing values after present values in ascending order, and also use ID as a tie
+        breaker. ``descending`` reverses the complete tuple key, including missing placement and ID
+        ties. The sequence is fixed before return, but record references are not deep copies.
 
         Example:
             >>> assets = tuple(manager.iter_digital_asset_records())  # doctest: +SKIP
 
 
+        :param order_by: Ordering enum or exact value string; invalid strings raise ValueError.
+        :param descending: Whether to reverse the complete selected key ordering.
         :return: Iterator over the captured ordered Asset record references.
         """
 
+        try:
+            selected_order = manager_api.DigitalAssetRecordOrder(order_by)
+        except ValueError as error:
+            raise ValueError(
+                "order_by must be 'id', 'size', 'name', 'media_type', or "
+                "'original_name'."
+            ) from error
         with self._lock:
-            records = tuple(self._assets[key] for key in sorted(self._assets))
+            records = tuple(self._assets.values())
+        if selected_order is manager_api.DigitalAssetRecordOrder.ID:
+            records = tuple(
+                sorted(
+                    records,
+                    key=lambda record: (record.digital_asset_id,),
+                    reverse=descending,
+                )
+            )
+        elif selected_order is manager_api.DigitalAssetRecordOrder.SIZE:
+            records = tuple(
+                sorted(
+                    records,
+                    key=lambda record: (
+                        record.size_bytes,
+                        record.digital_asset_id,
+                    ),
+                    reverse=descending,
+                )
+            )
+        else:
+            field_name = selected_order.value
+            records = tuple(
+                sorted(
+                    records,
+                    key=lambda record: (
+                        getattr(record.metadata, field_name) is None,
+                        (getattr(record.metadata, field_name) or "").casefold(),
+                        record.digital_asset_id,
+                    ),
+                    reverse=descending,
+                )
+            )
         return iter(records)
 
     @override
     def find_digital_asset_record_by_digest(
         self,
-        digest: api.Digest,
+        digest: storage_models.Digest,
         *,
         size_bytes: int | None = None,
-    ) -> api.DigitalAssetRecord | None:
+    ) -> manager_api.DigitalAssetRecord | None:
         """
         Run the shared identity lookup under the lock for one digest and optional exact size.
 
@@ -205,7 +404,7 @@ class DigitalAssetRegistryMixin(_StorageManagerState):
     @override
     def forget_digital_asset(
         self,
-        digital_asset_id: api.DigitalAssetID,
+        digital_asset_id: manager_api.DigitalAssetID,
         *,
         require_no_replicas: bool = True,
         if_revision: str | None = None,
@@ -244,7 +443,7 @@ class DigitalAssetRegistryMixin(_StorageManagerState):
                 if record.digital_asset_id == digital_asset_id
             )
             if require_no_replicas and replicas:
-                raise api.StoragePreconditionFailed(
+                raise storage_errors.StoragePreconditionFailed(
                     "Digital Asset still has Replica claims."
                 )
             if any(
@@ -252,18 +451,18 @@ class DigitalAssetRegistryMixin(_StorageManagerState):
                 for composite in self._composites.values()
                 for member in composite.members
             ):
-                raise api.StoragePreconditionFailed(
+                raise storage_errors.StoragePreconditionFailed(
                     "Digital Asset is still a Composite member."
                 )
             if self._asset_has_derivation_reference_locked(digital_asset_id):
-                raise api.StoragePreconditionFailed(
+                raise storage_errors.StoragePreconditionFailed(
                     "Digital Asset is still referenced by derivation provenance."
                 )
             if any(
                 kind == "digital_asset" and target_id == digital_asset_id
                 for kind, target_id in self._item_targets.values()
             ):
-                raise api.StoragePreconditionFailed(
+                raise storage_errors.StoragePreconditionFailed(
                     "Digital Asset is still linked to an Item."
                 )
             del self._assets[digital_asset_id]

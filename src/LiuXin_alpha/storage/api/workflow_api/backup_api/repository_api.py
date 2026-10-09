@@ -8,15 +8,22 @@ not create a transaction spanning multiple rows, reserve artifacts, or verify ph
 from __future__ import annotations
 
 import abc
+from collections.abc import Iterable, Iterator, Mapping
+from typing import cast
 
-from collections.abc import Iterator
-
+from LiuXin_alpha.storage.api.models import Digest, Location, StoreUUID
+from LiuXin_alpha.storage.api.storage_manager_api.models import (
+    DigitalAssetID,
+    ReplicaID,
+)
 from LiuXin_alpha.storage.api.workflow_api.backup_api.models import (
+    BackupArtifactRegistration,
     BackupSourceDeclaration,
-    BackupWorkflowResult,
+    BackupSourceKind,
     BackupWorkflowCheckpoint,
     BackupWorkflowDeclaration,
-    BackupArtifactRegistration,
+    BackupWorkflowKind,
+    BackupWorkflowResult,
 )
 from LiuXin_alpha.storage.api.workflow_api.models import WorkflowID, WorkflowStatus
 
@@ -37,6 +44,67 @@ class BackupWorkflowRepositoryAPI(abc.ABC):
         ... )
         >>> repository.save_checkpoint(workflow_id, checkpoint)  # doctest: +SKIP
     """
+
+    def save_workflow(
+        self,
+        workflow_name: str,
+        workflow_kind: BackupWorkflowKind,
+        output_target: str | Location,
+        *,
+        sources: Iterable[BackupSourceDeclaration] = (),
+        verify_after_build: bool = True,
+        cleanup_staging_after_success: bool = False,
+        staging_target: str | Location | None = None,
+        options: Mapping[str, str] | Iterable[tuple[str, str]] = (),
+        workflow_id: WorkflowID | None = None,
+        status: WorkflowStatus = WorkflowStatus.DRAFT,
+    ) -> WorkflowID:
+        """
+        Construct durable backup intent and delegate to save_workflow_declaration.
+
+        Materialize sources and options once. The declaration performs value normalization, while
+        the precise persistence method remains responsible for ID allocation or replacement,
+        status storage, transaction boundaries, and partial failures.
+
+        Example:
+            >>> workflow_id = repository.save_workflow(  # doctest: +SKIP
+            ...     "nightly", BackupWorkflowKind.SQUASHFS_PACK, "nightly.sqsh",
+            ... )
+
+
+        :param workflow_name: Human-readable workflow name retained in durable intent.
+        :param workflow_kind: Implementation-family discriminator retained by the declaration.
+        :param output_target: Local path or routed Location for the completed artifact.
+        :param sources: Ordered source declarations materialized into the workflow declaration.
+        :param verify_after_build: Whether the workflow should request post-build verification.
+        :param cleanup_staging_after_success: Whether supported staging should be removed after success.
+        :param staging_target: Optional local path or routed Location used for staging.
+        :param options: Mapping or ordered key/value pairs for implementation-specific settings.
+        :param workflow_id: None to allocate an ID, or an existing ID to replace.
+        :param status: Lifecycle status stored with the declaration.
+        :return: The identity returned by save_workflow_declaration.
+        """
+
+        if isinstance(options, Mapping):
+            option_values = tuple(cast(Mapping[str, str], options).items())
+        else:
+            option_values = tuple(
+                cast(Iterable[tuple[str, str]], cast(object, options))
+            )
+        return self.save_workflow_declaration(
+            BackupWorkflowDeclaration(
+                workflow_name,
+                workflow_kind,
+                output_target,
+                sources=tuple(sources),
+                verify_after_build=verify_after_build,
+                cleanup_staging_after_success=cleanup_staging_after_success,
+                staging_target=staging_target,
+                options=option_values,
+            ),
+            workflow_id=workflow_id,
+            status=status,
+        )
 
     @abc.abstractmethod
     def save_workflow_declaration(
@@ -177,6 +245,70 @@ class BackupWorkflowRepositoryAPI(abc.ABC):
         :return: None after recording the checkpoint and any non-None output; later failures may follow earlier writes.
         """
         ...
+
+    def record_backup_source_presence(
+        self,
+        workflow_id: WorkflowID,
+        registration: BackupArtifactRegistration,
+        source_kind: BackupSourceKind,
+        source_identifier: str | Location,
+        *,
+        archive_path: str,
+        expected_size: int | None = None,
+        expected_digest: Digest | None = None,
+        source_digital_asset_id: DigitalAssetID | None = None,
+        source_replica_id: ReplicaID | None = None,
+        source_store_ref: StoreUUID | None = None,
+        protected: bool = True,
+        immutable: bool = True,
+    ) -> bool:
+        """
+        Construct source evidence and delegate backup-presence persistence.
+
+        The source declaration validates its discriminator, identifier, expectations, and archive
+        path before the repository is called. The underlying method remains responsible for
+        deduplication and persistence and performs no physical verification.
+
+        Example:
+            >>> created = repository.record_backup_source_presence(  # doctest: +SKIP
+            ...     workflow_id, registration, BackupSourceKind.LOCAL_PATH,
+            ...     "/books/a.epub", archive_path="books/a.epub",
+            ... )
+
+
+        :param workflow_id: Existing workflow identity associated with the presence evidence.
+        :param registration: Registered artifact and backup Store reference.
+        :param source_kind: Source discriminator interpreted by BackupSourceDeclaration.
+        :param source_identifier: Local path text or routed Location selected by source_kind.
+        :param archive_path: Member path retained on the source and used as the presence key.
+        :param expected_size: Optional expected source size in bytes.
+        :param expected_digest: Optional expected source byte identity.
+        :param source_digital_asset_id: Optional atomic Asset provenance identity.
+        :param source_replica_id: Optional source Replica provenance identity.
+        :param source_store_ref: Optional Store UUID, inferred from a Location when omitted.
+        :param protected: Whether repository policy should protect a new presence link.
+        :param immutable: Whether repository policy should prevent changes to a new link.
+        :return: The boolean returned by record_backup_presence.
+        """
+
+        source = BackupSourceDeclaration(
+            source_kind,
+            source_identifier,
+            archive_path=archive_path,
+            expected_size=expected_size,
+            expected_digest=expected_digest,
+            source_digital_asset_id=source_digital_asset_id,
+            source_replica_id=source_replica_id,
+            source_store_ref=source_store_ref,
+        )
+        return self.record_backup_presence(
+            workflow_id,
+            registration,
+            source,
+            archive_path=archive_path,
+            protected=protected,
+            immutable=immutable,
+        )
 
     @abc.abstractmethod
     def record_backup_presence(

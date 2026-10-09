@@ -94,7 +94,7 @@ from LiuXin_alpha.library.caches.utils import LazySortMap
 
 from LiuXin_alpha.errors import NoSuchBook, NoSuchFormatInCache, NotInCache, InvalidDBUpdate, InvalidCacheUpdate, InvalidUpdate
 
-from LiuXin_alpha.storage.location import Location
+from LiuXin_alpha.storage.api.models import Location
 
 from LiuXin_alpha.metadata.ebook_metadata_tools import title_sort
 

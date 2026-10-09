@@ -104,13 +104,14 @@ class StorageDriverLifecycleAPI(abc.ABC):
         """
         return self.status().writable
 
-    # Todo: We want a subclass for the return for this function
     def close(self) -> None:
         """
         Release backend resources; repeated closure should be safe.
 
-        The default returns None. Subclasses owning connections, clients, or staged resources supply
-        their own idempotent release behavior.
+        The default returns None, matching ordinary context-manager cleanup semantics. Shutdown
+        observations remain available through status/probe rather than a second close-result type.
+        Subclasses owning connections, clients, or staged resources supply their own idempotent
+        release behavior.
 
         Example:
             >>> driver.close()  # doctest: +SKIP

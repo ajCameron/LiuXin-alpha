@@ -8,9 +8,8 @@ persistence, completed-image Store registration, and sealed-Asset provenance rec
 from __future__ import annotations
 
 import abc
-
-from typing import TYPE_CHECKING, Self
-from uuid import UUID
+from collections.abc import Iterable, Mapping
+from typing import TYPE_CHECKING, Self, cast
 
 from LiuXin_alpha.storage.api.models import Location
 from LiuXin_alpha.storage.api.storage_manager_api.models import (
@@ -21,10 +20,10 @@ from LiuXin_alpha.storage.api.storage_manager_api.models import (
 )
 from LiuXin_alpha.storage.api.workflow_api.backup_api.models import (
     BackupSourceDeclaration,
-    BackupWorkflowKind,
-    BackupWorkflowResult,
     BackupWorkflowCheckpoint,
     BackupWorkflowDeclaration,
+    BackupWorkflowKind,
+    BackupWorkflowResult,
 )
 from LiuXin_alpha.storage.api.workflow_api.base_api import StorageWorkflowAPI
 
@@ -143,6 +142,65 @@ class BackupWorkflowAPI(
         :return: Appended source declaration with captured expectations and any inferred Asset/Replica references.
         """
         ...
+
+    @classmethod
+    def create(
+        cls,
+        workflow_name: str,
+        workflow_kind: BackupWorkflowKind,
+        output_target: str | Location,
+        *,
+        sources: Iterable[BackupSourceDeclaration] = (),
+        verify_after_build: bool = True,
+        cleanup_staging_after_success: bool = False,
+        staging_target: str | Location | None = None,
+        options: Mapping[str, str] | Iterable[tuple[str, str]] = (),
+        storage_manager: StorageManagerAPI | None = None,
+    ) -> Self:
+        """
+        Construct backup intent from ordinary values and delegate to from_declaration.
+
+        Materialize sources and options once while preserving their order; the declaration
+        canonicalizes options and validates selected intent fields. Concrete reconstruction remains
+        the sole owner of workflow-family validation, staging setup, and borrowed manager binding.
+
+        Example:
+            >>> workflow = ConcreteWorkflow.create(  # doctest: +SKIP
+            ...     "nightly", BackupWorkflowKind.SQUASHFS_PACK, "nightly.sqsh",
+            ... )
+
+
+        :param workflow_name: Human-readable workflow name retained by the declaration.
+        :param workflow_kind: Implementation-family discriminator interpreted by the concrete class.
+        :param output_target: Local path or routed Location for the completed artifact.
+        :param sources: Ordered source declarations materialized into durable intent.
+        :param verify_after_build: Whether the concrete workflow should verify after building.
+        :param cleanup_staging_after_success: Whether supported staging should be removed after success.
+        :param staging_target: Optional local path or routed Location used for staging.
+        :param options: Mapping or ordered key/value pairs for implementation-specific settings.
+        :param storage_manager: Optional borrowed manager forwarded to from_declaration.
+        :return: The workflow instance returned by the concrete declaration reconstruction method.
+        """
+
+        if isinstance(options, Mapping):
+            option_values = tuple(cast(Mapping[str, str], options).items())
+        else:
+            option_values = tuple(
+                cast(Iterable[tuple[str, str]], cast(object, options))
+            )
+        return cls.from_declaration(
+            BackupWorkflowDeclaration(
+                workflow_name,
+                workflow_kind,
+                output_target,
+                sources=tuple(sources),
+                verify_after_build=verify_after_build,
+                cleanup_staging_after_success=cleanup_staging_after_success,
+                staging_target=staging_target,
+                options=option_values,
+            ),
+            storage_manager=storage_manager,
+        )
 
     @classmethod
     @abc.abstractmethod

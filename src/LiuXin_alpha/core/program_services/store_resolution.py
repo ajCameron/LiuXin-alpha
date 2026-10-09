@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from LiuXin_alpha.core.errors import CoreDispatchError
-from LiuXin_alpha.storage.store_spec_utils import store_configuration_from_row
+from LiuXin_alpha.storage.utils.store_configuration import store_configuration_from_row
 
 if TYPE_CHECKING:
     from LiuXin_alpha.core.runtime import CoreRuntime

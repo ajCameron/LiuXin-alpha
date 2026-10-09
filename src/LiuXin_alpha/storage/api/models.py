@@ -21,8 +21,6 @@ from LiuXin_alpha.storage.api.placement_hints_api import StoragePlacementHints
 StoreUUID: TypeAlias = UUID
 
 
-# Todo: Check - do we have factor methods to make these from row_ids on the database?
-# Todo: There seems to be a mismatch between the Location class and the jobs it's expected to do - I'd expect more info - such as is this location allocated
 @dataclasses.dataclass(slots=True, frozen=True)
 class Location:
     """
@@ -73,7 +71,6 @@ class Location:
             raise ValueError("location key must not contain NUL characters.")
 
 
-# Todo: What does upsert mean in this context?
 class WriteMode(StrEnum):
     """
     Name the requested collision policy for publishing one staged write.
@@ -94,7 +91,6 @@ class WriteMode(StrEnum):
     UPSERT = "upsert"
 
 
-# Todo: Rename DigestValue for enhanced clarity?
 @dataclasses.dataclass(slots=True, frozen=True)
 class Digest:
     """
@@ -141,8 +137,6 @@ class Digest:
         object.__setattr__(self, "value", value)
 
 
-# Todo: Feels like we should also be able to pass in the metadata object directly - and be able to gen hints from md
-# Todo: Might still have value as an intermediary object - what we know of a file on disc.
 @dataclasses.dataclass(slots=True, frozen=True)
 class FileHints:
     """

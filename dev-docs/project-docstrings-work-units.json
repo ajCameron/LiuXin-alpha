@@ -17016,7 +17016,7 @@
       "maintenance_baseline_source": "working-memory/test-results/shim-removal-2026-09-15/documentation-rebase.after.json",
       "last_maintenance": "shim-removal-2026-09-16"
     },
-    "src/LiuXin_alpha/storage/store_manager.py": {
+    "src/LiuXin_alpha/storage/durable_manager.py": {
       "status": "reviewed",
       "baseline_sha256": "9b28c7ddc57c630354bfd669e870723602cbc77fbf06af284c30970693d7bde0",
       "declaration_count": 38,

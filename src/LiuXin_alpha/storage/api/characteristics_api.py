@@ -35,14 +35,14 @@ class StoragePublicationModel(StrEnum):
     WHOLE_STORE_REBUILD = "whole_store_rebuild"
 
 
-# Todo: I think this means "bytes claimed before compression"
 class StorageTemporarySpaceRequirement(StrEnum):
     """
-    Classify ordinary private-space requirements beyond the final published bytes.
+    Classify ordinary private-space requirements in addition to the final published representation.
 
     UNKNOWN makes no space claim, NONE advertises no private staging, OBJECT_STAGE stages a member,
-    and STORE_COPY requires a Store/container copy. The category does not specify a byte budget or
-    reserve space.
+    and STORE_COPY requires a Store/container copy. OBJECT_STAGE can refer to uncompressed source
+    bytes when a compressed object is being built, but the category is about staging shape rather
+    than compression semantics. It does not specify a byte budget or reserve space.
 
     Example:
         >>> StorageTemporarySpaceRequirement.STORE_COPY.value
@@ -123,15 +123,17 @@ class StorageLimitation:
         object.__setattr__(self, "message", message)
 
 
-# Todo: Check all storage characteristics are taken into account before writing to a store
 @dataclasses.dataclass(slots=True, frozen=True)
 class StorageCharacteristics:
     """
     Describe publication, staging cost, declared bounds, and limitations beyond capability flags.
 
     None and UNKNOWN mean no claim was supplied; callers must not equate them with unlimited
-    resources or a supported operation. The local size helper only rejects a known exceeded limit.
-    Frozen attributes do not coerce limitation containers or deeply freeze supplied objects.
+    resources or a supported operation. Generic write boundaries can enforce max_object_bytes when
+    the expected size is known. Address component/depth limits remain with the driver that defines
+    key syntax, while staging shape, recommended usage, representation rewriting, preservation, and
+    free capacity are planning or provider concerns rather than universal hard write gates. Frozen
+    attributes do not coerce limitation containers or deeply freeze supplied objects.
 
     Example:
         >>> profile = StorageCharacteristics(max_object_bytes=4)

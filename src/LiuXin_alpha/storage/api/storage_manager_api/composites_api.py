@@ -8,15 +8,17 @@ member payloads.
 
 import abc
 
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 
-from LiuXin_alpha.storage.api.models import StoreUUID
+from LiuXin_alpha.storage.api.models import Digest, StoreUUID
 from LiuXin_alpha.storage.api.storage_manager_api.models import (
     CompositeDigitalAssetAvailabilityAssessment,
     CompositeDigitalAssetDeclaration,
     CompositeDigitalAssetID,
+    CompositeDigitalAssetMembership,
     CompositeDigitalAssetRecord,
-    CompositeDigitalAssetMemberResolution,
+    CompositeDigitalAssetResolution,
+    ReplicaMode,
 )
 
 
@@ -32,9 +34,6 @@ class CompositeDigitalAssetAPI(abc.ABC):
         >>> members = manager.resolve_composite_digital_asset(composite_id)  # doctest: +SKIP
     """
 
-    # Todo: Add the ability to make a compositie digital asset from a series of digital assets - it might be in convenience
-
-    # Todo: Again, less than elegant to have to declare and then call "declare_composite_digital_asset_from_declaration" can also exist
     @abc.abstractmethod
     def declare_composite_digital_asset(
         self,
@@ -53,8 +52,6 @@ class CompositeDigitalAssetAPI(abc.ABC):
         """
         ...
 
-    # Todo: Also be good to get from a composite digital asset hash - which should exist
-    # Todo: That's a good idea! A composite digital asset hash - stores the file names and hashes for all the files
     @abc.abstractmethod
     def get_composite_digital_asset_record(
         self,
@@ -73,7 +70,108 @@ class CompositeDigitalAssetAPI(abc.ABC):
         """
         ...
 
-    # Todo: Also be good to have methods to update individual asset properties
+    @abc.abstractmethod
+    def calculate_composite_digital_asset_digest(
+        self,
+        composite_digital_asset_id: CompositeDigitalAssetID,
+        *,
+        algorithm: str = "sha256",
+    ) -> Digest:
+        """
+        Hash a canonical manifest of ordered relationships and atomic byte identities.
+
+        The versioned manifest includes each member's sequence, delivery labels/path, role, title,
+        required flag, expected size, and sorted digest set. It deliberately excludes manager IDs,
+        Composite name/attributes/revision, Asset descriptive metadata, Replica Locations, and
+        current availability. Equivalent logical assemblies therefore retain the same digest across
+        catalogues and storage layouts.
+
+        Algorithm names remain runtime strings because hashlib providers may extend the available
+        set. The operation reads catalogue metadata only; it does not hash member bytes.
+
+        Example:
+            >>> digest = manager.calculate_composite_digital_asset_digest(composite_id)  # doctest: +SKIP
+
+        :param composite_digital_asset_id: Registered Composite identity whose canonical manifest is hashed.
+        :param algorithm: Runtime-supported hashlib algorithm name, defaulting to sha256.
+        :return: Normalized digest of the canonical Composite manifest.
+        """
+        ...
+
+    @abc.abstractmethod
+    def find_composite_digital_asset_records_by_digest(
+        self,
+        digest: Digest,
+    ) -> tuple[CompositeDigitalAssetRecord, ...]:
+        """
+        Return every registered Composite whose canonical manifest matches a digest.
+
+        Equivalent declarations are permitted and can therefore produce several records. Results
+        follow Composite catalogue iteration order. Lookup recalculates metadata digests and does
+        not maintain an index, read physical bytes, or treat no match as an exception.
+
+        Example:
+            >>> matches = manager.find_composite_digital_asset_records_by_digest(digest)  # doctest: +SKIP
+
+        :param digest: Expected algorithm and canonical manifest digest value.
+        :return: Possibly empty tuple of matching Composite records in catalogue order.
+        """
+        ...
+
+    @abc.abstractmethod
+    def set_composite_digital_asset_name(
+        self,
+        composite_digital_asset_id: CompositeDigitalAssetID,
+        name: str | None,
+        *,
+        if_revision: str | None = None,
+    ) -> CompositeDigitalAssetRecord:
+        """Replace or clear only a Composite's display name.
+
+        :param composite_digital_asset_id: Manager-assigned Composite identity to update.
+        :param name: Nonblank display name, or None to clear it.
+        :param if_revision: Expected current revision, or None to omit the optimistic precondition.
+        :return: Updated Composite record preserving membership and attributes.
+        """
+        ...
+
+    @abc.abstractmethod
+    def set_composite_digital_asset_attributes(
+        self,
+        composite_digital_asset_id: CompositeDigitalAssetID,
+        attributes: tuple[tuple[str, str], ...],
+        *,
+        if_revision: str | None = None,
+    ) -> CompositeDigitalAssetRecord:
+        """Replace only a Composite's ordered extension attributes.
+
+        :param composite_digital_asset_id: Manager-assigned Composite identity to update.
+        :param attributes: Complete replacement attribute pairs, retained in supplied order.
+        :param if_revision: Expected current revision, or None to omit the optimistic precondition.
+        :return: Updated Composite record preserving membership and name.
+        """
+        ...
+
+    @abc.abstractmethod
+    def replace_composite_digital_asset_member(
+        self,
+        composite_digital_asset_id: CompositeDigitalAssetID,
+        membership: CompositeDigitalAssetMembership,
+        *,
+        if_revision: str | None = None,
+    ) -> CompositeDigitalAssetRecord:
+        """Replace the relationship occupying one declared sequence number.
+
+        The replacement can reference another registered Asset and can change relationship labels or
+        required status, but its sequence number selects and retains the existing logical position.
+
+        :param composite_digital_asset_id: Manager-assigned Composite identity to update.
+        :param membership: Complete replacement relationship whose sequence number must exist.
+        :param if_revision: Expected current revision, or None to omit the optimistic precondition.
+        :return: Updated Composite record preserving other relationships and descriptive metadata.
+        """
+        ...
+
     @abc.abstractmethod
     def replace_composite_digital_asset(
         self,
@@ -141,7 +239,6 @@ class CompositeDigitalAssetAPI(abc.ABC):
         """
         ...
 
-    # Todo: There should be a better container for an entire composite digit asset....
     @abc.abstractmethod
     def resolve_composite_digital_asset(
         self,
@@ -149,13 +246,14 @@ class CompositeDigitalAssetAPI(abc.ABC):
         *,
         preferred_store_ref: StoreUUID | None = None,
         require_verified: bool = False,
-    ) -> tuple[CompositeDigitalAssetMemberResolution, ...]:
+    ) -> CompositeDigitalAssetResolution:
         """
-        Resolve available members while preserving their complete relationship metadata.
+        Resolve the Composite record and available members into one aggregate selection.
 
         Unavailable optional members may be omitted; an unavailable required member raises
         CompositeDigitalAssetIncomplete. Returned selections describe observed routing choices
-        rather than open readers or a lasting availability guarantee.
+        rather than open readers or a lasting availability guarantee. The aggregate remains
+        iterable/indexable over its members for callers migrating from the former bare tuple.
 
         Example:
             >>> members = manager.resolve_composite_digital_asset(composite_id, require_verified=True)  # doctest: +SKIP
@@ -164,7 +262,40 @@ class CompositeDigitalAssetAPI(abc.ABC):
         :param composite_digital_asset_id: Manager-assigned Composite identity to resolve.
         :param preferred_store_ref: Optional Store UUID to prefer without excluding eligible copies elsewhere.
         :param require_verified: Whether selection requires a recorded VERIFIED state; this flag does not itself request fresh digest verification.
-        :return: Tuple of available member resolutions in the implementation's delivery order, provided required members resolve.
+        :return: Composite record and available member resolutions in implementation delivery order.
+        """
+        ...
+
+    @abc.abstractmethod
+    def materialize_composite_digital_asset(
+        self,
+        composite_digital_asset_id: CompositeDigitalAssetID,
+        *,
+        preferred_store_ref: StoreUUID | None = None,
+        source_modes: Iterable[ReplicaMode | str] = (ReplicaMode.ACTIVE,),
+        cache_store_ref: StoreUUID | None = None,
+        verify: bool = True,
+    ) -> CompositeDigitalAssetResolution:
+        """
+        Materialize every available Composite member, optionally into one cache Store.
+
+        Required unavailable members make the operation fail after all relationships have been
+        considered; optional unavailable members are omitted. A cache destination applies to every
+        member. Publication is per atomic Asset, so a later failure does not roll back earlier cache
+        copies. Repeated Asset memberships can reuse the first cached Replica while retaining each
+        relationship separately in the result.
+
+        Example:
+            >>> resolved = manager.materialize_composite_digital_asset(  # doctest: +SKIP
+            ...     composite_id, cache_store_ref=cache_uuid,
+            ... )
+
+        :param composite_digital_asset_id: Manager-assigned Composite identity to materialize.
+        :param preferred_store_ref: Optional source Store preference applied independently to each member.
+        :param source_modes: Ordered source modes searched independently for each member.
+        :param cache_store_ref: Exact cache destination for every member, or None to return selected sources.
+        :param verify: Whether selected/reused sources require recorded verification and new cache copies are inspected.
+        :return: Aggregate Composite resolution containing every materialized required and available optional member.
         """
         ...
 

@@ -13,7 +13,7 @@ import pytest
 
 from LiuXin_alpha.storage import api
 from LiuXin_alpha.storage.backup import StoreBackupPlanner
-from LiuXin_alpha.storage.store_manager import StorageManager
+from LiuXin_alpha.storage.durable_manager import StorageManager
 from LiuXin_alpha.storage.stores import FilesystemStore
 
 

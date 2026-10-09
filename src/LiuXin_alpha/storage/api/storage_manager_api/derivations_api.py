@@ -24,7 +24,6 @@ from LiuXin_alpha.storage.api.storage_manager_api.models import (
 )
 
 
-# Todo: More examples as to what this is for - pulling an image from online? (I don't know)
 @runtime_checkable
 class ReproductionRecipeArtifactResolverAPI(Protocol):
     """
@@ -74,7 +73,6 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
         >>> record = manager.record_digital_asset_derivation(declaration)  # doctest: +SKIP
     """
 
-    # Todo: Again, we need a convenience method for this
     @abc.abstractmethod
     def record_digital_asset_derivation(
         self,
@@ -152,7 +150,6 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
         """
         ...
 
-    # Todo: Let's have some examples of this
     def iter_derivation_ancestors(
         self,
         digital_asset_id: DigitalAssetID,
@@ -230,8 +227,6 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
         )
         return iter(graph.derivation_records)
 
-    # Todo: Some way of displaying the graph should be included in surfaces
-    # Todo: Be good to be able to get the graph between the two assets
     @abc.abstractmethod
     def get_derivation_graph(
         self,
@@ -270,11 +265,43 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
         :param workflow_id: Optional positive workflow ID; None includes all workflow IDs.
         :param workflow_reference: Optional nonblank workflow label compared exactly, without stripping retained text.
         :param exact_only: Whether to retain only records whose recipes claim complete EXACT enum reproducibility.
-        :return: Graph with stable first-encounter node/record order and a truncation flag; validation or reference failures propagate.
+        :return: Graph with stable first-encounter node/record order, traversal helpers, DOT rendering, and a truncation flag; validation or reference failures propagate.
         """
         ...
 
-    # Todo: If we've also stored intermediate steps, then we can recreate from those...
+    @abc.abstractmethod
+    def find_digital_asset_derivation_path(
+        self,
+        source_digital_asset_id: DigitalAssetID,
+        result_digital_asset_id: DigitalAssetID,
+        *,
+        workflow_id: int | None = None,
+        workflow_reference: str | None = None,
+        exact_only: bool = False,
+    ) -> DigitalAssetDerivationGraph | None:
+        """
+        Find a stable shortest directed provenance path from one atomic Asset to another.
+
+        Each derivation connects every expanded atomic source—including current Composite members
+        and recipe inputs—to its result. Breadth-first traversal therefore minimizes derivation
+        count. When several shortest paths exist, normal derivation iteration order determines the
+        selected path. A source equal to the result returns a zero-step graph; no route returns None.
+
+        The result is provenance structure, not a recreation plan: co-inputs can be absent from its
+        node sequence, and current readability/tool availability is not assessed.
+
+        Example:
+            >>> path = manager.find_digital_asset_derivation_path(source_id, result_id)  # doctest: +SKIP
+
+        :param source_digital_asset_id: Registered atomic Asset at the start of the directed path.
+        :param result_digital_asset_id: Registered atomic Asset sought as the path result.
+        :param workflow_id: Optional positive workflow ID restricting eligible derivations.
+        :param workflow_reference: Optional nonblank workflow label restricting eligible derivations.
+        :param exact_only: Whether every eligible derivation must carry a complete exact recipe.
+        :return: Descendant-direction graph containing the selected shortest path, or None when disconnected.
+        """
+        ...
+
     @abc.abstractmethod
     def plan_digital_asset_recreation(
         self,

@@ -1,6 +1,6 @@
 # Storage component status and runtime composition
 
-Updated: 2026-09-01
+Updated: 2026-10-08
 
 ## Current decision
 
@@ -8,6 +8,12 @@ The application `StorageManager` is database-authoritative. It does not
 inherit from the transient manager and does not retain private dictionaries of
 Assets, Replicas, policies, Composites, derivations, Item links, or ingest
 operations.
+
+Its canonical import is
+`LiuXin_alpha.storage.durable_manager.StorageManager`. The historical
+`storage.store_manager` module is a forwarding compatibility import; the
+similarly named `storage.storage_manager` package owns the repository-neutral
+composition and transient implementation.
 
 The repository-neutral orchestration implementation is composed in
 `storage/storage_manager/manager.py`. Its ordered mixins mirror the public API:
@@ -33,8 +39,16 @@ the other.
 ```text
 StorageManager
     |
+    +---- DurableMetadataBinding (atomic repository/view installation)
+    +---- StoreBootstrapper (Store-row reconciliation)
+    +---- IngestRecoveryService (journal recovery and replay)
+    |
     v
 DatabaseStorageMetadataRepository ---- writes ----> LiuXin database
+    |
+    +---- database_domain_repositories (four persistence ports)
+    +---- database_mappings (mapping compatibility views)
+    +---- database_codec (typed envelope values)
     |
     +---- reads through Core Cache when attached
     |         (explicit invalidation/generation semantics)
@@ -65,6 +79,14 @@ refresh retain a correct whole-table fallback.
 `TransientStorageManager` is the explicitly disposable implementation for
 focused contract tests and one-shot work. It is separate from the production
 manager's class hierarchy and should not be described as a cache.
+
+The configured strict mypy and basedpyright boundaries include the storage API,
+repository-neutral composition, durable manager, database persistence adapters,
+and recovery/bootstrap collaborators, and are expected to remain clean. The
+manager definition/field documentation gate is also clean. The older exhaustive
+`Example:` marker audit still has a reviewed baseline in unmodified storage API
+definitions; address those examples when the owning contract is substantively
+reviewed rather than adding generated placeholders.
 
 ## Persistence and recovery
 
@@ -452,3 +474,9 @@ builders, or facades; direct affected-module doctests pass 94 examples with 271
 integration-only examples explicitly skipped. Per-container protection is
 complete; cumulative nested-ingest budgets and ancestry/cycle accounting remain
 the coordinator's next security boundary.
+
+The 2026-10-08 readability and maintainability checkpoint passes the complete
+`tests/storage` suite: 1,094 tests passed and 24 optional-dependency or opt-in
+live tests were skipped. Strict mypy passes all 188 configured source files,
+basedpyright reports no diagnostics, all 165 formatting targets are clean, and
+the protected 215-module import-cycle check passes.

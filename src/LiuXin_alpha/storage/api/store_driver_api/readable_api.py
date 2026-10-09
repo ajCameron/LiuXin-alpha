@@ -149,7 +149,6 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
         """
         ...
 
-    # Todo: we want try_* for all methods
     def try_stat(
         self,
         object_address: DriverObjectAddressT,
@@ -242,6 +241,23 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
         checked = self.check_object_address(object_address)
         return self.require_object_info(checked, self.stat(checked)).size
 
+    def try_file_size(
+        self,
+        object_address: DriverObjectAddressT,
+    ) -> int | None:
+        """
+        Return the known size or None for either genuine absence or an unknown reported size.
+
+        This deliberately collapses two cases; callers that must distinguish them should use
+        ``try_stat``. Address validation and non-not-found failures remain visible.
+
+        :param object_address: Typed object address expected to belong to this driver.
+        :return: Reported byte size, or None for absence/unknown size.
+        """
+
+        info = self.try_stat(object_address)
+        return None if info is None else info.size
+
     def get(
         self,
         object_address: DriverObjectAddressT,
@@ -273,6 +289,37 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
         return self.open_read(
             checked, offset=offset, length=length, if_version=if_version
         )
+
+    def try_get(
+        self,
+        object_address: DriverObjectAddressT,
+        *,
+        offset: int = 0,
+        length: int | None = None,
+        if_version: str | None = None,
+    ) -> BinaryIO | None:
+        """
+        Open a reader or return None only when opening reports genuine object absence.
+
+        The returned stream remains caller-owned. A lazy backend can still report absence while the
+        stream is later read; such deferred failures are not converted after this method returns.
+
+        :param object_address: Typed object address expected to belong to this driver.
+        :param offset: Nonnegative starting byte offset forwarded to get.
+        :param length: Optional maximum byte count forwarded to get.
+        :param if_version: Optional version precondition forwarded to get.
+        :return: Open reader, or None when opening raises StorageNotFound.
+        """
+
+        try:
+            return self.get(
+                object_address,
+                offset=offset,
+                length=length,
+                if_version=if_version,
+            )
+        except StorageNotFound:
+            return None
 
     def read_bytes(
         self,
@@ -316,6 +363,33 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
         if not isinstance(payload, bytes):
             raise TypeError("driver read stream must return bytes.")
         return payload
+
+    def try_read_bytes(
+        self,
+        object_address: DriverObjectAddressT,
+        *,
+        offset: int = 0,
+        length: int | None = None,
+        if_version: str | None = None,
+    ) -> bytes | None:
+        """Materialize bytes or return None only when the object is genuinely absent.
+
+        Unlike ``try_get``, the not-found guard covers both opening and reading/cleanup because the
+        complete operation occurs inside this call. Other validation, permission, version, and
+        integrity failures propagate.
+
+        :return: Materialized bytes, or None when read_bytes raises StorageNotFound.
+        """
+
+        try:
+            return self.read_bytes(
+                object_address,
+                offset=offset,
+                length=length,
+                if_version=if_version,
+            )
+        except StorageNotFound:
+            return None
 
     def compute_digest(
         self,
@@ -371,6 +445,30 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
                     raise TypeError("driver read stream must return bytes.")
                 digest.update(chunk)
         return Digest(algorithm=algorithm, value=digest.hexdigest())
+
+    def try_compute_digest(
+        self,
+        object_address: DriverObjectAddressT,
+        algorithm: str = "sha256",
+        *,
+        chunk_size: int = DEFAULT_STORAGE_CHUNK_SIZE,
+    ) -> Digest | None:
+        """Compute a digest or return None only for genuine absence during the operation.
+
+        Unsupported algorithms, invalid chunk sizes, capability inconsistencies, and all other
+        backend failures remain visible.
+
+        :return: Computed/native Digest, or None when compute_digest raises StorageNotFound.
+        """
+
+        try:
+            return self.compute_digest(
+                object_address,
+                algorithm,
+                chunk_size=chunk_size,
+            )
+        except StorageNotFound:
+            return None
 
 
 __all__ = ["ReadableStorageDriverAPI"]
