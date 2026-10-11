@@ -5,8 +5,7 @@ Adapt SQL values and provide aggregate, collation and Calibre sorting callbacks.
 SQLite driver connection setup registers these helpers; importing this module does not
 register them. JSON adapters preserve supported JSON values, while the legacy set format
 has limited quoting and round-trip behavior. Aggregate classes own their state; legacy
-factory functions return explicit state/step/finalize triples. Title article patterns
-are cached against language keys and depend on preferences.
+factory functions return explicit state/step/finalize triples.
 """
 
 # Todo: Consider not having this here?
@@ -20,7 +19,6 @@ from copy import deepcopy
 
 from typing import Any, Optional, Literal, Union, Callable
 
-from LiuXin_alpha.preferences import preferences
 from LiuXin_alpha.utils.text import isbytestring
 
 from LiuXin_alpha.utils.libraries.liuxin_six import iterkeys, force_unicode, six_unicode, force_cmp
@@ -637,7 +635,7 @@ def pynocase(one: Any, two: Any, encoding: str = "utf-8") -> bool:
     return force_cmp(one.lower(), two.lower())
 
 
-def _author_to_author_sort(x: str) -> str:
+def _author_sort_sql_value(x: str) -> str:
     """
     Replace vertical bars with commas and delegate author sorting to metadata tooling.
 
@@ -645,17 +643,18 @@ def _author_to_author_sort(x: str) -> str:
     configured author-sort rules.
 
     Example:
-        >>> _author_to_author_sort("")
+        >>> _author_sort_sql_value("")
         ''
 
 
     :param x: Author name using vertical bars for embedded commas, or an empty value.
     :return: The delegated author-sort string, or empty text.
     """
-    from LiuXin_alpha.metadata.ebook_metadata_tools import author_to_author_sort
+    from LiuXin_alpha.metadata.author_names import author_to_author_sort
+
     if not x:
         return ""
-    return author_to_author_sort(x.replace("|", ","))
+    return author_to_author_sort(x.replace("|", ","), method=None)
 
 
 def icu_collator(s1: Any, s2: Aby) -> bool:
@@ -1030,95 +1029,3 @@ class DynamicFilter:
         :return: ``None``.
         """
         self.ids = frozenset(ids)
-
-
-# Todo: This should be over in metadata somewhere
-_title_pats = {}
-_ignore_starts = "'\"" + "".join([chr(x) for x in range(0x2018, 0x201E)] + [chr(0x2032), chr(0x2033)])
-
-
-def _get_title_sort_pat(lang=None):
-    """
-    Build and cache a leading-article regex for the requested language key.
-
-    For None, consult the default-language preference. Missing language patterns fall
-    back to configured English patterns, then built-in English articles; invalid regex
-    compilation also uses the built-in fallback. Pattern alternatives come from a
-    frozenset, with no precedence guarantee. Cache entries, including the None key, are
-    not invalidated when preferences change.
-
-    Example:
-        >>> _get_title_sort_pat("eng") is _get_title_sort_pat("eng")
-        True
-
-
-    :param lang: Hashable language key, or ``None`` to consult the default-language preference.
-    :return: Cached case-insensitive compiled regex matching an initial article.
-    """
-    ans = _title_pats.get(lang, None)
-    if ans is not None:
-        return ans
-
-    q = lang
-    if q is None:
-        q = preferences.get("default_language_for_title_sort")
-
-    data = preferences.get("per_language_title_sort_articles", {})
-    try:
-        ans = data.get(q, None)
-    except AttributeError:
-        ans = None
-    try:
-        ans = frozenset(ans) if ans else frozenset(data["eng"])
-    except Exception:
-        ans = frozenset((r"A\s+", r"The\s+", r"An\s+"))
-    ans = "^(%s)" % "|".join(ans)
-    try:
-        ans = re.compile(ans, re.IGNORECASE)
-    except Exception:
-        ans = re.compile(r"^(A|The|An)\s+", re.IGNORECASE)
-    _title_pats[lang] = ans
-    return ans
-
-
-def title_sort(title, order=None, lang=None):
-    """
-    Create a title sort string using strict or article-moving library order.
-
-    Falsy input gives empty text. Convert other input with str and trim whitespace.
-    Strictly alphabetic order stops there; all other orders remove at most one opening
-    quote character and move a matched leading article to a comma-separated suffix.
-    Article matching uses the preference-backed language cache.
-
-    Example:
-        >>> title_sort("  The Book  ", order="strictly_alphabetic")
-        'The Book'
-        >>> title_sort(None)
-        ''
-
-
-    :param title: Title coerced with str after the initial falsy check.
-    :param order: ``strictly_alphabetic`` preserves article order; ``None`` reads the sorting preference.
-    :param lang: Language key passed to the cached article-pattern helper.
-    :return: The stripped or article-reordered title string.
-    """
-    if not title:
-        return ""
-    if order is None:
-        order = preferences.get("title_series_sorting", "library_order")
-    title = str(title).strip()
-    if order == "strictly_alphabetic":
-        return title
-    if title and title[0] in _ignore_starts:
-        title = title[1:]
-    match = _get_title_sort_pat(lang).search(title)
-    if match:
-        try:
-            prep = match.group(1)
-        except IndexError:
-            pass
-        else:
-            title = title[len(prep) :] + ", " + prep
-            if title and title[0] in _ignore_starts:
-                title = title[1:]
-    return title.strip()

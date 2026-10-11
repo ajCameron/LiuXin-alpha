@@ -56,7 +56,9 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.utility_mixins import SQ
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver import SQLBaseDriver
 
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils import *
-from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils import _author_to_author_sort
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils import (
+    _author_sort_sql_value,
+)
 
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.calibre_emulation_mixin import CalibreEmulationMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.sql_execution_mixin import SQLExecutionMixin
@@ -75,7 +77,7 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.update_mi
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.view_mixin import ViewMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.table_creation_mixin import TableCreationMixin
 
-from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils import _get_title_sort_pat, _title_pats, _ignore_starts, title_sort
+from LiuXin_alpha.metadata.title_names import title_to_title_sort
 from LiuXin_alpha.databases.maintenance.dummy_maintenance_bot import DummyMaintenanceBot
 
 
@@ -519,8 +521,8 @@ class DatabaseDriver(
         conn.create_function("NEW_DIRTY_RECORD", 2, lambda table, row_id: self.maintainer_callback.new_dirty_record(table, row_id))
 
         # calibre - functions included here for compatibility
-        conn.create_function("title_sort", 1, title_sort)
-        conn.create_function("author_to_author_sort", 1, _author_to_author_sort)
+        conn.create_function("title_sort", 1, title_to_title_sort)
+        conn.create_function("author_to_author_sort", 1, _author_sort_sql_value)
         conn.create_function("uuid4", 0, lambda: str(uuid.uuid4()))
 
         # calibre - Dummy functions for dynamically created filters
@@ -787,8 +789,10 @@ class DatabaseDriver(
                 try:
                     # Ensure compat collations/functions exist during schema creation.
                     restore_conn.execute("PRAGMA foreign_keys=ON")
-                    restore_conn.create_function("title_sort", 1, title_sort)
-                    restore_conn.create_function("author_to_author_sort", 1, _author_to_author_sort)
+                    restore_conn.create_function("title_sort", 1, title_to_title_sort)
+                    restore_conn.create_function(
+                        "author_to_author_sort", 1, _author_sort_sql_value
+                    )
                     restore_conn.create_function("uuid4", 0, lambda: str(uuid.uuid4()))
                     restore_conn.create_function("books_list_filter", 1, lambda x: 1)
                     restore_conn.create_collation("icucollate", icu_collator)

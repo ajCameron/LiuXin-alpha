@@ -1,133 +1,195 @@
+# Separation of concerns
 
-What does each bit of the system do?
+Decision date: **2026-10-11**
 
+Status: **canonical ownership guide; migrations remain in progress**
 
+This document defines where new behavior belongs. The more detailed
+[top-level structure](<02 - Top Level Structure.md>) describes the intended
+shape, and the dated
+[Catalog write-validation contract](catalog-write-validation-contract.md)
+defines the semantic write guarantee. Existing compatibility code may still
+cross these boundaries; that debt is not precedent for new code.
 
-Stores
+## Layer map
 
+```text
+surfaces -> core -> library/workflows -> catalog -> databases
+                         |                 |
+                         v                 v
+                      storage           metadata
+                         |
+                         v
+                      databases
+```
 
+`caches`, `ingest`, and `jobs` support this flow without becoming alternative
+owners of persisted metadata policy.
 
-Store files.
+## Package-root signposts
 
+The package docstrings in these top-level roots repeat the concise ownership
+contract so it is visible before a developer explores an implementation:
 
+- `src/LiuXin_alpha/core/__init__.py`
+- `src/LiuXin_alpha/library/__init__.py`
+- `src/LiuXin_alpha/catalog/__init__.py`
+- `src/LiuXin_alpha/metadata/__init__.py`
+- `src/LiuXin_alpha/databases/__init__.py`
+- `src/LiuXin_alpha/storage/__init__.py`
+- `src/LiuXin_alpha/caches/__init__.py`
+- `src/LiuXin_alpha/surfaces/__init__.py`
+- `src/LiuXin_alpha/ingest/__init__.py`
+- `src/LiuXin_alpha/jobs/__init__.py`
 
+Those docstrings are entry-point summaries, not independent policy sources. If
+wording drifts, this guide and the dated write-validation contract take
+precedence and the package root should be corrected.
 
+The shortest useful description is:
 
+- `metadata` defines what metadata values mean and how pure values are
+  normalized and validated;
+- `catalog` guarantees metadata-aware reads and valid public mutations;
+- `databases` persist rows and enforce storage integrity;
+- `storage` manages bytes, replicas, and physical placement;
+- `library` coordinates workflows spanning Catalog and storage;
+- `core` owns lifecycle, configuration, process services, and the application
+  contract exposed to surfaces;
+- `surfaces` translate external input and output; they are never a trusted
+  substitute for lower-layer validation.
 
-## Storage, Library, and Database Responsibilities
+## Semantic write validity
 
-At the top level, LiuXin separates concerns between persistent state, physical file handling, and cross-system orchestration.
+The database is the authoritative record of what was persisted, but it is not
+the owner of bibliographic meaning. A row existing in a table does not by itself
+prove that a title, identifier, language, or Agent relationship is semantically
+valid.
 
-### Database
+Every public Catalog mutation must establish validity itself:
 
-The database is the source of truth for stored state and policy. It records what the system believes should exist, what currently exists, and what relationships or constraints apply.
+```text
+untrusted input
+    -> metadata normalization and pure value validation
+    -> Catalog operation and relationship validation
+    -> repository storage adaptation
+    -> database transaction and constraints
+```
 
-The database is responsible for:
+The responsibilities are deliberately cumulative:
 
-- bibliographic and structural metadata
-- file and store records
-- storage-related state such as:
-  - which files exist
-  - which stores hold which files
-  - checksums, sizes, and observed properties
-  - desired replica counts or placement constraints
-  - verification / repair / migration state
-- durable job-relevant state where needed for recovery and reconciliation
+- `metadata` supplies reusable, persistence-free value rules;
+- `catalog` invokes those rules and validates the complete requested operation;
+- `databases` retain types, nullability, foreign keys, uniqueness, stable
+  `CHECK` constraints, and transactional guarantees.
 
-The database is not responsible for performing storage actions itself. It records state; other layers act on that state.
+Application validation does not replace database constraints, particularly for
+concurrent uniqueness and referential integrity. Database constraints do not
+replace Catalog validation or become the home of changing bibliographic policy.
+Direct driver and raw-macro calls are outside the Catalog semantic-validity
+guarantee and should be limited to schema, migration, repair, and explicitly
+low-level code.
+
+New writes are strict. Reads remain sufficiently tolerant to inspect historical
+data, and audits or migrations handle remediation explicitly rather than making
+old libraries unreadable or silently rewriting them.
+
+## Layer responsibilities
+
+### Metadata
+
+`metadata` owns passive value types, WEMI vocabulary, field meaning, codecs, and
+pure normalization and validation. It does not own SQL, transactions, record
+identity resolution, storage placement, or application workflow.
+
+Some current metadata facades still hydrate from databases or caches. Those are
+compatibility/migration surfaces, not the desired dependency direction.
+
+### Catalog
+
+`catalog` owns metadata-aware persistence: repositories, matching, semantic
+mutation policy, WEMI relationships, merges, retrieval, and display-neutral
+projections. Its public mutations validate rather than trusting surfaces,
+declarations, type annotations, or earlier workflow steps.
+
+Catalog does not own connection mechanics, SQL dialects, physical file
+placement, user-interface formatting, or process lifecycle.
+
+### Databases
+
+`databases` owns connections, drivers, SQL, schema creation and migration,
+transactions, generic rows and links, constraints, and database repair. It may
+store declarative profile labels and consume passive value contracts at an
+adapter boundary, but it does not define title, author, identifier, language,
+matching, or merge policy.
+
+The database remains the final structural guard and authoritative persisted
+record. That is different from being the owner of semantic validation.
 
 ### Storage
 
-The storage layer is responsible for making physical reality match the storage-related state recorded in the database.
+`storage` owns digital assets, physical stores, locations, replicas, byte
+integrity, placement, backup execution, repair, and reconciliation of physical
+reality with durable storage state. It may use database-backed storage records
+without becoming a consumer of the full bibliographic model.
 
-In practice, storage handles:
+Storage does not decide whether two records represent the same Work,
+Expression, Manifestation, Agent, or other bibliographic entity.
 
-- storing and retrieving files
-- resolving which concrete store can satisfy a read
-- writing bytes to a store
-- checking whether files exist on stores
-- verifying integrity at the file / store level
-- moving or copying files between stores
-- maintaining replicas
-- performing repair / reconciliation / healing work
-- exposing store health and capability information
+### Caches
 
-Storage should be database-aware in the narrow sense that it reads and updates storage state recorded in the database. It should not become a general consumer of the full bibliographic model.
+`caches` own derived, rebuildable acceleration state, structured queries, and
+explicit refresh/invalidation behavior. Cache writes delegate to Catalog; a
+cache must not become an alternative semantic write path or source of truth.
 
-Storage should know about storage concepts such as:
+### Library and workflows
 
-- files
-- stores
-- file-store links
-- checksums
-- placement state
-- replica state
-- verification state
-- transfer / repair state
+`library` combines Catalog and storage capabilities into ingest, enrichment,
+backup planning, repair, and other user-level workflows. It coordinates domains
+without reimplementing their rules or bypassing Catalog for ordinary metadata
+writes.
 
-Storage should not own higher-level library semantics such as:
+### Core
 
-- whether two manifestations are “really the same book”
-- work / expression modelling
-- metadata merge policy
-- user-facing presentation concerns
+`core` owns application composition, configuration resolution, lifecycle,
+background service scheduling, and the stable command/query contract exposed to
+surfaces. `LibraryServices` opens and closes one library's database, storage,
+cache, Catalog, and library facade. Core does not absorb metadata or storage
+policy merely because it composes their owners.
 
-### Metadata containers and storage placement hints
+### Surfaces
 
-Metadata containers own metadata facts and relation structure. They should expose
-the bibliographic, descriptive, and graph-shaped information that other layers
-can consume, but they should not contain storage placement policy.
+`surfaces` own argument parsing, transports, presentation, and conversion
+between external representations and Core operations. Early validation may
+improve error messages, but Catalog and database boundaries still enforce their
+own contracts.
 
-Relation edges are metadata-side link assertions. They may carry identity,
-cardinality, provenance, source, and edge-role information, but they should not
-own physical placement decisions. Storage may consume those edges when deriving
-placement hints or storage actions.
+### Ingest and jobs
 
-Storage placement hints are storage-facing projections of metadata into inputs
-that storage can use for placement and naming, such as preferred folder tokens,
-filename stems, format candidates, existing storage keys, and lightweight counts.
-Those hints are not canonical metadata facts. They are a storage contract, so the
-hint models and projection helper belong in `storage.api`, not in `metadata.api`.
+`ingest` extracts and proposes candidates, provenance, and acquisition results;
+it does not turn those candidates into trusted database rows. Persisted metadata
+goes through Catalog-owned mutations.
 
-The intended rule is:
+`jobs` owns durable task definitions, scheduling, progress, heartbeats, retries,
+and execution records. A job invokes the workflow that owns the domain action;
+it does not acquire that workflow's validation or storage policy.
 
-- metadata owns the facts and relation graph
-- storage owns placement hint models, projection, and final placement decisions
-- library may orchestrate workflows that involve both metadata and storage
+## Metadata containers and storage placement hints
 
-This keeps the useful call shape without pushing storage concerns into metadata:
-callers can hand storage a metadata-like object, and storage can derive the
-placement hints it needs through a structural storage-side protocol.
+Metadata containers own metadata facts and relation structure, not physical
+placement policy. Storage-facing projections such as folder tokens, filename
+stems, format candidates, existing keys, and lightweight counts belong in
+`storage.api`.
 
-Concretely:
+Consequently:
 
-- `metadata.api` should not export `*StorageHints`
-- metadata containers should not implement `storage_hints()`
-- storage may expose `derive_storage_hints(metadata_like)`
-- storage must not import concrete metadata containers just to make placement work
-- library should not become the default home for file placement logic
+- `metadata.api` does not define storage hints;
+- metadata containers do not own `storage_hints()` behavior;
+- storage may expose `derive_storage_hints(metadata_like)`;
+- storage does not import concrete metadata containers merely to place files;
+- library may coordinate a workflow involving both owners.
 
-The only acceptable compatibility exception is a storage-side provider protocol
-for objects that already return explicit storage hints. That protocol belongs to
-storage and should not become a requirement on metadata containers.
-
-### Library
-
-The library layer is the high-level orchestration layer. It brings together database, storage, metadata, cache, and surface concerns into meaningful workflows.
-
-Library is responsible for operations such as:
-
-- ingesting a new file and creating the right records
-- reconciling an import against existing library entities
-- coordinating metadata and storage updates together
-- exposing higher-level workflows to surfaces and automation
-- deciding when a cross-cutting operation spans multiple subsystems
-
-A useful rule of thumb is:
-
-- database records truth
-- storage enforces and reconciles physical truth
-- library coordinates multi-domain intent
+## Storage-specific boundaries
 
 ### Recommended Internal Split Inside Storage
 
@@ -166,7 +228,8 @@ To keep boundaries clean:
 
 - implement physical storage operations
 - contain backend-specific file transfer logic
-- make policy decisions by itself without an orchestrating caller
+- define bibliographic normalization, validation, matching, or merge policy
+- treat a stored validation-profile label as proof that validation occurred
 
 #### Storage should not:
 
@@ -240,7 +303,7 @@ This is about bytes, storage layout, and retrieval mechanics, so it belongs in s
 
 ##### Semantic / bibliographic dedupe
 
-Semantic dedupe is a library responsibility.
+Semantic dedupe is split between Catalog and Library.
 
 This includes cases where:
 
@@ -249,7 +312,10 @@ This includes cases where:
 - metadata from multiple sources should be merged
 - duplicate-looking library entities need human or policy-driven resolution
 
-This is about meaning, identity, and library modelling, so it belongs in library.
+Catalog owns identity evidence, matching decisions, merge invariants, and the
+metadata mutations. Library owns the wider workflow: deciding when to run
+dedupe, coordinating files or jobs, and requesting human resolution when
+Catalog reports ambiguity or conflict.
 
 ### Ownership Summary
 
@@ -257,12 +323,14 @@ This is about meaning, identity, and library modelling, so it belongs in library
 - backup execution: storage
 - backup policy inputs: usually library and/or database configuration
 - physical/content dedupe: storage
-- semantic/bibliographic dedupe: library
+- semantic/bibliographic matching and merge: catalog
+- semantic-dedupe workflow and cross-domain coordination: library
 
 A good shorthand is:
 
 - storage decides how many physical copies exist, where they live, and whether identical bytes can be shared
-- library decides what counts as “the same thing” at the bibliographic or domain level
+- Catalog decides whether metadata identities safely match or may be merged
+- library decides when and why to run that work across the wider system
 
 ## Storage internal split
 

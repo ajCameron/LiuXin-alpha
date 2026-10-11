@@ -1,8 +1,16 @@
 """
 Expose the supported library compatibility surface.
 
-The module keeps compatibility policy, normalization and resource ownership explicit
-for callers.
+Separation of concerns: Library coordinates user-level workflows that span
+Catalog and storage. It does not own collaborator lifecycle, reimplement
+bibliographic validation, execute raw persistence for ordinary metadata writes,
+or perform backend-specific byte movement. Core-owned ``LibraryServices`` supplies
+the collaborators, Catalog guarantees semantic mutations, and storage manages
+files and replicas. Remaining direct compatibility paths are migration debt, not
+the contract for new code.
+
+See ``dev-docs/04 - Seperation of Concerns.md`` and
+``dev-docs/catalog-write-validation-contract.md``.
 
 Example:
     Exercise   init   through a consuming regression::

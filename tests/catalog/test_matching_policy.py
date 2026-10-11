@@ -1,7 +1,7 @@
 """
 Exercise shared and specialized Catalog identity decisions against real repository rows.
 
-Pure value tests cover selected result shapes and identifier normalization. Database
+Pure value tests cover selected result shapes and the identifier adapter. Database
 cases cover shared policy references, duplicate/conflicting identities, corroboration,
 Agent aliases and types, contextual Expression matching, identifier storage copies,
 and insufficient Item evidence. Fixtures and assertions are unchanged; each test
@@ -65,38 +65,38 @@ def test_match_results_expose_explicit_validated_decisions() -> None:
         MatchEvidence("title", "exact", 1.1, 1.0, "invalid")
 
 
-def test_identifier_normalization_is_scheme_specific() -> None:
+def test_identifier_normalization_adapter_preserves_catalog_context() -> None:
     """
-    Check ISBN checksum handling, DOI canonicalization, and generic case preservation.
+    Check that Catalog adapts metadata normalization without losing context.
 
-    Normalize one ISBN-13, one DOI URL, and one publisher-code string; assert the expected canonical
-    values. A changed ISBN check digit must raise ValueError. No remote authority or database is
-    consulted, and these examples do not cover every supported scheme or override form.
+    Normalize one DOI candidate and assert canonical value fields plus identity of the
+    Catalog-owned hints mapping. Pure scheme behavior is tested by the metadata owner.
 
     Example:
-        >>> test_identifier_normalization_is_scheme_specific()  # doctest: +SKIP
+        >>> test_identifier_normalization_adapter_preserves_catalog_context()  # doctest: +SKIP
 
 
     :return: None after the stated matching and error assertions pass.
     """
-    isbn = normalise_identifier(
-        IdentifierCandidate("ISBN-13", "978-0-306-40615-7")
-    )
-    doi = normalise_identifier(
-        IdentifierCandidate("DOI", "https://doi.org/10.1000/ABC")
-    )
-    generic = normalise_identifier(
-        IdentifierCandidate("publisher_code", " AbC/Def ")
+    hints = {"edition": "first"}
+    original = IdentifierCandidate(
+        "DOI",
+        " https://doi.org/10.1000/ABC ",
+        source="opf",
+        hints=hints,
     )
 
-    assert (isbn.identifier_type, isbn.normalised_value) == (
-        "isbn13",
-        "9780306406157",
-    )
-    assert doi.normalised_value == "10.1000/abc"
-    assert generic.normalised_value == "AbC/Def"
-    with pytest.raises(ValueError, match="invalid ISBN"):
-        normalise_identifier(IdentifierCandidate("isbn13", "978-0-306-40615-8"))
+    normalised = normalise_identifier(original)
+
+    assert normalised.identifier_type == "doi"
+    assert normalised.value == "https://doi.org/10.1000/ABC"
+    assert normalised.normalised_value == "10.1000/abc"
+    assert normalised.source == "opf"
+    assert normalised.hints is hints
+    assert original.identifier_type == "DOI"
+
+    with pytest.raises(TypeError, match="IdentifierCandidate"):
+        normalise_identifier(("doi", "10.1000/example"))  # type: ignore[arg-type]
 
 
 def test_catalog_shares_one_configured_matching_policy(db) -> None:

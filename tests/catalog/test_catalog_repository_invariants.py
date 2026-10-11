@@ -10,9 +10,10 @@ Sequential reuse tests do not establish concurrent uniqueness guarantees.
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 import unicodedata
 import uuid
+from collections.abc import Mapping
+from types import SimpleNamespace
 
 import pytest
 
@@ -64,6 +65,199 @@ def _identifier_rows(catalog: Catalog) -> tuple[dict[str, object], ...]:
     :return: Tuple of shallow dictionaries retaining the repository row order.
     """
     return tuple(dict(row) for row in catalog.identifiers._all_rows())
+
+
+@pytest.mark.parametrize(
+    ("scheme", "value", "message"),
+    (
+        ("isbn13", "978-0-306-40615-8", "invalid ISBN"),
+        ("doi", "not-a-doi", "invalid DOI"),
+        ("uuid", "not-a-uuid", "invalid UUID"),
+    ),
+)
+def test_identifier_generic_create_rejects_invalid_known_values_before_insert(
+    db,
+    monkeypatch: pytest.MonkeyPatch,
+    scheme: str,
+    value: str,
+    message: str,
+) -> None:
+    """
+    Reject invalid ISBN, DOI and UUID values before the insert macro can run.
+
+    Replace the live portable insert method with a failing sentinel, then call the formerly raw
+    generic repository create path using aliases. The scheme-specific ValueError must win over the
+    sentinel for each known scheme, proving write preparation runs before persistence begins.
+
+    Example:
+        >>> test_identifier_generic_create_rejects_invalid_known_values_before_insert(db, monkeypatch, "doi", "bad", "invalid DOI")  # doctest: +SKIP
+
+
+    :param db: Provisioned database supplying live schema introspection to the repository.
+    :param monkeypatch: Pytest fixture replacing and restoring the portable insert method.
+    :param scheme: Known identifier scheme selecting one semantic validator.
+    :param value: Invalid value that validator must reject.
+    :param message: Expected scheme-specific validation-error fragment.
+    :return: None after proving no insert macro call occurred.
+    """
+
+    catalog = Catalog(db)
+
+    def fail_insert(*_args: object, **_kwargs: object) -> int:
+        """Fail immediately if rejected input reaches the persistence macro."""
+
+        pytest.fail("invalid identifier reached insert_row")
+
+    monkeypatch.setattr(catalog.identifiers._macros, "insert_row", fail_insert)
+
+    with pytest.raises(ValueError, match=message):
+        catalog.identifiers.create({"scheme": scheme, "value": value})
+
+
+@pytest.mark.parametrize(
+    "payload",
+    ({"scheme": "uuid"}, {"value": str(uuid.uuid4())}),
+)
+def test_identifier_generic_create_requires_a_complete_pair_before_insert(
+    db,
+    monkeypatch: pytest.MonkeyPatch,
+    payload: dict[str, str],
+) -> None:
+    """
+    Reject a scheme-only or value-only generic create before the insert macro can run.
+
+    Install a failing insert sentinel and submit each incomplete alias payload. The Catalog-specific
+    completeness error must occur first, proving database defaults or nullability cannot turn a
+    partial curated identifier into persisted state.
+
+    Example:
+        >>> test_identifier_generic_create_requires_a_complete_pair_before_insert(db, monkeypatch, {"scheme": "uuid"})  # doctest: +SKIP
+
+
+    :param db: Provisioned database supplying live identifier-table schema introspection.
+    :param monkeypatch: Pytest fixture replacing and restoring the portable insert method.
+    :param payload: Incomplete scheme-only or value-only generic repository input.
+    :return: None after Catalog rejects the input before persistence.
+    """
+
+    catalog = Catalog(db)
+
+    def fail_insert(*_args: object, **_kwargs: object) -> int:
+        """Fail immediately if incomplete input reaches the persistence macro."""
+
+        pytest.fail("incomplete identifier reached insert_row")
+
+    monkeypatch.setattr(catalog.identifiers._macros, "insert_row", fail_insert)
+
+    with pytest.raises(
+        CatalogMutationError,
+        match="require both a scheme and value",
+    ):
+        catalog.identifiers.create(payload)
+
+
+def test_identifier_generic_partial_updates_validate_the_complete_pair_before_write(
+    db,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    Combine partial generic updates with stored identifier fields before validation.
+
+    Create one valid UUID and one unknown-scheme value through generic CRUD. Replace update_row with
+    a failing sentinel, then submit an invalid value-only UUID change and a scheme-only conversion
+    of arbitrary text to UUID. Both must fail in Catalog validation, and both stored rows must remain
+    unchanged without invoking the update macro.
+
+    Example:
+        >>> test_identifier_generic_partial_updates_validate_the_complete_pair_before_write(db, monkeypatch)  # doctest: +SKIP
+
+
+    :param db: Provisioned database storing the two identifier rows and supplying schema metadata.
+    :param monkeypatch: Pytest fixture replacing and restoring the portable update method.
+    :return: None after both partial updates fail before persistence.
+    """
+
+    catalog = Catalog(db)
+    uuid_id = catalog.identifiers.create({"scheme": "uuid", "value": str(uuid.uuid4())})
+    unknown_id = catalog.identifiers.create(
+        {"scheme": "publisher-code", "value": "not-a-uuid"}
+    )
+    before_uuid = catalog.identifiers.require(uuid_id)
+    before_unknown = catalog.identifiers.require(unknown_id)
+
+    def fail_update(*_args: object, **_kwargs: object) -> None:
+        """Fail immediately if rejected input reaches the persistence macro."""
+
+        pytest.fail("invalid identifier reached update_row")
+
+    monkeypatch.setattr(catalog.identifiers._macros, "update_row", fail_update)
+
+    with pytest.raises(ValueError, match="invalid UUID"):
+        catalog.identifiers.update(uuid_id, {"value": "not-a-uuid"})
+    with pytest.raises(ValueError, match="invalid UUID"):
+        catalog.identifiers.update(unknown_id, {"scheme": "uuid"})
+
+    assert catalog.identifiers.require(uuid_id) == before_uuid
+    assert catalog.identifiers.require(unknown_id) == before_unknown
+
+
+def test_identifier_generic_writes_normalize_but_preserve_unknown_schemes(
+    db,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    Keep unknown identifier schemes writable while normalizing their pair through Catalog.
+
+    Create a punctuation-and-space variant of an unknown scheme and assert the stored scheme is its
+    established canonical form while original value case is retained and edge whitespace removed.
+    Update only the value and verify the stored scheme participates in validation and remains
+    unchanged.
+
+    Example:
+        >>> test_identifier_generic_writes_normalize_but_preserve_unknown_schemes(db, monkeypatch)  # doctest: +SKIP
+
+
+    :param db: Provisioned database receiving the real generic create and partial update.
+    :param monkeypatch: Pytest fixture recording and restoring the portable update method.
+    :return: None after the normalized unknown identifier round trip succeeds.
+    """
+
+    catalog = Catalog(db)
+    identifier_id = catalog.identifiers.create(
+        {"scheme": " Publisher Code ", "value": " AbC/Def "}
+    )
+
+    created = catalog.identifiers.require(identifier_id)
+    assert created["entity_identifier_scheme"] == "publisher_code"
+    assert created["entity_identifier_value"] == "AbC/Def"
+
+    written_payloads: list[dict[str, object]] = []
+    original_update = catalog.identifiers._macros.update_row
+
+    def record_update(
+        table: str,
+        row_id: object,
+        values: Mapping[str, object],
+        *,
+        id_column: str | None = None,
+    ) -> None:
+        """Record the prepared payload and forward it to the real update macro."""
+
+        written_payloads.append(dict(values))
+        original_update(table, row_id, values, id_column=id_column)
+
+    monkeypatch.setattr(catalog.identifiers._macros, "update_row", record_update)
+    catalog.identifiers.update(identifier_id, {"value": " Next/Value "})
+
+    assert written_payloads == [
+        {
+            "entity_identifier_value": "Next/Value",
+            "entity_identifier_scheme": "publisher_code",
+        }
+    ]
+    updated = catalog.identifiers.require(identifier_id)
+    assert updated["entity_identifier_scheme"] == "publisher_code"
+    assert updated["entity_identifier_value"] == "Next/Value"
 
 
 def test_identifier_replacement_rejects_normalised_scheme_collisions_atomically(

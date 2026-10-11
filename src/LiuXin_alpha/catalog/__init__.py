@@ -11,6 +11,18 @@ coordinate semantic writes. Database drivers own SQL and transaction mechanics,
 storage owners manage bytes and replicas, and application owners combine those
 services into ingest and other user workflows.
 
+Separation of concerns: every public Catalog mutation establishes its own
+semantic preconditions before persistence. It invokes persistence-free metadata
+normalizers and validators, then applies operation, relationship, and transaction
+rules. It does not trust surfaces, declarations, annotations, or earlier workflow
+steps as proof of runtime validity. Database constraints remain the final
+structural and concurrency-safe guard. Direct driver and raw-macro calls are
+outside this semantic-validity guarantee.
+
+Enforcement is being completed repository by repository. Curated identifier
+generic CRUD uses the shared write-preparation seam; other semantic repositories
+must not be assumed complete merely because the boundary is documented.
+
 This package exports Catalog. Import candidate/result values and structural
 contracts from LiuXin_alpha.catalog.api. Supply an existing database and retain
 responsibility for closing it; the facade provides no close/context-manager API.
@@ -32,7 +44,9 @@ match_or_create methods apply that distinction and raise on unresolved outcomes.
 The generic create_writer/write/write_one methods expose schema-driven field
 updates, while add/ensure/apply/intralink retain legacy database Row workflows.
 
-See dev-docs/catalog-api-usage.md and examples/catalog for complete examples.
+See dev-docs/04 - Seperation of Concerns.md,
+dev-docs/catalog-api-usage.md, dev-docs/catalog-write-validation-contract.md,
+and examples/catalog for complete examples and the dated enforcement status.
 """
 
 

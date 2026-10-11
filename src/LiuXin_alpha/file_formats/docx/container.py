@@ -36,7 +36,7 @@ from LiuXin_alpha.metadata.ebook_metadata_tools import string_to_authors
 from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
     CalibreLikeLiuXinBookMetaData as Metadata,
 )
-from LiuXin_alpha.metadata.ebook_metadata_tools import authors_to_sort_string
+from LiuXin_alpha.metadata.author_names import authors_to_sort_string
 
 from LiuXin_alpha.utils.mine_types import guess_type
 from LiuXin_alpha.utils.localization import trans as _
@@ -196,7 +196,7 @@ def read_doc_props(raw: _typing.Any, mi: _typing.Any, XPath: _typing.Any) -> Non
             aut.extend(string_to_authors(author.text))
     if aut:
         mi.authors = aut
-        mi.author_sort = authors_to_sort_string(aut)
+        mi.author_sort = authors_to_sort_string(aut, method=None)
 
     desc = XPath("//dc:description")(root)
     if desc:

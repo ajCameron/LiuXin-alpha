@@ -36,7 +36,7 @@ from LiuXin_alpha.databases.db_types import (
 
 from LiuXin_alpha.errors import NotInCache
 
-from LiuXin_alpha.metadata.ebook_metadata_tools import author_to_author_sort
+from LiuXin_alpha.metadata.author_names import author_to_author_sort
 
 from LiuXin_alpha.preferences import preferences as tweaks
 
@@ -228,7 +228,9 @@ class CalibreBaseField(BaseField[T]):
         self.sort_sort_key = True
 
         if self.is_multiple and "&" in self.metadata["is_multiple"]["list_to_ui"]:
-            self._sort_key = lambda x: sort_key(author_to_author_sort(x))
+            self._sort_key = lambda x: sort_key(
+                author_to_author_sort(x, method=None)
+            )
             self.sort_sort_key = False
 
         if name == "identifier":

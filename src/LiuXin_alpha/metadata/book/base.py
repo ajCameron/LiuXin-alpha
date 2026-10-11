@@ -27,9 +27,11 @@ from LiuXin_alpha.utils.calibre_compat.metadata.calibre_metadata_constants impor
 )
 
 from LiuXin_alpha.catalog.field_metadata import FieldMetadata
+from LiuXin_alpha.metadata.identifiers import clean_identifier_key as ck
+from LiuXin_alpha.metadata.identifiers import clean_identifier_value as cv
 
 from LiuXin_alpha.utils.logging import prints
-from LiuXin_alpha.utils.text.icu import sort_key, lower as icu_lower
+from LiuXin_alpha.utils.text.icu import sort_key
 from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 comparability layer
@@ -99,36 +101,6 @@ def reset_field_metadata():
     """
     global field_metadata
     field_metadata = FieldMetadata()
-
-
-def ck(typ):
-    """
-    Normalize an identifier scheme by case folding, trimming, and removing colons and commas.
-
-    Example:
-        >>> ck(' DOI: ')
-        'doi'
-
-
-    :param typ: Identifier scheme string.
-    :return: Normalized scheme string.
-    """
-    return icu_lower(typ).strip().replace(":", "").replace(",", "")
-
-
-def cv(val):
-    """
-    Trim an identifier value and replace commas with vertical bars.
-
-    Example:
-        >>> cv(' 10.1/a,b ')
-        '10.1/a|b'
-
-
-    :param val: Identifier value string.
-    :return: Cleaned identifier value.
-    """
-    return val.strip().replace(",", "|")
 
 
 # Todo: Include all calibre fields, marked as such

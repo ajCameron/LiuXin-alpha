@@ -14,7 +14,7 @@ from LiuXin_alpha.metadata.standardization import (
     make_title_search_term,
     make_series_phash,
 )
-from LiuXin_alpha.metadata.utils import title_sort as generate_title_sort
+from LiuXin_alpha.metadata.title_names import title_to_title_sort
 
 
 def _clean_optional(value: str) -> Optional[str]:
@@ -115,7 +115,7 @@ class NewSeriesWizardCommand(TerminalCommandAPI):
         if not series_name:
             raise ValueError("Series cannot be blank.")
 
-        default_sort = generate_title_sort(series_name)
+        default_sort = title_to_title_sort(series_name)
         series_sort = (
             browser.prompt_text("Series sort", default=default_sort).strip()
             or default_sort

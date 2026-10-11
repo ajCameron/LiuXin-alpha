@@ -28,6 +28,18 @@ MODERN_PACKAGES = (
     "storage",
     "surfaces",
 )
+SEPARATION_OF_CONCERNS_PACKAGE_ROOTS = (
+    "caches",
+    "catalog",
+    "core",
+    "databases",
+    "ingest",
+    "jobs",
+    "library",
+    "metadata",
+    "storage",
+    "surfaces",
+)
 METADATA_BOUNDARY_ROOTS = (
     SOURCE_ROOT / "metadata" / "api" / "containers_api" / "main_table_containers_api",
     SOURCE_ROOT / "metadata" / "api" / "containers_api" / "wemi_containers_api",
@@ -45,6 +57,30 @@ PLACEHOLDER_FRAGMENTS = (
     "state shared across the public boundary",
     "todo: document",
 )
+
+
+def test_top_level_package_docstrings_state_separation_of_concerns() -> None:
+    """
+    Require every principal package root to state and link its ownership boundary.
+
+    Parse each top-level ``__init__.py`` and inspect its module docstring without importing the
+    package. The shared heading makes the responsibility summary discoverable, while the canonical
+    developer-document path prevents the root summaries from becoming isolated policy copies.
+
+    Example:
+        Exercise the package-root documentation ratchet with pytest::
+
+            python -m pytest -q tests/scripts/test_public_documentation_boundaries.py
+
+
+    :return: None after all principal roots contain both required documentation markers.
+    """
+
+    for package in SEPARATION_OF_CONCERNS_PACKAGE_ROOTS:
+        path = SOURCE_ROOT / package / "__init__.py"
+        docstring = ast.get_docstring(_parse(path), clean=False) or ""
+        assert "Separation of concerns:" in docstring, path
+        assert "dev-docs/04 - Seperation of Concerns.md" in docstring, path
 
 
 def _modern_source_paths() -> tuple[Path, ...]:

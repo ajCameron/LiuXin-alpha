@@ -25,7 +25,7 @@ from LiuXin_alpha.constants import iswindows, isosx
 
 from LiuXin_alpha.file_formats.mobi.utils import utf8_text, to_base
 
-from LiuXin_alpha.metadata.utils import authors_to_sort_string
+from LiuXin_alpha.metadata.author_names import authors_to_sort_string
 
 from LiuXin_alpha.utils.date import utcnow
 from LiuXin_alpha.utils.localization import lang_as_iso639_1

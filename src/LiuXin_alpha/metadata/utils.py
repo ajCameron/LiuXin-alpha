@@ -1,11 +1,11 @@
 #!/usr/bin/env  python
 
 """
-Provide metadata author/title formatting, series indexes, resources, identifier checks, and OPF parsing helpers.
+Provide metadata author formatting, series indexes, resources, identifier checks, and OPF parsing helpers.
 
-Author separators and the XML parser are initialized at import. Article patterns are
-cached by language. Resource objects describe paths or URLs without opening them;
-parsing and directory enumeration perform the I/O described by their helpers.
+Author separators and the XML parser are initialized at import. Resource objects
+describe paths or URLs without opening them; parsing and directory enumeration
+perform the I/O described by their helpers.
 
 Example:
     Exercise the owning behavior with pytest::
@@ -32,7 +32,6 @@ from typing import (
     Iterable,
     Iterator,
     List,
-    Literal,
     Optional,
     Tuple,
     Type,
@@ -40,19 +39,28 @@ from typing import (
     Union,
 )
 
-from LiuXin_alpha.errors import InputIntegrityError
 from LiuXin_alpha.file_formats.oeb.base import OPF
+from LiuXin_alpha.metadata.identifiers import (
+    check_isbn10,
+    check_isbn13,
+)
+from LiuXin_alpha.metadata.identifiers import (
+    validate_legacy_identifier as _validate_legacy_identifier,
+)
 from LiuXin_alpha.preferences import preferences as tweaks
 from LiuXin_alpha.utils.libraries.calibre_chardet import xml_to_unicode
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log, prints
 from LiuXin_alpha.utils.mine_types import guess_type
 from LiuXin_alpha.utils.paths import relpath
-from LiuXin_alpha.utils.text import remove_bracketed_text
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal kovid@kovidgoyal.net"
 __docformat__ = "restructuredtext en"
+
+# Historical import surface retained while the policy owner lives in
+# ``metadata.identifiers``.
+validate_identifier = _validate_legacy_identifier
 
 
 if _HAS_LXML:
@@ -166,202 +174,6 @@ def authors_to_string(authors: Iterable[str], xml_safe: bool = False) -> str:
             return enc_str.replace("&", ",0420,")
     else:
         return ""
-
-
-# Todo: This is not actually working
-def author_to_author_sort(
-        author: str, method: Literal["copy", "comma", "nocomma"] = "comma"
-) -> str:
-    """
-    Derive a surname-first sort name with optional comma insertion and preference-based prefix/suffix handling.
-
-    Strip bracketed text for tokenization. Preserve the original for short names, copy
-    mode/copywords, exhausted prefix/suffix tokens, or comma-mode names already
-    containing commas. None selects the preference with comma fallback; missing
-    copywords become an empty set, while missing prefix/suffix settings propagate.
-
-    Example:
-        >>> author_to_author_sort('Ada Lovelace', method='copy')
-        'Ada Lovelace'
-
-
-    :param author: Author name string to reorder.
-    :param method: copy, comma, or nocomma; defaults to comma, with None requesting the
-        preference.
-    :return: Derived sort string, unchanged original author, or empty string for falsy
-        input.
-    """
-    if not author:
-        return ""
-    sauthor = remove_bracketed_text(author).strip()
-    tokens = sauthor.split()
-    if len(tokens) < 2:
-        return author
-    if method is None:
-        try:
-            method = tweaks["author_sort_copy_method"]
-        except KeyError:
-            # Seems to be the default method
-            method = "comma"
-
-    ltoks = frozenset(x.lower() for x in tokens)
-    try:
-        copy_words = frozenset(x.lower() for x in tweaks["author_name_copywords"])
-    except KeyError:
-        copy_words = frozenset()
-    if ltoks.intersection(copy_words):
-        method = "copy"
-
-    if method == "copy":
-        return author
-
-    prefixes = set([y.lower() for y in tweaks["author_name_prefixes"]])
-    prefixes |= set([y + "." for y in prefixes])
-    while True:
-        if not tokens:
-            return author
-        tok = tokens[0].lower()
-        if tok in prefixes:
-            tokens = tokens[1:]
-        else:
-            break
-
-    # Todo: Move this from constants over to tweaks
-    suffixes = set([y.lower() for y in tweaks["author_name_suffixes"]])
-    suffixes |= set([y + "." for y in suffixes])
-
-    suffix = ""
-    while True:
-        if not tokens:
-            return author
-        last = tokens[-1].lower()
-        if last in suffixes:
-            suffix = tokens[-1] + " " + suffix
-            tokens = tokens[:-1]
-        else:
-            break
-    suffix = suffix.strip()
-
-    if method == "comma" and "," in "".join(tokens):
-        return author
-
-    atokens = tokens[-1:] + tokens[:-1]
-    num_toks = len(atokens)
-    if suffix:
-        atokens.append(suffix)
-
-    if method != "nocomma" and num_toks > 1:
-        atokens[0] += ","
-
-    return " ".join(atokens)
-
-
-def authors_to_sort_string(authors):
-    """
-    Sort each author with the default comma method and join results with spaced ampersands.
-
-    Example:
-        >>> authors_to_sort_string(['Plato'])
-        'Plato'
-
-
-    :param authors: Iterable of author-name strings.
-    :return: Combined author-sort string; no separate ampersand escaping is performed.
-    """
-    return " & ".join(map(author_to_author_sort, authors))
-
-
-_title_pats = {}
-
-
-# Todo: We have multiple functions with the same name
-def get_title_sort_pat(lang: Optional[str] = None) -> Optional[re.Pattern[str]]:
-    """
-    Resolve and cache a case-insensitive leading-article pattern under the original language argument.
-
-    Use the preferred/default locale when absent. Canonicalization TypeError falls back
-    to no language; missing or invalid article data falls back to English patterns, and
-    invalid regexes use the built-in A/The/An pattern. Cached entries retain old
-    preference values.
-
-    Example:
-        >>> bool(get_title_sort_pat('eng').match('The Book'))
-        True
-
-
-    :param lang: Optional language selector and cache key.
-    :return: Compiled regex; may mutate the module cache.
-    """
-    from LiuXin_alpha.utils.localization import canonicalize_lang, get_lang
-
-    ans = _title_pats.get(lang, None)
-    if ans is not None:
-        return ans
-    q = lang
-
-    if lang is None:
-        q = tweaks["default_language_for_title_sort"]
-        if q is None:
-            q = get_lang()
-    try:
-        q = canonicalize_lang(q) if q else q
-    except TypeError:
-        q = None
-    data = tweaks["per_language_title_sort_articles"]
-    try:
-        ans = data.get(q, None)
-    except AttributeError:
-        ans = None  # invalid tweak value
-    try:
-        ans = frozenset(ans) if ans else frozenset(data["eng"])
-    except:
-        ans = frozenset((r"A\s+", r"The\s+", r"An\s+"))
-    ans = "|".join(ans)
-    ans = "^(%s)" % ans
-    try:
-        ans = re.compile(ans, re.IGNORECASE)
-    except:
-        ans = re.compile(r"^(A|The|An)\s+", re.IGNORECASE)
-    _title_pats[lang] = ans
-    return ans
-
-
-_ignore_starts: str = "'\"" + "".join([chr(x) for x in range(0x2018, 0x201E)] + [chr(0x2032), chr(0x2033)])
-
-
-def title_sort(title: str, order: Optional[str] = None, lang: Optional[str] = None) -> str:
-    """
-    Strip a title and, unless strictly alphabetic, remove a leading quote and move a matching article to the end.
-
-    Example:
-        >>> title_sort(' The Book ', order='strictly_alphabetic')
-        'The Book'
-
-
-    :param title: Title string to transform.
-    :param order: Optional sorting mode; None reads the preference, while
-        strictly_alphabetic only strips whitespace.
-    :param lang: Optional language selector for the article-pattern cache.
-    :return: Title sort string using the cached language article pattern.
-    """
-    if order is None:
-        order = tweaks["title_series_sorting"]
-    title = title.strip()
-    if order == "strictly_alphabetic":
-        return title
-    if title and title[0] in _ignore_starts:
-        title = title[1:]
-    match = get_title_sort_pat(lang).search(title)
-    if match:
-        try:
-            prep = match.group(1)
-        except IndexError:
-            pass
-        else:
-            title = title[len(prep) :] + ", " + prep
-            if title[0] in _ignore_starts:
-                title = title[1:]
-    return title.strip()
 
 
 coding = tuple(zip(
@@ -796,88 +608,6 @@ class ResourceCollection:
         """
         for res in self:
             res.set_basedir(path)
-
-
-def validate_identifier(typ: str, val: str) -> None:
-    """
-    Validate only an exact lowercase isbn type using the uncleaned candidate’s ten- or thirteen-character checksum.
-
-    Example:
-        >>> validate_identifier('isbn', '0261103571')
-
-
-    :param typ: Identifier type; only isbn is supported with this exact spelling.
-    :param val: Candidate string, checked without separator removal or case conversion.
-    :return: None for a valid candidate; InputIntegrityError for bad length/checksum and
-        NotImplementedError for any other type.
-    """
-    status = False
-
-    if typ == "isbn":
-        if len(val) == 10:
-            status = check_isbn10(val)
-        elif len(val) == 13:
-            status = check_isbn13(val)
-    else:
-        raise NotImplementedError
-
-    if not status:
-        raise InputIntegrityError("Identifier did not pass validation")
-
-
-def check_isbn10(isbn: str) -> Optional[str]:
-    """
-    Check the first ten characters for an ISBN-10 checksum, allowing uppercase X as the final checked character.
-
-    No exact-length or cleanup pass occurs; suffix characters are retained on success.
-    Ordinary checksum exceptions are logged and then return None unless logging raises.
-
-    Example:
-        >>> check_isbn10('0261103571')
-        '0261103571'
-
-
-    :param isbn: Candidate whose first ten positions are checked.
-    :return: Original input on success, otherwise None.
-    """
-    try:
-        digits = [_ for _ in map(int, isbn[:9])]
-        products = [(i + 1) * digits[i] for i in range(9)]
-        check = sum(products) % 11
-        if (check == 10 and isbn[9] == "X") or check == int(isbn[9]):
-            return isbn
-    except Exception as e:
-        info_str = "Unable to check for ISBN-10."
-        default_log.log_exception(info_str, e, "INFO")
-    return None
-
-
-def check_isbn13(isbn: str) -> Optional[str]:
-    """
-    Check the first thirteen characters with alternating ISBN-13 weights without validating a prefix or exact length.
-
-    Ordinary checksum exceptions are logged and yield None unless logging raises.
-
-    Example:
-        >>> check_isbn13('9780261103573')
-        '9780261103573'
-
-
-    :param isbn: Candidate whose first thirteen positions are checked.
-    :return: Original input on success, including any unchecked suffix, otherwise None.
-    """
-    try:
-        digits = [_ for _ in map(int, isbn[:12])]
-        products = [(1 if i % 2 == 0 else 3) * digits[i] for i in range(12)]
-        check = 10 - (sum(products) % 10)
-        if check == 10:
-            check = 0
-        if str(check) == isbn[12]:
-            return isbn
-    except Exception as e:
-        info_str = "Unable to check for ISBN-13."
-        default_log.log_exception(info_str, e, "INFO")
-    return None
 
 
 def check_isbn(isbn: str) -> Optional[str]:

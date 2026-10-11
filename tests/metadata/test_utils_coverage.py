@@ -17,10 +17,9 @@ from xml.etree import ElementTree
 
 import pytest
 
-from LiuXin_alpha.errors import InputIntegrityError
 from LiuXin_alpha.file_formats.oeb.base import OPF
-from LiuXin_alpha.metadata import ebook_metadata_tools
-from LiuXin_alpha.metadata import utils
+from LiuXin_alpha.metadata import ebook_metadata_tools, utils, validate_identifier
+from LiuXin_alpha.metadata import identifiers as identifier_policy
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
 
@@ -47,26 +46,6 @@ def test_numeric_author_and_title_helpers_cover_edge_shapes() -> None:
     )
     assert utils.authors_to_string(None) == ""
 
-    assert utils.author_to_author_sort("", method="nocomma") == ""
-    assert utils.author_to_author_sort("Plato", method="nocomma") == "Plato"
-    assert utils.author_to_author_sort("Arthur C Clarke", method="copy") == "Arthur C Clarke"
-    assert utils.author_to_author_sort("Dr Arthur C Clarke Jr", method="nocomma") == "Clarke Arthur C Jr"
-    assert utils.author_to_author_sort("Dr Prof", method="nocomma") == "Dr Prof"
-    assert utils.author_to_author_sort("Jr Sr", method="nocomma") == "Jr Sr"
-    assert utils.author_to_author_sort("Clarke, Arthur", method="comma") == "Clarke, Arthur"
-    assert utils.author_to_author_sort("Ada Lovelace", method=None) == "Lovelace, Ada"
-    assert utils.author_to_author_sort("ACME Corporation", method="nocomma") == "ACME Corporation"
-    assert utils.authors_to_sort_string(["Arthur C Clarke", "Ada Lovelace"]) == (
-        "Clarke, Arthur C & Lovelace, Ada"
-    )
-
-    assert utils.get_title_sort_pat("spa") is utils.get_title_sort_pat("spa")
-    assert utils.title_sort("The Hobbit") == "Hobbit, The"
-    assert utils.title_sort('"The Hobbit') == "Hobbit, The"
-    assert utils.title_sort("The Hobbit", order="strictly_alphabetic") == "The Hobbit"
-    assert utils.title_sort("El Aleph", lang="spa") == "Aleph, El"
-
-
 def test_roman_series_identifier_and_doi_helpers() -> None:
     """
     Verify roman series identifier and doi helpers.
@@ -87,11 +66,10 @@ def test_roman_series_identifier_and_doi_helpers() -> None:
     assert utils.fmt_sidx(4, use_roman=True) == "IV"
     assert utils.fmt_sidx(object()).startswith("<object object")
 
-    assert utils.check_isbn10("0261103571") == "0261103571"
-    assert utils.check_isbn10("not-isbn") is None
-    assert utils.check_isbn13("9780261103573") == "9780261103573"
-    assert utils.check_isbn13("9780000000040") == "9780000000040"
-    assert utils.check_isbn13("bad") is None
+    assert utils.check_isbn10 is identifier_policy.check_isbn10
+    assert utils.check_isbn13 is identifier_policy.check_isbn13
+    assert utils.validate_identifier is identifier_policy.validate_legacy_identifier
+    assert validate_identifier is identifier_policy.validate_legacy_identifier
     assert utils.check_isbn("0-261-10357-1") == "0261103571"
     assert utils.check_isbn(None) is None
     assert utils.check_isbn("0000000000") is None
@@ -106,14 +84,6 @@ def test_roman_series_identifier_and_doi_helpers() -> None:
     assert utils.check_doi("doi:10.1234/example.abc") == "10.1234/example.abc"
     assert utils.check_doi("") is None
     assert utils.check_doi("not a doi") is None
-
-    utils.validate_identifier("isbn", "0261103571")
-    utils.validate_identifier("isbn", "9780261103573")
-    with pytest.raises(InputIntegrityError):
-        utils.validate_identifier("isbn", "not-an-isbn")
-    with pytest.raises(NotImplementedError):
-        utils.validate_identifier("doi", "10.1234/example")
-
 
 def test_calibre_metadata_resource_and_collection_helpers(tmp_path) -> None:
     """
@@ -340,22 +310,6 @@ def test_ebook_metadata_tools_author_title_and_name_helpers(monkeypatch: pytest.
 
     assert ebook_metadata_tools.authors_to_string(["Ada & Bob", "Grace"]) == "Ada && Bob & Grace"
     assert ebook_metadata_tools.authors_to_string(None) == ""
-    assert ebook_metadata_tools.author_to_author_sort("", method="nocomma") == ""
-    assert ebook_metadata_tools.author_to_author_sort("Plato", method="nocomma") == "Plato"
-    assert ebook_metadata_tools.author_to_author_sort("Arthur C Clarke", method="copy") == "Arthur C Clarke"
-    assert ebook_metadata_tools.author_to_author_sort("Dr Arthur C Clarke Jr", method="nocomma") == (
-        "Clarke Arthur C Jr"
-    )
-    assert ebook_metadata_tools.author_to_author_sort("Dr Prof", method="nocomma") == "Dr Prof"
-    assert ebook_metadata_tools.author_to_author_sort("Jr Sr", method="nocomma") == "Jr Sr"
-    assert ebook_metadata_tools.author_to_author_sort("Clarke, Arthur", method="comma") == "Clarke, Arthur"
-    assert ebook_metadata_tools.author_to_author_sort("ACME Corporation", method="nocomma") == "ACME Corporation"
-    assert ebook_metadata_tools.authors_to_sort_string(["Arthur C Clarke"]) == "Clarke, Arthur C"
-    assert ebook_metadata_tools.get_title_sort_pat("spa") is ebook_metadata_tools.get_title_sort_pat("spa")
-    assert ebook_metadata_tools.title_sort("The Hobbit") == "Hobbit, The"
-    assert ebook_metadata_tools.title_sort('"The Hobbit') == "Hobbit, The"
-    assert ebook_metadata_tools.title_sort("The Hobbit", order="strictly_alphabetic") == "The Hobbit"
-
     assert ebook_metadata_tools.check_name("Ada Lovelace") is True
     assert ebook_metadata_tools.check_name("Dr Ada Lovelace") is True
     assert ebook_metadata_tools.check_name("Unknown Token") is False
@@ -385,18 +339,6 @@ def test_unicode_and_foreign_language_torture_for_metadata_helpers(tmp_path) -> 
         "أحمد & سارة",
     ]
     assert ebook_metadata_tools.authors_to_string(authors) == "李 白 & 山田 太郎 & أحمد && سارة & שרה"
-
-    # The legacy sort helper is Roman-name shaped, but it must not lose
-    # non-Latin tokens while applying that shape.
-    assert utils.author_to_author_sort("李 白", method="nocomma") == "白 李"
-    assert utils.author_to_author_sort("山田 太郎", method="nocomma") == "太郎 山田"
-    assert ebook_metadata_tools.author_to_author_sort("李 白", method="nocomma") == "白 李"
-
-    assert utils.title_sort("L’Étranger", lang="fra") == "Étranger, L’"
-    assert utils.title_sort("Die Verwandlung", lang="deu") == "Verwandlung, Die"
-    assert utils.title_sort("Las ciudades invisibles", lang="spa") == "ciudades invisibles, Las"
-    assert ebook_metadata_tools.title_sort("L’Étranger", lang="fra") == "Étranger, L’"
-    assert ebook_metadata_tools.title_sort("Die Verwandlung", lang="deu") == "Verwandlung, Die"
 
     assert utils.check_doi("前缀 10.5555/測試-δοκιμή😀 trailing") == "10.5555/測試-δοκιμή😀"
     assert ebook_metadata_tools.check_doi("مقدمة 10.5555/اختبار/世界") == "10.5555/اختبار/世界"

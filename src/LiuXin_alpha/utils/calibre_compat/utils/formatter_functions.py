@@ -29,7 +29,7 @@ from math import trunc
 
 from LiuXin_alpha.constants import VERBOSE_DEBUG as DEBUG
 
-from LiuXin_alpha.metadata.utils import title_sort
+from LiuXin_alpha.metadata.title_names import title_to_title_sort
 
 # Todo: we have two human_readable functions...
 from LiuXin_alpha.utils.text import human_readable
@@ -2651,7 +2651,7 @@ class BuiltinSeriesSort(BuiltinFormatterFunction):
             described above.
         """
         if mi.series:
-            return title_sort(mi.series)
+            return title_to_title_sort(mi.series)
         return ""
 
 

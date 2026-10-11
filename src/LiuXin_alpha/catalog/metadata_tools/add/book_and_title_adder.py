@@ -11,7 +11,7 @@ from LiuXin_alpha.databases.hashes import generate_title_fingerprint
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
 from LiuXin_alpha.metadata.standardization import make_title_search_term
-from LiuXin_alpha.metadata.utils import title_sort as generate_title_sort
+from LiuXin_alpha.metadata.title_names import title_to_title_sort
 from LiuXin_alpha.utils.date import isoformat_timestamp, utcnow
 from LiuXin_alpha.utils.identifiers import get_unique_group_id
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
@@ -182,7 +182,7 @@ class BookAndTitleAdderMixin:
         if explicit_sort is not None:
             return explicit_sort
         try:
-            return generate_title_sort(title)
+            return title_to_title_sort(title)
         except Exception:
             return six_unicode(title)
 

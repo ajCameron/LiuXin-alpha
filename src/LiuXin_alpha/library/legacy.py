@@ -19,7 +19,7 @@ import traceback
 import types
 import warnings
 
-from LiuXin_alpha.databases.adaptors import clean_identifier, get_series_values
+from LiuXin_alpha.databases.adaptors import get_series_values
 from LiuXin_alpha.databases.utils import (
     _get_next_series_num_for_list,
     _get_series_values,
@@ -39,7 +39,10 @@ from LiuXin_alpha.ingest.adding import (
 from LiuXin_alpha.library.backend import DB
 from LiuXin_alpha.library.caches.calibre.cache import CalibreCache
 from LiuXin_alpha.library.caches.calibre.view import CalibreView
-from LiuXin_alpha.metadata import validate_identifier
+from LiuXin_alpha.metadata.identifiers import (
+    prepare_legacy_identifier_mapping,
+    prepare_legacy_single_identifier,
+)
 from LiuXin_alpha.surfaces.categories import CATEGORY_SORTS
 from LiuXin_alpha.utils.calibre import force_unicode
 from LiuXin_alpha.utils.date import utcnow
@@ -1812,7 +1815,13 @@ class LibraryDatabase(object):
     # Identifiers API - {{{
     def set_identifier(self, book_id, typ, val, notify=True, commit=True):
         """
-        Updates the identifier, of the given type, to the given value for the given book. Books is associated with the identifier with highest priority - if the identifier already exists then it's set as primary.
+        Clean through the metadata-owned legacy single policy and set one ISBN.
+
+        The compatibility policy accepts only an exact cleaned ``isbn`` scheme with
+        an unpunctuated checksum-valid value. An empty cleaned scheme remains a no-op;
+        other schemes and invalid ISBNs retain their historical failures. Books are
+        associated with the identifier at highest priority. The bulk method remains
+        deliberately more permissive.
 
         Example:
             Exercise LibraryDatabase.set identifier through a consuming regression::
@@ -1837,15 +1846,18 @@ class LibraryDatabase(object):
 
             id_field = self.new_api.fields["identifiers"]
 
-            typ, val = clean_identifier(typ, val)
+            typ, val = prepare_legacy_single_identifier(typ, val)
             if typ:
-                validate_identifier(typ, val)
                 id_field.set_identifier(book_id, typ, val)
         self.notify("metadata", [book_id])
 
     def set_identifiers(self, book_id, val, notify=True, commit=True, allow_case_change=False):
         """
-        The set_identifiers method used to be generic - but it has now diverged so far from the original intent that it needs to be re-written for greater flexibility.
+        Clean through the permissive metadata-owned legacy bulk codec and write all values.
+
+        Unlike ``set_identifier``, this compatibility path performs no scheme or
+        checksum validation and retains empty cleaned pairs. That asymmetry is
+        characterized and preserved pending an explicit compatibility migration.
 
         Example:
             Exercise LibraryDatabase.set identifiers through a consuming regression::
@@ -1878,7 +1890,10 @@ class LibraryDatabase(object):
     @staticmethod
     def _id_val_dict_preflight(val):
         """
-        Bring the values dict which set_identifiers has been called with into a useful for (every id cleaned - the dictionary keyed with the type of the identifier and valued with a set of the id values.
+        Delegate legacy bulk identifier cleaning to its metadata owner.
+
+        Scalar values replace an earlier normalized-scheme entry, while iterable
+        values merge. No semantic validation or empty-value filtering occurs.
 
         Example:
             Exercise LibraryDatabase. id val dict preflight through a consuming regression::
@@ -1890,24 +1905,7 @@ class LibraryDatabase(object):
         :return: The normalized value, metadata record, path, stream result or collection
             described above.
         """
-        clean_vals = dict()
-        for typ, vals in iteritems(val):
-
-            if isinstance(vals, basestring):
-                clean_typ, clean_val = clean_identifier(typ, vals)
-                clean_vals[clean_typ] = {
-                    clean_val,
-                }
-            else:
-                for one_val in vals:
-                    clean_typ, clean_val = clean_identifier(typ, one_val)
-                    if clean_typ in clean_vals:
-                        clean_vals[clean_typ].add(clean_val)
-                    else:
-                        clean_vals[clean_typ] = {
-                            clean_val,
-                        }
-        return clean_vals
+        return prepare_legacy_identifier_mapping(val)
 
     def set_isbn(self, book_id, isbn, notify=True, commit=True):
         """

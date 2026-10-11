@@ -34,9 +34,6 @@ from LiuXin_alpha.metadata.standardization import standardize_publisher
 from LiuXin_alpha.metadata.standardization import standardize_series
 from LiuXin_alpha.metadata.standardization import make_series_phash
 
-from LiuXin_alpha.metadata.utils import authors_to_sort_string
-from LiuXin_alpha.metadata.utils import author_to_author_sort
-from LiuXin_alpha.metadata.utils import title_sort as generate_title_sort
 from LiuXin_alpha.metadata.utils import check_isbn
 from LiuXin_alpha.metadata.utils import check_issn
 from LiuXin_alpha.metadata.utils import check_doi
@@ -95,4 +92,3 @@ class LabelMixin:
         :return: Created database Row; synchronization and schema errors propagate.
         """
         return self.label(tag, tag_phash=tag_phash)
-

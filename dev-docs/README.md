@@ -37,7 +37,8 @@ and outstanding work, not as a replacement for the subsystem guides.
 ## Catalog and metadata
 
 - [Catalog API usage](catalog-api-usage.md), [matching policy](catalog-matching-policy.md),
-  and [cache boundary](catalog-cache-boundary.md).
+  [write-validation contract](catalog-write-validation-contract.md), and
+  [cache boundary](catalog-cache-boundary.md).
 - [Link writers](catalog-link-writer-architecture.md),
   [legacy mutation migration](catalog-legacy-mutation-migration.md),
   [fitness review](catalog-fitness-review.md), and [roadmap](catalog-roadmap.md).

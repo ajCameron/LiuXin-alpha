@@ -42,8 +42,10 @@ from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import
 
 # Todo: These should be over in metadata
 from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import authors_str_to_sort_str
-from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import title_sort
-from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import _author_to_author_sort
+from LiuXin_alpha.metadata.title_names import title_to_title_sort
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import (
+    _author_sort_sql_value,
+)
 from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import icu_collator
 from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import SqliteAumSortedConcatenate
 from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import Concatenate
@@ -224,8 +226,8 @@ class MemoryDatabaseDriver(DatabaseDriver):
         conn.create_function("NEW_DIRTY_RECORD", 2, lambda table, row_id: self.maintainer_callback.new_dirty_record(table, row_id))
 
         # calibre - functions included here for compatibility
-        conn.create_function("title_sort", 1, title_sort)
-        conn.create_function("author_to_author_sort", 1, _author_to_author_sort)
+        conn.create_function("title_sort", 1, title_to_title_sort)
+        conn.create_function("author_to_author_sort", 1, _author_sort_sql_value)
         conn.create_function("uuid4", 0, lambda: str(uuid.uuid4()))
 
         # calibre - Dummy functions for dynamically created filters

@@ -76,8 +76,9 @@ replacement decoding, which was acceptable only for this read-only estimate.
   values/contracts plus generic database capabilities.
 - Metadata value types do not depend on database, cache, Catalog, or surface
   implementations.
-- Databases provide generic persistence and do not own bibliographic policy or
-  import metadata/Catalog/surface implementations.
+- Databases provide generic persistence, may consume passive metadata values
+  and pure policies at an adapter boundary, and do not own bibliographic policy
+  or import Catalog/surface implementations.
 - The intended cache direction needs a separate explicit decision. Do not bake
   an inferred cache rank into the ratchet before deciding whether cache records
   implement a Catalog read contract or remain a Core-composed acceleration
@@ -178,6 +179,13 @@ prefixes and remaining allowlist counts with every checkpoint.
 
 ## Safety rules
 
+- **Do not remove functionality during architectural migration.** Moving code,
+  changing ownership, breaking and fixing internal imports, or deleting a
+  duplicate implementation must preserve the supported capability and its
+  observable behavior. Apparently unused, broken, or obsolete functionality
+  is characterized and transplanted or repaired rather than silently removed.
+  Any intentional capability removal requires a separate, explicit user
+  decision and must not be bundled into a layer-direction tranche.
 - No import is made deferred or dynamic solely to satisfy the checker.
 - Type-only edges still count for ownership and cycle analysis.
 - A falling SCC number is evidence, not the definition of correct ownership.
@@ -189,6 +197,167 @@ prefixes and remaining allowlist counts with every checkpoint.
 
 ## Next action
 
-After the lifecycle checkpoint, implement stage 2 as its own commit: tooling,
-baseline data, self-tests, CI integration, and documentation only. Review that
-baseline before changing any production import edge.
+The next planned architecture checkpoint remains stage 2 as its own commit:
+tooling, baseline data, self-tests, CI integration, and documentation only.
+The user-directed stage 5 policy extractions begun meanwhile are recorded below.
+
+## Progress: first database-policy extraction (2026-10-10)
+
+The first low-risk part of stage 5 has moved without changing persistence:
+
+- the historical fuzzy-title comparison rule now belongs to
+  `catalog.matching.title_normalization`;
+- the standalone author/title candidate policy now belongs to
+  `catalog.matching.legacy_books`;
+- the live Calibre cache caller uses the Catalog-owned title policy; and
+- the behavior tests moved from `tests/databases` to `tests/catalog` with exact
+  output regressions.
+
+`databases.normalized_identities` is not a Work-title normalizer: its
+`TITLE_SEARCH_TERM` profile currently applies to genre, subject, and series
+identity rows and should be reviewed with that declaration model rather than
+folded into this title-comparison move.
+
+The following author-sort slice now also has a single owner:
+
+- `metadata.author_names` owns the pure prefix, suffix, copy-word, comma, and
+  preference-selected author-sort transformation;
+- duplicate implementations were removed from `metadata.utils`,
+  `metadata.ebook_metadata_tools`, and the broken legacy name utility;
+- all in-repository callers use the new owner directly, with former
+  preference-driven callers passing `method=None` explicitly;
+- the SQLite function retains its legacy SQL name, but its Python callable is
+  now explicitly an SQL-value adapter and delegates the bibliographic rule; and
+- the former tests were consolidated under `tests/metadata`, with a live
+  SQLite-UDF regression retained under `tests/databases`.
+
+Author-list parsing and serialization remain metadata codec concerns and were
+not mixed into the author-sort move. Agent identity matching already belongs to
+Catalog and is likewise outside this slice.
+
+The title-sort slice now follows the same boundary:
+
+- `metadata.title_names` is the single owner of language/article selection,
+  opening-quote handling, pattern caching, and title-sort derivation;
+- duplicate implementations were removed from `metadata.utils`,
+  `metadata.ebook_metadata_tools`, and the SQL-driver utilities;
+- Catalog, Library, cache, compatibility, and surface callers import the owner
+  directly rather than relying on compatibility re-exports; and
+- SQLite and APSW retain the legacy SQL function name required by schema
+  triggers, but register the metadata-owned callable without defining policy.
+
+Title search-key normalization remains distinct from title sorting. The former
+belongs to matching/identity policy; this slice only consolidates the latter.
+
+The identifier and language slices now use the same boundary:
+
+- `metadata.identifiers` owns scheme/value cleanup, mapping normalization, and
+  persistence-free curated-pair validation;
+- `metadata.languages` owns canonicalization, special-value filtering, stable
+  de-duplication, and result ordering;
+- database adaptors retain only legacy serialized-field parsing before
+  delegating to those metadata policies;
+- `library.legacy` and the book metadata container use the identifier owner
+  directly; and
+- policy tests were transplanted to `tests/metadata`, while database tests
+  continue to cover adapter composition and serialized input parsing.
+
+The move intentionally preserves existing behavior, including ICU identifier
+lowercasing, false identifier values becoming empty text at the legacy database
+boundary, ISO-639 display names such as `Spanish; Castilian`, and the historical
+result in which recognized `und` becomes `Undetermined` rather than being
+filtered as a literal special code.
+
+Identifier consolidation also retains the older strict metadata-container
+codec contract separately from the false-safe database/book contract. Both now
+have one owner in `metadata.identifiers`; they were not silently homogenized
+where their edge-case behavior differed.
+
+The curated Catalog policy has since joined that owner without merging those
+legacy contracts. `metadata.identifiers.normalise_identifier_pair()` now owns
+scheme aliases and ISBN, UUID, DOI, OCLC, and unknown-scheme behavior. Catalog
+retains a thin `IdentifierCandidate` adapter so provenance, hints, matching,
+and write decisions stay in Catalog. The former pure policy assertions were
+transplanted to `tests/metadata`; Catalog retains adapter and persisted matching
+integration coverage.
+
+The legacy single/bulk ownership follow-up is also complete without changing
+their observable asymmetry. `metadata.identifiers` now owns the historical
+logging, uncleaned ISBN-10/13 checksum functions used by the Library path,
+ISBN-only single-writer validation, and the permissive bulk-cleaning codec.
+`library.legacy` delegates both paths directly to those explicitly named
+helpers, while `metadata.utils` and the metadata package root retain
+compatibility exports. The single writer still rejects invalid ISBNs and every
+non-ISBN scheme; the bulk writer still performs no checksum/scheme validation
+and retains empty cleaned pairs. Silent checksum variants in
+`metadata.ebook_metadata_tools` remain a separate compatibility contract. Any
+convergence remains a separate, explicit migration.
+
+Verification for the legacy containment follow-up: 35 focused metadata,
+compatibility-export, and source-wiring tests passed; the broader focused
+metadata/Catalog identifier set passed with 96 tests; documentation boundary
+and link checks passed with 24 tests; the full repository type/quality gate
+passed; and scoped Ruff, formatting, import-order, and diff checks were clean.
+
+Verification for this ownership move: the focused metadata/Catalog identifier
+set passed with 85 tests; the complete Catalog suite passed with 610 tests; the
+repository type/quality gate passed (including both type checkers and the modern
+import-cycle ratchet); documentation boundary/link checks passed with 24 tests;
+and scoped Ruff, formatting, and diff checks were clean.
+
+## Decision recorded: Catalog write validity (2026-10-11)
+
+The canonical
+[`Catalog write-validation contract`](../dev-docs/catalog-write-validation-contract.md)
+now records the layer boundary agreed during this migration:
+
+- `metadata` owns pure value normalization and semantic validation;
+- every public Catalog mutation guarantees validation rather than assuming an
+  upstream caller performed it;
+- `databases` retains representation checks, transactions, and structural,
+  referential, uniqueness, and other concurrency-safe constraints; and
+- existing reads remain tolerant while migrations and audits handle historical
+  invalid values explicitly.
+
+The contract is dated 2026-10-11 and explicitly identifies current enforcement
+gaps, including generic repository CRUD and divergent legacy identifier paths.
+It is an adopted target, not a claim that those gaps have already been closed.
+
+The first enforcement slice was completed the same day:
+
+- `BaseRepository` now routes generic create/update payloads through an
+  overridable write-preparation seam;
+- curated identifier CRUD validates a complete pair, including partial updates
+  combined with their stored counterpart;
+- changed identifier pairs are written together after validation;
+- invalid ISBN, DOI, and UUID values fail before persistence macros run; and
+- unknown schemes and the explicitly low-level raw macro boundary remain
+  supported.
+
+Focused identifier invariants passed with 24 tests. The selected Catalog
+matching, semantic, convenience, Unicode, and entity regressions passed with
+112 tests, and the complete Catalog suite passed with 610 tests. The full
+type/quality gate also passed.
+
+## Documentation consolidation (2026-10-11)
+
+The validation boundary and wider separation of concerns are now recorded at
+every intended discovery level:
+
+- `dev-docs/04 - Seperation of Concerns.md` is the dated canonical ownership
+  guide and links the write-validation contract;
+- the older `dev-docs/seperation_of_concerns.md` is explicitly historical and
+  superseded;
+- the top-level structure, target architecture, Catalog usage, Catalog writer,
+  and column-metadata guides distinguish semantic validation from database
+  integrity;
+- the package-root docstrings for Core, Library, Catalog, metadata, databases,
+  storage, caches, surfaces, ingest, and jobs state their responsibility and
+  anti-responsibility boundaries; and
+- the public-documentation test now requires every one of those package roots
+  to retain both its separation summary and canonical-guide pointer.
+
+The focused documentation/import checks passed with 30 tests. Documentation
+link validation passed with 19 tests, scoped Ruff checks passed (with two
+pre-existing metadata f-string suggestions excluded), and `git diff --check`
+was clean.

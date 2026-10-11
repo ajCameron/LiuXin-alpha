@@ -506,7 +506,7 @@ class TestSQLiteDriverIntrospection:
 
     def test_connection_has_expected_pragmas_and_functions(self, sqlite_driver_bundle):
         """
-        Check foreign keys are enabled, uuid4/title_sort return rows, and REGEXP returns zero or one.
+        Check pragmas and registered UUID, author/title-sort, and regex functions.
 
         Treat title_sort OperationalError as an expected failure; close the fresh connection
         in finally.
@@ -529,6 +529,12 @@ class TestSQLiteDriverIntrospection:
 
             # Built-in helper functions the driver registers.
             assert conn.execute("SELECT uuid4();").fetchone() is not None
+            assert conn.execute(
+                "SELECT author_to_author_sort('Arthur C Clarke');"
+            ).fetchone() == ("Clarke, Arthur C",)
+            assert conn.execute(
+                "SELECT author_to_author_sort('Clarke| Arthur');"
+            ).fetchone() == ("Clarke, Arthur",)
 
             # `title_sort()` is a legacy calibre function that may depend on optional
             # localisation/ICU pieces. If it isn't available yet, treat this as a

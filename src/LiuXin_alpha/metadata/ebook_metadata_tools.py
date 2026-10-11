@@ -1,9 +1,9 @@
 
 """
-Provide timestamp conversion, author/title sort helpers, identifier checks, and legacy name/title heuristics.
+Provide timestamp conversion, author serialization, identifier checks, and legacy name/title heuristics.
 
-Sorting reads preference tweaks and caches article patterns. Name recognition loads
-the configured name lists; score_title currently returns zero after preprocessing.
+Name recognition loads the configured name lists; score_title currently returns zero
+after preprocessing.
 
 Example:
     Exercise the owning behavior with pytest::
@@ -194,8 +194,6 @@ from copy import deepcopy
 
 from typing import Optional
 
-from LiuXin_alpha.preferences import preferences as tweaks
-from LiuXin_alpha.utils.text import remove_bracketed_text
 from LiuXin_alpha.utils.plugins.name_loader import load_names
 
 from LiuXin_alpha.constants import name_prefixes
@@ -224,98 +222,6 @@ def authors_to_string(authors):
         return " & ".join([a.replace("&", "&&") for a in authors if a])
     else:
         return ""
-
-
-def author_to_author_sort(author, method=None):
-    """
-    Build a surname-first author sort string according to the requested method and preference tweaks.
-
-    Strip bracketed text for tokenization, remove configured prefixes/suffixes, rotate
-    the final name token, and append suffixes. Falsy input becomes empty; short names,
-    copy mode, matching copywords, exhausted name tokens, and comma-mode names already
-    containing commas return the original author.
-
-    Example:
-        >>> author_to_author_sort('Ada Lovelace', method='copy')
-        'Ada Lovelace'
-
-
-    :param author: Author string to tokenize and reorder.
-    :param method: Optional sorting method; None reads author_sort_copy_method. copy
-        preserves, nocomma omits the inserted comma, and comma preserves
-        already-comma-separated names.
-    :return: Derived sort string or unchanged original author.
-    """
-    if not author:
-        return ""
-    sauthor = remove_bracketed_text(author).strip()
-    tokens = sauthor.split()
-    if len(tokens) < 2:
-        return author
-    if method is None:
-        method = tweaks["author_sort_copy_method"]
-
-    ltoks = frozenset(x.lower() for x in tokens)
-    copy_words = frozenset(x.lower() for x in tweaks["author_name_copywords"])
-    if ltoks.intersection(copy_words):
-        method = "copy"
-
-    if method == "copy":
-        return author
-
-    prefixes = set([y.lower() for y in tweaks["author_name_prefixes"]])
-    prefixes |= set([y + "." for y in prefixes])
-    while True:
-        if not tokens:
-            return author
-        tok = tokens[0].lower()
-        if tok in prefixes:
-            tokens = tokens[1:]
-        else:
-            break
-
-    suffixes = set([y.lower() for y in tweaks["author_name_suffixes"]])
-    suffixes |= set([y + "." for y in suffixes])
-
-    suffix = ""
-    while True:
-        if not tokens:
-            return author
-        last = tokens[-1].lower()
-        if last in suffixes:
-            suffix = tokens[-1] + " " + suffix
-            tokens = tokens[:-1]
-        else:
-            break
-    suffix = suffix.strip()
-
-    if method == "comma" and "," in "".join(tokens):
-        return author
-
-    atokens = tokens[-1:] + tokens[:-1]
-    num_toks = len(atokens)
-    if suffix:
-        atokens.append(suffix)
-
-    if method != "nocomma" and num_toks > 1:
-        atokens[0] += ","
-
-    return " ".join(atokens)
-
-
-def authors_to_sort_string(authors):
-    """
-    Apply preference-driven author sorting to each supplied name and join results with spaced ampersands.
-
-    Example:
-        >>> authors_to_sort_string(['Plato'])
-        'Plato'
-
-
-    :param authors: Iterable of author names; None is not accepted.
-    :return: Combined sort string; embedded ampersands are not separately escaped.
-    """
-    return " & ".join(map(author_to_author_sort, authors))
 
 
 # imported from calibre
@@ -476,98 +382,6 @@ def check_doi(doi):
     if doi_check is not None:
         return doi_check.group()
     return None
-
-
-_title_pats = {}
-
-
-def get_title_sort_pat(lang=None):
-    """
-    Cache a leading-article regular expression under the original language argument.
-
-    Resolve an absent language from preferences or locale, canonicalize it, then use
-    configured articles with English and built-in fallbacks. Invalid expressions fall
-    back to A/The/An. Existing cached entries do not reflect later preference changes.
-
-    Example:
-        >>> bool(get_title_sort_pat('eng').match('The Book'))
-        True
-
-
-    :param lang: Optional language selector used as the cache key and localization
-        input.
-    :return: Compiled case-insensitive pattern; this call may populate the module cache.
-    """
-    ans = _title_pats.get(lang, None)
-    if ans is not None:
-        return ans
-    q = lang
-    from LiuXin_alpha.utils.localization import canonicalize_lang, get_lang
-
-    if lang is None:
-        q = tweaks["default_language_for_title_sort"]
-        if q is None:
-            q = get_lang()
-    q = canonicalize_lang(q) if q else q
-    data = tweaks["per_language_title_sort_articles"]
-    try:
-        ans = data.get(q, None)
-    except AttributeError:
-        ans = None  # invalid tweak value
-    try:
-        ans = frozenset(ans) if ans else frozenset(data["eng"])
-    except:
-        ans = frozenset((r"A\s+", r"The\s+", r"An\s+"))
-    ans = "|".join(ans)
-    ans = "^(%s)" % ans
-    try:
-        ans = re.compile(ans, re.IGNORECASE)
-    except:
-        ans = re.compile(r"^(A|The|An)\s+", re.IGNORECASE)
-    _title_pats[lang] = ans
-    return ans
-
-
-# Todo: This seems to be duplication - saw this somewhere else in the code base
-_ignore_starts = "'\"" + "".join(chr(x) for x in [_ for _ in range(0x2018, 0x201E)] + [0x2032, 0x2033])
-
-
-def title_sort(title, order=None, lang=None):
-    """
-    Strip a title and, unless strictly alphabetic, remove a leading quote and move a matching article to the end.
-
-    Article patterns come from the language cache; a matching article is followed by a
-    comma in the resulting sort string.
-
-    Example:
-        >>> title_sort(' The Book ', order='strictly_alphabetic')
-        'The Book'
-
-
-    :param title: Title string to normalize for sorting.
-    :param order: Optional mode; None reads title_series_sorting, and
-        strictly_alphabetic only strips outer whitespace.
-    :param lang: Language selector passed to the article-pattern helper.
-    :return: Stripped title sort string.
-    """
-    if order is None:
-        order = tweaks["title_series_sorting"]
-    title = title.strip()
-    if order == "strictly_alphabetic":
-        return title
-    if title and title[0] in _ignore_starts:
-        title = title[1:]
-    match = get_title_sort_pat(lang).search(title)
-    if match:
-        try:
-            prep = match.group(1)
-        except IndexError:
-            pass
-        else:
-            title = title[len(prep) :] + ", " + prep
-            if title[0] in _ignore_starts:
-                title = title[1:]
-    return title.strip()
 
 
 def check_name(candidate_name):

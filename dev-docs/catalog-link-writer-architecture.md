@@ -2,6 +2,12 @@
 
 Status: inheritance-oriented writer foundation implemented, 2026-07-21.
 
+This writer design is one implementation of the broader, dated
+[Catalog write-validation contract](catalog-write-validation-contract.md).
+Validation performed by a surface or caller is advisory; the Catalog write
+boundary repeats the checks it requires before persistence. Database constraints
+remain the final structural and concurrency-safe guard.
+
 ## Decision
 
 A catalog writer is a thin metadata-aware coordinator. The common base owns

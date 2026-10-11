@@ -22,7 +22,7 @@ from functools import partial
 from operator import attrgetter
 from builtins import map
 
-from LiuXin_alpha.metadata.utils import author_to_author_sort
+from LiuXin_alpha.metadata.author_names import author_to_author_sort
 
 
 from LiuXin_alpha.utils.config.config_base import tweaks

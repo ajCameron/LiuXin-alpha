@@ -2,10 +2,12 @@
 
 Date: 2026-09-26
 
-Status: Lifecycle ownership was implemented on 2026-10-09. Two lower-layer
-database-path compatibility adapter families remain scheduled for removal; see
-`lifecycle-opening-path-review-2026-10-09.md`. Other areas are still to be
-decided.
+Status: Lifecycle ownership was implemented on 2026-10-09. The Catalog
+write-validation boundary was adopted on 2026-10-11, with curated identifiers
+as its first enforced repository slice; broader enforcement remains incomplete.
+Two lower-layer database-path compatibility adapter families remain scheduled
+for removal; see `lifecycle-opening-path-review-2026-10-09.md`. Other areas are
+still to be decided.
 
 This guide records the architecture that code changes should move towards, one
 decision area at a time. [Top-level structure](<02 - Top Level Structure.md>)
@@ -293,6 +295,11 @@ Each step should leave the full test suite green.
   - Maintenance becomes a Core job.
   - Core resolves configuration.
   - Hosting multiple libraries stays possible.
+- **2026-10-11:** Adopted the Catalog write-validation boundary:
+  - metadata owns persistence-free value rules;
+  - every public Catalog mutation establishes semantic validity;
+  - databases retain structural and concurrency-safe constraints; and
+  - historical reads remain tolerant while audits/migrations remediate data.
 
 ## Future decision areas
 
@@ -300,7 +307,8 @@ These areas come from the architecture review's structural priorities. They
 are not yet decided and should be added here as sections when they are:
 
 - whole-package layer rules and cycle enforcement;
-- a single write path into bibliographic records;
+- completion of the adopted single Catalog write path across every semantic
+  repository and compatibility writer;
 - a single catalogue read model;
 - configuration precedence and the legacy preference stores (ownership is
   decided: core resolves settings; see section 1);
@@ -310,6 +318,7 @@ are not yet decided and should be added here as sections when they are:
 
 - [Top-level structure](<02 - Top Level Structure.md>)
 - [Responsibility boundaries](<04 - Seperation of Concerns.md>)
+- [Catalog write-validation contract](catalog-write-validation-contract.md)
 - [Whole-repository architecture review, 2026-09-26](architecture-review-2026-09-26.md)
 - [Top-level architecture review, 2026-09-17](top-level-architecture-review.md)
 - [Core API](core-api.md) and [core workflow ownership](core-program-workflows.md)

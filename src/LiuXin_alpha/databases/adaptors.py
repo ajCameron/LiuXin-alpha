@@ -19,6 +19,8 @@ from typing import Optional, AnyStr, Union, Literal, Callable, Iterable, Any
 
 from LiuXin_alpha.constants import preferred_encoding
 from LiuXin_alpha.errors import InvalidUpdate
+from LiuXin_alpha.metadata.identifiers import clean_identifier_mapping
+from LiuXin_alpha.metadata.languages import canonicalize_languages
 
 from LiuXin_alpha.utils.date import (
     parse_only_date,
@@ -28,16 +30,11 @@ from LiuXin_alpha.utils.date import (
     is_date_undefined,
 )
 
-from LiuXin_alpha.utils.text.icu import lower as icu_lower
-
 from LiuXin_alpha.utils.localization import trans as _
-# Todo: Think about the interface surface for utils
-from LiuXin_alpha.utils.libraries.iso639.iso639_tools import canonicalize_lang
 from LiuXin_alpha.utils.logging import default_log
 
 # Py2/Py3 compatibility layer
 from LiuXin_alpha.utils.libraries.liuxin_six import (
-    dict_iteritems as iteritems,
     six_unicode,
     six_unicode as unicode, unicode)
 
@@ -273,9 +270,11 @@ def adapt_bool(x: AnyStr) -> Optional[bool]:
 
 def adapt_languages(to_tuple: Callable[[str, ], Iterable[str]], x: str) -> tuple[str, ...]:
     """
-    Canonicalize converted language values and retain distinct accepted results.
+    Parse a stored language field and delegate bibliographic normalization.
 
-    Apply canonicalize_lang without code flags, so successful lookups return language names. Drop false results and results literally equal to und, zxx, mis or mul. Those code-string exclusions generally do not exclude resolved names: und becomes Undetermined and is retained. Duplicate returned names appear once; converter and canonicalizer errors propagate.
+    The supplied converter remains a database-boundary concern. Metadata policy then
+    canonicalizes values, removes duplicates and applies the historical special-value
+    behavior. Converter and canonicalizer errors propagate.
 
     Example:
         >>> adapt_languages(lambda value: value, ("eng", "eng", "und"))
@@ -286,40 +285,17 @@ def adapt_languages(to_tuple: Callable[[str, ], Iterable[str]], x: str) -> tuple
     :param x: Input passed unchanged to to_tuple.
     :return: Tuple of canonical language names in first-occurrence order.
     """
-    ans = []
-    for lang in to_tuple(x):
-        lc = canonicalize_lang(lang)
-        if not lc or lc in ans or lc in ("und", "zxx", "mis", "mul"):
-            continue
-        ans.append(lc)
-    return tuple(ans)
-
-
-def clean_identifier(typ: AnyStr, val: AnyStr) -> tuple[str, AnyStr]:
-    """
-    Normalize one identifier scheme and value for legacy text storage.
-
-    Lowercase the scheme using ICU, trim it and remove colons/commas. Trim the value and replace commas with pipes; preserve value case and colons. This performs no identifier validity check or general byte decoding.
-
-    Example:
-        >>> clean_identifier(" ISBN: ", " a,b ")
-        ('isbn', 'a|b')
-
-
-    :param typ: Text scheme, with false values treated as empty.
-    :param val: Text value, with false values treated as empty.
-    :return: Pair of cleaned scheme and value; either can be empty.
-    """
-    typ = icu_lower(typ or "").strip().replace(":", "").replace(",", "")
-    val = (val or "").strip().replace(",", "|")
-    return typ, val
+    return canonicalize_languages(to_tuple(x))
 
 
 def adapt_identifiers(to_tuple: Callable[[str, ], dict[str, str]], x: Union[dict[str, str], str]) -> dict[str, str]:
     """
-    Build a cleaned identifier dictionary from a mapping or converted colon-pairs.
+    Parse a stored identifier field and delegate pair normalization.
 
-    Non-dict input is partitioned at the first colon per item and collapsed into a dictionary before cleaning. Later entries win for duplicate raw or normalized schemes. Dict input bypasses to_tuple but is still copied/cleaned; no repository validation is performed.
+    Non-dict input is partitioned at the first colon per item and collapsed into a
+    dictionary before metadata policy cleans it. Later entries win for duplicate raw
+    or normalized schemes. Dict input bypasses to_tuple but is still copied and
+    normalized; no repository validation is performed.
 
     Example:
         >>> adapt_identifiers(None, {" ISBN: ": " a,b ", "empty": ""})
@@ -332,12 +308,7 @@ def adapt_identifiers(to_tuple: Callable[[str, ], dict[str, str]], x: Union[dict
     """
     if not isinstance(x, dict):
         x = {k: v for k, v in (y.partition(":")[0::2] for y in to_tuple(x))}
-    ans = {}
-    for k, v in iteritems(x):
-        k, v = clean_identifier(k, v)
-        if k and v:
-            ans[k] = v
-    return ans
+    return clean_identifier_mapping(x)
 
 FIELD_NAMES = Union[
     Literal["text"],

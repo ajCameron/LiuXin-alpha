@@ -9,7 +9,7 @@ from LiuXin_alpha.utils.libraries.liuxin_six import string_types
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.errors import InputIntegrityError
 from LiuXin_alpha.metadata.standardization import make_series_phash
-from LiuXin_alpha.metadata.utils import title_sort as generate_title_sort
+from LiuXin_alpha.metadata.title_names import title_to_title_sort
 from LiuXin_alpha.utils.logging import default_log
 
 
@@ -59,7 +59,7 @@ class SeriesAdderMixin:
         """
         series_row = Row(database=self.db)
         series_row["series"] = series
-        series_row["series_sort"] = series_sort if series_sort is not None else generate_title_sort(series)
+        series_row["series_sort"] = series_sort if series_sort is not None else title_to_title_sort(series)
         if series_phash is None:
             if series_creator is not None:
                 series_row["series_phash"] = make_series_phash(series_creator["creator"], series)

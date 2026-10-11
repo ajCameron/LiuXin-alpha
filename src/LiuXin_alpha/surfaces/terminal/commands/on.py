@@ -26,7 +26,7 @@ from LiuXin_alpha.metadata.standardization import (
     standardize_language,
     standardize_series,
 )
-from LiuXin_alpha.metadata.utils import title_sort as generate_title_sort
+from LiuXin_alpha.metadata.title_names import title_to_title_sort
 
 
 MAX_SELECTOR_TARGETS = 2000
@@ -478,7 +478,7 @@ def _resolve_or_create_series_row(browser, series_text: str, *, create: bool):
 
     columns = set(browser.db.get_column_headings("series"))
     series_name = standardize_series(series_text)
-    series_sort = generate_title_sort(series_name)
+    series_sort = title_to_title_sort(series_name)
     series_name_norm = make_title_search_term(series_name)
     series_phash = make_series_phash("", series_name)
 

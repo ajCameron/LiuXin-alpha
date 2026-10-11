@@ -14,7 +14,7 @@ from LiuXin_alpha.databases.api import RowAPI
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
 from LiuXin_alpha.metadata.constants import CREATOR_TYPES
-from LiuXin_alpha.metadata.utils import author_to_author_sort
+from LiuXin_alpha.metadata.author_names import author_to_author_sort
 from LiuXin_alpha.utils.language_tools import best_effort_language_id
 from LiuXin_alpha.utils.logging import default_log
 

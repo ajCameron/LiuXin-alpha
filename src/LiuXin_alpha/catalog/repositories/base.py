@@ -10,9 +10,9 @@ punctuation-preserving comparison text, distinct from fuzzy matching normalizati
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, ClassVar, Sequence
 import unicodedata
+from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from LiuXin_alpha.databases.macro_types import LINK_TYPE_UNSET, LinkRow, LinkValue
 from LiuXin_alpha.databases.schema_specs import StorageLinkSpec
@@ -73,10 +73,11 @@ class BaseRepository:
     and modifying them does not persist changes. Schema names are inspected on each normalization
     call.
 
-    Generic CRUD delegates writes to macros without an encompassing read/write transaction. The
-    _link helper explicitly enters a macro transaction for its endpoint reads, priority selection,
-    and upsert. Repositories do not open or close the database. Repository-group and matching-policy
-    binding are separate assignments used by subclass services.
+    Generic CRUD prepares writes through one overridable hook before delegating to macros without
+    an encompassing read/write transaction. The _link helper explicitly enters a macro transaction
+    for its endpoint reads, priority selection, and upsert. Repositories do not open or close the
+    database. Repository-group and matching-policy binding are separate assignments used by
+    subclass services.
 
     Example:
         >>> repository = BaseRepository(None)
@@ -364,6 +365,35 @@ class BaseRepository:
             result[key] = value
         return result
 
+    def _prepare_write(
+        self,
+        data: RowInput,
+        *,
+        existing: RowMapping | None = None,
+    ) -> dict[str, Any]:
+        """
+        Normalize one create or update payload through the repository write seam.
+
+        The base hook delegates to normalise_input and deliberately applies no semantic value
+        policy. Create calls pass existing as None; update calls pass the shallow stored row read by
+        require before this hook runs. Subclasses may use that row to validate a complete semantic
+        value assembled from partial changes. They must return only physical-column changes that
+        should reach the macro layer and must not mutate either input mapping.
+
+        Example:
+            A semantic repository can combine an updated value with its existing scheme, validate
+            the pair, and return a normalized payload before update_row is called.
+
+
+        :param data: Public aliases or storage-column values supplied to create or update.
+        :param existing: Existing shallow row for an update, otherwise None for creation.
+        :return: New physical-column payload ready for repository-specific persistence.
+        :raises Exception: Input normalization and subclass semantic validation failures propagate.
+        """
+
+        del existing
+        return self.normalise_input(data)
+
     @staticmethod
     def _as_mapping(row: object) -> dict[str, Any]:
         """
@@ -496,12 +526,12 @@ class BaseRepository:
 
     def create(self, data: RowInput) -> EntityId:
         """
-        Normalize writable fields, insert one entity, and check the returned ID.
+        Prepare writable fields, insert one entity, and check the returned ID.
 
-        BaseRepository rejects empty normalized payloads and caller-supplied ID columns. Other field
-        validation follows the live schema, aliases, subclass rules, and backend constraints; it
-        does not independently validate every value's type. The result must be an integer other than
-        bool, but no sign check is performed.
+        BaseRepository rejects empty prepared payloads and caller-supplied ID columns. Other field
+        validation follows the live schema, aliases, the concrete repository's write-preparation
+        policy, and backend constraints. The result must be an integer other than bool, but no sign
+        check is performed.
 
         Insertion and transaction handling belong to portable macros. The returned-ID check occurs
         after insertion and does not undo a write if that check fails.
@@ -510,14 +540,14 @@ class BaseRepository:
             >>> work_id = catalog.works.create({"title": "Frankenstein"})  # doctest: +SKIP
 
 
-        :param data: Nonempty mapping of public aliases or storage columns; values are passed through normalization.
+        :param data: Nonempty mapping of public aliases or storage columns passed through repository write preparation.
         :return: The integer ID returned by insertion.
         :raises TypeError: If data or its keys have unsuitable types.
         :raises CatalogMutationError: If normalization rejects fields, the payload is empty, or insertion returns a non-integer/boolean ID.
         :raises Exception: Schema, backend constraint, and insertion failures propagate.
         """
 
-        payload = self.normalise_input(data)
+        payload = self._prepare_write(data)
         if not payload:
             raise CatalogMutationError(
                 f"{type(self).__name__}.create requires at least one value"
@@ -535,13 +565,13 @@ class BaseRepository:
 
     def update(self, entity_id: EntityId, data: RowInput) -> None:
         """
-        Require an existing entity, then normalize and replace the supplied fields.
+        Require an existing entity, then prepare and replace the supplied fields.
 
-        Existence is checked before payload validation, including for an empty update.
-        BaseRepository skips the macro write for no changes; otherwise it passes only supplied
-        fields to update_row. It does not compare them to stored values first. The existence check
-        and write have no enclosing repository transaction; driver behavior determines concurrency
-        and transaction semantics.
+        Existence is checked before payload validation, including for an empty update, and the
+        shallow stored row is supplied to the concrete repository's write-preparation policy.
+        BaseRepository skips the macro write for no changes; otherwise it passes the prepared
+        fields to update_row. The existence check and write have no enclosing repository
+        transaction; driver behavior determines concurrency and transaction semantics.
 
         Example:
             >>> catalog.works.update(work_id, {"canonical_title": "Frankenstein"})  # doctest: +SKIP
@@ -554,8 +584,8 @@ class BaseRepository:
         :raises Exception: ID/input validation, schema inspection, and update errors propagate.
         """
 
-        self.require(entity_id)
-        changes = self.normalise_input(data)
+        existing = self.require(entity_id)
+        changes = self._prepare_write(data, existing=existing)
         if not changes:
             return
         self._macros.update_row(

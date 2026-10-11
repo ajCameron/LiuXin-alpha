@@ -18,6 +18,25 @@ catalog: CatalogAPI = Catalog(db)
 
 Closing or discarding `catalog` does not close `db`.
 
+## Write-validity boundary
+
+Every public Catalog mutation must establish semantic validity itself. Callers
+may validate early for better feedback, but Catalog does not treat surfaces,
+declarations, annotations, or prior workflow steps as trusted proof.
+
+The layers cooperate:
+
+- `metadata` supplies pure normalization and value validation;
+- Catalog validates complete operations and relationships before persistence;
+- database constraints retain structural, referential, uniqueness, and
+  concurrency-safe enforcement.
+
+Direct database-driver and raw-macro calls are outside this guarantee. The
+boundary is adopted but still being enforced repository by repository; curated
+identifier generic CRUD is the first completed slice. See the dated
+[write-validation contract](catalog-write-validation-contract.md) for current
+gaps and migration order.
+
 ## Choosing an API area
 
 | Need | Entry point |
@@ -477,7 +496,8 @@ if catalog.mutations.policy.can_merge(
 ```
 
 Policy checks are advisory and side-effect-free; writers validate again inside
-their transaction.
+their transaction. A caller must not treat a successful policy probe as a
+validation token that allows the writer to skip its own checks.
 
 ## Core direct and RPC operations
 

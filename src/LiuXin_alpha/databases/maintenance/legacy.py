@@ -15,7 +15,7 @@ from typing import Any, Iterable, TYPE_CHECKING
 
 from LiuXin_alpha.constants import VERBOSE_DEBUG
 from LiuXin_alpha.errors import InputIntegrityError
-from LiuXin_alpha.utils.language_tools.lx_name_manip import author_to_author_sort
+from LiuXin_alpha.metadata.author_names import author_to_author_sort
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import LiuXin_debug_print, default_log
@@ -507,7 +507,9 @@ def ensure_creators_sort(creator_rows: Iterable[RowAPI]) -> Iterable[RowAPI]:
     """
     for row in creator_rows:
         if six_unicode(row["creator_sort"]).lower().strip() == "none":
-            row["creator_sort"] = author_to_author_sort(row["creator"])
+            row["creator_sort"] = author_to_author_sort(
+                row["creator"], method=None
+            )
             row.sync()
     return creator_rows
 

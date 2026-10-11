@@ -96,7 +96,7 @@ from LiuXin_alpha.errors import NoSuchBook, NoSuchFormatInCache, NotInCache, Inv
 
 from LiuXin_alpha.storage.api.models import Location
 
-from LiuXin_alpha.metadata.ebook_metadata_tools import title_sort
+from LiuXin_alpha.metadata.title_names import title_to_title_sort
 
 from LiuXin_alpha.preferences import preferences as tweaks
 
@@ -4078,7 +4078,7 @@ class CalibreSeriesField(CalibreManyToManyField, BaseSeriesField):
         """
         sso = tweaks["title_series_sorting"]
         ssk = self._sort_key
-        ts = title_sort
+        ts = title_to_title_sort
 
         def sk(val, lang):
             """
@@ -4149,7 +4149,7 @@ class CalibreSeriesField(CalibreManyToManyField, BaseSeriesField):
             if c:
                 lang = c.most_common(1)[0][0]
         val = self.table.id_map[item_id]
-        return title_sort(val, order=tss, lang=lang)
+        return title_to_title_sort(val, order=tss, lang=lang)
 
     # Todo: Need to standardize the signatures of these
     def update_cache(self, book_id_val_map, id_map=None):

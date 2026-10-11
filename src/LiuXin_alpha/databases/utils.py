@@ -2,9 +2,9 @@
 # vim:fileencoding=utf-8
 
 """
-Provide legacy metadata comparison, naming, series and export helpers.
+Provide legacy database naming, series and export helpers.
 
-Helpers operate on supplied values or legacy cache objects rather than a unified database transaction. Fuzzy matching and series numbering depend on preferences/localization; fuzzy regular expressions are cached after first use. Entry is the exported path/size/timestamp/thumbnail_size namedtuple.
+Helpers operate on supplied values or legacy cache objects rather than a unified database transaction. Series numbering depends on preferences/localization. Entry is the exported path/size/timestamp/thumbnail_size namedtuple. Bibliographic title matching lives in ``catalog.matching``.
 """
 
 from __future__ import unicode_literals, division, absolute_import, print_function
@@ -60,124 +60,6 @@ def force_to_bool(val: Any) -> Optional[bool]:
         return bool(int(normalized))
     except (TypeError, ValueError):
         return None
-
-
-_fuzzy_title_patterns = None
-
-
-def _safe_title_sort_pat() -> str:
-    """
-    Lazily obtain the configured leading-article pattern with an English fallback.
-
-    Catch any ordinary exception from importing or calling the metadata helper and return a regex matching leading a/an/the plus whitespace. The successful helper chooses language/article preferences and maintains its own cache.
-
-    Example:
-        Call _safe_title_sort_pat() when building fuzzy rules; fuzzy_title_patterns compiles a returned string and retains an already compiled pattern.
-
-
-    :return: Normally a compiled pattern from get_title_sort_pat; a pattern string on failure despite the str annotation.
-    """
-    try:
-        from LiuXin_alpha.metadata.ebook_metadata_tools import get_title_sort_pat
-
-        return get_title_sort_pat()
-    except Exception:
-        # Conservative fallback: common leading-article strip used for fuzzy matching.
-        return r"^(a|an|the)\s+"
-
-
-def fuzzy_title_patterns():
-    """
-    Build and cache the ordered substitutions used by fuzzy title matching.
-
-    Remove selected punctuation, remove a configured leading article, replace hyphens/dots/underscores with spaces, then collapse whitespace. Initialize once per module cache; later preference changes do not automatically rebuild these rules.
-
-    Example:
-        >>> first = fuzzy_title_patterns()
-        >>> first is fuzzy_title_patterns()
-        True
-
-
-    :return: Shared tuple of (compiled pattern, replacement string) pairs.
-    """
-    global _fuzzy_title_patterns
-    if _fuzzy_title_patterns is None:
-        _fuzzy_title_patterns = tuple(
-            (
-                re.compile(pat, re.IGNORECASE) if isinstance(pat, string_types) else pat,
-                repl,
-            )
-            for pat, repl in [
-                (r'[\[\](){}<>\'";,:#]', ""),
-                (_safe_title_sort_pat(), ""),
-                (r"[-._]", " "),
-                (r"\s+", " "),
-            ]
-        )
-    return _fuzzy_title_patterns
-
-
-def fuzzy_title(title: str) -> Union[str, re.Pattern[str]]:
-    """
-    Normalize title text for approximate equality comparisons.
-
-    Apply punctuation/article removal, separator replacement and whitespace collapse in that order. No final strip follows substitutions, so a removed/replaced edge character can leave an edge space. This is a comparison heuristic, not a canonical identity or exact matching guarantee.
-
-    Example:
-        >>> fuzzy_title(" Foo-Bar ")
-        'foo bar'
-
-
-    :param title: Title string stripped and ICU-lowercased before cached regex substitutions.
-    :return: Normalized string, not a regex object despite the union annotation.
-    """
-    title = icu_lower(title.strip())
-    for pat, repl in fuzzy_title_patterns():
-        title = pat.sub(repl, title)
-    return title
-
-
-def find_identical_books(mi, data) -> set[int]:
-    """
-    Find candidate IDs sharing every requested author and a fuzzy-equal title.
-
-    For each author, union that name’s author-ID books, then intersect across authors. Missing author names or an empty intersection return immediately. Compare fuzzy titles only for surviving IDs; extra authors on a candidate are allowed, and a missing candidate title defaults to empty text. No database query occurs. An empty author iterable leaves the candidate set uninitialized and raises TypeError.
-
-    Example:
-        >>> from types import SimpleNamespace
-        >>> mi = SimpleNamespace(title="Dune", authors=["Frank Herbert"])
-        >>> find_identical_books(mi, ({"frank herbert": [1]}, {1: {7}}, {7: "Dune"}))
-        {7}
-
-
-    :param mi: Metadata-like object with a title string and at least one author.
-    :param data: Triple of lowercase author-name to author-ID collections, author-ID to book-ID collections, and book-ID to title mappings.
-    :return: Set of matching candidate book IDs.
-    :raises TypeError: mi.authors is empty, leaving no initialized candidate set to iterate.
-    """
-    author_map, aid_map, title_map = data
-    found_books = None
-
-    for a in mi.authors:
-        author_ids = author_map.get(icu_lower(a))
-        if author_ids is None:
-            return set()
-        books_by_author = {book_id for aid in author_ids for book_id in aid_map.get(aid, ())}
-        if found_books is None:
-            found_books = books_by_author
-        else:
-            found_books &= books_by_author
-        if not found_books:
-            return set()
-
-    ans = set()
-    titleq = fuzzy_title(mi.title)
-    for book_id in found_books:
-        title = title_map.get(book_id, "")
-        if fuzzy_title(title) == titleq:
-            ans.add(book_id)
-
-    return ans
 
 
 # Todo: Update DatabasePing method

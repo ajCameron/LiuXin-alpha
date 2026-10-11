@@ -137,7 +137,8 @@ from LiuXin_alpha.errors import NoSuchFormat
 from LiuXin_alpha.file_formats import check_ebook_format
 from LiuXin_alpha.file_formats.opf.opf2 import metadata_to_opf
 
-from LiuXin_alpha.metadata.utils import string_to_authors, author_to_author_sort
+from LiuXin_alpha.metadata.author_names import author_to_author_sort
+from LiuXin_alpha.metadata.utils import string_to_authors
 from LiuXin_alpha.metadata.book.base import calibreMetadata as Metadata
 from LiuXin_alpha.metadata.containers.book_metadata import BookMetadata as LiuXinMetadata
 
@@ -4308,7 +4309,7 @@ class CalibreCache(BaseCalibreCache):
     @read_api
     def data_for_find_identical_books(self):
         """
-        Return data that can be used to implement :meth:`find_identical_books` in a worker process without access to the db. See databases.utils for an implementation.
+        Return data that can be used to implement :meth:`find_identical_books` in a worker process without access to the db. See catalog.matching.legacy_books for the standalone policy.
 
         Example:
             Exercise CalibreCache.data for find identical books through a consuming regression::
@@ -4373,7 +4374,9 @@ class CalibreCache(BaseCalibreCache):
         :return: The normalized value, metadata record, path, stream result or collection
             described above.
         """
-        from LiuXin_alpha.databases.utils import fuzzy_title
+        from LiuXin_alpha.catalog.matching.title_normalization import (
+            normalise_fuzzy_title,
+        )
 
         identical_book_ids = set()
         if mi.authors:
@@ -4403,8 +4406,8 @@ class CalibreCache(BaseCalibreCache):
 
             for book_id in book_ids:
                 fbook_title = self.unlock.field_for("title", book_id)
-                fbook_title = fuzzy_title(fbook_title)
-                mbook_title = fuzzy_title(mi.title)
+                fbook_title = normalise_fuzzy_title(fbook_title)
+                mbook_title = normalise_fuzzy_title(mi.title)
                 if fbook_title == mbook_title:
                     identical_book_ids.add(book_id)
         return identical_book_ids

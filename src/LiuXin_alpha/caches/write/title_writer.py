@@ -8,7 +8,7 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 from typing import TYPE_CHECKING, Optional
 
 from LiuXin_alpha.caches.write.generic_writers.one_to_one_writer import OneToOneWriter
-from LiuXin_alpha.metadata.ebook_metadata_tools import title_sort
+from LiuXin_alpha.metadata.title_names import title_to_title_sort
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 
 
@@ -53,7 +53,7 @@ class TitleWriter(OneToOneWriter):
         The primary scalar update runs first. If field is not None, calculate ``title_sort`` for each input title and call its companion writer with that mapping. Exceptions from sorting or the second write propagate after the primary change. Passing None does not provide a metadata-free write: the inherited scalar helper requires a field.
 
         Example:
-            For a configured title field, ``writer.set_title({7: "The Example"}, db, field)`` first writes the title, then forwards ``{7: title_sort("The Example")}`` to its sort writer.
+            For a configured title field, ``writer.set_title({7: "The Example"}, db, field)`` first writes the title, then forwards the derived sort value to its sort writer.
 
 
         :param book_id_val_map: Book IDs mapped to title values, normally adapted by set_books.
@@ -67,5 +67,8 @@ class TitleWriter(OneToOneWriter):
 
         # Update the title sort field - if required
         if field is not None:
-            field.title_sort_field.writer.set_books({k: title_sort(v) for k, v in iteritems(book_id_val_map)}, db)
+            field.title_sort_field.writer.set_books(
+                {k: title_to_title_sort(v) for k, v in iteritems(book_id_val_map)},
+                db,
+            )
         return ans

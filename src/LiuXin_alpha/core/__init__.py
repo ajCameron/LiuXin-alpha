@@ -5,6 +5,15 @@ Use ``create_core`` to compose a runtime and ``core_client`` to select direct or
 remote access through the shared client contract. Imports make those entry points
 available; they do not create a library/runtime or start an HTTP daemon. Legacy
 target-specific proxy names remain exported for compatibility.
+
+Separation of concerns: Core owns application composition, configuration,
+lifecycle, process services, and the command/query boundary exposed to surfaces.
+``LibraryServices`` opens and closes each library's database, storage, cache,
+Catalog, and facade. Core delegates metadata validity to Catalog, pure value
+semantics to metadata, and physical-file policy to storage rather than absorbing
+those concerns because it composes them.
+
+See ``dev-docs/04 - Seperation of Concerns.md``.
 """
 
 from __future__ import annotations
@@ -21,19 +30,20 @@ from .description import (
 )
 from .events import CoreEvent, make_core_event
 from .factory import core_client, create_core
+from .library_services import LibraryServices, LibraryServicesCloseError
 from .proxies import (
-    JobStatesArg,
     JobsProxyABC,
     JobsProxyAPI,
+    JobStatesArg,
     LocalCoreClient,
     LocalCoreProxy,
     LocalDatabaseProxy,
     LocalJobsProxy,
     LocalLibraryProxy,
     LocalStorageProxy,
-    RemoteDatabaseProxy,
     RemoteCoreClient,
     RemoteCoreProxy,
+    RemoteDatabaseProxy,
     RemoteJobsProxy,
     RemoteLibraryProxy,
     RemoteProxyError,
@@ -41,7 +51,6 @@ from .proxies import (
 )
 from .queries import CoreQuery, CoreQueryResult
 from .runtime import CoreRuntime
-from .library_services import LibraryServices, LibraryServicesCloseError
 from .services import CoreServiceReconciliationError, CoreServices
 from .transport import CoreHttpDaemon
 from .wire import CoreWireError, to_wire

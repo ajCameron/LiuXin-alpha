@@ -5,6 +5,15 @@ Use create_cache(database) to construct and load the default schema-backed
 facade, or Cache(database) to defer loading. Storage backends provide the
 row/field machinery; Cache owns structured queries and Catalog-mediated writes.
 The exported classes and plugin helpers retain their defining-module identities.
+
+Separation of concerns: caches own derived, rebuildable acceleration state,
+query/index behavior, and explicit refresh or invalidation. They are not a
+source of truth and do not define metadata validity. Ordinary semantic writes
+delegate to Catalog; deleting and rebuilding a cache must not lose canonical
+library state.
+
+See ``dev-docs/04 - Seperation of Concerns.md`` and
+``dev-docs/catalog-cache-boundary.md``.
 """
 
 from LiuXin_alpha.caches.api import (

@@ -510,10 +510,14 @@ def make_creators_folder_name(creator_list, folder_id):
         err_str = "make_creators_folder_name has been passed a blank index.\n"
         raise InputIntegrityError(err_str)
 
+    from LiuXin_alpha.metadata.author_names import author_to_author_sort
+
     creator_sort_list = []
     for creator in creator_list:
         if creator["creator_sort"] == "None" or creator["creator_sort"] is None:
-            creator["creator_sort"] = author_to_author_sort(creator["creator"])
+            creator["creator_sort"] = author_to_author_sort(
+                creator["creator"], method=None
+            )
             creator.sync()
             creator_sort_list.append(creator["creator_sort"])
         else:
@@ -622,78 +626,6 @@ def author_list_to_sort_str(author_list):
     author_list = deepcopy(author_list)
     rtn_str = " & ".join(author_list)
     return rtn_str
-
-
-def author_to_author_sort(author, method=None):
-    """
-    Converts an author name string into an author sort string.
-
-    Example:
-        Exercise author to author sort through a consuming regression::
-
-            python -m pytest -q tests/utils/plugins/fallbacks/test_fallback_icu.py
-
-
-    :param author: Value supplied for author under the utility contract.
-    :param method: Value supplied for method under the utility contract.
-    :return: The normalized value, metadata record, path, stream result or collection
-        described above.
-    """
-    if not author:
-        return ""
-    sauthor = remove_bracketed_text(author).strip()
-    tokens = sauthor.split()
-    if len(tokens) < 2:
-        return author
-    if method is None:
-        method = tweaks["author_sort_copy_method"]
-
-    ltoks = frozenset(x.lower() for x in tokens)
-    copy_words = frozenset(x.lower() for x in tweaks["author_name_copywords"])
-    if ltoks.intersection(copy_words):
-        method = "copy"
-
-    if method == "copy":
-        return author
-
-    prefixes = set([y.lower() for y in tweaks["author_name_prefixes"]])
-    prefixes |= set([y + "." for y in prefixes])
-    while True:
-        if not tokens:
-            return author
-        tok = tokens[0].lower()
-        if tok in prefixes:
-            tokens = tokens[1:]
-        else:
-            break
-
-    suffixes = set([y.lower() for y in tweaks["author_name_suffixes"]])
-    suffixes |= set([y + "." for y in suffixes])
-
-    suffix = ""
-    while True:
-        if not tokens:
-            return author
-        last = tokens[-1].lower()
-        if last in suffixes:
-            suffix = tokens[-1] + " " + suffix
-            tokens = tokens[:-1]
-        else:
-            break
-    suffix = suffix.strip()
-
-    if method == "comma" and "," in "".join(tokens):
-        return author
-
-    atokens = tokens[-1:] + tokens[:-1]
-    num_toks = len(atokens)
-    if suffix:
-        atokens.append(suffix)
-
-    if method != "nocomma" and num_toks > 1:
-        atokens[0] += ","
-
-    return " ".join(atokens)
 
 
 # ----------------------------------------------------------------------------------------------------------------------

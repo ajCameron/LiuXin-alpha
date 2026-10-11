@@ -1,8 +1,18 @@
 """
 Expose metadata hydration, cache access, OPF conversion, and selected workflow helpers.
 
+Separation of concerns: metadata owns value types, field and WEMI meaning,
+codecs, and persistence-free normalization and validation. It does not own SQL,
+transactions, record identity resolution, physical storage placement, or
+application workflows. Catalog invokes these rules to guarantee semantic writes.
+
 Concrete WEMI containers and read-source adapters are imported here. OPF-specific
-tooling is resolved lazily when a conversion wrapper runs.
+tooling is resolved lazily when a conversion wrapper runs. Database/cache
+hydration and write-workflow exports in this compatibility facade are current
+migration surfaces, not the intended lower-layer dependency direction.
+
+See ``dev-docs/04 - Seperation of Concerns.md`` and
+``dev-docs/catalog-write-validation-contract.md``.
 
 Example:
     Exercise the owning behavior with pytest::
@@ -22,8 +32,11 @@ from LiuXin_alpha.metadata.containers import (
     LiuXinWEMI,
     LiuXinWEMIMetadata,
     LiuXinWEMIMetadataHydrator,
-    LiuXinWEMIMetadataWriteReport,
     LiuXinWEMIMetadataWriter,
+    LiuXinWEMIMetadataWriteReport,
+)
+from LiuXin_alpha.metadata.identifiers import (
+    validate_legacy_identifier as validate_identifier,
 )
 from LiuXin_alpha.metadata.read_sources import (
     CacheMetadataReadSource,
@@ -36,7 +49,6 @@ from LiuXin_alpha.metadata.write_workflows import (
     normalize_metadata_write_field,
     write_wemi_metadata_values,
 )
-
 
 MetadataDatabaseSource = Literal["database", "cache"]
 MetadataObjectKind = Literal["wemi", "liuxin_wemi", "liuxin", "calibre"]
@@ -648,5 +660,6 @@ __all__ = [
     "normalize_metadata_write_field",
     "update_opf_bytes",
     "update_opf_file",
+    "validate_identifier",
     "write_wemi_metadata_values",
 ]

@@ -59,8 +59,6 @@ from LiuXin_alpha.folder_stores.location import Location
 default_log.info("Location import completed")
 
 
-from LiuXin_alpha.metadata.ebook_metadata_tools import author_to_author_sort
-
 from LiuXin_alpha.utils.calibre import isbytestring, filesystem_encoding, force_unicode
 from LiuXin_alpha.utils.calibre.calibre_emulation import tweaks
 from LiuXin_alpha.utils.config.config_tools import to_json, from_json, prefs
@@ -116,25 +114,6 @@ def pynocase(one, two, encoding="utf-8"):
         except:
             pass
     return force_cmp(one.lower(), two.lower())
-
-
-def _author_to_author_sort(x):
-    """
-    Perform the author to author sort operation under explicit file-format and conversion rules.
-
-    Example:
-        Exercise  author to author sort through a consuming regression::
-
-            python -m pytest -q tests/library/test_unified_library.py
-
-
-    :param x: Value supplied for x under the utility contract.
-    :return: The normalized value, metadata record, path, stream result or collection
-        described above.
-    """
-    if not x:
-        return ""
-    return author_to_author_sort(x.replace("|", ","))
 
 
 def icu_collator(s1, s2):

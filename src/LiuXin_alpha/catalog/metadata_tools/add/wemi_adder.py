@@ -10,7 +10,8 @@ from typing import Optional, Union
 
 from LiuXin_alpha.databases.api import RowAPI
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.metadata.ebook_metadata_tools import title_sort, to_epoch_ms
+from LiuXin_alpha.metadata.ebook_metadata_tools import to_epoch_ms
+from LiuXin_alpha.metadata.title_names import title_to_title_sort
 from LiuXin_alpha.utils.language_tools import best_effort_language_id
 
 
@@ -141,7 +142,7 @@ class WEMIAdderMixin:
 
         :param work_title: Preferred title, passed to storage without local blank validation.
         :param work_canonical_title: Canonical title; None uses work_title.
-        :param work_sort_title: Sort title; None calls title_sort(work_title).
+        :param work_sort_title: Sort title; None derives one from work_title.
         :param work_creator_sort: Creator-sort text stored unchanged.
         :param work_type: Work type stored unchanged.
         :param work_medium: Medium stored unchanged.
@@ -170,7 +171,7 @@ class WEMIAdderMixin:
         if work_sort_title is not None:
             new_row_dict["work_sort_title"] = work_sort_title
         else:
-            new_row_dict["work_sort_title"] = title_sort(work_title)
+            new_row_dict["work_sort_title"] = title_to_title_sort(work_title)
         new_row_dict["work_creator_sort"] = work_creator_sort
 
         new_row_dict["work_type"] = work_type

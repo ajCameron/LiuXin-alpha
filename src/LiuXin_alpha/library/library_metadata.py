@@ -34,7 +34,8 @@ from LiuXin_alpha.metadata.constants import (
 from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
     CalibreLikeLiuXinBookMetaData as LiuXinMetaData,
 )
-from LiuXin_alpha.metadata.ebook_metadata_tools import title_sort, to_epoch_ms
+from LiuXin_alpha.metadata.ebook_metadata_tools import to_epoch_ms
+from LiuXin_alpha.metadata.title_names import title_to_title_sort
 from LiuXin_alpha.utils.logging import default_log
 
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
@@ -1087,7 +1088,7 @@ class MeatdataToBookRow(object):
             work={
                 "work_title": title,
                 "work_canonical_title": title,
-                "work_sort_title": title_sort_string or title_sort(title),
+                "work_sort_title": title_sort_string or title_to_title_sort(title),
                 "work_creator_sort": title_creator_sort,
                 "work_type": title_type,
                 "work_original_date": _epoch_ms(title_pubdate),

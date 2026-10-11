@@ -25,7 +25,7 @@ from LiuXin_alpha.errors import InputIntegrityError
 from LiuXin_alpha.metadata.standardization import LITTLE_WORDS
 from LiuXin_alpha.metadata.standardization import ALL_DROP_CHARACTERS
 
-from LiuXin_alpha.metadata.utils import author_to_author_sort
+from LiuXin_alpha.metadata.author_names import author_to_author_sort
 
 from LiuXin_alpha.utils.language_tools.icu import lower as icu_lower
 from LiuXin_alpha.utils.storage.local.filenames import ascii_filename
