@@ -9,8 +9,9 @@ The exported classes and plugin helpers retain their defining-module identities.
 Separation of concerns: caches own derived, rebuildable acceleration state,
 query/index behavior, and explicit refresh or invalidation. They are not a
 source of truth and do not define metadata validity. Ordinary semantic writes
-delegate to Catalog; deleting and rebuilding a cache must not lose canonical
-library state.
+delegate to Catalog; cache ``create_writer``/``write``/``write_one`` are
+reconciliation-aware conveniences, not an independent semantic boundary.
+Deleting and rebuilding a cache must not lose canonical library state.
 
 See ``dev-docs/04 - Seperation of Concerns.md`` and
 ``dev-docs/catalog-cache-boundary.md``.

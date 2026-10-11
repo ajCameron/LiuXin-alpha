@@ -57,6 +57,22 @@ PLACEHOLDER_FRAGMENTS = (
     "state shared across the public boundary",
     "todo: document",
 )
+CATALOG_BOUNDARY_DOCS = (
+    REPOSITORY_ROOT / "dev-docs" / "catalog-write-validation-contract.md",
+    REPOSITORY_ROOT / "dev-docs" / "catalog-api-usage.md",
+    REPOSITORY_ROOT / "dev-docs" / "04 - Seperation of Concerns.md",
+)
+CATALOG_PUBLIC_WRITER_METHODS = ("create_writer", "write", "write_one")
+CATALOG_PRIVATE_UPDATE_METHODS = (
+    "_apply_column_update",
+    "_apply_link_update",
+    "_apply_owned_row_update",
+)
+CATALOG_LEGACY_PUBLIC_UPDATE_METHODS = (
+    "write_column_update",
+    "write_link_update",
+    "write_owned_row_update",
+)
 
 
 def test_top_level_package_docstrings_state_separation_of_concerns() -> None:
@@ -81,6 +97,57 @@ def test_top_level_package_docstrings_state_separation_of_concerns() -> None:
         docstring = ast.get_docstring(_parse(path), clean=False) or ""
         assert "Separation of concerns:" in docstring, path
         assert "dev-docs/04 - Seperation of Concerns.md" in docstring, path
+
+
+def test_catalog_write_boundary_is_consistent_in_protocol_code_and_docs() -> None:
+    """
+    Keep the documented Catalog write boundary aligned with its structural API.
+
+    Parse the public protocol without importing Catalog, reject legacy public prepared-update
+    names from production Catalog/cache code, and require each canonical guide to name the public
+    schema-writer trio and private host seam. This is a shape/documentation ratchet rather than
+    evidence that every semantic validator has completed its migration.
+
+    Example:
+        Exercise the Catalog boundary ratchet with pytest::
+
+            python -m pytest -q tests/scripts/test_public_documentation_boundaries.py
+
+
+    :return: None after code and canonical documentation agree on the boundary.
+    """
+    protocol_path = SOURCE_ROOT / "catalog" / "api" / "catalog.py"
+    protocol_tree = _parse(protocol_path)
+    protocol = next(
+        node
+        for node in protocol_tree.body
+        if isinstance(node, ast.ClassDef) and node.name == "CatalogAPI"
+    )
+    protocol_methods = {
+        node.name
+        for node in protocol.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+
+    assert set(CATALOG_PUBLIC_WRITER_METHODS) <= protocol_methods
+    assert set(CATALOG_PRIVATE_UPDATE_METHODS).isdisjoint(protocol_methods)
+    assert set(CATALOG_LEGACY_PUBLIC_UPDATE_METHODS).isdisjoint(protocol_methods)
+
+    production_paths = tuple((SOURCE_ROOT / "catalog").rglob("*.py")) + tuple(
+        (SOURCE_ROOT / "caches").rglob("*.py")
+    )
+    for path in production_paths:
+        source = path.read_text(encoding="utf-8")
+        for legacy_name in CATALOG_LEGACY_PUBLIC_UPDATE_METHODS:
+            assert legacy_name not in source, (path, legacy_name)
+
+    for path in CATALOG_BOUNDARY_DOCS:
+        document = path.read_text(encoding="utf-8")
+        assert "catalog.mutations.writer" in document, path
+        assert "create_writer" in document, path
+        assert "write_one" in document, path
+        assert "_apply_" in document, path
+        assert "deprecated for new code" in document, path
 
 
 def _modern_source_paths() -> tuple[Path, ...]:

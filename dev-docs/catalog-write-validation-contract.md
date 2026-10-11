@@ -34,6 +34,36 @@ Normalization is not by itself validation. A function that cleans an
 identifier scheme or canonicalizes a language value does not prove that the
 result is semantically acceptable for the requested mutation.
 
+## Supported public write boundary
+
+The Catalog semantic-validity guarantee applies to these supported routes:
+
+| Route | Status and intended use |
+|---|---|
+| `catalog.mutations.writer.*` | Preferred coordinated semantic mutations, including WEMI creation/linking, metadata attachment/replacement, and merges. |
+| Public repository methods | Entity CRUD and specialised repository mutations. Semantic repositories must use their write-preparation policy for generic `create` and `update`, so CRUD cannot be a validation bypass. |
+| `catalog.create_writer`, `catalog.write`, `catalog.write_one` | Supported advanced schema-driven writes. The selected writer performs every validator declared for that route before applying its prepared update. Prefer a semantic repository or mutation when one exists. |
+| Library, Core, and application methods | Supported higher-level workflows only when they delegate ordinary metadata writes to one of the Catalog routes above. Their validation can improve feedback but cannot be the sole guard. |
+
+`catalog.add`, `catalog.ensure`, `catalog.apply`, and `catalog.intralink` remain
+supported compatibility routes for Row-oriented callers. They are deprecated for new code
+and will be routed progressively through the canonical repository
+and mutation paths without removing existing functionality.
+
+The following are deliberately **outside** the public semantic boundary:
+
+- `catalog.db`, database drivers, database macros, and direct SQL;
+- the private writer-host methods `_apply_column_update`,
+  `_apply_link_update`, and `_apply_owned_row_update`;
+- cache internals and storage-cache plugins; and
+- private helpers in any layer.
+
+The private `_apply_*` methods accept already prepared update objects and exist
+only so Catalog writers and the reconciliation-aware cache facade can reach
+persistence. They are absent from `CatalogAPI`. Cache `create_writer`, `write`,
+and `write_one` are public conveniences which delegate to the same Catalog
+writers; cache reconciliation does not become a second semantic authority.
+
 ## Boundary rules
 
 1. Public Catalog mutation methods establish their own preconditions. They do
@@ -58,6 +88,8 @@ result is semantically acceptable for the requested mutation.
 7. Database constraint failures are translated at the repository boundary into
    stable Catalog-facing failures while retaining the original cause and useful
    constraint details.
+8. Prepared update objects are never a public proof of semantic validity. Only
+   configured Catalog writers call the private `_apply_*` host seam.
 
 ## Existing data and migrations
 
@@ -98,6 +130,8 @@ This decision describes the required contract, not the complete current state:
   metadata owner, but convergence remains an explicit compatibility migration.
 - Low-level database and macro APIs remain callable directly by compatibility
   code.
+- Row-oriented `add`/`ensure`/`apply`/`intralink` compatibility routes are not
+  yet uniformly delegated through canonical repositories and mutations.
 
 These gaps are migration work. They do not weaken the adopted contract or
 authorize removal of existing functionality while closing them.
@@ -118,6 +152,8 @@ authorize removal of existing functionality while closing them.
    explicitly quarantine any raw-write path that must remain.
 7. Add an audit mode for historical invalid values before making additional
    read-time validation strict.
+8. Keep an executable public-boundary check so prepared-update applicators
+   cannot drift back into `CatalogAPI`.
 
 Each slice follows the repository's architectural-migration rule: functionality
 and observable supported behavior are preserved unless a separate, explicit

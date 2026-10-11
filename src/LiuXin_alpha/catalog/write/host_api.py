@@ -1,5 +1,5 @@
 """
-Define host operations required to persist catalog writer updates.
+Define the private host operations required to persist catalog writer updates.
 
 The module keeps validation, normalization and host mutation boundaries explicit.
 
@@ -24,7 +24,12 @@ from LiuXin_alpha.databases.macro_types import LinkRow
 
 class CatalogWriterHostAPI(Protocol):
     """
-    Minimal Catalog surface required by schema-driven writers.
+    Internal Catalog surface required by schema-driven writers.
+
+    This protocol is an implementation seam between configured writers and their
+    host. Applications use repository or mutation APIs, or the public
+    ``Catalog.create_writer``, ``Catalog.write``, and ``Catalog.write_one`` entry
+    points; they do not submit prepared update objects directly.
 
     Example:
         Exercise CatalogWriterHostAPI through its owning regression module::
@@ -34,15 +39,15 @@ class CatalogWriterHostAPI(Protocol):
 
     db: DatabaseAPI
 
-    def write_link_update(
+    def _apply_link_update(
         self,
         update: LinkUpdate,
     ) -> Mapping[SrcTableID, tuple[LinkRow, ...]]:
         """
-        Apply write link update through the catalog writer host boundary.
+        Apply a prepared link update through the private writer-host boundary.
 
         Example:
-            Exercise CatalogWriterHostAPI.write link update through its owning regression module::
+            Exercise CatalogWriterHostAPI._apply_link_update through its owning regression module::
 
                 python -m pytest -q tests/catalog/test_writer_factory.py
 
@@ -52,15 +57,15 @@ class CatalogWriterHostAPI(Protocol):
         """
         ...
 
-    def write_column_update(
+    def _apply_column_update(
         self,
         update: CatalogColumnUpdate[object],
     ) -> Mapping[SrcTableID, object]:
         """
-        Apply write column update through the catalog writer host boundary.
+        Apply a prepared column update through the private writer-host boundary.
 
         Example:
-            Exercise CatalogWriterHostAPI.write column update through its owning regression module::
+            Exercise CatalogWriterHostAPI._apply_column_update through its owning regression module::
 
                 python -m pytest -q tests/catalog/test_writer_factory.py
 
@@ -70,15 +75,15 @@ class CatalogWriterHostAPI(Protocol):
         """
         ...
 
-    def write_owned_row_update(
+    def _apply_owned_row_update(
         self,
         update: CatalogOwnedRowUpdate[object],
     ) -> Mapping[SrcTableID, tuple[LinkRow, ...]]:
         """
-        Apply write owned row update through the catalog writer host boundary.
+        Apply a prepared owned-row update through the private writer-host boundary.
 
         Example:
-            Exercise CatalogWriterHostAPI.write owned row update through its owning regression module::
+            Exercise CatalogWriterHostAPI._apply_owned_row_update through its owning regression module::
 
                 python -m pytest -q tests/catalog/test_writer_factory.py
 

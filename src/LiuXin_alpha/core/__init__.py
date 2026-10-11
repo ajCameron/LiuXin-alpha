@@ -11,7 +11,9 @@ lifecycle, process services, and the command/query boundary exposed to surfaces.
 ``LibraryServices`` opens and closes each library's database, storage, cache,
 Catalog, and facade. Core delegates metadata validity to Catalog, pure value
 semantics to metadata, and physical-file policy to storage rather than absorbing
-those concerns because it composes them.
+those concerns because it composes them. Core may validate input early for useful
+feedback, but every ordinary metadata write delegates to the public Catalog
+boundary and Core validation is never the only semantic guard.
 
 See ``dev-docs/04 - Seperation of Concerns.md``.
 """

@@ -34991,7 +34991,7 @@
             "function:_link_spec#1",
             "class:_RecordingCatalog#1",
             "function:_RecordingCatalog.__init__#1",
-            "function:_RecordingCatalog.write_link_update#1",
+            "function:_RecordingCatalog._apply_link_update#1",
             "class:_ConfiguredLinkWriter#1",
             "function:_ConfiguredLinkWriter.__init__#1",
             "function:_ConfiguredLinkWriter.adapt#1",

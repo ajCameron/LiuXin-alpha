@@ -16,6 +16,7 @@ class CatalogMutationsAPI(Protocol):
     """
     Describe grouped policy and writer services exposed by Catalog.
 
+    ``writer`` is the preferred public boundary for coordinated semantic mutations.
     Policy reads do not reserve entities. Transaction support depends on the
     writer operation and supplied macro handle; attachment/merge permit a
     legacy fallback without a transaction.

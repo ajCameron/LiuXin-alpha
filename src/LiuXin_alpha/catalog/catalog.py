@@ -19,7 +19,6 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
-from LiuXin_alpha.catalog.api import CatalogAPI
 from LiuXin_alpha.catalog.api.common import DatabaseHandle
 from LiuXin_alpha.catalog.matching import (
     DEFAULT_MATCHING_POLICY,
@@ -27,6 +26,7 @@ from LiuXin_alpha.catalog.matching import (
     MatchingPolicy,
 )
 from LiuXin_alpha.catalog.metadata_tools import Add, Apply, Ensure, Intralinker
+from LiuXin_alpha.catalog.mutations import CatalogMutations
 from LiuXin_alpha.catalog.repositories import (
     AgentRepository,
     AnnotationRepository,
@@ -34,8 +34,8 @@ from LiuXin_alpha.catalog.repositories import (
     ExpressionRepository,
     GenreRepository,
     IdentifierRepository,
-    ItemRepository,
     ItemIdentifierRepository,
+    ItemRepository,
     LabelRepository,
     LanguageRepository,
     ManifestationRepository,
@@ -48,7 +48,6 @@ from LiuXin_alpha.catalog.repositories import (
     TitleRepository,
     WorkRepository,
 )
-from LiuXin_alpha.catalog.mutations import CatalogMutations
 from LiuXin_alpha.catalog.retrieval import CatalogRetrieval
 from LiuXin_alpha.catalog.write import (
     CatalogColumnUpdate,
@@ -57,6 +56,7 @@ from LiuXin_alpha.catalog.write import (
     SchemaCatalogWriter,
     create_catalog_writer,
 )
+from LiuXin_alpha.catalog.write.host_api import CatalogWriterHostAPI
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.db_types import SrcTableID
@@ -333,7 +333,7 @@ class Catalog:
         """
 
         return create_catalog_writer(
-            cast(CatalogAPI, self),
+            cast(CatalogWriterHostAPI, self),
             src_table,
             dst_column,
             force_refresh=force_refresh,
@@ -352,7 +352,8 @@ class Catalog:
         """
         Select a schema writer and forward its bulk update arguments.
 
-        Selection uses create_writer on each call. Positional and remaining keyword arguments pass
+        This is the public advanced, schema-driven write path. Selection uses create_writer on each
+        call. Positional and remaining keyword arguments pass
         unchanged to writer.write, so accepted replacement, incremental, rich-link, and type-scope
         forms depend on that writer. The facade adds no transaction, exception translation, or
         result conversion; execution and failure guarantees belong to the selected writer and
@@ -396,7 +397,8 @@ class Catalog:
         """
         Select a schema writer and apply one source/value instruction.
 
-        The facade forwards src_id, dst_value, and kwargs to writer.write_one on a newly selected
+        This is the public advanced, schema-driven single-value path. The facade forwards src_id,
+        dst_value, and kwargs to writer.write_one on a newly selected
         writer. Scalar, collection, rich-link, and clear values have the meanings accepted by that
         writer. The returned mapping is not unwrapped; writer-specific validation, atomicity, and
         failure behavior are preserved.
@@ -426,12 +428,12 @@ class Catalog:
         )
         return writer.write_one(src_id, dst_value, **kwargs)
 
-    def write_link_update(
+    def _apply_link_update(
         self,
         update: LinkUpdate,
     ) -> Mapping[SrcTableID, tuple[LinkRow, ...]]:
         """
-        Apply a normalized link instruction through the database macro surface.
+        Apply a normalized link instruction through the private writer-host seam.
 
         The concrete facade checks the update type, then calls update.write(db.macros).
         Replacement/incremental composition and type scope belong to LinkUpdate; its final
@@ -440,8 +442,8 @@ class Catalog:
         error translation is added.
 
         Example:
-            >>> result = catalog.write_link_update(link_update)  # doctest: +SKIP
-
+            A configured link writer calls this seam after building and validating
+            its ``LinkUpdate``; application code calls the writer instead.
 
         :param update: LinkUpdate containing replacement or incremental instructions for a directed link specification.
         :return: Complete resulting link rows keyed by affected source ID, or the update's empty mapping.
@@ -453,12 +455,12 @@ class Catalog:
             raise TypeError("update must be a LinkUpdate")
         return update.write(self.db.macros)
 
-    def write_column_update(
+    def _apply_column_update(
         self,
         update: CatalogColumnUpdate[object],
     ) -> Mapping[SrcTableID, object]:
         """
-        Apply a normalized same-table column instruction to the borrowed database.
+        Apply a normalized column instruction through the private writer-host seam.
 
         The concrete facade checks the update type and delegates to update.write(db). Nonempty
         instructions use the database bulk-column operation; empty values return without a database
@@ -466,8 +468,8 @@ class Catalog:
         after triggers or coercion.
 
         Example:
-            >>> result = catalog.write_column_update(column_update)  # doctest: +SKIP
-
+            A configured column writer calls this seam after building and validating
+            its ``CatalogColumnUpdate``; application code calls the writer instead.
 
         :param update: CatalogColumnUpdate containing table/column specifications and source-ID values.
         :return: The update's stable value mapping, returned after successful application or immediately when empty.
@@ -479,12 +481,12 @@ class Catalog:
             raise TypeError("update must be a CatalogColumnUpdate")
         return update.write(self.db)
 
-    def write_owned_row_update(
+    def _apply_owned_row_update(
         self,
         update: CatalogOwnedRowUpdate[object],
     ) -> Mapping[SrcTableID, tuple[LinkRow, ...]]:
         """
-        Apply normalized values for a destination owned through a one-to-one link.
+        Apply normalized owned values through the private writer-host seam.
 
         The concrete facade checks the update type and calls update.write(db.macros). Non-null
         values replace existing destination values or create and link a row; None removes the link
@@ -493,8 +495,8 @@ class Catalog:
         resolves the macros attribute.
 
         Example:
-            >>> result = catalog.write_owned_row_update(owned_update)  # doctest: +SKIP
-
+            A configured owned-row writer calls this seam after building and validating
+            its ``CatalogOwnedRowUpdate``; application code calls the writer instead.
 
         :param update: CatalogOwnedRowUpdate with a one-to-one link, destination column, and replacement values.
         :return: Complete resulting link rows keyed by affected source ID, or an empty mapping for no values.

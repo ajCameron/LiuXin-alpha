@@ -25,6 +25,7 @@ from LiuXin_alpha.databases.schema_specs import (
     StorageTableSpec,
 )
 
+
 class CatalogOwnedRowOneToOneWriter[RawValueT, ValueT](
     CatalogValueWriter[
         RawValueT,
@@ -67,8 +68,8 @@ class CatalogOwnedRowOneToOneWriter[RawValueT, ValueT](
         :return: None; the function records state or raises through its assertions.
         """
 
-        if not callable(getattr(catalog, "write_owned_row_update", None)):
-            raise TypeError("catalog must provide write_owned_row_update")
+        if not callable(getattr(catalog, "_apply_owned_row_update", None)):
+            raise TypeError("catalog must provide _apply_owned_row_update")
         CatalogOwnedRowUpdate(
             link_spec,
             destination_table,
@@ -229,7 +230,7 @@ class CatalogOwnedRowOneToOneWriter[RawValueT, ValueT](
             or update.destination_column != self.destination_column
         ):
             raise ValueError("update target does not match writer target")
-        return self.catalog.write_owned_row_update(update)
+        return self.catalog._apply_owned_row_update(update)
 
 
 __all__ = ["CatalogOwnedRowOneToOneWriter"]

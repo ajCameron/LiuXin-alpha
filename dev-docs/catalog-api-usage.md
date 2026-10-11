@@ -31,9 +31,21 @@ The layers cooperate:
 - database constraints retain structural, referential, uniqueness, and
   concurrency-safe enforcement.
 
-Direct database-driver and raw-macro calls are outside this guarantee. The
-boundary is adopted but still being enforced repository by repository; curated
-identifier generic CRUD is the first completed slice. See the dated
+The supported boundary consists of `catalog.mutations.writer.*`, public
+repository CRUD and specialised mutations, and the advanced schema-driven
+`catalog.create_writer`/`write`/`write_one` trio. Higher-level Library, Core,
+and application operations remain inside the contract only by delegating to
+those routes; their own checks are never the sole guard.
+
+`catalog.add`, `ensure`, `apply`, and `intralink` remain supported Row-oriented
+compatibility routes, but are deprecated for new code and are being moved
+progressively behind canonical mutations. Direct use of `catalog.db`, database
+drivers, raw macros, direct SQL, private helpers, or the private writer-host
+`_apply_*` methods is outside this guarantee. Cache writer methods delegate to
+Catalog and do not define another semantic boundary.
+
+The boundary is adopted but still being enforced repository by repository;
+curated identifier generic CRUD is the first completed slice. See the dated
 [write-validation contract](catalog-write-validation-contract.md) for current
 gaps and migration order.
 
@@ -531,7 +543,8 @@ The convenience operation names are:
 ## Generic schema-backed writes
 
 `create_writer`, `write`, and `write_one` are useful when code deliberately
-targets the schema-defined storage shape:
+targets the schema-defined storage shape. They are supported public Catalog
+entry points, not permission to call the prepared-update seam directly:
 
 ```python
 catalog.write_one(
@@ -544,6 +557,11 @@ catalog.write_one(
 
 Prefer repository or mutation methods when a semantic operation exists. They
 make identity, ownership, relationship, and transaction rules clearer.
+
+The writer selected by these methods performs its declared adaptation and
+validation before using Catalog's private `_apply_*` host methods. Those
+underscored methods and prepared update objects are implementation details and
+are intentionally absent from `CatalogAPI`.
 
 ## Field metadata containers
 
@@ -587,5 +605,6 @@ catalog.apply.creator(
 )
 ```
 
-Use this surface when integrating an existing Row-oriented workflow. New
+Use this surface when integrating an existing Row-oriented workflow. It remains
+supported while it is migrated, but is deprecated for new code. New
 ID/mapping-oriented code should start with repositories.

@@ -298,6 +298,10 @@ Each step should leave the full test suite green.
 - **2026-10-11:** Adopted the Catalog write-validation boundary:
   - metadata owns persistence-free value rules;
   - every public Catalog mutation establishes semantic validity;
+  - the public boundary is repository and mutation APIs plus the advanced
+    schema-writer trio, while prepared-update applicators are private;
+  - Row-oriented metadata tools remain supported compatibility but are
+    deprecated for new code;
   - databases retain structural and concurrency-safe constraints; and
   - historical reads remain tolerant while audits/migrations remediate data.
 

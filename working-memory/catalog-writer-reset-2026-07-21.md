@@ -22,7 +22,7 @@ The replacement architecture is recorded in
   instructions.
 - `LinkUpdateLink` provides immutable per-link inspection and lazy destination
   display-value loading.
-- `Catalog.write_link_update(...)` applies a normalized update through the
+- `Catalog._apply_link_update(...)` applies a normalized update through the
   catalog database's portable macros.
 - Portable macros own atomic persistence and backend-specific execution.
 
@@ -52,7 +52,7 @@ catalog mutation:
 
 ```text
 adapt/validate -> resolve destination IDs -> LinkUpdate
-    -> Catalog.write_link_update -> LinkRow results
+    -> Catalog._apply_link_update -> LinkRow results
 ```
 
 It must not own SQL, locking, transactions, cache mutation, schema discovery,
@@ -75,7 +75,7 @@ write.
 `CatalogColumnWriter` is the concrete same-table leaf.
 `CatalogOwnedRowOneToOneWriter` is the concrete separate-table leaf for an
 owned one-to-one destination. Its `CatalogOwnedRowUpdate` is applied through
-`Catalog.write_owned_row_update(...)` and one portable transaction: update the
+`Catalog._apply_owned_row_update(...)` and one portable transaction: update the
 linked row in place, create-and-link when missing, or unlink on `None` without
 implicit destination-row deletion.
 
@@ -92,7 +92,8 @@ depending on iteration order.
 The concrete `Catalog` facade and `CatalogAPI` protocol expose the factory as
 `create_writer`, with `write` and `write_one` conveniences which forward to the
 selected writer. Normalized update application remains on the existing
-`write_column_update`, `write_link_update`, and `write_owned_row_update` seam.
+private `_apply_column_update`, `_apply_link_update`, and
+`_apply_owned_row_update` seam.
 
 The abstract link writer's `build_update(...)` constructs an inspectable
 `LinkUpdate.from_legacy(...)` without writing. The shared-value leaf tightens

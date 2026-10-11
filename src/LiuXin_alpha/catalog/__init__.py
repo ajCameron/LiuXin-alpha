@@ -41,8 +41,13 @@ For an explained decision without creating an entity, use the corresponding
 catalog.matching service. MatchResult distinguishes match, no_match, ambiguous,
 and conflict; a missing selected ID alone is not permission to create. Repository
 match_or_create methods apply that distinction and raise on unresolved outcomes.
-The generic create_writer/write/write_one methods expose schema-driven field
-updates, while add/ensure/apply/intralink retain legacy database Row workflows.
+The public write boundary comprises repository CRUD and specialised mutations,
+``mutations.writer`` operations, and the advanced schema-driven
+``create_writer``/``write``/``write_one`` trio. ``add``/``ensure``/``apply``/
+``intralink`` remain supported compatibility routes but are deprecated for new
+code. Prepared-update applicators are private writer-host seams. ``catalog.db``,
+database drivers, and raw macros are low-level escape hatches outside the
+semantic-validity guarantee.
 
 See dev-docs/04 - Seperation of Concerns.md,
 dev-docs/catalog-api-usage.md, dev-docs/catalog-write-validation-contract.md,

@@ -440,7 +440,7 @@ class _Catalog:
         self.link_updates: list[LinkUpdate] = []
         self.owned_updates: list[CatalogOwnedRowUpdate[Any]] = []
 
-    def write_column_update(
+    def _apply_column_update(
         self,
         update: CatalogColumnUpdate[Any],
     ) -> Mapping[int, Any]:
@@ -459,7 +459,7 @@ class _Catalog:
         self.column_updates.append(update)
         return update.write(self.db)  # type: ignore[arg-type]
 
-    def write_link_update(
+    def _apply_link_update(
         self,
         update: LinkUpdate,
     ) -> Mapping[int, tuple[LinkRow, ...]]:
@@ -484,7 +484,7 @@ class _Catalog:
             for source_id, links in update.replacements.items()
         }
 
-    def write_owned_row_update(
+    def _apply_owned_row_update(
         self,
         update: CatalogOwnedRowUpdate[Any],
     ) -> Mapping[int, tuple[LinkRow, ...]]:

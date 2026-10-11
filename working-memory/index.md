@@ -728,7 +728,7 @@ Start here for active handoff notes. This index should stay short.
   matching, immutable relation-to-relation normalization, incremental
   composition, atomic portable bulk replacement, streaming per-link views,
   read-only mapping access to link extras, lazy destination values, a typed
-  `Catalog.write_link_update(...)` facade, and complete focused coverage.
+  `Catalog._apply_link_update(...)` private writer-host seam, and complete focused coverage.
 
 - [postgresql-deployment-checkpoint-2026-07-18.md](postgresql-deployment-checkpoint-2026-07-18.md)
   Pre-direction-change checkpoint covering database/storage stabilization,

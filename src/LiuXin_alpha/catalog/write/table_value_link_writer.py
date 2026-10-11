@@ -31,6 +31,7 @@ from LiuXin_alpha.databases.schema_specs import (
     StorageTableSpec,
 )
 
+
 @dataclass(frozen=True, slots=True)
 class _TableValueReference:
     """
@@ -382,7 +383,7 @@ class CatalogTableValueLinkWriter(CatalogLinkWriter[Any, Any]):
             resolved = self._resolve_update(update)
             replacement = resolved.as_replacement_update(macros)
             self._validate_cardinality(replacement)
-            return self.catalog.write_link_update(replacement)
+            return self.catalog._apply_link_update(replacement)
 
 
 __all__ = ["CatalogTableValueLinkWriter"]

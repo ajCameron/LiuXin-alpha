@@ -10,7 +10,6 @@ facade updates generations and reconciles affected storage dependencies.
 from __future__ import annotations
 
 import threading
-
 from collections.abc import Iterable, Mapping
 from types import MappingProxyType
 from typing import Any, Optional, cast
@@ -26,8 +25,8 @@ from LiuXin_alpha.caches.api.cache_api import (
     CacheNotReadyError,
     CacheQuery,
     CacheQueryResult,
-    CacheRecord,
     CacheReconciliationError,
+    CacheRecord,
     CacheState,
 )
 from LiuXin_alpha.caches.api.storage_cache_api.storage_cache_api import (
@@ -41,8 +40,8 @@ class _CacheCatalogFacade:
     """
     Intercept normalized Catalog writes to reconcile their owning cache.
 
-    Store one Catalog instance and its database identity. The three explicit
-    write-update methods pass through the owner lock and reconciliation; other
+    Store one Catalog instance and its database identity. The three private
+    prepared-update methods pass through the owner lock and reconciliation; other
     attributes are delegated directly to Catalog and are not automatically
     intercepted. Attachment is checked again each time a normalized write runs.
 
@@ -127,7 +126,7 @@ class _CacheCatalogFacade:
         successful receipt in CacheReconciliationError.
 
         Example:
-            A write_column_update call refreshes earlier external invalidations before
+            An _apply_column_update call refreshes earlier external invalidations before
             applying the new column update when no macro transaction is open.
 
 
@@ -150,7 +149,7 @@ class _CacheCatalogFacade:
             self._owner._reconcile_catalog_update(update, result)
             return result
 
-    def write_column_update(self, update: Any) -> Mapping[Any, Any]:
+    def _apply_column_update(self, update: Any) -> Mapping[Any, Any]:
         """
         Apply a CatalogColumnUpdate for a same-table value through the cache boundary.
 
@@ -158,16 +157,16 @@ class _CacheCatalogFacade:
         Validation/persistence failures and receipt-bearing refresh failures propagate.
 
         Example:
-            Writers call ``boundary.write_column_update(update)`` after normalizing caller input.
+            Writers call this private host seam after normalizing caller input.
 
 
         :param update: Normalized update consumed by Catalog.
         :return: Authoritative Catalog receipt after reconciliation or deferred refresh.
         """
 
-        return self._apply("write_column_update", update)
+        return self._apply("_apply_column_update", update)
 
-    def write_link_update(self, update: Any) -> Mapping[Any, Any]:
+    def _apply_link_update(self, update: Any) -> Mapping[Any, Any]:
         """
         Apply a LinkUpdate for a shared relationship through the cache boundary.
 
@@ -175,16 +174,16 @@ class _CacheCatalogFacade:
         Validation/persistence failures and receipt-bearing refresh failures propagate.
 
         Example:
-            Writers call ``boundary.write_link_update(update)`` after normalizing caller input.
+            Writers call this private host seam after normalizing caller input.
 
 
         :param update: Normalized update consumed by Catalog.
         :return: Authoritative Catalog receipt after reconciliation or deferred refresh.
         """
 
-        return self._apply("write_link_update", update)
+        return self._apply("_apply_link_update", update)
 
-    def write_owned_row_update(self, update: Any) -> Mapping[Any, Any]:
+    def _apply_owned_row_update(self, update: Any) -> Mapping[Any, Any]:
         """
         Apply a CatalogOwnedRowUpdate for an owned destination through the cache boundary.
 
@@ -192,14 +191,14 @@ class _CacheCatalogFacade:
         Validation/persistence failures and receipt-bearing refresh failures propagate.
 
         Example:
-            Writers call ``boundary.write_owned_row_update(update)`` after normalizing caller input.
+            Writers call this private host seam after normalizing caller input.
 
 
         :param update: Normalized update consumed by Catalog.
         :return: Authoritative Catalog receipt after reconciliation or deferred refresh.
         """
 
-        return self._apply("write_owned_row_update", update)
+        return self._apply("_apply_owned_row_update", update)
 
 
 class Cache(CacheAPI):
@@ -1089,13 +1088,13 @@ class Cache(CacheAPI):
         """
 
         from LiuXin_alpha.catalog.write import create_catalog_writer
-        from LiuXin_alpha.catalog.api import CatalogAPI
+        from LiuXin_alpha.catalog.write.host_api import CatalogWriterHostAPI
 
         with self._lock:
             self._assert_ready()
             facade = _CacheCatalogFacade(self)
             return create_catalog_writer(
-                cast(CatalogAPI, cast(object, facade)),
+                cast(CatalogWriterHostAPI, cast(object, facade)),
                 src_table,
                 dst_column,
                 force_refresh=force_refresh,

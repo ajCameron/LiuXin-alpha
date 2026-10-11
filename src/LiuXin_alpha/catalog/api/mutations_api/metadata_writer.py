@@ -15,7 +15,8 @@ class MetadataWriterAPI(Protocol):
     """
     Coordinate WEMI creation, links and selected metadata attachment/merge operations.
 
-    Explicit graph/replacement methods require macro transactions. Attachment
+    These public methods form the preferred boundary for coordinated semantic writes; callers
+    should not reproduce them with raw database operations. Explicit graph/replacement methods require macro transactions. Attachment
     and merge methods also support legacy handles without a callable transaction,
     where atomicity is not guaranteed. Policy checks are preliminary rather than
     a complete validation of all repository payloads.

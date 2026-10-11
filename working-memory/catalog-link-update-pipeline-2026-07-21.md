@@ -87,7 +87,7 @@ never inserts a row; deleting an unknown value is therefore a no-op.
 
 ### Catalog write entry point
 
-`Catalog.write_link_update(update)` is the public facade method for applying a
+`Catalog._apply_link_update(update)` is the private writer-host method for applying a
 normalized `LinkUpdate`. `CatalogAPI` declares the same method, and the minimal
 catalog `DatabaseHandle` now declares its portable `macros` property.
 
@@ -179,7 +179,7 @@ test modules also passed, as did targeted `git diff --check`.
 This includes a real database round trip which accepts a mixed legacy map,
 matches/creates string values with `ensure_table_value`, normalizes them to
 ids, then applies replacement and incremental deletion/addition data through
-`Catalog.write_link_update(...)`.
+`Catalog._apply_link_update(...)`.
 
 ## Follow-up boundary
 
@@ -207,8 +207,8 @@ already-resolved IDs are explicit `LinkValue` instances.
 `Catalog` and `CatalogAPI` expose that factory as `create_writer`, plus
 construction-and-apply conveniences `write` and `write_one`. Arguments and
 result mappings pass through to the selected concrete writer unchanged. The
-existing normalized `write_column_update`, `write_link_update`, and
-`write_owned_row_update` methods remain the writer-to-persistence seam.
+existing normalized `_apply_column_update`, `_apply_link_update`, and
+`_apply_owned_row_update` methods remain the private writer-to-persistence seam.
 
 The factory now selects `CatalogOwnedRowOneToOneWriter` for exact one-to-one
 routes. That path deliberately does not construct a `LinkUpdate`: its atomic

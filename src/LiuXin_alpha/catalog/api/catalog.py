@@ -44,16 +44,9 @@ if TYPE_CHECKING:
         WorkRepositoryAPI,
     )
     from LiuXin_alpha.catalog.api.retrieval import CatalogRetrievalAPI
-    from LiuXin_alpha.catalog.write import (
-        CatalogColumnUpdate,
-        CatalogOwnedRowUpdate,
-        LinkUpdate,
-        SchemaCatalogWriter,
-    )
-
+    from LiuXin_alpha.catalog.write import SchemaCatalogWriter
     from LiuXin_alpha.databases.api.database_api import DatabaseAPI
     from LiuXin_alpha.databases.db_types import SrcTableID
-    from LiuXin_alpha.databases.macro_types import LinkRow
 
 
 @runtime_checkable
@@ -86,13 +79,16 @@ class CatalogAddinsAPI(CatalogMetadataToolsAPI, Protocol):
 @runtime_checkable
 class CatalogAPI(CatalogAddinsAPI, Protocol):
     """
-    Describe the metadata-aware facade and its schema-driven writer entry points.
+    Describe the supported metadata-aware facade and its public write boundary.
 
     Annotate callers with this protocol and construct the concrete Catalog with an existing
     database. Grouped repositories and their convenience attributes provide entity-specific
-    operations; generic write methods route through schema-selected writers. The concrete facade
-    borrows the database and has no close or context-manager lifecycle. Runtime isinstance checks
-    inspect structural presence only and cannot prove operational compatibility.
+    operations; ``create_writer``, ``write``, and ``write_one`` route advanced writes through
+    schema-selected writers. Repository and mutation methods own semantic validation. Prepared
+    update applicators are deliberately absent: they are private writer-host seams, not supported
+    application APIs. The concrete facade borrows the database and has no close or context-manager
+    lifecycle. Runtime isinstance checks inspect structural presence only and cannot prove
+    operational compatibility.
 
     Example:
         >>> from LiuXin_alpha.catalog import Catalog
@@ -189,7 +185,8 @@ class CatalogAPI(CatalogAddinsAPI, Protocol):
         """
         Select a schema writer and forward its bulk update arguments.
 
-        Selection uses create_writer on each call. Positional and remaining keyword arguments pass
+        This is the public advanced, schema-driven write path. Selection uses create_writer on each
+        call. Positional and remaining keyword arguments pass
         unchanged to writer.write, so accepted replacement, incremental, rich-link, and type-scope
         forms depend on that writer. The facade adds no transaction, exception translation, or
         result conversion; execution and failure guarantees belong to the selected writer and
@@ -228,7 +225,8 @@ class CatalogAPI(CatalogAddinsAPI, Protocol):
         """
         Select a schema writer and apply one source/value instruction.
 
-        The facade forwards src_id, dst_value, and kwargs to writer.write_one on a newly selected
+        This is the public advanced, schema-driven single-value path. The facade forwards src_id,
+        dst_value, and kwargs to writer.write_one on a newly selected
         writer. Scalar, collection, rich-link, and clear values have the meanings accepted by that
         writer. The returned mapping is not unwrapped; writer-specific validation, atomicity, and
         failure behavior are preserved.
@@ -248,80 +246,6 @@ class CatalogAPI(CatalogAddinsAPI, Protocol):
         :param kwargs: Additional writer options, such as link_type, forwarded unchanged.
         :return: The concrete writer's source-ID mapping, without extracting a single value.
         :raises Exception: Writer-selection, validation, and database failures propagate from the delegated operations.
-        """
-
-        ...
-
-    def write_link_update(
-        self,
-        update: "LinkUpdate",
-    ) -> "Mapping[SrcTableID, tuple[LinkRow, ...]]":
-        """
-        Apply a normalized link instruction through the database macro surface.
-
-        The concrete facade checks the update type, then calls update.write(db.macros).
-        Replacement/incremental composition and type scope belong to LinkUpdate; its final
-        replacement delegates atomic execution to the portable macro. Empty updates retain their
-        no-write behavior, though the facade still accesses db.macros. No surrounding transaction or
-        error translation is added.
-
-        Example:
-            >>> result = catalog.write_link_update(link_update)  # doctest: +SKIP
-
-
-        :param update: LinkUpdate containing replacement or incremental instructions for a directed link specification.
-        :return: Complete resulting link rows keyed by affected source ID, or the update's empty mapping.
-        :raises TypeError: If update is not a LinkUpdate in the concrete facade.
-        :raises Exception: Macro access, update composition, and database failures propagate unchanged.
-        """
-
-        ...
-
-    def write_column_update(
-        self,
-        update: "CatalogColumnUpdate[object]",
-    ) -> "Mapping[SrcTableID, object]":
-        """
-        Apply a normalized same-table column instruction to the borrowed database.
-
-        The concrete facade checks the update type and delegates to update.write(db). Nonempty
-        instructions use the database bulk-column operation; empty values return without a database
-        write. The result is the update's stored value mapping, not a fresh read of database values
-        after triggers or coercion.
-
-        Example:
-            >>> result = catalog.write_column_update(column_update)  # doctest: +SKIP
-
-
-        :param update: CatalogColumnUpdate containing table/column specifications and source-ID values.
-        :return: The update's stable value mapping, returned after successful application or immediately when empty.
-        :raises TypeError: If update is not a CatalogColumnUpdate in the concrete facade.
-        :raises Exception: Database write failures propagate without an extra facade transaction.
-        """
-
-        ...
-
-    def write_owned_row_update(
-        self,
-        update: "CatalogOwnedRowUpdate[object]",
-    ) -> "Mapping[SrcTableID, tuple[LinkRow, ...]]":
-        """
-        Apply normalized values for a destination owned through a one-to-one link.
-
-        The concrete facade checks the update type and calls update.write(db.macros). Non-null
-        values replace existing destination values or create and link a row; None removes the link
-        while leaving the destination row for explicit cleanup. The update delegates atomic
-        execution to the portable macro. Empty values perform no write, although the facade still
-        resolves the macros attribute.
-
-        Example:
-            >>> result = catalog.write_owned_row_update(owned_update)  # doctest: +SKIP
-
-
-        :param update: CatalogOwnedRowUpdate with a one-to-one link, destination column, and replacement values.
-        :return: Complete resulting link rows keyed by affected source ID, or an empty mapping for no values.
-        :raises TypeError: If update is not a CatalogOwnedRowUpdate in the concrete facade.
-        :raises Exception: Macro access and database failures propagate without additional facade handling.
         """
 
         ...

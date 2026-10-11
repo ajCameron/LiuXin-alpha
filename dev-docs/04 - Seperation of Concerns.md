@@ -90,6 +90,15 @@ Direct driver and raw-macro calls are outside the Catalog semantic-validity
 guarantee and should be limited to schema, migration, repair, and explicitly
 low-level code.
 
+The supported public write boundary is `catalog.mutations.writer.*`, public
+repository CRUD and specialised mutations, plus the advanced schema-driven
+`catalog.create_writer`/`write`/`write_one` trio. Library, Core, and application
+operations delegate to those routes and cannot be the only validation point.
+The Row-oriented `add`/`ensure`/`apply`/`intralink` surface remains supported
+compatibility, is deprecated for new code, and is being routed progressively
+through canonical mutations. `catalog.db`, direct persistence, and the private
+writer-host `_apply_*` methods are outside the public semantic boundary.
+
 New writes are strict. Reads remain sufficiently tolerant to inspect historical
 data, and audits or migrations handle remediation explicitly rather than making
 old libraries unreadable or silently rewriting them.

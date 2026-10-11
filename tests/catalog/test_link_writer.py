@@ -94,7 +94,7 @@ class _RecordingCatalog:
         self.failure = failure
         self.updates: list[LinkUpdate] = []
 
-    def write_link_update(
+    def _apply_link_update(
         self,
         update: LinkUpdate,
     ) -> Mapping[int, tuple[LinkRow, ...]]:
@@ -890,7 +890,7 @@ def test_link_writer_rejects_invalid_catalog_and_link_spec() -> None:
 
     :return: None; the function records state or raises through its assertions.
     """
-    with pytest.raises(TypeError, match="catalog must provide write_link_update"):
+    with pytest.raises(TypeError, match="catalog must provide _apply_link_update"):
         _identity_writer(object())
 
     with pytest.raises(TypeError, match="link_spec must be a StorageLinkSpec"):

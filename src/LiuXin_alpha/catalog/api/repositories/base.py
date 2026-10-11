@@ -29,8 +29,11 @@ class BaseRepositoryAPI(Protocol):
     rather than enforced immutable objects. Use get for optional absence and require for an explicit
     error.
 
-    Creation excludes caller-assigned IDs. Read-before-write methods and higher-level match/create
-    workflows do not gain an enclosing transaction from this protocol.
+    Public ``create``, ``update``, and ``delete`` methods are part of the supported Catalog write
+    boundary. Concrete semantic repositories must establish their own write preconditions rather
+    than treating a surface or caller as proof of validation. Creation excludes caller-assigned
+    IDs. Read-before-write methods and higher-level match/create workflows do not gain an enclosing
+    transaction from this protocol.
 
     Example:
         >>> repository: BaseRepositoryAPI = catalog.works  # doctest: +SKIP

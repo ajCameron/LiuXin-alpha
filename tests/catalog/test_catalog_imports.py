@@ -9,17 +9,6 @@ covered by adjacent Catalog integration suites.
 """
 
 from LiuXin_alpha.catalog import Catalog
-from LiuXin_alpha.catalog.write import (
-    BaseCatalogWriter,
-    CatalogColumnWriter,
-    CatalogLinkWriter,
-    CatalogOwnedRowOneToOneWriter,
-    CatalogOwnedRowUpdate,
-    CatalogTableValueLinkWriter,
-    CatalogValueWriter,
-    create_catalog_writer,
-)
-from LiuXin_alpha.catalog.field_metadata import CalibreFieldMetadata, FieldMetadata
 from LiuXin_alpha.catalog.api import (
     AddAPI,
     ApplyAPI,
@@ -34,6 +23,17 @@ from LiuXin_alpha.catalog.api import (
     IdentifierCandidate,
     IntralinkerAPI,
     MetadataCandidate,
+)
+from LiuXin_alpha.catalog.field_metadata import CalibreFieldMetadata, FieldMetadata
+from LiuXin_alpha.catalog.write import (
+    BaseCatalogWriter,
+    CatalogColumnWriter,
+    CatalogLinkWriter,
+    CatalogOwnedRowOneToOneWriter,
+    CatalogOwnedRowUpdate,
+    CatalogTableValueLinkWriter,
+    CatalogValueWriter,
+    create_catalog_writer,
 )
 
 
@@ -138,9 +138,37 @@ def test_catalog_matches_protocol_shape() -> None:
     assert callable(catalog.create_writer)
     assert callable(catalog.write)
     assert callable(catalog.write_one)
-    assert callable(catalog.write_column_update)
-    assert callable(catalog.write_link_update)
-    assert callable(catalog.write_owned_row_update)
+    assert callable(catalog._apply_column_update)
+    assert callable(catalog._apply_link_update)
+    assert callable(catalog._apply_owned_row_update)
+    assert not hasattr(CatalogAPI, "write_column_update")
+    assert not hasattr(CatalogAPI, "write_link_update")
+    assert not hasattr(CatalogAPI, "write_owned_row_update")
+
+
+def test_prepared_update_applicators_are_private_writer_host_seams() -> None:
+    """
+    Keep prepared update application out of the supported public protocol.
+
+    The public protocol advertises only schema-writer selection and execution.
+    Concrete Catalog retains the underscored host methods required by those writers.
+
+    Example:
+        >>> test_prepared_update_applicators_are_private_writer_host_seams()
+
+
+    :return: None after the public/private boundary assertions pass.
+    """
+    public_writer_methods = {"create_writer", "write", "write_one"}
+    private_host_methods = {
+        "_apply_column_update",
+        "_apply_link_update",
+        "_apply_owned_row_update",
+    }
+
+    assert public_writer_methods <= set(CatalogAPI.__dict__)
+    assert private_host_methods.isdisjoint(CatalogAPI.__dict__)
+    assert all(callable(getattr(Catalog, name)) for name in private_host_methods)
 
 
 def test_metadata_tools_api_contracts_import() -> None:

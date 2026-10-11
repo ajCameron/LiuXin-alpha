@@ -84,8 +84,8 @@ class CatalogLinkWriter[RawValueT, ValueT](
 
         if not isinstance(link_spec, StorageLinkSpec):
             raise TypeError("link_spec must be a StorageLinkSpec")
-        if not callable(getattr(catalog, "write_link_update", None)):
-            raise TypeError("catalog must provide write_link_update")
+        if not callable(getattr(catalog, "_apply_link_update", None)):
+            raise TypeError("catalog must provide _apply_link_update")
 
         super().__init__(catalog)
         self._link_spec = link_spec
@@ -529,7 +529,7 @@ class CatalogLinkWriter[RawValueT, ValueT](
         if update.link_spec != self.link_spec:
             raise ValueError("update link_spec does not match writer link_spec")
         self._validate_cardinality(update)
-        return self.catalog.write_link_update(update)
+        return self.catalog._apply_link_update(update)
 
 
 __all__ = [

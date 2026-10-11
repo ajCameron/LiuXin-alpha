@@ -32,6 +32,11 @@ It's intended to store and retrieve metadata from the database - in various form
 
 Every public Catalog mutation establishes semantic validity before persistence;
 it does not assume that a surface or earlier workflow already validated input.
+The supported boundary is repository CRUD and specialised mutations,
+`catalog.mutations.writer.*`, and the advanced
+`create_writer`/`write`/`write_one` trio. Row-oriented metadata tools remain
+supported compatibility but are deprecated for new code. Direct persistence
+and private `_apply_*` writer-host methods are outside the public boundary.
 
 # Core
 
