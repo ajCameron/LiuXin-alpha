@@ -41,7 +41,7 @@ from LiuXin_alpha.metadata.ebook_metadata_tools import (
     authors_to_string,
     string_to_authors,
 )
-from LiuXin_alpha.metadata.utils import (
+from LiuXin_alpha.file_formats.opf.utils import (
     parse_opf,
     pretty_print_opf,
     ensure_unique,

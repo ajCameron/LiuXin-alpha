@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 from tests.support.file_format_zip import write_zip_archive
 
 

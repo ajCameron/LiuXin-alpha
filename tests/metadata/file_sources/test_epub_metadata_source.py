@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 from tests.support.file_format_epub import EPUB_AUTHORS, EPUB_TITLE, build_unicode_epub
 from tests.support.file_format_unicode import assert_no_replacement_chars
 

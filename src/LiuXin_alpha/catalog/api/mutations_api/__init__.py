@@ -7,6 +7,15 @@ from __future__ import annotations
 from typing import Protocol, runtime_checkable
 
 from ..common import CreatedWemiStack
+from .metadata_write import (
+    MetadataWriteRecord,
+    MetadataWriteReportAPI,
+    MetadataWriteReportMapping,
+    MetadataWriteScalar,
+    MetadataWriteTargetRow,
+    MetadataWriteTargetRowAPI,
+    MetadataWriteValue,
+)
 from .metadata_writer import MetadataWriterAPI
 from .mutation_policy import MutationPolicyAPI
 
@@ -34,5 +43,12 @@ __all__ = [
     "CatalogMutationsAPI",
     "CreatedWemiStack",
     "MetadataWriterAPI",
+    "MetadataWriteRecord",
+    "MetadataWriteReportAPI",
+    "MetadataWriteReportMapping",
+    "MetadataWriteScalar",
+    "MetadataWriteTargetRow",
+    "MetadataWriteTargetRowAPI",
+    "MetadataWriteValue",
     "MutationPolicyAPI",
 ]

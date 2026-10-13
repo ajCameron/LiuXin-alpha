@@ -16,8 +16,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import ClassVar, Protocol, Self, TypeAlias, runtime_checkable
 
-from LiuXin_alpha.databases.db_types import IdentifierEntityType, IdentifierScheme
-
+from LiuXin_alpha.metadata.identifiers import IdentifierEntityType, IdentifierScheme
 
 MetadataRowValue: TypeAlias = str | int | float | bool | None
 MetadataRowMapping: TypeAlias = Mapping[str, MetadataRowValue]

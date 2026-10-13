@@ -13,24 +13,10 @@ from __future__ import annotations
 
 import pytest
 
-from LiuXin_alpha.databases.db_types import IdentifierScheme
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.metadata.api.containers_api import (
     ExpressionRelationLink,
     ManifestationRelationLink,
-)
-from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers import (
-    agent_credit_containers as agent_credit_module,
-    dates_containers as date_module,
-    identifier_containers as identifier_module,
-    labels_containers as label_module,
-    languages_containers as language_module,
-    notes_containers as note_module,
-    ratings_containers as rating_module,
-    resources_containers as resource_module,
-    series_containers as series_module,
-    subjects_containers as subject_module,
-    titles_containers as title_module,
 )
 from LiuXin_alpha.metadata.constants.container_vocabularies import (
     DateKind,
@@ -89,6 +75,40 @@ from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers import
     WorkTitle,
     WorkTitlesContainer,
 )
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers import (
+    agent_credit_containers as agent_credit_module,
+)
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers import (
+    dates_containers as date_module,
+)
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers import (
+    identifier_containers as identifier_module,
+)
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers import (
+    labels_containers as label_module,
+)
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers import (
+    languages_containers as language_module,
+)
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers import (
+    notes_containers as note_module,
+)
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers import (
+    ratings_containers as rating_module,
+)
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers import (
+    resources_containers as resource_module,
+)
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers import (
+    series_containers as series_module,
+)
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers import (
+    subjects_containers as subject_module,
+)
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers import (
+    titles_containers as title_module,
+)
+from LiuXin_alpha.metadata.identifiers import IdentifierScheme
 from LiuXin_alpha.metadata.metadata_types import (
     ExpressionAgentRole,
     ItemAgentRole,

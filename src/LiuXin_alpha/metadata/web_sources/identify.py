@@ -22,7 +22,8 @@ from queue import Empty, Queue
 from threading import Thread
 from urllib.parse import quote, urlparse
 
-from LiuXin_alpha.metadata.utils import check_issn, calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
+from LiuXin_alpha.metadata.utils import check_issn
 from LiuXin_alpha.metadata.web_sources.base import create_log
 from LiuXin_alpha.utils.date import UNDEFINED_DATE, as_utc, utc_tz
 from LiuXin_alpha.utils.localization import trans as _

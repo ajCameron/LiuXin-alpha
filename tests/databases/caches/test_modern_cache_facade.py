@@ -17,8 +17,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from LiuXin_alpha.caches import (
-    Cache,
+from LiuXin_alpha.caches.api import (
     CacheClosedError,
     CacheDirtyError,
     CacheFilterOperator,
@@ -30,12 +29,13 @@ from LiuXin_alpha.caches import (
     CacheSort,
     CacheState,
 )
+from LiuXin_alpha.caches.cache import Cache
 from LiuXin_alpha.databases.schema_specs import (
     LinkCardinality,
     StorageLinkSpec,
     StorageSchemaSpec,
 )
-from LiuXin_alpha.metadata.read_sources import CacheMetadataReadSource
+from LiuXin_alpha.catalog.retrieval.hydration import CacheMetadataReadSource
 from tests.support.storage_cache_test_harness import (
     CACHE_PLUGIN_KWARGS,
     make_fake_db,

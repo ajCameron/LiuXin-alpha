@@ -16,7 +16,8 @@ import io
 import os
 import re
 
-from LiuXin_alpha.metadata.utils import calibreMetaInformation, string_to_authors
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
+from LiuXin_alpha.metadata.utils import string_to_authors
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
 

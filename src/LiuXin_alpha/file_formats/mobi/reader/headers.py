@@ -24,7 +24,7 @@ import struct
 from LiuXin_alpha.file_formats.mobi import MobiError
 from LiuXin_alpha.file_formats.mobi.langcodes import main_language, sub_language, mobi2iana
 
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 from LiuXin_alpha.metadata.ebook_metadata_tools import check_isbn
 
 from LiuXin_alpha.utils.text.xml_utils import replace_entities

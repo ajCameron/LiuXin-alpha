@@ -17,7 +17,8 @@ import numbers
 import os
 from typing import Iterable
 
-from LiuXin_alpha.metadata.utils import calibreMetaInformation, string_to_authors
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
+from LiuXin_alpha.metadata.utils import string_to_authors
 from LiuXin_alpha.utils.calibre import force_unicode
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars

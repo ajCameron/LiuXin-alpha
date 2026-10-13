@@ -8,7 +8,7 @@ contract; the concrete implementation lives in LiuXin_alpha.catalog.catalog.
 Runtime protocol checks establish attribute presence, not database readiness.
 
 Example:
-    >>> from LiuXin_alpha.catalog import Catalog
+    >>> from LiuXin_alpha.catalog.catalog import Catalog
     >>> from LiuXin_alpha.catalog.api.common import MetadataCandidate
     >>> catalog: CatalogAPI = Catalog(db)  # doctest: +SKIP
     >>> work_id = catalog.works.match_or_create(  # doctest: +SKIP
@@ -66,7 +66,7 @@ class CatalogAddinsAPI(CatalogMetadataToolsAPI, Protocol):
 
     :ivar repositories: Grouped entity repository contracts.
     :ivar matching: Read-only identity-decision services.
-    :ivar retrieval: WEMI traversal, bundle, graph, and projection services.
+    :ivar retrieval: WEMI traversal, bundle, metadata hydration, graph, and projection services.
     :ivar mutations: Coordinated mutation and merge-policy services.
     """
 
@@ -91,7 +91,7 @@ class CatalogAPI(CatalogAddinsAPI, Protocol):
     operational compatibility.
 
     Example:
-        >>> from LiuXin_alpha.catalog import Catalog
+        >>> from LiuXin_alpha.catalog.catalog import Catalog
         >>> catalog: CatalogAPI = Catalog(db)  # doctest: +SKIP
         >>> work = catalog.works.require(work_id)  # doctest: +SKIP
 

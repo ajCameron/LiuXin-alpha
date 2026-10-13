@@ -302,7 +302,7 @@ def test_chm_input_convert_glue_with_fakes(tmp_path: Path, monkeypatch: pytest.M
         described above.
     """
     import LiuXin_alpha.file_formats.conversion.plugins.chm_input as chm_input_mod
-    from LiuXin_alpha.metadata.utils import calibreMetaInformation
+    from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 
     class _Opt:
         """

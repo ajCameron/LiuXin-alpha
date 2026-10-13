@@ -17,7 +17,7 @@ import socket
 from html import unescape
 from urllib.parse import parse_qs, quote_plus
 
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 from LiuXin_alpha.metadata.web_sources.base import browser
 from LiuXin_alpha.metadata.web_sources.http_client import RetryPolicy, call_with_backoff, compute_backoff_delay
 from LiuXin_alpha.metadata.web_sources.http_client import decode_http_body

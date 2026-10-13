@@ -14,16 +14,11 @@ Example:
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from typing import TYPE_CHECKING, Literal, Protocol, Self, TypeAlias
+from typing import Literal, Protocol, Self, TypeAlias
 
 from LiuXin_alpha.metadata.api.containers_api.calibre_metadata_api import CalibreMetadataAPI
 from LiuXin_alpha.metadata.api.containers_api.calibre_metadata_api.calibre_metadata_types import (
     CalibrePath,
-)
-from LiuXin_alpha.metadata.api.containers_api.metadata_write_api import (
-    MetadataWriteDatabaseAPI,
-    MetadataWriteReportAPI,
-    MetadataWriteTargetRow,
 )
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api import (
     ExpressionIdentityAPI,
@@ -58,12 +53,6 @@ from LiuXin_alpha.metadata.api.containers_api.liuxin_metadata_api import (
     LiuXinFieldValue,
     LiuXinMetadataAPI,
 )
-
-if TYPE_CHECKING:
-    from LiuXin_alpha.metadata.api.from_database_api.metadata_read_source_api import (
-        MetadataReadSourceAPI,
-    )
-
 
 WemiLevel: TypeAlias = Literal["work", "expression", "manifestation", "item"]
 WemiDatabaseIDName: TypeAlias = Literal[
@@ -596,46 +585,15 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
         """
 
     @classmethod
-    def from_database(
-        cls,
-        database: MetadataReadSourceAPI,
-        *,
-        item_id: int | None = None,
-        source_row: MetadataRecord | SupportsRowMapping | None = None,
-    ) -> Self:
-        """
-        Hydrate an item slice from a database and item/source-row hints.
-
-        At least one of item_id and source_row is required; the caller owns the database
-        lifetime.
-
-        Example:
-            Exercise this contract with pytest::
-
-                python -m pytest -q tests/metadata/api/test_liuxin_wemi_metadata_api.py
-
-
-        :param database: Caller-owned database/read source retained for metadata access; it
-            is not closed here.
-        :param item_id: Optional item row id; overrides an item id extracted from
-            source_row.
-        :param source_row: Database Row or source mapping supplying identity fields and
-            row-id hints.
-        :return: Hydrated metadata slice.
-        """
-
-    @classmethod
     def from_opf(
         cls,
         source: OPFMetadataSource,
         *,
-        database: MetadataReadSourceAPI | None = None,
         item_id: int | None = None,
         source_row: MetadataRecord | SupportsRowMapping | None = None,
-        replace_metadata: bool = False,
     ) -> Self:
         """
-        Import OPF metadata, optionally merging it with a database-backed item slice.
+        Import OPF metadata into a persistence-free item slice.
 
         Example:
             Exercise this contract with pytest::
@@ -644,14 +602,10 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
 
 
         :param source: OPF bytes or a filesystem path accepted by the OPF reader.
-        :param database: Optional caller-owned database for loading the item slice before
-            merging OPF fields.
         :param item_id: Optional item row id; overrides an item id extracted from
             source_row.
         :param source_row: Database Row or source mapping supplying identity fields and
             row-id hints.
-        :param replace_metadata: Replace supported existing metadata when True; otherwise
-            use the family merge rules.
         :return: Metadata slice containing the imported fields.
         """
 
@@ -729,40 +683,6 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
             True.
         :param include_legacy: Include the legacy LiuXin field mapping when True.
         :return: Human-readable multiline metadata description.
-        """
-
-    def write_to_database(
-        self,
-        database: MetadataWriteDatabaseAPI,
-        *,
-        fields: Iterable[str] | None = None,
-        target_level: WemiLevel | None = "work",
-        item_id: int | None = None,
-        target_row: MetadataWriteTargetRow | None = None,
-        replace: bool = False,
-        mark_dirty: bool = True,
-    ) -> MetadataWriteReportAPI:
-        """
-        Persist supported relation-backed metadata through the WEMI writer.
-
-        Example:
-            Exercise this contract with pytest::
-
-                python -m pytest -q tests/metadata/api/test_liuxin_wemi_metadata_api.py
-
-
-        :param database: Caller-owned writable database passed to the WEMI writer.
-        :param fields: Optional relation-field names; None uses the writer default field
-            set.
-        :param target_level: Destination WEMI level, defaulting to work; None allows writer
-            resolution.
-        :param item_id: Optional item row id; overrides an item id extracted from
-            source_row.
-        :param target_row: Optional explicit target Row or row mapping.
-        :param replace: Replace existing supported relations when True; otherwise add
-            missing values.
-        :param mark_dirty: Mark changed metadata dirty when True.
-        :return: Write report describing persisted, skipped and failed operations.
         """
 
     def __str__(self) -> str:

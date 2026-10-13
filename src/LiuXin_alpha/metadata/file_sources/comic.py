@@ -16,7 +16,7 @@ import os
 import zipfile
 
 from LiuXin_alpha.metadata.file_sources.archive import archive_type, get_comic_metadata
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
 

@@ -72,7 +72,7 @@ except Exception:
 
     Qt = _QtFallback()
 
-from LiuXin_alpha.metadata import fmt_sidx
+from LiuXin_alpha.metadata.utils import fmt_sidx
 from LiuXin_alpha.metadata.book.base import calibreMetadata as Metadata
 from LiuXin_alpha.metadata.book.formatter import SafeFormat
 

@@ -1,7 +1,6 @@
 # Layer-direction ratchet plan — 2026-10-09
 
-Status: planned. The lifecycle checkpoint committed with this note completes
-the prerequisite only; it does not begin the dependency migration.
+Status: stage 2 implemented on 2026-10-11; dependency migration continues.
 
 ## Purpose
 
@@ -53,8 +52,10 @@ replacement decoding, which was acceptable only for this read-only estimate.
    include normalized-identity declarations, title/author/tag adapters,
    metadata constants consumed by schema generation, and Catalog legacy-version
    knowledge.
-2. Metadata containers are active records. They expose `write_to_database`, and
-   their hydrators/writer invoke database and driver-wrapper operations.
+2. Metadata hydration remains persistence-aware: hydrators invoke database and
+   driver-wrapper operations. **2026-10-11 update:** the write half is fixed.
+   Containers and their protocols are passive, Core delegates metadata writes
+   to Catalog, and the writer/report/value workflow are Catalog-owned.
 3. `metadata` composes cache implementations, imports database `Row`, and has a
    rendering method that imports a surface module.
 4. The existing dependency checker protects only 215 modules. Its protected
@@ -195,11 +196,54 @@ prefixes and remaining allowlist counts with every checkpoint.
 - Existing lifecycle, storage, and user-owned submodule changes are not mixed
   into later dependency tranches.
 
-## Next action
+## Stage 2 implementation record — 2026-10-11
 
-The next planned architecture checkpoint remains stage 2 as its own commit:
-tooling, baseline data, self-tests, CI integration, and documentation only.
-The user-directed stage 5 policy extractions begun meanwhile are recorded below.
+The measurement-first ratchet is now implemented by
+`scripts/check_layer_direction.py` and
+`scripts/layer_direction_baseline.json`, with self-tests, CI integration, and
+developer documentation. The original protected zero-cycle check remains in
+place. Following the 2026-10-12 Catalog hydration extraction, the baseline
+records 20 named backward-edge identities, 39 unresolved dynamic imports, and
+component ceilings of 17 domain modules, 280 whole-runtime modules, and 311
+whole-combined modules. Database/cache read-source contracts, hydrators, and
+persistence-aware OPF overlays now belong to Catalog retrieval; metadata
+containers no longer provide `from_database` constructors or import the
+database `Row` implementation. The remaining domain SCC is confined to legacy
+metadata/OPF code and one Calibre renderer. Reductions must be recorded
+immediately instead of remaining hidden beneath an older ceiling.
+
+**2026-10-12 Catalog/cache cycle update:** the four-module cycle through
+`caches.cache`, `catalog.catalog`, `catalog.retrieval`, and
+`catalog.retrieval.metadata` has been removed without dropping automatic cache
+reads or Catalog-mediated cache writes. `caches.read_cache.ReadCache` now owns
+Catalog-independent lifecycle and reads; `caches.cache.Cache` subclasses it to
+add the Catalog write bridge. Catalog retrieval composes only `ReadCache`. The
+strict acyclic scope now covers 243 modules, including both sides of this seam,
+and the whole-package baseline separately requires runtime and combined
+Catalog/cache cross-package SCC sizes to remain zero.
+
+**2026-10-13 metadata-vocabulary update:** identifier entity types, schemes, and
+allow-lists moved from `databases.db_types` to `metadata.identifiers`; MARC
+relator roles and per-WEMI sets moved to `metadata.relators`. Metadata APIs and
+containers now import their own layer, while database schema generation consumes
+the metadata-owned contracts. The vocabulary tests moved from `tests/databases`
+to `tests/metadata`, with database tests retaining only database type coverage.
+This removes all four metadata-to-database vocabulary edges: the exact backward
+edge baseline falls from 20 to 16, metadata-owned debt falls from eight edges to
+four, and metadata now has no dependency on `databases`. The measured SCC ceilings
+remain unchanged at 17 domain, 280 whole-runtime, and 311 whole-combined modules.
+
+**2026-10-13 file-format ownership update:** OPF operations moved from generic
+`metadata.utils` to `file_formats.opf.utils`, and the Calibre-compatible record
+factory moved beside `calibreMetadata` in `metadata.book.base`. Callers and
+focused tests were transplanted rather than compatibility-re-exported. This
+reduces the domain SCC from 17 to 9, whole runtime from 280 to 220, and whole
+combined from 311 to 220. A cold-import budget now prevents `metadata.utils`
+from regaining file-format or higher-layer imports.
+
+The next layer-direction action can therefore proceed from stage 3 or from a
+user-selected vertical slice. The user-directed stage 5 policy extractions
+begun meanwhile are recorded below.
 
 ## Progress: first database-policy extraction (2026-10-10)
 

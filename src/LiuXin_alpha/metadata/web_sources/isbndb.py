@@ -20,7 +20,8 @@ from collections.abc import Iterable, Mapping
 from datetime import datetime
 from urllib.parse import quote, quote_plus, urlencode
 
-from LiuXin_alpha.metadata.utils import calibreMetaInformation, check_isbn
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
+from LiuXin_alpha.metadata.utils import check_isbn
 from LiuXin_alpha.metadata.web_sources.base import Option, Source
 from LiuXin_alpha.metadata.web_sources.http_client import RetryPolicy, call_with_backoff, compute_backoff_delay
 from LiuXin_alpha.metadata.web_sources.http_client import decode_http_body

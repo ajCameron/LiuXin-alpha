@@ -17,7 +17,7 @@ from threading import Event
 
 import pytest
 
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 
 
 def test_web_sources_base_import_smoke() -> None:

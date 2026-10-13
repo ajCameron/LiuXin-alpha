@@ -16,7 +16,7 @@ import json
 import zipfile
 from pathlib import Path
 
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 
 
 def _build_cbz_stream(comment: bytes, members: dict[str, bytes] | None = None) -> io.BytesIO:

@@ -188,7 +188,7 @@ matchers and repository entry points. Applications which need deliberately
 different boundaries can configure them explicitly:
 
 ```python
-from LiuXin_alpha.catalog import Catalog
+from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.catalog.matching import MatchingPolicy
 
 catalog = Catalog(

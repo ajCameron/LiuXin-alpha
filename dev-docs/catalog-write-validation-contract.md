@@ -58,6 +58,13 @@ The following are deliberately **outside** the public semantic boundary:
 - cache internals and storage-cache plugins; and
 - private helpers in any layer.
 
+Metadata containers are passive inputs at this boundary. They do not expose
+`write_to_database`, retain a database, or decide transaction policy. Use
+`catalog.mutations.writer.write_container(...)` for an existing container, or
+`write_values(...)` for a field/value command. There is intentionally no
+compatibility alias on the container: callers must select the owning Catalog
+operation explicitly.
+
 The private `_apply_*` methods accept already prepared update objects and exist
 only so Catalog writers and the reconciliation-aware cache facade can reach
 persistence. They are absent from `CatalogAPI`. Cache `create_writer`, `write`,
@@ -160,6 +167,23 @@ and observable supported behavior are preserved unless a separate, explicit
 decision authorizes a capability change.
 
 ## Implementation record
+
+### 2026-10-11 — passive metadata containers and Catalog write ownership
+
+- The container writer, write-report contract, and public-value workflow moved
+  from `metadata` into `catalog.mutations` and `catalog.api.mutations_api`.
+- Core `metadata.write` now delegates to
+  `catalog.mutations.writer.write_values(...)`.
+- Concrete Calibre-like, LiuXin, and WEMI metadata containers and their
+  protocols no longer expose `write_to_database`.
+- In-repository scripts and behavior tests now call
+  `catalog.mutations.writer.write_container(...)`; the behavior coverage was
+  transplanted rather than removed.
+- Catalog encloses container writes in a macro transaction when the database
+  exposes one. Legacy handles without that capability retain the documented
+  non-atomic fallback.
+- This is an intentional breaking boundary correction. No compatibility shim
+  preserves the old active-record API.
 
 ### 2026-10-11 — curated identifiers
 

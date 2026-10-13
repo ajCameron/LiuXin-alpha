@@ -55,7 +55,7 @@ remains a legacy-field materialization API and is suitable for selected
 legacy-backed projections such as tags, labels, and identifiers.
 
 Write-back lives in
-`metadata/containers/metadata_containers/liuxin_wemi_metadata_writer.py`. It
+`catalog/mutations/container_writer.py`. It
 currently handles selected legacy relation-backed fields and entity identifiers.
 Append mode adds missing terms and links; replace mode treats requested fields
 as authoritative for the target row.
@@ -74,7 +74,8 @@ The latest full coverage XML in `working-memory/test-results` shows the main
 remaining risk areas:
 
 - `metadata/opf_tools.py`: 72.8% line, 46.0% branch.
-- `liuxin_wemi_metadata_writer.py`: 75.8% line, 67.1% branch.
+- `catalog/mutations/container_writer.py`: 75.8% line, 67.1% branch at the
+  original metadata hardening checkpoint; current coverage is measured by CI.
 - `liuxin_wemi_metadata.py`: 82.6% line, 61.1% branch.
 - `lazy_liuxin_wemi_metadata.py`: 80.6% line, 62.2% branch.
 - `expression_metadata_container.py`: 60.5% line, 30.8% branch.

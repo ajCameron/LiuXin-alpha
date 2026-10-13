@@ -3,7 +3,7 @@
 Describe mutable Calibre metadata for import/export and plugin compatibility.
 
 The interface extends the minimal readable contract with field descriptors, custom
-values, identifiers, copying, and OPF/database persistence. Methods declare expected
+values, identifiers, copying, and OPF serialization. Methods declare expected
 implementing behavior rather than providing it.
 
 Example:
@@ -17,13 +17,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Protocol, Mapping, Sequence, AbstractSet, Iterable, Self, Set
-
-from LiuXin_alpha.metadata.api.containers_api.metadata_write_api import (
-    MetadataWriteDatabaseAPI,
-    MetadataWriteReportAPI,
-    MetadataWriteTargetRow,
-)
+from typing import Protocol, Mapping, Sequence, AbstractSet, Self, Set
 from LiuXin_alpha.metadata.api.containers_api.calibre_metadata_api.calibre_metadata_input_api import (
     CalibreMetadataInputAPI,
 )
@@ -421,40 +415,6 @@ class CalibreMetadataAPI(CalibreMetadataInputAPI, Protocol):
         :param metadata: Custom descriptor mapping, or None for the implementation's
             absent-descriptor policy.
         :return: None.
-        """
-
-    def write_to_database(
-        self,
-        database: MetadataWriteDatabaseAPI,
-        *,
-        fields: Iterable[str] | None = None,
-        target_level: str = "work",
-        item_id: int | None = None,
-        target_row: MetadataWriteTargetRow | None = None,
-        replace: bool = False,
-        mark_dirty: bool = True,
-    ) -> MetadataWriteReportAPI:
-        """
-        Persist supported relation-backed fields through the metadata writer.
-
-        The implementation resolves the WEMI target from explicit row/item information or
-        available database ids and reports changes, skips, and errors.
-
-        Example:
-            Exercise the owning behavior with pytest::
-
-                python -m pytest -q tests/metadata/api/test_calibre_metadata_api.py
-
-
-        :param database: Caller-owned database used by the WEMI writer for persistence; this
-            method does not close it.
-        :param fields: Optional relation-field iterable; None selects writer defaults.
-        :param target_level: WEMI level for the target relations, defaulting to work.
-        :param item_id: Optional LiuXin item id used to resolve the write target.
-        :param target_row: Optional explicit row or mapping identifying the write target.
-        :param replace: Whether to replace selected existing relations.
-        :param mark_dirty: Whether the writer should mark changed metadata dirty.
-        :return: MetadataWriteReportAPI describing the attempted persistence.
         """
 
     def to_opf_bytes(self, *, default_lang: str | None = None) -> bytes:

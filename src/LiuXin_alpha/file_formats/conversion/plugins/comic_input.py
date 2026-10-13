@@ -855,7 +855,7 @@ class ComicInput(InputFormatPlugin):
         :return: The normalized value, metadata record, path, stream result or collection
             described above.
         """
-        from LiuXin_alpha.metadata.utils import calibreMetaInformation as MetaInformation
+        from LiuXin_alpha.metadata.book.base import calibreMetaInformation as MetaInformation
         from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
         from LiuXin_alpha.file_formats.toc import TOC
 

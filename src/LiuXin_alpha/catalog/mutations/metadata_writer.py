@@ -4,7 +4,7 @@ Coordinate WEMI graph writes, metadata replacement and selected merge transfers.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from contextlib import nullcontext
 from typing import Any, cast
 
@@ -22,6 +22,7 @@ from ..api.common import (
     WemiLevel,
 )
 from ..repositories.base import WEMI_TABLES
+from .container_writer import CatalogContainerWriter, CatalogMetadataWriteReport
 from .mutation_policy import MutationPolicy
 
 
@@ -39,7 +40,9 @@ class MetadataWriter:
         ``catalog.mutations.writer.attach_metadata`` for coordinated repository writes.
     """
 
-    def __init__(self, db: DatabaseHandle, repositories: Any, policy: MutationPolicy) -> None:
+    def __init__(
+        self, db: DatabaseHandle, repositories: Any, policy: MutationPolicy
+    ) -> None:
         """
         Retain database, repositories and policy without performing reads.
 
@@ -56,6 +59,101 @@ class MetadataWriter:
         self.db = db
         self.repositories = repositories
         self.policy = policy
+
+    def write_container(
+        self,
+        metadata: object,
+        *,
+        fields: Iterable[str] | None = None,
+        target_level: str | None = None,
+        item_id: int | None = None,
+        target_row: object | None = None,
+        replace: bool = False,
+        mark_dirty: bool = True,
+    ) -> CatalogMetadataWriteReport:
+        """
+        Persist relation values from a passive metadata container through Catalog.
+
+        Catalog owns this operation because a database provides representation and
+        integrity checks, not metadata validity. The container supplies values only;
+        it does not receive or retain a database and has no persistence method.
+        A callable macro transaction encloses target resolution and all writes.
+
+        Example:
+            >>> report = catalog.mutations.writer.write_container(  # doctest: +SKIP
+            ...     metadata, fields=("tags",), item_id=item_id,
+            ... )
+
+
+        :param metadata: Passive metadata object supplying relation or identifier values.
+        :param fields: Supported relation fields to write, or None for shape defaults.
+        :param target_level: Preferred Work, Expression, Manifestation, or Item level.
+        :param item_id: Optional Item anchor used to resolve the target WEMI row.
+        :param target_row: Optional explicit target row or identity mapping.
+        :param replace: Whether selected values replace rather than append.
+        :param mark_dirty: Whether a changed target should be marked dirty.
+        :return: Catalog-owned report describing changes, skips, and errors.
+        """
+
+        macros = getattr(self.db, "macros", None)
+        transaction = getattr(macros, "transaction", None)
+        context = transaction() if callable(transaction) else nullcontext()
+        with context:
+            return CatalogContainerWriter(self.db).write(
+                metadata,
+                fields=fields,
+                target_level=target_level,
+                item_id=item_id,
+                target_row=target_row,
+                replace=replace,
+                mark_dirty=mark_dirty,
+            )
+
+    def write_values(
+        self,
+        *,
+        item_id: int,
+        values: Mapping[str, object],
+        fields: Iterable[str] | None = None,
+        kind: str = "liuxin",
+        replace: bool = False,
+        target_level: str = "work",
+        mark_dirty: bool = True,
+    ) -> dict[str, Any]:
+        """
+        Apply a public field/value request through the Catalog-owned write flow.
+
+        Hydration provides current passive values; validation, transaction ownership,
+        persistence, and the resulting receipt remain within Catalog.
+
+        Example:
+            >>> receipt = catalog.mutations.writer.write_values(  # doctest: +SKIP
+            ...     item_id=item_id, values={"tags": ["Gothic"]},
+            ... )
+
+
+        :param item_id: Item anchoring target-level resolution.
+        :param values: Nonempty mapping of supported public fields to desired values.
+        :param fields: Explicit fields to write, or None to use the supplied keys.
+        :param kind: Metadata container projection used for hydration.
+        :param replace: Whether selected fields replace existing relationships.
+        :param target_level: Preferred WEMI level receiving the relationships.
+        :param mark_dirty: Whether a changed target should be marked dirty.
+        :return: Stable command receipt including the detailed Catalog write report.
+        """
+
+        from .write_workflows import write_metadata_values
+
+        return write_metadata_values(
+            self,
+            item_id=item_id,
+            values=dict(values),
+            fields=None if fields is None else tuple(fields),
+            kind=kind,
+            replace=replace,
+            target_level=target_level,
+            mark_dirty=mark_dirty,
+        )
 
     def create_wemi_stack(
         self,
@@ -110,17 +208,20 @@ class MetadataWriter:
                 raise CatalogMutationError(
                     f"WEMI stack requires a non-empty {level} payload"
                 )
-        if not self.policy.can_create(level="work", data=work) and existing_work is None:
-            raise CatalogMutationError(
-                "WEMI stack requires a non-empty work payload"
-            )
+        if (
+            not self.policy.can_create(level="work", data=work)
+            and existing_work is None
+        ):
+            raise CatalogMutationError("WEMI stack requires a non-empty work payload")
         raw_items: object = items
         if not isinstance(raw_items, Sequence) or isinstance(raw_items, (str, bytes)):
             raise TypeError("items must be a sequence of mappings")
         item_payloads: list[dict[str, Any]] = []
         for item in raw_items:
             if not isinstance(item, Mapping) or not item:
-                raise CatalogMutationError("every WEMI stack Item must be a non-empty mapping")
+                raise CatalogMutationError(
+                    "every WEMI stack Item must be a non-empty mapping"
+                )
             item_payloads.append(dict(item))
         if origin is not None and not isinstance(origin, str):
             raise TypeError("origin must be a string or None")
@@ -489,9 +590,7 @@ class MetadataWriter:
                 if not column.is_primary_key
             }
             try:
-                writable.discard(
-                    repository._wrapper.get_id_column(spec.link_table)
-                )
+                writable.discard(repository._wrapper.get_id_column(spec.link_table))
             except Exception:
                 pass
             desired = [
@@ -511,7 +610,9 @@ class MetadataWriter:
             self.db.macros.replace_links(spec, parent_id, desired)
             return True
 
-    def attach_metadata(self, *, level: WemiLevel, entity_id: EntityId, data: RowInput) -> None:
+    def attach_metadata(
+        self, *, level: WemiLevel, entity_id: EntityId, data: RowInput
+    ) -> None:
         """
         Apply direct fields and attachment groups using an available macro transaction.
 
@@ -544,7 +645,6 @@ class MetadataWriter:
         entity_id: EntityId,
         data: RowInput,
     ) -> None:
-
         """
         Perform ordered attachment writes without opening a transaction.
 
@@ -566,7 +666,9 @@ class MetadataWriter:
         """
 
         if not self.policy.can_update(level=level, entity_id=entity_id, data=data):
-            raise CatalogMutationError(f"metadata attachment rejected for {level}:{entity_id}")
+            raise CatalogMutationError(
+                f"metadata attachment rejected for {level}:{entity_id}"
+            )
         payload = dict(data)
         reserved = {"fields", "title", "titles", "agents", "identifiers", "notes"}
         direct = {key: value for key, value in payload.items() if key not in reserved}
@@ -730,9 +832,7 @@ class MetadataWriter:
             "comments",
             "synopses",
         }
-        direct = {
-            key: value for key, value in payload.items() if key not in reserved
-        }
+        direct = {key: value for key, value in payload.items() if key not in reserved}
         fields = payload.get("fields", {})
         if not isinstance(fields, Mapping):
             raise CatalogMutationError("fields must be a mapping")
@@ -752,18 +852,20 @@ class MetadataWriter:
                     "logical WEMI title replacement accepts at most one value"
                 )
             title_value = title_values[0] if title_values else None
-        if title_supplied and title_value is not None and not isinstance(
-            title_value,
-            (str, Mapping),
+        if (
+            title_supplied
+            and title_value is not None
+            and not isinstance(
+                title_value,
+                (str, Mapping),
+            )
         ):
             raise CatalogMutationError(
                 "title replacement must be a string, mapping, or None"
             )
 
         agent_values = (
-            self._as_sequence(payload["agents"])
-            if "agents" in payload
-            else ()
+            self._as_sequence(payload["agents"]) if "agents" in payload else ()
         )
         if "agents" in payload:
             self._preflight_attachments(
@@ -784,15 +886,9 @@ class MetadataWriter:
                     "identifier replacement must be a scheme/value mapping"
                 )
 
-        note_values = (
-            self._as_sequence(payload["notes"])
-            if "notes" in payload
-            else ()
-        )
+        note_values = self._as_sequence(payload["notes"]) if "notes" in payload else ()
         synopsis_values = (
-            self._as_sequence(payload["synopses"])
-            if "synopses" in payload
-            else ()
+            self._as_sequence(payload["synopses"]) if "synopses" in payload else ()
         )
         comment_value = payload.get("comments")
         if "comments" in payload and comment_value is not None:
@@ -886,7 +982,9 @@ class MetadataWriter:
                     ),
                 )
 
-    def merge_entities(self, *, level: WemiLevel, source_id: EntityId, target_id: EntityId) -> None:
+    def merge_entities(
+        self, *, level: WemiLevel, source_id: EntityId, target_id: EntityId
+    ) -> None:
         """
         Fill missing target fields and transfer selected relationships before deleting the source.
 
@@ -923,7 +1021,6 @@ class MetadataWriter:
         source_id: EntityId,
         target_id: EntityId,
     ) -> None:
-
         """
         Execute the selected-field/link merge without opening a transaction.
 
@@ -943,8 +1040,12 @@ class MetadataWriter:
         :raises CatalogMutationError: Policy rejects the merge.
         """
 
-        if not self.policy.can_merge(level=level, source_id=source_id, target_id=target_id):
-            raise CatalogMutationError(f"merge rejected for {level}:{source_id}->{target_id}")
+        if not self.policy.can_merge(
+            level=level, source_id=source_id, target_id=target_id
+        ):
+            raise CatalogMutationError(
+                f"merge rejected for {level}:{source_id}->{target_id}"
+            )
         repository = getattr(self.repositories, f"{level}s")
         source = repository.require(source_id)
         target = repository.require(target_id)
@@ -1145,9 +1246,7 @@ class MetadataWriter:
             if not column.is_primary_key
         }
         try:
-            writable_extras.discard(
-                repository._wrapper.get_id_column(spec.link_table)
-            )
+            writable_extras.discard(repository._wrapper.get_id_column(spec.link_table))
         except Exception:
             pass
         if not rows:

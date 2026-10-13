@@ -45,7 +45,7 @@ from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import CalibreL
 from LiuXin_alpha.metadata.constants import creator_to_marc
 # Todo: Make sure everything has been refactored to a sensible place
 from LiuXin_alpha.file_formats.toc import TOC
-from LiuXin_alpha.metadata.utils import parse_opf, pretty_print_opf as _pretty_print
+from LiuXin_alpha.file_formats.opf.utils import parse_opf, pretty_print_opf as _pretty_print
 
 from LiuXin_alpha.preferences import preferences as prefs
 

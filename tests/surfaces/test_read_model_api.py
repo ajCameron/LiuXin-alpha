@@ -11,10 +11,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from LiuXin_alpha.caches import Cache, create_storage_cache
+from LiuXin_alpha.caches.cache import Cache
+from LiuXin_alpha.caches.cache_plugins import create_storage_cache
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.metadata.read_sources import CacheMetadataReadSource
+from LiuXin_alpha.catalog.retrieval.hydration import CacheMetadataReadSource
 from LiuXin_alpha.surfaces.read_model import ReadModelBackend
 from LiuXin_alpha.surfaces.web_readonly.app import ReadOnlyWebApplication, ReadOnlyWebConfig
 from LiuXin_alpha.metadata.standardization import make_tag_search_term

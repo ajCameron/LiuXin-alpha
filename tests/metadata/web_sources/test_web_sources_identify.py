@@ -14,7 +14,7 @@ from __future__ import annotations
 from datetime import datetime
 from threading import Event
 
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 
 
 class _Plugin:

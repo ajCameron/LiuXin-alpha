@@ -102,7 +102,6 @@ def test_wemi_metadata_api_exposes_current_operational_methods() -> None:
         "sync_legacy_subjects_from_wemi",
         "sync_legacy_series_from_wemi",
         "sync_legacy_identifiers_from_wemi",
-        "from_database",
         "from_opf",
     )
 

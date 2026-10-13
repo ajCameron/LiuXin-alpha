@@ -60,7 +60,7 @@ def _meta(title: str = "Unknown", authors: list[str] | None = None):
     :param authors: Value supplied for authors in the focused test operation.
     :return: The deterministic value, row, identity or collection described above.
     """
-    from LiuXin_alpha.metadata.utils import calibreMetaInformation
+    from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 
     return calibreMetaInformation(title, authors or ["Unknown"])
 

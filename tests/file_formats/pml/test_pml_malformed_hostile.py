@@ -323,7 +323,9 @@ def test_pml_input_convert_pmlz_preserves_multilingual_pages_and_images(
         :return: The normalized value, metadata record, path, stream result or collection
             described above.
         """
-        mi = metadata_utils.calibreMetaInformation("PML hostile Καλημέρα", ["José Иван"])
+        from LiuXin_alpha.metadata.book.base import calibreMetaInformation
+
+        mi = calibreMetaInformation("PML hostile Καλημέρα", ["José Иван"])
         mi.cover = None
         return mi
 

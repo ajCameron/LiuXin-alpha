@@ -21,7 +21,7 @@ import pytest
 from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
     CalibreLikeLiuXinBookMetaData as MetaData,
 )
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
 

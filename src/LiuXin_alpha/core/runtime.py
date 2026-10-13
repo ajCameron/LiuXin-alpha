@@ -1699,10 +1699,6 @@ class CoreRuntime(CoreAPI):
         :return: Workflow receipt augmented or replaced with current cache reconciliation metadata.
         :raises CoreDispatchError: If item_id is absent or values is not a mapping.
         """
-        from LiuXin_alpha.metadata.write_workflows import (
-            write_wemi_metadata_values,
-        )
-
         if "item_id" not in payload:
             raise CoreDispatchError("Metadata write payload missing `item_id`.")
         values = payload.get("values")
@@ -1710,8 +1706,7 @@ class CoreRuntime(CoreAPI):
             raise CoreDispatchError(
                 "Metadata write payload `values` must be an object."
             )
-        result = write_wemi_metadata_values(
-            self.library.database,
+        result = self.services.catalog.mutations.writer.write_values(
             item_id=int(payload["item_id"]),
             values=dict(values),
             fields=payload.get("fields"),

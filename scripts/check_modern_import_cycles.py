@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import tokenize
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -62,8 +63,12 @@ TERMINAL_COMPONENT_CONTRACTS = frozenset(
 )
 PROTECTED_PREFIXES = (
     "LiuXin_alpha.catalog.api",
+    "LiuXin_alpha.catalog.catalog",
+    "LiuXin_alpha.catalog.retrieval",
     "LiuXin_alpha.catalog.write",
     "LiuXin_alpha.metadata.api.containers_api.calibre_metadata_api",
+    "LiuXin_alpha.caches.cache",
+    "LiuXin_alpha.caches.read_cache",
     "LiuXin_alpha.caches.write",
     *SHARED_SURFACE_PREFIXES,
     *WEB_APPLICATION_PREFIXES,
@@ -102,6 +107,16 @@ class ImportEdge:
     target: str
     line: int
     kind: ImportKind
+
+
+@dataclass(frozen=True, order=True)
+class DynamicImport:
+    """A dynamic import call whose module name cannot be resolved statically."""
+
+    source: str
+    line: int
+    kind: ImportKind
+    expression: str
 
 
 def _within(name: str, prefixes: Iterable[str]) -> bool:
@@ -206,8 +221,11 @@ class _ImportCollector(ast.NodeVisitor):
         self.modules = modules
         self.kind = ImportKind.IMPORT_TIME
         self.edges: set[ImportEdge] = set()
+        self.unresolved_dynamic: set[DynamicImport] = set()
         self.guard_names: set[str] = set()
         self.typing_names: set[str] = set()
+        self.importlib_names: set[str] = set()
+        self.import_module_names: set[str] = set()
         # Alias recognition is syntactic, not a general symbol resolver. Both
         # branches and every context remain in the enforced dependency graph.
         for node in ast.walk(tree):
@@ -226,6 +244,21 @@ class _ImportCollector(ast.NodeVisitor):
                     alias.asname or alias.name
                     for alias in node.names
                     if alias.name == "typing"
+                )
+                self.importlib_names.update(
+                    alias.asname or alias.name
+                    for alias in node.names
+                    if alias.name == "importlib"
+                )
+            elif (
+                isinstance(node, ast.ImportFrom)
+                and node.module == "importlib"
+                and not node.level
+            ):
+                self.import_module_names.update(
+                    alias.asname or alias.name
+                    for alias in node.names
+                    if alias.name == "import_module"
                 )
 
     def _guard(self, node: ast.expr) -> bool | None:
@@ -388,6 +421,41 @@ class _ImportCollector(ast.NodeVisitor):
                 if candidate in self.modules:
                     self._add(candidate, node.lineno)
 
+    def visit_Call(self, node: ast.Call) -> None:
+        """Collect supported dynamic imports and report non-literal module names."""
+
+        function = node.func
+        is_dynamic_import = (
+            isinstance(function, ast.Name)
+            and function.id in {"__import__", *self.import_module_names}
+        ) or (
+            isinstance(function, ast.Attribute)
+            and function.attr == "import_module"
+            and isinstance(function.value, ast.Name)
+            and function.value.id in self.importlib_names
+        )
+        if is_dynamic_import:
+            argument = node.args[0] if node.args else None
+            if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
+                target = argument.value.strip()
+                if target and not target.startswith("."):
+                    self._add(target, node.lineno)
+                else:
+                    self._record_unresolved_dynamic(node, argument)
+            else:
+                self._record_unresolved_dynamic(node, argument)
+        self.generic_visit(node)
+
+    def _record_unresolved_dynamic(
+        self, node: ast.Call, argument: ast.expr | None
+    ) -> None:
+        """Record a stable source rendering for an unresolved dynamic import."""
+
+        expression = "<missing>" if argument is None else ast.unparse(argument)
+        self.unresolved_dynamic.add(
+            DynamicImport(self.name, node.lineno, self.kind, expression)
+        )
+
 
 @dataclass(frozen=True)
 class ImportInventory:
@@ -402,6 +470,7 @@ class ImportInventory:
 
     modules: Mapping[str, Path]
     edges: tuple[ImportEdge, ...]
+    unresolved_dynamic: tuple[DynamicImport, ...] = ()
 
     def graph(
         self, kinds: Iterable[ImportKind] = tuple(ImportKind)
@@ -456,14 +525,21 @@ def collect_imports(
         name: path for name, path in all_modules.items() if _within(name, prefixes)
     }
     edges: set[ImportEdge] = set()
+    unresolved_dynamic: set[DynamicImport] = set()
     for name, path in modules.items():
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        with tokenize.open(path) as source_file:
+            tree = ast.parse(source_file.read(), filename=str(path))
         collector = _ImportCollector(
             name, path.name == "__init__.py", tree, all_modules
         )
         collector.visit(tree)
         edges.update(collector.edges)
-    return ImportInventory(modules, tuple(sorted(edges)))
+        unresolved_dynamic.update(collector.unresolved_dynamic)
+    return ImportInventory(
+        modules,
+        tuple(sorted(edges)),
+        tuple(sorted(unresolved_dynamic)),
+    )
 
 
 def build_graph(

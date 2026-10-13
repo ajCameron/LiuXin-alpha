@@ -8,7 +8,7 @@ identity matching, schema writer, or transaction evidence; those behaviors are
 covered by adjacent Catalog integration suites.
 """
 
-from LiuXin_alpha.catalog import Catalog
+from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.catalog.api import (
     AddAPI,
     ApplyAPI,

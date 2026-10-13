@@ -18,7 +18,7 @@ from threading import Event
 
 import pytest
 
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 
 
 class _Log:

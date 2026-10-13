@@ -21,7 +21,7 @@ import pytest
 
 from LiuXin_alpha.file_formats.mobi import MobiError
 from LiuXin_alpha.metadata.file_sources import mobi
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 
 
 def _values(raw):

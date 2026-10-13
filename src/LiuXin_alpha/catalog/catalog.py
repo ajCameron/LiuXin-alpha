@@ -4,7 +4,8 @@ Compose concrete Catalog owners and expose their shared repository shortcuts.
 Catalog retains a borrowed database, builds legacy metadata tools and nineteen
 entity repositories, and wires matching, retrieval, and mutation services around
 them. The facade delegates schema-driven writes to writer owners and normalized
-update objects. It adds no database lifecycle management or transaction wrapper.
+update objects. It adds no database lifecycle management; individual mutation
+owners establish their documented transaction scope.
 CatalogRepositories supplies the grouped instances and validated name lookup.
 
 Example:

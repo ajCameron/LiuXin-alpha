@@ -1,11 +1,13 @@
-"""Normalize and validate identifier values without Catalog or storage knowledge.
+"""Define identifier vocabulary and validate values without persistence knowledge.
 
-The ``clean_*`` helpers preserve historical Calibre-compatible punctuation rules;
-they do not validate whether a scheme is known or a value is valid for that scheme.
-``normalise_identifier_pair`` owns the stricter curated-identifier policy shared by
-Catalog matching and writes. The explicitly named ``prepare_legacy_*`` helpers
-contain the intentionally different single and bulk compatibility contracts without
-making them current policy. Unknown nonblank Catalog schemes remain valid by design.
+The enums and allow-lists are passive metadata contracts consumed by containers,
+Catalog, and database schema adapters. The ``clean_*`` helpers preserve historical
+Calibre-compatible punctuation rules; they do not validate whether a scheme is known
+or a value is valid for that scheme. ``normalise_identifier_pair`` owns the stricter
+curated-identifier policy shared by Catalog matching and writes. The explicitly named
+``prepare_legacy_*`` helpers contain the intentionally different single and bulk
+compatibility contracts without making them current policy. Unknown nonblank Catalog
+schemes remain valid by design.
 """
 
 from __future__ import annotations
@@ -13,6 +15,8 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
+from enum import StrEnum
+from typing import Final, Literal
 from uuid import UUID
 
 from LiuXin_alpha.errors import InputIntegrityError
@@ -24,6 +28,165 @@ _DOI_PREFIX = re.compile(
     flags=re.IGNORECASE,
 )
 _ISBN_SCHEMES = frozenset({"isbn", "isbn10", "isbn13"})
+
+
+IdentifierEntityTypeStr = Literal[
+    "work", "expression", "manifestation", "item", "agent"
+]
+
+
+class IdentifierEntityType(StrEnum):
+    """Name the five curated identifier attachment targets.
+
+    Scheme eligibility is stored in the separate per-target collections.
+
+    Example:
+        >>> IdentifierEntityType.WORK == "work"
+        True
+    """
+
+    WORK = "work"
+    EXPRESSION = "expression"
+    MANIFESTATION = "manifestation"
+    ITEM = "item"
+    AGENT = "agent"
+
+
+IdentifierSchemeStr = Literal[
+    "isbn_10",
+    "isbn_13",
+    "isbn10",
+    "isbn13",
+    "asin",
+    "uuid",
+    "calibre_uuid",
+    "doi",
+    "oclc",
+    "uri",
+    "urn",
+    "handle",
+    "asset-id",
+    "archive-id",
+    "local-call",
+    "barcode",
+    "vendor",
+    "uuid-ish",
+    "shortcode",
+    "url",
+    "wikipedia_url",
+    "imdb_id",
+    "publisher_phash",
+]
+
+
+class IdentifierScheme(StrEnum):
+    """Name project identifier schemes, including legacy spelling variants.
+
+    This enum neither canonicalizes scheme names nor validates identifier values.
+
+    Example:
+        >>> IdentifierScheme.ISBN_10 == IdentifierScheme.ISBN10
+        False
+        >>> IdentifierScheme.DOI == "doi"
+        True
+    """
+
+    ISBN_10 = "isbn_10"
+    ISBN_13 = "isbn_13"
+    ISBN10 = "isbn10"
+    ISBN13 = "isbn13"
+    ASIN = "asin"
+    UUID = "uuid"
+    CALIBRE_UUID = "calibre_uuid"
+    DOI = "doi"
+    OCLC = "oclc"
+    URI = "uri"
+    URN = "urn"
+    HANDLE = "handle"
+    ASSET_ID = "asset-id"
+    ARCHIVE_ID = "archive-id"
+    LOCAL_CALL = "local-call"
+    BARCODE = "barcode"
+    VENDOR = "vendor"
+    UUID_ISH = "uuid-ish"
+    SHORTCODE = "shortcode"
+    URL = "url"
+    WIKIPEDIA_URL = "wikipedia_url"
+    IMDB_ID = "imdb_id"
+    PUBLISHER_PHASH = "publisher_phash"
+
+
+ALL_IDENTIFIER_ENTITY_TYPES: Final[tuple[str, ...]] = tuple(
+    entity_type.value for entity_type in IdentifierEntityType
+)
+ALL_IDENTIFIER_SCHEMES: Final[tuple[str, ...]] = tuple(
+    scheme.value for scheme in IdentifierScheme
+)
+
+WORK_IDENTIFIER_SCHEMES: Final[frozenset[IdentifierScheme]] = frozenset(
+    {
+        IdentifierScheme.ISBN_10,
+        IdentifierScheme.ISBN_13,
+        IdentifierScheme.ISBN10,
+        IdentifierScheme.ISBN13,
+        IdentifierScheme.UUID,
+        IdentifierScheme.CALIBRE_UUID,
+        IdentifierScheme.DOI,
+        IdentifierScheme.OCLC,
+    }
+)
+EXPRESSION_IDENTIFIER_SCHEMES: Final[frozenset[IdentifierScheme]] = frozenset(
+    {
+        IdentifierScheme.UUID,
+        IdentifierScheme.CALIBRE_UUID,
+        IdentifierScheme.URI,
+        IdentifierScheme.URN,
+    }
+)
+MANIFESTATION_IDENTIFIER_SCHEMES: Final[frozenset[IdentifierScheme]] = frozenset(
+    {
+        IdentifierScheme.ISBN_10,
+        IdentifierScheme.ISBN_13,
+        IdentifierScheme.ISBN10,
+        IdentifierScheme.ISBN13,
+        IdentifierScheme.ASIN,
+        IdentifierScheme.UUID,
+        IdentifierScheme.CALIBRE_UUID,
+        IdentifierScheme.OCLC,
+        IdentifierScheme.HANDLE,
+        IdentifierScheme.LOCAL_CALL,
+    }
+)
+ITEM_IDENTIFIER_SCHEMES: Final[frozenset[IdentifierScheme]] = frozenset(
+    {
+        IdentifierScheme.UUID,
+        IdentifierScheme.CALIBRE_UUID,
+        IdentifierScheme.ASSET_ID,
+        IdentifierScheme.ARCHIVE_ID,
+    }
+)
+AGENT_IDENTIFIER_SCHEMES: Final[frozenset[IdentifierScheme]] = frozenset(
+    {
+        IdentifierScheme.URL,
+        IdentifierScheme.WIKIPEDIA_URL,
+        IdentifierScheme.IMDB_ID,
+        IdentifierScheme.PUBLISHER_PHASH,
+    }
+)
+
+# A physical copy may carry manifestation-level identifiers such as ISBNs/ASINs.
+OBSERVED_ITEM_IDENTIFIER_SCHEMES: Final[frozenset[IdentifierScheme]] = frozenset(
+    IdentifierScheme
+)
+ENTITY_IDENTIFIER_SCHEMES_BY_TYPE: Final[
+    dict[IdentifierEntityType, frozenset[IdentifierScheme]]
+] = {
+    IdentifierEntityType.WORK: WORK_IDENTIFIER_SCHEMES,
+    IdentifierEntityType.EXPRESSION: EXPRESSION_IDENTIFIER_SCHEMES,
+    IdentifierEntityType.MANIFESTATION: MANIFESTATION_IDENTIFIER_SCHEMES,
+    IdentifierEntityType.ITEM: ITEM_IDENTIFIER_SCHEMES,
+    IdentifierEntityType.AGENT: AGENT_IDENTIFIER_SCHEMES,
+}
 
 
 @dataclass(frozen=True, slots=True)

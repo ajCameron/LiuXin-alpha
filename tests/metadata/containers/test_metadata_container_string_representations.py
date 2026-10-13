@@ -11,7 +11,6 @@ Example:
 """
 from __future__ import annotations
 
-from LiuXin_alpha.databases.db_types import IdentifierScheme
 from LiuXin_alpha.metadata.constants.container_vocabularies import (
     DateKind,
     GenreKind,
@@ -40,13 +39,13 @@ from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers import
     WorkDatesContainer,
     WorkGenre,
     WorkGenresContainer,
-    WorkIdentity,
     WorkIdentifier,
     WorkIdentifiersContainer,
-    WorkLanguage,
-    WorkLanguagesContainer,
+    WorkIdentity,
     WorkLabel,
     WorkLabelsContainer,
+    WorkLanguage,
+    WorkLanguagesContainer,
     WorkMetadata,
     WorkNote,
     WorkNotesContainer,
@@ -70,6 +69,7 @@ from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_c
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.manifestation_container import (
     ManifestationIdentity,
 )
+from LiuXin_alpha.metadata.identifiers import IdentifierScheme
 from LiuXin_alpha.metadata.metadata_types import WorkAgentRole
 
 

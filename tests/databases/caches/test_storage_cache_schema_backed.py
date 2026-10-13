@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from LiuXin_alpha.caches import SchemaBackedStorageCache
+from LiuXin_alpha.caches.cache_plugins.schema_backed import SchemaBackedStorageCache
 from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.many_many_field_api import (
     ManyManyInTwoTableFieldUpdate,
 )

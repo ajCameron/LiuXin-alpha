@@ -18,7 +18,7 @@ import uuid
 
 import pytest
 
-from LiuXin_alpha.catalog import Catalog
+from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.catalog.api import (
     CatalogMutationError,
     IdentifierCandidate,

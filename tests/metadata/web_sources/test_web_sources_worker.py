@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 
 
 def test_web_sources_worker_import_smoke() -> None:

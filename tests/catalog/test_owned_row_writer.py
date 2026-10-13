@@ -18,7 +18,7 @@ from typing import Any
 
 import pytest
 
-from LiuXin_alpha.catalog import Catalog
+from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.catalog.write import (
     CatalogOwnedRowOneToOneWriter,
     CatalogOwnedRowUpdate,

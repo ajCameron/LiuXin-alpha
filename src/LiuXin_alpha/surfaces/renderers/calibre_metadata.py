@@ -19,7 +19,7 @@ from functools import partial
 
 from LiuXin_alpha.constants import filesystem_encoding
 from LiuXin_alpha.library.comments import comments_to_html
-from LiuXin_alpha.metadata import fmt_sidx
+from LiuXin_alpha.metadata.utils import fmt_sidx
 from LiuXin_alpha.metadata.web_sources.identify import urls_from_identifiers
 from LiuXin_alpha.utils.calibre import force_unicode, prepare_string_for_xml
 from LiuXin_alpha.utils.date import is_date_undefined

@@ -23,7 +23,7 @@ from copy import deepcopy
 from threading import Lock
 
 from LiuXin_alpha.utils.libraries.liuxin_six import iterkeys
-from LiuXin_alpha.catalog import Catalog
+from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.databases.macro_types import LinkValue
 
 # Todo: These should be stored in base.tables

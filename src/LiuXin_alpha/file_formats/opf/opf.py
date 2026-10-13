@@ -29,7 +29,7 @@ from LiuXin_alpha.file_formats.opf.opf3 import apply_metadata, read_metadata
 
 from LiuXin_alpha.utils.calibre_compat.ebooks.metadata.book.base import Metadata as calibreMetadata
 
-from LiuXin_alpha.metadata.utils import (
+from LiuXin_alpha.file_formats.opf.utils import (
     parse_opf,
     normalize_languages,
     create_manifest_item,

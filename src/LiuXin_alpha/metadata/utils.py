@@ -1,11 +1,10 @@
 #!/usr/bin/env  python
 
 """
-Provide metadata author formatting, series indexes, resources, identifier checks, and OPF parsing helpers.
+Provide metadata author formatting, series indexes, resources, and identifier checks.
 
-Author separators and the XML parser are initialized at import. Resource objects
-describe paths or URLs without opening them; parsing and directory enumeration
-perform the I/O described by their helpers.
+Author separators are initialized at import. Resource objects describe paths or URLs
+without opening them; directory enumeration performs the I/O described by its helper.
 
 Example:
     Exercise the owning behavior with pytest::
@@ -18,28 +17,16 @@ from __future__ import annotations
 import os
 import re
 import sys
-from collections import namedtuple
 from urllib.parse import quote, unquote, urlparse
 
-from LiuXin_alpha.utils.libraries.liuxin_etree import LXML_AVAILABLE, etree
-
-_HAS_LXML = bool(LXML_AVAILABLE)
-
 from typing import (
-    Any,
-    Callable,
-    Dict,
     Iterable,
     Iterator,
     List,
     Optional,
-    Tuple,
-    Type,
-    TypeVar,
     Union,
 )
 
-from LiuXin_alpha.file_formats.oeb.base import OPF
 from LiuXin_alpha.metadata.identifiers import (
     check_isbn10,
     check_isbn13,
@@ -48,9 +35,7 @@ from LiuXin_alpha.metadata.identifiers import (
     validate_legacy_identifier as _validate_legacy_identifier,
 )
 from LiuXin_alpha.preferences import preferences as tweaks
-from LiuXin_alpha.utils.libraries.calibre_chardet import xml_to_unicode
-from LiuXin_alpha.utils.localization import trans as _
-from LiuXin_alpha.utils.logging import default_log, prints
+from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.mine_types import guess_type
 from LiuXin_alpha.utils.paths import relpath
 
@@ -61,14 +46,6 @@ __docformat__ = "restructuredtext en"
 # Historical import surface retained while the policy owner lives in
 # ``metadata.identifiers``.
 validate_identifier = _validate_legacy_identifier
-
-
-if _HAS_LXML:
-    PARSER = etree.XMLParser(recover=True, no_network=True)
-else:
-    PARSER = etree.XMLParser()
-
-OPFVersion = namedtuple("OPFVersion", "major minor patch")
 
 
 # Todo: Consolidate ebook metadata tools
@@ -707,329 +684,3 @@ def check_doi(doi: str) -> Optional[str]:
     if doi_check is not None:
         return doi_check.group()
     return None
-
-
-# ----------------------------------------------------------------------------------------------------------------------
-#
-# - CONVENIENCE METHODS TO ACCESS THE METADATA CLASSES
-
-
-def calibreMetaInformation(title, authors=(_("Unknown"),)):
-    """
-    Construct core Calibre metadata from a title/authors pair or an object exposing both attributes.
-
-    A metadata-like first argument overrides the authors argument and is supplied as
-    other to the constructor. The default Unknown author was translated when this
-    function was defined.
-
-    Example:
-        >>> calibreMetaInformation('Example', ['Ada']).title
-        'Example'
-
-
-    :param title: Title value or metadata-like object with title and authors attributes.
-    :param authors: Author sequence used only when title is not metadata-like.
-    :return: New core calibreMetadata instance.
-    """
-    from LiuXin_alpha.metadata.book.base import calibreMetadata
-
-    mi = None
-    if hasattr(title, "title") and hasattr(title, "authors"):
-        mi = title
-        title = mi.title
-        authors = mi.authors
-    return calibreMetadata(title, authors, other=mi)
-
-#
-# ----------------------------------------------------------------------------------------------------------------------
-
-
-def parse_opf_version(raw: str) -> OPFVersion:
-    """
-    Parse dotted integer version components, pad to three, and discard extras.
-
-    An unparseable major defaults to 2.0.0; a later malformed component preserves the
-    major and zeroes minor/patch. Negative components are accepted.
-
-    Example:
-        >>> parse_opf_version('4.bad')
-        OPFVersion(major=4, minor=0, patch=0)
-
-
-    :param raw: Dotted version string; falsy input uses the default major.
-    :return: OPFVersion namedtuple with major, minor, and patch integers.
-    """
-    parts = (raw or "").split(".")
-    try:
-        major = int(parts[0])
-    except Exception:
-        return OPFVersion(2, 0, 0)
-    try:
-        v = list(map(int, raw.split(".")))
-    except Exception:
-        v = [major, 0, 0]
-    while len(v) < 3:
-        v.append(0)
-    v = v[:3]
-    return OPFVersion(*v)
-
-
-def parse_opf(stream_or_path):
-    """
-    Read XML from the current stream position, an existing short filesystem path, or a raw payload, then parse its root.
-
-    Treat non-stream inputs shorter than 4096 as paths only when they exist. Close files
-    opened here, but leave caller streams open and consumed without position
-    restoration. Decode XML, discard text before the first opening angle bracket, and
-    parse with the module parser; lxml enables recovery. The helper does not validate
-    OPF namespace or schema.
-
-    Example:
-        >>> parse_opf('<package/>').tag
-        'package'
-
-
-    :param stream_or_path: Readable stream, path-like object, or raw XML bytes/string
-        accepted by the decoder.
-    :return: Parsed XML root; empty data raises ValueError, parser errors propagate, and
-        a None parser result raises ValueError.
-    """
-    stream = stream_or_path
-    if not hasattr(stream, "read"):
-        stream = os.fspath(stream) if isinstance(stream, os.PathLike) else stream
-        if len(stream) < 4096 and os.path.exists(stream):
-            with open(stream, "rb") as opf_stream:
-                raw = opf_stream.read()
-        else:
-            raw = stream
-    else:
-        raw = stream.read()
-    if not raw:
-        raise ValueError("Empty file: " + getattr(stream, "name", "stream"))
-    raw, encoding = xml_to_unicode(raw, strip_encoding_pats=True, resolve_entities=True, assume_utf8=True)
-    raw = raw[raw.find("<") :]
-    root = etree.fromstring(raw, PARSER)
-    if root is None:
-        raise ValueError("Not an OPF file")
-    return root
-
-
-def normalize_languages(opf_languages, mi_languages):
-    """
-    Normalize metadata languages while retaining matching OPF regions.
-
-    Blank inputs are dropped, underscores become hyphens, and known languages prefer
-    two-letter codes. A supplied metadata region wins over the OPF region. This is a
-    compact language/region round-trip helper: script and private-use subtags are not
-    preserved as a full BCP-47 tag, and unknown language names remain lower-cased.
-
-    Example:
-        >>> normalize_languages(['en-US', 'zh-Hant-TW'], ['eng', 'zho'])
-        ['en-US', 'zh-TW']
-
-
-    :param opf_languages: Iterable of original OPF language strings used for region
-        fallback.
-    :param mi_languages: Iterable of replacement language strings or empty values.
-    :return: New list in metadata-language order, including duplicates.
-    """
-    from LiuXin_alpha.utils.libraries.iso639.iso639_tools import (
-        lang_as_iso639_1 as fallback_lang_as_iso639_1,
-    )
-    from LiuXin_alpha.utils.localization import canonicalize_lang, lang_as_iso639_1
-
-    LocaleCode = namedtuple("LocaleCode", "langcode countrycode")
-
-    def parse(x):
-        """
-        Split one language token into the local language/region pair.
-
-        Canonicalize the primary language when known. Prefer a two-character or numeric
-        three-character tail part as the region; otherwise use the first tail part,
-        upper-cased. Ignore the other tail parts.
-
-        Example:
-            >>> normalize_languages(['en-US', 'zh-Hant-TW'], ['eng', 'zho'])
-            ['en-US', 'zh-TW']
-
-
-        :param x: Language string or false value; underscores are accepted as separators.
-        :return: LocaleCode pair, or None for a blank or missing primary language.
-        """
-        raw = (x or "").strip()
-        if not raw:
-            return None
-        raw = raw.replace("_", "-")
-        primary, _, tail = raw.partition("-")
-        primary = primary.strip()
-        if not primary:
-            return None
-
-        # Keep unknown values in a stable lower-cased form so we round-trip
-        # instead of dropping potentially valid-but-unlisted BCP-47 tags.
-        langcode = canonicalize_lang(primary) or primary.lower()
-        tail_parts = [part.strip() for part in tail.split("-") if part.strip()]
-        country = ""
-        if tail_parts:
-            country = next(
-                (
-                    part
-                    for part in tail_parts
-                    if len(part) == 2 or (len(part) == 3 and part.isdigit())
-                ),
-                tail_parts[0],
-            )
-            country = country.upper()
-        return LocaleCode(langcode=langcode, countrycode=(country or None))
-
-    def iso2(lc):
-        """
-        Resolve a language code through the localization helper and ISO table fallback.
-
-        Example:
-            >>> normalize_languages(['en-US', 'zh-Hant-TW'], ['eng', 'zho'])
-            ['en-US', 'zh-TW']
-
-
-        :param lc: Primary language code to look up.
-        :return: Preferred two-letter code when available, otherwise the lookup result.
-        """
-        lc2 = lang_as_iso639_1(lc)
-        if not lc2 or len(lc2) != 2:
-            lc2 = fallback_lang_as_iso639_1(lc) or lc2
-        return lc2
-
-    opf_languages = list(filter(None, map(parse, opf_languages)))
-    cc_map = {}
-    for c in opf_languages:
-        cc_map[c.langcode] = c.countrycode
-        lc2 = iso2(c.langcode)
-        if lc2:
-            cc_map.setdefault(lc2, c.countrycode)
-    mi_languages = filter(None, map(parse, mi_languages))
-
-    def norm(x):
-        """
-        Format a parsed metadata language using its region or the captured OPF fallback.
-
-        Example:
-            >>> normalize_languages(['en-US', 'zh-Hant-TW'], ['eng', 'zho'])
-            ['en-US', 'zh-TW']
-
-
-        :param x: LocaleCode pair produced by the enclosing parser.
-        :return: Language code optionally followed by a hyphen and region.
-        """
-        lc = x.langcode
-        cc = x.countrycode or cc_map.get(lc, None)
-        lc2 = iso2(lc)
-        if not cc and lc2:
-            cc = cc_map.get(lc2, None)
-        lc = lc2 or lc
-        if cc:
-            lc += "-" + cc
-        return lc
-
-    return list(map(norm, mi_languages))
-
-
-def ensure_unique(template, existing):
-    """
-    Find an unused name by inserting numbered suffixes before the final extension.
-
-    The original name is returned when available. The membership collection is read
-    only; the chosen name is not reserved.
-
-    Example:
-        >>> ensure_unique('cover.jpg', {'cover.jpg', 'cover-1.jpg'})
-        'cover-2.jpg'
-
-
-    :param template: Preferred file name or identifier string.
-    :param existing: Collection supporting membership checks against existing names.
-    :return: Original name or first available name with a -1, -2, or later suffix.
-    """
-    b, e = template.rpartition(".")[::2]
-    if b and e:
-        e = "." + e
-    else:
-        b, e = template, ""
-    q = template
-    c = 0
-    while q in existing:
-        c += 1
-        q = "%s-%d%s" % (b, c, e)
-    return q
-
-
-def create_manifest_item(root, href_template, id_template, media_type=None):
-    """
-    Append an OPF manifest item with unique href and id attributes.
-
-    Collect existing attributes across the root using lxml XPath or the ElementTree
-    fallback. Infer the media type from the original href when it is not supplied,
-    falling back to application/octet-stream. A missing direct manifest child is left
-    missing.
-
-    Example:
-        >>> from xml.etree import ElementTree as ET
-        >>> root = ET.Element(OPF('package'))
-        >>> manifest = ET.SubElement(root, OPF('manifest'))
-        >>> create_manifest_item(root, 'cover.jpg', 'cover').get('media-type')
-        'image/jpeg'
-
-
-    :param root: Package root to inspect and mutate.
-    :param href_template: Preferred relative resource href; collisions receive numbered
-        suffixes.
-    :param id_template: Preferred item id; collisions receive numbered suffixes.
-    :param media_type: Explicit media type, or a false value to infer it.
-    :return: Appended element, or None if the root has no OPF manifest.
-    """
-    if hasattr(root, "xpath"):
-        all_ids = frozenset(root.xpath("//*/@id"))
-        all_hrefs = frozenset(root.xpath("//*/@href"))
-    else:
-        # xml.etree fallback: gather attribute values by walking descendants.
-        all_ids = frozenset(e.get("id") for e in root.iter() if e.get("id"))
-        all_hrefs = frozenset(e.get("href") for e in root.iter() if e.get("href"))
-    href = ensure_unique(href_template, all_hrefs)
-    item_id = ensure_unique(id_template, all_ids)
-    manifest = root.find(OPF("manifest"))
-    if manifest is not None:
-        i = manifest.makeelement(OPF("item"), {})
-        i.set("href", href), i.set("id", item_id)
-        mtype = media_type
-        if not mtype:
-            guessed = guess_type(href_template)
-            mtype = guessed[0] if isinstance(guessed, tuple) else guessed
-            mtype = mtype or "application/octet-stream"
-        i.set("media-type", mtype)
-        manifest.append(i)
-        return i
-
-
-def pretty_print_opf(root):
-    """
-    Reorder OPF sections and apply XML indentation in place.
-
-    The polishing helpers sort metadata and manifest entries, then adjust text and tails
-    for pretty serialization. The root must support lxml XPath; this helper does not
-    write a file.
-
-    Example:
-        >>> from lxml import etree
-        >>> root = etree.Element(OPF('package'))
-        >>> manifest = etree.SubElement(root, OPF('manifest'))
-        >>> pretty_print_opf(root)
-        >>> root.text.isspace()
-        True
-
-
-    :param root: Mutable lxml OPF package element.
-    :return: None.
-    """
-    from LiuXin_alpha.file_formats.oeb.polish.pretty import pretty_opf, pretty_xml_tree
-
-    pretty_opf(root)
-    pretty_xml_tree(root)

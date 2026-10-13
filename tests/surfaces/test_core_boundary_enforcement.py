@@ -24,7 +24,6 @@ FORBIDDEN_PREFIXES = (
     "LiuXin_alpha.catalog",
     "LiuXin_alpha.databases",
     "LiuXin_alpha.library",
-    "LiuXin_alpha.metadata.read_sources",
     "LiuXin_alpha.storage",
 )
 

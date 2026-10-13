@@ -162,7 +162,9 @@ def test_deepcopy_and_metadata_field_descriptions_are_isolated() -> None:
     assert calibreMetadata.get_all_standard_metadata(make_copy=False)["title"]["name"] == "Title"
 
 
-def test_opf_and_database_delegation(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+def test_opf_delegation_and_passive_database_boundary(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
     """
     Verify opf and database delegation.
 
@@ -228,57 +230,7 @@ def test_opf_and_database_delegation(monkeypatch: pytest.MonkeyPatch, tmp_path) 
     assert source_metadata.write_to_opf(path, default_lang="fra") == "written"
     assert calls["opf_file"] == (source_metadata, path, "fra")
 
-    class FakeWriter:
-        """
-        Provide the FakeWriter test fixture or double with explicit deterministic behavior.
-
-        Example:
-            Exercise test opf and database delegation.FakeWriter through its owning regression module::
-
-                python -m pytest -q tests/metadata/book/test_book_metadata_edges.py
-        """
-        def __init__(self, database):
-            """
-            Initialize the FakeWriter test double.
-
-            Example:
-                Exercise test opf and database delegation.FakeWriter.init through its owning regression module::
-
-                    python -m pytest -q tests/metadata/book/test_book_metadata_edges.py
-
-
-            :param database: Database double or adapter under test.
-            :return: None; the function records state or raises through its assertions.
-            """
-            calls["database"] = database
-
-        def write(self, metadata, **kwargs):
-            """
-            Record a batch mutation and return its configured result.
-
-            Example:
-                Exercise test opf and database delegation.FakeWriter.write through its owning regression module::
-
-                    python -m pytest -q tests/metadata/book/test_book_metadata_edges.py
-
-
-            :param metadata: Metadata container or mapping supplied to the assertion helper.
-            :param kwargs: Keyword values forwarded by the test double.
-            :return: The deterministic value, row, identity or collection described above.
-            """
-            calls["write"] = (metadata, kwargs)
-            return "report"
-
-    monkeypatch.setattr(
-        "LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_metadata_writer.LiuXinWEMIMetadataWriter",
-        FakeWriter,
-    )
-
-    assert source_metadata.write_to_database("db", fields=["tags"], item_id=7) == "report"
-    assert calls["database"] == "db"
-    assert calls["write"][0] is source_metadata
-    assert calls["write"][1]["fields"] == ["tags"]
-    assert calls["write"][1]["item_id"] == 7
+    assert not hasattr(source_metadata, "write_to_database")
 
 
 def test_set_user_metadata_defaults_validation_and_template_copy(

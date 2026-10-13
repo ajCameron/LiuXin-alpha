@@ -22,7 +22,7 @@ from LiuXin_alpha.customize.ui import run_plugins_on_import
 from LiuXin_alpha.file_formats.opf import metadata_to_opf
 from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
 from LiuXin_alpha.metadata.file_sources import InvalidMetadataExtractor, get_metadata as get_file_metadata
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.storage.local.filenames import samefile
 from LiuXin_alpha.utils.text.icu import lower as icu_lower

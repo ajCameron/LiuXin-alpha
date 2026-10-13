@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import io
 
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 
 
 def _plugin_map():

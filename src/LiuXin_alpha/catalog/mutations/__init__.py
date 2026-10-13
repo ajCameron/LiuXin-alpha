@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ..api.common import CreatedWemiStack, DatabaseHandle
+from .container_writer import CatalogMetadataWriteReport
 from .metadata_writer import MetadataWriter
 from .mutation_policy import MutationPolicy
 
@@ -42,6 +43,7 @@ class CatalogMutations:
 
 __all__ = [
     "CatalogMutations",
+    "CatalogMetadataWriteReport",
     "CreatedWemiStack",
     "MetadataWriter",
     "MutationPolicy",

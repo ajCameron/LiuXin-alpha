@@ -30,5 +30,12 @@ Current dossiers:
 - `odt/`
 - `pdb/`
 
+Cross-format composition policy is recorded in
+[`plugin-composition.md`](plugin-composition.md). In particular, importing the
+`customize.builtins` namespace must not discover the complete converter fleet.
+OPF parsing and package-mutation ownership is recorded in
+[`opf-ownership.md`](opf-ownership.md); generic metadata utilities must not
+import OEB/OPF implementations.
+
 Format notes should describe stable behavior and intended policy. Short-lived
 branch state still belongs in `working-memory/`.

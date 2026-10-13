@@ -317,6 +317,18 @@ tranche narrows missing-column fallback and removes broad query-error catches,
 as described below.
 This is a scoped dependency ratchet, not a whole-project acyclicity claim.
 
+## Cold-import footprint
+
+The 2026-10-12 runtime ratchet executes reusable package boundaries in separate
+interpreters. `scripts/check_import_footprint.py` limits newly loaded project modules
+and independently rejects forbidden cross-domain imports. It therefore observes
+implicit parent-package initialization that the AST dependency graph cannot represent.
+
+The script runs directly from `scripts/run_type_checks.sh`; its regression tests also
+run in the application-surface CI group. Budget changes require review alongside the
+dependency that needs them. See [Import-footprint ratchet](import-footprint-ratchet.md)
+for current boundaries, results, and change policy.
+
 ## CLI composition and entry-point boundaries
 
 Stage 6 separates complete parser construction from application dispatch and

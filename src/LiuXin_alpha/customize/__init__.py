@@ -23,7 +23,6 @@ from copy import deepcopy
 
 from typing import Union, Any, BinaryIO, NamedTuple, Iterable, Tuple, ClassVar, Literal, Optional
 
-import LiuXin_alpha.databases.utils
 from LiuXin_alpha.utils.localization import _
 from LiuXin_alpha.constants import CALIBRE_NUMERIC_VERSION as numeric_version
 from LiuXin_alpha.constants import CALIBRE_NUMERIC_VERSION as calibre_numeric_version
@@ -830,12 +829,14 @@ class CatalogPlugin(Plugin):  # {{{
             described above.
         """
 
+        from LiuXin_alpha.databases.utils import get_data_as_dict
+
         db.search(opts.search_text)
 
         if opts.sort_by:
             # 2nd arg = ascending
             db.sort(opts.sort_by, True)
-        return LiuXin_alpha.databases.utils.get_data_as_dict(ids=opts.ids)
+        return get_data_as_dict(ids=opts.ids)
 
     # Todo: Add field maps to the database so that it can emulate calibre
     def get_output_fields(self, db, opts) -> list[str]:
@@ -924,7 +925,7 @@ class CatalogPlugin(Plugin):  # {{{
         :return: None; the operation mutates state, writes output or performs cleanup in
             place.
         """
-        from LiuXin_alpha.customize.builtins import plugins as builtin_plugins
+        from LiuXin_alpha.customize.builtins.registry import plugins as builtin_plugins
         from LiuXin_alpha.customize.ui import config
         from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryDirectory
 

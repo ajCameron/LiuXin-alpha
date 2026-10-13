@@ -16,7 +16,7 @@ from copy import deepcopy
 
 from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, Iterable, Union
 
-from LiuXin_alpha.catalog import Catalog
+from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.catalog.api.common import MetadataCandidate
 from LiuXin_alpha.utils.libraries.liuxin_six import string_types
 

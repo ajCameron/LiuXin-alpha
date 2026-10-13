@@ -1,121 +1,20 @@
 """
-Expose the application cache, storage contracts and bundled backends.
+Define the cache package boundary without assembling cache implementations.
 
-Use create_cache(database) to construct and load the default schema-backed
-facade, or Cache(database) to defer loading. Storage backends provide the
-row/field machinery; Cache owns structured queries and Catalog-mediated writes.
-The exported classes and plugin helpers retain their defining-module identities.
+Separation of concerns: caches accelerate reads and reconcile delegated Catalog
+writes; they do not own bibliographic policy or application lifecycle.
 
-Separation of concerns: caches own derived, rebuildable acceleration state,
-query/index behavior, and explicit refresh or invalidation. They are not a
-source of truth and do not define metadata validity. Ordinary semantic writes
-delegate to Catalog; cache ``create_writer``/``write``/``write_one`` are
-reconciliation-aware conveniences, not an independent semantic boundary.
-Deleting and rebuilding a cache must not lose canonical library state.
+Contracts live under ``LiuXin_alpha.caches.api``; the Catalog-independent read facade
+lives in ``LiuXin_alpha.caches.read_cache``; the writable facade and constructor live
+in ``LiuXin_alpha.caches.cache``; bundled backends and registration helpers live under
+``LiuXin_alpha.caches.cache_plugins``. Import those owners explicitly so a contract
+import does not initialize every bundled backend or pull database implementations into
+the caller.
 
 See ``dev-docs/04 - Seperation of Concerns.md`` and
 ``dev-docs/catalog-cache-boundary.md``.
 """
 
-from LiuXin_alpha.caches.api import (
-    CacheAPI,
-    CacheCapabilities,
-    CacheClosedError,
-    CacheConsistency,
-    CacheDirtyError,
-    CacheError,
-    CacheFilterOperator,
-    CacheLookup,
-    CacheLookupStatus,
-    CacheNotReadyError,
-    CachePredicate,
-    CacheQuery,
-    CacheQueryResult,
-    CacheReconciliationError,
-    CacheRecord,
-    CacheRelation,
-    CacheSort,
-    CacheState,
-    FieldBasicInterfaceAPI,
-    StorageCacheAPI,
-    StorageCacheBaseTableAPI,
-    StorageCacheCapabilities,
-    StorageCacheSingleTableAPI,
-    TableTypes,
-    UnknownCacheFieldError,
-    UnknownCacheTableError,
-    UnsupportedCacheQueryError,
-)
-from LiuXin_alpha.caches.cache import Cache, create_cache
-from LiuXin_alpha.caches.cache_plugins import (
-    create_storage_cache,
-    get_cache_plugin_capabilities,
-    get_cache_plugin_location,
-    get_registered_cache_plugin_names,
-    load_cache_plugin,
-    register_cache_plugin,
-)
-from LiuXin_alpha.caches.cache_plugins.database_backed import (
-    DatabaseBackedStorageCache,
-)
-from LiuXin_alpha.caches.cache_plugins.numpy_vectorized import (
-    NumpyVectorizedStorageCache,
-)
-from LiuXin_alpha.caches.cache_plugins.schema_backed import (
-    SchemaBackedLinkTable,
-    SchemaBackedMainTableCache,
-    SchemaBackedManyManyField,
-    SchemaBackedManyOneField,
-    SchemaBackedOneManyField,
-    SchemaBackedSameTableField,
-    SchemaBackedStorageCache,
-    SchemaBackedTwoTableOneOneField,
-)
+from __future__ import annotations
 
-__all__ = [
-    "Cache",
-    "CacheAPI",
-    "CacheCapabilities",
-    "CacheClosedError",
-    "CacheConsistency",
-    "CacheDirtyError",
-    "CacheError",
-    "CacheFilterOperator",
-    "CacheLookup",
-    "CacheLookupStatus",
-    "CacheNotReadyError",
-    "CachePredicate",
-    "CacheQuery",
-    "CacheQueryResult",
-    "CacheRecord",
-    "CacheReconciliationError",
-    "CacheRelation",
-    "CacheSort",
-    "CacheState",
-    "DatabaseBackedStorageCache",
-    "NumpyVectorizedStorageCache",
-    "SchemaBackedLinkTable",
-    "SchemaBackedMainTableCache",
-    "SchemaBackedManyManyField",
-    "SchemaBackedManyOneField",
-    "SchemaBackedOneManyField",
-    "SchemaBackedSameTableField",
-    "SchemaBackedStorageCache",
-    "SchemaBackedTwoTableOneOneField",
-    "StorageCacheAPI",
-    "StorageCacheBaseTableAPI",
-    "StorageCacheCapabilities",
-    "StorageCacheSingleTableAPI",
-    "TableTypes",
-    "UnknownCacheFieldError",
-    "UnknownCacheTableError",
-    "UnsupportedCacheQueryError",
-    "FieldBasicInterfaceAPI",
-    "create_storage_cache",
-    "create_cache",
-    "get_cache_plugin_capabilities",
-    "get_cache_plugin_location",
-    "get_registered_cache_plugin_names",
-    "load_cache_plugin",
-    "register_cache_plugin",
-]
+__all__: list[str] = []

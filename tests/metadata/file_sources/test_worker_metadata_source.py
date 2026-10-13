@@ -15,7 +15,7 @@ import io
 from collections.abc import Mapping
 from pathlib import Path
 
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 
 
 def _values(raw):

@@ -12,8 +12,9 @@ Example:
 
 from __future__ import annotations
 
-from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr import database_generator as frbr_gen
-from LiuXin_alpha.databases.db_types import IdentifierEntityType, IdentifierScheme
+from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr import (
+    database_generator as frbr_gen,
+)
 from LiuXin_alpha.metadata.constants.container_vocabularies import (
     GenreKind,
     IdentifierStatus,
@@ -24,6 +25,7 @@ from LiuXin_alpha.metadata.constants.container_vocabularies import (
     SubjectKind,
     TitleKind,
 )
+from LiuXin_alpha.metadata.identifiers import IdentifierEntityType, IdentifierScheme
 
 
 def test_identifier_placeholders_are_generated_from_db_types() -> None:

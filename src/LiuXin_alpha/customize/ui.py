@@ -47,7 +47,7 @@ from LiuXin_alpha.customize import (
     StoreBase as Store,
 )
 from LiuXin_alpha.customize.archives import get_compressor_plugins
-from LiuXin_alpha.customize.builtins import plugins as builtin_plugins
+from LiuXin_alpha.customize.builtins.registry import plugins as builtin_plugins
 from LiuXin_alpha.customize.builtins.standardization import (
     BaseNameGenerator,
     CreatorStandardize,

@@ -14,30 +14,28 @@ Example:
 from __future__ import annotations
 
 import abc
-
 from dataclasses import dataclass, field
-from typing import ClassVar, Generic, Iterator, TypeVar, Literal
+from typing import ClassVar, Generic, Iterator, Literal, TypeVar
 
-from LiuXin_alpha.databases.db_types import (
-    IdentifierScheme,
-    WORK_IDENTIFIER_SCHEMES,
-    EXPRESSION_IDENTIFIER_SCHEMES,
-    MANIFESTATION_IDENTIFIER_SCHEMES,
-    ITEM_IDENTIFIER_SCHEMES,
-)
 from LiuXin_alpha.metadata.constants.container_vocabularies import IdentifierStatus
 from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
     MetadataSequenceStringMixin,
     MetadataValueStringMixin,
 )
+from LiuXin_alpha.metadata.identifiers import (
+    EXPRESSION_IDENTIFIER_SCHEMES,
+    ITEM_IDENTIFIER_SCHEMES,
+    MANIFESTATION_IDENTIFIER_SCHEMES,
+    WORK_IDENTIFIER_SCHEMES,
+    IdentifierScheme,
+)
 from LiuXin_alpha.metadata.metadata_types import (
-    WorkID,
     ExpressionID,
-    ManifestationID,
     ItemID,
     LanguageID,
+    ManifestationID,
+    WorkID,
 )
-
 
 IdentifierT = TypeVar("IdentifierT", bound="IdentifierBase")
 SchemeContainerT = TypeVar("SchemeContainerT", bound="SchemeIdentifiersContainer")

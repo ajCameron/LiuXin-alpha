@@ -9,23 +9,27 @@ Example:
     >>> metadata.work_ids
     (1,)
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-
-from LiuXin_alpha.databases.row import Row
 from typing import Any, Optional
 
-from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_identity_api import ExpressionIdentityAPI
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_identity_api import (
+    ExpressionIdentityAPI,
+)
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_metadata_api import (
     ExpressionMetadataAPI,
     ExpressionRelationKey,
     ExpressionRelationLink,
 )
+from LiuXin_alpha.metadata.containers._row_like import row_id, row_mapping, row_table
 from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
     metadata_bundle_string,
 )
-from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import ExpressionIdentity
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import (
+    ExpressionIdentity,
+)
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.projection_views import (
     MetadataTextView,
     MetadataValuesView,
@@ -45,7 +49,13 @@ class ExpressionMetadata(ExpressionMetadataAPI):
         >>> metadata.expression.expression_id
         2
     """
-    def __init__(self, *, expression: Optional[ExpressionIdentityAPI] = None, relation_links: Optional[Mapping[str, Iterable[ExpressionRelationLink]]] = None) -> None:
+
+    def __init__(
+        self,
+        *,
+        expression: Optional[ExpressionIdentityAPI] = None,
+        relation_links: Optional[Mapping[str, Iterable[ExpressionRelationLink]]] = None,
+    ) -> None:
         """
         Retain the optional identity and initialize every supported relation bucket.
 
@@ -64,7 +74,9 @@ class ExpressionMetadata(ExpressionMetadataAPI):
         :return: None.
         """
         self._expression = expression
-        self._relation_links: dict[ExpressionRelationKey, list[ExpressionRelationLink]] = {relation_key: [] for relation_key in self.RELATION_KEYS}
+        self._relation_links: dict[
+            ExpressionRelationKey, list[ExpressionRelationLink]
+        ] = {relation_key: [] for relation_key in self.RELATION_KEYS}
         if relation_links:
             for relation_key, links in relation_links.items():
                 self.set_relation_links(relation_key, links)
@@ -171,15 +183,14 @@ class ExpressionMetadata(ExpressionMetadataAPI):
         :param target: Relation target whose work identity should be inspected.
         :return: Converted work id, or None when no usable candidate is found.
         """
-        if isinstance(target, Row):
-            if target.table == "works":
-                return cls._optional_int(target.row_id)
-            return cls._optional_int(target.row_dict.get("work_id"))
-        if isinstance(target, Mapping):
+        target_mapping = row_mapping(target)
+        if target_mapping is not None:
+            if row_table(target) == "works":
+                return cls._optional_int(row_id(target))
             return cls._optional_int(
-                target.get("work_id")
-                or target.get("id")
-                or target.get("row_id")
+                target_mapping.get("work_id")
+                or target_mapping.get("id")
+                or target_mapping.get("row_id")
             )
         work_id = getattr(target, "work_id", None)
         if work_id is not None:
@@ -291,7 +302,9 @@ class ExpressionMetadata(ExpressionMetadataAPI):
             [{"work_id": work_id} for work_id in ids],
         )
 
-    def get_relation_links(self, relation_key: ExpressionRelationKey) -> list[ExpressionRelationLink]:
+    def get_relation_links(
+        self, relation_key: ExpressionRelationKey
+    ) -> list[ExpressionRelationLink]:
         """
         Return the live link list for a normalized relation name.
 
@@ -310,7 +323,11 @@ class ExpressionMetadata(ExpressionMetadataAPI):
         """
         return self._relation_links[self.validate_relation_name(relation_key)]
 
-    def set_relation_links(self, relation_key: ExpressionRelationKey, links: Iterable[ExpressionRelationLink]) -> None:
+    def set_relation_links(
+        self,
+        relation_key: ExpressionRelationKey,
+        links: Iterable[ExpressionRelationLink],
+    ) -> None:
         """
         Validate a relation name and link cardinality before replacing its stored list.
 
@@ -330,7 +347,9 @@ class ExpressionMetadata(ExpressionMetadataAPI):
         :return: None.
         """
         relation_key = self.validate_relation_name(relation_key)
-        self._relation_links[relation_key] = self.validate_relation_links(relation_key, links)
+        self._relation_links[relation_key] = self.validate_relation_links(
+            relation_key, links
+        )
 
     def __str__(self) -> str:
         """
@@ -349,54 +368,6 @@ class ExpressionMetadata(ExpressionMetadataAPI):
             identity_name="expression",
             relation_names=self.RELATION_KEYS,
             get_links=self.get_relation_links,
-        )
-
-    def write_to_database(
-        self,
-        database: Any,
-        *,
-        fields: Iterable[str] | None = None,
-        item_id: int | None = None,
-        target_row: Row | Mapping[str, Any] | None = None,
-        replace: bool = False,
-        mark_dirty: bool = True,
-    ) -> Any:
-        """
-        Delegate supported metadata writes to the WEMI writer at expression level.
-
-        The writer resolves the target and performs incremental changes, returning its write
-        report. This wrapper introduces no transaction or rollback boundary. Unsupported
-        fields and partial failures follow the writer policy.
-
-        Example:
-            Exercise expression bundle writing with pytest::
-
-                python -m pytest -q tests/metadata/containers/test_item_metadata_hydrator.py
-
-
-        :param database: Caller-owned database accepted by LiuXinWEMIMetadataWriter.
-        :param fields: Optional field names to write; None uses the writer default field
-            selection.
-        :param item_id: Optional item id used by writer target-resolution fallbacks.
-        :param target_row: Optional Row or mapping supplied for expression target
-            resolution.
-        :param replace: Use replacement semantics for supported fields when True; otherwise
-            append.
-        :param mark_dirty: Request best-effort dirty marking after changes when True.
-        :return: Writer report describing applied, skipped and failed work.
-        """
-        from LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_metadata_writer import (
-            LiuXinWEMIMetadataWriter,
-        )
-
-        return LiuXinWEMIMetadataWriter(database).write(
-            self,
-            fields=fields,
-            target_level="expression",
-            item_id=item_id,
-            target_row=target_row,
-            replace=replace,
-            mark_dirty=mark_dirty,
         )
 
     @staticmethod
@@ -419,13 +390,12 @@ class ExpressionMetadata(ExpressionMetadataAPI):
         """
         if target is None:
             return None
-        if isinstance(target, Row):
-            return dict(target.row_dict)
+        target_mapping = row_mapping(target)
+        if target_mapping is not None:
+            return dict(target_mapping)
         to_mapping = getattr(target, "to_mapping", None)
         if callable(to_mapping):
             return to_mapping()
-        if isinstance(target, Mapping):
-            return dict(target)
         return target
 
     @staticmethod
@@ -445,7 +415,9 @@ class ExpressionMetadata(ExpressionMetadataAPI):
         :param target: Target value from a serialized relation link.
         :return: Reconstructed expression identity, copied mapping or unchanged target.
         """
-        if isinstance(target, Mapping) and ('expression_id' in target or 'expression_work_id' in target):
+        if isinstance(target, Mapping) and (
+            "expression_id" in target or "expression_work_id" in target
+        ):
             return ExpressionIdentity.from_mapping(target)
         if isinstance(target, Mapping):
             return dict(target)
@@ -471,27 +443,31 @@ class ExpressionMetadata(ExpressionMetadataAPI):
             True.
         :return: New payload with expression and optional relations entries.
         """
-        payload = {'expression': self.expression.to_mapping() if self.expression is not None else None}
+        payload = {
+            "expression": self.expression.to_mapping()
+            if self.expression is not None
+            else None
+        }
         if include_related:
-            payload['relations'] = {
+            payload["relations"] = {
                 relation_key: [
                     {
-                        'target': self._serialize_target(link.target),
-                        'priority': link.priority,
-                        'primary': link.primary,
-                        'type': link.type,
-                        'origin': link.origin,
-                        'source': link.source,
-                        'policy': link.policy,
-                        'data': link.data,
-                        'index': link.index,
-                        'link_id': link.link_id,
-                        'cardinality': (
+                        "target": self._serialize_target(link.target),
+                        "priority": link.priority,
+                        "primary": link.primary,
+                        "type": link.type,
+                        "origin": link.origin,
+                        "source": link.source,
+                        "policy": link.policy,
+                        "data": link.data,
+                        "index": link.index,
+                        "link_id": link.link_id,
+                        "cardinality": (
                             link.cardinality.value
                             if link.cardinality is not None
                             else None
                         ),
-                        'extra': dict(link.extra),
+                        "extra": dict(link.extra),
                     }
                     for link in self.get_relation_links(relation_key)
                 ]
@@ -500,7 +476,7 @@ class ExpressionMetadata(ExpressionMetadataAPI):
         return payload
 
     @classmethod
-    def from_mapping(cls, payload: Mapping[str, Any]) -> 'ExpressionMetadata':
+    def from_mapping(cls, payload: Mapping[str, Any]) -> "ExpressionMetadata":
         """
         Reconstruct an expression bundle from identity and relation payloads.
 
@@ -518,70 +494,42 @@ class ExpressionMetadata(ExpressionMetadataAPI):
         :param payload: Mapping with optional expression and relations entries.
         :return: New bundle of the requested class.
         """
-        expression_payload = payload.get('expression')
-        expression = expression_payload if isinstance(expression_payload, ExpressionIdentityAPI) else (ExpressionIdentity.from_mapping(expression_payload) if isinstance(expression_payload, Mapping) else None)
-        relation_payload = payload.get('relations') or {}
-        relation_links: dict[str, list[ExpressionRelationLink]] = {relation_key: [] for relation_key in cls.RELATION_KEYS}
+        expression_payload = payload.get("expression")
+        expression = (
+            expression_payload
+            if isinstance(expression_payload, ExpressionIdentityAPI)
+            else (
+                ExpressionIdentity.from_mapping(expression_payload)
+                if isinstance(expression_payload, Mapping)
+                else None
+            )
+        )
+        relation_payload = payload.get("relations") or {}
+        relation_links: dict[str, list[ExpressionRelationLink]] = {
+            relation_key: [] for relation_key in cls.RELATION_KEYS
+        }
         for relation_key in cls.RELATION_KEYS:
             for raw_link in relation_payload.get(relation_key, []):
                 if isinstance(raw_link, ExpressionRelationLink):
                     relation_links[relation_key].append(raw_link)
                 elif isinstance(raw_link, Mapping):
-                    relation_links[relation_key].append(ExpressionRelationLink(
-                        target=cls._deserialize_target(raw_link.get('target')),
-                        priority=raw_link.get('priority'),
-                        primary=raw_link.get('primary'),
-                        type=raw_link.get('type'),
-                        origin=raw_link.get('origin'),
-                        source=raw_link.get('source'),
-                        policy=raw_link.get('policy'),
-                        data=raw_link.get('data'),
-                        index=raw_link.get('index'),
-                        link_id=raw_link.get('link_id'),
-                        cardinality=raw_link.get('cardinality'),
-                        extra=dict(raw_link.get('extra') or {}),
-                    ))
+                    relation_links[relation_key].append(
+                        ExpressionRelationLink(
+                            target=cls._deserialize_target(raw_link.get("target")),
+                            priority=raw_link.get("priority"),
+                            primary=raw_link.get("primary"),
+                            type=raw_link.get("type"),
+                            origin=raw_link.get("origin"),
+                            source=raw_link.get("source"),
+                            policy=raw_link.get("policy"),
+                            data=raw_link.get("data"),
+                            index=raw_link.get("index"),
+                            link_id=raw_link.get("link_id"),
+                            cardinality=raw_link.get("cardinality"),
+                            extra=dict(raw_link.get("extra") or {}),
+                        )
+                    )
         return cls(expression=expression, relation_links=relation_links)
 
-
-    @classmethod
-    def from_database(
-        cls,
-        database: Any,
-        *,
-        expression_id: Optional[int] = None,
-        source_row: Optional[Mapping[str, Any] | Row] = None,
-    ) -> "ExpressionMetadata":
-        """
-        Hydrate expression metadata from an explicit id or a source row.
-
-        An explicit id takes precedence. The hydrator is constructed before checking inputs;
-        if neither entry point is supplied, ValueError is raised. The result is the concrete
-        hydrator bundle, even when invoked on a subclass.
-
-        Example:
-            Exercise database hydration with pytest::
-
-                python -m pytest -q tests/metadata/containers/test_expression_metadata_hydrator.py
-
-
-        :param database: Caller-owned database or metadata read source accepted by the
-            hydrator.
-        :param expression_id: Optional expression id, converted with int and preferred over
-            source_row.
-        :param source_row: Optional expression Row or mapping used when no explicit id is
-            supplied.
-        :return: Hydrated ExpressionMetadata instance.
-        """
-        from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_metadata_hydrator import (
-            ExpressionMetadataHydrator,
-        )
-
-        hydrator = ExpressionMetadataHydrator(database)
-        if expression_id is not None:
-            return hydrator.from_expression_id(int(expression_id))
-        if source_row is not None:
-            return hydrator.from_source_row(source_row)
-        raise ValueError("Provide either expression_id or source_row.")
 
 __all__ = ["ExpressionMetadata"]

@@ -36,7 +36,7 @@ from LiuXin_alpha.file_formats.toc import TOC
 
 # Todo: Probably gets merged into utils right?
 from LiuXin_alpha.metadata.ebook_metadata_tools import check_isbn
-from LiuXin_alpha.metadata.utils import calibreMetaInformation as MetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation as MetaInformation
 from LiuXin_alpha.metadata.utils import string_to_authors
 from LiuXin_alpha.preferences import preferences as tweaks
 from LiuXin_alpha.utils.calibre_compat.ebooks.metadata.book.base import (

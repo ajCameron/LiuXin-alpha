@@ -1,7 +1,7 @@
 """
 Declare the abstract composite interface for database facades.
 
-Mixins contribute search, relationship, metadata and maintenance contracts. These declarations describe overridable operations, not a functioning database; the concrete Database implementation owns backend connections and runtime services. Type annotations do not validate inputs at runtime.
+Mixins contribute search, relationship, metadata and maintenance contracts. These declarations describe overridable operations, not a functioning database; the concrete Database implementation owns backend connections and runtime services. Type annotations do not validate inputs at runtime. Database operations enforce only their documented representation and storage-integrity rules; use Catalog for metadata-aware validation and writes.
 """
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ class DatabaseAPI(
     """
     Combine database lifecycle, schema and row-operation contracts.
 
-    Subclasses must supply all abstract members, including inherited mixin methods. Attribute annotations such as metadata and lock neither initialize state nor enforce runtime values. Concrete Database behavior includes backend-dependent operations and best-effort cleanup; this interface does not promise transactional context-manager rollback.
+    Subclasses must supply all abstract members, including inherited mixin methods. Attribute annotations such as metadata and lock neither initialize state nor enforce runtime values. Concrete Database behavior includes backend-dependent operations and best-effort cleanup; this interface does not promise transactional context-manager rollback. This is a low-level persistence contract, not a metadata-validity boundary; callers needing that guarantee must use Catalog.
 
     Example:
         Type a consumer argument as DatabaseAPI and pass an initialized Database or a compatible complete implementation; DatabaseAPI itself cannot be instantiated.
@@ -583,5 +583,4 @@ class DatabaseAPI(
         :raises ValueError: A yielded table-name key cannot unpack into two values.
         :raises InputIntegrityError: Iteration finishes without finding the column.
         """
-
 

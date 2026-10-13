@@ -10,7 +10,7 @@ retrieval helpers, mutation services, and compatibility metadata tools over the
 same database and identity policy.
 
 ```python
-from LiuXin_alpha.catalog import Catalog
+from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.catalog.api import CatalogAPI
 
 catalog: CatalogAPI = Catalog(db)
@@ -56,6 +56,7 @@ gaps and migration order.
 | Read/create/update/delete one entity family | `catalog.works`, `catalog.items`, etc. |
 | Decide identity without writing | `catalog.matching` |
 | Read a coherent WEMI slice | `catalog.retrieval.bundles` |
+| Hydrate metadata from a database/cache or overlay OPF onto persisted metadata | `catalog.retrieval.metadata` |
 | Read immediate WEMI adjacency or a bounded descendant graph | `catalog.retrieval.hierarchy`, `catalog.retrieval.graph` |
 | Build a display-neutral summary/title | `catalog.retrieval.projections` |
 | Create/link WEMI entities or attach/replace several metadata groups | `catalog.mutations.writer` |

@@ -185,7 +185,7 @@ def test_djvu_input_convert_glue_with_fakes(tmp_path, monkeypatch: pytest.Monkey
         described above.
     """
     import LiuXin_alpha.file_formats.conversion.plugins.djvu_input as djvu_input_mod
-    from LiuXin_alpha.metadata.utils import calibreMetaInformation
+    from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 
     class _Opt:
         """

@@ -149,7 +149,7 @@ class CoreServices:
 
         owns_cache = False
         if cache_type is not None:
-            from LiuXin_alpha.caches import create_cache
+            from LiuXin_alpha.caches.cache import create_cache
 
             self._cache = create_cache(
                 self.database,
@@ -181,7 +181,7 @@ class CoreServices:
         :return: Shared Catalog-like object, without revalidating its binding on each access.
         """
         if self._catalog is None:
-            from LiuXin_alpha.catalog import Catalog
+            from LiuXin_alpha.catalog.catalog import Catalog
 
             self._catalog = Catalog(self.database)
         return self._catalog
@@ -221,13 +221,13 @@ class CoreServices:
         """
         if self._read_source is None:
             if self.cache is None:
-                from LiuXin_alpha.metadata.read_sources import (
+                from LiuXin_alpha.catalog.retrieval.hydration import (
                     DatabaseMetadataReadSource,
                 )
 
                 self._read_source = DatabaseMetadataReadSource(self.database)
             else:
-                from LiuXin_alpha.metadata.read_sources import (
+                from LiuXin_alpha.catalog.retrieval.hydration import (
                     CacheMetadataReadSource,
                 )
 
@@ -399,7 +399,8 @@ class CoreServices:
         :raises ValueError: If the supplied cache advertises a closed state.
         :raises AssertionError: If called without an attached cache.
         """
-        from LiuXin_alpha.caches import Cache, CacheAPI, CacheState
+        from LiuXin_alpha.caches.api import CacheAPI, CacheState
+        from LiuXin_alpha.caches.cache import Cache
 
         cache = self._cache
         assert cache is not None

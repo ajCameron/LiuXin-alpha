@@ -11,18 +11,17 @@ Example:
 """
 from __future__ import annotations
 
-from LiuXin_alpha.databases.db_types import IdentifierScheme
 from LiuXin_alpha.metadata.constants.container_vocabularies import (
+    DateKind,
     GenreKind,
     LabelKind,
+    LanguageKind,
     NoteKind,
+    RatingKind,
+    ResourceKind,
+    SeriesKind,
     SubjectKind,
     TitleKind,
-    LanguageKind,
-    DateKind,
-    RatingKind,
-    SeriesKind,
-    ResourceKind,
 )
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.agent_credit_containers import (
     WorkAgentCredit,
@@ -34,6 +33,10 @@ from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.agent_
     AgentProfileSummary,
     WorkSummary,
 )
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.dates_containers import (
+    WorkDate,
+    WorkDatesContainer,
+)
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.genres_containers import (
     WorkGenre,
     WorkGenresContainer,
@@ -42,33 +45,29 @@ from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.identi
     WorkIdentifier,
     WorkIdentifiersContainer,
 )
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.labels_containers import (
+    WorkLabel,
+    WorkLabelsContainer,
+)
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.languages_containers import (
     WorkLanguage,
     WorkLanguagesContainer,
 )
-from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.dates_containers import (
-    WorkDate,
-    WorkDatesContainer,
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.notes_containers import (
+    WorkNote,
+    WorkNotesContainer,
 )
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.ratings_containers import (
     WorkRating,
     WorkRatingsContainer,
 )
-from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.series_containers import (
-    WorkSeriesEntry,
-    WorkSeriesEntriesContainer,
-)
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.resources_containers import (
     WorkResource,
     WorkResourcesContainer,
 )
-from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.labels_containers import (
-    WorkLabel,
-    WorkLabelsContainer,
-)
-from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.notes_containers import (
-    WorkNote,
-    WorkNotesContainer,
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.series_containers import (
+    WorkSeriesEntriesContainer,
+    WorkSeriesEntry,
 )
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.subjects_containers import (
     WorkSubject,
@@ -80,6 +79,7 @@ from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.titles
     WorkTitle,
     WorkTitlesContainer,
 )
+from LiuXin_alpha.metadata.identifiers import IdentifierScheme
 from LiuXin_alpha.metadata.metadata_types import AgentTypes, CreditSource, WorkAgentRole
 
 

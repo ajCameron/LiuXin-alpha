@@ -9,6 +9,7 @@ Example:
 
         python -m pytest -q tests/metadata/api/test_metadata_package_surface.py
 """
+
 from __future__ import annotations
 
 import ast
@@ -17,7 +18,6 @@ import re
 from pathlib import Path
 
 import pytest
-
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 METADATA_API_ROOT = REPO_ROOT / "src" / "LiuXin_alpha" / "metadata" / "api"
@@ -75,35 +75,15 @@ METADATA_API_ROOT = REPO_ROOT / "src" / "LiuXin_alpha" / "metadata" / "api"
                 "CalibreMetadataInputAPI",
                 "CalibreMetadataAPI",
                 "CalibreLikeBookMetadataAPI",
-                "CalibreMetadataGetterAPI",
-                "DBMetadataSourceAPI",
-                "HydratableMetadataKind",
-                "HydratedMetadataAPI",
                 "LiuXinMetadataAPI",
-                "LiuXinMetadataGetterAPI",
                 "LiuXinMetaInformationAPI",
                 "LazyLiuXinWEMIAPI",
                 "LazyLiuXinWEMIMetadataAPI",
                 "LiuXinWEMIMetadataAPI",
-                "LiuXinWEMIMetadataGetterAPI",
                 "LiuXinWEMIAPI",
                 "WemiIdentityAPI",
                 "WemiMetadataRelationsAPI",
                 "WemiRelationKeyAPI",
-                "MetadataDriverWrapperAPI",
-                "MetadataHydratorAPI",
-                "MetadataLinkRow",
-                "MetadataLinkRowSequence",
-                "MetadataObjectGetterAPI",
-                "MetadataRowSequence",
-                "MetadataReadSourceAPI",
-                "MetadataSearchTerm",
-                "MetadataTableColumns",
-                "WorkMetadataGetterAPI",
-                "ExpressionMetadataGetterAPI",
-                "ManifestationMetadataGetterAPI",
-                "ItemMetadataGetterAPI",
-                "AgentProfileGetterAPI",
             ],
         ),
         (
@@ -163,12 +143,8 @@ METADATA_API_ROOT = REPO_ROOT / "src" / "LiuXin_alpha" / "metadata" / "api"
                 "WorkMetadata",
                 "LiuXinWEMIMetadata",
                 "LiuXinWEMI",
-                "LiuXinWEMIMetadataHydrator",
-                "LiuXinWEMIMetadataWriteReport",
-                "LiuXinWEMIMetadataWriter",
                 "LazyLiuXinWEMIMetadata",
                 "LazyLiuXinWEMI",
-                "LazyLiuXinWEMIMetadataHydrator",
                 "ExpressionIdentity",
                 "ExpressionMetadata",
                 "ManifestationIdentity",
@@ -199,12 +175,8 @@ METADATA_API_ROOT = REPO_ROOT / "src" / "LiuXin_alpha" / "metadata" / "api"
                 "WorkMetadata",
                 "LiuXinWEMIMetadata",
                 "LiuXinWEMI",
-                "LiuXinWEMIMetadataHydrator",
-                "LiuXinWEMIMetadataWriteReport",
-                "LiuXinWEMIMetadataWriter",
                 "LazyLiuXinWEMIMetadata",
                 "LazyLiuXinWEMI",
-                "LazyLiuXinWEMIMetadataHydrator",
                 "ExpressionIdentity",
                 "ExpressionMetadata",
                 "ManifestationIdentity",
@@ -229,7 +201,7 @@ METADATA_API_ROOT = REPO_ROOT / "src" / "LiuXin_alpha" / "metadata" / "api"
             ],
         ),
         (
-            "LiuXin_alpha.metadata.api.from_database_api",
+            "LiuXin_alpha.catalog.api.retrieval.hydration",
             [
                 "CalibreMetadataGetterAPI",
                 "DBMetadataSourceAPI",
@@ -255,7 +227,9 @@ METADATA_API_ROOT = REPO_ROOT / "src" / "LiuXin_alpha" / "metadata" / "api"
         ),
     ],
 )
-def test_metadata_package_import_surface(module_name: str, expected_names: list[str]) -> None:
+def test_metadata_package_import_surface(
+    module_name: str, expected_names: list[str]
+) -> None:
     """
     Verify metadata package import surface.
 
@@ -272,7 +246,9 @@ def test_metadata_package_import_surface(module_name: str, expected_names: list[
     """
     module = importlib.import_module(module_name)
     for expected_name in expected_names:
-        assert hasattr(module, expected_name), f"{module_name} is missing {expected_name}"
+        assert hasattr(module, expected_name), (
+            f"{module_name} is missing {expected_name}"
+        )
 
 
 def test_metadata_api_root_combines_current_public_api_roots() -> None:
@@ -300,12 +276,8 @@ def test_metadata_api_root_combines_current_public_api_roots() -> None:
     liuxin_wemi_api_root = importlib.import_module(
         "LiuXin_alpha.metadata.api.containers_api.liuxin_metadata_api.liuxin_wemi_metadata_api"
     )
-    from_database_api_root = importlib.import_module(
-        "LiuXin_alpha.metadata.api.from_database_api"
-    )
     assert api_root.__all__ == [
         *container_api_root.__all__,
-        *from_database_api_root.__all__,
         *calibre_api_root.__all__,
         *liuxin_api_root.__all__,
         *liuxin_wemi_api_root.__all__,
@@ -333,6 +305,7 @@ def test_stale_metadata_from_database_namespace_is_removed() -> None:
         / "__init__.py"
     )
     assert not stale_package.exists()
+    assert not (METADATA_API_ROOT / "from_database_api" / "__init__.py").exists()
 
 
 def test_metadata_container_root_matches_metadata_containers_root() -> None:
@@ -382,7 +355,7 @@ def test_metadata_api_source_avoids_unbounded_typing() -> None:
 
     :return: None; the function records state or raises through its assertions.
     """
-    pattern = re.compile(r"\b" + ("A" "ny") + r"\b")
+    pattern = re.compile(r"\b" + ("Any") + r"\b")
     offenders = [
         str(path)
         for path in METADATA_API_ROOT.rglob("*.py")
@@ -423,7 +396,7 @@ def test_metadata_api_annotations_avoid_unbounded_objects() -> None:
 
     :return: None; the function records state or raises through its assertions.
     """
-    unbounded_names = {("A" "ny"), "object"}
+    unbounded_names = {("Any"), "object"}
     offenders: list[str] = []
 
     for path in METADATA_API_ROOT.rglob("*.py"):
@@ -432,7 +405,10 @@ def test_metadata_api_annotations_avoid_unbounded_objects() -> None:
             annotations: list[ast.AST] = []
             if isinstance(node, ast.AnnAssign):
                 annotations.append(node.annotation)
-                if _name_from_ast(node.annotation) == "TypeAlias" and node.value is not None:
+                if (
+                    _name_from_ast(node.annotation) == "TypeAlias"
+                    and node.value is not None
+                ):
                     annotations.append(node.value)
             elif isinstance(node, ast.arg) and node.annotation is not None:
                 annotations.append(node.annotation)
@@ -441,7 +417,9 @@ def test_metadata_api_annotations_avoid_unbounded_objects() -> None:
 
             for annotation in annotations:
                 used_names = {
-                    child.id for child in ast.walk(annotation) if isinstance(child, ast.Name)
+                    child.id
+                    for child in ast.walk(annotation)
+                    if isinstance(child, ast.Name)
                 }
                 if used_names & unbounded_names:
                     offenders.append(f"{path}:{node.lineno}")
@@ -519,7 +497,9 @@ def test_metadata_api_surfaces_do_not_export_concrete_containers(
     """
     module = importlib.import_module(module_name)
     for concrete_name in concrete_names:
-        assert not hasattr(module, concrete_name), f"{module_name} still exports {concrete_name}"
+        assert not hasattr(module, concrete_name), (
+            f"{module_name} still exports {concrete_name}"
+        )
 
 
 @pytest.mark.parametrize(
@@ -544,4 +524,6 @@ def test_metadata_leaf_all_names_exist(module_name: str) -> None:
     """
     module = importlib.import_module(module_name)
     for exported_name in module.__all__:
-        assert hasattr(module, exported_name), f"{module_name} exports missing {exported_name}"
+        assert hasattr(module, exported_name), (
+            f"{module_name} exports missing {exported_name}"
+        )

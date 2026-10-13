@@ -1936,7 +1936,7 @@ class CoreApplicationAPI:
         :param item_id: Item identifier passed unchanged to the hydrator.
         :return: Hydrated LiuXin WEMI metadata container; loading failures propagate.
         """
-        from LiuXin_alpha.metadata.containers import (
+        from LiuXin_alpha.catalog.retrieval.hydration import (
             LiuXinWEMIMetadataHydrator,
         )
 
@@ -1994,7 +1994,7 @@ class CoreApplicationAPI:
         :param query: Query with item_id and optional default_lang for OPF serialization.
         :return: Item ID and serialized OPF content; hydration/serialization errors propagate.
         """
-        from LiuXin_alpha.metadata import metadata_to_opf_bytes
+        from LiuXin_alpha.metadata.facade import metadata_to_opf_bytes
 
         payload = _payload(query)
         item_id = _required_int(payload, "item_id")

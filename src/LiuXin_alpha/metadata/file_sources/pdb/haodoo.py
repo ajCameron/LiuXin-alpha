@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from LiuXin_alpha.file_formats.pdb.haodoo.reader import Reader
 from LiuXin_alpha.file_formats.pdb.header import PdbHeaderReader
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
 

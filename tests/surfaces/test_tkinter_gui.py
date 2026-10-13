@@ -15,8 +15,8 @@ from pathlib import Path
 
 import pytest
 
-from LiuXin_alpha.caches import StorageCacheCapabilities
-from LiuXin_alpha.metadata.containers import LiuXinWEMIMetadataHydrator
+from LiuXin_alpha.caches.api import StorageCacheCapabilities
+from LiuXin_alpha.catalog.retrieval.hydration import LiuXinWEMIMetadataHydrator
 from LiuXin_alpha.surfaces.tkinter_gui.app import build_arg_parser, config_from_args
 from LiuXin_alpha.surfaces.tkinter_gui.backend import TkGuiBackend
 from LiuXin_alpha.surfaces.tkinter_gui.metadata_editing import (
@@ -26,7 +26,7 @@ from LiuXin_alpha.surfaces.tkinter_gui.metadata_editing import (
 from LiuXin_alpha.surfaces.tkinter_gui.session import TkGuiSession
 from LiuXin_alpha.surfaces.tkinter_gui.state import TkGuiConfig
 from LiuXin_alpha.surfaces.tkinter_gui.tasks import TkGuiTaskRunner
-from tests.metadata.containers.test_item_metadata_hydrator import (
+from tests.catalog.retrieval.test_item_metadata_hydrator import (
     _build_fake_database as _build_metadata_fake_database,
 )
 

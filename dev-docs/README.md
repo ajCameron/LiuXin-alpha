@@ -104,6 +104,8 @@ and dated handoff before treating a sketch as a shipped contract.
 - [Whole-repository architecture review](architecture-review-2026-09-26.md):
   dated 2026-09-26 findings on lifecycle, layering, duplicate ownership, safety
   invariants and legacy containment, with a prioritised action list.
+- [Import-footprint ratchet](import-footprint-ratchet.md): dated runtime budgets
+  protecting passive package roots and reusable API/leaf imports.
 - [Project motivation](<01 - Introduction.md>), [top-level module notes](top-level-modules-notes.md),
   [earlier separation model](seperation_of_concerns.md),
   [ideas](thoughts.md), and [cross-project TODOs](global_todo.md).

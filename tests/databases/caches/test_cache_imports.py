@@ -46,20 +46,21 @@ class TestCacheImportAPIs:
 
         :return: None; failed expectations raise AssertionError.
         """
-        from LiuXin_alpha.caches import (
-            Cache,
+        from LiuXin_alpha.caches.api import (
             CacheAPI,
             CacheQuery,
-            DatabaseBackedStorageCache,
             FieldBasicInterfaceAPI,
-            NumpyVectorizedStorageCache,
-            SchemaBackedStorageCache,
             StorageCacheAPI,
             StorageCacheBaseTableAPI,
             StorageCacheCapabilities,
             StorageCacheSingleTableAPI,
             TableTypes,
-            create_cache,
+        )
+        from LiuXin_alpha.caches.cache import Cache, create_cache
+        from LiuXin_alpha.caches.cache_plugins import (
+            DatabaseBackedStorageCache,
+            NumpyVectorizedStorageCache,
+            SchemaBackedStorageCache,
             create_storage_cache,
             get_cache_plugin_capabilities,
             get_registered_cache_plugin_names,
@@ -174,7 +175,9 @@ class TestCacheImportAPIs:
 
         :return: None; failed expectations raise AssertionError.
         """
-        from LiuXin_alpha.caches import NumpyVectorizedStorageCache
+        from LiuXin_alpha.caches.cache_plugins.numpy_vectorized import (
+            NumpyVectorizedStorageCache,
+        )
 
         assert NumpyVectorizedStorageCache is not None
 
@@ -188,8 +191,10 @@ class TestCacheImportAPIs:
 
         :return: None; failed expectations raise AssertionError.
         """
-        from LiuXin_alpha.caches import (
+        from LiuXin_alpha.caches.cache_plugins.numpy_vectorized import (
             NumpyVectorizedStorageCache,
+        )
+        from LiuXin_alpha.caches.cache_plugins.schema_backed import (
             SchemaBackedStorageCache,
         )
         from LiuXin_alpha.caches.cache_plugins.numpy_vectorized.link_table import (

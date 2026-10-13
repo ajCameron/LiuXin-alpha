@@ -11,6 +11,10 @@ shape, and the dated
 defines the semantic write guarantee. Existing compatibility code may still
 cross these boundaries; that debt is not precedent for new code.
 
+The executable migration boundary is described in the
+[layer-direction ratchet](layer-direction-ratchet.md). Existing backward edges
+are exact reviewed debt, not exceptions available to new code.
+
 ## Layer map
 
 ```text
@@ -45,6 +49,22 @@ contract so it is visible before a developer explores an implementation:
 Those docstrings are entry-point summaries, not independent policy sources. If
 wording drifts, this guide and the dated write-validation contract take
 precedence and the package root should be corrected.
+
+As of **2026-10-12**, package roots are also import boundaries. `metadata`,
+`catalog`, and `caches` initializers do not re-export concrete facades or assemble
+implementations. Import contracts and implementations from their owning modules:
+
+- `LiuXin_alpha.metadata.facade` for persistence-free OPF conversion;
+- `LiuXin_alpha.catalog.retrieval.metadata` for database/cache hydration and
+  persistence-aware OPF overlays;
+- `LiuXin_alpha.catalog.catalog.Catalog` for the concrete catalog;
+- `LiuXin_alpha.caches.api` for contracts, `caches.cache` for the composed facade,
+  and `caches.cache_plugins` for bundled backends.
+
+This is enforced by the fresh-process
+[import-footprint ratchet](import-footprint-ratchet.md). It complements static
+layer checks by observing the modules Python actually executes through package
+initializers.
 
 The shortest useful description is:
 
@@ -111,8 +131,27 @@ old libraries unreadable or silently rewriting them.
 pure normalization and validation. It does not own SQL, transactions, record
 identity resolution, storage placement, or application workflow.
 
-Some current metadata facades still hydrate from databases or caches. Those are
-compatibility/migration surfaces, not the desired dependency direction.
+Identifier entity types, schemes, and per-entity allow-lists live in
+`metadata.identifiers`; MARC relator roles and per-WEMI role sets live in
+`metadata.relators`. Schema generation consumes these contracts from metadata.
+They are not database types merely because a database `CHECK` constraint may
+enforce them.
+
+Metadata containers do not expose `from_database` constructors. Database/cache
+read-source contracts and hydrators belong to `catalog.api.retrieval.hydration`
+and `catalog.retrieval.hydration`; callers normally use
+`catalog.retrieval.metadata` or the free functions in
+`LiuXin_alpha.catalog.retrieval.metadata`. Row-shaped relation targets are
+consumed structurally, so passive containers do not import the database `Row`
+implementation.
+
+Metadata containers do not write themselves. To persist a populated container,
+call `catalog.mutations.writer.write_container(...)`; to apply public field
+values, call `write_values(...)`. The absence of a container
+`write_to_database` method is intentional and prevents a dependency edge from
+passive metadata back into persistence.
+
+Catalog retrieval owns every current database/cache metadata hydration facade.
 
 ### Catalog
 
@@ -134,6 +173,8 @@ matching, or merge policy.
 
 The database remains the final structural guard and authoritative persisted
 record. That is different from being the owner of semantic validation.
+There is no implicit metadata-validity check on `Database`, its macros, or its
+driver wrapper. Code that needs such a guarantee must enter through Catalog.
 
 ### Storage
 
@@ -150,6 +191,12 @@ Expression, Manifestation, Agent, or other bibliographic entity.
 `caches` own derived, rebuildable acceleration state, structured queries, and
 explicit refresh/invalidation behavior. Cache writes delegate to Catalog; a
 cache must not become an alternative semantic write path or source of truth.
+
+`caches.read_cache.ReadCache` supplies lifecycle and structured reads without a
+Catalog dependency. Catalog retrieval may compose that read-only facade.
+`caches.cache.Cache` subclasses it to add Catalog-mediated writes and cache
+reconciliation. Keeping these owners distinct prevents read composition and
+write delegation from forming a Catalog/cache import cycle.
 
 ### Library and workflows
 

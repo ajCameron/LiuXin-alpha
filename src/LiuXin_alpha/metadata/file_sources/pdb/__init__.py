@@ -22,7 +22,7 @@ from LiuXin_alpha.metadata.file_sources.pdb.ereader import get_metadata as get_e
 from LiuXin_alpha.metadata.file_sources.pdb.ereader import set_metadata as set_ereader
 from LiuXin_alpha.metadata.file_sources.pdb.haodoo import get_metadata as get_haodoo
 from LiuXin_alpha.metadata.file_sources.pdb.plucker import get_metadata as get_plucker
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars

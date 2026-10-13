@@ -111,7 +111,7 @@ class CHMInput(InputFormatPlugin):
         """
         from LiuXin_alpha.customize.ui import plugin_for_input_format
         from LiuXin_alpha.file_formats.chm.metadata import get_metadata_from_reader
-        from LiuXin_alpha.metadata.utils import calibreMetaInformation
+        from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 
         self.opts = options
 

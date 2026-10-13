@@ -20,7 +20,7 @@ from types import SimpleNamespace
 import pytest
 
 from LiuXin_alpha.metadata.file_sources import epub
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 
 
 def _values(raw):

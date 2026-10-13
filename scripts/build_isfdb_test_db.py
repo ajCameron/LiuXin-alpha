@@ -317,7 +317,7 @@ if REPO_ROOT is None:
     raise SystemExit("Could not locate repo root from scripts/build_isfdb_test_db.py")
 _ensure_importable(REPO_ROOT)
 
-from LiuXin_alpha.metadata import standardize_genre as _genre_std  # noqa: E402
+import LiuXin_alpha.metadata.standardize_genre as _genre_std  # noqa: E402
 from LiuXin_alpha.metadata.standardization import make_title_search_term  # noqa: E402
 
 COMPILED_GENRE_TAG_MAPPING = _genre_std.compile_genre_mapping(_genre_std.GENRE_SHORTENED_MAPPING)

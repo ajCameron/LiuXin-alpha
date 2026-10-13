@@ -30,7 +30,8 @@ from LiuXin_alpha.ingest.remote_html import (
 )
 from LiuXin_alpha.ingest.stores import adopt_store as adopt_configured_store
 from LiuXin_alpha.ingest.stores import ingest_store as ingest_configured_store
-from LiuXin_alpha.metadata.containers import ItemMetadata, ItemMetadataHydrator
+from LiuXin_alpha.catalog.retrieval.hydration import ItemMetadataHydrator
+from LiuXin_alpha.metadata.containers import ItemMetadata
 from LiuXin_alpha.storage.api import (
     Digest,
     DigitalAssetID,

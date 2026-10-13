@@ -352,7 +352,7 @@ def make_simpler_search_term(search_string):
 #     - normalizes unicode (accent-insensitive)
 #     - compiles regexes once
 #     - contains a substantially larger mapping
-from LiuXin_alpha.metadata import standardize_genre as _genre_std
+import LiuXin_alpha.metadata.standardize_genre as _genre_std
 
 
 # Public alias retained for backwards compatibility

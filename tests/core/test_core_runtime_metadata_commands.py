@@ -13,8 +13,8 @@ import pytest
 
 from LiuXin_alpha.core import CoreCommand, CoreQuery, CoreRuntime
 from LiuXin_alpha.core.errors import CoreHandlerError
-from LiuXin_alpha.metadata.containers import LiuXinWEMIMetadataHydrator
-from tests.metadata.containers.test_item_metadata_hydrator import _build_fake_database
+from LiuXin_alpha.catalog.retrieval.hydration import LiuXinWEMIMetadataHydrator
+from tests.catalog.retrieval.test_item_metadata_hydrator import _build_fake_database
 
 
 @dataclass

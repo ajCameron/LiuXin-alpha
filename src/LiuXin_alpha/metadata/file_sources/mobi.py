@@ -22,7 +22,7 @@ from LiuXin_alpha.file_formats import normalize
 from LiuXin_alpha.file_formats.mobi import MAX_THUMB_DIMEN, MobiError
 from LiuXin_alpha.file_formats.mobi.langcodes import iana2mobi
 from LiuXin_alpha.file_formats.mobi.utils import rescale_image
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 from LiuXin_alpha.utils.date import now as nowf
 from LiuXin_alpha.utils.image_tools.imghdr import what
 from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars

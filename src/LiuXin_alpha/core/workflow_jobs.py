@@ -927,7 +927,7 @@ def run_metadata_identify_job(
 
     from threading import Event
 
-    from LiuXin_alpha.metadata import metadata_to_opf_bytes
+    from LiuXin_alpha.metadata.facade import metadata_to_opf_bytes
     from LiuXin_alpha.metadata.web_sources.identify import identify
     from LiuXin_alpha.metadata.web_sources.worker import GUILog
 

@@ -406,7 +406,7 @@ class DatabaseStorageMetadataRepository:
             return
         if getattr(cache, "database", None) is not self.db:
             raise ValueError("storage metadata cache must use the manager database.")
-        from LiuXin_alpha.caches import CacheState
+        from LiuXin_alpha.caches.api import CacheState
 
         state = cache.state
         if state == CacheState.EMPTY:
@@ -901,7 +901,7 @@ class DatabaseStorageMetadataRepository:
 
         if self.cache is None or table not in self._cached_tables:
             return tuple(self.macros.get_rows(table, order_by=order_by))
-        from LiuXin_alpha.caches import CacheQuery, CacheSort
+        from LiuXin_alpha.caches.api import CacheQuery, CacheSort
 
         result = self.cache.query(
             CacheQuery(

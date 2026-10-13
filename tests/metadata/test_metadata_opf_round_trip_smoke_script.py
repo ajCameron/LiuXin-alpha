@@ -9,6 +9,7 @@ Example:
 
         python -m pytest -q tests/metadata/test_metadata_opf_round_trip_smoke_script.py
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -18,8 +19,9 @@ from typing import Any
 
 import pytest
 
+from LiuXin_alpha.catalog.retrieval.metadata import metadata_from_database
 from LiuXin_alpha.metadata.containers import LiuXinWEMIMetadata
-from tests.metadata.containers.test_item_metadata_hydrator import _build_fake_database
+from tests.catalog.retrieval.test_item_metadata_hydrator import _build_fake_database
 
 
 _SCRIPT_MODULE: Any | None = None
@@ -40,8 +42,14 @@ def _load_script_module() -> Any:
     global _SCRIPT_MODULE
     if _SCRIPT_MODULE is not None:
         return _SCRIPT_MODULE
-    script_path = Path(__file__).resolve().parents[2] / "scripts" / "metadata_opf_round_trip_smoke.py"
-    spec = importlib.util.spec_from_file_location("metadata_opf_round_trip_smoke", script_path)
+    script_path = (
+        Path(__file__).resolve().parents[2]
+        / "scripts"
+        / "metadata_opf_round_trip_smoke.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "metadata_opf_round_trip_smoke", script_path
+    )
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -60,6 +68,7 @@ class _FakeRow:
 
             python -m pytest -q tests/metadata/test_metadata_opf_round_trip_smoke_script.py
     """
+
     def __init__(self, item_id: int) -> None:
         """
         Initialize the FakeRow test double.
@@ -86,6 +95,7 @@ class _FakeItemDatabase:
 
             python -m pytest -q tests/metadata/test_metadata_opf_round_trip_smoke_script.py
     """
+
     def get_all_rows(self, table: str):
         """
         Return copied rows from the requested in-memory table.
@@ -159,7 +169,9 @@ def test_metadata_opf_round_trip_smoke_compares_snapshots() -> None:
     ]
 
 
-def test_metadata_opf_round_trip_smoke_runs_against_fake_database(tmp_path: Path) -> None:
+def test_metadata_opf_round_trip_smoke_runs_against_fake_database(
+    tmp_path: Path,
+) -> None:
     """
     Verify metadata opf round trip smoke runs against fake database.
 
@@ -210,7 +222,7 @@ def test_metadata_opf_round_trip_smoke_can_write_back_after_opf(tmp_path: Path) 
         write_back_fields=("tags",),
         write_back_add_tags=("smoke-writeback-tag",),
     )
-    rehydrated = LiuXinWEMIMetadata.from_database(db, item_id=1)
+    rehydrated = metadata_from_database(db, item_id=1)
 
     assert result.ok is True
     assert result.write_report is not None
@@ -218,7 +230,9 @@ def test_metadata_opf_round_trip_smoke_can_write_back_after_opf(tmp_path: Path) 
     assert "smoke-writeback-tag" in rehydrated.tags
 
 
-def test_metadata_opf_round_trip_smoke_requires_safe_write_back_target(tmp_path: Path) -> None:
+def test_metadata_opf_round_trip_smoke_requires_safe_write_back_target(
+    tmp_path: Path,
+) -> None:
     """
     Verify metadata opf round trip smoke requires safe write back target.
 

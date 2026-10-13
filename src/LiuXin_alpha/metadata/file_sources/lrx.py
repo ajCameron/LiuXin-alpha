@@ -16,7 +16,8 @@ import os
 import struct
 from zlib import decompress
 
-from LiuXin_alpha.metadata.utils import calibreMetaInformation, string_to_authors
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
+from LiuXin_alpha.metadata.utils import string_to_authors
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
 from LiuXin_alpha.utils.localization import trans as _

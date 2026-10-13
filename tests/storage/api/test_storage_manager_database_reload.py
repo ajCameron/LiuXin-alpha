@@ -24,7 +24,8 @@ import pytest
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.databases.runtime import bootstrap_storage_manager
-from LiuXin_alpha.caches import CacheLookupStatus, create_cache
+from LiuXin_alpha.caches.api import CacheLookupStatus
+from LiuXin_alpha.caches.cache import create_cache
 from LiuXin_alpha.storage.api import (
     Digest,
     DigitalAssetDeclaration,

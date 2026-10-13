@@ -69,6 +69,8 @@ def test_default_run_is_offline_and_enforces_complexity() -> None:
     assert "lint.mccabe.max-complexity=10" in output
     assert "storage-manager complexity step:" in output
     assert "lint.mccabe.max-complexity=15" in output
+    assert "layer-direction step:" in output
+    assert "scripts/check_layer_direction.py" in output
     assert "internal basedpyright contract step:" in output
     assert "internal mypy contract step:" in output
     complexity = next(
