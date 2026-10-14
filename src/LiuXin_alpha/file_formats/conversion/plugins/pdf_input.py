@@ -123,7 +123,7 @@ class PDFInput(InputFormatPlugin):
                 return self.convert_new(stream, accelerators)
             pdftohtml(os.getcwd(), stream.name, options.no_images)
 
-            from LiuXin_alpha.customize.ui import get_file_type_metadata
+            from LiuXin_alpha.file_formats.plugin_runtime import get_file_type_metadata
 
             log.debug("Retrieving document metadata...")
             mi = get_file_type_metadata(stream, "pdf")

@@ -80,10 +80,15 @@ The shortest useful description is:
   contract exposed to surfaces;
 - `surfaces` translate external input and output; they are never a trusted
   substitute for lower-layer validation.
-- `plugin_system` defines passive, format-neutral plugin lifecycle contracts;
-  it never discovers providers or assembles registries;
-- `file_formats` owns format implementations and reusable conversion contracts;
-  `customize` remains the compatibility and application-composition surface.
+- `plugin_system` defines format-neutral lifecycle, file-hook and metadata-stream
+  contracts, shared settings, and ZIP loading mechanics; it never selects domain
+  provider fleets or assembles application services;
+- `file_formats` owns format implementations, conversion contracts and profiles,
+  and standalone file-plugin composition; it must not import `customize`,
+  surfaces, library, Core, Catalog, databases, caches, storage, ingest, or jobs;
+- metadata reader/writer implementations belong to `metadata.file_sources`;
+  `customize` retains compatibility exports and composes the application fleet,
+  binding its initialized instances into `file_formats.plugin_runtime`.
 
 ## Semantic write validity
 

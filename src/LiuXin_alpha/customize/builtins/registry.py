@@ -22,8 +22,8 @@ except Exception as e:
     default_log.log_exception("Failed to import HTML2ZIP", e, "DEBUG")
     HTML2ZIP = None
 
-from LiuXin_alpha.customize.builtins.conversion import get_input_plugins
-from LiuXin_alpha.customize.builtins.conversion import get_output_plugins
+from LiuXin_alpha.file_formats.conversion.builtins import get_input_plugins
+from LiuXin_alpha.file_formats.conversion.builtins import get_output_plugins
 try:
     from LiuXin_alpha.customize.builtins.device_drivers import get_device_driver_plugins
 except Exception as e:
@@ -44,12 +44,12 @@ except Exception as e:
         """
         return []
 
-from LiuXin_alpha.customize.builtins.on_import import get_file_type_plugins
+from LiuXin_alpha.file_formats.import_plugins import get_file_type_plugins
 from LiuXin_alpha.customize.builtins.metadata_downloaders import get_web_md_plugins
-from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
-from LiuXin_alpha.customize.builtins.metadata_writers import get_metadata_set_plugins
+from LiuXin_alpha.metadata.file_sources.builtin_readers import get_metadata_reader_plugins
+from LiuXin_alpha.metadata.file_sources.builtin_writers import get_metadata_set_plugins
 try:
-    from LiuXin_alpha.customize.profiles import input_profiles, output_profiles
+    from LiuXin_alpha.file_formats.conversion.profiles import input_profiles, output_profiles
 except Exception as e:
     default_log.log_exception("Failed to import profiles", e, "DEBUG")
     input_profiles, output_profiles = [], []

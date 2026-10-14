@@ -23,7 +23,7 @@ from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
     choose_conversion_workdir,
 )
 
-from LiuXin_alpha.customize import numeric_version
+from LiuXin_alpha.constants import CALIBRE_NUMERIC_VERSION as numeric_version
 from LiuXin_alpha.utils.calibre import CurrentDir
 from LiuXin_alpha.utils.calibre import walk
 from LiuXin_alpha.utils.localization import trans as _

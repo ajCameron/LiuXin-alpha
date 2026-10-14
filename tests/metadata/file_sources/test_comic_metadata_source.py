@@ -205,7 +205,7 @@ def test_comic_metadata_reader_plugin_uses_series_index_customization() -> None:
 
     :return: None; the function records state or raises through its assertions.
     """
-    from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
+    from LiuXin_alpha.metadata.file_sources.builtin_readers import get_metadata_reader_plugins
 
     payload = {
         "ComicBookInfo/1.0": {

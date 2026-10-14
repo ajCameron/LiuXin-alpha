@@ -106,7 +106,7 @@ def test_txt_reader_plugin_is_available_and_preserves_stream_position() -> None:
 
     :return: None; the function records state or raises through its assertions.
     """
-    from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
+    from LiuXin_alpha.metadata.file_sources.builtin_readers import get_metadata_reader_plugins
 
     payload = b"Plugin Title\n\n\nPlugin Author\nBody text.\n"
     stream = io.BytesIO(payload)

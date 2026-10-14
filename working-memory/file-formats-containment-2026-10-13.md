@@ -1,8 +1,8 @@
 # File-format containment — 2026-10-13
 
-Current checkpoint: **third seam verified on 2026-10-14** on
-`file-format-contract-containment`. The next slice is format-to-UI/customization
-containment; preserve behavior and keep the remaining dependencies visible.
+Current checkpoint: **containment lane verified on 2026-10-15**
+on `file-format-contract-containment`. Standalone file-format composition now owns
+its runtime; remaining metadata/application cycles stay explicitly tracked.
 
 ## Baseline
 
@@ -107,3 +107,65 @@ Local logs and command/exit records are retained under
 `regressions.log`, `regressions.done.json`, `quality.log`, and
 `quality.done.json`. The separate `LiuXin_alpha_data` submodule changes are
 excluded from this checkpoint.
+
+
+## Fourth implemented seam — 2026-10-15
+
+- File-hook and metadata stream contracts moved to `plugin_system.file_types`;
+  shared persisted settings and ZIP mechanics moved below application composition.
+- Conversion provider assembly and device profiles now live under `file_formats`;
+  metadata providers live under `metadata.file_sources`. Compatibility exports
+  retain object identities at the old paths.
+- `file_formats.plugin_runtime` supports native lazy initialization and explicit
+  binding of application-owned instances. External ZIP plugins, provider order,
+  customization, enable/disable rules, profiles, hooks and metadata flags survive.
+- Native composition preserves optional-provider handling and restores process
+  output streams after faulty external plugins. Rebinding clears stale writers.
+- Headless rendering and HTML comments no longer depend on surfaces/library.
+  Pixel serialization now returns real PNG bytes; its shared image utility avoids
+  importing a PDF backend. Existing Qt availability/bootstrap stubs remain.
+- The LRF input registry typo is fixed and tested against duplicate LIT entries.
+- The static direction guard now rejects file-format-to-application imports and
+  plugin-system-to-domain imports in every import context. No new backward-edge
+  allowance was added: existing debt remains 16 identities, and the 39 dynamic
+  imports are retained with reviewed owner/line relocations.
+- Largest runtime and combined SCCs fall from 218 to **217**; domain SCC remains
+  9. An intermediate serializer dependency grew the component; extracting the
+  shared serializer removed that accidental PDF path before baselining.
+- Five additional cold-import budgets protect stream contracts, shared settings,
+  profiles, runtime and rendering. Runtime import is 36 project modules with no
+  higher application or metadata domain; rendering import is 15.
+
+The current containment lane is distinct from the wider FF review. Unresolved
+handlers, HTML2ZIP's conversion stub, Qt bootstrap, metadata/format cycles,
+conversion-loss reporting and concurrency still need separate work. Full native
+conversion can load Catalog via the existing metadata record dependencies, though
+it does not load customize, surfaces, library or Core.
+
+Validation artifacts are in
+`working-memory/test-results/file-format-containment-2026-10-15/` with per-command
+logs and JSON exit records. The first native conversion check exposed a test
+scratch-directory leak; the test now supplies `LIUXIN_BASE_DIR` under `tmp_path`.
+The ten new runtime regressions passed, including real Unicode HTML-to-EPUB,
+external ZIP loading and both host/native startup orders.
+
+The full quality gate passed: basedpyright and mypy clean, both sets of 37 negative
+type-contract examples rejected, formatting/lint/complexity clean, 463 annotated
+file-format modules, 243 protected modules acyclic, 1,810 whole-package modules
+checked and all 21 cold-import budgets passing. Scoped lint/format checks also
+passed for the new runtime, composition, stream/settings contracts and serializer.
+
+An additional image-utility run yielded 25 passed and five failures in
+`tests/utils/image_tools/test_img_pillow_fallback.py`. All five import the older
+Qt-only `utils.image_tools.img` module and fail because PyQt5 is absent. They were
+reproduced unchanged against an archived source/test snapshot of `f8723b96` (five
+failures), so they are pre-existing; no tests were weakened or newly skipped.
+See `image-compat.*` and `image-baseline.*` artifacts. The new native runtime and
+rendering checks passed in that same additional run.
+
+The broad regression batch passed: **2,597 passed, 18 environment-dependent or
+opt-in skips**, with existing deprecation warnings. This covers file formats,
+metadata, customization, architecture and documentation boundaries, Core service
+contracts, and metadata renderers. The containment lane is complete; the wider
+format defects listed above remain separate follow-up work. The data submodule's
+unrelated local state is excluded from the commit.

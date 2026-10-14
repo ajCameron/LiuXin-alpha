@@ -541,7 +541,7 @@ def test_htmlz_input_convert_uses_utf8_fallback_and_rewinds_stream(
         guide=types.SimpleNamespace(add=lambda *a, **k: None),
     )
 
-    fake_ui = types.ModuleType("LiuXin_alpha.customize.ui")
+    fake_ui = types.ModuleType("LiuXin_alpha.file_formats.plugin_runtime")
     fake_ui.plugin_for_input_format = lambda fmt: types.SimpleNamespace(
         options=(_Opt("breadth_first", False),),
         convert=lambda stream, options, file_ext, log, accelerators: sentinel_oeb,
@@ -573,7 +573,7 @@ def test_htmlz_input_convert_uses_utf8_fallback_and_rewinds_stream(
     fake_meta_transform = types.ModuleType("LiuXin_alpha.file_formats.oeb.transforms.metadata")
     fake_meta_transform.meta_info_to_oeb_metadata = lambda mi, metadata, log: None
 
-    monkeypatch.setitem(sys.modules, "LiuXin_alpha.customize.ui", fake_ui)
+    monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.plugin_runtime", fake_ui)
     monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.oeb.transforms.metadata", fake_meta_transform)
     monkeypatch.setattr(chardet_mod, "xml_to_unicode", lambda raw, *a, **k: ("", None))
 
@@ -650,7 +650,7 @@ def test_htmlz_input_does_not_extract_archive_into_project_root_on_failure(
             self.option = types.SimpleNamespace(name=name)
             self.recommended_value = value
 
-    fake_ui = types.ModuleType("LiuXin_alpha.customize.ui")
+    fake_ui = types.ModuleType("LiuXin_alpha.file_formats.plugin_runtime")
     fake_ui.plugin_for_input_format = lambda fmt: types.SimpleNamespace(
         options=(_Opt("breadth_first", False),),
         convert=lambda stream, options, file_ext, log, accelerators: (_ for _ in ()).throw(
@@ -662,7 +662,7 @@ def test_htmlz_input_does_not_extract_archive_into_project_root_on_failure(
     fake_meta_transform = types.ModuleType("LiuXin_alpha.file_formats.oeb.transforms.metadata")
     fake_meta_transform.meta_info_to_oeb_metadata = lambda mi, metadata, log: None
 
-    monkeypatch.setitem(sys.modules, "LiuXin_alpha.customize.ui", fake_ui)
+    monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.plugin_runtime", fake_ui)
     monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.oeb.transforms.metadata", fake_meta_transform)
     monkeypatch.chdir(project_root)
 

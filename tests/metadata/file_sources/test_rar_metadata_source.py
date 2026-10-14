@@ -93,7 +93,7 @@ def test_rar_reader_plugin_is_available_and_preserves_stream_position(monkeypatc
         state.
     :return: None; the function records state or raises through its assertions.
     """
-    from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
+    from LiuXin_alpha.metadata.file_sources.builtin_readers import get_metadata_reader_plugins
     import LiuXin_alpha.metadata.file_sources.rar as rar_md
 
     stream = io.BytesIO(b"not-a-real-rar")

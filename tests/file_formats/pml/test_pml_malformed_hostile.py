@@ -306,7 +306,7 @@ def test_pml_input_convert_pmlz_preserves_multilingual_pages_and_images(
     """
     pml_input = importlib.import_module("LiuXin_alpha.file_formats.conversion.plugins.pml_input")
     metadata_utils = importlib.import_module("LiuXin_alpha.metadata.utils")
-    fake_ui = types.ModuleType("LiuXin_alpha.customize.ui")
+    fake_ui = types.ModuleType("LiuXin_alpha.file_formats.plugin_runtime")
 
     def _metadata(_stream, _file_ext):
         """
@@ -330,7 +330,7 @@ def test_pml_input_convert_pmlz_preserves_multilingual_pages_and_images(
         return mi
 
     fake_ui.get_file_type_metadata = _metadata
-    monkeypatch.setitem(sys.modules, "LiuXin_alpha.customize.ui", fake_ui)
+    monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.plugin_runtime", fake_ui)
 
     archive = tmp_path / "book.pmlz"
     with zipfile.ZipFile(archive, "w") as zf:

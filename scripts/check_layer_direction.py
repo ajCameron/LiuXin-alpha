@@ -42,6 +42,36 @@ RUNTIME_KINDS = (ImportKind.IMPORT_TIME, ImportKind.DEFERRED)
 # Cache direction remains deliberately undecided. Do not add a cache source rule
 # until its architectural role has been agreed explicitly.
 FORBIDDEN_TARGETS: Mapping[str, frozenset[str]] = {
+    "file_formats": frozenset(
+        {
+            "caches",
+            "catalog",
+            "core",
+            "customize",
+            "databases",
+            "ingest",
+            "jobs",
+            "library",
+            "storage",
+            "surfaces",
+        }
+    ),
+    "plugin_system": frozenset(
+        {
+            "caches",
+            "catalog",
+            "core",
+            "customize",
+            "databases",
+            "file_formats",
+            "ingest",
+            "jobs",
+            "library",
+            "metadata",
+            "storage",
+            "surfaces",
+        }
+    ),
     "metadata": frozenset(
         {"caches", "catalog", "core", "databases", "library", "storage", "surfaces"}
     ),

@@ -1,49 +1,83 @@
 # File-format plugin composition
 
-Decision date: **2026-10-13**
+Decision dates: **2026-10-13–2026-10-15**
 
-Status: **provider and conversion-contract containment implemented; wider graph remains legacy**
+Status: **standalone file-format containment verified; metadata cycles remain**
 
-Built-in conversion plugins are implementations under
-`LiuXin_alpha.file_formats.conversion.plugins`. The `customize.builtins` package
-is only a namespace and must remain safe to import without discovering every
-plugin or assembling application services.
+Conversion and metadata I/O can select and execute file plugins without importing
+application composition. The owners are explicit:
 
-The complete historical plugin fleet is composed explicitly by
-`LiuXin_alpha.customize.builtins.registry`. Current GUI/plugin-management code
-imports that registry because it genuinely needs the fleet. Code that needs one
-provider imports that provider module directly.
+| Owner | Responsibility |
+|---|---|
+| `plugin_system.base` | Generic plugin lifecycle and resources |
+| `plugin_system.file_types` | File hooks and metadata stream contracts |
+| `plugin_system.configuration` | Shared persisted customization and enable/disable settings |
+| `plugin_system.zipplugin` | Generic external ZIP loading |
+| `file_formats.conversion.plugin` | Conversion contracts and options |
+| `file_formats.conversion.profiles` | Input/output device profiles |
+| `file_formats.conversion.builtins` | Bundled conversion providers |
+| `file_formats.import_plugins` | Bundled file-import hooks |
+| `metadata.file_sources.builtin_readers` / `builtin_writers` | Bundled metadata I/O providers |
+| `file_formats.plugin_defaults` | Explicit standalone file-plugin composition |
+| `file_formats.plugin_runtime` | Selection, file hooks, metadata dispatch and host binding |
+| `file_formats.rendering` | Headless rendering hooks |
+| `file_formats.html.comments` | Plain-text and HTML comment formatting |
 
-This distinction is behavioural, not cosmetic:
+The runtime loads its fleet on first use, retaining the historical provider order.
+Configured external ZIP plugins precede bundled providers and receive the same
+customization settings. Optional or failing providers do not prevent other
+providers from loading. Initialization restores stdout/stderr after external
+plugin code. LRF registration now selects LRFInput instead of duplicating LITInput.
 
-| Cold import | Before | After |
-|---|---:|---:|
-| `LiuXin_alpha.customize` | 74 project modules | 31 project modules |
-| `LiuXin_alpha.customize.builtins` | 743 project modules | 32 project modules |
+An application host still imports `customize.builtins.registry` to compose the
+complete fleet. `customize.ui.initialize_plugins()` binds its instances into the
+file runtime. Both paths then share plugin objects, persisted settings and
+metadata context flags. Rebinding rebuilds hook and metadata indexes, including
+clearing removed writers. Startup works with either the native runtime or the
+application host imported first.
 
-The import-footprint ratchet enforces both 35-module ceilings and rejects
-crossing into Catalog, caches, Core, databases, file formats, ingest, jobs,
-library, metadata, storage, or surfaces from those namespace imports.
+Historical `customize` contracts, provider modules, profiles and UI functions
+remain compatibility exports of the same objects. `library.comments` and
+`surfaces.gui2` similarly export their new owners. New production format callers
+import the owning modules directly.
 
-Importing `customize.builtins.registry` remains intentionally expensive. It
-preserves the existing optional-provider handling, plugin order, and conversion
-class identities. This tranche does not claim to break the static conversion SCC:
-the explicit registry still depends on its providers, as a composition root should.
+Headless rendering retains the existing Qt availability/bootstrap behavior. Image
+serialization now preserves pixels instead of returning empty bytes; the shared
+serializer lives below both rendering and image backends, without importing PDF
+processing merely to serialize an image.
 
-Reusable lifecycle and conversion contracts no longer belong to the composition
-package:
+## Enforced boundaries
 
-- `LiuXin_alpha.plugin_system.base` owns the format-neutral `Plugin` lifecycle;
-- `LiuXin_alpha.file_formats.conversion.plugin` owns `ConversionOption`,
-  `OptionRecommendation`, `DummyReporter`, `InputFormatPlugin`, and
-  `OutputFormatPlugin`;
-- concrete format providers and internal callers import those owners directly;
-- `LiuXin_alpha.customize` and `customize.conversion` retain exact-identity
-  compatibility exports for external plugins and historical callers.
+The static layer check rejects every direct file-format import into application
+packages, including deferred and type-only imports. Generic plugin mechanics
+also cannot import format or metadata implementations. Existing metadata-to-
+Catalog/rendering debt stays visible in the whole-package graph. The largest
+runtime and combined components fall from 218 to 217 modules; the 16 existing
+backward-edge allowances and 39 unresolved dynamic imports remain explicit.
 
-The fresh-process ratchet holds the generic and conversion contract imports to
-30 project modules and rejects entry into `customize` or any application domain.
-This second seam reduced the largest runtime and combined SCCs from 220 to 218.
-The remaining component is real debt, chiefly format-to-UI/customization paths;
-those dependencies must not be hidden behind dynamic imports merely to improve
-the graph measurement.
+Fresh-process budgets cover the passive boundaries:
+
+| Cold import | Project-module ceiling |
+|---|---:|
+| `plugin_system.base`, `plugin_system.file_types`, `plugin_system.configuration` | 30 each |
+| `file_formats.conversion.plugin`, `file_formats.conversion.profiles` | 30 each |
+| `file_formats.plugin_runtime` | 36 |
+| `file_formats.rendering` | 15 |
+| `customize`, `customize.builtins` | 35 each |
+
+These imports cannot enter application domains. The native HTML-to-EPUB regression
+also exercises the real fleet, profiles, metadata and output generation in a fresh
+process, checks Unicode content, and rejects loading `customize`, surfaces,
+library or Core. Full conversion can still load Catalog through the existing
+metadata record/field-metadata dependency; this is not a package-wide isolation
+claim.
+
+The broader architecture review remains separate: unresolved handlers, the
+HTML2ZIP conversion stub, remaining Qt bootstrap work, metadata/format cycles,
+conversion-loss reporting and concurrent conversion state have not all been
+resolved by this containment work. See the
+[architecture review](../architecture-review-2026-09-26.md).
+
+Verified on 2026-10-15: 2,597 regression tests passed, 18 skipped, and the full
+repository type/quality gate passed. Five additional legacy image tests still
+fail on missing PyQt5; those failures also reproduce on the preceding commit.

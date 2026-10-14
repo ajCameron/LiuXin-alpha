@@ -92,7 +92,7 @@ def _load_builtin_reader_plugins() -> tuple[type, ...]:
     """
     global _builtin_reader_plugins
     if _builtin_reader_plugins is None:
-        from LiuXin_alpha.customize.builtins.metadata_readers import (
+        from LiuXin_alpha.metadata.file_sources.builtin_readers import (
             get_metadata_reader_plugins as get_builtin_metadata_reader_plugins,
         )
 

@@ -289,7 +289,7 @@ def test_djvu_input_convert_glue_with_fakes(tmp_path, monkeypatch: pytest.Monkey
             """
             outfile.write(b"Fake DjVu text.\x1f")
 
-    fake_ui = types.ModuleType("LiuXin_alpha.customize.ui")
+    fake_ui = types.ModuleType("LiuXin_alpha.file_formats.plugin_runtime")
     fake_ui.plugin_for_input_format = lambda fmt: _HTMLInput() if fmt == "html" else None
     fake_ui.get_file_type_metadata = lambda stream, file_ext, calibre=True: calibreMetaInformation(
         "DjVu Smoke", ["Smoke Author"]
@@ -307,7 +307,7 @@ def test_djvu_input_convert_glue_with_fakes(tmp_path, monkeypatch: pytest.Monkey
         {"title": mi.title, "authors": tuple(mi.authors)}
     )
 
-    monkeypatch.setitem(sys.modules, "LiuXin_alpha.customize.ui", fake_ui)
+    monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.plugin_runtime", fake_ui)
     monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.txt.processor", fake_txt_processor)
     monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.djvu.djvu", fake_djvu_mod)
     monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.oeb.transforms.metadata", fake_oeb_meta)

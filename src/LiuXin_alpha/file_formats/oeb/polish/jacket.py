@@ -40,7 +40,7 @@ def render_jacket(container: _typing.Any, jacket: _typing.Any) -> _typing.Any:
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
-    from LiuXin_alpha.customize.ui import output_profiles
+    from LiuXin_alpha.file_formats.plugin_runtime import output_profiles
     from LiuXin_alpha.file_formats.conversion.config import load_defaults
     from LiuXin_alpha.file_formats.oeb.transforms.jacket import (
         referenced_images,

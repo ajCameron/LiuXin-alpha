@@ -101,7 +101,7 @@ def test_builtins_conversion_registers_pdf_plugin_variants() -> None:
     :return: None; the operation mutates state, writes output or performs cleanup in
         place.
     """
-    from LiuXin_alpha.customize.builtins.conversion import get_output_plugins
+    from LiuXin_alpha.file_formats.conversion.builtins import get_output_plugins
 
     names = {plugin.__name__ for plugin in get_output_plugins()}
     assert "PDFOutput" in names

@@ -18,7 +18,7 @@ from binascii import hexlify
 from functools import partial
 
 from LiuXin_alpha.constants import filesystem_encoding
-from LiuXin_alpha.library.comments import comments_to_html
+from LiuXin_alpha.file_formats.html.comments import comments_to_html
 from LiuXin_alpha.metadata.utils import fmt_sidx
 from LiuXin_alpha.metadata.web_sources.identify import urls_from_identifiers
 from LiuXin_alpha.utils.calibre import force_unicode, prepare_string_for_xml

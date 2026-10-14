@@ -16,7 +16,7 @@ import os
 from datetime import date
 from typing import Any, Iterable, Mapping
 
-from LiuXin_alpha.customize import FileTypePlugin
+from LiuXin_alpha.plugin_system.file_types import FileTypePlugin
 from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 from LiuXin_alpha.utils.date import parse_only_date
 from LiuXin_alpha.utils.localization import trans as _

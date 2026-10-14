@@ -125,7 +125,7 @@ def test_imp_reader_plugin_is_available_and_uses_stream_without_cursor_drift() -
 
     :return: None; the function records state or raises through its assertions.
     """
-    from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
+    from LiuXin_alpha.metadata.file_sources.builtin_readers import get_metadata_reader_plugins
 
     payload = _build_imp_payload(title="Plugin Title", author="Plugin Author")
     stream = io.BytesIO(payload)

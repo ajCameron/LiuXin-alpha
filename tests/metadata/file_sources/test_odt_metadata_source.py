@@ -293,7 +293,7 @@ def test_odt_metadata_reader_plugin_is_available(tmp_path: Path) -> None:
     :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
     :return: None; the function records state or raises through its assertions.
     """
-    from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
+    from LiuXin_alpha.metadata.file_sources.builtin_readers import get_metadata_reader_plugins
 
     path = tmp_path / "odt_md_plugin.odt"
     _build_odt_with_metadata(path)

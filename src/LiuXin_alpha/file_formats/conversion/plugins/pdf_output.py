@@ -367,7 +367,7 @@ class PDFOutput(OutputFormatPlugin):
 
         from lxml import etree
 
-        from LiuXin_alpha.surfaces.gui2 import must_use_qt, load_builtin_fonts
+        from LiuXin_alpha.file_formats.rendering import must_use_qt, load_builtin_fonts
         from LiuXin_alpha.file_formats.oeb.base import OPF, OPF2_NS
 
         log.info("Converting OEB to PDF...")
@@ -521,7 +521,7 @@ class PDFOutput(OutputFormatPlugin):
             self.handle_embedded_fonts()
 
         with TemporaryDirectory("_pdf_out") as oeb_dir:
-            from LiuXin_alpha.customize.ui import plugin_for_output_format
+            from LiuXin_alpha.file_formats.plugin_runtime import plugin_for_output_format
 
             oeb_output = plugin_for_output_format("oeb")
             oeb_output.convert(oeb_book, oeb_dir, self.input_plugin, self.opts, self.log)

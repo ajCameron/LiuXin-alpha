@@ -23,7 +23,8 @@ from __future__ import (
 import textwrap
 import typing as _typing
 
-from LiuXin_alpha.customize import FileTypePlugin, numeric_version
+from LiuXin_alpha.plugin_system.file_types import FileTypePlugin
+from LiuXin_alpha.constants import CALIBRE_NUMERIC_VERSION as numeric_version
 
 # Py2/Py3 compatibility layer
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
@@ -140,7 +141,7 @@ every time you add an HTML file to the library.\
         button_box.accepted.connect(config_dialog.accept)
         button_box.rejected.connect(config_dialog.reject)
         config_dialog.setWindowTitle(_("Customize") + " " + self.name)
-        from LiuXin_alpha.customize.ui import customize_plugin, plugin_customization
+        from LiuXin_alpha.file_formats.plugin_runtime import customize_plugin, plugin_customization
 
         help_text = self.customization_help(gui=True)
         help_text = QLabel(help_text, config_dialog)

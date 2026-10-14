@@ -268,9 +268,9 @@ def test_tcr_input_end_to_end_with_unicode_and_broken_bytes(monkeypatch: pytest.
             return "converted.oeb"
 
     fake_txt = _TxtPlugin()
-    fake_ui = types.ModuleType("LiuXin_alpha.customize.ui")
+    fake_ui = types.ModuleType("LiuXin_alpha.file_formats.plugin_runtime")
     fake_ui.plugin_for_input_format = lambda fmt: fake_txt
-    monkeypatch.setitem(sys.modules, "LiuXin_alpha.customize.ui", fake_ui)
+    monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.plugin_runtime", fake_ui)
 
     raw = "Hello Ω 世界".encode("utf-8") + b"\x81\x90\xff"
     tcr_stream = io.BytesIO(tcr_mod.compress(raw))

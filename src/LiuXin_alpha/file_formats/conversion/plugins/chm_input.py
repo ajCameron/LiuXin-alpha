@@ -109,7 +109,7 @@ class CHMInput(InputFormatPlugin):
         :return: The normalized value, metadata record, path, stream result or collection
             described above.
         """
-        from LiuXin_alpha.customize.ui import plugin_for_input_format
+        from LiuXin_alpha.file_formats.plugin_runtime import plugin_for_input_format
         from LiuXin_alpha.file_formats.chm.metadata import get_metadata_from_reader
         from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 

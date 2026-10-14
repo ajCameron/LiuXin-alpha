@@ -13,27 +13,23 @@ Example:
 
 from __future__ import print_function, with_statement
 
-import functools
 import os
 import shutil
 import sys
 import time
 import traceback
 from collections import defaultdict
-from collections.abc import Callable, Iterable, Iterator
-from typing import Any, BinaryIO, Optional, Type, Union
+from collections.abc import Iterable, Iterator
+from typing import Optional, Type, Union
 
 from LiuXin_alpha.constants import VERBOSE_DEBUG as DEBUG
 from LiuXin_alpha.customize import (
     Archive,
     CatalogPlugin,
     EditBookToolPlugin,
-    FileTypePlugin,
     InvalidPlugin,
     LibraryClosedPlugin,
     MDInputTransform,
-    MetadataReaderPlugin,
-    MetadataWriterPlugin,
     Plugin,
     PluginNotFound,
     PreferencesPlugin,
@@ -53,14 +49,12 @@ from LiuXin_alpha.customize.builtins.standardization import (
     CreatorStandardize,
     TitlePhashHandler,
 )
-from LiuXin_alpha.file_formats.conversion.plugin import InputFormatPlugin, OutputFormatPlugin
-from LiuXin_alpha.customize.profiles import InputProfile, OutputProfile
-from LiuXin_alpha.customize.zipplugin import loader
-from LiuXin_alpha.databases.database import Database
+from LiuXin_alpha.plugin_system.zipplugin import loader
 
 try:
     from LiuXin_alpha.devices.interface import DevicePlugin
 except ModuleNotFoundError:
+
     class DevicePlugin(object):
         """
         Provide the deviceplugin contract for validated ebook processing.
@@ -70,20 +64,14 @@ except ModuleNotFoundError:
 
                 python -m pytest -q tests/customize/test_customize_base.py
         """
+
         pass
 
-try:
-    from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
-        CalibreLikeLiuXinBookMetaData as MetaInformation,
-    )
-except ModuleNotFoundError:
-    from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
-        CalibreLikeLiuXinBookMetaData as MetaInformation,
-    )
 
 try:
     from LiuXin_alpha.metadata.web_sources.base import Source
 except ModuleNotFoundError:
+
     class Source(object):
         """
         Provide the source contract for validated ebook processing.
@@ -93,16 +81,15 @@ except ModuleNotFoundError:
 
                 python -m pytest -q tests/customize/test_customize_base.py
         """
+
         pass
 
+
 from LiuXin_alpha.utils.config.config_base import (
-    Config,
-    ConfigProxy,
     make_config_dir,
     plugin_dir,
 )
 from LiuXin_alpha.utils.config.config_tools import OptionParser
-from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
 
@@ -114,7 +101,109 @@ except ModuleNotFoundError:
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
 
-from LiuXin_alpha.library.caches.utils import run_plugins_on_import
+
+from LiuXin_alpha.file_formats.plugin_runtime import (
+    ApplyNullMetadata as ApplyNullMetadata,
+)
+from LiuXin_alpha.file_formats.plugin_runtime import (
+    ForceIdentifiers as ForceIdentifiers,
+)
+from LiuXin_alpha.file_formats.plugin_runtime import (
+    QuickMetadata as QuickMetadata,
+)
+from LiuXin_alpha.file_formats.plugin_runtime import (
+    all_input_formats as all_input_formats,
+)
+from LiuXin_alpha.file_formats.plugin_runtime import (
+    apply_null_metadata as apply_null_metadata,
+)
+from LiuXin_alpha.file_formats.plugin_runtime import (
+    available_input_formats as available_input_formats,
+)
+from LiuXin_alpha.file_formats.plugin_runtime import (
+    available_output_formats as available_output_formats,
+)
+from LiuXin_alpha.file_formats.plugin_runtime import (
+    bind_plugins as bind_plugins,
+)
+from LiuXin_alpha.file_formats.plugin_runtime import (
+    can_set_metadata as can_set_metadata,
+)
+from LiuXin_alpha.file_formats.plugin_runtime import (
+    force_identifiers as force_identifiers,
+)
+from LiuXin_alpha.file_formats.plugin_runtime import (
+    get_file_type_metadata as get_file_type_metadata,
+)
+from LiuXin_alpha.file_formats.plugin_runtime import (
+    input_format_plugins as input_format_plugins,
+)
+from LiuXin_alpha.file_formats.plugin_runtime import (
+    input_profiles as input_profiles,
+)
+from LiuXin_alpha.file_formats.plugin_runtime import (
+    metadata_readers as metadata_readers,
+)
+from LiuXin_alpha.file_formats.plugin_runtime import (
+    metadata_writers as metadata_writers,
+)
+from LiuXin_alpha.file_formats.plugin_runtime import (
+    output_format_plugins as output_format_plugins,
+)
+from LiuXin_alpha.file_formats.plugin_runtime import (
+    output_profiles as output_profiles,
+)
+from LiuXin_alpha.file_formats.plugin_runtime import (
+    plugin_for_input_format as plugin_for_input_format,
+)
+from LiuXin_alpha.file_formats.plugin_runtime import (
+    plugin_for_output_format as plugin_for_output_format,
+)
+from LiuXin_alpha.file_formats.plugin_runtime import (
+    quick_metadata as quick_metadata,
+)
+from LiuXin_alpha.file_formats.plugin_runtime import (
+    reread_filetype_plugins as reread_filetype_plugins,
+)
+from LiuXin_alpha.file_formats.plugin_runtime import (
+    reread_metadata_plugins as reread_metadata_plugins,
+)
+from LiuXin_alpha.file_formats.plugin_runtime import (
+    run_plugins_on_import as run_plugins_on_import,
+)
+from LiuXin_alpha.file_formats.plugin_runtime import (
+    run_plugins_on_postadd as run_plugins_on_postadd,
+)
+from LiuXin_alpha.file_formats.plugin_runtime import (
+    run_plugins_on_postimport as run_plugins_on_postimport,
+)
+from LiuXin_alpha.file_formats.plugin_runtime import (
+    run_plugins_on_postprocess as run_plugins_on_postprocess,
+)
+from LiuXin_alpha.file_formats.plugin_runtime import (
+    run_plugins_on_preprocess as run_plugins_on_preprocess,
+)
+from LiuXin_alpha.file_formats.plugin_runtime import (
+    set_file_type_metadata as set_file_type_metadata,
+)
+from LiuXin_alpha.plugin_system.configuration import (
+    _config as _config,
+)
+from LiuXin_alpha.plugin_system.configuration import (
+    config as config,
+)
+from LiuXin_alpha.plugin_system.configuration import (
+    customize_plugin as customize_plugin,
+)
+from LiuXin_alpha.plugin_system.configuration import (
+    default_disabled_plugins as default_disabled_plugins,
+)
+from LiuXin_alpha.plugin_system.configuration import (
+    is_disabled as is_disabled,
+)
+from LiuXin_alpha.plugin_system.configuration import (
+    plugin_customization as plugin_customization,
+)
 
 builtin_names = frozenset([p.name for p in builtin_plugins])
 
@@ -128,33 +217,8 @@ class NameConflict(ValueError):
 
             python -m pytest -q tests/customize/test_customize_base.py
     """
+
     pass
-
-
-def _config() -> ConfigProxy:
-    """
-    Return a ConfigProxy for the config - customized with the plugin information.
-
-    Example:
-        Exercise  config through a consuming regression::
-
-            python -m pytest -q tests/customize/test_customize_base.py
-
-
-    :return: The normalized value, metadata record, path, stream result or collection
-        described above.
-    """
-    c = Config("customize")
-    c.add_opt("plugins", default={}, help=_("Installed plugins"))
-    c.add_opt("filetype_mapping", default={}, help=_("Mapping for filetype plugins"))
-    c.add_opt("plugin_customization", default={}, help=_("Local plugin customization"))
-    c.add_opt("disabled_plugins", default=set([]), help=_("Disabled plugins"))
-    c.add_opt("enabled_plugins", default=set([]), help=_("Enabled plugins"))
-
-    return ConfigProxy(c)
-
-
-config = _config()
 
 
 def find_plugin(name: str) -> Optional[Plugin]:
@@ -276,153 +340,11 @@ def restore_plugin_state_to_default(plugin_or_name: Union[Plugin, str]) -> None:
 
 
 # Plugins which should start off as disabled
-default_disabled_plugins = frozenset(
-    [
-        "Overdrive",
-        "Douban Books",
-        "OZON.ru",
-        "Edelweiss",
-        "Google Images",
-        "Big Book Search",
-    ]
-)
-
-
-def is_disabled(plugin: Plugin) -> bool:
-    """
-    Is the given plugin disable?
-
-    Example:
-        Exercise is disabled through a consuming regression::
-
-            python -m pytest -q tests/customize/test_customize_base.py
-
-
-    :param plugin: Value supplied for plugin under the utility contract.
-    :return: True when the documented condition holds; otherwise False.
-    """
-    if plugin.name in config["enabled_plugins"]:
-        return False
-    return plugin.name in config["disabled_plugins"] or plugin.name in default_disabled_plugins
 
 
 # }}}
 
 # File type plugins {{{
-
-_on_import: dict[str, Plugin] = {}
-_on_postimport: dict[str, Plugin] = {}
-_on_preprocess: dict[str, Plugin] = {}
-_on_postprocess: dict[str, Plugin] = {}
-
-
-def reread_filetype_plugins() -> None:
-    """
-    Reload the filetype plugins.
-
-    Example:
-        Exercise reread filetype plugins through a consuming regression::
-
-            python -m pytest -q tests/customize/test_customize_base.py
-
-
-    :return: None; the operation mutates state, writes output or performs cleanup in
-        place.
-    """
-    default_log.info("Starting reread_filetype_plugins")
-
-    global _on_import
-    global _on_postimport
-    global _on_preprocess
-    global _on_postprocess
-    _on_import = {}
-    _on_postimport = {}
-    _on_preprocess = {}
-    _on_postprocess = {}
-
-    for plugin in _initialized_plugins:
-        if isinstance(plugin, FileTypePlugin):
-            for ft in plugin.file_types:
-
-                if plugin.on_import:
-                    if ft not in _on_import.keys():  # used to use "has_ket"
-                        _on_import[ft] = []
-                    _on_import[ft].append(plugin)
-
-                if plugin.on_postimport:
-                    if ft not in _on_postimport.keys():
-                        _on_postimport[ft] = []
-                    _on_postimport[ft].append(plugin)
-
-                if plugin.on_preprocess:
-                    if ft not in _on_preprocess.keys():
-                        _on_preprocess[ft] = []
-                    _on_preprocess[ft].append(plugin)
-
-                if plugin.on_postprocess:
-                    if ft not in _on_postprocess.keys():
-                        _on_postprocess[ft] = []
-                    _on_postprocess[ft].append(plugin)
-
-    default_log.info("Finishing reread_filetype_plugins")
-
-
-def _run_filetype_plugins(path_to_file: str, ft: str = None, occasion: str = "preprocess") -> str:
-    """
-    INTERNAL USE - runs filetype plugins on a given file.
-
-    Example:
-        Exercise  run filetype plugins through a consuming regression::
-
-            python -m pytest -q tests/customize/test_customize_base.py
-
-
-    :param path_to_file: Value supplied for path to file under the utility contract.
-    :param ft: Value supplied for ft under the utility contract.
-    :param occasion: Value supplied for occasion under the utility contract.
-    :return: The normalized value, metadata record, path, stream result or collection
-        described above.
-    """
-    occasion_plugins = {
-        "import": _on_import,
-        "preprocess": _on_preprocess,
-        "postprocess": _on_postprocess,
-    }[occasion]
-
-    customization = config["plugin_customization"]
-
-    if ft is None:
-        ft = os.path.splitext(path_to_file)[-1].lower().replace(".", "")
-    nfp = path_to_file
-    for plugin in occasion_plugins.get(ft, []):
-
-        if is_disabled(plugin):
-            continue
-
-        plugin.site_customization = customization.get(plugin.name, "")
-        # Some file type plugins out there override the output streams with buggy implementations
-        oo, oe = sys.stdout, sys.stderr
-
-        with plugin:
-            try:
-                nfp = plugin.run(path_to_file)
-                if not nfp:
-                    nfp = path_to_file
-            except:
-                print(
-                    "Running file type plugin %s failed with traceback:" % plugin.name,
-                    file=oe,
-                )
-                traceback.print_exc(file=oe)
-
-        sys.stdout, sys.stderr = oo, oe
-
-    x = lambda j: os.path.normpath(os.path.normcase(j))
-
-    if occasion == "postprocess" and x(nfp) != x(path_to_file):
-        shutil.copyfile(nfp, path_to_file)
-        nfp = path_to_file
-    return nfp
 
 
 # ------------------------------------------------------
@@ -430,126 +352,24 @@ def _run_filetype_plugins(path_to_file: str, ft: str = None, occasion: str = "pr
 # ------------------------------------------------------
 
 # Runs plugins before importing a file
-run_plugins_on_import = functools.partial(_run_filetype_plugins, occasion="import")
 
 # Runs plugins before converting? a file
-run_plugins_on_preprocess = functools.partial(_run_filetype_plugins, occasion="preprocess")
 
 # Runs plugins after converting? a file
-run_plugins_on_postprocess = functools.partial(_run_filetype_plugins, occasion="postprocess")
-
-
-def run_plugins_on_postimport(db: Database, book_id: int, fmt: str) -> None:
-    """
-    Runs all the postimport plugins available on the target book.
-
-    Example:
-        Exercise run plugins on postimport through a consuming regression::
-
-            python -m pytest -q tests/customize/test_customize_base.py
-
-
-    :param db: Value supplied for db under the utility contract.
-    :param book_id: Value supplied for book id under the utility contract.
-    :param fmt: Date, number or template format specification.
-    :return: None; the operation mutates state, writes output or performs cleanup in
-        place.
-    """
-    customization = config["plugin_customization"]
-    fmt = fmt.lower()
-    for plugin in _on_postimport.get(fmt, []):
-        if is_disabled(plugin):
-            continue
-        plugin.site_customization = customization.get(plugin.name, "")
-        with plugin:
-            try:
-                plugin.postimport(book_id, fmt, db)
-            except:
-                print("Running file type plugin %s failed with traceback:" % plugin.name)
-                traceback.print_exc()
 
 
 # Todo: Check these are actually the same in calibre - there might be a meaningful semantic difference
-run_plugins_on_postadd = run_plugins_on_postimport
 
 # }}}
 
 
 # Plugin customization {{{
-def customize_plugin(plugin: Plugin, custom: str) -> None:
-    """
-    Update config with customization for the given plugin.
-
-    Example:
-        Exercise customize plugin through a consuming regression::
-
-            python -m pytest -q tests/customize/test_customize_base.py
-
-
-    :param plugin: Value supplied for plugin under the utility contract.
-    :param custom: Value supplied for custom under the utility contract.
-    :return: None; the operation mutates state, writes output or performs cleanup in
-        place.
-    """
-    d = config["plugin_customization"]
-    d[plugin.name] = custom.strip()
-    config["plugin_customization"] = d
-
-
-def plugin_customization(plugin: Plugin) -> str:
-    """
-    Return the customisation string for the given plugin.
-
-    Example:
-        Exercise plugin customization through a consuming regression::
-
-            python -m pytest -q tests/customize/test_customize_base.py
-
-
-    :param plugin: Value supplied for plugin under the utility contract.
-    :return: The normalized value, metadata record, path, stream result or collection
-        described above.
-    """
-    return config["plugin_customization"].get(plugin.name, "")
 
 
 # }}}
 
 
 # Input/Output profiles {{{
-def input_profiles() -> Iterator[InputProfile]:
-    """
-    Yield all input profiles.
-
-    Example:
-        Exercise input profiles through a consuming regression::
-
-            python -m pytest -q tests/customize/test_customize_base.py
-
-
-    :return: An iterator yielding the normalized values described above.
-    """
-
-    for plugin in _initialized_plugins:
-        if isinstance(plugin, InputProfile):
-            yield plugin
-
-
-def output_profiles() -> Iterator[OutputProfile]:
-    """
-    Yield all the output profiles.
-
-    Example:
-        Exercise output profiles through a consuming regression::
-
-            python -m pytest -q tests/customize/test_customize_base.py
-
-
-    :return: An iterator yielding the normalized values described above.
-    """
-    for plugin in _initialized_plugins:
-        if isinstance(plugin, OutputProfile):
-            yield plugin
 
 
 # }}}
@@ -683,389 +503,18 @@ def available_stores() -> set[Store]:
 # }}}
 
 # Metadata read/write {{{
-_metadata_readers: dict[str, list[MetadataReaderPlugin, ...]] = {}
-_metadata_writers: dict[str, list[MetadataWriterPlugin, ...]] = {}
-
-
-def reread_metadata_plugins() -> None:
-    """
-    Read the metadata IO plugins.
-
-    Example:
-        Exercise reread metadata plugins through a consuming regression::
-
-            python -m pytest -q tests/customize/test_customize_base.py
-
-
-    :return: None; the operation mutates state, writes output or performs cleanup in
-        place.
-    """
-
-    default_log.info("About to start reread_metadata_plugins")
-
-    global _metadata_readers
-    global _metadata_writers
-    _metadata_readers = {}
-    for plugin in _initialized_plugins:
-        if isinstance(plugin, MetadataReaderPlugin):
-            for ft in plugin.file_types:
-                if ft not in _metadata_readers.keys():
-                    _metadata_readers[ft] = []
-                _metadata_readers[ft].append(plugin)
-        elif isinstance(plugin, MetadataWriterPlugin):
-            for ft in plugin.file_types:
-                if ft not in _metadata_writers.keys():
-                    _metadata_writers[ft] = []
-                _metadata_writers[ft].append(plugin)
-
-    default_log.info("Finishing reread_metadata_plugins")
-
-
-def metadata_readers() -> set[MetadataReaderPlugin]:
-    """
-    Return a set of all the metadata reader plugins.
-
-    Example:
-        Exercise metadata readers through a consuming regression::
-
-            python -m pytest -q tests/customize/test_customize_base.py
-
-
-    :return: The normalized value, metadata record, path, stream result or collection
-        described above.
-    """
-    ans = set([])
-    for plugins in _metadata_readers.values():
-        for plugin in plugins:
-            ans.add(plugin)
-    return ans
-
-
-def metadata_writers() -> set[MetadataWriterPlugin]:
-    """
-    Return a set of the metadata writer plugins.
-
-    Example:
-        Exercise metadata writers through a consuming regression::
-
-            python -m pytest -q tests/customize/test_customize_base.py
-
-
-    :return: The normalized value, metadata record, path, stream result or collection
-        described above.
-    """
-    ans = set([])
-    for plugins in _metadata_writers.values():
-        for plugin in plugins:
-            ans.add(plugin)
-    return ans
 
 
 # Todo: Swallows exceptions
-class QuickMetadata:
-    """
-    Context manager which turns the quick metadata option on and off.
-
-    Example:
-        Exercise QuickMetadata through a consuming regression::
-
-            python -m pytest -q tests/customize/test_customize_base.py
-    """
-
-    def __init__(self) -> None:
-        """
-        Initialize and validate the quickmetadata state.
-
-        Example:
-            Exercise QuickMetadata.  init   through a consuming regression::
-
-                python -m pytest -q tests/customize/test_customize_base.py
-
-
-        :return: None; validated state is stored on the receiving object.
-        """
-        self.quick = False
-
-    def __enter__(self) -> None:
-        """
-        Implement the conversion resource's enter lifecycle operation.
-
-        Example:
-            Exercise QuickMetadata.  enter   through a consuming regression::
-
-                python -m pytest -q tests/customize/test_customize_base.py
-
-
-        :return: None; the operation mutates state, writes output or performs cleanup in
-            place.
-        """
-        self.quick = True
-
-    def __exit__(self, *args: Any) -> None:
-        """
-        Implement the conversion resource's exit lifecycle operation.
-
-        Example:
-            Exercise QuickMetadata.  exit   through a consuming regression::
-
-                python -m pytest -q tests/customize/test_customize_base.py
-
-
-        :param args: Positional values forwarded to the compatibility implementation.
-        :return: None; the operation mutates state, writes output or performs cleanup in
-            place.
-        """
-        self.quick = False
-
-
-quick_metadata = QuickMetadata()
 
 
 # Todo: Swallows exceptions
-class ApplyNullMetadata:
-    """
-    Context manager which turns the apply null metadata option on and off.
-
-    Example:
-        Exercise ApplyNullMetadata through a consuming regression::
-
-            python -m pytest -q tests/customize/test_customize_base.py
-    """
-
-    def __init__(self) -> None:
-        """
-        Initialize and validate the applynullmetadata state.
-
-        Example:
-            Exercise ApplyNullMetadata.  init   through a consuming regression::
-
-                python -m pytest -q tests/customize/test_customize_base.py
-
-
-        :return: None; validated state is stored on the receiving object.
-        """
-        self.apply_null = False
-
-    def __enter__(self) -> None:
-        """
-        Implement the conversion resource's enter lifecycle operation.
-
-        Example:
-            Exercise ApplyNullMetadata.  enter   through a consuming regression::
-
-                python -m pytest -q tests/customize/test_customize_base.py
-
-
-        :return: None; the operation mutates state, writes output or performs cleanup in
-            place.
-        """
-        self.apply_null = True
-
-    def __exit__(self, *args) -> None:
-        """
-        Implement the conversion resource's exit lifecycle operation.
-
-        Example:
-            Exercise ApplyNullMetadata.  exit   through a consuming regression::
-
-                python -m pytest -q tests/customize/test_customize_base.py
-
-
-        :param args: Positional values forwarded to the compatibility implementation.
-        :return: None; the operation mutates state, writes output or performs cleanup in
-            place.
-        """
-        self.apply_null = False
-
-
-apply_null_metadata = ApplyNullMetadata()
-
-
-class ForceIdentifiers(object):
-    """
-    Context manager which turns the force_identifiers option on and off.
-
-    Example:
-        Exercise ForceIdentifiers through a consuming regression::
-
-            python -m pytest -q tests/customize/test_customize_base.py
-    """
-
-    def __init__(self) -> None:
-        """
-        Initialize and validate the forceidentifiers state.
-
-        Example:
-            Exercise ForceIdentifiers.  init   through a consuming regression::
-
-                python -m pytest -q tests/customize/test_customize_base.py
-
-
-        :return: None; validated state is stored on the receiving object.
-        """
-        self.force_identifiers = False
-
-    def __enter__(self) -> None:
-        """
-        Implement the conversion resource's enter lifecycle operation.
-
-        Example:
-            Exercise ForceIdentifiers.  enter   through a consuming regression::
-
-                python -m pytest -q tests/customize/test_customize_base.py
-
-
-        :return: None; the operation mutates state, writes output or performs cleanup in
-            place.
-        """
-        self.force_identifiers = True
-
-    def __exit__(self, *args: Any) -> None:
-        """
-        Implement the conversion resource's exit lifecycle operation.
-
-        Example:
-            Exercise ForceIdentifiers.  exit   through a consuming regression::
-
-                python -m pytest -q tests/customize/test_customize_base.py
-
-
-        :param args: Positional values forwarded to the compatibility implementation.
-        :return: None; the operation mutates state, writes output or performs cleanup in
-            place.
-        """
-        self.force_identifiers = False
-
-
-force_identifiers = ForceIdentifiers()
 
 
 # Todo: Insert MetaData synthesis call here
-def get_file_type_metadata(stream: Union[BinaryIO, str, os.PathLike], ftype: str, calibre: bool = False):
-    """
-    Get metadata from a stream of ftype.
-
-    Example:
-        Exercise get file type metadata through a consuming regression::
-
-            python -m pytest -q tests/customize/test_customize_base.py
-
-
-    :param stream: Input or output stream wrapped by the terminal or compatibility
-        layer.
-    :param ftype: Value supplied for ftype under the utility contract.
-    :param calibre: Value supplied for calibre under the utility contract.
-    :return: The normalized value, metadata record, path, stream result or collection
-        described above.
-    """
-    # Ensure that the method returns a mi object - come what may.
-    mi = MetaInformation(None, None)
-
-    # If the method has been given a string instead of a stream checks to see if that file exists and then opens it as a
-    # stream - if it's been fed a stream then proceed
-    if isinstance(stream, basestring) or isinstance(stream, os.PathLike):
-        if os.path.exists(stream):
-            info_str = "get_file_type_metadata passed a file path in place of a stream.\n"
-            info_str += "location exists - opening for reading.\n"
-            info_str += "stream: " + six_unicode(stream)
-            default_log.info(info_str)
-            stream = open(stream, "r")
-        else:
-            info_str = "get_file_type_metadata passed a file path in place of a stream.\n"
-            info_str += "location doesn't exist - aborting.\n"
-            info_str += "stream: " + six_unicode(stream)
-            default_log.info(info_str)
-            return mi
-
-    ftype = ftype.lower().strip()
-    if ftype in _metadata_readers.keys():
-        for plugin in _metadata_readers[ftype]:
-            if not is_disabled(plugin):
-                with plugin:
-                    try:
-                        plugin.quick = quick_metadata.quick
-                        if hasattr(stream, "seek"):
-                            stream.seek(0)
-                        mi = plugin.get_metadata(stream, ftype.lower().strip())
-                        break
-                    except:
-                        traceback.print_exc()
-                        continue
-
-    if calibre:
-        return mi.to_calibre()
-    return mi
 
 
 # Todo: Only feed this method unambiguous metadata - re-institute the calibre_metadata class and feed it in here
-def set_file_type_metadata(
-    stream: BinaryIO, mi, ftype: str, report_error: Optional[Callable[[Any, str, str], None]] = None
-) -> None:
-    """
-    Write MetaData into the file of the given type.
-
-    Example:
-        Exercise set file type metadata through a consuming regression::
-
-            python -m pytest -q tests/customize/test_customize_base.py
-
-
-    :param stream: Input or output stream wrapped by the terminal or compatibility
-        layer.
-    :param mi: Metadata object exposed to the template function.
-    :param ftype: Value supplied for ftype under the utility contract.
-    :param report_error: Value supplied for report error under the utility contract.
-    :return: None; the operation mutates state, writes output or performs cleanup in
-        place.
-    """
-    ftype = ftype.lower().strip()
-
-    # There should only be one plugin to write metadata to each file type
-    if ftype in _metadata_writers.keys():
-        for plugin in _metadata_writers[ftype]:
-            if not is_disabled(plugin):
-                with plugin:
-                    try:
-                        plugin.apply_null = apply_null_metadata.apply_null
-                        plugin.force_identifiers = force_identifiers.force_identifiers
-                        plugin.set_metadata(stream, mi, ftype.lower().strip())
-                        break
-                    except:
-                        if report_error is None:
-                            from LiuXin_alpha.utils.logging import prints
-
-                            prints(
-                                "Failed to set metadata for the",
-                                ftype.upper(),
-                                "format of:",
-                                getattr(mi, "title", ""),
-                                file=sys.stderr,
-                            )
-                            traceback.print_exc()
-                        else:
-                            report_error(mi, ftype, traceback.format_exc())
-
-
-def can_set_metadata(ftype: str) -> bool:
-    """
-    Can metadata be set for this particular file type?.
-
-    Example:
-        Exercise can set metadata through a consuming regression::
-
-            python -m pytest -q tests/customize/test_customize_base.py
-
-
-    :param ftype: Value supplied for ftype under the utility contract.
-    :return: True when the documented condition holds; otherwise False.
-    """
-    ftype = ftype.lower().strip()
-
-    for plugin in _metadata_writers.get(ftype, ()):
-        if not is_disabled(plugin):
-            return True
-
-    return False
 
 
 # }}}
@@ -1093,7 +542,9 @@ def add_plugin(path_to_zip_file: Union[str, os.PathLike]) -> Plugin:
     plugin = load_plugin(path_to_zip_file)
 
     if plugin.name in builtin_names:
-        raise NameConflict("A builtin plugin with the name %r already exists" % plugin.name)
+        raise NameConflict(
+            "A builtin plugin with the name %r already exists" % plugin.name
+        )
 
     plugin = initialize_plugin(plugin, path_to_zip_file)
     plugins = config["plugins"]
@@ -1149,144 +600,6 @@ def remove_plugin(plugin_or_name: Union[Plugin, str]) -> bool:
 # }}}
 
 # Input/Output format plugins {{{
-
-
-def input_format_plugins() -> Iterator[InputFormatPlugin]:
-    """
-    Iterator for the input format plugins
-
-    Example:
-        Exercise input format plugins through a consuming regression::
-
-            python -m pytest -q tests/customize/test_customize_base.py
-
-
-    :return: An iterator yielding the normalized values described above.
-    """
-    for plugin in _initialized_plugins:
-        if isinstance(plugin, InputFormatPlugin):
-            yield plugin
-
-
-def plugin_for_input_format(fmt: str) -> Optional[Plugin]:
-    """
-    Get the plugin associated with the given input format.
-
-    Example:
-        Exercise plugin for input format through a consuming regression::
-
-            python -m pytest -q tests/customize/test_customize_base.py
-
-
-    :param fmt: Date, number or template format specification.
-    :return: The normalized value, metadata record, path, stream result or collection
-        described above.
-    """
-    customization = config["plugin_customization"]
-    for plugin in input_format_plugins():
-        if fmt.lower() in plugin.file_types:
-            plugin.site_customization = customization.get(plugin.name, None)
-            return plugin
-
-
-def all_input_formats() -> set[str]:
-    """
-    Returns a set of all the formats' calibre can read - disabled or not.
-
-    Example:
-        Exercise all input formats through a consuming regression::
-
-            python -m pytest -q tests/customize/test_customize_base.py
-
-
-    :return: The normalized value, metadata record, path, stream result or collection
-        described above.
-    """
-    formats = set([])
-    for plugin in input_format_plugins():
-        for fmt in plugin.file_types:
-            formats.add(fmt)
-    return formats
-
-
-def available_input_formats() -> set[str]:
-    """
-    Returns a set of the currently available input formats.
-
-    Example:
-        Exercise available input formats through a consuming regression::
-
-            python -m pytest -q tests/customize/test_customize_base.py
-
-
-    :return: The normalized value, metadata record, path, stream result or collection
-        described above.
-    """
-    formats = set([])
-    for plugin in input_format_plugins():
-        if not is_disabled(plugin):
-            for fmt in plugin.file_types:
-                formats.add(fmt)
-    formats.add("zip"), formats.add("rar")
-    return formats
-
-
-def output_format_plugins() -> Iterator[OutputFormatPlugin]:
-    """
-    An iterator over all the output format plugins.
-
-    Example:
-        Exercise output format plugins through a consuming regression::
-
-            python -m pytest -q tests/customize/test_customize_base.py
-
-
-    :return: An iterator yielding the normalized values described above.
-    """
-    for plugin in _initialized_plugins:
-        if isinstance(plugin, OutputFormatPlugin):
-            yield plugin
-
-
-def plugin_for_output_format(fmt: str) -> Optional[Plugin]:
-    """
-    Returns a output format plugin for the requested format.
-
-    Example:
-        Exercise plugin for output format through a consuming regression::
-
-            python -m pytest -q tests/customize/test_customize_base.py
-
-
-    :param fmt: Date, number or template format specification.
-    :return: The normalized value, metadata record, path, stream result or collection
-        described above.
-    """
-    customization = config["plugin_customization"]
-    for plugin in output_format_plugins():
-        if fmt.lower() == plugin.file_type:
-            plugin.site_customization = customization.get(plugin.name, None)
-            return plugin
-
-
-def available_output_formats() -> set[str]:
-    """
-    Returns a set of all available output formats.
-
-    Example:
-        Exercise available output formats through a consuming regression::
-
-            python -m pytest -q tests/customize/test_customize_base.py
-
-
-    :return: The normalized value, metadata record, path, stream result or collection
-        described above.
-    """
-    formats = set([])
-    for plugin in output_format_plugins():
-        if not is_disabled(plugin):
-            formats.add(plugin.file_type)
-    return formats
 
 
 # }}}
@@ -1353,6 +666,7 @@ def plugin_for_catalog_format(fmt: str) -> Optional[Plugin]:
 
 # }}}
 
+
 # Device plugins {{{
 def device_plugins(include_disabled: bool = False) -> Iterator[DevicePlugin]:
     """
@@ -1398,6 +712,7 @@ def disabled_device_plugins() -> Iterator[DevicePlugin]:
 
 # }}}
 
+
 # Metadata sources2 {{{
 def metadata_plugins(capabilities: Iterable[str]) -> Iterator[Plugin]:
     """
@@ -1437,6 +752,7 @@ def all_metadata_plugins() -> Iterator[Source]:
 
 # }}}
 
+
 # Viewer plugins {{{
 # Todo: Where are these? Should probably be moved to GUI
 def all_viewer_plugins() -> Iterator[ViewerPlugin]:
@@ -1457,6 +773,7 @@ def all_viewer_plugins() -> Iterator[ViewerPlugin]:
 
 
 # }}}
+
 
 # Editor plugins {{{
 # Todo: Likewise, where are these? Should probably be moved to GUI
@@ -1550,7 +867,9 @@ _initialized_plugins = []
 
 # Todo: This seems to be a genuine bug
 # Todo: Call it a plugin_class instead of plugin or something?
-def initialize_plugin(plugin: Type[Plugin], path_to_zip_file: Union[str, os.PathLike]) -> Optional[Plugin]:
+def initialize_plugin(
+    plugin: Type[Plugin], path_to_zip_file: Union[str, os.PathLike]
+) -> Optional[Plugin]:
     """
     Initialize a given plugin.
 
@@ -1573,7 +892,9 @@ def initialize_plugin(plugin: Type[Plugin], path_to_zip_file: Union[str, os.Path
     except Exception:
         print("Failed to initialize plugin:", plugin.name, plugin.version)
         tb = traceback.format_exc()
-        raise InvalidPlugin((_("Initialization of plugin %s failed with traceback:") % tb) + "\n" + tb)
+        raise InvalidPlugin(
+            (_("Initialization of plugin %s failed with traceback:") % tb) + "\n" + tb
+        )
 
 
 def has_external_plugins() -> bool:
@@ -1609,6 +930,9 @@ def initialize_plugins(perf: bool = False) -> None:
 
     global _initialized_plugins
     _initialized_plugins = []
+    # Host startup owns initialization; reentrant format lookups must not build
+    # a second standalone fleet while these instances are being initialized.
+    bind_plugins(_initialized_plugins)
     conflicts = [name for name in config["plugins"] if name in builtin_names]
     for p in conflicts:
         remove_plugin(p)
@@ -1619,7 +943,6 @@ def initialize_plugins(perf: bool = False) -> None:
         times = defaultdict(lambda: 0)
 
     for zfp in list(external_plugins) + builtin_plugins:
-
         default_log.info("About to initialize plugin: {}".format(repr(zfp)))
 
         try:
@@ -1658,8 +981,7 @@ def initialize_plugins(perf: bool = False) -> None:
     # )
     sorted(_initialized_plugins, key=lambda x: x.priority, reverse=True)
 
-    reread_filetype_plugins()
-    reread_metadata_plugins()
+    bind_plugins(_initialized_plugins)
 
 
 initialize_plugins()
@@ -1891,7 +1213,9 @@ def option_parser() -> OptionParser:
     parser.add_option(
         "--customize-plugin",
         default=None,
-        help=_("Customize plugin. Specify name of plugin and customization string separated by a comma."),
+        help=_(
+            "Customize plugin. Specify name of plugin and customization string separated by a comma."
+        ),
     )
     parser.add_option(
         "-l",
@@ -1900,8 +1224,12 @@ def option_parser() -> OptionParser:
         action="store_true",
         help=_("List all installed plugins"),
     )
-    parser.add_option("--enable-plugin", default=None, help=_("Enable the named plugin"))
-    parser.add_option("--disable-plugin", default=None, help=_("Disable the named plugin"))
+    parser.add_option(
+        "--enable-plugin", default=None, help=_("Enable the named plugin")
+    )
+    parser.add_option(
+        "--disable-plugin", default=None, help=_("Disable the named plugin")
+    )
     return parser
 
 
@@ -1998,7 +1326,6 @@ def run_import_plugins(path_or_stream, fmt):
     else:
         path = path_or_stream
     return run_plugins_on_import(path)
-
 
 
 if __name__ == "__main__":

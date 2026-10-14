@@ -324,7 +324,7 @@ class HTMLZInput(InputFormatPlugin):
             html = html.decode(ienc, "replace")
 
             # Run the HTML through the html processing plugin.
-            from LiuXin_alpha.customize.ui import plugin_for_input_format
+            from LiuXin_alpha.file_formats.plugin_runtime import plugin_for_input_format
 
             html_input = plugin_for_input_format("html")
             for opt in html_input.options:
@@ -348,7 +348,7 @@ class HTMLZInput(InputFormatPlugin):
             os.remove(htmlfile.name)
 
             # Set metadata from file.
-            from LiuXin_alpha.customize.ui import get_file_type_metadata
+            from LiuXin_alpha.file_formats.plugin_runtime import get_file_type_metadata
             from LiuXin_alpha.file_formats.oeb.transforms.metadata import (
                 meta_info_to_oeb_metadata,
             )

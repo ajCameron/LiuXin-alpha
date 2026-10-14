@@ -1,26 +1,26 @@
 # Working Memory Index
 
-Current work: **file-format conversion-contract containment**. Reusable plugin
-lifecycle and conversion contracts have been extracted from `customize`, with
-compatibility identities preserved. The current runtime and combined dependency
-components contain 218 modules. See the
-[active checkpoint](file-formats-containment-2026-10-13.md) for verification and
-the remaining format-to-UI/customization work.
+Current checkpoint: **file-format containment complete**. Standalone file-plugin
+composition, settings, profiles, hooks and metadata dispatch have moved below
+application composition, with compatibility identities preserved. The current
+runtime and combined dependency components contain 217 modules. See the
+[active checkpoint](file-formats-containment-2026-10-13.md) for the 2,597-pass regression and clean quality-gate evidence, plus explicit
+remaining metadata/application debt.
 
 The documentation inventory campaign completed on 2026-10-05: 1,372 units,
 2,671 files and 42,166 declarations were verified, with no partial files.
 Its [final checkpoint](project-docstrings-l001-l037-2026-10-05.md) retains the
 historical verification and review-hash observations.
 
-Updated: 2026-10-14
+Updated: 2026-10-15
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
 - [file-formats-containment-2026-10-13.md](file-formats-containment-2026-10-13.md)
-  Active plugin-contract extraction, compatibility guarantees, and remaining
-  format-to-UI/customization dependencies.
+  Completed standalone file-plugin containment, compatibility guarantees, validation
+  and remaining metadata/application dependencies.
 
 - [layer-direction-ratchet-plan-2026-10-09.md](layer-direction-ratchet-plan-2026-10-09.md)
   Architecture migration decisions and completed metadata/Catalog ownership

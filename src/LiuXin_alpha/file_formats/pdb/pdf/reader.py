@@ -79,7 +79,7 @@ class Reader(FormatReader):
             pdf.write(self.header.section_data(x))
         pdf.close()
 
-        from LiuXin_alpha.customize.ui import plugin_for_input_format
+        from LiuXin_alpha.file_formats.plugin_runtime import plugin_for_input_format
 
         pdf_plugin = plugin_for_input_format("pdf")
         for opt in pdf_plugin.options:

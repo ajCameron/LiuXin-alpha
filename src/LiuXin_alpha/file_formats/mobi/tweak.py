@@ -195,7 +195,7 @@ def do_rebuild(opf: _typing.Any, dest_path: _typing.Any) -> None:
     :return: None; the operation mutates state, writes output or performs cleanup in
         place.
     """
-    from LiuXin_alpha.customize.ui import plugin_for_input_format, plugin_for_output_format
+    from LiuXin_alpha.file_formats.plugin_runtime import plugin_for_input_format, plugin_for_output_format
     from LiuXin_alpha.file_formats.conversion.plumber import Plumber, create_oebbook
 
     plumber = Plumber(opf, dest_path, default_log)

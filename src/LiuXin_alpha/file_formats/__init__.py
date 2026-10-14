@@ -1,12 +1,13 @@
 """
 Own ebook parsing, rendering, conversion implementations, and their contracts.
 
-Application plugin discovery and registry assembly remain outside this package.
+Standalone file-plugin selection and composition belong to this package;
+application-wide plugin discovery and registry assembly remain outside it.
 Import reusable conversion contracts from ``file_formats.conversion.plugin``.
 
 Separation of concerns: file_formats owns format parsing, rendering, conversion,
-and reusable conversion contracts; it does not own application plugin discovery
-or registry assembly. See ``dev-docs/04 - Seperation of Concerns.md``.
+and reusable conversion contracts, profiles, and the file-plugin runtime; it does
+not assemble application services. See ``dev-docs/04 - Seperation of Concerns.md``.
 
 Example:
     Exercise   init   through a consuming regression::
@@ -344,7 +345,7 @@ def render_html_svg_workaround(path_to_html: _typing.Any, log: _typing.Any, widt
     # Todo: Install https://github.com/AdamN/python-webkit2png as a fallback for when PyQt isn't installed at all
     if data is None:
         try:
-            from LiuXin_alpha.surfaces.gui2 import is_ok_to_use_qt
+            from LiuXin_alpha.file_formats.rendering import is_ok_to_use_qt
         except Exception:
             is_ok_to_use_qt = lambda: False
 
@@ -416,7 +417,7 @@ def render_html(path_to_html: _typing.Any, width: int = 590, height: int = 750, 
     except Exception:
         return None
     try:
-        from LiuXin_alpha.surfaces.gui2 import is_ok_to_use_qt
+        from LiuXin_alpha.file_formats.rendering import is_ok_to_use_qt
     except Exception:
         return None
 

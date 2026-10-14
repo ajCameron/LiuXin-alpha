@@ -49,6 +49,21 @@ def test_metadata_utility_boundary_is_budgeted() -> None:
     assert utility_budget.max_project_modules == 30
 
 
+def test_standalone_file_plugin_boundaries_are_budgeted() -> None:
+    """Loading the runtime or its contracts cannot assemble application services."""
+    budgets = {budget.module: budget for budget in IMPORT_BUDGETS}
+    for module in (
+        "plugin_system.file_types",
+        "plugin_system.configuration",
+        "file_formats.conversion.profiles",
+        "file_formats.plugin_runtime",
+        "file_formats.rendering",
+    ):
+        assert {"customize", "catalog", "core", "surfaces"} <= budgets[
+            "LiuXin_alpha." + module
+        ].forbidden_domains
+
+
 def test_module_count_budget_reports_growth() -> None:
     """A footprint larger than its ceiling produces an actionable failure."""
 

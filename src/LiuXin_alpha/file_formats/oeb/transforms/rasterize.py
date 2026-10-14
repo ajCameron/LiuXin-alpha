@@ -97,7 +97,7 @@ class SVGRasterizer(object):
         """
         if _QT_IMPORT_ERROR is not None:
             raise Unavailable("PyQt5 is unavailable for SVG rasterization")
-        from LiuXin_alpha.surfaces.gui2 import must_use_qt
+        from LiuXin_alpha.file_formats.rendering import must_use_qt
 
         must_use_qt()
 

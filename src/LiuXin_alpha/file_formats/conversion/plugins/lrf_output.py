@@ -387,7 +387,7 @@ class LRFOutput(OutputFormatPlugin):
 
         with TemporaryDirectory("_lrf_output") as tdir:
 
-            from LiuXin_alpha.customize.ui import plugin_for_output_format
+            from LiuXin_alpha.file_formats.plugin_runtime import plugin_for_output_format
 
             oeb_output = plugin_for_output_format("oeb")
             if oeb_output is None:

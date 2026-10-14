@@ -30,8 +30,9 @@ def test_repository_matches_reviewed_layer_baseline() -> None:
 
 
 @pytest.mark.parametrize("context", tuple(ImportKind))
+@pytest.mark.parametrize("source", ("metadata", "file_formats", "plugin_system"))
 def test_new_backward_edge_fails_with_context(
-    tmp_path: Path, context: ImportKind
+    tmp_path: Path, context: ImportKind, source: str
 ) -> None:
     """Named rules cover import-time, deferred, and type-only edges."""
 
@@ -42,7 +43,7 @@ def test_new_backward_edge_fails_with_context(
         statement = (
             "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    " + statement
         )
-    owner = tmp_path / "LiuXin_alpha/metadata/owner.py"
+    owner = tmp_path / f"LiuXin_alpha/{source}/owner.py"
     _write(owner, "")
     _write(tmp_path / "LiuXin_alpha/databases/row.py", "")
     clean = collect_imports(tmp_path, protected_prefixes=("LiuXin_alpha",))
@@ -59,7 +60,7 @@ def test_new_backward_edge_fails_with_context(
         if edge.target.startswith("LiuXin_alpha.databases")
     )
     assert edge.kind == context
-    assert direction_reason(edge) == "metadata must not depend on databases"
+    assert direction_reason(edge) == f"{source} must not depend on databases"
 
 
 def test_removed_debt_and_reduced_measurement_require_baseline_refresh(

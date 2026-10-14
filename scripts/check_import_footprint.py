@@ -80,6 +80,31 @@ IMPORT_BUDGETS = (
         PLUGIN_CONTRACT_FORBIDDEN_DOMAINS,
     ),
     ImportBudget(
+        "LiuXin_alpha.plugin_system.file_types",
+        30,
+        PLUGIN_CONTRACT_FORBIDDEN_DOMAINS,
+    ),
+    ImportBudget(
+        "LiuXin_alpha.plugin_system.configuration",
+        30,
+        PLUGIN_CONTRACT_FORBIDDEN_DOMAINS,
+    ),
+    ImportBudget(
+        "LiuXin_alpha.file_formats.conversion.profiles",
+        30,
+        CONVERSION_CONTRACT_FORBIDDEN_DOMAINS,
+    ),
+    ImportBudget(
+        "LiuXin_alpha.file_formats.plugin_runtime",
+        36,
+        CONVERSION_CONTRACT_FORBIDDEN_DOMAINS,
+    ),
+    ImportBudget(
+        "LiuXin_alpha.file_formats.rendering",
+        15,
+        CONVERSION_CONTRACT_FORBIDDEN_DOMAINS,
+    ),
+    ImportBudget(
         "LiuXin_alpha.file_formats.conversion.plugin",
         30,
         CONVERSION_CONTRACT_FORBIDDEN_DOMAINS,

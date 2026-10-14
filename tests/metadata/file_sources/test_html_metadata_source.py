@@ -162,7 +162,7 @@ def test_html_reader_plugin_is_available(md_test_fixture) -> None:
         operation.
     :return: None; the function records state or raises through its assertions.
     """
-    from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
+    from LiuXin_alpha.metadata.file_sources.builtin_readers import get_metadata_reader_plugins
 
     fixture = md_test_fixture(file_ext="html", file_num=1, verify_hash=True)
     plugins = get_metadata_reader_plugins()

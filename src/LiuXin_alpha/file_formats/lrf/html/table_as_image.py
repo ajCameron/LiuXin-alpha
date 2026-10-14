@@ -204,7 +204,7 @@ def do_render(html: _typing.Any, base_dir: _typing.Any, width: _typing.Any, heig
         described above.
     """
     try:
-        from LiuXin_alpha.surfaces.gui2 import is_ok_to_use_qt
+        from LiuXin_alpha.file_formats.rendering import is_ok_to_use_qt
     except Exception:
         is_ok_to_use_qt = lambda: False
 

@@ -142,7 +142,7 @@ def test_snb_reader_plugin_is_available_and_preserves_stream_position(tmp_path: 
     :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
     :return: None; the function records state or raises through its assertions.
     """
-    from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
+    from LiuXin_alpha.metadata.file_sources.builtin_readers import get_metadata_reader_plugins
 
     book = (
         "<book-snbf><head><name>Plugin Title</name><author>Plugin Author</author>"
