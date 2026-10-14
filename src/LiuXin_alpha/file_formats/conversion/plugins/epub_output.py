@@ -23,7 +23,7 @@ import re
 
 from LiuXin_alpha.constants import filesystem_encoding
 
-from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.file_formats.conversion.plugin import OutputFormatPlugin, OptionRecommendation
 
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory

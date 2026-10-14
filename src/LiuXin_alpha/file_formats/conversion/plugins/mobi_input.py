@@ -16,7 +16,7 @@ import typing as _typing
 
 import os
 
-from LiuXin_alpha.customize.conversion import InputFormatPlugin
+from LiuXin_alpha.file_formats.conversion.plugin import InputFormatPlugin
 from LiuXin_alpha.utils.calibre import CurrentDir
 from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryDirectory
 

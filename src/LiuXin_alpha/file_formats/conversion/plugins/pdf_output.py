@@ -19,7 +19,7 @@ import glob
 import os
 
 from LiuXin_alpha.constants import iswindows
-from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.file_formats.conversion.plugin import OutputFormatPlugin, OptionRecommendation
 from LiuXin_alpha.file_formats import ConversionError
 
 from LiuXin_alpha.utils.text.icu import upper as icu_upper

@@ -1,17 +1,30 @@
 # Working Memory Index
 
-Current status: **project documentation inventory complete**. All 1,372 units,
-2,671 files and 42,166 declarations are verified, with no partial files.
-[Latest checkpoint](project-docstrings-l001-l037-2026-10-05.md).
-Nothing remains. The final focused result matches baseline; 95
-regressions and all full quality checks passed.
-Discovery records 39 unrelated review-hash differences.
+Current work: **file-format conversion-contract containment**. Reusable plugin
+lifecycle and conversion contracts have been extracted from `customize`, with
+compatibility identities preserved. The current runtime and combined dependency
+components contain 218 modules. See the
+[active checkpoint](file-formats-containment-2026-10-13.md) for verification and
+the remaining format-to-UI/customization work.
 
-Updated: 2026-10-05
+The documentation inventory campaign completed on 2026-10-05: 1,372 units,
+2,671 files and 42,166 declarations were verified, with no partial files.
+Its [final checkpoint](project-docstrings-l001-l037-2026-10-05.md) retains the
+historical verification and review-hash observations.
+
+Updated: 2026-10-14
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [file-formats-containment-2026-10-13.md](file-formats-containment-2026-10-13.md)
+  Active plugin-contract extraction, compatibility guarantees, and remaining
+  format-to-UI/customization dependencies.
+
+- [layer-direction-ratchet-plan-2026-10-09.md](layer-direction-ratchet-plan-2026-10-09.md)
+  Architecture migration decisions and completed metadata/Catalog ownership
+  slices; file-format containment has its own newer checkpoint above.
 
 - [project-docstrings-l001-l037-2026-10-05.md](project-docstrings-l001-l037-2026-10-05.md)
   Final retained fixture-database compatibility track: 318 declarations and 52

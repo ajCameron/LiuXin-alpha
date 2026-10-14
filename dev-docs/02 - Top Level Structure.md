@@ -62,6 +62,20 @@ It enforces structural and concurrency-safe invariants—types, nullability,
 foreign keys, uniqueness, stable checks, and transactions—but does not own
 bibliographic normalization or validation policy.
 
+# File formats
+
+Format readers, writers, container handling, and conversion implementations.
+Reusable input/output conversion contracts belong in
+`LiuXin_alpha.file_formats.conversion.plugin`. Format implementations must not
+depend on application plugin discovery or registry assembly.
+
+# Plugin system
+
+The passive, format-neutral lifecycle contract shared by loadable plugin
+families. `LiuXin_alpha.plugin_system` does not discover providers or assemble
+registries; application composition and historical compatibility remain under
+`customize`.
+
 # Jobs
 
 Long-running processes - of various sorts.

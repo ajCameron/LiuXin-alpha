@@ -26,7 +26,7 @@ try:
 except ModuleNotFoundError:
     from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode as unicode
 
-from LiuXin_alpha.customize.conversion import OptionRecommendation, DummyReporter
+from LiuXin_alpha.file_formats.conversion.plugin import OptionRecommendation, DummyReporter
 
 from LiuXin_alpha.file_formats.conversion.edges import legacy_oeb_edge
 from LiuXin_alpha.file_formats.conversion.preprocess import HTMLPreProcessor

@@ -51,9 +51,39 @@ CUSTOMIZE_NAMESPACE_FORBIDDEN_DOMAINS = frozenset(
         "surfaces",
     }
 )
+PLUGIN_CONTRACT_FORBIDDEN_DOMAINS = frozenset(
+    {
+        "caches",
+        "catalog",
+        "core",
+        "customize",
+        "databases",
+        "file_formats",
+        "ingest",
+        "jobs",
+        "library",
+        "metadata",
+        "storage",
+        "surfaces",
+    }
+)
+CONVERSION_CONTRACT_FORBIDDEN_DOMAINS = PLUGIN_CONTRACT_FORBIDDEN_DOMAINS - {
+    "file_formats"
+}
 
 IMPORT_BUDGETS = (
     ImportBudget("LiuXin_alpha", 1),
+    ImportBudget("LiuXin_alpha.plugin_system", 2),
+    ImportBudget(
+        "LiuXin_alpha.plugin_system.base",
+        30,
+        PLUGIN_CONTRACT_FORBIDDEN_DOMAINS,
+    ),
+    ImportBudget(
+        "LiuXin_alpha.file_formats.conversion.plugin",
+        30,
+        CONVERSION_CONTRACT_FORBIDDEN_DOMAINS,
+    ),
     ImportBudget(
         "LiuXin_alpha.customize",
         35,

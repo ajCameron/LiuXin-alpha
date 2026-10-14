@@ -19,7 +19,7 @@ import typing as _typing
 
 import os
 
-from LiuXin_alpha.customize.conversion import OptionRecommendation
+from LiuXin_alpha.file_formats.conversion.plugin import OptionRecommendation
 
 from LiuXin_alpha.utils.calibre import sanitize_file_name
 from LiuXin_alpha.utils.config.config_tools import config_dir

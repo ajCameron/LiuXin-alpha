@@ -17,7 +17,7 @@ import typing as _typing
 import os
 import shutil
 
-from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.file_formats.conversion.plugin import OutputFormatPlugin, OptionRecommendation
 from LiuXin_alpha.file_formats.conversion.report import (
     ConversionLossSample,
     ensure_conversion_report,

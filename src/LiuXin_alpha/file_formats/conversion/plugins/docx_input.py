@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import typing as _typing
 
-from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.file_formats.conversion.plugin import InputFormatPlugin, OptionRecommendation
 
 from LiuXin_alpha.utils.localization import trans as _
 

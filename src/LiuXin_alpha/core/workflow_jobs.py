@@ -451,7 +451,7 @@ def run_conversion_job(
     :return: Expanded paths, converter format labels, output existence, and byte size for an observed regular file.
     """
 
-    from LiuXin_alpha.customize.conversion import OptionRecommendation
+    from LiuXin_alpha.file_formats.conversion.plugin import OptionRecommendation
     from LiuXin_alpha.file_formats.conversion.plumber import Plumber
     from LiuXin_alpha.utils.logging import default_log
 

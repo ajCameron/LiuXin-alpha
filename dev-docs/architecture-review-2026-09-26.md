@@ -208,6 +208,16 @@ record factory belongs beside the record class. Focused behavior was
 transplanted with the code. The largest runtime SCC fell from 280 to 220 and the
 combined SCC from 311 to 220; the wider conversion/plugin findings remain open.
 
+**2026-10-13 FF-1 update:** the reusable plugin lifecycle now belongs to
+`plugin_system.base`, and conversion contracts belong to
+`file_formats.conversion.plugin`. All built-in converters import those owners;
+the historical `customize` modules are exact-identity compatibility surfaces.
+Cold-import budgets forbid the contracts from re-entering composition or higher
+application domains. This resolves the ownership edge described by FF-1 and
+reduces the largest runtime and combined SCCs from 220 to 218. Remaining
+format-to-UI/customization edges are tracked separately rather than being
+disguised with dynamic imports.
+
 ### utils, customize and configuration (UT)
 
 | ID | Sev | Finding | Key evidence |

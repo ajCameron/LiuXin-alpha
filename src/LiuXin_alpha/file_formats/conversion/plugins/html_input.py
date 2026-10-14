@@ -28,7 +28,7 @@ except ModuleNotFoundError:
 
 from LiuXin_alpha.utils.which_os import islinux, isbsd
 
-from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.file_formats.conversion.plugin import InputFormatPlugin, OptionRecommendation
 
 from LiuXin_alpha.metadata.book.base import calibreMetadata as MetaData
 

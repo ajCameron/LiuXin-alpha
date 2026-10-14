@@ -45,6 +45,8 @@ contract so it is visible before a developer explores an implementation:
 - `src/LiuXin_alpha/surfaces/__init__.py`
 - `src/LiuXin_alpha/ingest/__init__.py`
 - `src/LiuXin_alpha/jobs/__init__.py`
+- `src/LiuXin_alpha/file_formats/__init__.py`
+- `src/LiuXin_alpha/plugin_system/__init__.py`
 
 Those docstrings are entry-point summaries, not independent policy sources. If
 wording drifts, this guide and the dated write-validation contract take
@@ -78,6 +80,10 @@ The shortest useful description is:
   contract exposed to surfaces;
 - `surfaces` translate external input and output; they are never a trusted
   substitute for lower-layer validation.
+- `plugin_system` defines passive, format-neutral plugin lifecycle contracts;
+  it never discovers providers or assembles registries;
+- `file_formats` owns format implementations and reusable conversion contracts;
+  `customize` remains the compatibility and application-composition surface.
 
 ## Semantic write validity
 

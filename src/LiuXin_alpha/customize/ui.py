@@ -53,7 +53,7 @@ from LiuXin_alpha.customize.builtins.standardization import (
     CreatorStandardize,
     TitlePhashHandler,
 )
-from LiuXin_alpha.customize.conversion import InputFormatPlugin, OutputFormatPlugin
+from LiuXin_alpha.file_formats.conversion.plugin import InputFormatPlugin, OutputFormatPlugin
 from LiuXin_alpha.customize.profiles import InputProfile, OutputProfile
 from LiuXin_alpha.customize.zipplugin import loader
 from LiuXin_alpha.databases.database import Database

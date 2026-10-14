@@ -21,15 +21,15 @@
     "catalog_cache_combined_component": 0,
     "catalog_cache_runtime_component": 0,
     "domain_component": 9,
-    "whole_combined_component": 220,
-    "whole_runtime_component": 220
+    "whole_combined_component": 218,
+    "whole_runtime_component": 218
   },
   "unresolved_dynamic": [
     {"expression": "registration.cache_module", "kind": "deferred", "line": 142, "source": "LiuXin_alpha.caches.cache_plugins.registry"},
     {"expression": "registration.cache_module.rsplit('.', 1)[0]", "kind": "deferred", "line": 235, "source": "LiuXin_alpha.caches.cache_plugins.registry"},
-    {"expression": "mod", "kind": "deferred", "line": 1029, "source": "LiuXin_alpha.customize"},
-    {"expression": "base", "kind": "deferred", "line": 1095, "source": "LiuXin_alpha.customize"},
-    {"expression": "mod", "kind": "deferred", "line": 1156, "source": "LiuXin_alpha.customize"},
+    {"expression": "mod", "kind": "deferred", "line": 696, "source": "LiuXin_alpha.customize"},
+    {"expression": "base", "kind": "deferred", "line": 762, "source": "LiuXin_alpha.customize"},
+    {"expression": "mod", "kind": "deferred", "line": 823, "source": "LiuXin_alpha.customize"},
     {"expression": "plugin_module", "kind": "deferred", "line": 376, "source": "LiuXin_alpha.customize.zipplugin"},
     {"expression": "registration.driver_module", "kind": "deferred", "line": 127, "source": "LiuXin_alpha.databases.database_driver_plugins.registry"},
     {"expression": "registration.driver_module.rsplit('.', 1)[0]", "kind": "deferred", "line": 162, "source": "LiuXin_alpha.databases.database_driver_plugins.registry"},

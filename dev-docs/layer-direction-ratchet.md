@@ -74,3 +74,8 @@ longer includes cache or database modules. The former four-module
 runtime and combined graphs. Catalog retrieval composes
 `caches.read_cache.ReadCache`, while the writable `caches.cache.Cache` alone adds
 the dependency back to Catalog.
+
+Later on **2026-10-13**, extracting the generic plugin lifecycle and conversion
+plugin contracts from `customize` reduced both whole-package SCC measurements
+again, from 220 to 218. The domain SCC remains 9; the remaining format-to-UI and
+customization dependencies are still represented honestly in the graph.

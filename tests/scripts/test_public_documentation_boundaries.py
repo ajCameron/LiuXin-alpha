@@ -33,10 +33,12 @@ SEPARATION_OF_CONCERNS_PACKAGE_ROOTS = (
     "catalog",
     "core",
     "databases",
+    "file_formats",
     "ingest",
     "jobs",
     "library",
     "metadata",
+    "plugin_system",
     "storage",
     "surfaces",
 )

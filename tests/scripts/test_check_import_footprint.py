@@ -25,6 +25,21 @@ def test_customize_namespace_boundaries_are_budgeted() -> None:
     assert "LiuXin_alpha.customize.builtins" in modules
 
 
+def test_plugin_contract_boundaries_are_budgeted() -> None:
+    """Keep reusable plugin contracts below composition and application domains."""
+    budgets = {budget.module: budget for budget in IMPORT_BUDGETS}
+
+    generic_budget = budgets["LiuXin_alpha.plugin_system.base"]
+    conversion_budget = budgets["LiuXin_alpha.file_formats.conversion.plugin"]
+
+    assert "customize" in generic_budget.forbidden_domains
+    assert "file_formats" in generic_budget.forbidden_domains
+    assert "customize" in conversion_budget.forbidden_domains
+    assert "file_formats" not in conversion_budget.forbidden_domains
+    assert generic_budget.max_project_modules == 30
+    assert conversion_budget.max_project_modules == 30
+
+
 def test_metadata_utility_boundary_is_budgeted() -> None:
     """Keep generic metadata helpers independent of file-format implementations."""
     budgets = {budget.module: budget for budget in IMPORT_BUDGETS}

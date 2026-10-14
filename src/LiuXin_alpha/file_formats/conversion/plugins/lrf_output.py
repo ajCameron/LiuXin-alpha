@@ -20,8 +20,8 @@ import typing as _typing
 import os
 import sys
 
-from LiuXin_alpha.customize.conversion import OptionRecommendation
-from LiuXin_alpha.customize.conversion import OutputFormatPlugin
+from LiuXin_alpha.file_formats.conversion.plugin import OptionRecommendation
+from LiuXin_alpha.file_formats.conversion.plugin import OutputFormatPlugin
 from LiuXin_alpha.file_formats import ConversionError
 
 from LiuXin_alpha.utils.localization import trans as _

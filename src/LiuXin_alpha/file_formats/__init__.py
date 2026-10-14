@@ -1,8 +1,12 @@
 """
-Expose the supported file formats compatibility surface.
+Own ebook parsing, rendering, conversion implementations, and their contracts.
 
-The module keeps compatibility policy, normalization and resource ownership explicit
-for callers.
+Application plugin discovery and registry assembly remain outside this package.
+Import reusable conversion contracts from ``file_formats.conversion.plugin``.
+
+Separation of concerns: file_formats owns format parsing, rendering, conversion,
+and reusable conversion contracts; it does not own application plugin discovery
+or registry assembly. See ``dev-docs/04 - Seperation of Concerns.md``.
 
 Example:
     Exercise   init   through a consuming regression::
