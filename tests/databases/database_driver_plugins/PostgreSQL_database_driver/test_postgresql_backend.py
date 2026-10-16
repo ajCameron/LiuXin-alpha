@@ -814,7 +814,7 @@ def test_postgresql_runtime_grant_statements_validate_identifiers() -> None:
     )
 
     assert 'grant connect on database "liuxin" to "liuxin_runtime"' in statements
-    assert 'grant usage, select on all sequences in schema "public" to "liuxin_runtime"' in statements
+    assert 'grant usage, select, update on all sequences in schema "public" to "liuxin_runtime"' in statements
 
     import pytest
 

@@ -764,7 +764,11 @@ class SQLPortableMacrosMixin:
                     raise DatabaseIntegrityError(
                         f"Insert into {table!r} did not return an ID."
                     )
-                return _row_value(row, 0, id_column)
+                result = _row_value(row, 0, id_column)
+                synchronize = getattr(type(driver), "_sync_explicit_identity", None)
+                if id_column in payload and callable(synchronize):
+                    synchronize(driver, conn, table, id_column)
+                return result
             cursor = conn.execute(
                 sql,
                 tuple(payload[column] for column in columns),

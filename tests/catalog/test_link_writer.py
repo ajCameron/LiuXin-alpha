@@ -13,6 +13,7 @@ Example:
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from contextlib import nullcontext
 from dataclasses import is_dataclass, replace
 from types import SimpleNamespace
 from typing import Any
@@ -93,6 +94,10 @@ class _RecordingCatalog:
         self.result = {} if result is None else result
         self.failure = failure
         self.updates: list[LinkUpdate] = []
+        self.db = SimpleNamespace(macros=SimpleNamespace(
+            transaction=nullcontext,
+            get_link_rows_bulk=lambda _spec, ids, **_kwargs: {row_id: () for row_id in ids},
+        ))
 
     def _apply_link_update(
         self,
@@ -583,7 +588,7 @@ def test_link_writer_reads_allowed_types_live_for_every_typed_write() -> None:
 
     catalog = _RecordingCatalog()
     wrapper = _AllowedTypesWrapper()
-    catalog.db = SimpleNamespace(driver_wrapper=wrapper)
+    catalog.db.driver_wrapper = wrapper
     resolved: list[str] = []
     spec = replace(
         _link_spec(),
@@ -655,7 +660,7 @@ def test_link_writer_rejects_an_unreadable_allowed_type_registry(
     :return: None; the function records state or raises through its assertions.
     """
     catalog = _RecordingCatalog()
-    catalog.db = SimpleNamespace(driver_wrapper=wrapper)
+    catalog.db.driver_wrapper = wrapper
     spec = replace(
         _link_spec(),
         allowed_types_table="creator_title_links__types",
@@ -1086,6 +1091,21 @@ def test_singular_source_cardinalities_reject_multiple_destinations(
 
     with pytest.raises(ValueError, match="at most one destination"):
         writer.build_update(additions={10: ["ada", "grace"]})
+
+
+@pytest.mark.parametrize("cardinality", (LinkCardinality.ONE_TO_ONE, LinkCardinality.MANY_TO_ONE))
+def test_incremental_link_cardinality_includes_existing_destinations(cardinality) -> None:
+    """One new destination cannot bypass singular cardinality through an incremental update."""
+    catalog = _RecordingCatalog()
+    catalog.db.macros.get_link_rows_bulk = lambda _spec, _ids, **_kwargs: {
+        10: (LinkRow(10, 20, link_type="author"),)
+    }
+    writer = _identity_writer(catalog, _link_spec(cardinality))
+    with pytest.raises(ValueError, match="at most one destination"):
+        writer.write(additions={10: "grace"}, link_type="author")
+    assert catalog.updates == []
+    writer.write(additions={10: "grace"}, deletions={10: 20}, link_type="author")
+    assert catalog.updates[0].replacements[10] == (LinkValue(21, link_type="author"),)
 
 
 @pytest.mark.parametrize(

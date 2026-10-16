@@ -3,7 +3,7 @@
 Link legacy metadata Rows to resources with method-specific recovery policies.
 """
 
-from LiuXin_alpha.catalog.row_mutations import atomic_write, link_rows, unlink_rows
+from LiuXin_alpha.catalog.row_mutations import atomic_write, link_rows, repository_for, unlink_rows
 
 from LiuXin_alpha.databases.api import DatabaseAPI
 
@@ -24,8 +24,8 @@ class Apply(LabelApplyMixin):
     Group row-link helpers with caller-wired Add and Ensure peers.
 
     Several methods insert/resolve metadata before validating a resource, and
-    some recover integrity errors by deleting/replacing links. No common
-    transaction wraps these operations. Return values are usually link Rows.
+    some legacy-only routes recover integrity errors by deleting/replacing links.
+    Public methods join one portable transaction. Return values are usually link Rows.
 
     Example:
         After Catalog composition, resolve metadata through catalog.apply and
@@ -341,6 +341,8 @@ class Apply(LabelApplyMixin):
         try:
             link_row = link_rows(self, primary_row=resource_row, secondary_row=language_row, type=link_type)
         except DatabaseIntegrityError:
+            if repository_for(self, str(resource_row.table)) is not None:
+                raise
             # The title is probably already linked to a language - delete that link and try again
             unlink_rows(self, primary_row=resource_row, secondary_row=language_row)
             link_row = link_rows(self, primary_row=resource_row, secondary_row=language_row, type=link_type)
@@ -369,6 +371,8 @@ class Apply(LabelApplyMixin):
         try:
             link_rows(self, primary_row=title_row, secondary_row=language, type="contained_in")
         except DatabaseIntegrityError:
+            if repository_for(self, str(title_row.table)) is not None:
+                raise
             pass
 
     @atomic_write
@@ -390,6 +394,8 @@ class Apply(LabelApplyMixin):
         try:
             link_rows(self, primary_row=title_row, secondary_row=language, type="available_language")
         except DatabaseIntegrityError:
+            if repository_for(self, str(title_row.table)) is not None:
+                raise
             pass
 
     @atomic_write
@@ -494,6 +500,8 @@ class Apply(LabelApplyMixin):
         try:
             link_row = link_rows(self, primary_row=publisher_row, secondary_row=title_row)
         except DatabaseIntegrityError:
+            if repository_for(self, str(title_row.table)) is not None:
+                raise
             link_row = self.db.get_interlink_row(primary_row=publisher_row, secondary_row=title_row)
             link_priority_max = int(self.db.get_max("publisher_title_link_priority")) + 1
             link_row["publisher_title_link_priority"] = link_priority_max
@@ -558,6 +566,8 @@ class Apply(LabelApplyMixin):
                 priority="not_set",
             )
         except DatabaseIntegrityError:
+            if repository_for(self, str(resource_row.table)) is not None:
+                raise
             # Break the old link and make a new one
             self.db.unlink_all(
                 primary_row=resource_row,

@@ -724,7 +724,7 @@ def test_postgres_grant_sql_prints_runtime_privileges(capsys) -> None:
     output = capsys.readouterr().out
     assert 'grant connect on database "liuxin" to "liuxin_runtime";' in output
     assert 'grant select, insert, update, delete on all tables in schema "public" to "liuxin_runtime";' in output
-    assert 'grant usage, select on all sequences in schema "public" to "liuxin_runtime";' in output
+    assert 'grant usage, select, update on all sequences in schema "public" to "liuxin_runtime";' in output
 
 
 def test_postgres_setup_sql_prints_admin_bootstrap_script(capsys) -> None:

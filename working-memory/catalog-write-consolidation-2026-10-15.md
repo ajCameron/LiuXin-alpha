@@ -197,3 +197,92 @@ entrypoint inventory and completion audit against the seven requirements above,
 including any still-independent writes and missing public PostgreSQL parity.
 Do not reintroduce old-profile upgrade machinery. Tests and commits are a green
 checkpoint, not a claim that this broader audit has been completed.
+
+## Relocation checkpoint — 2026-10-16
+
+User direction: WSL is unhealthy; commit, push and open a PR, then continue on a
+more reliable machine. Stop expanding the audit here. This checkpoint includes
+in-progress PostgreSQL work and is **not completion signoff**. The branch also
+contains the preceding lifecycle, metadata ownership and file-format containment
+commits that have not yet reached origin/main. The data submodule remains excluded.
+
+Changes since `18040e46`:
+
+- Explicit Work-ID creation uses the same repository preparation hook as ordinary
+  creation. Work existence checks and all WEMI writes share the transaction.
+- Core tree nest/delete use one transaction and Catalog repositories for owned
+  rows. New regressions cover late failure rollback and scoped identity conflicts.
+- Incremental link updates validate cardinality against the complete resulting
+  link set in the transaction. Modern Apply helpers propagate integrity failures
+  rather than entering legacy recovery paths.
+- New `test_write_boundary_parity.py` exercises eight public Catalog/Core scenarios
+  on SQLite, APSW and live PostgreSQL using fresh disposable schemas.
+- Fresh PostgreSQL bootstrap now consumes more current bundled Catalog table
+  declarations and shared relationship TOML, including role registries, endpoint
+  constraints, interlinks and intralinks. Shared DDL helpers moved to `link_ddl.py`.
+  Native relation introspection replaces an erroneous sqlite_master wrapper query.
+- Pending verification: PostgreSQL explicit-ID inserts synchronize their sequence;
+  runtime sequence grants include UPDATE for setval. Parent-cycle triggers cover
+  genres, subjects and series. Series now declares the parent FK required by that
+  trigger (caught during final checkpoint inspection). These are fresh-schema
+  changes, not an old-database migration.
+
+Evidence retained locally under `working-memory/test-results/catalog-write-2026-10-15/`:
+
+- `audit-link-and-schema`: **306 passed** (link writer/update and PostgreSQL unit
+  contracts), before the last sequence/grant/intralink/hierarchy edits.
+- `audit-core-fixes`: **48 passed, 6 skipped, 6 failed**; all six failures were
+  sandbox socket restrictions. `audit-core-rpc` reran those outside the sandbox:
+  **6 passed, 12 deselected**.
+- `audit-quality`: complete quality script passed before the final PostgreSQL
+  changes. Earlier broad green results above remain historical checkpoints.
+- `audit-postgres-schema3`: **6 passed, 2 failed, 16 deselected**, 234.55 seconds.
+  Failures: explicit Work ID 1 followed by automatic allocation collided; an
+  administrative genre update could create a parent cycle. The sequence and
+  trigger fixes were written after this run and have not been live-tested.
+- The temporary PostgreSQL server and `/tmp/lxa_run_check.py` did not survive WSL's
+  restart. Do not reuse the old socket path. Detailed logs are gitignored and will
+  not travel with the branch; this tracked note preserves the outcomes.
+
+Inventory findings so far: repository CRUD, coordinated WEMI writes, owned-row
+writers, modern cache facade, container writes, Core administration and web read/
+write models converge on Catalog owners. The web model's db is CoreDatabaseView,
+not the raw database. Private prepared macro calls inside those owners are not
+independent public routes. Frozen catalog_macros, library.legacy, Calibre cache
+compatibility and storage-domain writes have distinct contracts; do not rewrite
+those indiscriminately. This inventory still needs a final documented review.
+
+Resume on the next machine:
+
+1. Check out `catalog-write-consolidation`; recreate the virtualenv as needed.
+   Configure an isolated PostgreSQL test database through LIUXIN_TEST_POSTGRES_URL.
+   The tests create/drop only generated schemas in that database.
+2. Run `pytest -q --tb=short --show-capture=no tests/catalog/test_write_boundary_parity.py`
+   through the project Python. Verify all 24 backend cases, including fresh schema,
+   explicit IDs, parent cycles and both tree rollback cases.
+3. Complete fresh PostgreSQL schema parity review: language seeds are still missing;
+   compare native reduced table definitions (especially series) with the current
+   Catalog contract. Add public self-relation coverage and an Apply-helper failure/
+   aggregate rollback regression. Review runtime-role sequence privileges and
+   sequence allocation concurrency; it has not been stress-tested.
+4. Finish the public entrypoint inventory, update stale Apply/repository docstrings,
+   and assess generic administrative link-table edits against relationship rules.
+   Preserve the user's direction against old-profile upgrade shims.
+5. Rerun relevant broad regressions and `bash scripts/run_type_checks.sh` after code
+   stabilizes. Only then complete the seven-requirement signoff and mark the PR
+   ready. The prior green checkpoints do not certify the new PostgreSQL changes.
+
+Final relocation check after the checkpoint corrections: **348 passed in 35.25s**:
+
+```sh
+.venv/bin/python -m pytest -q --tb=short --show-capture=no \
+  tests/catalog/test_link_writer.py \
+  tests/catalog/test_link_update.py \
+  tests/core/test_semantic_api_contracts.py \
+  tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py \
+  tests/surfaces/test_cli_postgres.py
+```
+
+The three new Python files pass Ruff lint and formatting. `git diff --check`
+passes. These unit/contract checks do not replace the pending live PostgreSQL
+rerun, the full 24-case public parity suite or the final complete quality run.

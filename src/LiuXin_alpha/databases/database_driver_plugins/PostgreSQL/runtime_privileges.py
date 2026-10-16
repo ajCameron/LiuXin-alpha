@@ -20,7 +20,7 @@ from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.connection import
 
 
 RUNTIME_TABLE_PRIVILEGES = ("select", "insert", "update", "delete")
-RUNTIME_SEQUENCE_PRIVILEGES = ("usage", "select")
+RUNTIME_SEQUENCE_PRIVILEGES = ("usage", "select", "update")
 DEFAULT_SCHEMA = "public"
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -118,7 +118,7 @@ def build_runtime_grant_statements(
     """
     Build six grants for database connect, schema usage and current/future objects.
 
-    Grant CRUD on tables and USAGE/SELECT on sequences. Future-object defaults apply
+    Grant CRUD on tables and USAGE/SELECT/UPDATE on sequences. Future-object defaults apply
     to the explicitly named owner, or the SQL executor when no owner is supplied.
     Invalid names raise PostgresRuntimePrivilegeError before statements are returned.
 
@@ -150,9 +150,9 @@ def build_runtime_grant_statements(
         f"grant connect on database {database_ident} to {role_ident}",
         f"grant usage on schema {schema_ident} to {role_ident}",
         f"grant select, insert, update, delete on all tables in schema {schema_ident} to {role_ident}",
-        f"grant usage, select on all sequences in schema {schema_ident} to {role_ident}",
+        f"grant usage, select, update on all sequences in schema {schema_ident} to {role_ident}",
         f"alter default privileges{default_owner_sql} in schema {schema_ident} grant select, insert, update, delete on tables to {role_ident}",
-        f"alter default privileges{default_owner_sql} in schema {schema_ident} grant usage, select on sequences to {role_ident}",
+        f"alter default privileges{default_owner_sql} in schema {schema_ident} grant usage, select, update on sequences to {role_ident}",
     ]
 
 

@@ -43,7 +43,17 @@ _SQL_FRBR_TABLE_ROOT = (
 _HELPER_SQL_FOLDERS = (
     _SQL_FRBR_TABLE_ROOT / "db_metadata_tables",
     _SQL_FRBR_TABLE_ROOT / "workflow_tables",
+    _SQL_FRBR_TABLE_ROOT / "metadata_additional",
+    _SQL_FRBR_TABLE_ROOT / "frbr_metadata_core_attributes",
+    _SQL_FRBR_TABLE_ROOT / "frbr_metadata_core_tables",
 )
+
+_CATALOG_TABLES = frozenset({
+    "works", "expressions", "manifestations", "items", "agents", "languages",
+    "tags", "labels", "genres", "subjects", "series", "ratings", "comments",
+    "synopses", "notes", "annotations", "entity_identifiers", "item_identifiers",
+    "human_agents", "org_agents", "org_agent_relations",
+})
 
 
 @dataclass(frozen=True)
@@ -159,9 +169,24 @@ def build_schema_statements(*, schema: str = "public") -> tuple[str, ...]:
         statements.append(_create_table_sql(table))
         statements.extend(table.indexes)
     statements.extend(_helper_sql_statements())
+    statements.extend(_catalog_link_statements())
+    from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.catalog_schema import hierarchy_guard_statements
+    statements.extend(hierarchy_guard_statements())
     statements.extend(_column_metadata_seed_statements())
     statements.extend(_normalized_identity_seed_statements())
     return tuple(statements)
+
+
+def _catalog_link_statements() -> tuple[str, ...]:
+    """Render current Catalog interlinks after collecting their physical endpoints."""
+    from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.catalog_schema import catalog_link_statements
+
+    tables = {table.name: _column_names(table.columns) for table in TABLE_DEFINITIONS}
+    tables.update(_helper_table_catalog())
+    return catalog_link_statements(
+        {name: columns for name, columns in tables.items() if name in _CATALOG_TABLES},
+        _SQL_FRBR_TABLE_ROOT.parent,
+    )
 
 
 def schema_table_catalog() -> dict[str, tuple[str, ...]]:
@@ -178,6 +203,10 @@ def schema_table_catalog() -> dict[str, tuple[str, ...]]:
 
     catalog = {table.name: _column_names(table.columns) for table in TABLE_DEFINITIONS}
     catalog.update(_helper_table_catalog())
+    for statement in _catalog_link_statements():
+        table = _statement_table_name(statement)
+        if table is not None:
+            catalog[table] = _create_statement_column_names(statement)
     return catalog
 
 
@@ -218,7 +247,7 @@ def _helper_sql_statements() -> tuple[str, ...]:
     grouped: dict[str, list[str]] = {}
     discovery_order: list[str] = []
     explicit = {definition.name for definition in TABLE_DEFINITIONS}
-    helper_tables = set(HELPER_TABLES) - explicit
+    helper_tables = (set(HELPER_TABLES) | _CATALOG_TABLES) - explicit
     for sqlite_statement in _sqlite_helper_statements():
         table_name = _statement_table_name(sqlite_statement) or _statement_index_table_name(sqlite_statement)
         if table_name not in helper_tables:
@@ -298,7 +327,7 @@ def _helper_table_catalog() -> dict[str, tuple[str, ...]]:
     """
     catalog: dict[str, tuple[str, ...]] = {}
     explicit = {definition.name for definition in TABLE_DEFINITIONS}
-    helper_tables = set(HELPER_TABLES) - explicit
+    helper_tables = (set(HELPER_TABLES) | _CATALOG_TABLES) - explicit
     for sqlite_statement in _sqlite_helper_statements():
         table_name = _statement_table_name(sqlite_statement)
         if table_name not in helper_tables:
@@ -436,7 +465,7 @@ def _schema_column_metadata_defaults() -> tuple[ColumnMetadata, ...]:
                 is_foreign_key=column in foreign_keys,
             )
 
-    for statement in _helper_sql_statements():
+    for statement in (*_helper_sql_statements(), *_catalog_link_statements()):
         table = _statement_table_name(statement)
         if table is None:
             continue
@@ -546,6 +575,13 @@ def _sqlite_helper_statements() -> tuple[str, ...]:
     for folder in _HELPER_SQL_FOLDERS:
         for sql_path in sorted(folder.glob("*.sql")):
             text = _strip_sql_comments(sql_path.read_text(encoding="utf-8"))
+            if "__" in text:
+                from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr.database_generator import (
+                    _substitute_canonical_vocabulary_placeholders,
+                )
+                text = _substitute_canonical_vocabulary_placeholders(text)
+            text = re.sub(r",\s*\)", ")", text)
+            text = re.sub(r"CREATE TABLE (?!IF NOT EXISTS)", "CREATE TABLE IF NOT EXISTS ", text, flags=re.IGNORECASE)
             for raw_statement in text.split(";"):
                 statement = raw_statement.strip()
                 if not statement:
@@ -560,25 +596,24 @@ def _sqlite_helper_statements() -> tuple[str, ...]:
 
 def _strip_sql_comments(sql_text: str) -> str:
     """
-    Remove lines whose trimmed text starts with --, retaining all other lines.
+    Remove full-line and inline -- comments while preserving quoted SQL text.
 
-    Inline comments, block comments and SQL string syntax are not parsed.
+    Single/double quoted text and backtick identifiers are retained, including
+    doubled quote escapes. Block comments are not used by these bundled resources.
 
     Example:
-        >>> _strip_sql_comments(chr(10).join(["-- heading", "select 1"]))
+        >>> _strip_sql_comments(chr(10).join(["-- heading", "select 1"])).strip()
         'select 1'
 
 
     :param sql_text: SQL resource text to filter.
     :return: Remaining lines joined with newline characters.
     """
-    lines: list[str] = []
-    for line in sql_text.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("--"):
-            continue
-        lines.append(line)
-    return "\n".join(lines)
+    return re.sub(
+        r"'(?:''|[^'])*'|\"(?:\"\"|[^\"])*\"|`(?:``|[^`])*`|--[^\n]*",
+        lambda match: "" if match.group().startswith("--") else match.group(),
+        sql_text,
+    )
 
 
 def _translate_sqlite_statement(sql: str) -> str:
@@ -604,7 +639,7 @@ def _translate_sqlite_statement(sql: str) -> str:
         translated,
         flags=re.IGNORECASE,
     )
-    translated = re.sub(r'\s+COLLATE\s+"NOCASE"', "", translated, flags=re.IGNORECASE)
+    translated = re.sub(r'\s+COLLATE\s+(?:"NOCASE"|NOCASE)', "", translated, flags=re.IGNORECASE)
     translated = re.sub(
         r"\bINTEGER\s+PRIMARY\s+KEY\b",
         "bigint generated by default as identity primary key",
@@ -987,6 +1022,7 @@ TABLE_DEFINITIONS: tuple[TableDefinition, ...] = (
             '"series" text null',
             '"series_name_norm" text null',
             '"series_sort" text null',
+            '"series_parent_id" bigint null references "series" ("series_id") on delete set null on update cascade',
             _epoch_column("series_created_timestamp_ep_k"),
             _epoch_column("series_modified_timestamp_ep_k"),
             _nullable_epoch_column("series_source_created_datestamp_ep_k"),

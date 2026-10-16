@@ -8,6 +8,7 @@ Acquisition tests use only pytest-owned temporary paths and mocked storage reade
 example HTTP URLs are never fetched.
 """
 
+from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -75,7 +76,8 @@ def _tree_runtime(rows: dict[int, dict[str, int | None]]) -> SimpleNamespace:
             if snapshot[key]["node_parent_id"] == where["node_parent_id"]
         ]
 
-    macros = Mock(spec_set=["get_row", "get_rows", "update_row", "delete_row"])
+    macros = Mock(spec_set=["get_row", "get_rows", "update_row", "delete_row", "transaction"])
+    macros.transaction.side_effect = nullcontext
     macros.get_row.side_effect = get_row
     macros.get_rows.side_effect = get_rows
     database = SimpleNamespace(
@@ -85,7 +87,10 @@ def _tree_runtime(rows: dict[int, dict[str, int | None]]) -> SimpleNamespace:
     )
     return SimpleNamespace(
         database=database,
-        services=SimpleNamespace(reconcile=Mock(side_effect=dict)),
+        services=SimpleNamespace(
+            reconcile=Mock(side_effect=dict),
+            catalog=SimpleNamespace(repositories=SimpleNamespace(for_table=Mock(return_value=None))),
+        ),
     )
 
 

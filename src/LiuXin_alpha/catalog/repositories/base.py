@@ -375,8 +375,8 @@ class BaseRepository:
         """
         Normalize one create or update payload through the repository write seam.
 
-        The base hook delegates to normalise_input and deliberately applies no semantic value
-        policy. Create calls pass existing as None; update calls pass the shallow stored row read by
+        The base hook normalizes column aliases and derives declared identity keys.
+        Create calls pass existing as None; update calls pass the shallow stored row read by
         require before this hook runs. Subclasses may use that row to validate a complete semantic
         value assembled from partial changes. They must return only physical-column changes that
         should reach the macro layer and must not mutate either input mapping.
@@ -552,11 +552,25 @@ class BaseRepository:
         :raises Exception: Schema, backend constraint, and insertion failures propagate.
         """
 
+        return self._create(data)
+
+    def _create(self, data: RowInput, *, entity_id: EntityId | None = None) -> EntityId:
+        """Share preparation and insertion with coordinated explicit-ID creation.
+
+        The optional ID is separate from public row data, which still cannot
+        supply or change an ID column. Validate it, prepare through the concrete
+        repository hook, and verify the returned ID inside the transaction.
+        Explicit IDs are reserved for coordinated Catalog workflows.
+        """
+        if entity_id is not None:
+            self._validate_entity_id(entity_id)
         payload = self._prepare_write(data)
         if not payload:
             raise CatalogMutationError(
                 f"{type(self).__name__}.create requires at least one value"
             )
+        if entity_id is not None:
+            payload[self.id_column] = entity_id
         transaction = getattr(self._macros, "transaction", None)
         with transaction() if callable(transaction) else nullcontext():
             new_id = self._macros.insert_row(
@@ -566,6 +580,8 @@ class BaseRepository:
                 raise CatalogMutationError(
                     f"database did not return an ID for new {self.table_name} row"
                 )
+            if entity_id is not None and new_id != entity_id:
+                raise CatalogMutationError("database did not preserve the requested entity ID")
         return new_id
 
     def update(self, entity_id: EntityId, data: RowInput) -> None:

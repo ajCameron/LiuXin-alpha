@@ -193,9 +193,6 @@ class MetadataWriter:
             not isinstance(work_id, int) or isinstance(work_id, bool) or work_id < 0
         ):
             raise TypeError("work_id must be a non-negative integer or None")
-        existing_work = (
-            None if work_id is None else self.repositories.works.get(work_id)
-        )
         payloads = {
             "expression": expression,
             "manifestation": manifestation,
@@ -205,11 +202,6 @@ class MetadataWriter:
                 raise CatalogMutationError(
                     f"WEMI stack requires a non-empty {level} payload"
                 )
-        if (
-            not self.policy.can_create(level="work", data=work)
-            and existing_work is None
-        ):
-            raise CatalogMutationError("WEMI stack requires a non-empty work payload")
         raw_items: object = items
         if not isinstance(raw_items, Sequence) or isinstance(raw_items, (str, bytes)):
             raise TypeError("items must be a sequence of mappings")
@@ -223,21 +215,17 @@ class MetadataWriter:
         if origin is not None and not isinstance(origin, str):
             raise TypeError("origin must be a string or None")
         with self.db.macros.transaction():
+            existing_work = (
+                None if work_id is None else self.repositories.works.get(work_id)
+            )
+            if not self.policy.can_create(level="work", data=work) and existing_work is None:
+                raise CatalogMutationError("WEMI stack requires a non-empty work payload")
             if work_id is None:
                 created_work_id = self.repositories.works.create(work)
             elif existing_work is None:
-                payload = self.repositories.works.normalise_input(work)
-                payload["work_id"] = work_id
-                inserted_work_id = self.db.macros.insert_row(
-                    "works",
-                    payload,
-                    id_column="work_id",
+                created_work_id = self.repositories.works._create(
+                    work, entity_id=work_id,
                 )
-                if inserted_work_id != work_id:
-                    raise CatalogMutationError(
-                        "database did not preserve the requested Work ID"
-                    )
-                created_work_id = work_id
             elif work:
                 self.repositories.works.update(work_id, work)
                 created_work_id = work_id

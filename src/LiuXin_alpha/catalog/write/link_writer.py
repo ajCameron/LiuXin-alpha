@@ -528,8 +528,11 @@ class CatalogLinkWriter[RawValueT, ValueT](
             raise TypeError("update must be a LinkUpdate")
         if update.link_spec != self.link_spec:
             raise ValueError("update link_spec does not match writer link_spec")
-        self._validate_cardinality(update)
-        return self.catalog._apply_link_update(update)
+        macros = self.catalog.db.macros
+        with macros.transaction():
+            replacement = update.as_replacement_update(macros)
+            self._validate_cardinality(replacement)
+            return self.catalog._apply_link_update(replacement)
 
 
 __all__ = [

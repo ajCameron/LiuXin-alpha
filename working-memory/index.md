@@ -1,11 +1,11 @@
 # Working Memory Index
 
-Current checkpoint: **Catalog write consolidation tested and checkpointed**.
-Shared identity preparation and Catalog mutation routing have green regression
-and quality checks on `catalog-write-consolidation`; the full completion audit
-remains outstanding. See the
-[active checkpoint](catalog-write-consolidation-2026-10-15.md) for scope,
-verification and remaining audit work.
+Current checkpoint: **Catalog audit checkpoint for moving off unstable WSL**.
+Branch `catalog-write-consolidation` includes the earlier green commits and the
+latest audit fixes. The final PostgreSQL fixes are not live-verified; this is a
+draft-PR handoff, not completion signoff. See the latest relocation checkpoint in
+[active notes](catalog-write-consolidation-2026-10-15.md) for results and exact
+remaining work.
 
 The previous file-format containment lane is complete. Its
 [checkpoint](file-formats-containment-2026-10-13.md) records 2,597 passing
