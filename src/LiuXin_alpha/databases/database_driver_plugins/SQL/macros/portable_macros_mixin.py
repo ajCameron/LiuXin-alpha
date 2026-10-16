@@ -45,8 +45,10 @@ from LiuXin_alpha.databases.normalized_identities import (
     NormalizedIdentitySpec,
     default_normalized_identity_spec,
     iter_normalized_identity_defaults,
+    normalized_identity_from_db_values,
     normalize_identity_value,
     normalized_identity_db_values,
+    prepare_normalized_values,
 )
 from LiuXin_alpha.databases.schema_specs import LinkCardinality, StorageLinkSpec
 from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
@@ -719,9 +721,9 @@ class SQLPortableMacrosMixin:
             raises DatabaseIntegrityError.
         """
 
-        payload = dict(values)
-        if not payload:
+        if not values:
             raise InputIntegrityError("insert_row values cannot be empty")
+        payload = prepare_normalized_values(self.db.driver_wrapper, table, values)
         columns = self._validate_columns(table, payload)
         id_column = self._row_id_column(table, id_column)
         sql = (
@@ -781,14 +783,19 @@ class SQLPortableMacrosMixin:
         :return: None after the write or for an empty payload.
         """
 
-        payload = dict(values)
-        if not payload:
+        if not values:
             return
-        columns = self._validate_columns(table, payload)
         id_column = self._row_id_column(table, id_column)
-        if id_column in columns:
+        if id_column in values:
             raise InputIntegrityError("update_row cannot change the ID column")
         with self._macro_transaction() as conn:
+            payload = prepare_normalized_values(
+                self.db.driver_wrapper,
+                table,
+                values,
+                existing=self.get_row(table, row_id, id_column=id_column),
+            )
+            columns = self._validate_columns(table, payload)
             conn.execute(
                 f"UPDATE {self._macro_table_sql(table)} SET "
                 + ", ".join(f"{_quoted(column)} = ?" for column in columns)
@@ -2140,31 +2147,15 @@ class SQLPortableMacrosMixin:
 
                 if current:
                     destination_id = current[0].secondary_id
-                    conn.execute(
-                        f"UPDATE {self._macro_table_sql(link_spec.secondary_table)} "
-                        f"SET {_quoted(value_column)} = ? "
-                        f"WHERE {_quoted(link_spec.secondary_id_col)} = ?",
-                        (value, destination_id),
+                    self.update_row(
+                        link_spec.secondary_table, destination_id, {value_column: value},
+                        id_column=link_spec.secondary_id_col,
                     )
                     result[primary_id] = tuple(current)
                     continue
 
-                cursor = conn.execute(
-                    f"INSERT INTO {self._macro_table_sql(link_spec.secondary_table)} "
-                    f"({_quoted(value_column)}) VALUES (?) "
-                    f"RETURNING {_quoted(link_spec.secondary_id_col)}",
-                    (value,),
-                )
-                inserted = cursor.fetchone()
-                if inserted is None:
-                    raise DatabaseIntegrityError(
-                        "Could not create an owned destination row in "
-                        f"{link_spec.secondary_table!r}."
-                    )
-                destination_id = _row_value(
-                    inserted,
-                    0,
-                    link_spec.secondary_id_col,
+                destination_id = self.insert_row(
+                    link_spec.secondary_table, {value_column: value}, id_column=link_spec.secondary_id_col,
                 )
                 result[primary_id] = self._replace_links(
                     conn,
@@ -2204,18 +2195,21 @@ class SQLPortableMacrosMixin:
         """
         getter = getattr(self.db.driver_wrapper, "get_column_metadata", None)
         if callable(getter):
-            return getter(table, column)
-        declared_type_getter = getattr(
-            self.db.driver_wrapper,
-            "get_declared_column_datatype",
-            None,
-        )
-        declared_type = (
-            declared_type_getter(table, column)
-            if callable(declared_type_getter)
-            else None
-        )
-        return infer_column_metadata(table, column, declared_type)
+            metadata = getter(table, column)
+        else:
+            declared_type_getter = getattr(self.db.driver_wrapper, "get_declared_column_datatype", None)
+            declared_type = declared_type_getter(table, column) if callable(declared_type_getter) else None
+            metadata = infer_column_metadata(table, column, declared_type)
+        identity = self._optional_normalized_identity_spec(table, column)
+        if identity is not None:
+            metadata = replace(
+                metadata, comparison_column=identity.identity_column,
+                normalization_profile=identity.normalization_profile,
+                case_sensitive=identity.normalization_profile in {
+                    ColumnNormalizationProfile.NONE, ColumnNormalizationProfile.UNICODE_NFC,
+                },
+            )
+        return metadata
 
     @staticmethod
     def _normalise_value(value: Any, profile: ColumnNormalizationProfile) -> Any:
@@ -3110,10 +3104,10 @@ class SQLPortableMacrosMixin:
 
         Enumerate all wrapper tables and headings. Include declarations only when their
         table, display column and scope columns exist; the derived key column may be
-        missing for migration. Wrapper declarations override built-ins for the same
-        table/value pair. If iterating wrapper declarations raises
-        DatabaseIntegrityError, ignore that entire declared set; other errors propagate.
-        Return specs sorted by table/value-column names.
+        missing for repair. Persisted declarations override built-ins for the same
+        table/value pair. Decode every declaration without requiring its derived
+        column to exist yet, and propagate malformed declarations. Return specs
+        sorted by table/value-column names.
 
         Example:
             A legacy tags table containing tag but lacking tag_phash is included
@@ -3139,23 +3133,18 @@ class SQLPortableMacrosMixin:
                 continue
             specs[(spec.table, spec.value_column)] = spec
 
-        iterator = getattr(
-            self.db.driver_wrapper,
-            "iter_normalized_identity_specs",
-            None,
-        )
-        if callable(iterator):
-            try:
-                declared_specs = tuple(iterator())
-            except DatabaseIntegrityError:
-                declared_specs = ()
-            for spec in declared_specs:
-                columns = columns_by_table.get(spec.table)
-                if columns is None:
-                    continue
-                required = {spec.value_column, *spec.scope_columns}
-                if required <= columns:
-                    specs[(spec.table, spec.value_column)] = spec
+        if NORMALIZED_IDENTITIES_TABLE in tables:
+            rows = self._macro_connection().execute(
+                f"SELECT normalized_identity_table_name, normalized_identity_value_column, "
+                f"normalized_identity_key_column, normalized_identity_normalization_profile, "
+                f"normalized_identity_scope_columns_json, normalized_identity_unique "
+                f"FROM {self._macro_table_sql(NORMALIZED_IDENTITIES_TABLE)}"
+            )
+            for row in rows:
+                spec = normalized_identity_from_db_values(*row)
+                columns = columns_by_table.get(spec.table, set())
+                if {spec.value_column, *spec.scope_columns} <= columns:
+                    specs[spec.table, spec.value_column] = spec
         return (
             tuple(specs[key] for key in sorted(specs)),
             columns_by_table,
@@ -3183,7 +3172,7 @@ class SQLPortableMacrosMixin:
         snapshot transaction.
 
         Example:
-            Two tag rows whose display values both derive to "duplicatetag" appear
+            Two tag rows whose display values both derive to "duplicate tag" appear
             in a collision report before migration attempts schema changes.
 
 
@@ -3761,6 +3750,13 @@ class SQLPortableMacrosMixin:
                 columns_by_table,
             )
 
+            # Clear only keys that will change before assigning final values. This
+            # permits key swaps under unique indexes; the transaction hides the gap.
+            for spec, id_column, row_id, _identity_value in updates:
+                conn.execute(
+                    f"UPDATE {self._macro_table_sql(spec.table)} SET {_quoted(spec.identity_column)} = NULL "
+                    f"WHERE {_quoted(id_column)} = ?", (row_id,),
+                )
             for spec, id_column, row_id, identity_value in updates:
                 conn.execute(
                     f"UPDATE {self._macro_table_sql(spec.table)} "

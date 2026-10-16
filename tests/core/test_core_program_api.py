@@ -825,7 +825,7 @@ def test_database_identity_and_tree_semantics_are_core_operations(db) -> None:
                 "value": "  Core Identity  ",
             },
         )
-        assert derived["identity_value"] == "coreidentity"
+        assert derived["identity_value"] == "core identity"
 
         for name in ("parent", "child"):
             result = runtime.command(

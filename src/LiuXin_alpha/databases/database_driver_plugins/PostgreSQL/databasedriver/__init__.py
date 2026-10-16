@@ -40,10 +40,8 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.portable_macros_m
     SQLPortableMacrosMixin,
 )
 from LiuXin_alpha.databases.normalized_identities import (
-    add_derived_identity_values,
-    default_normalized_identity_spec,
     normalize_identity_value,
-    normalized_identity_defaults_for_table,
+    prepare_normalized_values,
 )
 from LiuXin_alpha.databases.maintenance.dummy_maintenance_bot import DummyMaintenanceBot
 from LiuXin_alpha.errors import DatabaseDriverError, DatabaseIntegrityError, InputIntegrityError
@@ -110,50 +108,8 @@ class PostgresDatabaseMacros(
         return self.db.driver_wrapper.executemany
 
     def direct_update_column_in_table(self, table, column, table_id_col, item_id, new_value):
-        """
-        Update one value and its derived identity when the default identity column exists.
-
-        Bind values, quote identifiers and delegate execution to the wrapper. A None value
-        clears the derived identity; other values use the default normalization profile.
-
-        Example:
-            Updating series to a new label also refreshes series_name_norm when that
-            physical column is available.
-
-
-        :param table: Table name resolved within the configured driver schema.
-        :param column: Column name belonging to the selected table.
-        :param table_id_col: ID column used in the WHERE predicate.
-        :param item_id: ID of the row to update.
-        :param new_value: Replacement value for the selected column.
-        :return: None; executes a wrapper-managed update.
-        """
-        spec = default_normalized_identity_spec(table, column)
-        if (
-            spec is not None
-            and spec.identity_column
-            in set(self.db.driver_wrapper.get_column_headings(table))
-        ):
-            identity_value = (
-                None
-                if new_value is None
-                else normalize_identity_value(
-                    new_value,
-                    spec.normalization_profile,
-                )
-            )
-            stmt = (
-                f"update {self._table_sql(table)} "
-                f"set {_q(column)} = %s, {_q(spec.identity_column)} = %s "
-                f"where {_q(table_id_col)} = %s"
-            )
-            self.execute(stmt, (new_value, identity_value, item_id))
-        else:
-            stmt = (
-                f"update {self._table_sql(table)} "
-                f"set {_q(column)} = %s where {_q(table_id_col)} = %s"
-            )
-            self.execute(stmt, (new_value, item_id))
+        """Update through portable row preparation and its transaction owner."""
+        self.update_row(table, item_id, {column: new_value}, id_column=table_id_col)
 
     def _table_sql(self, table: str) -> str:
         """
@@ -1984,14 +1940,7 @@ class DatabaseDriver(
         row_dict = dict(row_dict)
         target_table = self.direct_identify_table_from_row(row_dict)
         row_dict.pop("table", None)
-        if normalized_identity_defaults_for_table(target_table):
-            row_dict = add_derived_identity_values(
-                target_table,
-                row_dict,
-                available_columns=set(
-                    self.direct_get_column_headings(target_table)
-                ),
-            )
+        row_dict = prepare_normalized_values(self, target_table, row_dict)
 
         table_id_col = self.direct_get_id_column(target_table)
         columns = list(row_dict)
@@ -2066,14 +2015,7 @@ class DatabaseDriver(
             column: None if value == "None" else value
             for column, value in row_dict.items()
         }
-        if normalized_identity_defaults_for_table(target_table):
-            row_dict = add_derived_identity_values(
-                target_table,
-                row_dict,
-                available_columns=set(
-                    self.direct_get_column_headings(target_table)
-                ),
-            )
+        row_dict = prepare_normalized_values(self, target_table, row_dict)
 
         table_id_col = self.direct_get_id_column(target_table)
         if table_id_col not in row_dict:
@@ -2126,7 +2068,7 @@ class DatabaseDriver(
             raise InputIntegrityError("PostgreSQL direct_update_columns requires a field for one-column updates.")
         target_table = table or self.direct_identify_table_from_column(field)
         table_id_col = self.direct_get_id_column(target_table)
-        identity_spec = default_normalized_identity_spec(target_table, field)
+        identity_spec = self.direct_get_normalized_identity_spec(target_table, field)
         if (
             identity_spec is not None
             and identity_spec.identity_column

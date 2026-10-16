@@ -382,7 +382,7 @@ class DriverWrapperMetadataMixin:
 
         return self.driver.direct_get_normalized_identity_spec(table, value_column)
 
-    def iter_normalized_identity_specs(self) -> Iterator[NormalizedIdentitySpec]:
+    def iter_normalized_identity_specs(self, *, table: str | None = None) -> Iterator[NormalizedIdentitySpec]:
         """
         Yield database identity declarations after checking physical references.
 
@@ -402,7 +402,7 @@ class DriverWrapperMetadataMixin:
         :return: An iterator of NormalizedIdentitySpec records supported by the database.
         """
 
-        yield from self.driver.direct_iter_normalized_identity_specs()
+        yield from self.driver.direct_iter_normalized_identity_specs(table=table)
 
     def set_comparison_column(
         self,

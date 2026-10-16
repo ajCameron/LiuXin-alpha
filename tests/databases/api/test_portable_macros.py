@@ -845,11 +845,12 @@ def test_policy_aware_ensure_uses_comparison_column_and_preserves_display_text(m
     """
     macros, db = macro_db
     first = macros.ensure_table_value("tags", "tag", "Science Fiction")
-    second = macros.ensure_table_value("tags", "tag", " sciencefiction ")
+    second = macros.ensure_table_value("tags", "tag", "  SCIENCE   FICTION ")
     assert second == first
     assert db.driver.conn.execute(
         "SELECT tag, tag_phash FROM tags WHERE tag_id=?", (first,)
-    ).fetchone() == ("Science Fiction", "sciencefiction")
+    ).fetchone() == ("Science Fiction", "science fiction")
+    assert macros.ensure_table_value("tags", "tag", "sciencefiction") != first
 
     ensured = macros.ensure_table_values("tags", "tag", ("Fantasy", "FANTASY"))
     assert ensured["Fantasy"] == ensured["FANTASY"]
@@ -881,11 +882,11 @@ def test_policy_aware_ensure_uses_comparison_column_and_preserves_display_text(m
         "tags",
         "tag",
         " SCIENCE FICTION ",
-    ) == "sciencefiction"
+    ) == "science fiction"
     identity = macros.get_canonical_identity_by_key(
         "tags",
         "tag",
-        "sciencefiction",
+        "science fiction",
     )
     assert identity is not None
     assert identity.row_id == first
@@ -918,8 +919,9 @@ def test_policy_aware_find_uses_ensure_matching_without_creating_rows(macro_db):
     assert macros.find_table_value(
         "tags",
         "tag",
-        " sciencefiction ",
+        " SCIENCE   FICTION ",
     ) == tag_id
+    assert macros.find_table_value("tags", "tag", "sciencefiction") is None
     assert macros.find_table_value("tags", "tag", "Missing") is None
     assert db.driver_wrapper.get_record_count("tags") == before
 
@@ -1050,9 +1052,43 @@ def test_normalized_identity_migration_reports_collisions_then_backfills():
     }
     assert db.driver.conn.execute(
         "SELECT tag_phash FROM tags WHERE tag_id = 1"
-    ).fetchone()[0] == "duplicatetag"
+    ).fetchone()[0] == "duplicate tag"
     assert "normalized_identities" in db.driver_wrapper.get_tables()
     db.driver.conn.close()
+
+
+def test_identity_repair_swaps_unique_keys_and_rolls_back_with_outer_failure():
+    """Audit stale unique keys, repair a swap, and preserve transaction ownership."""
+    db = _DB(postgres_shaped=False)
+    _create_schema(db.driver.conn)
+    macros = SQLiteDatabaseMacros(db)
+    try:
+        conn = db.driver.conn
+        conn.executemany(
+            "INSERT INTO tags(tag, tag_phash) VALUES (?, ?)",
+            (("First Tag", "second tag"), ("Second Tag", "first tag")),
+        )
+        conn.commit()
+        before = list(conn.execute("SELECT tag, tag_phash FROM tags ORDER BY tag_id"))
+        audit = macros.audit_normalized_identities()
+        assert audit.rows_needing_update == 2
+        assert not audit.collisions
+        assert list(conn.execute("SELECT tag, tag_phash FROM tags ORDER BY tag_id")) == before
+
+        with pytest.raises(RuntimeError, match="abort repair"):
+            with macros.transaction():
+                report = macros.migrate_normalized_identities()
+                assert report.rows_updated == 2
+                raise RuntimeError("abort repair")
+        assert list(conn.execute("SELECT tag, tag_phash FROM tags ORDER BY tag_id")) == before
+        report = macros.migrate_normalized_identities()
+        assert report.rows_updated == 2
+        assert list(conn.execute("SELECT tag, tag_phash FROM tags ORDER BY tag_id")) == [
+            ("First Tag", "first tag"), ("Second Tag", "second tag"),
+        ]
+        assert macros.audit_normalized_identities().clean
+    finally:
+        db.driver.conn.close()
 
 
 def test_temporary_value_and_id_tables_are_scoped_and_removed(macro_db):

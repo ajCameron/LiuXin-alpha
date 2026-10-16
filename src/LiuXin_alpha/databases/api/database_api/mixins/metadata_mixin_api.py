@@ -410,7 +410,7 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def iter_normalized_identity_specs(self) -> Iterator[NormalizedIdentitySpec]:
+    def iter_normalized_identity_specs(self, *, table: str | None = None) -> Iterator[NormalizedIdentitySpec]:
         """
         Yield normalized-identity declarations from the wrapper iterator.
 

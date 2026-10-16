@@ -35,10 +35,6 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.hash_tables_macro
 from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.portable_macros_mixin import (
     SQLPortableMacrosMixin,
 )
-from LiuXin_alpha.databases.normalized_identities import (
-    default_normalized_identity_spec,
-    normalize_identity_value,
-)
 
 
 if TYPE_CHECKING:
@@ -294,56 +290,8 @@ class SQLiteDatabaseMacros(
 
     # Todo: Merge with the below
     def direct_update_column_in_table(self, table, column, table_id_col, item_id, new_value):
-        """
-        Update a column and, when supported, its built-in normalized identity key.
-
-        Consult default_normalized_identity_spec, not a database identity-catalog
-        lookup. If a default exists and its key column is physically present, normalize
-        the replacement with that default profile and update both values in one
-        statement. None clears both columns. Otherwise update only the requested value.
-        Names are interpolated, data is bound, and validation/database failures
-        propagate.
-
-        Example:
-            ``macros.direct_update_column_in_table("tags", "tag", "tag_id", 1,
-            "Science Fiction")`` also updates tag_phash when that key column exists.
-
-
-        :param table: Trusted SQL table name interpolated without quoting or validation.
-        :param column: Trusted column name interpolated directly into SQL.
-        :param table_id_col: Trusted column used to match the target row ID.
-        :param item_id: Row identifier used to select the record to update.
-        :param new_value: Replacement value, including None for an SQL null.
-        :return: None; the update statement result is discarded.
-        """
-        spec = default_normalized_identity_spec(table, column)
-        if (
-            spec is not None
-            and spec.identity_column
-            in set(self.db.driver_wrapper.get_column_headings(table))
-        ):
-            identity_value = (
-                None
-                if new_value is None
-                else normalize_identity_value(
-                    new_value,
-                    spec.normalization_profile,
-                )
-            )
-            stmt = "UPDATE {0} SET {1} = ?, {2} = ? WHERE {3} = ?;".format(
-                table,
-                column,
-                spec.identity_column,
-                table_id_col,
-            )
-            self.execute(stmt, (new_value, identity_value, item_id))
-        else:
-            stmt = "UPDATE {0} SET {1} = ? WHERE {2} = ?;".format(
-                table,
-                column,
-                table_id_col,
-            )
-            self.execute(stmt, (new_value, item_id))
+        """Update through portable row preparation and its transaction owner."""
+        self.update_row(table, item_id, {column: new_value}, id_column=table_id_col)
 
     def update_column_in_table(self, table, column, table_id_col, item_id, new_value):
         """

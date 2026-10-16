@@ -268,7 +268,8 @@ def test_duplicate_exact_values_are_ambiguous_and_block_reuse(db) -> None:
     """
     Check case-equivalent duplicate Tags return ordered alternatives and an error.
 
-    Create both spellings as separate rows. Candidate matching must be ambiguous with both IDs, and
+    Seed inconsistent historical keys with raw SQL because canonical writes enforce
+    identity uniqueness. Candidate matching must be ambiguous with both IDs, and
     match_or_create must raise CatalogAmbiguousMatchError. The assertions inspect the result and
     exception, without a post-error row count.
 
@@ -282,7 +283,11 @@ def test_duplicate_exact_values_are_ambiguous_and_block_reuse(db) -> None:
     catalog = Catalog(db)
     name = _token("Duplicate Tag")
     first_id = catalog.tags.create({"name": name})
-    second_id = catalog.tags.create({"name": name.swapcase()})
+    with db.macros.transaction() as conn:
+        second_id = conn.execute(
+            "INSERT INTO tags(tag, tag_phash) VALUES (?, ?) RETURNING tag_id",
+            (name.swapcase(), _token("stale-key")),
+        ).fetchone()[0]
     candidate = MetadataCandidate({"name": name})
 
     result = catalog.tags.match(candidate)
@@ -311,9 +316,9 @@ def test_conflicting_exact_fields_report_conflict(db) -> None:
     catalog = Catalog(db)
     first_name = _token("First Tag")
     second_name = _token("Second Tag")
-    first_id = catalog.tags.create({"name": first_name, "phash": _token("hash-a")})
-    second_hash = _token("hash-b")
-    second_id = catalog.tags.create({"name": second_name, "phash": second_hash})
+    first_id = catalog.tags.create({"name": first_name})
+    second_id = catalog.tags.create({"name": second_name})
+    second_hash = catalog.tags.require(second_id)["tag_phash"]
     candidate = MetadataCandidate({"name": first_name, "phash": second_hash})
 
     result = catalog.tags.match(candidate)

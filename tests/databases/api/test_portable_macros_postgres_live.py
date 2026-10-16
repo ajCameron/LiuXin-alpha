@@ -207,7 +207,7 @@ def test_portable_macros_against_live_postgres() -> None:
         assert macros.ensure_table_value(
             "tags",
             "tag",
-            " sciencefiction ",
+            " SCIENCE   FICTION ",
         ) == tag_id
         assert macros.fingerprint_table("macro_live_links") == (
             macros.fingerprint_table("macro_live_links")

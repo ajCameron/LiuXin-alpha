@@ -183,8 +183,10 @@ def test_unicode_equivalent_work_agent_and_exact_values_share_identity(db) -> No
     series = catalog.series.require(
         catalog.series.exact(equivalent).entity_id
     )
-    assert label["label_text_norm"] == normalise_match_text(stored)
-    assert series["series_name_norm"] == normalise_match_text(stored)
+    identity = " ".join(unicodedata.normalize("NFKC", stored).casefold().split())
+    assert label["label_text_norm"] == identity
+    assert series["series_name_norm"] == identity
+    assert identity != normalise_match_text(stored)
 
 
 def test_wemi_stack_attachment_and_bundle_preserve_multiscript_metadata(db) -> None:

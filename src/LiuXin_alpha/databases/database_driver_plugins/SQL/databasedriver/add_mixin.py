@@ -15,8 +15,7 @@ from LiuXin_alpha.utils.logging import default_log, LiuXin_debug_print
 
 from LiuXin_alpha.constants import VERBOSE_DEBUG
 from LiuXin_alpha.databases.normalized_identities import (
-    add_derived_identity_values,
-    normalized_identity_defaults_for_table,
+    prepare_normalized_values,
 )
 
 from LiuXin_alpha.utils.libraries.liuxin_six import force_unicode
@@ -67,14 +66,7 @@ class AddingMixin:
         :return: The cursor lastrowid for the inserted row.
         """
         target_table = self.direct_identify_table_from_row(row_dict)
-        if normalized_identity_defaults_for_table(target_table):
-            row_dict = add_derived_identity_values(
-                target_table,
-                row_dict,
-                available_columns=set(
-                    self.direct_get_column_headings(target_table)
-                ),
-            )
+        row_dict = prepare_normalized_values(self, target_table, row_dict)
 
         # Calibre-style: sanitize embedded NUL in custom-column value tables.
         # (SQLite will store it, but downstream tooling and some drivers may not.)
@@ -157,18 +149,10 @@ class AddingMixin:
         # Gets a reference element. Errors will be thrown if every row doesn;t match this one.
         reference_row_dict = row_dict_list[0]
         target_table = self.direct_identify_table_from_row(reference_row_dict)
-        if normalized_identity_defaults_for_table(target_table):
-            available_columns = set(
-                self.direct_get_column_headings(target_table)
-            )
-            row_dict_list = [
-                add_derived_identity_values(
-                    target_table,
-                    row,
-                    available_columns=available_columns,
-                )
-                for row in row_dict_list
-            ]
+        row_dict_list = [
+            prepare_normalized_values(self, target_table, row)
+            for row in row_dict_list
+        ]
         reference_row_dict = row_dict_list[0]
 
         # Calibre-style: sanitize embedded NUL in custom-column value tables.

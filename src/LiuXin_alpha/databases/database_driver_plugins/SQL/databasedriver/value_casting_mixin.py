@@ -747,6 +747,7 @@ class ValueCastingMixin:
 
     def direct_iter_normalized_identity_specs(
         self,
+        *, table: str | None = None,
     ) -> Iterator[NormalizedIdentitySpec]:
         """
         Yield database identity declarations after checking physical references.
@@ -767,6 +768,8 @@ class ValueCastingMixin:
 
         if NORMALIZED_IDENTITIES_TABLE not in set(self.direct_get_tables()):
             for spec in iter_normalized_identity_defaults():
+                if table is not None and spec.table != table:
+                    continue
                 if spec.table not in set(self.direct_get_tables()):
                     continue
                 supported = self._default_normalized_identity_if_supported(
@@ -790,9 +793,11 @@ class ValueCastingMixin:
                       normalized_identity_scope_columns_json,
                       normalized_identity_unique
                     FROM normalized_identities
+                    WHERE (CAST(? AS TEXT) IS NULL OR normalized_identity_table_name = ?)
                     ORDER BY normalized_identity_table_name,
                              normalized_identity_value_column;
-                    """
+                    """,
+                    (table, table),
                 )
             )
         finally:

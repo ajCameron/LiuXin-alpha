@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS `column_metadata` (
       'none',
       'unicode_nfc',
       'unicode_nfc_trim_casefold',
+      'unicode_nfkc_whitespace_casefold',
       'tag_search_term',
       'title_search_term'
     )),

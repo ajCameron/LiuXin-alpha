@@ -377,6 +377,7 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
     @abc.abstractmethod
     def direct_iter_normalized_identity_specs(
         self,
+        *, table: str | None = None,
     ) -> Iterator[NormalizedIdentitySpec]:
         """
         Yield database identity declarations after checking physical references.

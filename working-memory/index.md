@@ -1,22 +1,29 @@
 # Working Memory Index
 
-Current checkpoint: **file-format containment complete**. Standalone file-plugin
-composition, settings, profiles, hooks and metadata dispatch have moved below
-application composition, with compatibility identities preserved. The current
-runtime and combined dependency components contain 217 modules. See the
-[active checkpoint](file-formats-containment-2026-10-13.md) for the 2,597-pass regression and clean quality-gate evidence, plus explicit
-remaining metadata/application debt.
+Current checkpoint: **Catalog write consolidation in progress**. Shared identity
+preparation and Catalog mutation routing are being tested and committed on
+`catalog-write-consolidation`. See the
+[active checkpoint](catalog-write-consolidation-2026-10-15.md) for scope,
+verification and remaining audit work.
+
+The previous file-format containment lane is complete. Its
+[checkpoint](file-formats-containment-2026-10-13.md) records 2,597 passing
+regressions, clean quality checks and remaining metadata/application debt.
 
 The documentation inventory campaign completed on 2026-10-05: 1,372 units,
 2,671 files and 42,166 declarations were verified, with no partial files.
 Its [final checkpoint](project-docstrings-l001-l037-2026-10-05.md) retains the
 historical verification and review-hash observations.
 
-Updated: 2026-10-15
+Updated: 2026-10-16
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [catalog-write-consolidation-2026-10-15.md](catalog-write-consolidation-2026-10-15.md)
+  Active consolidation of identity preparation, semantic row routing, container
+  transactions and Row adapters; implementation checkpoints and remaining audit.
 
 - [file-formats-containment-2026-10-13.md](file-formats-containment-2026-10-13.md)
   Completed standalone file-plugin containment, compatibility guarantees, validation

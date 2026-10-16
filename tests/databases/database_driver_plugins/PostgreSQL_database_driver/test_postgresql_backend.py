@@ -1529,6 +1529,7 @@ def test_postgresql_driver_basic_insert_and_update_sql(monkeypatch) -> None:
     drv.conn = conn
     monkeypatch.setattr(drv, "direct_identify_table_from_row", lambda row: "ratings")
     monkeypatch.setattr(drv, "direct_get_id_column", lambda table: "rating_id")
+    monkeypatch.setattr(drv, "direct_iter_normalized_identity_specs", lambda *, table=None: iter(()))
     monkeypatch.setattr(drv, "_zero_prop_cache", lambda: None)
 
     new_id = drv.direct_add_simple_row_dict({"rating": 4.5})
