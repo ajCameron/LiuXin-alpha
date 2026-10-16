@@ -1,6 +1,6 @@
 # Canonical Catalog write paths — 2026-10-15
 
-Status: active; implementation and completion audit outstanding.
+Status: active; implementation checkpointed with green tests; completion audit outstanding.
 
 ## Objective
 
@@ -73,9 +73,10 @@ Starting branch: `catalog-write-consolidation`, from `f1bb7622`.
 - Exercise old-data audits/repairs, cross-entrypoint parity and full relevant
   quality checks; inspect remaining direct writes before declaring completion.
 
-## Current state
+## Implementation carried forward from 2026-10-15
 
-Implementation is in progress, uncommitted on `catalog-write-consolidation`.
+The pre-restart implementation was uncommitted on `catalog-write-consolidation`.
+The 2026-10-16 checkpoint below supersedes the old test/session status.
 Repository, driver, Row and portable macro writes now share declared identity
 preparation. Physical-table repository lookup routes Core administrative CRUD
 and Catalog column writes through semantic repositories. Container row writes
@@ -132,9 +133,9 @@ The original test sessions and `/tmp` logs did not survive the restart. Fresh
 verification now records logs and command/exit JSON under
 `working-memory/test-results/catalog-write-2026-10-15/`.
 
-## Commit/test checkpoint — 2026-10-16
+## Foundation commit/test checkpoint — 2026-10-16
 
-The first commit checkpoints pure text identity policy, schema declarations,
+Commit `5f085a13` checkpoints pure text identity policy, schema declarations,
 driver/macro preparation and collision-aware repair. The fresh foundation suite
 passed **148 tests, 3 skips** (`identity-final.log`), covering SQLite/APSW schema
 contracts, PostgreSQL unit contracts, pure text policies and portable macros.
@@ -152,9 +153,47 @@ inconsistent keys using raw SQL instead of bypassing canonical public writes.
 The final Catalog rerun and complete path audit are still pending at this
 foundation checkpoint. The pre-existing data submodule is excluded.
 
-Remaining: inspect broad failures and rerun affected cases on final code; live
-PostgreSQL parity (available tests use LIUXIN_TEST_POSTGRES_URL); verify cache and
-surface routes, relationship priorities/cardinality and alias preservation;
-update stale docstrings and owning architecture docs; full quality gate and
-fresh complete path audit. Do not reintroduce removed old-profile migration code.
-The data submodule remains untouched. No completion claim for the full lane.
+## Catalog routing checkpoint — 2026-10-16
+
+The second commit checkpoints the shared repository composition, semantic CRUD
+routes, Row adapters, container reconciliation and relationship owner. Fresh
+testing exposed and fixed transaction-local Row receipt reads, legacy table
+shape selection, flattened identifier ownership and relationship priorities.
+The Row adapter retains whole-column highest/lowest semantics through a portable
+`get_column_extrema` read on the active transaction; it ignores legacy priorities
+for unordered links. Tests cover consecutive uncommitted links, global extrema,
+unlink survivor priorities, aggregate rollback and identifier validation.
+
+Final durable results in `working-memory/test-results/catalog-write-2026-10-15/`:
+
+- `broad-final`: **1,266 passed, 14 skipped**. Catalog, portable APIs, Core,
+  caches, Library, selected surfaces, documentation boundaries/links and metadata
+  standardization. HTTP/RPC tests ran outside socket sandbox restrictions.
+  Skips cover disabled legacy-cache suites, backend-specific cache behavior,
+  the PostgreSQL-shaped SQLite pg_temp limitation and the separately run live PG
+  test. One existing unregistered `catalog` mark warning remains.
+- `relationships-final`: **36 passed, 1 skipped**, after the final relationship
+  fixes; includes the full cross-entrypoint file and portable macro suite. These
+  new cases were added after broad-suite collection. The skip is pg_temp on the
+  PostgreSQL-shaped SQLite harness.
+- `projection-final`: **35 passed** for the full container/hydrator real-backend
+  regression selection, including inherited ASIN/ISBN ownership.
+- `identity-final`: **148 passed, 3 skipped** for pure identity, portable APIs,
+  PostgreSQL unit and SQLite/APSW schema/lifecycle contracts.
+- `postgres`: **1 passed** on live PostgreSQL, rerun after adding the extrema
+  transaction/rollback regression. This tests portable macros, not every public
+  Catalog route on PostgreSQL.
+- `quality-relationships`: complete `scripts/run_type_checks.sh` **passed** after
+  the last implementation change: formatting, annotations, architecture, import
+  budgets, lint/complexity, basedpyright, mypy and both internal contract checks.
+  New-file Ruff checks and `git diff --check` also passed.
+
+The live test used an isolated temporary PostgreSQL cluster on port 55453 with
+no TCP listener, not a user database. No old-schema migration or data import was
+performed. The pre-existing `LiuXin_alpha_data` submodule changes remain excluded.
+
+Remaining before declaring the whole consolidation lane complete: a fresh full
+entrypoint inventory and completion audit against the seven requirements above,
+including any still-independent writes and missing public PostgreSQL parity.
+Do not reintroduce old-profile upgrade machinery. Tests and commits are a green
+checkpoint, not a claim that this broader audit has been completed.

@@ -4,6 +4,7 @@ Insert legacy Genre columns, including an optional parent ID.
 
 from __future__ import unicode_literals
 
+from LiuXin_alpha.catalog.row_mutations import atomic_write, persist_row
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.utils.date import utcnow
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
@@ -20,6 +21,7 @@ class GenreAdderMixin:
         A supplied parent is stored as a textual ID; this method does not create an intralink.
     """
 
+    @atomic_write
     def genre(
         self,
         genre,
@@ -57,5 +59,5 @@ class GenreAdderMixin:
         genre_row["genre_full"] = genre_full
         genre_row["genre_datestamp"] = genre_datestamp if genre_datestamp is not None else utcnow()
 
-        genre_row.sync()
+        persist_row(self, genre_row)
         return genre_row

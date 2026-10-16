@@ -95,11 +95,8 @@ class MetadataWriter:
         :return: Catalog-owned report describing changes, skips, and errors.
         """
 
-        macros = getattr(self.db, "macros", None)
-        transaction = getattr(macros, "transaction", None)
-        context = transaction() if callable(transaction) else nullcontext()
-        with context:
-            return CatalogContainerWriter(self.db).write(
+        with self.db.macros.transaction():
+            return CatalogContainerWriter(self.db, repositories=self.repositories).write(
                 metadata,
                 fields=fields,
                 target_level=target_level,

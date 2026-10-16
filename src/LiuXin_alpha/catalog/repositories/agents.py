@@ -101,6 +101,10 @@ class AgentRepository(BaseRepository):
             result.append(alias)
         return cls._ALIAS_SEPARATOR.join(result) or None
 
+    def _prepare_write(self, data: RowInput, *, existing: RowMapping | None = None) -> dict[str, object]:
+        """Serialize aliases through the preparation shared by scalar and batch writes."""
+        return super()._prepare_write(self._normalise_alias_input(data), existing=existing)
+
     @classmethod
     def _normalise_alias_input(cls, data: RowInput) -> dict[str, object]:
         """
@@ -129,48 +133,7 @@ class AgentRepository(BaseRepository):
                 payload[key] = cls.normalise_aliases(payload[key])
         return payload
 
-    def create(self, data: RowInput) -> EntityId:
-        """
-        Normalize aliases and insert one core Agent row through base CRUD.
 
-        This does not create human_agents/org_agents subtype rows or attach metadata.
-        The base layer validates writable columns and the returned ID; schema constraints
-        and transaction behavior remain with the macro service.
-
-        Example:
-            >>> agent_id = catalog.agents.create({'name': 'Ada', 'aliases': ['A. Lovelace']})  # doctest: +SKIP
-
-
-        :param data: Mapping of public Agent aliases or storage columns to insert.
-        :return: Integer ID of the newly inserted core Agent row.
-        :raises TypeError: If mapping, alias, or key validation fails.
-        :raises CatalogMutationError: If base normalization or the inserted-ID check fails.
-        """
-
-        return super().create(self._normalise_alias_input(data))
-
-    def update(self, entity_id: EntityId, data: RowInput) -> None:
-        """
-        Normalize alias input, require the Agent, and update only supplied fields.
-
-        Mapping/alias normalization happens before the existence check. Remaining field
-        validation follows that check in BaseRepository. Omitted fields are preserved;
-        an empty mapping still requires an existing Agent but makes no update call. No
-        subtype row is created or synchronized, and no outer transaction is added here.
-
-        Example:
-            >>> catalog.agents.update(agent_id, {'aliases': ['Ada', 'A. Lovelace']})  # doctest: +SKIP
-
-
-        :param entity_id: Existing core Agent ID required after alias normalization.
-        :param data: Mapping of replacement fields; an empty mapping is allowed.
-        :return: None after an empty update or delegated write.
-        :raises CatalogNotFoundError: If the Agent does not exist.
-        :raises TypeError: If mapping, alias, key, or ID validation fails.
-        :raises CatalogMutationError: If remaining field normalization rejects the update.
-        """
-
-        super().update(entity_id, self._normalise_alias_input(data))
 
     def create_person(
         self,

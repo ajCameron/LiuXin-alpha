@@ -582,6 +582,29 @@ def macro_db(request):
         db.driver.conn.close()
 
 
+def test_column_extrema_validate_names_and_observe_transaction_rollback(macro_db):
+    """Aggregates ignore nulls and see pending writes without committing them."""
+    macros, _db = macro_db
+    assert macros.get_column_extrema("tags", "tag_id") == (None, None)
+    tag_id = macros.insert_row("tags", {"tag": None})
+    assert macros.get_column_extrema("tags", "tag") == (None, None)
+    with pytest.raises(RuntimeError, match="abort aggregate transaction"):
+        with macros.transaction():
+            macros.update_row("tags", tag_id, {"tag": "Zulu"})
+            macros.insert_row("tags", {"tag": "Alpha"})
+            assert macros.get_column_extrema("tags", "tag") == ("Alpha", "Zulu")
+            raise RuntimeError("abort aggregate transaction")
+    assert macros.get_column_extrema("tags", "tag") == (None, None)
+    assert macros.get_column_extrema("tags", "tag_id") == (tag_id, tag_id)
+    for table, column in (
+        ("tags; DROP TABLE tags", "tag"),
+        ("tags", "tag); DROP TABLE tags"),
+        ("tags", "absent_column"),
+    ):
+        with pytest.raises(InputIntegrityError):
+            macros.get_column_extrema(table, column)
+
+
 def test_link_upsert_bulk_read_and_atomic_replace(macro_db):
     """
     Check link upserts, priorities, preserved extras, empty bulk groups, replacement, and rollback after a foreign-key failure.

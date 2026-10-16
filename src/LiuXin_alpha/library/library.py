@@ -360,6 +360,12 @@ class Library:
         if not clean_updates:
             raise ValueError("No writable updates were provided for table {!r}.".format(target_table))
 
+        from LiuXin_alpha.catalog.repositories.group import CatalogRepositories
+
+        repository = CatalogRepositories.from_database(self._database).for_table(target_table)
+        if repository is not None:
+            repository.update(int(row_id), clean_updates)
+            return dict(repository.require(int(row_id)))
         changed = False
         for key, value in clean_updates.items():
             if row[key] != value:
@@ -512,7 +518,13 @@ class Library:
             raise ValueError("No row found in {} for id {}.".format(target_table, int(row_id)))
 
         deleted = self._row_to_plain_dict(row)
-        self._database.delete(row)
+        from LiuXin_alpha.catalog.repositories.group import CatalogRepositories
+
+        repository = CatalogRepositories.from_database(self._database).for_table(target_table)
+        if repository is not None:
+            repository.delete(int(row_id))
+        else:
+            self._database.delete(row)
         return deleted
 
     def save_store_row(self, *, store_payload: Mapping[str, Any]) -> dict[str, Any]:

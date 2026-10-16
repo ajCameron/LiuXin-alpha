@@ -94,6 +94,22 @@ class PortableMacrosAPI(abc.ABC):
         """
 
     @abc.abstractmethod
+    def get_column_extrema(self, table: str, column: str) -> tuple[Any, Any]:
+        """Read a column's minimum and maximum using the active transaction connection.
+
+        SQL ignores nulls and uses the column's native ordering. Empty or all-null
+        columns return (None, None); other values are returned without coercion.
+
+        Example:
+            macros.get_column_extrema("works", "work_id") returns the ID bounds.
+
+        :param table: Existing table with a validated SQL identifier.
+        :param column: Existing physical column with a validated SQL identifier.
+        :return: Minimum and maximum values, in that order.
+        :raises InputIntegrityError: An identifier or column fails schema validation.
+        """
+
+    @abc.abstractmethod
     def insert_row(
         self,
         table: str,

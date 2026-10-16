@@ -7,10 +7,9 @@ Approximate matching and title sorting are separate operations.
 
 from __future__ import annotations
 
-import unicodedata
 import re
+import unicodedata
 from copy import deepcopy
-
 
 LEGACY_LITTLE_WORDS = ("on", "the", "a", "at", "of", "and")
 LEGACY_DROP_CHARACTERS = (

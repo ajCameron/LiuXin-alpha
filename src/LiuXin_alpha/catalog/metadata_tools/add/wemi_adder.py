@@ -9,6 +9,7 @@ from collections.abc import Iterable
 from typing import Optional, Union
 
 from LiuXin_alpha.databases.api import RowAPI
+from LiuXin_alpha.catalog.row_mutations import atomic_write, create_row
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.metadata.ebook_metadata_tools import to_epoch_ms
 from LiuXin_alpha.metadata.title_names import title_to_title_sort
@@ -102,6 +103,7 @@ class WEMIAdderMixin:
         flags = [str(token).strip() for token in tokens if str(token).strip()]
         return ",".join(dict.fromkeys(flags)) or None
 
+    @atomic_write
     def work(
         self,
         *,
@@ -204,8 +206,9 @@ class WEMIAdderMixin:
             new_row_dict["work_created_timestamp_ep_k"] = created_epk
             new_row_dict["work_modified_timestamp_ep_k"] = created_epk
 
-        return Row.from_idless_row_dict(self.db, new_row_dict, table="works")
+        return create_row(self, new_row_dict, table="works")
 
+    @atomic_write
     def expression(
         self,
         *,
@@ -297,8 +300,9 @@ class WEMIAdderMixin:
         new_row_dict["expression_status"] = expression_status
         new_row_dict["expression_origin_note"] = expression_origin_note
 
-        return Row.from_idless_row_dict(database=self.db, row_dict=new_row_dict, table="expressions")
+        return create_row(host=self, row_dict=new_row_dict, table="expressions")
 
+    @atomic_write
     def manifestation(
         self,
         *,
@@ -366,8 +370,9 @@ class WEMIAdderMixin:
         new_manifestation_row["manifestation_status"] = manifestation_status
         new_manifestation_row["manifestation_note"] = manifestation_note
 
-        return Row.from_idless_row_dict(database=self.db, row_dict=new_manifestation_row, table="manifestations")
+        return create_row(host=self, row_dict=new_manifestation_row, table="manifestations")
 
+    @atomic_write
     def item(
         self,
         # - Relation to manifestation
@@ -445,4 +450,4 @@ class WEMIAdderMixin:
         item_new_row_dict["item_lifecycle_status"] = item_lifecycle_status
         item_new_row_dict["item_condition"] = item_condition
 
-        return Row.from_idless_row_dict(self.db, row_dict=item_new_row_dict, table="items")
+        return create_row(self, row_dict=item_new_row_dict, table="items")

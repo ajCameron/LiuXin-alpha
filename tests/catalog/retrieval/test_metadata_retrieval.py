@@ -299,7 +299,7 @@ def test_lazy_metadata_can_read_from_explicit_cache_source() -> None:
     assert isinstance(lazy_metadata, LazyLiuXinWEMIMetadata)
     assert list(lazy_metadata.tags.keys()) == ["Space Opera"]
     assert list(lazy_metadata.labels.keys()) == ["Science Fiction"]
-    assert set(lazy_metadata.get_identifiers()["isbn"]) == {"9780000000001"}
+    assert set(lazy_metadata.get_identifiers()["isbn"]) == {"9780306406157"}
 
 
 def test_metadata_from_database_rejects_unknown_source_or_kind() -> None:

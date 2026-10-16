@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 from copy import deepcopy
 
 from LiuXin_alpha.catalog.metadata_tools.add import Add
+from LiuXin_alpha.catalog.row_mutations import atomic_write, ensure_value, persist_row
 from LiuXin_alpha.databases.row import Row
 
 from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
@@ -69,6 +70,7 @@ class Ensure:
         self.add = Add(self.db)
 
     # Todo: Add author collision checking with user verification
+    @atomic_write
     def creator(self, creator_name: str, match_queue: Queue.Queue["RowAPI"]):
         """
         Queue exact and phonetic Creator candidates, creating if no exact IDs were recorded.
@@ -119,6 +121,7 @@ class Ensure:
             match_queue.put(creator_row)
 
     # Todo: Should be using the creator function instead of this one
+    @atomic_write
     def creator_blind(
             self,
             creator_name: str,
@@ -154,6 +157,7 @@ class Ensure:
 
         return self.add.creator(creator=creator_name, creator_seminal_work=seminal_work)
 
+    @atomic_write
     def genre(self, genre_string: str, standardize: bool = True) -> "RowAPI":
         """
         Resolve a Genre, attempting duplicate maintenance before creating.
@@ -181,6 +185,9 @@ class Ensure:
         else:
             genre = genre_string
 
+        owned_row = ensure_value(self, "genres", "genre", genre)
+        if owned_row is not None:
+            return owned_row
         candidate_rows = self.db.search(table="genres", column="genre", search_term=genre)
         if len(candidate_rows) > 1:
             err_str = (
@@ -209,9 +216,10 @@ class Ensure:
         # Lookup has failed. Create.
         genre_row = Row(database=self.db)
         genre_row["genre"] = genre
-        genre_row.sync()
+        persist_row(self, genre_row)
         return genre_row
 
+    @atomic_write
     def identifier(self, identifier: str, identifier_type: str, error: bool = True) -> "RowAPI":
         """
         Normalize a scheme, validate its value and attempt Identifier insertion.
@@ -288,10 +296,10 @@ class Ensure:
         id_row["identifier_type"] = identifier_type
 
         if error:
-            id_row.sync()
+            persist_row(self, id_row)
         else:
             try:
-                id_row.sync()
+                persist_row(self, id_row)
             except DatabaseIntegrityError as e:
                 # Probably a violation of the unique constraint - search for the identifier row which caused it
                 id_rows = self.db.search(table="identifiers", column="identifier", search_term=identifier)
@@ -327,6 +335,7 @@ class Ensure:
         return id_row
 
     # Todo: Re-write and implement - cba right now
+    @atomic_write
     def language(self, language_string: str, lang_code: bool = False) -> "RowAPI":
         """
         Resolve a language by normalized then original name/code, or insert it.
@@ -498,10 +507,11 @@ class Ensure:
         else:
             language_row["language"] = stand_language
             language_row["language_code"] = stand_language
-        language_row.sync()
+        persist_row(self, language_row)
 
         return language_row
 
+    @atomic_write
     def publisher(self, publisher: str, standardize: bool = True) -> "RowAPI":
         """
         Reuse an exact Publisher value or create an organisation Agent.
@@ -545,6 +555,7 @@ class Ensure:
         pub_row = self.add.publisher(publisher=publisher)
         return pub_row
 
+    @atomic_write
     def rating(self, rating: Union[int, float]) -> "RowAPI":
         """
         Look up the prepopulated Rating Row at int(value)+1.
@@ -569,6 +580,7 @@ class Ensure:
     # there are exceptions (might want to write a multi-author series exception). But, generally, anything in the
     # Honorverse will have David Weber on the cover somewhere (for example)
     # More problematic is the example of Star Wars - which will probably not have George Lucas on the cover
+    @atomic_write
     def series(
         self,
         creator_rows: Union[tuple["RowAPI"], list["RowAPI"]],
@@ -657,6 +669,7 @@ class Ensure:
 
         return series_row
 
+    @atomic_write
     def series_blind(self, creator_rows, series_name, stand=True, use_phash=True):
         """
         Run queued Series resolution and return its first queued candidate.
@@ -691,6 +704,7 @@ class Ensure:
         return series_queue.get_nowait()
 
     # Subjects still exists under WEMI. This is fine.
+    @atomic_write
     def subject(self, subject: str, standardize: bool = True) -> "RowAPI":
         """
         Reuse the first exact Subject string or create one without a parent.
@@ -709,6 +723,7 @@ class Ensure:
             return subject_rows[0]
         return self.add.subject(subject=subject, subject_parent=None)
 
+    @atomic_write
     def tag(self, tag_text: str) -> "RowAPI":
         """
         Resolve by search hash, then exact text, otherwise insert a Tag.
@@ -727,6 +742,9 @@ class Ensure:
         """
         # Makes a tag search term - searches the database for that tag search term - if it exists returns the
         # appropriate row - if not, makes the row and then returns it.
+        owned_row = ensure_value(self, "tags", "tag", tag_text)
+        if owned_row is not None:
+            return owned_row
         try:
             tag_phash = make_tag_search_term(tag_text)
         except TypeError as e:
@@ -775,5 +793,5 @@ class Ensure:
         tag_row = Row(database=self.db)
         tag_row["tag"] = tag_text
         tag_row["tag_phash"] = tag_phash
-        tag_row.sync()
+        persist_row(self, tag_row)
         return tag_row

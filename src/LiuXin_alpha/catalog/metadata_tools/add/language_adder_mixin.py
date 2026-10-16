@@ -4,6 +4,7 @@ Insert a language name/code pair without normalization.
 
 from __future__ import unicode_literals
 
+from LiuXin_alpha.catalog.row_mutations import atomic_write, persist_row
 from LiuXin_alpha.databases.row import Row
 
 
@@ -18,6 +19,7 @@ class LanguageAdderMixin:
         The helper stores exactly the supplied code; use Ensure for compatibility lookup.
     """
 
+    @atomic_write
     def language(self, language_name, language_code):
         """
         Insert a language name/code pair without normalization.
@@ -33,5 +35,5 @@ class LanguageAdderMixin:
         language_row = Row(database=self.db)
         language_row["language"] = language_name
         language_row["language_code"] = language_code
-        language_row.sync()
+        persist_row(self, language_row)
         return language_row

@@ -15,6 +15,8 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any
+from contextlib import contextmanager
+from copy import deepcopy
 
 import pytest
 
@@ -41,6 +43,8 @@ from LiuXin_alpha.databases.column_metadata import (
     default_column_metadata,
 )
 from LiuXin_alpha.databases.row import Row
+from LiuXin_alpha.databases.macro_types import LinkRow
+from LiuXin_alpha.databases.schema_specs import StorageLinkSpec
 from LiuXin_alpha.errors import DatabaseIntegrityError
 from LiuXin_alpha.metadata.api import UnloadedMetadataProjectionError, WorkRelationLink
 from LiuXin_alpha.metadata.containers import (
@@ -192,6 +196,21 @@ class FakeDriverWrapper:
         self.tables_and_columns = dict(tables_and_columns)
         self.database = database
 
+    def get_column_headings(self, table: str) -> list[str]:
+        return self.tables_and_columns[table]
+
+    def get_link_spec(self, primary: str, secondary: str) -> StorageLinkSpec:
+        table = self.get_link_table_name(primary, secondary)
+        base = self.get_column_base(table)
+        return StorageLinkSpec(
+            primary, secondary, table,
+            primary_id_col=self.get_id_column(primary), secondary_id_col=self.get_id_column(secondary),
+            primary_link_col=self.get_link_column(primary, secondary, self.get_id_column(primary)),
+            secondary_link_col=self.get_link_column(primary, secondary, self.get_id_column(secondary)),
+            priority_link_col=f"{base}_priority", type_link_col=f"{base}_type",
+            ordered=True, typed=True,
+        )
+
     def get_allowed_tables_snapshot(self) -> list[str]:
         """
         Return the immutable table set advertised by the test driver.
@@ -244,7 +263,7 @@ class FakeDriverWrapper:
         :param table: Table name addressed by the test operation.
         :return: The deterministic value, row, identity or collection described above.
         """
-        return f"{SINGULARS[str(table)]}_id"
+        return f"{SINGULARS.get(str(table), self.get_column_base(table))}_id"
 
     def check_for_intralink_table(self, table: str) -> bool:
         """
@@ -425,6 +444,83 @@ class FakeDriverWrapper:
         return True
 
 
+class FakeMacros:
+    """Exercise real repository/container owners over deterministic in-memory persistence."""
+
+    def __init__(self, db: Any) -> None:
+        self.db = db
+        self.depth = 0
+
+    @contextmanager
+    def transaction(self):
+        if self.depth:
+            yield self
+            return
+        rows = {table: list(values) for table, values in self.db.rows_by_table.items()}
+        values = [(row, dict(row.row_dict)) for group in rows.values() for row in group]
+        links = deepcopy(self.db.interlinks)
+        dirty = list(self.db.dirtied)
+        self.depth += 1
+        try:
+            yield self
+        except BaseException:
+            self.db.rows_by_table = rows
+            self.db.interlinks = links
+            self.db.dirtied = dirty
+            for row, original in values:
+                row.row_dict.clear()
+                row.row_dict.update(original)
+            raise
+        finally:
+            self.depth -= 1
+
+    def get_row(self, table, row_id, *, id_column=None):
+        row = self.db.get_row_from_id(table, row_id)
+        return None if row is None else dict(row.row_dict)
+
+    def insert_row(self, table, values, *, id_column=None):
+        return self.db.driver_wrapper.add_row(values)
+
+    def update_row(self, table, row_id, values, *, id_column=None):
+        for column, value in values.items():
+            self.db.driver_wrapper.update_column(table, row_id, column, value)
+
+    def delete_row(self, table, row_id, *, id_column=None):
+        self.db.delete(self.db.get_row_from_id(table, row_id))
+
+    def get_link_rows(self, spec, primary_id):
+        key = (spec.primary_table, primary_id, spec.secondary_table)
+        return tuple(LinkRow(
+            primary_id, row[spec.secondary_link_col], row.get(spec.type_link_col),
+            row.get(spec.priority_link_col), {key: value for key, value in row.items() if key not in {
+                spec.primary_link_col, spec.secondary_link_col, spec.type_link_col, spec.priority_link_col,
+            }},
+        ) for row in self.db.interlinks.get(key, []))
+
+    def upsert_link(self, spec, primary_id, link):
+        existing = next((row for row in self.get_link_rows(spec, primary_id) if row.secondary_id == link.secondary_id), None)
+        if existing is not None:
+            return existing
+        base = self.db.driver_wrapper.get_column_base(spec.link_table) + "_"
+        self.db.interlink_rows(
+            self.db.get_row_from_id(spec.primary_table, primary_id),
+            self.db.get_row_from_id(spec.secondary_table, link.secondary_id),
+            priority=link.priority, type=link.link_type,
+            **{key.removeprefix(base): value for key, value in link.extra.items()},
+        )
+        return self.get_link_rows(spec, primary_id)[-1]
+
+    def replace_links(self, spec, primary_id, replacements):
+        keep = {row.secondary_id for row in replacements}
+        for row in self.get_link_rows(spec, primary_id):
+            if row.secondary_id not in keep:
+                self.db.unlink_interlink(
+                    self.db.get_row_from_id(spec.primary_table, primary_id),
+                    self.db.get_row_from_id(spec.secondary_table, row.secondary_id),
+                )
+        return self.get_link_rows(spec, primary_id)
+
+
 @dataclass
 class FakeDatabase:
     """
@@ -460,6 +556,13 @@ class FakeDatabase:
         :return: None; the function records state or raises through its assertions.
         """
         self.driver_wrapper = FakeDriverWrapper(self.tables_and_columns, self)
+        self.macros = FakeMacros(self)
+
+    def get_max(self, column: str) -> int | None:
+        return max((row[column] for rows in self.interlinks.values() for row in rows if column in row), default=None)
+
+    def get_min(self, column: str) -> int | None:
+        return min((row[column] for rows in self.interlinks.values() for row in rows if column in row), default=None)
 
     def get_tables(self, force_refresh: bool = False) -> list[str]:
         """
@@ -1779,7 +1882,7 @@ def _build_fake_database() -> FakeDatabase:
             "item_identifier_id": 70,
             "item_identifier_item_id": 1,
             "item_identifier_scheme": "isbn",
-            "item_identifier_value": "9780000000001",
+            "item_identifier_value": "9780306406157",
             "item_identifier_source": "fixture",
         },
     )
@@ -2747,7 +2850,6 @@ def test_catalog_write_container_can_replace_identifier_rows() -> None:
     assert report.errors == []
     assert [row["value"] for row in report.rows_removed] == ["OL123W"]
     assert {row["value"] for row in report.rows_added} == {
-        "9780000000001",
         "10.5555/replacement",
     }
 
@@ -2758,14 +2860,13 @@ def test_catalog_write_container_can_replace_identifier_rows() -> None:
         ]
         for row in identifier_rows
     } == {
-        "9780000000001": 1,
         "10.5555/replacement": 1,
     }
 
     rehydrated = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
     assert _identifier_values(rehydrated, "openlibrary") == []
     assert _identifier_values(rehydrated, "doi") == ["10.5555/replacement"]
-    assert _identifier_values(rehydrated, "isbn") == ["9780000000001"]
+    assert _identifier_values(rehydrated, "isbn") == ["9780306406157"]
 
 
 def test_liuxin_wemi_metadata_write_marks_existing_identifier_primary() -> None:
@@ -3006,180 +3107,43 @@ def test_metadata_writer_skips_unsupported_relation_pairs() -> None:
     assert report.links_added == []
 
 
-def test_metadata_writer_reports_failed_link_and_unlink_operations(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """
-    Verify metadata writer reports failed link and unlink operations.
-
-    Example:
-        Exercise test metadata writer reports failed link and unlink operations through its owning regression module::
-
-            python -m pytest -q tests/catalog/retrieval/test_item_metadata_hydrator.py
-
-
-    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
-        state.
-    :return: None; the function records state or raises through its assertions.
-    """
-    db = _build_fake_database()
-    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
-    metadata.tags = "Link Failure Tag"
-
-    def fail_interlink_rows(*_args: Any, **_kwargs: Any) -> None:
-        """
-        Perform the fail interlink rows test-helper operation with deterministic inputs.
-
-        Example:
-            Exercise test metadata writer reports failed link and unlink operations.fail interlink rows through its owning regression module::
-
-                python -m pytest -q tests/catalog/retrieval/test_item_metadata_hydrator.py
+def test_metadata_writer_rolls_back_failed_link_and_unlink_operations(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Persistence failures propagate and leave neither orphan terms nor partial links."""
+    for method, replace_values in (("interlink_rows", False), ("unlink_interlink", True)):
+        db = _build_fake_database()
+        metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+        if replace_values:
+            metadata.nullify("tags")
+        else:
+            metadata.tags = "Link Failure Tag"
+        before = [dict(row.row_dict) for row in db.rows_by_table["tags"]]
+        links = deepcopy(db.interlinks)
+        def fail(*args: Any, **kwargs: Any) -> None:
+            raise RuntimeError("link operation failed")
+        monkeypatch.setattr(db, method, fail)
+        with pytest.raises(RuntimeError, match="link operation failed"):
+            _write_metadata(db, metadata, fields=("tags",), replace=replace_values)
+        assert [dict(row.row_dict) for row in db.rows_by_table["tags"]] == before
+        assert db.interlinks == links
 
 
-        :param _args: Value supplied for args in the focused test operation.
-        :param _kwargs: Value supplied for kwargs in the focused test operation.
-        :return: The deterministic value, row, identity or collection described above.
-        """
-        raise RuntimeError("link failed")
-
-    monkeypatch.setattr(db, "interlink_rows", fail_interlink_rows)
-
-    report = _write_metadata(db, metadata, fields=("tags",))
-
-    assert report.changed is True
-    assert [row["text"] for row in report.rows_added] == ["Link Failure Tag"]
-    assert report.links_added == []
-    assert report.errors == [
-        "tags: could not link works:30 to tags:92.",
-    ]
-    rehydrated = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
-    assert "Link Failure Tag" not in rehydrated.tags
-
-    db = _build_fake_database()
-    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
-    metadata.nullify("tags")
-
-    def fail_unlink_interlink(*_args: Any, **_kwargs: Any) -> None:
-        """
-        Perform the fail unlink interlink test-helper operation with deterministic inputs.
-
-        Example:
-            Exercise test metadata writer reports failed link and unlink operations.fail unlink interlink through its owning regression module::
-
-                python -m pytest -q tests/catalog/retrieval/test_item_metadata_hydrator.py
-
-
-        :param _args: Value supplied for args in the focused test operation.
-        :param _kwargs: Value supplied for kwargs in the focused test operation.
-        :return: The deterministic value, row, identity or collection described above.
-        """
-        raise RuntimeError("unlink failed")
-
-    monkeypatch.setattr(db, "unlink_interlink", fail_unlink_interlink)
-
-    report = _write_metadata(db, metadata, fields=("tags",), replace=True)
-
-    assert report.changed is False
-    assert report.links_removed == []
-    assert report.errors == [
-        "tags: could not remove link from works:30 to tags:91.",
-    ]
-    rehydrated = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
-    assert list(rehydrated.tags.keys()) == ["Space Opera"]
-
-
-def test_metadata_writer_reports_failed_identifier_delete_and_primary_update(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """
-    Verify metadata writer reports failed identifier delete and primary update.
-
-    Example:
-        Exercise test metadata writer reports failed identifier delete and primary update through its owning regression module::
-
-            python -m pytest -q tests/catalog/retrieval/test_item_metadata_hydrator.py
-
-
-    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
-        state.
-    :return: None; the function records state or raises through its assertions.
-    """
-    db = _build_fake_database()
-    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
-    metadata.set_identifiers({"doi": {"10.5555/delete-failure"}}, update=False)
-
-    def fail_delete(_row: Row) -> None:
-        """
-        Perform the fail delete test-helper operation with deterministic inputs.
-
-        Example:
-            Exercise test metadata writer reports failed identifier delete and primary update.fail delete through its owning regression module::
-
-                python -m pytest -q tests/catalog/retrieval/test_item_metadata_hydrator.py
-
-
-        :param _row: Value supplied for row in the focused test operation.
-        :return: The deterministic value, row, identity or collection described above.
-        """
-        raise RuntimeError("delete failed")
-
-    monkeypatch.setattr(db, "delete", fail_delete)
-
-    report = _write_metadata(db, metadata, fields=("identifiers",), replace=True)
-
-    assert report.changed is True
-    assert report.rows_removed == []
-    assert any(
-        "could not remove row entity_identifiers:80" in error for error in report.errors
-    )
-    assert [
-        row.row_dict["entity_identifier_value"]
-        for row in db.rows_by_table["entity_identifiers"]
-        if row.row_dict["entity_identifier_value"] == "OL123W"
-    ] == ["OL123W"]
-
-    db = _build_fake_database()
-    for row in db.rows_by_table["entity_identifiers"]:
-        row.row_dict["entity_identifier_is_primary"] = 0
-    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
-
-    def fail_update_column(
-        _table: str,
-        _row_id: int,
-        _column: str,
-        _new_value: Any,
-    ) -> None:
-        """
-        Perform the fail update column test-helper operation with deterministic inputs.
-
-        Example:
-            Exercise test metadata writer reports failed identifier delete and primary update.fail update column through its owning regression module::
-
-                python -m pytest -q tests/catalog/retrieval/test_item_metadata_hydrator.py
-
-
-        :param _table: Value supplied for table in the focused test operation.
-        :param _row_id: Value supplied for row id in the focused test operation.
-        :param _column: Value supplied for column in the focused test operation.
-        :param _new_value: Value supplied for new value in the focused test operation.
-        :return: The deterministic value, row, identity or collection described above.
-        """
-        raise RuntimeError("update failed")
-
-    monkeypatch.setattr(db.driver_wrapper, "update_column", fail_update_column)
-
-    report = _write_metadata(db, metadata, fields=("identifiers",))
-
-    assert report.rows_updated == []
-    assert any(
-        "could not mark row entity_identifiers:80 as primary" in error
-        for error in report.errors
-    )
-    assert [
-        row.row_dict["entity_identifier_is_primary"]
-        for row in db.rows_by_table["entity_identifiers"]
-        if row.row_dict["entity_identifier_value"] == "OL123W"
-    ] == [0]
+def test_metadata_writer_rolls_back_failed_identifier_delete_and_primary_update(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A failed replacement or primary update retains the complete identifier set."""
+    for operation in ("delete", "update"):
+        db = _build_fake_database()
+        if operation == "update":
+            for row in db.rows_by_table["entity_identifiers"]:
+                row.row_dict["entity_identifier_is_primary"] = 0
+        metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+        if operation == "delete":
+            metadata.set_identifiers({"doi": {"10.5555/delete-failure"}}, update=False)
+        before = [dict(row.row_dict) for row in db.rows_by_table["entity_identifiers"]]
+        def fail(*args: Any, **kwargs: Any) -> None:
+            raise RuntimeError("identifier operation failed")
+        monkeypatch.setattr(db if operation == "delete" else db.driver_wrapper, "delete" if operation == "delete" else "update_column", fail)
+        with pytest.raises(RuntimeError, match="identifier operation failed"):
+            _write_metadata(db, metadata, fields=("identifiers",), replace=operation == "delete")
+        assert [dict(row.row_dict) for row in db.rows_by_table["entity_identifiers"]] == before
 
 
 def test_metadata_writer_accepts_valid_unicode_and_rejects_unsafe_text() -> None:

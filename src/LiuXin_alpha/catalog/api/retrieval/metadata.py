@@ -8,7 +8,11 @@ from typing import Any, Protocol, runtime_checkable
 
 @runtime_checkable
 class MetadataRetrieverAPI(Protocol):
-    """Describe database, cache and persistence-aware OPF metadata retrieval."""
+    """Describe Catalog-owned database, cache and persistence-aware OPF metadata retrieval.
+
+    Implementations hydrate passive metadata containers through the selected read
+    source; this protocol does not construct services or open database handles.
+    """
 
     db: Any
 

@@ -1,8 +1,9 @@
 # Working Memory Index
 
-Current checkpoint: **Catalog write consolidation in progress**. Shared identity
-preparation and Catalog mutation routing are being tested and committed on
-`catalog-write-consolidation`. See the
+Current checkpoint: **Catalog write consolidation tested and checkpointed**.
+Shared identity preparation and Catalog mutation routing have green regression
+and quality checks on `catalog-write-consolidation`; the full completion audit
+remains outstanding. See the
 [active checkpoint](catalog-write-consolidation-2026-10-15.md) for scope,
 verification and remaining audit work.
 

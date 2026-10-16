@@ -8,6 +8,7 @@ import datetime
 import os
 
 from LiuXin_alpha.databases.hashes import generate_title_fingerprint
+from LiuXin_alpha.catalog.row_mutations import atomic_write, link_rows, create_row, persist_row
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
 from LiuXin_alpha.metadata.standardization import make_title_search_term
@@ -186,8 +187,7 @@ class BookAndTitleAdderMixin:
         except Exception:
             return six_unicode(title)
 
-    @staticmethod
-    def _update_row(row, payload):
+    def _update_row(self, row, payload):
         """
         Apply allowed columns from a payload and sync once.
 
@@ -203,7 +203,7 @@ class BookAndTitleAdderMixin:
         for col, val in payload.items():
             if col in row.allowed_columns:
                 row[col] = val
-        row.sync()
+        persist_row(self, row)
 
     def _legacy_title(
         self,
@@ -281,7 +281,7 @@ class BookAndTitleAdderMixin:
         title_row["title_created_datestamp"] = title_created_datestamp if title_created_datestamp is not None else utcnow()
         title_row["title_datestamp"] = title_datestamp
 
-        title_row.sync()
+        persist_row(self, title_row)
         return title_row
 
     def _legacy_book(
@@ -349,7 +349,7 @@ class BookAndTitleAdderMixin:
 
         book_creation_time = isoformat_timestamp()
         book_row["book_created_datestamp"] = book_creation_time
-        book_row.sync()
+        persist_row(self, book_row)
 
         book_row["book_sort"] = book_sort
         book_row["book_flags"] = book_flags
@@ -374,10 +374,11 @@ class BookAndTitleAdderMixin:
         book_row["book_rating"] = book_rating
         book_row["book_created_datestamp"] = book_created_datestamp
         book_row["book_datestamp"] = book_datestamp
-        book_row.sync()
+        persist_row(self, book_row)
 
         return book_row
 
+    @atomic_write
     def title(
         self,
         title,
@@ -482,7 +483,7 @@ class BookAndTitleAdderMixin:
             insert_payload = dict(work_payload)
             if work_id is not None:
                 insert_payload["work_id"] = work_id
-            work_row = Row.from_idless_row_dict(self.db, insert_payload, table="works")
+            work_row = create_row(self, insert_payload, table="works")
         else:
             self._update_row(work_row, work_payload)
 
@@ -517,7 +518,7 @@ class BookAndTitleAdderMixin:
         except Exception:
             cand_link_row = None
         if cand_link_row is None:
-            self.db.interlink_rows(
+            link_rows(self,
                 primary_row=work_row,
                 secondary_row=expression_row,
                 priority=0,
@@ -552,7 +553,7 @@ class BookAndTitleAdderMixin:
         except Exception:
             cand_link_row = None
         if cand_link_row is None:
-            self.db.interlink_rows(
+            link_rows(self,
                 primary_row=expression_row,
                 secondary_row=manifestation_row,
                 priority=0,
@@ -609,6 +610,7 @@ class BookAndTitleAdderMixin:
             pass
         return work_row
 
+    @atomic_write
     def book(
         self,
         title_row,

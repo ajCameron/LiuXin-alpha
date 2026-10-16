@@ -4,6 +4,7 @@ Insert a Subject with optional sort text and parent Row.
 
 from __future__ import unicode_literals
 
+from LiuXin_alpha.catalog.row_mutations import atomic_write, persist_row
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.errors import InputIntegrityError
 from LiuXin_alpha.metadata.standardization import make_title_search_term
@@ -21,6 +22,7 @@ class SubjectAdderMixin:
         A parent Row contributes row_id; no separate intralink is created.
     """
 
+    @atomic_write
     def subject(self, subject, subject_sort=None, subject_parent=None):
         """
         Insert a Subject with optional sort text and parent Row.
@@ -54,5 +56,5 @@ class SubjectAdderMixin:
             )
             raise InputIntegrityError(err_str)
 
-        subject_row.sync()
+        persist_row(self, subject_row)
         return subject_row

@@ -14,7 +14,6 @@ Example:
 
 from __future__ import annotations
 
-import unicodedata
 from collections import OrderedDict
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
@@ -30,21 +29,20 @@ from LiuXin_alpha.databases.column_metadata import (
     ColumnNormalizationProfile,
 )
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.errors import DatabaseIntegrityError
-from LiuXin_alpha.metadata.standardization import (
-    make_tag_search_term,
-    make_title_search_term,
-)
+from LiuXin_alpha.metadata.text_identity import normalize_identity_text
+from LiuXin_alpha.metadata.identifiers import normalise_identifier_pair
+from LiuXin_alpha.metadata.standardize import standardize_id_name
+from LiuXin_alpha.catalog.relationships import CatalogRelationships
 
 
 @dataclass(frozen=True)
-class LegacyRelationFieldSpec:
+class RelationFieldSpec:
     """
     Describe how a legacy field maps to a relation table and its value columns.
 
     field is the legacy key; relation names the WEMI bucket; table and id_column
     identify target rows. text_columns gives lookup/display precedence. Optional
-    norm_column and norm_function supply legacy comparison values. Instances are frozen,
+    Identity normalization is supplied by the database declarations. Instances are frozen,
     while a supplied callable retains its own state.
 
     Example:
@@ -58,8 +56,6 @@ class LegacyRelationFieldSpec:
     table: str
     text_columns: tuple[str, ...]
     id_column: str
-    norm_column: str | None = None
-    norm_function: Any = None
 
 
 @dataclass
@@ -186,60 +182,56 @@ class CatalogContainerWriter:
     }
     _LEVEL_FALLBACKS = ("work", "expression", "manifestation", "item")
     _FIELD_SPECS = {
-        "tags": LegacyRelationFieldSpec(
+        "tags": RelationFieldSpec(
             field="tags",
             relation="tags",
             table="tags",
             text_columns=("tag",),
             id_column="tag_id",
-            norm_column="tag_phash",
-            norm_function=make_tag_search_term,
         ),
-        "labels": LegacyRelationFieldSpec(
+        "labels": RelationFieldSpec(
             field="labels",
             relation="labels",
             table="labels",
             text_columns=("label_text", "label"),
             id_column="label_id",
-            norm_column="label_text_norm",
-            norm_function=make_tag_search_term,
         ),
-        "genre": LegacyRelationFieldSpec(
+        "genre": RelationFieldSpec(
             field="genre",
             relation="genres",
             table="genres",
             text_columns=("genre_full", "genre"),
             id_column="genre_id",
         ),
-        "subject": LegacyRelationFieldSpec(
+        "subject": RelationFieldSpec(
             field="subject",
             relation="subjects",
             table="subjects",
             text_columns=("subject_full", "subject"),
             id_column="subject_id",
         ),
-        "series": LegacyRelationFieldSpec(
+        "series": RelationFieldSpec(
             field="series",
             relation="series",
             table="series",
             text_columns=("series_full", "series"),
             id_column="series_id",
         ),
-        "notes": LegacyRelationFieldSpec(
+        "notes": RelationFieldSpec(
             field="notes",
             relation="notes",
             table="notes",
             text_columns=("note",),
             id_column="note_id",
         ),
-        "comments": LegacyRelationFieldSpec(
+        "comments": RelationFieldSpec(
             field="comments",
             relation="comments",
             table="comments",
             text_columns=("comment",),
             id_column="comment_id",
         ),
-        "synopses": LegacyRelationFieldSpec(
+        "synopses": RelationFieldSpec(
             field="synopses",
             relation="synopses",
             table="synopses",
@@ -268,7 +260,7 @@ class CatalogContainerWriter:
         "identifiers": "identifiers",
     }
 
-    def __init__(self, database: Any) -> None:
+    def __init__(self, database: Any, *, repositories: Any = None) -> None:
         """
         Retain a non-None database and cache schema snapshots and column-policy lookups.
 
@@ -288,6 +280,8 @@ class CatalogContainerWriter:
         if database is None:
             raise ValueError("CatalogContainerWriter requires a database instance.")
         self.db = database
+        self._repositories = repositories
+        self.repositories = repositories
         try:
             self._tables = set(self.db.get_tables(force_refresh=False))
         except Exception:
@@ -315,7 +309,8 @@ class CatalogContainerWriter:
 
         The preferred level comes from target_level, an individual bundle, or work.
         Resolution can fall back to another level. Missing schema and unsupported relations
-        are reported as skipped; selected write failures are reported as errors. In replace
+        are reported as skipped; persistence failures propagate to roll back the
+        enclosing Catalog transaction. In replace
         mode the filtered desired values are authoritative, so omitted or rejected values
         can cause stale links or entity identifiers to be removed.
 
@@ -942,7 +937,7 @@ class CatalogContainerWriter:
         self,
         metadata: Any,
         field_name: str,
-        spec: LegacyRelationFieldSpec,
+        spec: RelationFieldSpec,
         target_level: str,
         *,
         include_wemi_relations: bool = True,
@@ -1030,7 +1025,7 @@ class CatalogContainerWriter:
     def _desired_bundle_terms(
         self,
         metadata: Any,
-        spec: LegacyRelationFieldSpec,
+        spec: RelationFieldSpec,
         target_level: str,
     ) -> OrderedDict[str, Any]:
         """
@@ -1073,7 +1068,7 @@ class CatalogContainerWriter:
     def _desired_relation_links(
         self,
         metadata: Any,
-        spec: LegacyRelationFieldSpec,
+        spec: RelationFieldSpec,
         target_level: str,
     ) -> dict[str, Any]:
         """
@@ -1157,7 +1152,7 @@ class CatalogContainerWriter:
     def _relation_target_term(
         self,
         target: Any,
-        spec: LegacyRelationFieldSpec,
+        spec: RelationFieldSpec,
     ) -> tuple[str | None, int | None]:
         """
         Extract text and a row-id hint from a Row, integer id, mapping or scalar target.
@@ -1236,7 +1231,7 @@ class CatalogContainerWriter:
     @staticmethod
     def _mapping_text(
         mapping: Mapping[str, Any],
-        spec: LegacyRelationFieldSpec,
+        spec: RelationFieldSpec,
     ) -> str | None:
         """
         Read the first configured text column whose value is neither None nor empty text.
@@ -1263,7 +1258,7 @@ class CatalogContainerWriter:
     def _existing_terms(
         self,
         source_row: Row,
-        spec: LegacyRelationFieldSpec,
+        spec: RelationFieldSpec,
     ) -> dict[str, Row]:
         """
         Resolve existing term links and index their rows by comparison key.
@@ -1307,7 +1302,7 @@ class CatalogContainerWriter:
     def _target_row_from_link(
         self,
         source_row: Row,
-        spec: LegacyRelationFieldSpec,
+        spec: RelationFieldSpec,
         link_row: Any,
     ) -> Row | None:
         """
@@ -1343,9 +1338,18 @@ class CatalogContainerWriter:
             return None
         return self._get_row(spec.table, target_id)
 
+    def _repository(self, table: str) -> Any:
+        """Resolve the semantic owner of a container destination table."""
+        if self._repositories is None:
+            from LiuXin_alpha.catalog.repositories.group import CatalogRepositories
+
+            self._repositories = CatalogRepositories.from_database(self.db)
+            self.repositories = self._repositories
+        return self._repositories.for_table(table)
+
     def _ensure_relation_row(
         self,
-        spec: LegacyRelationFieldSpec,
+        spec: RelationFieldSpec,
         text: str,
         row_id: Any,
     ) -> tuple[Row | None, bool]:
@@ -1353,8 +1357,8 @@ class CatalogContainerWriter:
         Prefer an existing id, then comparison/text matches, then create a term row.
 
         A resolvable id is trusted without checking that its text matches. Case-insensitive
-        policies may scan all rows when indexed searches miss. Failed creation returns no
-        row; successful creation is not rolled back if linking later fails.
+        policies may scan all rows when indexed searches miss. Creation and linking
+        share the caller's transaction, and failures propagate.
 
         Example:
             Exercise this contract with pytest::
@@ -1405,20 +1409,12 @@ class CatalogContainerWriter:
         )
         if not payload:
             return None, False
-        try:
-            row = Row.from_idless_row_dict(
-                self.db,
-                payload,
-                table=spec.table,
-                read_only=True,
-            )
-            return row, True
-        except Exception:
-            return None, False
+        repository = self._repository(spec.table)
+        return self._get_row(spec.table, repository.create(payload)), True
 
     def _new_row_payload(
         self,
-        spec: LegacyRelationFieldSpec,
+        spec: RelationFieldSpec,
         text: str,
         comparison_column: str | None,
         norm_value: str | None,
@@ -1445,6 +1441,9 @@ class CatalogContainerWriter:
             if self._has_column(spec.table, column):
                 payload[column] = text
                 break
+        identity = self._identity_spec(spec)
+        if identity is not None:
+            payload[identity.value_column] = text
         if (
             comparison_column
             and norm_value
@@ -1477,7 +1476,7 @@ class CatalogContainerWriter:
         :param target_row: Resolved target database Row to link or unlink.
         :param relation_link: Optional relation link carrying write metadata such as type,
             priority and provenance.
-        :return: True when the call completes, False on an ordinary exception.
+        :return: True when the call completes; failures propagate.
         """
         priority: Any = "highest"
         link_type: str | None = None
@@ -1494,23 +1493,15 @@ class CatalogContainerWriter:
                     if attr == "primary" and isinstance(value, bool)
                     else value
                 )
-        try:
-            self.db.interlink_rows(
-                primary_row=source_row,
-                secondary_row=target_row,
-                priority=priority,
-                type=link_type,
-                **extra_columns,
-            )
-            return True
-        except DatabaseIntegrityError:
-            return False
-        except Exception:
-            return False
+        CatalogRelationships(self.db).link(
+            source_row.table, source_row.row_id, target_row.table, target_row.row_id,
+            priority=priority, link_type=link_type, extra=extra_columns, legacy_priority=True,
+        )
+        return True
 
     def _unlink_rows(self, source_row: Row, target_row: Row) -> bool:
         """
-        Call unlink_interlink when available and suppress ordinary failures.
+        Remove a relationship through its Catalog owner in the current transaction.
 
         Example:
             Exercise this contract with pytest::
@@ -1521,23 +1512,16 @@ class CatalogContainerWriter:
         :param source_row: Resolved source database Row whose relations or identifiers are
             being changed.
         :param target_row: Resolved target database Row to link or unlink.
-        :return: True when the call completes; False when unavailable or failed.
+        :return: True when the call completes; failures propagate.
         """
-        unlink = getattr(self.db, "unlink_interlink", None)
-        if not callable(unlink):
-            return False
-        try:
-            unlink(primary_row=source_row, secondary_row=target_row)
-            return True
-        except Exception:
-            return False
+        CatalogRelationships(self.db).unlink(
+            source_row.table, source_row.row_id, target_row.table, target_row.row_id,
+        )
+        return True
 
     def _delete_row(self, row: Row) -> bool:
         """
-        Delete a persisted Row using db.delete or an available driver fallback.
-
-        A failing db.delete does not fall through to delete_by_id; the fallback is used only
-        when db.delete is not callable.
+        Delete a persisted Row through its semantic repository.
 
         Example:
             Exercise this contract with pytest::
@@ -1546,34 +1530,16 @@ class CatalogContainerWriter:
 
 
         :param row: Database Row to inspect or change.
-        :return: True when deletion completes; False for missing ids, capabilities or
-            failures.
+        :return: True when deletion completes; False for a missing ID. Failures propagate.
         """
         if row.row_id is None:
             return False
-
-        delete = getattr(self.db, "delete", None)
-        if callable(delete):
-            try:
-                delete(row)
-                return True
-            except Exception:
-                return False
-
-        delete_by_id = getattr(
-            getattr(self.db, "driver_wrapper", None), "delete_by_id", None
-        )
-        if not callable(delete_by_id):
-            return False
-        try:
-            delete_by_id(target_table=str(row.table), row_id=int(row.row_id))
-            return True
-        except Exception:
-            return False
+        self._repository(str(row.table)).delete(int(row.row_id))
+        return True
 
     def _update_row_column(self, row: Row, column: str, value: Any) -> bool:
         """
-        Update one persisted column through the driver and then the local row mapping.
+        Update one column through its repository and refresh the local row mapping.
 
         Example:
             Exercise this contract with pytest::
@@ -1584,22 +1550,14 @@ class CatalogContainerWriter:
         :param row: Database Row to inspect or change.
         :param column: Database column name to inspect, search or update.
         :param value: Candidate value to inspect or store.
-        :return: True when both operations complete; False for missing ids/capabilities or
-            an exception.
+        :return: True when both operations complete; False for a missing ID. Failures propagate.
         """
         if row.row_id is None:
             return False
-        update_column = getattr(
-            getattr(self.db, "driver_wrapper", None), "update_column", None
-        )
-        if not callable(update_column):
-            return False
-        try:
-            update_column(str(row.table), int(row.row_id), column, value)
-            row.row_dict[column] = value
-            return True
-        except Exception:
-            return False
+        repository = self._repository(str(row.table))
+        repository.update(int(row.row_id), {column: value})
+        row.row_dict.update(repository.require(int(row.row_id)))
+        return True
 
     def _write_identifier_rows(
         self,
@@ -1667,6 +1625,35 @@ class CatalogContainerWriter:
             include_wemi_relations=not replace,
         )
         desired = self._filter_safe_identifiers(desired, report)
+        if self._repository(table) is not None:
+            canonical = OrderedDict()
+            for scheme, value, relation_link in desired.values():
+                try:
+                    pair = normalise_identifier_pair(scheme, value)
+                except (TypeError, ValueError):
+                    stored_key = next((
+                        key for key in existing
+                        if (standardize_id_name(key[0]) or key[0], key[1])
+                        == (standardize_id_name(scheme) or scheme, value)
+                    ), None)
+                    if stored_key is None:
+                        raise
+                    # An unchanged historical value is not a new semantic write.
+                    canonical[stored_key] = (*stored_key, relation_link)
+                    continue
+                canonical_key = (pair.identifier_type, pair.normalised_value)
+                projected_key = (
+                    standardize_id_name(pair.identifier_type) or pair.identifier_type,
+                    pair.normalised_value,
+                )
+                canonical_key = next((
+                    key for key in existing
+                    if (standardize_id_name(key[0]) or key[0], key[1]) == projected_key
+                ), canonical_key)
+                canonical[canonical_key] = (
+                    pair.identifier_type, pair.value, relation_link,
+                )
+            desired = canonical
 
         if replace:
             for key, row in list(existing.items()):
@@ -1813,7 +1800,16 @@ class CatalogContainerWriter:
             value = self._identifier_component(mapping.get("entity_identifier_value"))
             if scheme is None or value is None:
                 continue
-            out[(scheme.casefold(), value.casefold())] = row
+            if self._repository("entity_identifiers") is not None:
+                # Invalid historical values remain visible to replacement and audit.
+                try:
+                    pair = normalise_identifier_pair(scheme, value)
+                except (TypeError, ValueError):
+                    out[scheme, value] = row
+                else:
+                    out[pair.identifier_type, pair.normalised_value] = row
+            else:
+                out[(scheme.casefold(), value.casefold())] = row
         return out
 
     def _desired_identifiers(
@@ -1846,8 +1842,11 @@ class CatalogContainerWriter:
         desired: OrderedDict[tuple[str, str], tuple[str, str, Any | None]] = (
             OrderedDict()
         )
+        inherited = self._inherited_identifier_pairs(metadata, target_level)
         for scheme, value in self._iter_legacy_identifier_pairs(metadata):
-            key = (scheme.casefold(), value.casefold())
+            if (standardize_id_name(scheme) or scheme.casefold(), value) in inherited:
+                continue
+            key = (scheme, value) if self._repository("entity_identifiers") is not None else (scheme.casefold(), value.casefold())
             desired.setdefault(key, (scheme, value, None))
 
         bundle_level = self._metadata_bundle_level(metadata)
@@ -1868,6 +1867,32 @@ class CatalogContainerWriter:
                     target_level,
                 )
         return desired
+
+    def _inherited_identifier_pairs(
+        self, metadata: Any, target_level: str,
+    ) -> set[tuple[str, str]]:
+        """Keep identifiers projected from other WEMI levels with their owners.
+
+        A complete container flattens all levels into its legacy mapping. Rewriting
+        that mapping must not copy a Manifestation ASIN onto its Work. Explicit
+        values absent from the other bundles still enter normal write validation.
+        """
+        by_level: dict[str, set[tuple[str, str]]] = {}
+        for level in self._LEVEL_IDENTITY_ATTRIBUTES:
+            bundle = self._metadata_wemi_bundle(metadata, level)
+            getter = getattr(bundle, "get_relation_links", None)
+            pairs: set[tuple[str, str]] = set()
+            if callable(getter):
+                for link in getter("identifiers"):
+                    if not self._relation_link_applies_to_level(link, level):
+                        continue
+                    pair = self._identifier_pair_from_target(getattr(link, "target", link))
+                    if pair is not None:
+                        pairs.add((standardize_id_name(pair[0]) or pair[0].casefold(), pair[1]))
+            by_level[level] = pairs
+        return set().union(*(
+            pairs for level, pairs in by_level.items() if level != target_level
+        )) - by_level.get(target_level, set())
 
     def _add_desired_bundle_identifiers(
         self,
@@ -1908,7 +1933,7 @@ class CatalogContainerWriter:
             if pair is None:
                 continue
             scheme, value = pair
-            key = (scheme.casefold(), value.casefold())
+            key = (scheme, value) if self._repository("entity_identifiers") is not None else (scheme.casefold(), value.casefold())
             desired.setdefault(key, (scheme, value, link))
 
     def _iter_legacy_identifier_pairs(self, metadata: Any) -> Iterable[tuple[str, str]]:
@@ -2044,15 +2069,8 @@ class CatalogContainerWriter:
             payload["entity_identifier_provenance"] = (
                 provenance or "metadata_write_back"
             )
-        try:
-            return Row.from_idless_row_dict(
-                self.db,
-                payload,
-                table="entity_identifiers",
-                read_only=True,
-            )
-        except Exception:
-            return None
+        repository = self._repository("entity_identifiers")
+        return self._get_row("entity_identifiers", repository.create(payload))
 
     def _identifier_report_row(self, row: Row) -> dict[str, Any]:
         """
@@ -2214,7 +2232,7 @@ class CatalogContainerWriter:
 
     def _get_row(self, table: str, row_id: Any) -> Row | None:
         """
-        Read a known table/id pair, returning None for absent ids or ordinary failures.
+        Read a known table/id pair through the current mutation transaction.
 
         Example:
             Exercise this contract with pytest::
@@ -2228,10 +2246,8 @@ class CatalogContainerWriter:
         """
         if row_id in (None, "") or not self._has_table(table):
             return None
-        try:
-            return self.db.get_row_from_id(table, int(row_id))
-        except Exception:
-            return None
+        values = self.db.macros.get_row(table, int(row_id))
+        return None if values is None else Row(self.db, dict(values))
 
     def _search(self, table: str, column: str, value: Any) -> list[Row]:
         """
@@ -2255,7 +2271,7 @@ class CatalogContainerWriter:
 
     def _rows_matching_text_policy(
         self,
-        spec: LegacyRelationFieldSpec,
+        spec: RelationFieldSpec,
         text: str,
     ) -> list[Row]:
         """
@@ -2496,7 +2512,7 @@ class CatalogContainerWriter:
         except (TypeError, ValueError, OverflowError):
             return None
 
-    def _term_key(self, text: Any, spec: LegacyRelationFieldSpec) -> str:
+    def _term_key(self, text: Any, spec: RelationFieldSpec) -> str:
         """
         Compute a comparison key using column normalization metadata when available.
 
@@ -2514,6 +2530,9 @@ class CatalogContainerWriter:
             legacy normalization rule.
         :return: Normalized comparison text.
         """
+        identity = self._identity_spec(spec)
+        if identity is not None:
+            return self._normalize_text(text, identity.normalization_profile)
         policy = self._get_column_metadata(spec)
         if policy is not None:
             return self._normalize_text(text, policy.normalization_profile)
@@ -2522,7 +2541,7 @@ class CatalogContainerWriter:
             return value
         return value.casefold()
 
-    def _is_case_sensitive(self, spec: LegacyRelationFieldSpec) -> bool:
+    def _is_case_sensitive(self, spec: RelationFieldSpec) -> bool:
         """
         Read or cache case sensitivity for the first available configured text column.
 
@@ -2567,7 +2586,7 @@ class CatalogContainerWriter:
 
     def _get_column_metadata(
         self,
-        spec: LegacyRelationFieldSpec,
+        spec: RelationFieldSpec,
     ) -> ColumnMetadata | None:
         """
         Cache typed metadata for the first available configured text column.
@@ -2606,9 +2625,21 @@ class CatalogContainerWriter:
         self._column_metadata[key] = metadata
         return metadata
 
+    def _identity_spec(self, spec: RelationFieldSpec) -> Any:
+        """Use the same persisted identity declaration as repository writes."""
+        getter = getattr(getattr(self.db, "driver_wrapper", None), "get_normalized_identity_spec", None)
+        if not callable(getter):
+            return None
+        for column in spec.text_columns:
+            if self._has_column(spec.table, column):
+                identity = getter(spec.table, column)
+                if identity is not None:
+                    return identity
+        return None
+
     def _comparison_value(
         self,
-        spec: LegacyRelationFieldSpec,
+        spec: RelationFieldSpec,
         text: str,
     ) -> tuple[str | None, str | None]:
         """
@@ -2627,13 +2658,16 @@ class CatalogContainerWriter:
         :param text: Term text to compare, normalize or persist.
         :return: Optional comparison-column/value pair.
         """
+        identity = self._identity_spec(spec)
+        if identity is not None:
+            return identity.identity_column, self._normalize_text(text, identity.normalization_profile)
         policy = self._get_column_metadata(spec)
         if policy is not None and policy.comparison_column:
             return (
                 policy.comparison_column,
                 self._normalize_text(text, policy.normalization_profile),
             )
-        return spec.norm_column, self._legacy_norm_value(spec, text)
+        return None, None
 
     @staticmethod
     def _normalize_text(
@@ -2657,43 +2691,11 @@ class CatalogContainerWriter:
         :return: Normalized text.
         """
         value = str(text or "")
-        if profile is ColumnNormalizationProfile.NONE:
-            return value
-        if profile is ColumnNormalizationProfile.UNICODE_NFC:
-            return unicodedata.normalize("NFC", value)
-        if profile is ColumnNormalizationProfile.UNICODE_NFC_TRIM_CASEFOLD:
-            return unicodedata.normalize("NFC", value).strip().casefold()
-        if profile is ColumnNormalizationProfile.TAG_SEARCH_TERM:
-            return str(make_tag_search_term(value))
-        if profile is ColumnNormalizationProfile.TITLE_SEARCH_TERM:
-            return str(make_title_search_term(value))
-        return value
+        return normalize_identity_text(value, profile.value)
+
 
     @staticmethod
-    def _legacy_norm_value(spec: LegacyRelationFieldSpec, text: str) -> str | None:
-        """
-        Apply a configured legacy normalization callable when present.
-
-        Example:
-            >>> spec = LegacyRelationFieldSpec('term', 'terms', 'terms', ('text',), 'id')
-            >>> CatalogContainerWriter._legacy_norm_value(spec, 'Example') is None
-            True
-
-
-        :param spec: Field specification naming the relation table, text/id columns and
-            legacy normalization rule.
-        :param text: Term text to compare, normalize or persist.
-        :return: Stringified result, or None for a missing callable or ordinary failure.
-        """
-        if spec.norm_function is None:
-            return None
-        try:
-            return str(spec.norm_function(text))
-        except Exception:
-            return None
-
-    @staticmethod
-    def _row_text(row: Row, spec: LegacyRelationFieldSpec) -> str | None:
+    def _row_text(row: Row, spec: RelationFieldSpec) -> str | None:
         """
         Return the first configured row text value that is not None or empty text.
 
@@ -2737,7 +2739,7 @@ class CatalogContainerWriter:
 
 
 __all__ = [
-    "LegacyRelationFieldSpec",
+    "RelationFieldSpec",
     "CatalogContainerWriter",
     "CatalogMetadataWriteReport",
 ]

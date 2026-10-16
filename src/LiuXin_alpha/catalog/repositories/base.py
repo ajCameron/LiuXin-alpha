@@ -10,12 +10,14 @@ punctuation-preserving comparison text, distinct from fuzzy matching normalizati
 
 from __future__ import annotations
 
-import unicodedata
 from collections.abc import Mapping, Sequence
+from contextlib import nullcontext
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from LiuXin_alpha.databases.macro_types import LINK_TYPE_UNSET, LinkRow, LinkValue
 from LiuXin_alpha.databases.schema_specs import StorageLinkSpec
+from LiuXin_alpha.databases.normalized_identities import prepare_normalized_values
+from LiuXin_alpha.metadata.text_identity import normalize_identity_text
 
 from ..api.common import (
     CatalogMutationError,
@@ -59,8 +61,7 @@ def normalise_text(value: object) -> str:
     :return: Normalized string; an all-whitespace input becomes empty.
     """
 
-    text = unicodedata.normalize("NFKC", str(value))
-    return " ".join(text.casefold().split())
+    return normalize_identity_text(str(value), "unicode_nfkc_whitespace_casefold")
 
 
 class BaseRepository:
@@ -391,8 +392,12 @@ class BaseRepository:
         :raises Exception: Input normalization and subclass semantic validation failures propagate.
         """
 
-        del existing
-        return self.normalise_input(data)
+        return prepare_normalized_values(
+            self._wrapper,
+            self.table_name,
+            self.normalise_input(data),
+            existing=existing,
+        )
 
     @staticmethod
     def _as_mapping(row: object) -> dict[str, Any]:
@@ -533,8 +538,8 @@ class BaseRepository:
         policy, and backend constraints. The result must be an integer other than bool, but no sign
         check is performed.
 
-        Insertion and transaction handling belong to portable macros. The returned-ID check occurs
-        after insertion and does not undo a write if that check fails.
+        The portable macro transaction encloses insertion and the returned-ID check,
+        so an invalid insertion result rolls back when transactions are available.
 
         Example:
             >>> work_id = catalog.works.create({"title": "Frankenstein"})  # doctest: +SKIP
@@ -552,15 +557,15 @@ class BaseRepository:
             raise CatalogMutationError(
                 f"{type(self).__name__}.create requires at least one value"
             )
-        new_id = self._macros.insert_row(
-            self.table_name,
-            payload,
-            id_column=self.id_column,
-        )
-        if not isinstance(new_id, int) or isinstance(new_id, bool):
-            raise CatalogMutationError(
-                f"database did not return an ID for new {self.table_name} row"
+        transaction = getattr(self._macros, "transaction", None)
+        with transaction() if callable(transaction) else nullcontext():
+            new_id = self._macros.insert_row(
+                self.table_name, payload, id_column=self.id_column,
             )
+            if not isinstance(new_id, int) or isinstance(new_id, bool):
+                raise CatalogMutationError(
+                    f"database did not return an ID for new {self.table_name} row"
+                )
         return new_id
 
     def update(self, entity_id: EntityId, data: RowInput) -> None:
@@ -570,8 +575,8 @@ class BaseRepository:
         Existence is checked before payload validation, including for an empty update, and the
         shallow stored row is supplied to the concrete repository's write-preparation policy.
         BaseRepository skips the macro write for no changes; otherwise it passes the prepared
-        fields to update_row. The existence check and write have no enclosing repository
-        transaction; driver behavior determines concurrency and transaction semantics.
+        fields to update_row. An available macro transaction encloses the read,
+        preparation, and write; database constraints still protect concurrent writes.
 
         Example:
             >>> catalog.works.update(work_id, {"canonical_title": "Frankenstein"})  # doctest: +SKIP
@@ -584,16 +589,20 @@ class BaseRepository:
         :raises Exception: ID/input validation, schema inspection, and update errors propagate.
         """
 
-        existing = self.require(entity_id)
-        changes = self._prepare_write(data, existing=existing)
-        if not changes:
-            return
-        self._macros.update_row(
-            self.table_name,
-            entity_id,
-            changes,
-            id_column=self.id_column,
-        )
+        self._validate_entity_id(entity_id)
+        self._update_many({entity_id: data})
+
+    def _update_many(self, updates: Mapping[EntityId, RowInput]) -> None:
+        """Prepare every partial update before the first mutation in one transaction."""
+        transaction = getattr(self._macros, "transaction", None)
+        with transaction() if callable(transaction) else nullcontext():
+            prepared = {
+                row_id: self._prepare_write(data, existing=self.require(row_id))
+                for row_id, data in updates.items()
+            }
+            for row_id, changes in prepared.items():
+                if changes:
+                    self._macros.update_row(self.table_name, row_id, changes, id_column=self.id_column)
 
     def delete(self, entity_id: EntityId) -> None:
         """
@@ -713,44 +722,12 @@ class BaseRepository:
         :raises CatalogMutationError: If no StorageLinkSpec is returned.
         :raises Exception: Validation, priority arithmetic, transaction, and upsert failures propagate.
         """
-        with self._macros.transaction():
-            self._require_table_row(primary_table, primary_id)
-            self._require_table_row(secondary_table, secondary_id)
-            spec = self._link_spec(primary_table, secondary_table)
-            if spec.ordered and priority is None:
-                rows = self._macros.get_link_rows(spec, primary_id)
-                existing = next(
-                    (
-                        row
-                        for row in rows
-                        if row.secondary_id == secondary_id
-                        and (
-                            not spec.type_part_of_identity
-                            or row.link_type == link_type
-                        )
-                    ),
-                    None,
-                )
-                if existing is not None:
-                    priority = existing.priority
-                else:
-                    assigned = tuple(
-                        row.priority
-                        for row in rows
-                        if isinstance(row.priority, (int, float))
-                        and not isinstance(row.priority, bool)
-                    )
-                    priority = int(max(assigned, default=0)) + 1
-            return self._macros.upsert_link(
-                spec,
-                primary_id,
-                LinkValue(
-                    secondary_id,
-                    link_type=link_type,
-                    priority=priority,
-                    extra=dict(extra or {}),
-                ),
-            )
+        from LiuXin_alpha.catalog.relationships import CatalogRelationships
+
+        return CatalogRelationships(self.db).link(
+            primary_table, primary_id, secondary_table, secondary_id,
+            link_type=link_type, priority=priority, extra=extra,
+        )
 
     @staticmethod
     def _link_metadata(row: LinkRow) -> dict[str, Any]:

@@ -184,6 +184,16 @@ class CatalogTableValueLinkWriter(CatalogLinkWriter[Any, Any]):
         :return: The deterministic value, row, identity or collection described above.
         """
 
+        repositories = getattr(self.catalog, "repositories", None)
+        repository = (
+            repositories.for_table(self.destination_table.name)
+            if repositories is not None else None
+        )
+        if repository is not None:
+            existing = self.find_destination(value)
+            if existing is not None:
+                return existing
+            return repository.create({self.destination_column.name: value})
         return self.catalog.db.macros.ensure_table_value(
             self.destination_table.name,
             self.destination_column.name,

@@ -5,6 +5,8 @@ Delegate identifier creation to the wired Ensure helper.
 from __future__ import unicode_literals
 
 
+from LiuXin_alpha.catalog.row_mutations import atomic_write
+
 class IdentifierAdderMixin:
     """
     Supply identifier creation to a legacy Add host.
@@ -16,6 +18,7 @@ class IdentifierAdderMixin:
         The default Ensure error policy propagates duplicate insertion errors; this is not unconditional reuse.
     """
 
+    @atomic_write
     def identifier(self, identifier, identifier_type):
         """
         Delegate identifier creation to the wired Ensure helper.

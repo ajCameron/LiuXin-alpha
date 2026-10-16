@@ -17,7 +17,6 @@ Example:
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
 from LiuXin_alpha.catalog.api.common import DatabaseHandle
@@ -49,6 +48,7 @@ from LiuXin_alpha.catalog.repositories import (
     TitleRepository,
     WorkRepository,
 )
+from LiuXin_alpha.catalog.repositories.group import CatalogRepositories
 from LiuXin_alpha.catalog.retrieval import CatalogRetrieval
 from LiuXin_alpha.catalog.write import (
     CatalogColumnUpdate,
@@ -64,113 +64,6 @@ if TYPE_CHECKING:
     from LiuXin_alpha.databases.macro_types import LinkRow
 
 
-@dataclass(slots=True)
-class CatalogRepositories:
-    """
-    Hold the nineteen repository instances composed by a Catalog.
-
-    The group stores supplied instances without validation or rebinding their dependencies. Its
-    slotted fields remain assignable. Catalog convenience properties return these same members,
-    while for_name resolves only public names from the explicit repository registry.
-
-    Example:
-        >>> repositories = catalog.repositories  # doctest: +SKIP
-        >>> repositories.works is catalog.works  # doctest: +SKIP
-        True
-
-
-    :ivar works: Repository for works representing intellectual creations.
-    :ivar expressions: Repository for expressions representing realizations of Works.
-    :ivar manifestations: Repository for manifestations representing publication embodiments.
-    :ivar items: Repository for items representing individual copies.
-    :ivar agents: Repository for agents and their contributions to WEMI entities.
-    :ivar identifiers: Repository for scheme-aware entity identifiers and their WEMI links.
-    :ivar item_identifiers: Repository for identifiers observed on individual Items.
-    :ivar titles: Repository for logical titles and their WEMI relationships.
-    :ivar notes: Repository for notes attached to WEMI entities.
-    :ivar tags: Repository for reusable Tag values.
-    :ivar labels: Repository for reusable Label values.
-    :ivar genres: Repository for genre values and their entity relationships.
-    :ivar subjects: Repository for subject values and their entity relationships.
-    :ivar series: Repository for series values and their entity relationships.
-    :ivar languages: Repository for language values and their entity relationships.
-    :ivar ratings: Repository for rating values and their entity relationships.
-    :ivar comments: Repository for comment values and their entity relationships.
-    :ivar synopses: Repository for synopsis text and its entity relationships.
-    :ivar annotations: Repository for annotations scoped to individual Items.
-    """
-
-    works: WorkRepository
-    expressions: ExpressionRepository
-    manifestations: ManifestationRepository
-    items: ItemRepository
-    agents: AgentRepository
-    identifiers: IdentifierRepository
-    item_identifiers: ItemIdentifierRepository
-    titles: TitleRepository
-    notes: NoteRepository
-    tags: TagRepository
-    labels: LabelRepository
-    genres: GenreRepository
-    subjects: SubjectRepository
-    series: SeriesRepository
-    languages: LanguageRepository
-    ratings: RatingRepository
-    comments: CommentRepository
-    synopses: SynopsisRepository
-    annotations: AnnotationRepository
-
-    def for_name(self, repository_name: str) -> Any:
-        """
-        Resolve a public singular or plural repository name within this group.
-
-        Names are stripped, case-folded, and have hyphens replaced with underscores before explicit
-        singular aliases are applied. Only names in the public repository registry are accepted;
-        arbitrary attributes cannot be selected. Resolution returns the currently stored member
-        without constructing a repository or reading schema/database state.
-
-        Example:
-            >>> catalog.repositories.for_name(" Item-Identifier ") is catalog.item_identifiers  # doctest: +SKIP
-            True
-
-
-        :param repository_name: Public singular or plural entity name, allowing surrounding whitespace and hyphens.
-        :return: The existing repository instance stored under the normalized public name.
-        :raises TypeError: If repository_name is not a string.
-        :raises KeyError: If the normalized name is absent from the public registry.
-        """
-
-        if not isinstance(repository_name, str):
-            raise TypeError("repository_name must be a string")
-        normalized = repository_name.strip().casefold().replace("-", "_")
-        aliases = {
-            "work": "works",
-            "expression": "expressions",
-            "manifestation": "manifestations",
-            "item": "items",
-            "agent": "agents",
-            "identifier": "identifiers",
-            "item_identifier": "item_identifiers",
-            "title": "titles",
-            "note": "notes",
-            "tag": "tags",
-            "label": "labels",
-            "genre": "genres",
-            "subject": "subjects",
-            "language": "languages",
-            "rating": "ratings",
-            "comment": "comments",
-            "synopsis": "synopses",
-            "annotation": "annotations",
-        }
-        normalized = aliases.get(normalized, normalized)
-        from LiuXin_alpha.catalog.api.repositories import (
-            CATALOG_REPOSITORY_NAMES,
-        )
-
-        if normalized not in CATALOG_REPOSITORY_NAMES:
-            raise KeyError(f"unknown Catalog repository: {repository_name!r}")
-        return getattr(self, normalized)
 
 
 class Catalog:
@@ -249,50 +142,11 @@ class Catalog:
         self.apply.add = self.add
         self.apply.ensure = self.ensure
 
-        self.repositories = CatalogRepositories(
-            works=WorkRepository(db),
-            expressions=ExpressionRepository(db),
-            manifestations=ManifestationRepository(db),
-            items=ItemRepository(db),
-            agents=AgentRepository(db),
-            identifiers=IdentifierRepository(db),
-            item_identifiers=ItemIdentifierRepository(db),
-            titles=TitleRepository(db),
-            notes=NoteRepository(db),
-            tags=TagRepository(db),
-            labels=LabelRepository(db),
-            genres=GenreRepository(db),
-            subjects=SubjectRepository(db),
-            series=SeriesRepository(db),
-            languages=LanguageRepository(db),
-            ratings=RatingRepository(db),
-            comments=CommentRepository(db),
-            synopses=SynopsisRepository(db),
-            annotations=AnnotationRepository(db),
-        )
-        for repository in (
-            self.repositories.works,
-            self.repositories.expressions,
-            self.repositories.manifestations,
-            self.repositories.items,
-            self.repositories.agents,
-            self.repositories.identifiers,
-            self.repositories.item_identifiers,
-            self.repositories.titles,
-            self.repositories.notes,
-            self.repositories.tags,
-            self.repositories.labels,
-            self.repositories.genres,
-            self.repositories.subjects,
-            self.repositories.series,
-            self.repositories.languages,
-            self.repositories.ratings,
-            self.repositories.comments,
-            self.repositories.synopses,
-            self.repositories.annotations,
-        ):
-            repository.bind_repositories(self.repositories)
-            repository.bind_matching_policy(matching_policy)
+        self.repositories = CatalogRepositories.from_database(db, matching_policy)
+        self.add.repositories = self.repositories
+        self.ensure.repositories = self.repositories
+        self.apply.repositories = self.repositories
+        self.intralink.repositories = self.repositories
         self.matching = CatalogMatching(
             db=db,
             repositories=self.repositories,
@@ -463,10 +317,9 @@ class Catalog:
         """
         Apply a normalized column instruction through the private writer-host seam.
 
-        The concrete facade checks the update type and delegates to update.write(db). Nonempty
-        instructions use the database bulk-column operation; empty values return without a database
-        write. The result is the update's stored value mapping, not a fresh read of database values
-        after triggers or coercion.
+        Catalog-owned tables use their repositories, including partial-value
+        validation, within one available macro transaction. Other schema tables
+        retain their database adapter. The receipt preserves the requested values.
 
         Example:
             A configured column writer calls this seam after building and validating
@@ -475,12 +328,21 @@ class Catalog:
         :param update: CatalogColumnUpdate containing table/column specifications and source-ID values.
         :return: The update's stable value mapping, returned after successful application or immediately when empty.
         :raises TypeError: If update is not a CatalogColumnUpdate in the concrete facade.
-        :raises Exception: Database write failures propagate without an extra facade transaction.
+        :raises Exception: Validation or persistence failures propagate.
         """
 
         if not isinstance(update, CatalogColumnUpdate):
             raise TypeError("update must be a CatalogColumnUpdate")
-        return update.write(self.db)
+        if not update.values:
+            return update.values
+        repository = self.repositories.for_table(update.table_spec.name)
+        if repository is None:
+            return update.write(self.db)
+        repository._update_many({
+            row_id: {update.column_spec.name: value}
+            for row_id, value in update.values.items()
+        })
+        return update.values
 
     def _apply_owned_row_update(
         self,
@@ -507,7 +369,36 @@ class Catalog:
 
         if not isinstance(update, CatalogOwnedRowUpdate):
             raise TypeError("update must be a CatalogOwnedRowUpdate")
-        return update.write(self.db.macros)
+        repository = self.repositories.for_table(update.destination_table.name)
+        if repository is None:
+            return update.write(self.db.macros)
+        if not update.values:
+            return {}
+        from LiuXin_alpha.databases.macro_types import LinkValue
+        from LiuXin_alpha.catalog.api.common import CatalogMutationError
+
+        macros = self.db.macros
+        result = {}
+        with macros.transaction():
+            for source_id, value in update.values.items():
+                current = macros.get_link_rows(update.link_spec, source_id)
+                if len(current) > 1:
+                    raise CatalogMutationError(
+                        f"one-to-one source {source_id!r} has multiple destinations"
+                    )
+                if value is None:
+                    result[source_id] = macros.replace_links(update.link_spec, source_id, ())
+                elif current:
+                    repository.update(
+                        current[0].secondary_id, {update.destination_column.name: value}
+                    )
+                    result[source_id] = tuple(current)
+                else:
+                    destination_id = repository.create({update.destination_column.name: value})
+                    result[source_id] = macros.replace_links(
+                        update.link_spec, source_id, (LinkValue(destination_id),)
+                    )
+        return result
 
     @property
     def works(self) -> WorkRepository:

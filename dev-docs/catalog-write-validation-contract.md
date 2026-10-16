@@ -45,10 +45,12 @@ The Catalog semantic-validity guarantee applies to these supported routes:
 | `catalog.create_writer`, `catalog.write`, `catalog.write_one` | Supported advanced schema-driven writes. The selected writer performs every validator declared for that route before applying its prepared update. Prefer a semantic repository or mutation when one exists. |
 | Library, Core, and application methods | Supported higher-level workflows only when they delegate ordinary metadata writes to one of the Catalog routes above. Their validation can improve feedback but cannot be the sole guard. |
 
-`catalog.add`, `catalog.ensure`, `catalog.apply`, and `catalog.intralink` remain
-supported compatibility routes for Row-oriented callers. They are deprecated for new code
-and will be routed progressively through the canonical repository
-and mutation paths without removing existing functionality.
+`catalog.add`, `catalog.ensure`, `catalog.apply`, and `catalog.intralink` retain
+their Row-shaped requests and receipts. For Catalog-owned tables they delegate
+to the same repositories and relationship owner as the other entrypoints.
+Public helper workflows participate in the portable macro transaction.
+These Row-shaped conveniences remain deprecated for new code; prefer repository
+or coordinated mutation APIs.
 
 The following are deliberately **outside** the public semantic boundary:
 
@@ -124,24 +126,43 @@ metadata. Pure implementations of metadata-semantic profiles belong below the
 Catalog in `metadata`; storage-representation checks and SQL constraints remain
 in `databases`.
 
-## Known enforcement gaps on 2026-10-11
+## Remaining enforcement limits
 
 This decision describes the required contract, not the complete current state:
 
-- `BaseRepository.create()` and `BaseRepository.update()` provide a common
-  write-preparation hook, but the base implementation validates only writable
-  column names. Semantic repositories other than curated identifiers can still
-  expose a generic-CRUD bypass until they override that hook.
+- Shared preparation validates writable columns and derives declared identity
+  keys. Curated identifiers also validate their scheme/value pair, Agent writes
+  serialize aliases, and immutable entities reject mutation. This does not
+  invent semantic validators for fields that do not yet have one.
 - Legacy single-identifier and bulk-identifier writers apply intentionally
   characterized but different validation behavior. Their codecs now have a
   metadata owner, but convergence remains an explicit compatibility migration.
-- Low-level database and macro APIs remain callable directly by compatibility
-  code.
-- Row-oriented `add`/`ensure`/`apply`/`intralink` compatibility routes are not
-  yet uniformly delegated through canonical repositories and mutations.
+- Raw database, driver, macro and SQL operations remain available for schema,
+  storage and repair work, outside the public Catalog validity guarantee.
 
-These gaps are migration work. They do not weaken the adopted contract or
-authorize removal of existing functionality while closing them.
+The separately maintained `library.legacy` single/bulk identifier contracts are
+not the current FRBR Catalog write route. They must not be used to implement
+new public Catalog mutations.
+
+## Current identity policy
+
+The current schema stores full-text identity keys for tags, labels, genres,
+subjects and series. The pure implementation in `metadata.text_identity` applies
+NFKC, case folding and whitespace collapse. It preserves punctuation and every
+word: `Sci-Fi & Fantasy` becomes `sci-fi & fantasy`, while `Sci-Fi & Horror`
+remains a different identity. Genre and subject identities retain parent scope.
+Approximate matching and title sorting remain separate policies.
+
+Repositories, Row/driver writes and portable row macros derive these keys from
+the database's `normalized_identities` declarations. Explicit derived values do
+not override the source text. Partial updates preserve omitted source values;
+clearing a source clears its key. Identity lookup uses the same declaration even
+if separate column-comparison metadata disagrees.
+
+No old-database import or old-schema profile-upgrade layer is included. Existing
+audit/repair operations remain explicit: they report collisions before changing
+data, never merge rows automatically, and repair changing keys transactionally.
+Plain reads do not repair stored values.
 
 ## Migration order
 
@@ -167,6 +188,42 @@ and observable supported behavior are preserved unless a separate, explicit
 decision authorizes a capability change.
 
 ## Implementation record
+
+### 2026-10-15 — one current-schema mutation route
+
+| Entrypoint | Shared owner |
+|---|---|
+| Repository `create` / `update` | `BaseRepository._prepare_write`, with entity-specific validation hooks |
+| Schema column writes | Repository batch preparation, completed before the first mutation |
+| Schema shared-value and owned-row writes | Repository creation/update followed by portable relationship operations |
+| Container and Core `metadata.write` | Repository CRUD and `CatalogRelationships` inside one transaction |
+| Core administration and Library row edits | Repository selected by physical table; non-Catalog tables keep their domain adapter |
+| Row-shaped `add` / `ensure` / `apply` / `intralink` | `row_mutations` request/receipt adaptation to the same owners |
+| Cache writer conveniences | Existing Catalog delegation and reconciliation |
+
+Container persistence failures now propagate to roll back the operation. They
+are no longer converted into a successful partial-write report. The report
+shape and legitimate skips remain; clients must handle a failed command as a
+failure. Column batches validate all complete partial-update pairs before
+submitting any row changes. Repository identity preparation no longer uses fuzzy
+matching keys, and container identifier reconciliation uses curated identifier
+normalization rather than generic case folding.
+
+`CatalogRepositories.from_database` supplies the shared composition and physical
+table lookup. `CatalogRelationships` supplies endpoint checks, cardinality and
+relationship persistence for repository, container and Row requests. The
+database still owns constraints and portable SQL.
+
+The Row relationship adapter preserves whole-column `highest` / `lowest`
+priorities, reading extrema through the active portable transaction. Successive
+links therefore see earlier uncommitted links. Unordered relationships ignore
+the Row adapter's legacy priority argument. Unlinking preserves surviving link
+priorities and metadata.
+
+Flattened container identifiers retain their WEMI owner when written back;
+for example, a manifestation ASIN is not copied onto its work. Unchanged
+historical identifier values can survive a round trip, while new or changed
+values pass the curated identifier validator.
 
 ### 2026-10-11 — passive metadata containers and Catalog write ownership
 

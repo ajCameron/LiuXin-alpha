@@ -3,6 +3,8 @@ Retain the legacy Tag-link mixin and its iterable dispatch behavior.
 """
 
 
+from LiuXin_alpha.catalog.row_mutations import atomic_write, link_rows
+
 from LiuXin_alpha.databases.api import RowAPI
 
 from LiuXin_alpha.databases.api import DatabaseAPI
@@ -28,6 +30,7 @@ class LabelApplyMixin:
 
     db: DatabaseAPI
 
+    @atomic_write
     def tag(self, tag: Union[RowAPI, Iterable[str]], resource: RowAPI) -> None:
         """
         Link Tag Rows or recursively process iterables using the legacy branch order.
@@ -93,7 +96,7 @@ class LabelApplyMixin:
             raise InputIntegrityError(err_str)
 
         try:
-            self.db.interlink_rows(primary_row=tag_row, secondary_row=resource)
+            link_rows(self, primary_row=tag_row, secondary_row=resource)
         # Thrown if the tag is already applied to this row
         # Todo: Need to broaden the exception types
         except DatabaseIntegrityError:

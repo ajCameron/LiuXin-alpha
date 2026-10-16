@@ -689,6 +689,27 @@ class SQLPortableMacrosMixin:
             self._macro_connection().execute(sql, tuple(values)),
         )
 
+    def get_column_extrema(self, table: str, column: str) -> tuple[Any, Any]:
+        """Aggregate a column's minimum and maximum on the current macro connection.
+
+        Validate identifiers and schema membership before executing one aggregate
+        query. SQL ignores nulls; empty/all-null columns yield (None, None). Reads
+        see earlier writes in the active transaction and do not commit it.
+
+        Example:
+            macros.get_column_extrema("works", "work_id") returns the ID bounds.
+
+        :param table: Existing table whose relation name is qualified by the driver.
+        :param column: Existing physical column using its native SQL ordering.
+        :return: The minimum and maximum, without numeric conversion.
+        """
+        (column,) = self._validate_columns(table, (column,))
+        row = self._macro_connection().execute(
+            f"SELECT MIN({_quoted(column)}) AS minimum, "
+            f"MAX({_quoted(column)}) AS maximum FROM {self._macro_table_sql(table)}"
+        ).fetchone()
+        return _row_value(row, 0, "minimum"), _row_value(row, 1, "maximum")
+
     def insert_row(
         self,
         table: str,
