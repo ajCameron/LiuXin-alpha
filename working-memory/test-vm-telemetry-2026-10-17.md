@@ -209,11 +209,11 @@ scratch and deleted-open allocations were zero. The two segments' durable
 artifacts occupy about 113 MiB. Counts cover their owned basetemp trees, not
 arbitrary paths elsewhere or physical VHD allocation.
 
-The open-handle follow-up should include collaborator ownership, not only missing
-fixture finalizers: the aggregate/API tests already use `with Database(...)`, and
-`database_contract.open_db` calls `db.close()` in `finally`. `Database.close`
-explicitly does not call `StorageManager.close` or the driver-wide close method.
-Trace which connection owns each surviving descriptor before choosing a fix.
+The open-handle follow-up required tracing ownership, not only missing fixture
+finalizers: the aggregate/API tests already use `with Database(...)`, and
+`database_contract.open_db` calls `db.close()` in `finally`. At this checkpoint,
+`Database.close` did not call `StorageManager.close` or the driver-wide close
+method. The driver connection leak is now reproduced and fixed below.
 The continuation's text-browser helper uses `LibraryServices.open` with
 maintenance disabled; that owner explicitly closes owned storage. Its sampled
 deleted-open allocation has remained zero through the first 362 resumed cases.
@@ -258,3 +258,46 @@ with that profile and the same cleanup/telemetry settings. The first attempt's
 artifacts remain under `vm-full-aggressive-20261017T182943Z`, including its
 manual-stop reason and JSON report. This was an environment correction, not a
 resource stop or VM crash.
+
+## Database connection cleanup follow-up
+
+The facade closed the wrapper lock and primary connection, but never called
+`driver.close()`. Both SQLite backends track auxiliary `get_connection()` handles
+for that method to release. Those handles remained usable after facade shutdown
+and kept unlinked database files allocated. Driver replacement had the same gap.
+This confirms a driver ownership issue without changing StorageManager ownership.
+
+`Database.close()` and replacement with a different driver now invoke the
+driver-wide cleanup after the existing primary commit/rollback/close sequence.
+Auxiliary transactions are rolled back by connection closure, not committed.
+Reinstalling the same driver keeps its primary and auxiliary connections usable.
+The `break_cycles` robustness test also now closes resources before clearing
+ownership references, honoring that method's documented precondition.
+
+Six regressions failed before the production fix across SQLite and SQLite_apsw:
+auxiliary handles still accepted SQL after close or replacement, and Linux inode
+inspection found descriptors for deleted databases after explicit shutdown. The
+new tests keep Python references alive and never force garbage collection.
+Additional transaction regressions verify primary commit, auxiliary rollback and
+rollback after an injected primary commit failure.
+
+Post-fix validation: **80 passed, two Windows-only skips** across facade lifecycle,
+connection cleanup, driver lifecycle and LibraryServices ownership tests. The
+same 14 representative aggregate, rating-helper, API and cycle-cleanup cases
+passed before and after the fix. A diagnostic plugin sampled `/proc/self/fd`
+after every test, deduplicating unlinked scratch files by device/inode and
+counting allocated blocks. Before: 14 retained files, **57,401,344 bytes
+(54.7 MiB)** at peak and session finish. After: **zero retained files/bytes at
+every test boundary and session finish**, while pytest was still alive.
+
+All runs used serial execution, fresh explicit basetemps, aggressive per-test
+cleanup, durable telemetry and JSON reports. Samplers stopped normally and all
+JSONL records were valid. Ruff lint/format checks passed for the new test module;
+the patch passed whitespace checks. Raw evidence, the descriptor probe and a
+validation summary are saved in the Windows checkout under
+`working-memory/test-results/db-connection-cleanup-20261017` (ignored by Git).
+
+The earlier 8,335-case coverage predates this fix; the complete suite was not
+repeated. Its 29 failures remain tracked separately. This focused measurement
+establishes release of these database allocations, not Windows VHD compaction or
+the cause of the unexplained host free-space changes.

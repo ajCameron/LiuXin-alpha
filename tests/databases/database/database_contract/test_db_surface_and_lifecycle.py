@@ -773,7 +773,7 @@ def test_context_manager_closes_and_propagates_exceptions(db_path: Path, driver_
 
 def test_break_cycles_then_close_is_safe(open_db):
     """
-    Call break_cycles before close and require both calls to complete without raising.
+    Clear cycles on a closed facade, then close again without raising.
 
     Example:
         Run the owning tests with pytest::
@@ -787,6 +787,9 @@ def test_break_cycles_then_close_is_safe(open_db):
     """
 
     db = open_db
+    # break_cycles deliberately discards ownership references without shutdown.
+    # Honor its documented precondition so this robustness test cannot leak.
+    db.close()
     db.break_cycles()
     db.close()
 
@@ -940,6 +943,7 @@ def test_set_driver_replaces_wrapper_and_closes_old_resources(open_db, db_metada
     old_wrapper = db.driver_wrapper
     old_conn = old_driver.conn
     old_lock = old_wrapper.lock
+    old_extra = old_driver.get_connection()
 
     assert old_conn is not None
     assert old_lock is not None
@@ -954,6 +958,11 @@ def test_set_driver_replaces_wrapper_and_closes_old_resources(open_db, db_metada
     assert getattr(old_wrapper, "lock", None) is None
     _assert_any_operation_fails(old_conn)
     _assert_any_operation_fails(old_lock)
+    try:
+        with pytest.raises(sqlite3.ProgrammingError, match="closed"):
+            old_extra.execute("SELECT 1")
+    finally:
+        old_driver.close()
 
     # New surfaces should be live.
     assert db.driver is new_driver
@@ -985,6 +994,7 @@ def test_set_driver_with_same_driver_keeps_primary_conn(open_db):
     conn = driver.conn
     old_wrapper = db.driver_wrapper
     old_lock = old_wrapper.lock
+    extra = driver.get_connection()
 
     db.set_driver(driver)
 
@@ -992,6 +1002,7 @@ def test_set_driver_with_same_driver_keeps_primary_conn(open_db):
     assert driver.conn is conn
     assert conn is not None
     assert driver.conn is not None
+    assert extra.execute("SELECT 1").fetchall() == [(1,)]
 
     # But the wrapper lock conn should have been replaced (old one closed).
     assert db.driver_wrapper is not old_wrapper

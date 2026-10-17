@@ -33,6 +33,15 @@ stayed up, but host free space still changed by several GiB without comparable
 changes in these measured trees. See [the diagnostic record](../test-vm-telemetry-2026-10-17.md)
 for the telemetry fix required to resume, failure groups and measurement limits.
 
+That run exposed auxiliary database connections surviving facade shutdown.
+`Database.close()` and driver replacement now release all driver-owned handles.
+A 14-case comparison reduced deleted-open database storage from 54.7 MiB to zero
+at every test boundary, before pytest exited; 80 lifecycle checks also passed
+with two Windows-only skips. The full-suite results above predate this fix.
+Fixtures must still close their databases explicitly, before discarding ownership
+references with `break_cycles()`. These changes release file allocations without
+forcing garbage collection; they do not compact the Windows VHD.
+
 To keep all scratch files while debugging a small selection:
 
 ```bash

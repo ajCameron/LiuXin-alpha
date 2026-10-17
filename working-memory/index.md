@@ -5,6 +5,9 @@ See [test VM telemetry](test-vm-telemetry-2026-10-17.md) for the isolated branch
 crash investigation evidence and opt-in durable test/resource logs. All collected
 cases are covered across two serial segments: 8,196 passed, 29 failed, 87 skipped,
 23 xfailed. The VM stayed up; a telemetry/mock collision was fixed before resuming.
+The connection cleanup follow-up now closes auxiliary driver handles: 80 lifecycle
+checks passed (two Windows-only skips), and a 14-test probe reduced deleted-open
+database storage from 54.7 MiB to zero at every test boundary.
 
 Current checkpoint: **Legacy review fixes and regression coverage**. See
 [legacy fixes](legacy-review-fixes-2026-10-17.md) for the six findings,
@@ -37,7 +40,8 @@ Start here for active handoff notes. This index should stay short.
 - [test-vm-telemetry-2026-10-17.md](test-vm-telemetry-2026-10-17.md)
   PR promotion, serial VM diagnostics, durable test phases and independent resource
   sampling, immediate scratch cleanup, complete serial coverage across two segments,
-  the telemetry mock-isolation fix, and remaining host-space/connection-lifetime leads.
+  telemetry mock isolation, the verified driver connection cleanup fix, and remaining
+  host-space leads.
 
 - [legacy-review-fixes-2026-10-17.md](legacy-review-fixes-2026-10-17.md)
   Non-destructive metadata refresh, Python 3 custom values, typed cache projections,
