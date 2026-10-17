@@ -14,6 +14,7 @@ from __future__ import annotations
 
 # Load shared fixture plugins (kept here so they are available to the entire suite).
 pytest_plugins = (
+    "tests.support.pytest_telemetry",
     "tests.fixtures.liuxin_alpha_data_fixtures",
     # Shared DB driver / contract fixtures.
     "tests.databases.database_driver_plugins.database_driver_contract.fixture_plugin",
