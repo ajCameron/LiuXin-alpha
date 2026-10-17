@@ -123,3 +123,138 @@ found only the shared template plus the active test's files; after exit only the
 clean, with no invalid records. Ruff lint/format and whitespace checks passed.
 This is 95 focused passing checks, not a full-suite result or a measurement of
 Windows VHD compaction. No full suite was repeated on the nearly full host.
+
+## Full run after host space was freed
+
+The run from commit `819b0a67` started 2026-10-17 at 18:41:05 UTC.
+The user restored about 9.5 GiB of host C: headroom and requested the full suite.
+The existing environment collected 8,334 cases and ran them serially with
+`tmp_path_retention_policy=none`, a fresh explicit basetemp, JSON reporting,
+durable telemetry, and `faulthandler_timeout=120`. The separate launcher stops
+below 2 GiB of host free space or below 512 MiB available RAM for five samples.
+It also samples owned scratch size and allocated bytes in deleted files still
+held open by suite processes. Earlier diagnostic scratch/history is untouched.
+
+Artifacts are in the Windows checkout under
+`working-memory/test-results/vm-full-aggressive-20261017T184105Z`, including the
+exact command/commit, launcher, resource guard samples and test/resource logs.
+The report contains **7,226 passed, 11 failed, 86 skipped and 12 xfailed** after
+65 minutes 52 seconds. It is incomplete: pytest stopped with internal-error
+status 3 at `test_directory_sync_ignores_only_open_failure`, leaving 999 cases
+untouched and that test without completed teardown. The shell runner returned 1.
+The VM remained up and neither resource guard fired.
+
+The interrupted test patches the shared `os.fsync` function to raise. Telemetry
+used that mock in its call-finish/report hooks before monkeypatch teardown, which
+turned a successful application assertion into a telemetry failure and aborted
+pytest. Commit `ea316ad5` binds telemetry's original open/fsync/close primitives
+independently of application mocks. A new subprocess regression exercises mocks
+across setup, call and teardown reporting, a newly created log, and the next test.
+All 41 telemetry and shared-surface documentation checks passed in 19.87 seconds;
+session and sampler exits were clean with no invalid telemetry records. Ruff
+lint/format and whitespace checks passed.
+
+The continuation from `ea316ad5` ran from 19:50:35 to 20:31:25 UTC, under
+`working-memory/test-results/vm-full-aggressive-resume-20261017T195035Z`.
+It collected the full suite, then deselected exactly the 7,334 node IDs with durable
+`test_finish` records. It selected 1,001 cases: 999 untouched cases, the interrupted
+test and the new regression. Both telemetry-related cases passed. The
+selection plugin, manifests, exact launcher and reports are retained alongside
+the telemetry. The report contains **970 passed, 19 failed, one skipped and 11
+xfailed**, with normal pytest failure exit status 1. Session and sampler exits
+were clean, with no invalid records, unfinished collectors, cleanup warnings or
+resource stops. Its scratch directory was empty after process exit.
+
+The checked union covers **every original collected node ID**, plus the new
+regression: **8,196 passed, 29 failed, 87 skipped and 23 xfailed** across 8,335
+unique cases. JSON-reported durations total 106 minutes 26 seconds. The earlier
+telemetry-induced failure is replaced by its successful rerun, not counted twice.
+This is coverage across two processes and commits, not a single uninterrupted
+run or a passing full suite. Seven additional collection skips cover six gated
+legacy CalibreCache modules and the missing Hypothesis dependency; the resumed
+case skip was missing tkinter. PostgreSQL and parallel full-suite behavior remain
+unverified. `full-suite-coverage.json` and `combine-coverage.py` in the first
+segment's artifact directory preserve and verify the complete node mapping.
+
+The 29 remaining failures group as follows:
+
+- Six creator/organisation sidecar writes raise `database is locked`, matching
+  the earlier diagnostic for both SQLite and APSW.
+- Two direct-insert identity-key assertions retain spaces in `tag_phash`.
+- Ten browser tag/genre cases fail searches or normalization assertions; the
+  genre wizard stores `science fiction` where the test expects `science_fiction`.
+  A common normalization cause is plausible but has not been fully isolated.
+- Three stale surface contracts reference the removed `surfaces/cli/storage.py`,
+  renderer `__getattr__`, or surface-root `__all__`. The relevant files/tests
+  already had this mismatch before telemetry (`af2cebd0`).
+- Eight image fallback cases: five import `img.py` and fail on missing PyQt5;
+  two imageops cases require an unavailable ImageMagick backend; one propagates
+  the injected CLI `RuntimeError('boom')` instead of falling back to Pillow.
+  These implementation/test files are unchanged by the telemetry branch.
+
+During the first segment, visible allocated scratch peaked at 161.8 MiB. Deleted
+files still held open by suite processes reached 327.1 MiB; the simultaneous
+combined peak was 483.2 MiB. Snapshots identify database handles retained from
+much earlier cases. After process exit, those open allocations were released;
+about 156 MiB of session templates and the interrupted test's directory remain.
+This is much smaller than the earlier 3.1 GiB accumulation, but deletion alone
+does not close database connections or compact the Windows VHD. The descriptor
+scan excludes mappings without an open descriptor and processes outside the
+runner's process group.
+
+The continuation peaked at 3.9 MiB visible scratch and 116.0 MiB deleted-open
+allocation, with a simultaneous combined peak of 119.9 MiB. The first segment's
+retained 156 MiB was still present separately. After continuation exit its owned
+scratch and deleted-open allocations were zero. The two segments' durable
+artifacts occupy about 113 MiB. Counts cover their owned basetemp trees, not
+arbitrary paths elsewhere or physical VHD allocation.
+
+The open-handle follow-up should include collaborator ownership, not only missing
+fixture finalizers: the aggregate/API tests already use `with Database(...)`, and
+`database_contract.open_db` calls `db.close()` in `finally`. `Database.close`
+explicitly does not call `StorageManager.close` or the driver-wide close method.
+Trace which connection owns each surviving descriptor before choosing a fix.
+The continuation's text-browser helper uses `LibraryServices.open` with
+maintenance disabled; that owner explicitly closes owned storage. Its sampled
+deleted-open allocation has remained zero through the first 362 resumed cases.
+This is a lead for a controlled lifecycle comparison, not proof that one change
+explains every surviving handle.
+
+Peak sampled summed process RSS was 2.21 GiB with pytest and a Python child alive
+during a squashfs case; shared pages may be counted twice. WSL available memory
+never fell below 5.32 GiB, and OOM/swap counters remained zero. The sampler exited
+cleanly despite pytest's internal error; all JSONL records were valid.
+
+At 19:19:32 UTC (20:19:32 BST), adjacent host-space samples dropped from
+10,095,546,368 to 4,179,902,464 bytes, about 5.51 GiB. Linux filesystem usage
+changed by only about 300 KiB over nearby samples. The active case was the
+test_db_19 profile smoke test; that timing is context, not evidence of causation.
+The user reported no known large Windows or other VM activity. C: subsequently
+stayed near 3.9 GiB free, with a sampled minimum of 3.86 GiB.
+
+Read-only Windows CIM snapshots found only about 811 MiB free physical RAM at
+19:21 UTC, improving to 2.2 GiB at 19:29. Windows reported an 11,152 MiB pagefile
+then and 12,182 MiB at 19:47. The later Windows/WSL free-space cross-check agreed
+exactly. There is no pagefile or physical VHD allocation baseline before the
+5.51 GiB drop, so neither mechanism is established as its cause. The snapshots
+and `host-space-drop.json` preserve the evidence. Future crash diagnostics need
+continuous host memory/pagefile/VHD measurements as well as guest telemetry.
+
+At 20:12:39 UTC (21:12:39 BST), during the continuation, adjacent C: samples
+increased by 3,823,505,408 bytes (3.56 GiB), from about 3.9 to 7.4 GiB free.
+Nearby Linux filesystem usage again showed no comparable change. A Windows
+snapshot at 20:13 reported a 12,117 MiB pagefile, only 65 MiB below the prior
+snapshot, so that difference alone does not explain the recovery. Windows and
+WSL free-space readings agreed. The continuation's
+`windows-memory-free-space-recovery.json` records the evidence. Final C: free
+space was about 7.37 GiB; neither large host-space change has been attributed.
+
+The first attempt at 18:29 UTC was deliberately interrupted after 982 cases:
+959 passed, eight skipped and 15 failed. Local HTTP/RPC tests could not create
+sockets inside the tool sandbox (`PermissionError: Operation not permitted`).
+A direct socket probe reproduced the restriction; the permitted execution
+profile allowed loopback binding. The suite was restarted from the beginning
+with that profile and the same cleanup/telemetry settings. The first attempt's
+artifacts remain under `vm-full-aggressive-20261017T182943Z`, including its
+manual-stop reason and JSON report. This was an environment correction, not a
+resource stop or VM crash.

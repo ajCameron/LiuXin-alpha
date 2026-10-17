@@ -24,6 +24,15 @@ on C:, so `/tmp`'s large reported filesystem capacity did not mean the host had
 room for further virtual-disk allocation. This is evidence of a storage problem,
 not proof of the cause of previous VM crashes.
 
+The later run with aggressive cleanup covered all collected cases across two
+serial segments: 8,196 passed, 29 failed, 87 skipped and 23 xfailed. The first
+segment's sampled visible scratch peaked at 162 MiB; including deleted files
+still held open, its combined peak was 483 MiB. The continuation peaked at
+120 MiB including open deleted files and left no scratch after exit. The VM
+stayed up, but host free space still changed by several GiB without comparable
+changes in these measured trees. See [the diagnostic record](../test-vm-telemetry-2026-10-17.md)
+for the telemetry fix required to resume, failure groups and measurement limits.
+
 To keep all scratch files while debugging a small selection:
 
 ```bash
