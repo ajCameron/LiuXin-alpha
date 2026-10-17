@@ -17,6 +17,9 @@ import shutil
 import sys
 import time
 from datetime import UTC, datetime
+from os import close as _close
+from os import fsync as _fsync
+from os import open as _open
 from pathlib import Path
 from typing import TextIO
 
@@ -32,14 +35,16 @@ def write_record(stream: TextIO, event: str, **fields: object) -> None:
     }
     stream.write(json.dumps(record, separators=(",", ":")) + "\n")
     stream.flush()
-    os.fsync(stream.fileno())
+    # Tests can patch the shared os module until fixture teardown. Keep telemetry
+    # on the original primitives so those doubles cannot break phase reporting.
+    _fsync(stream.fileno())
     if first_record and sys.platform.startswith("linux"):
         # Persist the new filename as well as its contents on Linux filesystems.
-        descriptor = os.open(Path(stream.name).parent, os.O_RDONLY | os.O_DIRECTORY)
+        descriptor = _open(Path(stream.name).parent, os.O_RDONLY | os.O_DIRECTORY)
         try:
-            os.fsync(descriptor)
+            _fsync(descriptor)
         finally:
-            os.close(descriptor)
+            _close(descriptor)
 
 
 def read_counters(path: Path, *, kilobytes: bool = False) -> dict[str, int]:

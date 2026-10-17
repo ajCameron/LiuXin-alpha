@@ -93,6 +93,52 @@ def test_skip(): pytest.skip('probe')
     assert state["collectors"] == []
 
 
+def test_os_file_doubles_do_not_interrupt_telemetry(tmp_path: Path) -> None:
+    result = run_probe(
+        tmp_path,
+        """
+import os
+from unittest.mock import Mock
+import pytest
+from scripts import test_resource_sampler as sampler
+
+@pytest.fixture
+def file_doubles(tmp_path, monkeypatch):
+    doubles = {name: Mock(side_effect=OSError('test double'))
+               for name in ('open', 'fsync', 'close')}
+    for name, double in doubles.items():
+        monkeypatch.setattr(os, name, double)
+    yield doubles
+    for double in doubles.values():
+        double.assert_not_called()
+
+def test_mocked_file_operations(file_doubles, tmp_path):
+    # Also exercise syncing a new log's directory while the doubles are active.
+    with (tmp_path / 'extra.jsonl').open('w') as stream:
+        sampler.write_record(stream, 'probe')
+
+def test_next_case(): pass
+""",
+        "--telemetry-dir=logs",
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    logs = tmp_path / "logs"
+    events = records(next(logs.glob("events-*.jsonl")))
+    assert [
+        event["outcome"] for event in events if event["event"] == "test_report"
+    ] == ["passed"] * 6
+    state = sampler.summarize(logs)
+    session = state["sessions"][0]
+    assert session["session_finished"] is True
+    assert session["exitstatus"] == 0
+    assert session["active_test"] is None
+    assert session["invalid_records"] == 0
+    if sys.platform == "linux":
+        assert session["last_event"]["event"] == "sampler_exit"
+        assert session["last_event"]["returncode"] == 0
+        assert state["resources"][0]["invalid_records"] == 0
+
+
 @pytest.mark.parametrize("phase", ["setup", "call", "teardown", "collection"])
 @pytest.mark.skipif(sys.platform != "linux", reason="SIGKILL/procfs diagnostic")
 def test_sigkill_leaves_last_active_test_or_collector(
