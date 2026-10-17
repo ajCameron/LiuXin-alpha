@@ -13,7 +13,7 @@ Example:
 from collections import defaultdict
 from copy import deepcopy
 
-from typing import TypeVar, Optional, Type, Iterable
+from typing import TypeVar, Optional, Iterable
 
 try:
     from typing_extensions import Self
@@ -114,36 +114,61 @@ class CalibreManyToManyTable(CalibreManyToOneTable, BaseManyToManyTable[T]):
         self.seen_books: set[T] = set()
         self.known_link_types: set[str] = set()
 
+    def get_subtable(
+        self, db=None, type_filter: str | None = None
+    ) -> "CalibreManyToManyTable":
+        """Return an untyped snapshot of one role, retaining priority order."""
+        if self.priority:
+            from .priority_many_to_many_table import CalibrePriorityManyToManyTable
+
+            target = CalibrePriorityManyToManyTable
+        else:
+            target = CalibreManyToManyTable
+        return target.from_typed_table(db=db, original_table=self, type_filter=type_filter)
+
     @classmethod
-    def from_typed_table(cls, db, original_table: Type[Self], type_filter: str) -> None:
+    def from_typed_table(
+        cls, db=None, original_table=None, type_filter: str | None = None
+    ) -> Self:
+        """Snapshot one link type without requiring database access.
+
+        Retain known-but-unlinked identities, both relationship directions and
+        the target table's ordering policy. The optional database keeps explicit
+        callers able to resolve link bindings when their source is not initialized.
         """
-        Build a ManyToManyTable from existing maps.
-
-        Example:
-            Exercise CalibreManyToManyTable.from typed table through a consuming regression::
-
-                python -m pytest -q tests/library/test_unified_library.py
-
-
-        :param db: Value supplied for db under the utility contract.
-        :param original_table: Value supplied for original table under the utility contract.
-        :param type_filter: Value supplied for type filter under the utility contract.
-        :return: None; the operation mutates state, writes output or performs cleanup in
-            place.
-        """
-        assert original_table.typed
-
+        if original_table is None or not original_table.typed:
+            raise ValueError("A typed source table is required")
         sub_table = cls(
             name=original_table.name,
             metadata=original_table.metadata,
             link_table=original_table.link_table,
+            custom=original_table.custom,
         )
-        sub_table.is_subtable = True
-        sub_table.set_link_table(db=db)
-
-        sub_table.id_map = original_table.id_map
-        sub_table.book_col_map = original_table.book_col_map[type_filter]
-        sub_table.col_book_map = original_table.col_book_map[type_filter]
+        sub_table._copy_subtable_metadata(original_table)
+        sub_table.subtable_type_filter = type_filter
+        if db is not None:
+            sub_table.set_link_table(db=db)
+        container = list if sub_table.priority else set
+        sub_table.book_col_map.update(
+            {
+                book_id: container(item_ids)
+                for book_id, item_ids in original_table.book_col_map.get(
+                    type_filter, {}
+                ).items()
+            }
+        )
+        sub_table.col_book_map.update(
+            {
+                item_id: container(book_ids)
+                for item_id, book_ids in original_table.col_book_map.get(
+                    type_filter, {}
+                ).items()
+            }
+        )
+        sub_table.seen_books = {
+            book_id for book_id, values in sub_table.book_col_map.items() if values
+        }
+        return sub_table
 
     @staticmethod
     def _book_col_map_factory() -> dict[SrcTableID, set[DstTableID]]:

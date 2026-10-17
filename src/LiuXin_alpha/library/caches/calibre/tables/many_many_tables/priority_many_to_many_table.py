@@ -14,7 +14,7 @@ Example:
 from collections import defaultdict
 from copy import deepcopy
 
-from typing import TypeVar, Optional, Type, Any
+from typing import TypeVar, Optional, Any
 try:
     from typing_extensions import Self
 except ImportError:
@@ -94,66 +94,22 @@ class CalibrePriorityManyToManyTable(CalibreManyToManyTable[T]):
         self.known_book_ids: set[SrcTableID] = set()
 
     @classmethod
-    def from_typed_table(cls, db, original_table: CalibreManyToManyTable, type_filter: str) -> None:
-        """
-        Class method which _will refuse to_ produce one of these tables from a typed table.
-
-        Example:
-            Exercise CalibrePriorityManyToManyTable.from typed table through a consuming regression::
-
-                python -m pytest -q tests/library/test_unified_library.py
-
-
-        :param db: Value supplied for db under the utility contract.
-        :param original_table: Value supplied for original table under the utility contract.
-        :param type_filter: Value supplied for type filter under the utility contract.
-        :return: None; the operation mutates state, writes output or performs cleanup in
-            place.
-        """
-        raise NotImplementedError("Cannot generate a typed table from a priority one")
-
-    @classmethod
-    def from_typed_priority_table(cls, db, original_table: CalibreManyToManyTable, type_filter: str) -> Type[Self]:
-        """
-        Construct a PriorityManyToManyTable from a PriorityTypedManyToManyTable by filtering out one of the types.
-
-        Example:
-            Exercise CalibrePriorityManyToManyTable.from typed priority table through a consuming regression::
-
-                python -m pytest -q tests/library/test_unified_library.py
-
-
-        :param db: Value supplied for db under the utility contract.
-        :param original_table: Value supplied for original table under the utility contract.
-        :param type_filter: Value supplied for type filter under the utility contract.
-        :return: The normalized value, metadata record, path, stream result or collection
-            described above.
-        """
-        # assert isinstance(
-        #     original_table, CalibrePriorityTypedManyToManyTable
-        # ), "only PriorityTypedManyToManyTables are supported by this method"
-        assert original_table.typed and original_table.priority
-
-        # Preform startup on the new subtable
-        sub_table = cls(
-            name=original_table.name,
-            metadata=original_table.metadata,
-            link_table=original_table.link_table,
+    def from_typed_table(cls, db=None, original_table=None, type_filter: str | None = None):
+        """Project one typed relation while preserving its ordered collections."""
+        if original_table is None or not original_table.priority:
+            raise ValueError("A priority typed source table is required")
+        return super().from_typed_table(
+            db=db, original_table=original_table, type_filter=type_filter
         )
 
-        # Set properties for the new subtable
-        sub_table.is_subtable = True
-        sub_table.subtable_type_filter = type_filter
-
-        sub_table.set_link_table(db=db)
-
-        sub_table.id_map = original_table.id_map
-        sub_table.book_col_map = original_table.book_col_map[type_filter]
-        sub_table.col_book_map = original_table.col_book_map[type_filter]
-
-        sub_table.seen_books = original_table.seen_books
-
-        return sub_table
+    @classmethod
+    def from_typed_priority_table(
+        cls, db, original_table: CalibreManyToManyTable, type_filter: str
+    ) -> Self:
+        """Compatibility spelling for the ordered single-role projection."""
+        return cls.from_typed_table(
+            db=db, original_table=original_table, type_filter=type_filter
+        )
 
     def _book_col_map_factory(self) -> dict[SrcTableID, list[DstTableID]]:
         """

@@ -1,9 +1,10 @@
 # Working Memory Index
 
-Current checkpoint: **Unreachable-code review fixes**, with the earlier Catalog
-PostgreSQL signoff still pending. See
-[review fixes](unreachable-code-review-2026-10-16.md) for removed code, retained
-compatibility entrypoints and validation.
+Current checkpoint: **Legacy review fixes and regression coverage**. See
+[legacy fixes](legacy-review-fixes-2026-10-17.md) for the six findings,
+retired Library facades, migrated callers and validation. The earlier
+[unreachable-code review](unreachable-code-review-2026-10-16.md) records the
+preceding dispatch fixes and dead-source cleanup.
 
 Previous checkpoint: **Catalog audit checkpoint for moving off unstable WSL**.
 Branch `catalog-write-consolidation` includes the earlier green commits and the
@@ -21,11 +22,15 @@ The documentation inventory campaign completed on 2026-10-05: 1,372 units,
 Its [final checkpoint](project-docstrings-l001-l037-2026-10-05.md) retains the
 historical verification and review-hash observations.
 
-Updated: 2026-10-16
+Updated: 2026-10-17
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [legacy-review-fixes-2026-10-17.md](legacy-review-fixes-2026-10-17.md)
+  Non-destructive metadata refresh, Python 3 custom values, typed cache projections,
+  retired Library facades, fixture migration and regression evidence.
 
 - [unreachable-code-review-2026-10-16.md](unreachable-code-review-2026-10-16.md)
   Tag/custom-column dispatch fixes, dead-source cleanup, reachability disposition

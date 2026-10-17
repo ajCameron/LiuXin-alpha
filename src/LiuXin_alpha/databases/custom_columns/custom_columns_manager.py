@@ -148,7 +148,7 @@ class CustomColumnsManager:
         """
         Refresh definition maps on cached facades or one explicitly requested facade.
 
-        The all-cached path does not discover newly added attachment tables. Refresh inherits the facade’s immediate malformed-definition deletion and accumulated removal/trigger lists; it does not recreate FieldMetadata registrations or install queued triggers. Errors stop the pass after earlier refreshes.
+        The all-cached path does not discover newly added attachment tables. Refresh validates each facade’s definitions without deleting malformed records; it does not recreate FieldMetadata registrations or install queued triggers. Errors stop the pass after earlier refreshes.
 
         Example:
             After updating definitions, manager.refresh(table="works") refreshes that facade, creating it first if absent.

@@ -20,7 +20,6 @@ from LiuXin_alpha.metadata.utils import authors_to_string
 from LiuXin_alpha.preferences import preferences
 from LiuXin_alpha.utils.libraries.liuxin_six import string_types, dict_iteritems as iteritems
 
-from LiuXin_alpha.constants import preferred_encoding
 from LiuXin_alpha.databases.constants import CUSTOM_DATA_TYPES
 
 from LiuXin_alpha.utils.language_tools import plural_singular_mapper
@@ -117,36 +116,18 @@ class CacheError(Exception):
 
 
 def cleanup_tags(tags: Iterable[Union[str, bytes]]) -> list[str]:
-    """
-    Attempt legacy tag cleanup through a currently incompatible text/bytes path.
+    """Normalize legacy tag inputs through the shared metadata policy.
 
-    First strip tags and replace commas with semicolons. The imported isbytestring helper classifies str as well as bytes, so a surviving str is then sent to .decode and raises AttributeError. Nonempty bytes fail even earlier because replace receives string arguments. The later whitespace-collapse and lowercase-deduplication steps describe intended processing but are not reached for normal nonblank inputs. A single str is iterated character by character.
+    Decode byte values before replacing commas and collapsing whitespace. Keep
+    the first spelling and order when removing case-insensitive duplicates.
 
     Example:
-        >>> cleanup_tags([" ", ""])
-        []
-        >>> cleanup_tags(["Travel"])  # doctest: +IGNORE_EXCEPTION_DETAIL
-        Traceback (most recent call last):
-        ...
-        AttributeError: 'str' object has no attribute 'decode'
-
-
-    :param tags: Iterable of individual tags, not one CSV string; ordinary nonblank str and bytes values currently raise.
-    :return: An empty list for empty/all-blank input; nonblank ordinary text does not reach the intended deduplicated result.
-    :raises AttributeError: A nonblank string is classified as a byte string and sent to .decode.
-    :raises TypeError: A nonempty bytes entry reaches replace with string arguments.
+        >>> cleanup_tags([" Travel ", b"travel", "Space  Opera"])
+        ['Travel', 'Space Opera']
     """
-    from LiuXin_alpha.utils.text import isbytestring
+    from LiuXin_alpha.metadata.standardization import cleanup_tags as normalize_tags
 
-    tags = [x.strip().replace(",", ";") for x in tags if x.strip()]
-    tags = [x.decode(preferred_encoding, "replace") if isbytestring(x) else x for x in tags]
-    tags = [" ".join(x.split()) for x in tags]
-    ans, seen = [], set([])
-    for tag in tags:
-        if tag.lower() not in seen:
-            seen.add(tag.lower())
-            ans.append(tag)
-    return ans
+    return normalize_tags(tags)
 
 
 def _get_next_series_num_for_list(

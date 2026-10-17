@@ -8,7 +8,6 @@
     {"kind": "import-time", "source": "LiuXin_alpha.databases.runtime", "target": "LiuXin_alpha.storage.api"},
     {"kind": "import-time", "source": "LiuXin_alpha.databases.runtime", "target": "LiuXin_alpha.storage.durable_manager"},
     {"kind": "import-time", "source": "LiuXin_alpha.library.caches.calibre.cache", "target": "LiuXin_alpha.surfaces.categories"},
-    {"kind": "import-time", "source": "LiuXin_alpha.library.legacy", "target": "LiuXin_alpha.surfaces.categories"},
     {"kind": "import-time", "source": "LiuXin_alpha.metadata.book.base", "target": "LiuXin_alpha.catalog.field_metadata"},
     {"kind": "deferred", "source": "LiuXin_alpha.metadata.book.base", "target": "LiuXin_alpha.surfaces.renderers.calibre_metadata"},
     {"kind": "import-time", "source": "LiuXin_alpha.metadata.book.json_codec", "target": "LiuXin_alpha.catalog.field_metadata"},

@@ -22,7 +22,6 @@ import pprint
 import traceback
 import random
 import re
-import shutil
 import operator
 from io import BytesIO
 from functools import partial
@@ -5008,63 +5007,5 @@ def loc_from_formats_field(formats_field, book_id, fmt):
         return loc
     except:
         raise NoSuchFormat("Record %d has no fmt: %s" % (book_id, fmt))
-
-
-# Todo: This needs to actually be written and tested for a calibre library
-def import_library(library_key, importer, library_path, progress=None, abort=None):
-    """
-    Perform the import library operation under explicit file-format and conversion rules.
-
-    Example:
-        Exercise import library through a consuming regression::
-
-            python -m pytest -q tests/library/test_unified_library.py
-
-
-    :param library_key: Value supplied for library key under the utility contract.
-    :param importer: Value supplied for importer under the utility contract.
-    :param library_path: Value supplied for library path under the utility contract.
-    :param progress: Value supplied for progress under the utility contract.
-    :param abort: Value supplied for abort under the utility contract.
-    :return: The normalized value, metadata record, path, stream result or collection
-        described above.
-    """
-    from LiuXin_alpha.library.backend import DB
-
-    metadata = importer.metadata[library_key]
-    total = metadata["total"]
-    if progress is not None:
-        progress("metadata.db", 0, total)
-    if abort is not None and abort.is_set():
-        return
-    with open(os.path.join(library_path, "metadata.db"), "wb") as f:
-        src = importer.start_file(metadata["metadata.db"], "metadata.db for " + library_path)
-        shutil.copyfileobj(src, f)
-        src.close()
-    cache = CalibreCache(DB(library_path, load_user_formatter_functions=False))
-    cache.init()
-    format_data = {int(book_id): data for book_id, data in metadata["format_data"].iteritems()}
-    for i, (book_id, fmt_key_map) in enumerate(format_data.iteritems()):
-        if abort is not None and abort.is_set():
-            return
-        title = cache._field_for("title", book_id)
-        if progress is not None:
-            progress(title, i + 1, total)
-        cache._update_path((book_id,), mark_as_dirtied=False)
-        for fmt, fmtkey in fmt_key_map.iteritems():
-            if fmt == ".cover":
-                stream = importer.start_file(fmtkey, _("Cover for %s") % title)
-                path = cache._field_for("path", book_id).replace("/", os.sep)
-                cache.backend.set_cover(book_id, path, stream, no_processing=True)
-            else:
-                stream = importer.start_file(fmtkey, _("{0} format for {1}").format(fmt.upper(), title))
-                size, fname = cache._do_add_format(book_id, fmt, stream, mtime=stream.mtime)
-                cache.fields["formats"].table.update_fmt(book_id, fmt, fname, size, cache.backend)
-            stream.close()
-        cache.dump_metadata({book_id})
-    if progress is not None:
-        progress(_("Completed"), total, total)
-    return cache
-
 
 # }}}

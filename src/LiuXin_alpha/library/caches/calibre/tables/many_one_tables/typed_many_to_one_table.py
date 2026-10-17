@@ -64,22 +64,6 @@ class CalibreTypedManyToOneTable(CalibreManyToOneTable[T]):
 
         self.book_type_map: dict[SrcTableID, Optional[str]] = dict()
 
-    def get_subtable(self, type_filter: str) -> CalibreManyToOneTable:
-        """
-        Returns a sub-table of the current table with data restricted to a specific type filter.
-
-        Example:
-            Exercise CalibreTypedManyToOneTable.get subtable through a consuming regression::
-
-                python -m pytest -q tests/library/test_unified_library.py
-
-
-        :param type_filter: Value supplied for type filter under the utility contract.
-        :return: The normalized value, metadata record, path, stream result or collection
-            described above.
-        """
-        return CalibreManyToOneTable.from_typed_table(original_table=self, type_filter=type_filter)
-
     @staticmethod
     def _type_container() -> dict[str, set[SrcTableID]]:
         """

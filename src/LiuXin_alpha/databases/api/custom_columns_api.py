@@ -109,9 +109,9 @@ class CustomColumnsAPI(Protocol):
         """
 
     @staticmethod
-    def cleanup_tags(tags_list: list[str]) -> list[str]:
+    def cleanup_tags(tags_list: Iterable[str | bytes]) -> list[str]:
         """
-        Normalize tag strings using the host custom-column cleanup policy.
+        Normalize text or byte tags using the host custom-column cleanup policy.
 
         The current host delegates to the shared database utility; the protocol itself does not perform normalization.
 
@@ -119,7 +119,7 @@ class CustomColumnsAPI(Protocol):
             Pass proposed values through ``host.cleanup_tags([" first ", "second"])`` before using them in a bulk tag update.
 
 
-        :param tags_list: Tag strings to clean before a multiple-text write.
+        :param tags_list: Iterable of text or byte tags to clean before a multiple-text write.
         :return: Cleaned list of tag strings.
         """
 

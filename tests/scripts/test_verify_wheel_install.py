@@ -245,6 +245,8 @@ def test_wheel_inspection_rejects_obsolete_source_artifacts(
         "LiuXin_alpha/library/caches/numpy/tables.py",
         "LiuXin_alpha/library/backup.py",
         "LiuXin_alpha/library/restore.py",
+        "LiuXin_alpha/library/legacy.py",
+        "LiuXin_alpha/library/backend.py",
     ],
 )
 def test_wheel_inspection_rejects_retired_library_modules(

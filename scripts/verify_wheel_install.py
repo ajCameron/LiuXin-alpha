@@ -66,6 +66,8 @@ EXCLUDED_PACKAGE_PREFIXES = (
     "LiuXin_alpha/library/caches/numpy/",
     "LiuXin_alpha/library/backup.py",
     "LiuXin_alpha/library/restore.py",
+    "LiuXin_alpha/library/legacy.py",
+    "LiuXin_alpha/library/backend.py",
     "LiuXin_alpha/working-memory/",
     "LiuXin_alpha/file_formats/lrf/html/demo/",
     "LiuXin_alpha/file_formats/oeb/display/test-cfi/",
