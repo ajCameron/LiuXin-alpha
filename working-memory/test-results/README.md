@@ -9,6 +9,13 @@ session template cache remains reusable within that run. At most two recent
 retained pytest sessions are kept (`tmp_path_retention_count=2`). This applies to
 direct pytest commands and all suite runners, without enabling telemetry.
 
+Python's default `tempfile` directory and child-process `TMPDIR`/`TEMP`/`TMP`
+environment variables also point inside each test's scratch directory. This
+contains legacy helpers that allocate temporary files without an explicit
+destination. Explicit destinations remain the caller's responsibility; reusable
+session fixtures should use `tmp_path_factory` rather than a test's default temp
+directory.
+
 The 2026-10-17 serial diagnostic accumulated about 3.1 GiB of temporary files in
 the first 1,727 tests; nearly all of it was fixture databases. The host C: drive
 then fell below 1 GiB free, triggering a controlled stop. Test-process memory
@@ -38,6 +45,34 @@ from the interrupted run occupied only about 15 MiB; their retention is separate
 from pytest scratch storage. For a genuinely larger temporary volume, create a
 directory there and set `PYTEST_DEBUG_TEMPROOT` to it before running pytest.
 Check host free space as well as the Linux filesystem before another large run.
+
+### Aggressive cleanup during the run
+
+For runs where reports and telemetry are sufficient evidence, select `none`:
+
+```bash
+.venv/bin/python -m pytest -n 0 tests/path/to/test_file.py \
+  -o tmp_path_retention_policy=none \
+  --telemetry-dir=working-memory/test-results/low-space-probe-001
+```
+
+The project scratch plugin removes each completed test's directory after all
+fixture finalizers, before the next case. This includes setup, call and teardown
+failures: **failed tests' scratch files are discarded in this mode**. Logs and
+reports saved outside per-test directories survive. Native pytest alone defers
+`none` cleanup to session-history pruning; the plugin makes it happen during the
+run. The full-suite runners accept the same `-o` option after `--`.
+
+The per-test hook is confined to the current test's directory under its worker's
+pytest base. It does not sweep other runs or shared templates, follow directory
+symlinks, or delete explicitly allocated files elsewhere. Separately, native
+pytest session-history cleanup keeps zero sessions under `none`; use a dedicated
+`PYTEST_DEBUG_TEMPROOT` if older diagnostic sessions must remain untouched.
+Removal failures produce a pytest warning, so open handles or permission errors
+are visible. An abrupt process exit
+can bypass cleanup, and deleting a file cannot release storage still held by an
+open handle. This limits accumulation between cases; it cannot prevent one active
+test from filling the disk. Start with host disk headroom and a small worker count.
 
 ## Recording test activity and resource use
 

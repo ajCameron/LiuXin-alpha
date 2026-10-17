@@ -90,3 +90,36 @@ bootstrap preferences cleanup, durable logs, and leaving cwd before deletion.
 Ruff lint/format checks for the new regression module and whitespace checks pass.
 Host C: still had only about 519 MiB free, so another full run awaits more host
 space; the earlier six database-lock failures remain unresolved.
+
+## Aggressive cleanup during active runs
+
+A follow-up audit found two remaining gaps: ordinary Python/child-process temp
+allocations escaped per-test ownership, and pytest's native `none` policy only
+pruned directories at session cleanup. The shared `pytest_scratch` plugin now
+redirects `tempfile.tempdir` plus `TMPDIR`/`TEMP`/`TMP` into each test's directory.
+This also contains the legacy `_EphemeralScratchFolderManager` fallback. Explicit
+destinations and session caches retain their existing ownership.
+
+With `-o tmp_path_retention_policy=none`, a teardown wrapper removes only the
+current test's directory after fixture finalizers, even for setup/call/teardown
+failures. Registration is limited to descendants of the worker's pytest base;
+symlink targets and unrelated paths are not swept. Removal failures emit warnings.
+The default `failed` policy still preserves failed-call data; `all` retains scratch
+for debugging. The guide makes the aggressive mode's loss of failed-test scratch
+explicit. Logs outside per-test directories survive all policies.
+
+Eleven subprocess regressions passed in 52.05 seconds, including real database
+copies in serial and two-worker runs, deletion before the next case, all three
+retention policies, standard/legacy/child-process temp allocations, explicit
+destination and symlink-target preservation, fixture-error cleanup after
+finalizers, and durable failure telemetry.
+
+A further 84 existing tests passed in 98.91 seconds under `none`: telemetry,
+database row round trips, temporary-directory database initialization, pure SQLite
+driver behavior, legacy object helpers, and storage error messages. This run used
+`-n 0`, a fresh explicit basetemp, telemetry and a JSON report. A mid-run spot check
+found only the shared template plus the active test's files; after exit only the
+4,108,288-byte shared database template remained. Session and sampler exits were
+clean, with no invalid records. Ruff lint/format and whitespace checks passed.
+This is 95 focused passing checks, not a full-suite result or a measurement of
+Windows VHD compaction. No full suite was repeated on the nearly full host.

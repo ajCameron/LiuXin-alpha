@@ -34,7 +34,7 @@ Start here for active handoff notes. This index should stay short.
 
 - [test-vm-telemetry-2026-10-17.md](test-vm-telemetry-2026-10-17.md)
   PR promotion, serial VM diagnostics, durable test phases and independent resource
-  sampling, with abrupt-exit regression coverage.
+  sampling, with abrupt-exit coverage and immediate scratch cleanup options.
 
 - [legacy-review-fixes-2026-10-17.md](legacy-review-fixes-2026-10-17.md)
   Non-destructive metadata refresh, Python 3 custom values, typed cache projections,
