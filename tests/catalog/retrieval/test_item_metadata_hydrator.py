@@ -478,6 +478,14 @@ class FakeMacros:
         row = self.db.get_row_from_id(table, row_id)
         return None if row is None else dict(row.row_dict)
 
+    def get_column_extrema(self, table, column):
+        rows = [row.row_dict for row in self.db.rows_by_table.get(table, [])]
+        for (primary, _, secondary), links in self.db.interlinks.items():
+            if self.db.driver_wrapper.get_link_table_name(primary, secondary) == table:
+                rows.extend(links)
+        values = [row[column] for row in rows if row.get(column) is not None]
+        return min(values, default=None), max(values, default=None)
+
     def insert_row(self, table, values, *, id_column=None):
         return self.db.driver_wrapper.add_row(values)
 

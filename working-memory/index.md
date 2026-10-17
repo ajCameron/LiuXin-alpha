@@ -1,6 +1,11 @@
 # Working Memory Index
 
-Current checkpoint: **Catalog audit checkpoint for moving off unstable WSL**.
+Current checkpoint: **Unreachable-code review fixes**, with the earlier Catalog
+PostgreSQL signoff still pending. See
+[review fixes](unreachable-code-review-2026-10-16.md) for removed code, retained
+compatibility entrypoints and validation.
+
+Previous checkpoint: **Catalog audit checkpoint for moving off unstable WSL**.
 Branch `catalog-write-consolidation` includes the earlier green commits and the
 latest audit fixes. The final PostgreSQL fixes are not live-verified; this is a
 draft-PR handoff, not completion signoff. See the latest relocation checkpoint in
@@ -21,6 +26,10 @@ Updated: 2026-10-16
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [unreachable-code-review-2026-10-16.md](unreachable-code-review-2026-10-16.md)
+  Tag/custom-column dispatch fixes, dead-source cleanup, reachability disposition
+  and isolated validation.
 
 - [catalog-write-consolidation-2026-10-15.md](catalog-write-consolidation-2026-10-15.md)
   Active consolidation of identity preparation, semantic row routing, container

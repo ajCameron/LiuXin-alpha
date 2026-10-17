@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -45,11 +46,7 @@ REQUIRED_MODULE_ASSETS = (
     PACKAGE_ROOT / "catalog" / "py.typed",
     PACKAGE_ROOT / "startup_scripts" / "LX_folders",
     PACKAGE_ROOT / "startup_scripts" / "lx_folders.json",
-    PACKAGE_ROOT
-    / "utils"
-    / "libraries"
-    / "iso639"
-    / "ISO-639-2_utf-8.txt",
+    PACKAGE_ROOT / "utils" / "libraries" / "iso639" / "ISO-639-2_utf-8.txt",
     PACKAGE_ROOT
     / "utils"
     / "libraries"
@@ -64,6 +61,11 @@ REQUIRED_SCHEMA_SPECS = (
 )
 EXCLUDED_PACKAGE_PREFIXES = (
     "LiuXin_tests/",
+    "LiuXin_alpha/library/api/",
+    "LiuXin_alpha/library/caches/memory_sqlite/",
+    "LiuXin_alpha/library/caches/numpy/",
+    "LiuXin_alpha/library/backup.py",
+    "LiuXin_alpha/library/restore.py",
     "LiuXin_alpha/working-memory/",
     "LiuXin_alpha/file_formats/lrf/html/demo/",
     "LiuXin_alpha/file_formats/oeb/display/test-cfi/",
@@ -137,8 +139,7 @@ def expected_runtime_assets(repo_root: Path = REPO_ROOT) -> frozenset[str]:
     schema_package = SCHEMA_PACKAGE
     expected = {path.as_posix() for path in REQUIRED_MODULE_ASSETS}
     expected.update(
-        (schema_package / filename).as_posix()
-        for filename in REQUIRED_SCHEMA_SPECS
+        (schema_package / filename).as_posix() for filename in REQUIRED_SCHEMA_SPECS
     )
     for folder in ("aggregate_sql", "table_sql", "trigger_sql"):
         for source_path in sorted((schema_source / folder).rglob("*.sql")):
@@ -156,10 +157,7 @@ def expected_runtime_assets(repo_root: Path = REPO_ROOT) -> frozenset[str]:
         )
     resource_source = repo_root / CALIBRE_RESOURCE_SOURCE.relative_to(REPO_ROOT)
     expected.update(
-        (
-            CALIBRE_RESOURCE_PACKAGE
-            / source_path.relative_to(resource_source)
-        ).as_posix()
+        (CALIBRE_RESOURCE_PACKAGE / source_path.relative_to(resource_source)).as_posix()
         for source_path in sorted(resource_source.rglob("*"))
         if source_path.is_file()
     )
@@ -189,14 +187,24 @@ def inspect_wheel(wheel: Path, repo_root: Path = REPO_ROOT) -> dict[str, object]
         raise WheelVerificationError(f"Cannot read wheel {wheel}: {exc}") from exc
 
     unwanted = sorted(
-        name
-        for name in names
-        if name.startswith(EXCLUDED_PACKAGE_PREFIXES)
+        name for name in names if name.startswith(EXCLUDED_PACKAGE_PREFIXES)
     )
     if unwanted:
         raise WheelVerificationError(
-            "Development-only test or demo modules leaked into the wheel: "
+            "Excluded test, demo or retired modules leaked into the wheel: "
             + ", ".join(unwanted[:5])
+        )
+
+    obsolete_sources = sorted(
+        name
+        for name in names
+        if name == "LiuXin_alpha/utils/plugins/linux/images_rc.py"
+        or re.search(r" \(\d+\)\.py$", name)
+    )
+    if obsolete_sources:
+        raise WheelVerificationError(
+            "Unused source artifacts leaked into the wheel: "
+            + ", ".join(obsolete_sources)
         )
 
     missing = sorted(expected_runtime_assets(repo_root) - names)
@@ -220,8 +228,7 @@ def inspect_wheel(wheel: Path, repo_root: Path = REPO_ROOT) -> dict[str, object]
         "python_files": python_files,
         "runtime_assets": len(expected_runtime_assets(repo_root)),
         "calibre_resource_assets": sum(
-            name.startswith(CALIBRE_RESOURCE_PACKAGE.as_posix() + "/")
-            for name in names
+            name.startswith(CALIBRE_RESOURCE_PACKAGE.as_posix() + "/") for name in names
         ),
     }
 
@@ -327,9 +334,13 @@ def _run_installed_runtime(wheel: Path) -> dict[str, object]:
                 ) from exc
 
         if results[0].get("database_created") is not True:
-            raise WheelVerificationError("First installed init did not create a catalogue")
+            raise WheelVerificationError(
+                "First installed init did not create a catalogue"
+            )
         if results[1].get("database_created") is not False:
-            raise WheelVerificationError("Second installed init did not reopen the catalogue")
+            raise WheelVerificationError(
+                "Second installed init did not reopen the catalogue"
+            )
         database = system_root / "catalogue.sqlite"
         if not database.is_file():
             raise WheelVerificationError(f"Installed init did not create {database}")

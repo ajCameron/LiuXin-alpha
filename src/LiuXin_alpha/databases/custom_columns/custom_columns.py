@@ -2,7 +2,7 @@
 """
 Compose the legacy custom-column facade, metadata loading and cache hooks.
 
-Constructing CustomColumns can delete marked/broken definitions, install temporary triggers and register custom fields. It does not populate the results cache required by value getters/setters. The first driver-wrapper base shadows the later CRUD wrapper methods.
+Constructing CustomColumns can delete marked/broken definitions, install temporary triggers and register custom fields. It does not populate the results cache required by value getters/setters. CRUD wrappers precede the driver adapter so facade bookkeeping runs after successful writes.
 """
 
 from __future__ import annotations
@@ -73,16 +73,16 @@ from LiuXin_alpha.databases.constants import CUSTOM_DATA_TYPES
 # The base mixin handles all the database custom columns stuff - this class adds in all the preference e.t.c
 # update logic which needs to be done to the library when custom column changes occur
 class CustomColumns(
+    CCCRUDColumnsMixin,
     CustomColumnsDriverWrapperMixin,
     CCNamesMixin,
     CCSetMethodsMixin,
     CCGetMethodsMixin,
-    CCDeleteMethodsMixin,
-    CCCRUDColumnsMixin):
+    CCDeleteMethodsMixin):
     """
     Manage one attachment table’s legacy custom-column metadata and operations.
 
-    Share supplied cache, field-map and FieldMetadata objects. Initialization performs schema cleanup and metadata registration; standalone mode installs inert dirty/notify hooks. Default cache data is an empty dictionary, so cached value operations need additional host setup. MRO resolution selects driver-wrapper creation/metadata/deletion methods before CCCRUDColumnsMixin.
+    Share supplied cache, field-map and FieldMetadata objects. Initialization performs schema cleanup and metadata registration; standalone mode installs inert dirty/notify hooks. Default cache data is an empty dictionary, so cached value operations need additional host setup. CRUD methods delegate to the driver adapter before refreshing definition maps and notifying the host.
 
     Example:
         Given an open db, CustomColumns(db, table="works") loads and registers custom definitions attached to works, potentially performing cleanup.
@@ -297,7 +297,7 @@ class CustomColumns(
         """
         Rebuild per-table definition maps while collecting removals and trigger snippets.
 
-        Scan every custom_columns record before filtering to this attachment table. Parsing errors delete the definition immediately; missing backing tables queue removals even for other attachment tables. A parsed display=None becomes {}, but another nonmapping display can fail later outside the parsing guard. Shared metadata dictionaries populate both maps. Repeated calls do not clear remove/triggers, install the trigger, execute queued removals or rebuild FieldMetadata registrations.
+        Scan every custom_columns record before filtering to this attachment table. Parsing errors delete the definition immediately; missing backing tables queue removals even for other attachment tables. A parsed display=None becomes {}, but another nonmapping display can fail later outside the parsing guard. Shared metadata dictionaries populate both maps. Each call rebuilds remove/triggers and the definition maps. Installing triggers, executing queued removals and rebuilding FieldMetadata registrations remain loader operations.
 
         Example:
             After external schema changes, cc.refresh_db_custom_columns_metadata() refreshes its maps; recreating the facade is the separate path that applies queued cleanup and trigger installation.
@@ -307,6 +307,7 @@ class CustomColumns(
         """
         custom_tables = self.custom_tables
         self.custom_column_label_map, self.custom_column_num_map = {}, {}
+        self.remove, self.triggers = [], []
 
         remove = self.remove
         triggers = self.triggers

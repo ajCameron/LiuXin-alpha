@@ -1589,16 +1589,6 @@ class ODF2XHTML(handler.ContentHandler):
             place.
         """
         return  # Added by Kovid
-        objhref = attrs[(XLINKNS, "href")]
-        # Remove leading "./": from "./Object 1" to "Object 1"
-        #       objhref = objhref [2:]
-
-        # Not using os.path.join since it fails to find the file on Windows.
-        #       objcontentpath = '/'.join([objhref, 'content.xml'])
-
-        for c in self.document.childnodes:
-            if c.folder == objhref:
-                self._walknode(c.topnode)
 
     def s_draw_object_ole(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """

@@ -1066,26 +1066,20 @@ class ApplyAPI(Protocol):
         """
         ...
 
-    def tag(self, tag: RowAPI | str | Iterable[str], resource: RowAPI) -> None:
-        """
-        Link Tag Rows or recursively process iterables using the legacy branch order.
+    def tag(self, tag: RowAPI | str | Iterable[RowAPI | str], resource: RowAPI) -> None:
+        """Link complete Tag strings, Tag Rows, or iterables in one transaction.
 
-        An empty iterable, including empty text, returns without validating the
-        resource. The iterable branch makes later list/set and string resolution
-        branches unreachable for normal values of those types. Row inputs check
-        a tags-to-resource link table, then link Tag as primary. No transaction
-        wraps processing of several elements.
+        Text is resolved before iterable dispatch. Existing relationships are
+        reused, and a later invalid value or persistence failure rolls back the
+        entire batch. Empty iterables do nothing after resource validation.
 
         Example:
-            Pass an existing Tag Row for the direct linking path. A nonempty string
-            recurses into its own characters and can raise RecursionError.
+            catalog.apply.tag(["Science fiction", "Adventure"], work_row)
 
-
-        :param tag: RowAPI object or iterable; string iteration currently precedes the text branch.
-        :param resource: RowAPI resource, validated only once a Tag Row has been resolved.
-        :return: None; duplicate/integrity errors during linking are suppressed.
-        :raises InputIntegrityError: A noniterable value, resource or link route is unsupported.
-        :raises RecursionError: A nonempty string is recursively iterated instead of resolved.
+        :param tag: Complete text, a Tag Row, or iterable of either.
+        :param resource: Row receiving the Tags.
+        :return: None after the batch succeeds.
+        :raises InputIntegrityError: Input or relationship is unsupported.
         """
         ...
 

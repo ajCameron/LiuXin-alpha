@@ -131,7 +131,7 @@ class CustomColumnsAPI(Protocol):
         label: Optional[str] = None,
         editable: bool = True,
         display: Optional[Mapping[str, Any]] = None,
-        in_table: str = "books",
+        in_table: Optional[str] = None,
         table: Optional[str] = None,
         make_category: Optional[bool] = None,
     ) -> int:
@@ -150,7 +150,7 @@ class CustomColumnsAPI(Protocol):
         :param label: Optional explicit custom-column label.
         :param editable: Whether user edits are allowed.
         :param display: Optional formatting/display metadata passed to the storage owner.
-        :param in_table: Attachment table; books is the compatibility default.
+        :param in_table: Attachment table; the facade uses its configured table by default.
         :param table: Optional alias for in_table, subject to host conflict checking.
         :param make_category: Optional override for category creation.
         :return: Numeric ID of the new custom-column definition.
@@ -206,7 +206,7 @@ class CustomColumnsAPI(Protocol):
         :return: Pair (custom_column_N, attachment_custom_column_N_link).
         """
 
-    def delete_custom_column(self, label: Optional[str] = None, num: Optional[int] = None) -> None:
+    def delete_custom_column(self, num: Optional[int] = None, *, label: Optional[str] = None) -> None:
         """
         Mark a selected definition for removal during a later custom-column load.
 
@@ -563,7 +563,7 @@ class CustomColumnsAPI(Protocol):
         """
         Update selected attributes of a custom-column definition.
 
-        The current CRUD mixin updates its cached editable flag when supplied and can notify with an empty owner list. Other metadata cache synchronization is host-specific; this declaration does not enforce it.
+        The CRUD mixin refreshes its numeric and label definition maps after storage succeeds, then optionally notifies with an empty owner list.
 
         Example:
             ``host.set_custom_column_metadata(column_id, name="Reading status", is_editable=True)`` requests those definition changes.
@@ -576,7 +576,7 @@ class CustomColumnsAPI(Protocol):
         :param display: Replacement serialized/display metadata accepted by the host.
         :param in_table: Replacement attachment-table metadata, or None to retain it.
         :param notify: Whether to request a metadata notification.
-        :param update_last_modified: Compatibility flag; the current CRUD mixin does not use it.
+        :param update_last_modified: Request date refresh through the host preference store when present.
         :return: Host-specific change result, forwarded from the storage metadata update.
         """
 

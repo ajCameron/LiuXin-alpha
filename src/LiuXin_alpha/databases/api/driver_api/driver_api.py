@@ -5,8 +5,7 @@ DatabaseDriverAPI combines lifecycle, raw SQL, schema, policy, relationship and 
 operations. Abstract bodies provide no implementation and return None if called
 directly. Concrete backend results, resource ownership and transaction boundaries
 must be observed; the method notes describe the existing shared SQL/SQLite
-implementations where relevant. Historical annotation mismatches and the duplicated
-direct_executescript declaration are retained.
+implementations where relevant.
 """
 
 from __future__ import annotations
@@ -57,8 +56,7 @@ class DatabaseDriverAPI(
     operations. Abstract bodies provide no implementation and return None if called
     directly. Concrete backend results, resource ownership and transaction boundaries
     must be observed; the method notes describe the existing shared SQL/SQLite
-    implementations where relevant. Historical annotation mismatches and the duplicated
-    direct_executescript declaration are retained. Abstract members must be implemented
+    implementations where relevant. Abstract members must be implemented
     by a backend; their empty bodies return None when called directly.
 
     Example:
@@ -448,28 +446,6 @@ class DatabaseDriverAPI(
         :return: ``None``.
         """
 
-    @abc.abstractmethod
-    def direct_executescript(self, sqlscript: str) -> None:
-        """
-        Run trusted multi-statement SQL on the primary connection and refresh caches.
-
-        Abstract backend hook. The behavior below describes the shared SQL/SQLite
-        implementation; this declaration itself has no operational body.
-
-        Create a primary handle if absent, wrap execution failures as DatabaseDriverError
-        and attempt refresh in finally. Backend executescript transaction behavior still
-        applies.
-
-        This earlier declaration is overwritten by the later direct_executescript definition
-        in the same class; it does not provide a separate runtime overload.
-
-        Example:
-            >>> driver.direct_executescript("CREATE TABLE sample (value TEXT);")  # doctest: +SKIP
-
-
-        :param sqlscript: SQL script text passed to the backend executescript method.
-        :return: ``None``.
-        """
 
     @abc.abstractmethod
     def direct_get_db_unique_id(self) -> Optional[str]:

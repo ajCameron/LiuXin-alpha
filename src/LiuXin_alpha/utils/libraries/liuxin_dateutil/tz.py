@@ -469,7 +469,6 @@ class tzlocal(datetime.tzinfo):
         if not isinstance(other, tzlocal):
             return False
         return self._std_offset == other._std_offset and self._dst_offset == other._dst_offset
-        return True
 
     def __ne__(self, other):
         """

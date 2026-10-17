@@ -648,20 +648,6 @@ class ODF2MoinMoin(object):
         """
 
         return text
-        lines = text.split("\n")
-        buffer = []
-        numLines = len(lines)
-        for i in range(numLines):
-
-            if (
-                lines[i].strip()
-                or i == numLines - 1
-                or i == 0
-                or not (lines[i - 1].startswith("    ") and lines[i + 1].startswith("    "))
-            ):
-                buffer.append("\n" + lines[i])
-
-        return "".join(buffer)
 
     # -----------------------------------
     def do_nothing(self: _typing.Self, node: _typing.Any) -> str:
@@ -1087,16 +1073,3 @@ class ODF2MoinMoin(object):
             buffer.append("  ")
 
         return "".join(buffer) + text
-        # Unused from here
-        for token in text.split():
-
-            if counter > LIMIT - indent:
-                buffer.append("\n" + " " * indent)
-                if blockquote:
-                    buffer.append("  ")
-                counter = 0
-
-            buffer.append(token + " ")
-            counter += len(token)
-
-        return "".join(buffer)

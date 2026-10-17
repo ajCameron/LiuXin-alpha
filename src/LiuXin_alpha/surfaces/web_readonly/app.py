@@ -2562,129 +2562,6 @@ class ReadOnlyWebApplication:
             related=self._render_related_sections(row, related_rows_by_table=related_rows_by_table),
         )
 
-    def _render_store_detail_page(
-        self,
-        *,
-        row,
-        row_id: int,
-        row_data: dict[str, object],
-        actions: list[str],
-        related_rows_by_table: dict[str, list[object]],
-    ) -> str:
-        """
-        Retain the earlier store-detail renderer shadowed by the later definition.
-
-        This source definition builds identity, access, capability, date, and
-        other visible-field cards plus linked entities. Python replaces it with
-        the later method of the same name during class creation, so ordinary
-        application calls do not invoke this body. It is documented separately
-        without deleting or reordering the duplicate implementation.
-
-        Example:
-            >>> fragment = extracted_earlier_renderer(app, row=store, row_id=1, row_data=values, actions=[], related_rows_by_table=related)  # doctest: +SKIP
-
-
-        :param row: Store row available for fallback relationship discovery.
-        :param row_id: Identity displayed in the hero and used as a title fallback.
-        :param row_data: Store values supplying hero hints and grouped detail cards.
-        :param actions: Trusted action markup concatenated without escaping.
-        :param related_rows_by_table: Related rows for hero counts and linked sections.
-        :return: Store-body HTML with escaped metadata, without the document layout.
-        """
-        title = self._stringify_detail_value(row_data.get("store_name") or row_id)
-        root_uri = self._stringify_detail_value(row_data.get("store_root_uri"))
-        kind = self._stringify_detail_value(row_data.get("store_kind"))
-        protocol = self._stringify_detail_value(row_data.get("store_access_protocol"))
-
-        hero_pills = ["<span class='pill'>store_id {}</span>".format(_escape(row_id))]
-        for label, value in (("kind", kind), ("protocol", protocol)):
-            if value:
-                hero_pills.append("<span class='pill'>{label}: {value}</span>".format(label=_escape(label), value=_escape(value)))
-        for linked_table in ("files", "folders", "items", "tags", "labels", "notes", "subjects"):
-            linked_rows = related_rows_by_table.get(linked_table, [])
-            if linked_rows:
-                hero_pills.append(
-                    "<span class='pill'>{label} {count}</span>".format(
-                        label=_escape(self._pretty_table_name(linked_table)),
-                        count=len(linked_rows),
-                    )
-                )
-
-        all_columns = self._visible_columns("stores")
-        used: set[str] = set()
-
-        identity_columns = [column for column in ("store_name", "store_kind", "store_access_protocol") if column in all_columns]
-        used.update(identity_columns)
-
-        access_columns = [
-            column
-            for column in all_columns
-            if column not in used and any(token in column.lower() for token in ("root", "uri", "path", "mount", "access", "protocol", "location"))
-        ]
-        used.update(access_columns)
-
-        capability_columns = [
-            column
-            for column in all_columns
-            if column not in used and any(token in column.lower() for token in ("read", "write", "sync", "managed", "remote", "backend", "mode", "kind", "state", "status"))
-        ]
-        used.update(capability_columns)
-
-        date_columns = [
-            column
-            for column in all_columns
-            if column not in used and any(token in column.lower() for token in ("date", "time", "created", "modified", "updated", "added"))
-        ]
-        used.update(date_columns)
-
-        other_columns = [column for column in all_columns if column not in used and column != "store_id"]
-
-        cards = [
-            self._render_detail_card(title="Identity", row_data=row_data, columns=identity_columns),
-            self._render_detail_card(title="Access", row_data=row_data, columns=access_columns),
-            self._render_detail_card(title="Capabilities", row_data=row_data, columns=capability_columns),
-            self._render_detail_card(title="Dates", row_data=row_data, columns=date_columns),
-            self._render_detail_card(title="Other metadata", row_data=row_data, columns=other_columns),
-        ]
-        cards = [card for card in cards if card]
-        details_html = ""
-        if cards:
-            details_html = "<section class='detail-grid'>{}</section>".format("".join(cards))
-
-        return """
-<section class='panel store-hero'>
-  <p class='eyebrow'>Store record</p>
-  <h2 class='hero-title'>{title}</h2>
-  {root_uri}
-  {kind}
-  {protocol}
-  <div class='actions'>{actions}</div>
-  <div class='pill-list'>{hero_pills}</div>
-</section>
-{details}
-{related}
-""".format(
-            title=_escape(title),
-            root_uri=(
-                "<p class='meta'><strong>Root:</strong> {}</p>".format(_escape(root_uri))
-                if root_uri
-                else ""
-            ),
-            kind=(
-                "<p class='meta'><strong>Kind:</strong> {}</p>".format(_escape(kind))
-                if kind
-                else ""
-            ),
-            protocol=(
-                "<p class='meta'><strong>Protocol:</strong> {}</p>".format(_escape(protocol))
-                if protocol
-                else ""
-            ),
-            actions=" ".join(actions),
-            hero_pills="".join(hero_pills),
-            details=details_html,
-            related=self._render_related_sections(row, related_rows_by_table=related_rows_by_table),
-        )
 
     def _render_store_detail_page(
         self,
@@ -2696,7 +2573,7 @@ class ReadOnlyWebApplication:
         related_rows_by_table: dict[str, list[object]],
     ) -> str:
         """
-        Render the active store-detail fragment, overriding the earlier duplicate.
+        Render the store-detail fragment.
 
         The hero shows escaped name/root/kind/protocol hints and selected linked
         counts. Visible fields are partitioned into identity, access, capability,

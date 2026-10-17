@@ -127,38 +127,6 @@ class CacheAPI:
     #
     # ------------------------------------------------------------------------------------------------------------------
 
-    @property
-    def field_metadata(self):
-        """
-        Returns the field metadata object stored in the backend.
-
-        Example:
-            Exercise CacheAPI.field metadata through a consuming regression::
-
-                python -m pytest -q tests/customize/test_customize_base.py
-
-
-        :return: None; the operation mutates state, writes output or performs cleanup in
-            place.
-        """
-        raise NotImplementedError(f"Have to override this on an implementational level")
-
-    @field_metadata.setter
-    def field_metadata(self, value: Any) -> None:
-        """
-        Field Metadata cannot be directly set.
-
-        Example:
-            Exercise CacheAPI.field metadata through a consuming regression::
-
-                python -m pytest -q tests/customize/test_customize_base.py
-
-
-        :param value: Value normalized, stored, formatted or returned.
-        :return: None; the operation mutates state, writes output or performs cleanup in
-            place.
-        """
-        raise ValueError(f"field_metadata cannot be set to {value=} - change the database and reload")
 
     # ------------------------------------------------------------------------------------------------------------------
     #
@@ -588,23 +556,6 @@ class CacheAPI:
         """
         raise NotImplementedError
 
-    @read_api
-    def field_ids_for(self, name, book_id):
-        """
-        Return the book_ids (as a tuple) for the values that the field ``name`` has on the book identified by ``book_id``.
-
-        Example:
-            Exercise CacheAPI.field ids for through a consuming regression::
-
-                python -m pytest -q tests/customize/test_customize_base.py
-
-
-        :param name: Field, file, function or resource name addressed by the operation.
-        :param book_id: Value supplied for book id under the utility contract.
-        :return: None; the operation mutates state, writes output or performs cleanup in
-            place.
-        """
-        raise NotImplementedError
 
     @read_api
     def all_field_for(self, field, book_ids, default_value=None):
@@ -1882,41 +1833,7 @@ class CacheAPI:
     # ------------------------------------------------------------------------------------------------------------------
     #
     # - PREFERENCES FRONT END
-    @read_api
-    def pref(self, name: str, default: Any = None) -> Any:
-        """
-        Return the value for the specified preference or ``default`` if the preference is not set.
 
-        Example:
-            Exercise CacheAPI.pref through a consuming regression::
-
-                python -m pytest -q tests/customize/test_customize_base.py
-
-
-        :param name: Field, file, function or resource name addressed by the operation.
-        :param default: Value supplied for default under the utility contract.
-        :return: None; the operation mutates state, writes output or performs cleanup in
-            place.
-        """
-        raise NotImplementedError
-
-    @write_api
-    def set_pref(self, name: str, val: Any) -> Any:
-        """
-        Set the specified preference to the specified value.
-
-        Example:
-            Exercise CacheAPI.set pref through a consuming regression::
-
-                python -m pytest -q tests/customize/test_customize_base.py
-
-
-        :param name: Field, file, function or resource name addressed by the operation.
-        :param val: Template or metadata value evaluated by the operation.
-        :return: None; the operation mutates state, writes output or performs cleanup in
-            place.
-        """
-        raise NotImplementedError
 
     #
     # ------------------------------------------------------------------------------------------------------------------
