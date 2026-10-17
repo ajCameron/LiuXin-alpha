@@ -1,5 +1,46 @@
 # Diagnosing interrupted test runs
 
+## Keeping scratch storage bounded
+
+The project defaults to `tmp_path_retention_policy=failed`. Pytest removes a
+passing test's temporary directory during teardown, including its writable
+database copies, instead of accumulating every copy until the run ends. The
+session template cache remains reusable within that run. At most two recent
+retained pytest sessions are kept (`tmp_path_retention_count=2`). This applies to
+direct pytest commands and all suite runners, without enabling telemetry.
+
+The 2026-10-17 serial diagnostic accumulated about 3.1 GiB of temporary files in
+the first 1,727 tests; nearly all of it was fixture databases. The host C: drive
+then fell below 1 GiB free, triggering a controlled stop. Test-process memory
+peaked near 685 MiB, with no swap use or OOM kills. The WSL virtual disk was stored
+on C:, so `/tmp`'s large reported filesystem capacity did not mean the host had
+room for further virtual-disk allocation. This is evidence of a storage problem,
+not proof of the cause of previous VM crashes.
+
+To keep all scratch files while debugging a small selection:
+
+```bash
+.venv/bin/python -m pytest tests/path/to/test_file.py \
+  -o tmp_path_retention_policy=all
+```
+
+Pytest's per-test retention decision uses the test **call** outcome. Use that
+override when diagnosing setup/teardown failures or interrupts: it does not
+guarantee that their directories survive under `failed`. Temporary-directory
+removal is best effort on platforms with open-file restrictions. An abrupt
+process/VM exit can also bypass cleanup; normal session-history pruning applies
+on later runs. Explicit `--basetemp` directories are owned and cleared by pytest
+on reuse, so never point that option at existing data you want to keep.
+
+Keep diagnostic logs outside per-test `tmp_path` directories, such as under this
+directory, so passing-test cleanup does not discard them. The telemetry artifacts
+from the interrupted run occupied only about 15 MiB; their retention is separate
+from pytest scratch storage. For a genuinely larger temporary volume, create a
+directory there and set `PYTEST_DEBUG_TEMPROOT` to it before running pytest.
+Check host free space as well as the Linux filesystem before another large run.
+
+## Recording test activity and resource use
+
 Enable telemetry with `--telemetry-dir`. The pytest plugin writes test activity
 before collection and before each setup, call and teardown phase. Every record is
 flushed and `fsync`ed; Linux also syncs the directory entry for each new log file.

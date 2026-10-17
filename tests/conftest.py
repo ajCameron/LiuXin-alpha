@@ -235,7 +235,8 @@ def _install_clint_stub() -> None:
 _install_clint_stub()
 
 
-_TEST_PREFS_ROOT = Path(tempfile.mkdtemp(prefix="liuxin_alpha_test_runtime_"))
+_TEST_PREFS_TEMP = tempfile.TemporaryDirectory(prefix="liuxin_alpha_test_runtime_")
+_TEST_PREFS_ROOT = Path(_TEST_PREFS_TEMP.name)
 
 
 def _install_test_runtime_env() -> None:
@@ -452,8 +453,14 @@ def _sandbox_test_cwd_and_guard_project_root(
 
     before = _top_level_entries(project_root)
     _redirect_liuxin_runtime_dirs(monkeypatch, tmp_path)
+    previous_cwd = Path.cwd()
     monkeypatch.chdir(tmp_path)
-    yield
+    try:
+        yield
+    finally:
+        # tmp_path may be removed before the monkeypatch fixture is finalized.
+        # In particular, Windows cannot remove the process's current directory.
+        os.chdir(previous_cwd)
 
     leaked = sorted(
         name
