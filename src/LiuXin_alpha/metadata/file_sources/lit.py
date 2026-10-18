@@ -17,7 +17,7 @@ import os
 from urllib.parse import quote, unquote
 
 from LiuXin_alpha.file_formats.opf.opf2 import OPF
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 from LiuXin_alpha.utils.image_tools.imghdr import identify
 from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
 from LiuXin_alpha.utils.localization import trans as _

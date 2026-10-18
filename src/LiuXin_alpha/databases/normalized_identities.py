@@ -1,15 +1,14 @@
 """
 Declare and derive normalized identities for selected database display values.
 
-Identity policy is narrower than case-insensitive search. Built-in declarations cover relation values such as tags, scoped genres/subjects and named policies; Work titles and Agent names are not identities merely because they support normalized search. Helpers prepare payloads and catalog representations without reading or writing a database.
+Identity policy is narrower than case-insensitive search. Built-in declarations cover relation values such as tags, scoped genres/subjects and named policies; Work titles and Agent names are not identities merely because they support normalized search. Preparation reads schema declarations and delegates text normalization to metadata; it does not persist rows.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
 import json
-import unicodedata
 from typing import Any
 
 from LiuXin_alpha.databases.column_metadata import ColumnNormalizationProfile
@@ -91,14 +90,14 @@ NORMALIZED_IDENTITY_DEFAULTS: tuple[NormalizedIdentitySpec, ...] = (
         table="genres",
         value_column="genre",
         identity_column="genre_phash",
-        normalization_profile=ColumnNormalizationProfile.TITLE_SEARCH_TERM,
+        normalization_profile=ColumnNormalizationProfile.UNICODE_NFKC_WHITESPACE_CASEFOLD,
         scope_columns=("genre_parent_id",),
     ),
     NormalizedIdentitySpec(
         table="labels",
         value_column="label_text",
         identity_column="label_text_norm",
-        normalization_profile=ColumnNormalizationProfile.TAG_SEARCH_TERM,
+        normalization_profile=ColumnNormalizationProfile.UNICODE_NFKC_WHITESPACE_CASEFOLD,
     ),
     NormalizedIdentitySpec(
         table="replication_policies",
@@ -110,20 +109,20 @@ NORMALIZED_IDENTITY_DEFAULTS: tuple[NormalizedIdentitySpec, ...] = (
         table="series",
         value_column="series",
         identity_column="series_name_norm",
-        normalization_profile=ColumnNormalizationProfile.TITLE_SEARCH_TERM,
+        normalization_profile=ColumnNormalizationProfile.UNICODE_NFKC_WHITESPACE_CASEFOLD,
     ),
     NormalizedIdentitySpec(
         table="subjects",
         value_column="subject",
         identity_column="subject_phash",
-        normalization_profile=ColumnNormalizationProfile.TITLE_SEARCH_TERM,
+        normalization_profile=ColumnNormalizationProfile.UNICODE_NFKC_WHITESPACE_CASEFOLD,
         scope_columns=("subject_parent_id",),
     ),
     NormalizedIdentitySpec(
         table="tags",
         value_column="tag",
         identity_column="tag_phash",
-        normalization_profile=ColumnNormalizationProfile.TAG_SEARCH_TERM,
+        normalization_profile=ColumnNormalizationProfile.UNICODE_NFKC_WHITESPACE_CASEFOLD,
     ),
 )
 
@@ -231,21 +230,9 @@ def normalize_identity_value(
             ) from exc
     if not isinstance(value, str):
         return value
-    if profile is ColumnNormalizationProfile.NONE:
-        return value
-    if profile is ColumnNormalizationProfile.UNICODE_NFC:
-        return unicodedata.normalize("NFC", value)
-    if profile is ColumnNormalizationProfile.UNICODE_NFC_TRIM_CASEFOLD:
-        return unicodedata.normalize("NFC", value).strip().casefold()
-    if profile is ColumnNormalizationProfile.TAG_SEARCH_TERM:
-        from LiuXin_alpha.metadata.standardization import make_tag_search_term
+    from LiuXin_alpha.metadata.text_identity import normalize_identity_text
 
-        return make_tag_search_term(unicodedata.normalize("NFC", value))
-    if profile is ColumnNormalizationProfile.TITLE_SEARCH_TERM:
-        from LiuXin_alpha.metadata.standardization import make_title_search_term
-
-        return make_title_search_term(unicodedata.normalize("NFC", value))
-    raise InputIntegrityError(f"Unsupported normalization profile: {profile!r}")
+    return normalize_identity_text(value, profile.value)
 
 
 def add_derived_identity_values(
@@ -254,29 +241,35 @@ def add_derived_identity_values(
     *,
     overwrite: bool = True,
     available_columns: set[str] | frozenset[str] | None = None,
+    specs: Iterable[NormalizedIdentitySpec] | None = None,
+    existing: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
-    Return a shallow row copy with eligible built-in identity keys derived.
+    Return a shallow row copy with eligible declared identity keys derived.
 
-    Leave the input mapping untouched. A present display value of None yields None for its key; missing display fields never trigger an update. overwrite=False preserves even an explicit None identity value. Scope fields and uniqueness constraints are neither supplied nor checked here.
+    Leave the input mapping untouched. A present display value of None clears its key. A key-only update derives from the existing display value; unrelated updates leave keys alone. overwrite=False preserves even an explicit None identity value. Scope fields and uniqueness constraints are neither supplied nor checked here.
 
     Example:
         >>> add_derived_identity_values("tags", {"tag": "Science Fiction"})
-        {'tag': 'Science Fiction', 'tag_phash': 'sciencefiction'}
+        {'tag': 'Science Fiction', 'tag_phash': 'science fiction'}
         >>> add_derived_identity_values("tags", {"tag": None}, available_columns={"tag"})
         {'tag': None}
 
 
     :param table: Exact table name compared against the built-in registry without string coercion.
-    :param row: Mapping of supplied row fields; only present display fields trigger derivation.
+    :param row: Mapping of supplied row fields; display or identity fields trigger derivation.
     :param overwrite: Whether to replace an explicitly supplied identity field, default True.
     :param available_columns: Optional set of schema columns; absent derived columns are skipped when this filter is supplied.
+    :param specs: Persisted declarations, or None to use built-in defaults.
+    :param existing: Stored row supplying omitted display values for key-only updates.
     :return: New dictionary preserving unrelated values and adding or replacing eligible derived keys.
     """
 
     prepared = dict(row)
-    for spec in NORMALIZED_IDENTITY_DEFAULTS:
-        if spec.table != table or spec.value_column not in prepared:
+    for spec in NORMALIZED_IDENTITY_DEFAULTS if specs is None else specs:
+        if spec.table != table:
+            continue
+        if spec.value_column not in prepared and spec.identity_column not in prepared:
             continue
         if (
             available_columns is not None
@@ -285,13 +278,52 @@ def add_derived_identity_values(
             continue
         if not overwrite and spec.identity_column in prepared:
             continue
-        value = prepared[spec.value_column]
+        value = prepared.get(
+            spec.value_column,
+            None if existing is None else existing.get(spec.value_column),
+        )
         prepared[spec.identity_column] = (
             None
             if value is None
             else normalize_identity_value(value, spec.normalization_profile)
         )
     return prepared
+
+
+def prepare_normalized_values(
+    source: Any,
+    table: str,
+    values: Mapping[str, Any],
+    *,
+    existing: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Derive stored keys from this database's declarations before persistence.
+
+    ``source`` is a driver or its wrapper. A present declaration catalogue is
+    authoritative, including an empty one; defaults serve legacy schemas and
+    lightweight adapters only. Updating a derived key alone recomputes it from
+    the existing display value instead of accepting a second identity policy.
+    """
+    iterator = getattr(source, "iter_normalized_identity_specs", None)
+    if not callable(iterator):
+        iterator = getattr(source, "direct_iter_normalized_identity_specs", None)
+    if callable(iterator):
+        specs = tuple(iterator(table=table))
+    else:
+        specs = normalized_identity_defaults_for_table(table)
+    if not specs:
+        return dict(values)
+    headings = getattr(source, "get_column_headings", None)
+    if not callable(headings):
+        headings = getattr(source, "direct_get_column_headings", None)
+    available = set(headings(table)) if callable(headings) else None
+    return add_derived_identity_values(
+        table,
+        values,
+        specs=specs,
+        existing=existing,
+        available_columns=available,
+    )
 
 
 def normalized_identity_db_values(
@@ -305,7 +337,7 @@ def normalized_identity_db_values(
     Example:
         >>> spec = default_normalized_identity_spec("tags", "tag")
         >>> normalized_identity_db_values(spec)
-        ('tags', 'tag', 'tag_phash', 'tag_search_term', '[]', 1)
+        ('tags', 'tag', 'tag_phash', 'unicode_nfkc_whitespace_casefold', '[]', 1)
 
 
     :param spec: Spec with a profile enum, JSON-serializable scope columns and an int-convertible unique flag.
@@ -382,6 +414,7 @@ __all__ = [
     "default_normalized_identity_spec",
     "iter_normalized_identity_defaults",
     "normalize_identity_value",
+    "prepare_normalized_values",
     "normalized_identity_defaults_for_table",
     "normalized_identity_db_values",
     "normalized_identity_from_db_values",

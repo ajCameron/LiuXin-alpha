@@ -11,7 +11,8 @@ from __future__ import annotations
 from typing import Optional
 
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
-from LiuXin_alpha.metadata.ebook_metadata_tools import title_sort, to_epoch_ms
+from LiuXin_alpha.metadata.ebook_metadata_tools import to_epoch_ms
+from LiuXin_alpha.metadata.title_names import title_to_title_sort
 
 
 def _clean_optional(value: str) -> Optional[str]:
@@ -121,7 +122,7 @@ class NewWorkWizardCommand(TerminalCommandAPI):
             raise ValueError("Work title cannot be blank.")
 
         default_canonical = work_title
-        default_sort = title_sort(work_title)
+        default_sort = title_to_title_sort(work_title)
 
         work_canonical_title = (
             browser.prompt_text(

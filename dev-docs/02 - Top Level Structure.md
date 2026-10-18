@@ -1,20 +1,19 @@
 
 
-Fundamentally, there are two BIG bits of LiuXin (and a lot of smaller bits).
+LiuXin has two major persistent domains: metadata records and physical files.
+They meet in library workflows but retain separate owners.
 
-These are
- - metadata (handled by the databases)
- - files (handled by storage, and some file metadata in databases)
+- `metadata` defines metadata meaning and pure value rules.
+- `catalog` guarantees metadata-aware reads and valid public writes.
+- `databases` are the authoritative persisted record and structural guard.
+- `storage` manages the physical reality of files and replicas.
+- `library` coordinates Catalog and storage workflows.
+- `core` composes and owns the lifecycle of one or more libraries.
 
-These have separate areas of concern. In particular
- - the final arbitrator of metadata is _the database_
- - the final arbitrator of files is _whatever is on disc_
-
-These come together in the _library_.
-Which can do everything. Hopefully kinda okay.
-
-The core has access to some number of libraries, and can do stuff with them.
-Exciting stuff. Like actually finding a book for you to read.
+The database is therefore the final arbiter of what was persisted, not the
+owner of bibliographic meaning. See
+[`04 - Seperation of Concerns.md`](<04 - Seperation of Concerns.md>) and the
+[`Catalog write-validation contract`](catalog-write-validation-contract.md).
 
 # Caches
 
@@ -30,6 +29,14 @@ If you want to make a database store into something actually useful, you need a 
 structured data in the form of metadata.
 The catalog provides that structures.
 It's intended to store and retrieve metadata from the database - in various forms.
+
+Every public Catalog mutation establishes semantic validity before persistence;
+it does not assume that a surface or earlier workflow already validated input.
+The supported boundary is repository CRUD and specialised mutations,
+`catalog.mutations.writer.*`, and the advanced
+`create_writer`/`write`/`write_one` trio. Row-oriented metadata tools remain
+supported compatibility but are deprecated for new code. Direct persistence
+and private `_apply_*` writer-host methods are outside the public boundary.
 
 # Core
 
@@ -51,6 +58,24 @@ For the current backend options and their intended semantics, see
 The databases module is intended for low level object storage.
 Nothing more.
 
+It enforces structural and concurrency-safe invariants—types, nullability,
+foreign keys, uniqueness, stable checks, and transactions—but does not own
+bibliographic normalization or validation policy.
+
+# File formats
+
+Format readers, writers, container handling, and conversion implementations.
+Reusable input/output conversion contracts belong in
+`LiuXin_alpha.file_formats.conversion.plugin`. Format implementations must not
+depend on application plugin discovery or registry assembly.
+
+# Plugin system
+
+The passive, format-neutral lifecycle contract shared by loadable plugin
+families. `LiuXin_alpha.plugin_system` does not discover providers or assemble
+registries; application composition and historical compatibility remain under
+`customize`.
+
 # Jobs
 
 Long-running processes - of various sorts.
@@ -70,6 +95,9 @@ Tools for reading, writing and manipulating metadata.
 Metadata presents a number of objects to store, present and manipulate metadata.
 It contains a wide range of relevant containers - which you should be able to access through the catalog.
 (Now I know that the catalog exists and can do things).
+
+It also owns persistence-free normalization and validation of metadata values.
+Catalog invokes those rules when it performs semantic writes.
 
 # Storage
 

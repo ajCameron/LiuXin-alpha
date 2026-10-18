@@ -432,7 +432,13 @@ def test_maintenance_thread_stops_on_close(driver_spec, db_metadata):
     """
     from LiuXin_alpha.databases.database import Database
 
-    db = Database(metadata=db_metadata, db_type=driver_spec.db_type, create=False, backup=False)
+    db = Database(
+        metadata=db_metadata,
+        db_type=driver_spec.db_type,
+        create=False,
+        backup=False,
+        enable_maintenance=True,
+    )
     th = getattr(getattr(db, "maintenance", None), "maintainer", None)
     assert th is not None
 

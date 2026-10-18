@@ -259,7 +259,20 @@ class ExistingDriveSquashfsBackupJobHandler(JobHandlerAPI):
             staging_root=payload.staging_root,
             reporter=reporter,
         )
-        result = prototype.run(payload.input_paths)
+        from LiuXin_alpha.core.library_services import LibraryServices
+
+        database_path = pathlib.Path(payload.database_path)
+        with LibraryServices.open(
+            database_path=database_path,
+            create=not database_path.exists(),
+            backup=False,
+            storage_startup_on_add=False,
+            enable_maintenance=False,
+        ) as lifecycle:
+            result = prototype.run(
+                payload.input_paths,
+                library=lifecycle.library,
+            )
         return {
             "database_path": result.database_path,
             "total_indexed_stores": result.total_indexed_stores,

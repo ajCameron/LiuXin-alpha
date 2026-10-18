@@ -24,7 +24,8 @@ import pytest
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.databases.runtime import bootstrap_storage_manager
-from LiuXin_alpha.caches import CacheLookupStatus, create_cache
+from LiuXin_alpha.caches.api import CacheLookupStatus
+from LiuXin_alpha.caches.cache import create_cache
 from LiuXin_alpha.storage.api import (
     Digest,
     DigitalAssetDeclaration,
@@ -234,6 +235,7 @@ def test_database_metadata_unit_of_work_ports_commit_and_rollback(
         db_type=driver_spec.db_type,
         create=False,
         backup=False,
+        enable_storage_manager=True,
         storage_startup_on_add=False,
     ) as database:
         assert database.storage is not None
@@ -349,6 +351,7 @@ def test_database_startup_loads_rows_and_reload_tracks_database_changes(
         db_type=driver_spec.db_type,
         create=False,
         backup=False,
+        enable_storage_manager=True,
         storage_startup_on_add=False,
     ) as database:
         assert database.storage is not None
@@ -514,6 +517,7 @@ def test_database_bound_manager_metadata_and_operation_ids_survive_restart(
         db_type=driver_spec.db_type,
         create=False,
         backup=False,
+        enable_storage_manager=True,
         storage_startup_on_add=True,
     ) as database:
         assert database.storage is not None
@@ -661,6 +665,7 @@ def test_database_bound_manager_metadata_and_operation_ids_survive_restart(
         db_type=driver_spec.db_type,
         create=False,
         backup=False,
+        enable_storage_manager=True,
         storage_startup_on_add=True,
     ) as reopened:
         assert reopened.storage is not None
@@ -768,6 +773,7 @@ def test_database_manager_shares_liuxin_cache_without_private_record_copies(
         db_type=driver_spec.db_type,
         create=False,
         backup=False,
+        enable_storage_manager=True,
         storage_startup_on_add=True,
     ) as database:
         assert database.storage is not None
@@ -980,6 +986,7 @@ def test_concurrently_open_managers_use_database_generated_record_ids(
         "db_type": driver_spec.db_type,
         "create": False,
         "backup": False,
+        "enable_storage_manager": True,
         "storage_startup_on_add": True,
     }
     with Database(**database_options) as first_database, Database(
@@ -1137,6 +1144,7 @@ def test_pre_journal_storage_catalogue_is_migrated_during_bootstrap(
         db_type=driver_spec.db_type,
         create=False,
         backup=False,
+        enable_storage_manager=True,
         storage_startup_on_add=False,
     ) as migrated:
         assert migrated.storage is not None
@@ -1188,6 +1196,7 @@ def test_version_zero_storage_envelope_is_upgraded_in_place(
         db_type=driver_spec.db_type,
         create=True,
         backup=False,
+        enable_storage_manager=True,
         storage_startup_on_add=False,
     ) as current:
         assert current.storage is not None
@@ -1218,6 +1227,7 @@ def test_version_zero_storage_envelope_is_upgraded_in_place(
         db_type=driver_spec.db_type,
         create=False,
         backup=False,
+        enable_storage_manager=True,
         storage_startup_on_add=False,
     ) as migrated:
         assert migrated.storage is not None
@@ -1261,6 +1271,7 @@ def test_newer_storage_envelope_is_refused_without_rewriting(
         db_type=driver_spec.db_type,
         create=True,
         backup=False,
+        enable_storage_manager=True,
         storage_startup_on_add=False,
     ) as current:
         assert current.storage is not None
@@ -1344,6 +1355,7 @@ def test_store_update_and_explicit_forget_are_durable(
         db_type=driver_spec.db_type,
         create=False,
         backup=False,
+        enable_storage_manager=True,
         storage_startup_on_add=False,
     ) as database:
         assert database.storage is not None
@@ -1370,6 +1382,7 @@ def test_store_update_and_explicit_forget_are_durable(
         db_type=driver_spec.db_type,
         create=False,
         backup=False,
+        enable_storage_manager=True,
         storage_startup_on_add=False,
     ) as reopened:
         assert reopened.storage is not None
@@ -1388,6 +1401,7 @@ def test_store_update_and_explicit_forget_are_durable(
         db_type=driver_spec.db_type,
         create=False,
         backup=False,
+        enable_storage_manager=True,
         storage_startup_on_add=False,
     ) as forgotten:
         assert forgotten.storage is not None
@@ -1421,6 +1435,7 @@ def test_compound_policy_update_rolls_back_intermediate_repository_write(
         db_type=driver_spec.db_type,
         create=True,
         backup=False,
+        enable_storage_manager=True,
         storage_startup_on_add=False,
     ) as database:
         manager = database.storage
@@ -1693,6 +1708,7 @@ def test_database_reload_preserves_last_known_good_store_and_recovers(
         db_type=driver_spec.db_type,
         create=False,
         backup=False,
+        enable_storage_manager=True,
         storage_startup_on_add=True,
     ) as reopened:
         assert reopened.storage_bootstrap_report.loaded_stores == 1
@@ -1851,6 +1867,7 @@ def test_database_constructor_honours_strict_row_failure_policy(
         db_type=driver_spec.db_type,
         create=False,
         backup=False,
+        enable_storage_manager=True,
         strict_storage_manager_bootstrap=False,
     ) as non_strict:
         assert non_strict.storage_bootstrap_report.failed_configurations == 1
@@ -1866,6 +1883,7 @@ def test_database_constructor_honours_strict_row_failure_policy(
             db_type=driver_spec.db_type,
             create=False,
             backup=False,
+            enable_storage_manager=True,
             strict_storage_manager_bootstrap=True,
         )
 

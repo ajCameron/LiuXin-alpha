@@ -191,7 +191,7 @@ def _metadata_for_write(runtime: CoreRuntime, payload: Mapping[str, Any]) -> Any
     :raises CoreDispatchError: If Item ID validation fails, metadata is absent/non-Mapping, or authors is not str/Sequence.
     """
     if payload.get("item_id") is not None:
-        from LiuXin_alpha.metadata.containers import (
+        from LiuXin_alpha.catalog.retrieval.hydration import (
             LiuXinWEMIMetadataHydrator,
         )
 

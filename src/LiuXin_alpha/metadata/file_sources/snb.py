@@ -18,7 +18,8 @@ import re
 from typing import Iterable
 
 from LiuXin_alpha.file_formats.snb.snbfile import SNBFile
-from LiuXin_alpha.metadata.utils import calibreMetaInformation, string_to_authors
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
+from LiuXin_alpha.metadata.utils import string_to_authors
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log

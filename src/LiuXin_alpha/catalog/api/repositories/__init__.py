@@ -141,6 +141,13 @@ class CatalogRepositoriesAPI(Protocol):
         :raises AttributeError: If a malformed concrete group lacks an accepted registered attribute.
         """
 
+    def for_table(self, table: str) -> BaseRepositoryAPI | None:
+        """Resolve an exact physical table to its existing semantic repository.
+
+        Return None for tables outside this group, including legacy ``titles``.
+        This lookup performs no reads or writes and does not create a repository.
+        """
+
 
 __all__ = [
     "AgentRepositoryAPI",

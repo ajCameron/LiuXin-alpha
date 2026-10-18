@@ -10,28 +10,31 @@ Raw Item observations belong to the separate item_identifiers repository.
 
 from __future__ import annotations
 
-from typing import ClassVar, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import ClassVar
 
 from ..api.common import (
     CatalogMutationError,
     EntityId,
     IdentifierCandidate,
     MatchResult,
+    RowInput,
     RowMapping,
     WemiLevel,
 )
-from .base import BaseRepository, WEMI_TABLES
+from .base import WEMI_TABLES, BaseRepository
 
 
 class IdentifierRepository(BaseRepository):
     """
     Normalize, find, assign, and replace curated identifiers for WEMI entities and Agents.
 
-    Borrow the database through BaseRepository. Generic CRUD translates public field
-    aliases but does not itself apply scheme-specific normalization. Use normalise,
-    find, match, or match_or_create for logical comparison. Matching requires a bound
-    repository group and chooses a stored copy without deciding bibliographic-owner
-    ambiguity. Assignment may return a different row ID, which callers must retain.
+    Borrow the database through BaseRepository. Generic create and update validate a
+    complete scheme/value pair through the same normalization used for matching;
+    partial pair updates combine their input with the stored row first. Matching
+    requires a bound repository group and chooses a stored copy without deciding
+    bibliographic-owner ambiguity. Assignment may return a different row ID, which
+    callers must retain.
 
     Example:
         >>> repository = IdentifierRepository(None)
@@ -42,6 +45,8 @@ class IdentifierRepository(BaseRepository):
 
     table_name = "entity_identifiers"
     id_column = "entity_identifier_id"
+    _scheme_column: ClassVar[str] = "entity_identifier_scheme"
+    _value_column: ClassVar[str] = "entity_identifier_value"
     input_aliases: ClassVar[Mapping[str, str]] = {
         "id": "entity_identifier_id",
         "identifier_type": "entity_identifier_scheme",
@@ -54,6 +59,73 @@ class IdentifierRepository(BaseRepository):
         "entity_type": "entity_identifier_entity_type",
         "entity_id": "entity_identifier_entity_id",
     }
+
+    def _prepare_write(
+        self,
+        data: RowInput,
+        *,
+        existing: RowMapping | None = None,
+    ) -> dict[str, object]:
+        """
+        Validate and normalize the complete curated identifier pair before persistence.
+
+        Resolve aliases through the base hook. Creation requires both scheme and value. For an
+        update, combine omitted pair fields with the stored row so changing either half cannot
+        bypass scheme-specific validation. An empty update remains a no-op. When either pair field
+        changes, return both canonical scheme and stripped original value in the payload so the
+        database receives one complete validated pair. Changes to ownership or provenance validate
+        the existing pair without silently rewriting it.
+
+        Unknown nonblank schemes remain supported by shared identifier normalization. ISBN, UUID
+        and DOI failures occur before insert_row or update_row is called.
+
+        Example:
+            Updating only the value of a stored UUID still validates that value as a UUID because
+            the stored scheme participates in the candidate assembled here.
+
+
+        :param data: Public aliases or physical identifier columns supplied to create or update.
+        :param existing: Stored identifier row for an update, or None for creation.
+        :return: New physical-column payload containing a validated pair when that pair changes.
+        :raises CatalogMutationError: If creation or a malformed historical row lacks either pair field.
+        :raises TypeError: If the complete scheme or value is not text.
+        :raises ValueError: If text is blank or fails scheme-specific validation.
+        """
+
+        payload = super()._prepare_write(data, existing=existing)
+        if existing is not None and not payload:
+            return payload
+
+        scheme_present = self._scheme_column in payload or (
+            existing is not None and self._scheme_column in existing
+        )
+        value_present = self._value_column in payload or (
+            existing is not None and self._value_column in existing
+        )
+        if not scheme_present or not value_present:
+            raise CatalogMutationError(
+                "curated identifier writes require both a scheme and value"
+            )
+
+        scheme = payload.get(
+            self._scheme_column,
+            None if existing is None else existing[self._scheme_column],
+        )
+        value = payload.get(
+            self._value_column,
+            None if existing is None else existing[self._value_column],
+        )
+        if not isinstance(scheme, str) or not isinstance(value, str):
+            raise TypeError("identifier scheme and value must be strings")
+        candidate = self.normalise(IdentifierCandidate(scheme, value))
+
+        pair_changes = existing is None or any(
+            column in payload for column in (self._scheme_column, self._value_column)
+        )
+        if pair_changes:
+            payload[self._scheme_column] = candidate.identifier_type
+            payload[self._value_column] = candidate.value
+        return payload
 
     def normalise(self, candidate: IdentifierCandidate) -> IdentifierCandidate:
         """

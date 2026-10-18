@@ -4,6 +4,7 @@ Insert a legacy comment row from the supplied value.
 
 from __future__ import unicode_literals
 
+from LiuXin_alpha.catalog.row_mutations import atomic_write, persist_row
 from LiuXin_alpha.databases.row import Row
 
 
@@ -18,6 +19,7 @@ class CommentAdderMixin:
         An empty value reaches Row validation unchanged; this helper does not reject it first.
     """
 
+    @atomic_write
     def comment(self, comment):
         """
         Insert a legacy comment row from the supplied value.
@@ -34,5 +36,5 @@ class CommentAdderMixin:
         """
         comment_row = Row(database=self.db)
         comment_row["comment"] = comment
-        comment_row.sync()
+        persist_row(self, comment_row)
         return comment_row

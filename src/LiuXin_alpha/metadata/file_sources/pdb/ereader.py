@@ -18,7 +18,7 @@ from collections.abc import Iterable
 from LiuXin_alpha.file_formats.pdb.ereader.reader132 import HeaderRecord
 from LiuXin_alpha.file_formats.pdb.header import PdbHeaderBuilder, PdbHeaderReader
 from LiuXin_alpha.metadata.ebook_metadata_tools import authors_to_string
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars

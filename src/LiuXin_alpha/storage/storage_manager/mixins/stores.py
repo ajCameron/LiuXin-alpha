@@ -686,7 +686,11 @@ class StoreAdministrationMixin(_StorageManagerState):
         :return: None if all closes succeed; otherwise raises the first captured BaseException after attempting all Stores.
         """
 
-        stores = tuple(self.iter_stores())
+        with self._lock:
+            if self._closed:
+                return
+            self._closed = True
+            stores = tuple(self.iter_stores())
         first_error: BaseException | None = None
         for store in stores:
             try:

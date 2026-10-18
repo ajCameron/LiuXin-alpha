@@ -19,7 +19,7 @@ from pathlib import Path
 
 from LiuXin_alpha.file_formats.pdb.header import PdbHeaderBuilder, PdbHeaderReader
 from LiuXin_alpha.file_formats.pdb.plucker.reader import DATATYPE_METADATA
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 
 
 def _build_pdb(identity: str, title: str, sections: list[bytes]) -> io.BytesIO:

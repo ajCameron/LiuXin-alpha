@@ -14,10 +14,8 @@ from LiuXin_alpha.utils.libraries.liuxin_six import iteritems, force_unicode
 
 from LiuXin_alpha.errors import RowIntegrityError, DatabaseIntegrityError, DatabaseDriverError
 from LiuXin_alpha.databases.normalized_identities import (
-    add_derived_identity_values,
-    default_normalized_identity_spec,
     normalize_identity_value,
-    normalized_identity_defaults_for_table,
+    prepare_normalized_values,
 )
 
 from LiuXin_alpha.utils.logging import default_log
@@ -99,7 +97,7 @@ class UpdateMixin:
                 target_table = field_table
 
             table_id_col = self.direct_get_id_column(target_table)
-            identity_spec = default_normalized_identity_spec(target_table, field)
+            identity_spec = self.direct_get_normalized_identity_spec(target_table, field)
             if (
                 identity_spec is not None
                 and identity_spec.identity_column
@@ -171,14 +169,7 @@ class UpdateMixin:
             else:
                 new_row_dict[column] = row_dict[column]
         row_dict = new_row_dict
-        if normalized_identity_defaults_for_table(target_table):
-            row_dict = add_derived_identity_values(
-                target_table,
-                row_dict,
-                available_columns=set(
-                    self.direct_get_column_headings(target_table)
-                ),
-            )
+        row_dict = prepare_normalized_values(self, target_table, row_dict)
 
         # working out what the id column for the table is called
         row_id = self.direct_get_id_column(target_table)

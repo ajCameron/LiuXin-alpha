@@ -311,14 +311,18 @@ In other words: the sugar is real, useful, and acceptable, but it is not the arc
 
 Controlled vocabularies now have canonical homes.
 
-### Database-constrained vocabularies
+### Identifier and relationship vocabularies
 
-These live in `databases`, especially `db_types.py`.
+These are metadata contracts even when the database constrains their stored
+representation:
 
-Examples:
-- identifier schemes
-- identifier entity-type allow-lists
-- MARC relator controlled sets used by database-facing logic
+- identifier schemes and entity-type allow-lists live in
+  `LiuXin_alpha.metadata.identifiers`;
+- MARC relator roles and per-WEMI controlled sets live in
+  `LiuXin_alpha.metadata.relators`.
+
+Database-facing logic imports these owners when generating constraints; it does
+not maintain a parallel vocabulary.
 
 ### Shared additional-metadata vocabularies
 

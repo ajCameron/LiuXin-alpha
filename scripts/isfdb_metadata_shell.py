@@ -89,16 +89,16 @@ def _metadata_container_classes() -> dict[str, object]:
     """
     global _METADATA_CONTAINER_CLASSES
     if _METADATA_CONTAINER_CLASSES is None:
-        from LiuXin_alpha.metadata.containers import (
+        from LiuXin_alpha.catalog.catalog import Catalog
+        from LiuXin_alpha.catalog.retrieval.hydration import (
             LazyLiuXinWEMIMetadataHydrator,
             LiuXinWEMIMetadataHydrator,
-            LiuXinWEMIMetadataWriter,
         )
 
         _METADATA_CONTAINER_CLASSES = {
+            "Catalog": Catalog,
             "LazyLiuXinWEMIMetadataHydrator": LazyLiuXinWEMIMetadataHydrator,
             "LiuXinWEMIMetadataHydrator": LiuXinWEMIMetadataHydrator,
-            "LiuXinWEMIMetadataWriter": LiuXinWEMIMetadataWriter,
         }
     return dict(_METADATA_CONTAINER_CLASSES)
 
@@ -711,9 +711,12 @@ def main(argv: list[str] | None = None) -> int:
             "lazy_hydrator",
             lambda: _metadata_container_classes()["LazyLiuXinWEMIMetadataHydrator"](_realize(db)),
         )
+        catalog = LazyShellBinding(
+            "catalog",
+            lambda: _metadata_container_classes()["Catalog"](_realize(db)),
+        )
         metadata_writer = LazyShellBinding(
-            "metadata_writer",
-            lambda: _metadata_container_classes()["LiuXinWEMIMetadataWriter"](_realize(db)),
+            "metadata_writer", lambda: _realize(catalog).mutations.writer
         )
         hydrator = lazy_hydrator if bool(args.lazy) else eager_hydrator
         hydrator_class_name = "LazyLiuXinWEMIMetadataHydrator" if bool(args.lazy) else "LiuXinWEMIMetadataHydrator"
@@ -905,10 +908,11 @@ def main(argv: list[str] | None = None) -> int:
             """
             target_metadata = _realize(metadata) if metadata is not None else get_md()
             kwargs.setdefault("item_id", resolve_item_id())
-            return _realize(metadata_writer).write(target_metadata, **kwargs)
+            return _realize(metadata_writer).write_container(target_metadata, **kwargs)
 
         namespace: dict[str, object] = {
             "db": db,
+            "catalog": catalog,
             "database_path": database_path,
             "hydrator": hydrator,
             "eager_hydrator": eager_hydrator,
@@ -931,9 +935,9 @@ def main(argv: list[str] | None = None) -> int:
                 "LazyLiuXinWEMIMetadataHydrator",
                 lambda: _metadata_container_classes()["LazyLiuXinWEMIMetadataHydrator"],
             ),
-            "LiuXinWEMIMetadataWriter": LazyShellBinding(
-                "LiuXinWEMIMetadataWriter",
-                lambda: _metadata_container_classes()["LiuXinWEMIMetadataWriter"],
+            "Catalog": LazyShellBinding(
+                "Catalog",
+                lambda: _metadata_container_classes()["Catalog"],
             ),
         }
 

@@ -73,7 +73,6 @@ LABEL_SPEC = ExactEntitySpec(
         "description": "label_description",
     },
     policy_field="label_text",
-    normalized_storage_fields=(("label_text_norm", "label_text"),),
 )
 
 GENRE_SPEC = ExactEntitySpec(
@@ -146,7 +145,6 @@ SERIES_SPEC = ExactEntitySpec(
     },
     scope_fields=("series_parent_id",),
     policy_field="series",
-    normalized_storage_fields=(("series_name_norm", "series"),),
 )
 
 LANGUAGE_SPEC = ExactEntitySpec(

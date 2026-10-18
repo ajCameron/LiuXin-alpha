@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import typing as _typing
 
-from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.file_formats.conversion.plugin import OutputFormatPlugin, OptionRecommendation
 
 from LiuXin_alpha.utils.localization import trans as _
 
@@ -403,7 +403,7 @@ class MOBIOutput(OutputFormatPlugin):
         :return: None; the operation mutates state, writes output or performs cleanup in
             place.
         """
-        from LiuXin_alpha.customize.ui import plugin_for_input_format
+        from LiuXin_alpha.file_formats.plugin_runtime import plugin_for_input_format
 
         from LiuXin_alpha.file_formats.oeb.transforms.htmltoc import HTMLTOCAdder
         from LiuXin_alpha.file_formats.mobi.mobiml import MobiMLizer

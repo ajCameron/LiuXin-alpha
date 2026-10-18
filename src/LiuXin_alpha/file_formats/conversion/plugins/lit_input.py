@@ -16,7 +16,7 @@ from __future__ import annotations, with_statement
 
 import typing as _typing
 
-from LiuXin_alpha.customize.conversion import InputFormatPlugin
+from LiuXin_alpha.file_formats.conversion.plugin import InputFormatPlugin
 
 __license__ = "GPL v3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"

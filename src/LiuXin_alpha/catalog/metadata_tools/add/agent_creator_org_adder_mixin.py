@@ -11,10 +11,11 @@ from typing import Any, Iterable, Optional, Sequence, Union
 from LiuXin_alpha.utils.libraries.liuxin_six import string_types
 
 from LiuXin_alpha.databases.api import RowAPI
+from LiuXin_alpha.catalog.row_mutations import atomic_write, link_rows, create_row, persist_row
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
 from LiuXin_alpha.metadata.constants import CREATOR_TYPES
-from LiuXin_alpha.metadata.utils import author_to_author_sort
+from LiuXin_alpha.metadata.author_names import author_to_author_sort
 from LiuXin_alpha.utils.language_tools import best_effort_language_id
 from LiuXin_alpha.utils.logging import default_log
 
@@ -188,7 +189,7 @@ class AgentCreatorOrgMixin:
         for col, value in payload.items():
             if col in row.allowed_columns:
                 row[col] = value
-        row.sync()
+        persist_row(self, row)
 
     def _first_row_for_value(self, table: str, column: str, value: Any) -> Optional[RowAPI]:
         """
@@ -240,7 +241,7 @@ class AgentCreatorOrgMixin:
 
         row_dict = {fk_column: fk_value}
         row_dict.update(payload)
-        return Row.from_idless_row_dict(self.db, row_dict=row_dict, table=table)
+        return create_row(self, row_dict=row_dict, table=table)
 
     def _extract_agent_id(self, row: RowAPI) -> Optional[int]:
         """
@@ -303,7 +304,7 @@ class AgentCreatorOrgMixin:
         """
 
         try:
-            return self.db.interlink_rows(
+            return link_rows(self,
                 primary_row=primary_row,
                 secondary_row=secondary_row,
                 priority=priority,
@@ -311,7 +312,7 @@ class AgentCreatorOrgMixin:
                 **col_value_pairs,
             )
         except InputIntegrityError:
-            return self.db.interlink_rows(
+            return link_rows(self,
                 primary_row=secondary_row,
                 secondary_row=primary_row,
                 priority=priority,
@@ -385,7 +386,7 @@ class AgentCreatorOrgMixin:
             return note
         if isinstance(note, string_types):
             self._require_insertable_table("notes", for_method="agent note linking")
-            return Row.from_idless_row_dict(self.db, row_dict={"note": note}, table="notes")
+            return create_row(self, row_dict={"note": note}, table="notes")
         err_str = "Unable to parse note while linking to agent"
         err_str = default_log.log_variables(
             err_str,
@@ -412,7 +413,7 @@ class AgentCreatorOrgMixin:
             return synopsis
         if isinstance(synopsis, string_types):
             self._require_insertable_table("synopses", for_method="agent synopsis linking")
-            return Row.from_idless_row_dict(self.db, row_dict={"synopsis": synopsis}, table="synopses")
+            return create_row(self, row_dict={"synopsis": synopsis}, table="synopses")
         err_str = "Unable to parse synopsis while linking to agent"
         err_str = default_log.log_variables(
             err_str,
@@ -464,8 +465,9 @@ class AgentCreatorOrgMixin:
             "entity_identifier_is_primary": is_primary,
             "entity_identifier_provenance": provenance,
         }
-        return Row.from_idless_row_dict(self.db, row_dict=payload, table="entity_identifiers")
+        return create_row(self, row_dict=payload, table="entity_identifiers")
 
+    @atomic_write
     def agent(
         self,
         agent_canonical_name: str,
@@ -552,7 +554,7 @@ class AgentCreatorOrgMixin:
             payload["agent_created_timestamp_ep_k"] = created_epk
             payload["agent_modified_timestamp_ep_k"] = created_epk
 
-        agent_row = Row.from_idless_row_dict(self.db, row_dict=payload, table="agents")
+        agent_row = create_row(self, row_dict=payload, table="agents")
         agent_id = int(agent_row["agent_id"])
 
         if human_sidecar:
@@ -592,6 +594,7 @@ class AgentCreatorOrgMixin:
 
         return agent_row
 
+    @atomic_write
     def creator(
         self,
         creator,
@@ -722,6 +725,7 @@ class AgentCreatorOrgMixin:
 
         return agent_row
 
+    @atomic_write
     def organisation(
         self,
         organisation,
@@ -834,7 +838,7 @@ class AgentCreatorOrgMixin:
                 "org_agent_relation_note": organisation_relation_note,
             }
             try:
-                Row.from_idless_row_dict(self.db, row_dict=relation_payload, table="org_agent_relations")
+                create_row(self, row_dict=relation_payload, table="org_agent_relations")
             except DatabaseIntegrityError:
                 # Duplicate edge (same child/parent/type) or equivalent constraint - safe to ignore.
                 pass
@@ -844,6 +848,7 @@ class AgentCreatorOrgMixin:
 
         return agent_row
 
+    @atomic_write
     def organization(self, *args, **kwargs) -> RowAPI:
         """
         Forward the US-spelled alias with only two keyword translations.
@@ -865,6 +870,7 @@ class AgentCreatorOrgMixin:
             kwargs["organisation_sort"] = kwargs.pop("organization_sort")
         return self.organisation(*args, **kwargs)
 
+    @atomic_write
     def publisher(
         self,
         publisher,

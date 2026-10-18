@@ -17,13 +17,14 @@ Example:
 
 from __future__ import annotations
 
+import re
+import unicodedata
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from difflib import SequenceMatcher
-import re
 from typing import Any
-import unicodedata
-from uuid import UUID
+
+from LiuXin_alpha.metadata.identifiers import normalise_identifier_pair
 
 from ..api.common import (
     CatalogAmbiguousMatchError,
@@ -101,12 +102,6 @@ class MatchingPolicy:
 
 DEFAULT_MATCHING_POLICY = MatchingPolicy()
 
-_DOI_PREFIX = re.compile(
-    r"^(?:doi\s*:\s*|https?://(?:dx\.)?doi\.org/)",
-    flags=re.IGNORECASE,
-)
-_ISBN_SCHEMES = frozenset({"isbn", "isbn10", "isbn13"})
-
 
 def normalise_match_text(value: object) -> str:
     """
@@ -165,98 +160,15 @@ def text_similarity(left: object, right: object) -> float:
     return SequenceMatcher(None, normalised_left, normalised_right).ratio()
 
 
-def _normalise_scheme(value: str) -> str:
-    """
-    Canonicalize an identifier scheme through ASCII separators and explicit aliases.
-
-    Case-fold the string, replace non-ASCII-letter/digit runs with underscores, and strip outer
-    underscores. Known aliases are recognized after removing those separators; unknown schemes
-    retain the normalized underscore spelling. Empty results are returned for the caller to reject.
-
-    Example:
-        >>> _normalise_scheme(" ISBN-13 ")
-        'isbn13'
-        >>> _normalise_scheme("Local Call")
-        'local-call'
-        >>> _normalise_scheme("Publisher Code")
-        'publisher_code'
-
-
-    :param value: Scheme string to normalize; this helper does not coerce other types.
-    :return: Canonical known alias or normalized unknown scheme, possibly empty.
-    """
-    scheme = re.sub(r"[^a-z0-9]+", "_", value.casefold()).strip("_")
-    compact = scheme.replace("_", "")
-    aliases = {
-        "archiveid": "archive-id",
-        "assetid": "asset-id",
-        "imdbid": "imdb_id",
-        "isbn": "isbn",
-        "isbn10": "isbn10",
-        "isbn13": "isbn13",
-        "calibreuuid": "calibre_uuid",
-        "localcall": "local-call",
-        "publisherphash": "publisher_phash",
-        "uuidish": "uuid-ish",
-        "wikipediaurl": "wikipedia_url",
-    }
-    return aliases.get(compact, scheme)
-
-
-def _check_isbn(value: str) -> str | None:
-    """
-    Compact an ISBN-shaped string and check its ten- or thirteen-digit checksum.
-
-    Remove everything except ASCII digits and X/x. Ten-character values permit X only as the final
-    check digit and use the mod-11 rule; thirteen-character values use alternating weights one and
-    three. This checks shape/checksum only, without validating ISBN prefixes, registration, or
-    publication identity.
-
-    Example:
-        >>> _check_isbn("0-306-40615-2")
-        '0306406152'
-        >>> _check_isbn("978-0-306-40615-8") is None
-        True
-        >>> _check_isbn("0000000000000")
-        '0000000000000'
-
-
-    :param value: Text from which digit and possible ISBN-10 check-letter content is extracted.
-    :return: Compact checksum-valid text with uppercase X, or None for unsupported shape/checksum.
-    """
-    compact = re.sub(r"[^0-9Xx]", "", value)
-    if len(compact) == 10 and compact[:9].isdigit() and (
-        compact[-1].isdigit() or compact[-1] in "Xx"
-    ):
-        total = sum(
-            (10 - index) * (10 if digit in "Xx" else int(digit))
-            for index, digit in enumerate(compact)
-        )
-        return compact.upper() if total % 11 == 0 else None
-    if len(compact) == 13 and compact.isdigit():
-        total = sum(
-            int(digit) * (1 if index % 2 == 0 else 3)
-            for index, digit in enumerate(compact)
-        )
-        return compact if total % 10 == 0 else None
-    return None
-
-
 def normalise_identifier(candidate: IdentifierCandidate) -> IdentifierCandidate:
     """
-    Create a candidate with a canonical scheme and scheme-specific comparison value.
+    Adapt metadata-owned identifier normalization to a Catalog candidate.
 
-    Require an IdentifierCandidate with string scheme and original value. A truthy normalised_value
-    takes precedence over the original value, including when it strips to empty; an empty override
-    falls back to the original. The override itself is not type-checked before string operations.
-
-    ISBN values receive checksum and explicit-length checks, uuid/calibre_uuid use UUID parsing, and DOI
-    values lose one recognized prefix, case-fold, and need only a 10. prefix plus a slash. OCLC
-    values lose one leading oclc/ocm/ocn/on token without requiring a delimiter or numeric suffix;
-    that step can produce an empty result. Other schemes retain stripped case-sensitive text.
-
-    Return a new candidate with stripped original value and the same source/hints. No network
-    lookup, registration check, database write, or mutation of the input candidate is performed.
+    Require an IdentifierCandidate, delegate its value pair to
+    :func:`metadata.identifiers.normalise_identifier_pair`, then return a new
+    candidate with the original source and hints references. Catalog owns that
+    provenance-bearing transport type; metadata owns all scheme aliases and
+    scheme-specific value rules.
 
     Example:
         >>> original = IdentifierCandidate("DOI", " https://doi.org/10.1000/ABC ")
@@ -271,61 +183,23 @@ def normalise_identifier(candidate: IdentifierCandidate) -> IdentifierCandidate:
 
     :param candidate: Identifier value to canonicalize, preserving its provenance and hint references.
     :return: A new IdentifierCandidate carrying the canonical scheme and comparison text.
-    :raises TypeError: If candidate or its original scheme/value has the wrong type, or an override cannot support the selected operations.
-    :raises ValueError: If initial scheme/value text is empty or ISBN, UUID, or DOI checks fail.
-    :raises AttributeError: If a truthy normalized override lacks required string operations.
+    :raises TypeError: If candidate or its original scheme/value has the wrong type.
+    :raises ValueError: If metadata-owned pair validation fails.
+    :raises AttributeError: If a truthy normalized override lacks string operations.
     """
 
     if not isinstance(candidate, IdentifierCandidate):
         raise TypeError("candidate must be an IdentifierCandidate")
-    if not isinstance(candidate.identifier_type, str) or not isinstance(
+    normalised = normalise_identifier_pair(
+        candidate.identifier_type,
         candidate.value,
-        str,
-    ):
-        raise TypeError("identifier scheme and value must be strings")
-    scheme = _normalise_scheme(candidate.identifier_type)
-    raw_value = candidate.normalised_value or candidate.value
-    value = raw_value.strip()
-    if not scheme or not value:
-        raise ValueError("identifier scheme and value must be non-empty")
-
-    if scheme in _ISBN_SCHEMES:
-        checked = _check_isbn(value)
-        if checked is None:
-            raise ValueError(f"invalid ISBN: {candidate.value!r}")
-        expected_length = (
-            10 if scheme == "isbn10" else 13 if scheme == "isbn13" else None
-        )
-        if expected_length is not None and len(checked) != expected_length:
-            raise ValueError(
-                f"{candidate.identifier_type!r} does not contain an ISBN-{expected_length}"
-            )
-        scheme = f"isbn{len(checked)}"
-        normalised_value = checked
-    elif scheme in {"uuid", "calibre_uuid"}:
-        try:
-            normalised_value = str(UUID(value))
-        except ValueError as error:
-            raise ValueError(f"invalid UUID: {candidate.value!r}") from error
-    elif scheme == "doi":
-        normalised_value = _DOI_PREFIX.sub("", value).strip().casefold()
-        if not normalised_value.startswith("10.") or "/" not in normalised_value:
-            raise ValueError(f"invalid DOI: {candidate.value!r}")
-    elif scheme == "oclc":
-        normalised_value = re.sub(
-            r"^(?:oclc|ocm|ocn|on)",
-            "",
-            value,
-            flags=re.IGNORECASE,
-        )
-        normalised_value = normalised_value.strip().casefold()
-    else:
-        normalised_value = value
+        normalised_value=candidate.normalised_value,
+    )
 
     return IdentifierCandidate(
-        identifier_type=scheme,
-        value=candidate.value.strip(),
-        normalised_value=normalised_value,
+        identifier_type=normalised.identifier_type,
+        value=normalised.value,
+        normalised_value=normalised.normalised_value,
         source=candidate.source,
         hints=candidate.hints,
     )

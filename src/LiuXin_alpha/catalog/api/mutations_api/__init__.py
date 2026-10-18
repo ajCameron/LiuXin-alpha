@@ -7,6 +7,15 @@ from __future__ import annotations
 from typing import Protocol, runtime_checkable
 
 from ..common import CreatedWemiStack
+from .metadata_write import (
+    MetadataWriteRecord,
+    MetadataWriteReportAPI,
+    MetadataWriteReportMapping,
+    MetadataWriteScalar,
+    MetadataWriteTargetRow,
+    MetadataWriteTargetRowAPI,
+    MetadataWriteValue,
+)
 from .metadata_writer import MetadataWriterAPI
 from .mutation_policy import MutationPolicyAPI
 
@@ -16,6 +25,7 @@ class CatalogMutationsAPI(Protocol):
     """
     Describe grouped policy and writer services exposed by Catalog.
 
+    ``writer`` is the preferred public boundary for coordinated semantic mutations.
     Policy reads do not reserve entities. Transaction support depends on the
     writer operation and supplied macro handle; attachment/merge permit a
     legacy fallback without a transaction.
@@ -33,5 +43,12 @@ __all__ = [
     "CatalogMutationsAPI",
     "CreatedWemiStack",
     "MetadataWriterAPI",
+    "MetadataWriteRecord",
+    "MetadataWriteReportAPI",
+    "MetadataWriteReportMapping",
+    "MetadataWriteScalar",
+    "MetadataWriteTargetRow",
+    "MetadataWriteTargetRowAPI",
+    "MetadataWriteValue",
     "MutationPolicyAPI",
 ]

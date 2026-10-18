@@ -22,6 +22,7 @@ top-level packages.
 | `metadata` | Metadata models and tooling |
 | `storage` | Assets and replicas |
 | `file_formats` | Format handling and conversion |
+| `plugin_system` | Passive, format-neutral plugin lifecycle contracts |
 | `ingest` | Acquisition workflows |
 | `jobs` | Durable execution |
 | `caches` | Acceleration |
@@ -98,6 +99,15 @@ Favor end-to-end examples and ownership documentation that explain how the
 components work together. Blanket docstring additions and package renames have
 lower priority than clarifying lifecycle behavior and testing the contracts.
 The earlier `customize` naming suggestion remains a secondary consideration.
+
+## Implementation update — 2026-10-13
+
+Later dependency evidence justified one narrow top-level addition:
+`plugin_system` now owns the format-neutral plugin lifecycle that was previously
+embedded in `customize`. Conversion-specific contracts moved to
+`file_formats.conversion.plugin`, while `customize` retains compatibility exports
+and application registry composition. This makes the ownership boundary explicit
+without renaming the broad historical package or removing plugin behavior.
 
 ## Evidence and limits
 

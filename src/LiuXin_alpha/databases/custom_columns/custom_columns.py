@@ -2,7 +2,7 @@
 """
 Compose the legacy custom-column facade, metadata loading and cache hooks.
 
-Constructing CustomColumns can delete marked/broken definitions, install temporary triggers and register custom fields. It does not populate the results cache required by value getters/setters. The first driver-wrapper base shadows the later CRUD wrapper methods.
+Constructing CustomColumns can delete explicitly marked definitions, install temporary triggers and register custom fields. Malformed definitions are preserved and reported. It does not populate the results cache required by value getters/setters. CRUD wrappers precede the driver adapter so facade bookkeeping runs after successful writes.
 """
 
 from __future__ import annotations
@@ -25,11 +25,11 @@ from LiuXin_alpha.databases.notify import dummy_notify, dummy_dirtied
 
 from LiuXin_alpha.databases.utils import cleanup_tags, _get_next_series_num_for_list, _get_series_values
 
-from LiuXin_alpha.errors import InvalidUpdate
+from LiuXin_alpha.errors import DatabaseIntegrityError, InvalidUpdate
 
 from LiuXin_alpha.catalog.field_metadata import FieldMetadata
 
-from LiuXin_alpha.utils.logging import prints, default_log
+from LiuXin_alpha.utils.logging import prints
 
 from LiuXin_alpha.utils.language_tools import plural_singular_mapper
 
@@ -73,16 +73,16 @@ from LiuXin_alpha.databases.constants import CUSTOM_DATA_TYPES
 # The base mixin handles all the database custom columns stuff - this class adds in all the preference e.t.c
 # update logic which needs to be done to the library when custom column changes occur
 class CustomColumns(
+    CCCRUDColumnsMixin,
     CustomColumnsDriverWrapperMixin,
     CCNamesMixin,
     CCSetMethodsMixin,
     CCGetMethodsMixin,
-    CCDeleteMethodsMixin,
-    CCCRUDColumnsMixin):
+    CCDeleteMethodsMixin):
     """
     Manage one attachment table’s legacy custom-column metadata and operations.
 
-    Share supplied cache, field-map and FieldMetadata objects. Initialization performs schema cleanup and metadata registration; standalone mode installs inert dirty/notify hooks. Default cache data is an empty dictionary, so cached value operations need additional host setup. MRO resolution selects driver-wrapper creation/metadata/deletion methods before CCCRUDColumnsMixin.
+    Share supplied cache, field-map and FieldMetadata objects. Initialization performs schema cleanup and metadata registration; standalone mode installs inert dirty/notify hooks. Default cache data is an empty dictionary, so cached value operations need additional host setup. CRUD methods delegate to the driver adapter before refreshing definition maps and notifying the host.
 
     Example:
         Given an open db, CustomColumns(db, table="works") loads and registers custom definitions attached to works, potentially performing cleanup.
@@ -128,7 +128,7 @@ class CustomColumns(
         """
         Attach host state, clean obsolete definitions and register custom metadata.
 
-        Delete marked columns, refresh definitions, remove orphan definitions and recreate the parent-delete TEMP trigger on the current connection when snippets exist. Adapter and FieldMetadata setup follows; normalized non-composite columns are categories only for literal books. Setup is not atomic or read-only. Reusing shared FieldMetadata can encounter existing registrations. The instance does not initialize custom_column_num_to_label_map or populate cache rows.
+        Delete explicitly marked columns, validate and refresh definitions, and recreate the parent-delete TEMP trigger on the current connection when snippets exist. Adapter and FieldMetadata setup follows; normalized non-composite columns are categories only for literal books. Setup is not atomic or read-only. Reusing shared FieldMetadata can encounter existing registrations. The instance does not initialize custom_column_num_to_label_map or populate cache rows.
 
         Example:
             Given db, cc = CustomColumns(db, table="works", field_metadata=metadata) shares metadata and loads Work custom-column definitions.
@@ -216,14 +216,7 @@ class CustomColumns(
         self.triggers = []
         self.remove = []
         self.refresh_db_custom_columns_metadata()
-        remove = self.remove
         triggers = self.triggers
-
-        if remove:
-            with self.conn:
-                for data in remove:
-                    prints("WARNING: Custom column %r not found, removing." % data["label"])
-                    self.db.macros.do_custom_column_delete_by_num(data["num"])
 
         if triggers:
             # TEMP triggers are per-connection. When custom columns change (or when this class is reinstantiated),
@@ -294,106 +287,69 @@ class CustomColumns(
         self.cc_tag_browser_categories_made = True
 
     def refresh_db_custom_columns_metadata(self) -> None:
-        """
-        Rebuild per-table definition maps while collecting removals and trigger snippets.
+        """Reload this table's definitions without deleting malformed records.
 
-        Scan every custom_columns record before filtering to this attachment table. Parsing errors delete the definition immediately; missing backing tables queue removals even for other attachment tables. A parsed display=None becomes {}, but another nonmapping display can fail later outside the parsing guard. Shared metadata dictionaries populate both maps. Repeated calls do not clear remove/triggers, install the trigger, execute queued removals or rebuild FieldMetadata registrations.
-
-        Example:
-            After external schema changes, cc.refresh_db_custom_columns_metadata() refreshes its maps; recreating the facade is the separate path that applies queued cleanup and trigger installation.
-
-
-        :return: None; update metadata maps and append to existing remove/triggers lists.
+        Validate a complete replacement before publishing maps or trigger snippets.
+        A malformed definition or missing backing table raises DatabaseIntegrityError;
+        stored definitions, values and the previous in-memory snapshot stay intact.
+        Definitions owned by other tables are ignored before parsing their metadata.
+        Trigger installation and FieldMetadata registration remain loader operations.
         """
         custom_tables = self.custom_tables
-        self.custom_column_label_map, self.custom_column_num_map = {}, {}
-
-        remove = self.remove
-        triggers = self.triggers
-
+        label_map, num_map, triggers = {}, {}, []
         cc = "custom_column_"
-
         for record in self.db.driver_wrapper.get_all_rows(table="custom_columns"):
-
-            # At the moment data comes back from the database as a string - thus if you've stored a bool as a 0 or a 1
-            # in the database what will come back is '0' or '1' - which always evaluates to True when you call bool with
-            # it - which means EVERYTHING evaluates as a bool. Which is clearly wrong. Overcome this by coercing to int
-            # before running bool
-            # Todo: Merge with the adapters defined for the data types above.
+            in_table = record[cc + "in_table"] or "books"
+            if in_table != self.table:
+                continue
             try:
-
+                display = json.loads(record[cc + "display"])
+                if display is None:
+                    display = {}
+                if not isinstance(display, dict):
+                    raise ValueError("display must be a JSON object")
                 data = {
                     "label": record[cc + "label"],
                     "name": record[cc + "name"],
                     "datatype": record[cc + "datatype"],
                     "editable": bool(int(record[cc + "editable"])),
-                    "display": json.loads(record[cc + "display"]),
+                    "display": display,
                     "normalized": bool(int(record[cc + "normalized"])),
                     "num": int(record[cc + "id"]),
                     "is_multiple": bool(int(record[cc + "is_multiple"])),
-                    "in_table": record[cc + "in_table"],
+                    "in_table": in_table,
                 }
+            except (KeyError, TypeError, ValueError) as exc:
+                raise DatabaseIntegrityError(
+                    f"Invalid custom column {record[cc + 'id']!r} for {self.table!r}: {exc}"
+                ) from exc
 
-            except Exception as e:
-                err_str = "Parsing the record into a dict failed - deleting the record and continuing"
-                default_log.log_exception(err_str, e, "ERROR", ("record", record))
-                self.db.macros.do_custom_column_delete_by_id(record["custom_column_id"])
-                continue
-
-            if data["display"] is None:
-                data["display"] = {}
-            # set up the is_multiple separator dict
-            if data["is_multiple"]:
-                if data["display"].get("is_names", False):
-                    seps = {
-                        "cache_to_list": "|",
-                        "ui_to_list": "&",
-                        "list_to_ui": " & ",
-                    }
-                elif data["datatype"] == "composite":
-                    seps = {"cache_to_list": ",", "ui_to_list": ",", "list_to_ui": ", "}
-                else:
-                    seps = {"cache_to_list": "|", "ui_to_list": ",", "list_to_ui": ", "}
-            else:
+            if not data["is_multiple"]:
                 seps = {}
+            elif display.get("is_names", False):
+                seps = {"cache_to_list": "|", "ui_to_list": "&", "list_to_ui": " & "}
+            elif data["datatype"] == "composite":
+                seps = {"cache_to_list": ",", "ui_to_list": ",", "list_to_ui": ", "}
+            else:
+                seps = {"cache_to_list": "|", "ui_to_list": ",", "list_to_ui": ", "}
             data["multiple_seps"] = seps
-
-            in_table = data.get("in_table") or "books"
-            table, lt = self.custom_table_names(data["num"], in_table=in_table)
-            # If a table is not normalized, we only need to check that it exists
-            # If a table is normalized both it and it's link table need to be checked to exist
-            if table not in custom_tables or (data["normalized"] and lt not in custom_tables):
-                info_str = "The necessary tables where not found for a custom column - marking it for removal"
-                default_log.log_variables(
-                    info_str,
-                    "INFO",
-                    ("table", table),
-                    ("lt", lt),
-                    ("custom_tables", custom_tables),
-                    ("data", data),
+            table, link_table = self.custom_table_names(data["num"], in_table=in_table)
+            if table not in custom_tables or (
+                data["normalized"] and link_table not in custom_tables
+            ):
+                raise DatabaseIntegrityError(
+                    f"Custom column {data['num']} for {self.table!r} has missing backing tables"
                 )
-                remove.append(data)
-                continue
-
-            # Only load custom columns for the table this instance represents.
-            # (Custom columns may exist on other tables, but this CustomColumns object is per-table.)
-            if in_table != self.table:
-                continue
-
-            self.custom_column_label_map[data["label"]] = data["num"]
-            self.custom_column_num_map[data["num"]] = self.custom_column_label_map[data["label"]] = data
-
-            # Create Foreign Key replacement triggers (used to emulate ON DELETE CASCADE behaviour)
-            # for custom column tables that reference the parent table.
-            search_column = plural_singular_mapper(in_table)
-            target_id = self.db.driver_wrapper.get_id_column(in_table)
-            target_table = lt if data["normalized"] else table
-            trigger = self.db.macros.get_foreign_key_replacement_trigger(
-                target_table=target_table,
-                search_column=search_column,
-                target_id=target_id,
+            label_map[data["label"]] = num_map[data["num"]] = data
+            triggers.append(
+                self.db.macros.get_foreign_key_replacement_trigger(
+                    target_table=link_table if data["normalized"] else table,
+                    search_column=plural_singular_mapper(in_table),
+                    target_id=self.db.driver_wrapper.get_id_column(in_table),
+                )
             )
-            triggers.append(trigger)
+        self.custom_column_label_map, self.custom_column_num_map = label_map, num_map
+        self.remove, self.triggers = [], triggers
 
     def rename_custom_item(
             self,
@@ -740,11 +696,11 @@ class CustomColumns(
             raise NotImplementedError("val was not of an expected type {}".format(val))
 
     @staticmethod
-    def cleanup_tags(tags_list: list[str]) -> list[str]:
+    def cleanup_tags(tags_list: Iterable[str | bytes]) -> list[str]:
         """
-        Delegate tag cleanup to the legacy utility, including its current failures.
+        Delegate text and byte tag cleanup to the shared metadata policy.
 
-        The utility misclassifies str as bytes and calls decode; nonempty bytes fail earlier in replace. No facade-specific repair or exception translation is applied.
+        Decode bytes before normalization; preserve first spelling and input order while removing case-insensitive duplicates.
 
         Example:
             >>> CustomColumns.cleanup_tags([])
@@ -752,9 +708,7 @@ class CustomColumns(
 
 
         :param tags_list: Iterable of tag entries passed through unchanged.
-        :return: Empty list for empty/all-blank input; ordinary nonblank str or bytes entries currently raise.
-        :raises AttributeError: A nonblank ordinary string reaches .decode.
-        :raises TypeError: A nonempty bytes entry reaches string-argument replace.
+        :return: Cleaned, deduplicated tag strings.
         """
         return cleanup_tags(tags_list)
 

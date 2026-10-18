@@ -135,7 +135,7 @@ def test_opf_reader_plugin_is_available_and_preserves_stream_position() -> None:
 
     :return: None; the function records state or raises through its assertions.
     """
-    from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
+    from LiuXin_alpha.metadata.file_sources.builtin_readers import get_metadata_reader_plugins
 
     plugins = get_metadata_reader_plugins()
     opf_cls = next((p for p in plugins if p.__name__ == "OPFMetadataReader"), None)

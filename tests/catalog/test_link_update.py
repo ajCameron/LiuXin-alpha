@@ -20,7 +20,7 @@ from types import MappingProxyType
 import pytest
 
 from LiuXin_alpha.caches.write.utils import UpdateDict
-from LiuXin_alpha.catalog import Catalog
+from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.catalog.write import LinkUpdate, LinkUpdateEntry, LinkUpdateLink
 from LiuXin_alpha.databases.macro_types import LINK_TYPE_UNSET, LinkRow, LinkValue
 from LiuXin_alpha.databases.schema_specs import StorageLinkSpec
@@ -945,7 +945,7 @@ def test_catalog_writes_link_update_through_its_database_macros() -> None:
         link_type="author",
     )
 
-    rows = catalog.write_link_update(update)
+    rows = catalog._apply_link_update(update)
 
     assert macros.reads == []
     assert macros.writes == [
@@ -974,9 +974,9 @@ def test_catalog_link_update_boundary_rejects_other_values_and_preserves_noop() 
     catalog = Catalog(type("Database", (), {"macros": macros})())
 
     with pytest.raises(TypeError, match="update must be a LinkUpdate"):
-        catalog.write_link_update(object())  # type: ignore[arg-type]
+        catalog._apply_link_update(object())  # type: ignore[arg-type]
 
-    assert catalog.write_link_update(LinkUpdate.from_ids(_link_spec())) == {}
+    assert catalog._apply_link_update(LinkUpdate.from_ids(_link_spec())) == {}
     assert macros.reads == []
     assert macros.writes == []
 
@@ -1602,7 +1602,7 @@ def test_legacy_value_to_normalized_link_update_writes_through_real_db(db) -> No
         replacements={1: [10, "matched"]},
         secondary_id_for=match_value,
     )
-    initial_rows = catalog.write_link_update(initial)
+    initial_rows = catalog._apply_link_update(initial)
     matched_id = next(
         row.secondary_id
         for row in initial_rows[1]
@@ -1615,7 +1615,7 @@ def test_legacy_value_to_normalized_link_update_writes_through_real_db(db) -> No
         deletions={1: 10},
         secondary_id_for=match_value,
     )
-    final_rows = catalog.write_link_update(incremental)
+    final_rows = catalog._apply_link_update(incremental)
 
     assert {row.secondary_id for row in final_rows[1]} == {
         matched_id,

@@ -167,6 +167,13 @@ def test_portable_macros_against_live_postgres() -> None:
             ),
         )
         macros = driver.macros
+        assert macros.get_column_extrema("macro_live_links", "priority") == (None, None)
+        with pytest.raises(RuntimeError, match="abort aggregate transaction"):
+            with macros.transaction():
+                macros.upsert_link(spec, 1, LinkValue(10, priority=7))
+                assert macros.get_column_extrema("macro_live_links", "priority") == (7, 7)
+                raise RuntimeError("abort aggregate transaction")
+        assert macros.get_column_extrema("macro_live_links", "priority") == (None, None)
         rows = macros.replace_links(
             spec,
             1,
@@ -207,7 +214,7 @@ def test_portable_macros_against_live_postgres() -> None:
         assert macros.ensure_table_value(
             "tags",
             "tag",
-            " sciencefiction ",
+            " SCIENCE   FICTION ",
         ) == tag_id
         assert macros.fingerprint_table("macro_live_links") == (
             macros.fingerprint_table("macro_live_links")

@@ -173,10 +173,10 @@ def _install_customize_ui_stub(monkeypatch: pytest.MonkeyPatch) -> None:
     :return: None; the operation mutates state, writes output or performs cleanup in
         place.
     """
-    fake_ui = types.ModuleType("LiuXin_alpha.customize.ui")
+    fake_ui = types.ModuleType("LiuXin_alpha.file_formats.plugin_runtime")
     cbz_plugin = object()
     fake_ui.plugin_for_input_format = lambda fmt: cbz_plugin if fmt == "cbz" else object()
-    monkeypatch.setitem(sys.modules, "LiuXin_alpha.customize.ui", fake_ui)
+    monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.plugin_runtime", fake_ui)
 
 
 def _profile() -> SimpleNamespace:

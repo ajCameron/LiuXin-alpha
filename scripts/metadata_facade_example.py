@@ -16,7 +16,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from LiuXin_alpha import metadata
+from LiuXin_alpha.catalog.retrieval import metadata
+from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.databases.database import Database
 
 
@@ -36,7 +37,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Hydrate metadata, round-trip it through OPF, and optionally write a changed tag back.",
     )
-    parser.add_argument("database", type=Path, help="Path to a LiuXin .test_db/.sqlite database.")
+    parser.add_argument(
+        "database", type=Path, help="Path to a LiuXin .test_db/.sqlite database."
+    )
     parser.add_argument("item_id", type=int, help="Item id to hydrate.")
     parser.add_argument(
         "--source",
@@ -104,8 +107,8 @@ def main() -> int:
         print("Added tag:", args.add_tag)
 
         if args.write_back:
-            report = round_tripped.write_to_database(
-                db,
+            report = Catalog(db).mutations.writer.write_container(
+                round_tripped,
                 fields=("tags",),
                 item_id=args.item_id,
             )

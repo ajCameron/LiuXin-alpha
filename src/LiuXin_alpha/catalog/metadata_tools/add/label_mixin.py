@@ -17,6 +17,7 @@ from LiuXin_alpha.utils.libraries.liuxin_six import string_types
 
 from LiuXin_alpha.metadata.constants import CREATOR_TYPES, EXTERNAL_EBOOK_ID_SCHEMA, INTERNAL_EBOOK_ID_SCHEMA
 
+from LiuXin_alpha.catalog.row_mutations import atomic_write, persist_row
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.databases.hashes import generate_title_fingerprint
 
@@ -34,9 +35,6 @@ from LiuXin_alpha.metadata.standardization import standardize_publisher
 from LiuXin_alpha.metadata.standardization import standardize_series
 from LiuXin_alpha.metadata.standardization import make_series_phash
 
-from LiuXin_alpha.metadata.utils import authors_to_sort_string
-from LiuXin_alpha.metadata.utils import author_to_author_sort
-from LiuXin_alpha.metadata.utils import title_sort as generate_title_sort
 from LiuXin_alpha.metadata.utils import check_isbn
 from LiuXin_alpha.metadata.utils import check_issn
 from LiuXin_alpha.metadata.utils import check_doi
@@ -62,6 +60,7 @@ class LabelMixin:
     Example:
         A custom host inheriting LabelMixin can call label(text) or its tag alias.
     """
+    @atomic_write
     def label(self, tag: str, tag_phash: Optional[str] = None) -> RowAPI:
         """
         Insert a Label with a supplied or generated tag-style search hash.
@@ -78,10 +77,11 @@ class LabelMixin:
 
         tag_row["label"] = tag
         tag_row["label_phash"] = tag_phash if tag_phash is not None else make_tag_search_term(tag)
-        tag_row.sync()
+        persist_row(self, tag_row)
 
         return tag_row
 
+    @atomic_write
     def tag(self, tag: str, tag_phash: Optional[str] = None) -> RowAPI:
         """
         Forward the historical tag method to Label insertion.
@@ -95,4 +95,3 @@ class LabelMixin:
         :return: Created database Row; synchronization and schema errors propagate.
         """
         return self.label(tag, tag_phash=tag_phash)
-

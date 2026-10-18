@@ -20,7 +20,7 @@ from os.path import abspath, basename, dirname, exists
 from os.path import relpath as _relpath
 from urllib.parse import unquote
 
-from LiuXin_alpha.customize.conversion import OptionRecommendation, OutputFormatPlugin
+from LiuXin_alpha.file_formats.conversion.plugin import OptionRecommendation, OutputFormatPlugin
 from LiuXin_alpha.utils.calibre import CurrentDir
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 from LiuXin_alpha.utils.libraries.liuxin_templite import Templite

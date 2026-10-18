@@ -23,7 +23,7 @@ import os
 import re
 from io import BytesIO
 
-from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.file_formats.conversion.plugin import InputFormatPlugin, OptionRecommendation
 from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
     choose_conversion_workdir,
 )
@@ -72,7 +72,7 @@ def _get_fb2_metadata(stream: _typing.Any, file_ext: _typing.Any) -> _typing.Any
     try:
         from LiuXin_alpha.metadata.meta import get_metadata as legacy_get_metadata
     except Exception:
-        from LiuXin_alpha.customize.ui import get_file_type_metadata
+        from LiuXin_alpha.file_formats.plugin_runtime import get_file_type_metadata
 
         return get_file_type_metadata(stream, file_ext, calibre=True)
     return legacy_get_metadata(stream, file_ext)

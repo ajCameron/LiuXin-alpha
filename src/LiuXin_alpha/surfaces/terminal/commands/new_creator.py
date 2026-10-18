@@ -12,7 +12,7 @@ from typing import Optional
 
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.metadata.constants import CREATOR_TYPES
-from LiuXin_alpha.metadata.utils import author_to_author_sort
+from LiuXin_alpha.metadata.author_names import author_to_author_sort
 
 
 def _clean_optional(value: str) -> Optional[str]:

@@ -31,8 +31,8 @@ from LiuXin_alpha.file_formats.oeb.base import (
     urldefrag,
     xml2text,
 )
-from LiuXin_alpha.library.comments import comments_to_html
-from LiuXin_alpha.metadata import fmt_sidx
+from LiuXin_alpha.file_formats.html.comments import comments_to_html
+from LiuXin_alpha.metadata.utils import fmt_sidx
 from LiuXin_alpha.utils.date import is_date_undefined, strftime
 from LiuXin_alpha.utils.language_tools.icu import sort_key
 from LiuXin_alpha.utils.libraries.BeautifulSoup import BeautifulSoup

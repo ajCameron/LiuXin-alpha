@@ -172,7 +172,7 @@ def _plugin_for_input_format(file_ext: str) -> _InputPlugin | None:
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
-    from LiuXin_alpha.customize.ui import plugin_for_input_format
+    from LiuXin_alpha.file_formats.plugin_runtime import plugin_for_input_format
 
     return cast(_InputPlugin | None, plugin_for_input_format(file_ext))
 

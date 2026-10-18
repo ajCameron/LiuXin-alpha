@@ -36,7 +36,7 @@ from LiuXin_alpha.errors import (
     DatabaseIntegrityError,
 )
 
-from LiuXin_alpha.metadata.ebook_metadata_tools import author_to_author_sort
+from LiuXin_alpha.metadata.author_names import author_to_author_sort
 
 from LiuXin_alpha.preferences import preferences
 
@@ -183,7 +183,7 @@ class CalibreAuthorsTable(CalibrePriorityManyToManyTable[T], BaseCreatorsTable):
         for aid, name, sort, link in db.metadata_sql.read_creator_with_sort_and_link():
             name = us(name)
             im[aid] = name
-            sort_map[aid] = sort or author_to_author_sort(name)
+            sort_map[aid] = sort or author_to_author_sort(name, method=None)
             link_map[aid] = link
 
     def read_maps(self, db, type_filter: str = "authors") -> None:
@@ -336,7 +336,9 @@ class CalibreAuthorsTable(CalibrePriorityManyToManyTable[T], BaseCreatorsTable):
             self.asort_map.pop(item_id, None)
         else:
             # Was a simple rename, update the author sort value
-            self.set_sort_names({item_id: author_to_author_sort(new_name)}, db)
+            self.set_sort_names(
+                {item_id: author_to_author_sort(new_name, method=None)}, db
+            )
 
         return ret
 

@@ -23,7 +23,7 @@ import re
 
 from LiuXin_alpha.constants import filesystem_encoding
 
-from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.file_formats.conversion.plugin import OutputFormatPlugin, OptionRecommendation
 
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
@@ -429,7 +429,7 @@ class EPUBOutput(OutputFormatPlugin):
                     x.content = "urn:uuid:" + uuid
 
         with TemporaryDirectory("_epub_output") as tdir:
-            from LiuXin_alpha.customize.ui import plugin_for_output_format
+            from LiuXin_alpha.file_formats.plugin_runtime import plugin_for_output_format
 
             metadata_xml = None
             extra_entries = []

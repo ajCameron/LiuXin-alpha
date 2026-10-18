@@ -9,27 +9,30 @@ Example:
     >>> metadata.work.work_id
     3
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from typing import Any, Optional
 
-from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.work_containers.work_identity_api import WorkIdentityAPI
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.work_containers.work_identity_api import (
+    WorkIdentityAPI,
+)
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.work_containers.work_metadata_api import (
     WorkMetadataAPI,
     WorkRelationKey,
     WorkRelationLink,
 )
+from LiuXin_alpha.metadata.containers._row_like import row_mapping
 from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
     metadata_bundle_string,
-)
-from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.work_container import (
-    WorkIdentity,
 )
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.projection_views import (
     MetadataTextView,
     MetadataValuesView,
+)
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.work_container import (
+    WorkIdentity,
 )
 
 
@@ -140,7 +143,9 @@ class WorkMetadata(WorkMetadataAPI):
         """
         return MetadataTextView(self.values)
 
-    def get_relation_links(self, relation_key: WorkRelationKey) -> list[WorkRelationLink]:
+    def get_relation_links(
+        self, relation_key: WorkRelationKey
+    ) -> list[WorkRelationLink]:
         """
         Return the live list for a normalized relation key.
 
@@ -159,7 +164,9 @@ class WorkMetadata(WorkMetadataAPI):
         relation_key = self.validate_relation_name(relation_key)
         return self._relation_links[relation_key]
 
-    def set_relation_links(self, relation_key: WorkRelationKey, links: Iterable[WorkRelationLink]) -> None:
+    def set_relation_links(
+        self, relation_key: WorkRelationKey, links: Iterable[WorkRelationLink]
+    ) -> None:
         """
         Validate relation name and local cardinality before replacing the stored list.
 
@@ -180,7 +187,9 @@ class WorkMetadata(WorkMetadataAPI):
         :return: None.
         """
         relation_key = self.validate_relation_name(relation_key)
-        self._relation_links[relation_key] = self.validate_relation_links(relation_key, links)
+        self._relation_links[relation_key] = self.validate_relation_links(
+            relation_key, links
+        )
 
     def __str__(self) -> str:
         """
@@ -199,53 +208,6 @@ class WorkMetadata(WorkMetadataAPI):
             identity_name="work",
             relation_names=self.RELATION_KEYS,
             get_links=self.get_relation_links,
-        )
-
-    def write_to_database(
-        self,
-        database: Any,
-        *,
-        fields: Iterable[str] | None = None,
-        item_id: int | None = None,
-        target_row: Row | Mapping[str, Any] | None = None,
-        replace: bool = False,
-        mark_dirty: bool = True,
-    ) -> Any:
-        """
-        Delegate supported metadata writes to the WEMI writer at work level.
-
-        The writer resolves targets and applies incremental changes, returning its write
-        report. This wrapper adds no transaction or rollback boundary. Field selection,
-        replacement and failures follow writer policy.
-
-        Example:
-            Exercise bundle write delegation with pytest::
-
-                python -m pytest -q tests/metadata/containers/test_item_metadata_hydrator.py
-
-
-        :param database: Caller-owned database accepted by LiuXinWEMIMetadataWriter.
-        :param fields: Optional field names to write; None uses the writer default
-            selection.
-        :param item_id: Optional item id supplied for writer target resolution.
-        :param target_row: Optional Row or mapping supplied for work target resolution.
-        :param replace: Use replacement semantics for supported fields when True; otherwise
-            append.
-        :param mark_dirty: Request best-effort dirty marking after changes when True.
-        :return: Writer report describing applied, skipped and failed work.
-        """
-        from LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_metadata_writer import (
-            LiuXinWEMIMetadataWriter,
-        )
-
-        return LiuXinWEMIMetadataWriter(database).write(
-            self,
-            fields=fields,
-            target_level="work",
-            item_id=item_id,
-            target_row=target_row,
-            replace=replace,
-            mark_dirty=mark_dirty,
         )
 
     @staticmethod
@@ -268,13 +230,12 @@ class WorkMetadata(WorkMetadataAPI):
         """
         if target is None:
             return None
-        if isinstance(target, Row):
-            return dict(target.row_dict)
+        target_mapping = row_mapping(target)
+        if target_mapping is not None:
+            return dict(target_mapping)
         to_mapping = getattr(target, "to_mapping", None)
         if callable(to_mapping):
             return to_mapping()
-        if isinstance(target, Mapping):
-            return dict(target)
         return target
 
     @staticmethod
@@ -295,7 +256,11 @@ class WorkMetadata(WorkMetadataAPI):
         :return: New WorkIdentity, copied mapping or unchanged target.
         """
         if isinstance(target, Mapping):
-            if "work_id" in target or "work_title" in target or "work_canonical_title" in target:
+            if (
+                "work_id" in target
+                or "work_title" in target
+                or "work_canonical_title" in target
+            ):
                 return WorkIdentity.from_mapping(target)
             return dict(target)
         return target
@@ -406,41 +371,5 @@ class WorkMetadata(WorkMetadataAPI):
                 )
         return cls(work=work, relation_links=relation_links)
 
-    @classmethod
-    def from_database(
-        cls,
-        database: Any,
-        *,
-        work_id: Optional[int] = None,
-        source_row: Optional[Mapping[str, Any] | Row] = None,
-    ) -> "WorkMetadata":
-        """
-        Hydrate work metadata from an explicit id or source row.
-
-        The explicit id takes precedence. The hydrator is constructed before checking
-        inputs; if neither entry point is supplied, ValueError is raised. The concrete
-        hydrator result is returned even when called on a subclass.
-
-        Example:
-            Exercise database hydration with pytest::
-
-                python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
-
-
-        :param database: Caller-owned database or compatible metadata read source.
-        :param work_id: Optional work id, converted with int and preferred over source_row.
-        :param source_row: Optional Row or mapping used when no explicit id is supplied.
-        :return: Hydrated WorkMetadata bundle.
-        """
-        from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.work_metadata_hydrator import (
-            WorkMetadataHydrator,
-        )
-
-        hydrator = WorkMetadataHydrator(database)
-        if work_id is not None:
-            return hydrator.from_work_id(int(work_id))
-        if source_row is not None:
-            return hydrator.from_source_row(source_row)
-        raise ValueError("Provide either work_id or source_row.")
 
 __all__ = ["WorkMetadata"]

@@ -244,9 +244,9 @@ def test_tcr_input_plugin_decodes_bytes_and_applies_recommended_options(monkeypa
             assert stream.read() == "decoded payload"
             return "converted.oeb"
 
-    fake_ui = types.ModuleType("LiuXin_alpha.customize.ui")
+    fake_ui = types.ModuleType("LiuXin_alpha.file_formats.plugin_runtime")
     fake_ui.plugin_for_input_format = lambda fmt: _TxtPlugin()
-    monkeypatch.setitem(sys.modules, "LiuXin_alpha.customize.ui", fake_ui)
+    monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.plugin_runtime", fake_ui)
 
     stream = io.BytesIO(b"ignored")
     options = types.SimpleNamespace(input_encoding="utf-8")

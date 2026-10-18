@@ -65,22 +65,13 @@ class CalibrePriorityManyToOneTable(CalibreManyToOneTable[T]):
         )
 
     @classmethod
-    def from_priority_typed_table(cls, original_table: CalibreManyToOneTable, type_filter: str) -> Self:
-        """
-        Makes a PriorityManyToOneTable from a PriorityTypedManyToOneTable - by filtering out all but one of the
-
-        Example:
-            Exercise CalibrePriorityManyToOneTable.from priority typed table through a consuming regression::
-
-                python -m pytest -q tests/library/test_unified_library.py
-
-
-        :param original_table: Value supplied for original table under the utility contract.
-        :param type_filter: Value supplied for type filter under the utility contract.
-        :return: None; the operation mutates state, writes output or performs cleanup in
-            place.
-        """
-        raise NotImplementedError
+    def from_priority_typed_table(
+        cls, original_table: CalibreManyToOneTable, type_filter: str
+    ) -> Self:
+        """Project one role from a priority/typed source without dropping its order."""
+        if not original_table.priority:
+            raise ValueError("A priority typed source table is required")
+        return cls.from_typed_table(original_table, type_filter)
 
     def _col_book_map_factory(self) -> dict[DstTableID, list[SrcTableID]]:
         """

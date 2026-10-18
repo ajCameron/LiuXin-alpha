@@ -53,12 +53,6 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr.
 from LiuXin_alpha.databases.database_driver_plugins.SQL.utility_mixins import (
     SQLiteTableLinkingMixin,
 )
-from LiuXin_alpha.databases.db_types import (
-    ALL_IDENTIFIER_ENTITY_TYPES,
-    ENTITY_IDENTIFIER_SCHEMES_BY_TYPE,
-    OBSERVED_ITEM_IDENTIFIER_SCHEMES,
-    IdentifierEntityType,
-)
 from LiuXin_alpha.databases.normalized_identities import (
     NORMALIZED_IDENTITIES_TABLE,
     iter_normalized_identity_defaults,
@@ -73,6 +67,12 @@ from LiuXin_alpha.metadata.constants.container_vocabularies import (
     NoteVisibility,
     SubjectKind,
     TitleKind,
+)
+from LiuXin_alpha.metadata.identifiers import (
+    ALL_IDENTIFIER_ENTITY_TYPES,
+    ENTITY_IDENTIFIER_SCHEMES_BY_TYPE,
+    OBSERVED_ITEM_IDENTIFIER_SCHEMES,
+    IdentifierEntityType,
 )
 from LiuXin_alpha.utils.language_tools import (
     plural_singular_mapper,

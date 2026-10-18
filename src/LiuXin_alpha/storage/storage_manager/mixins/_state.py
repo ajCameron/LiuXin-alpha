@@ -91,6 +91,7 @@ class _StorageManagerState(
         """
 
         self._lock = RLock()
+        self._closed = False
         self._store_factory = store_factory
         self._artifact_resolver = artifact_resolver
         self._store_configurations: dict[

@@ -2,6 +2,12 @@
 
 Status: inheritance-oriented writer foundation implemented, 2026-07-21.
 
+This writer design is one implementation of the broader, dated
+[Catalog write-validation contract](catalog-write-validation-contract.md).
+Validation performed by a surface or caller is advisory; the Catalog write
+boundary repeats the checks it requires before persistence. Database constraints
+remain the final structural and concurrency-safe guard.
+
 ## Decision
 
 A catalog writer is a thin metadata-aware coordinator. The common base owns
@@ -22,7 +28,7 @@ caller values
     -> field adaptation and validation
     -> operation-aware destination-value resolution
     -> LinkUpdate
-    -> Catalog.write_link_update(...)
+    -> Catalog._apply_link_update(...)  # private writer-host seam
     -> portable database macros
     -> complete LinkRow results
 ```
@@ -39,7 +45,7 @@ Owned one-to-one destination rows use a separate seam:
 caller replacement values
     -> field adaptation and validation
     -> CatalogOwnedRowUpdate
-    -> Catalog.write_owned_row_update(...)
+    -> Catalog._apply_owned_row_update(...)  # private writer-host seam
     -> one portable database transaction
        -> update linked row in place
        -> or create destination row and link it
@@ -59,7 +65,7 @@ caller replacement values
 | Destination resolver | Matching one metadata value to a shared destination row and creating that row for replacement/addition when policy permits | Link replacement/addition/deletion semantics |
 | `CatalogOwnedRowUpdate` | Immutable owned-row replacement values and the portable atomic operation they require | Metadata adaptation, SQL, cleanup, or cache mutation |
 | `LinkUpdate` | Immutable normalized link instructions, validation, duplicate handling, scopes, replacement/incremental composition, and inspection | Database selection, metadata matching policy, cache updates, or presentation |
-| `Catalog.write_link_update` | Catalog-facing application of a normalized update through the catalog database | Reinterpreting caller input or field-specific matching |
+| `Catalog._apply_link_update` | Private writer-host application of a normalized update through the catalog database | Public caller access, reinterpreting input, or field-specific matching |
 | Portable database macros | Atomic reads and writes, backend-portable link identity, ordering, type scope, constraints, and transaction behavior | Bibliographic or field-specific metadata policy |
 | Cache | Derived, rebuildable state and cache reconciliation | Canonical persistence or write authority |
 | Cleanup service | Explicit removal of unreferenced destination rows under declared policy | Being an implicit side effect of every link write |
@@ -74,7 +80,7 @@ A writer may:
 - choose an injected resolver configured for the field;
 - invoke that resolver to obtain destination IDs;
 - build a `LinkUpdate` using a declared `StorageLinkSpec`;
-- call `catalog.write_link_update(update)` exactly once; and
+- call `catalog._apply_link_update(update)` exactly once; and
 - return the complete `LinkRow` mapping produced by the database.
 
 For a shared-value writer, creation is operation-aware. Replacement and
@@ -210,7 +216,7 @@ class CatalogLinkWriter[RawValueT, ValueT](CatalogValueWriter, ABC):
 normalization without applying link changes. This makes the complete immutable
 instruction available for inspection, policy checks, or testing.
 
-`write(...)` builds the same update, calls `catalog.write_link_update(update)`
+`write(...)` builds the same update, calls `catalog._apply_link_update(update)`
 exactly once, and returns that call's result unchanged. It does not catch or
 retry database failures.
 
@@ -232,7 +238,7 @@ update = LinkUpdate.from_legacy(
     secondary_id_for=self._destination_id_for,
     link_type=link_type,
 )
-return self.catalog.write_link_update(update)
+return self.catalog._apply_link_update(update)
 ```
 
 For every distinct raw metadata value processed by `LinkUpdate`, overridable
@@ -324,9 +330,10 @@ writer's arguments unchanged, so replacement, incremental, typed-map,
 rich-link, extra-column, type-scope, and clear forms retain their normal
 semantics and return mappings.
 
-The normalized `write_column_update(...)`, `write_link_update(...)`, and
-`write_owned_row_update(...)` methods remain the persistence seam used by
-writers. The conveniences select and drive writers; they do not duplicate
+The private normalized `_apply_column_update(...)`, `_apply_link_update(...)`,
+and `_apply_owned_row_update(...)` methods remain the persistence seam used by
+writers. They are deliberately absent from `CatalogAPI`; callers use repository
+or mutation methods, or `create_writer`/`write`/`write_one`. The conveniences select and drive writers; they do not duplicate
 validation, resolution, transaction, or database-write logic.
 
 ## Storage-cache API
@@ -375,7 +382,7 @@ contract is in [Modern Catalog and cache boundary](catalog-cache-boundary.md).
 
 Same-table scalar column updates are not link updates. `CatalogColumnWriter`
 therefore builds `CatalogColumnUpdate` and applies it through
-`Catalog.write_column_update`; it does not inherit `CatalogLinkWriter` or
+`Catalog._apply_column_update`; it does not inherit `CatalogLinkWriter` or
 construct a synthetic `StorageLinkSpec`.
 
 Likewise, an owned one-to-one value stored in another table is not represented
@@ -387,18 +394,18 @@ custom-column links, creator matching, or cleanup.
 
 ## Return contract
 
-Link writers return the mapping produced by `Catalog.write_link_update`:
+Link writers return the mapping produced by `Catalog._apply_link_update`:
 
 ```python
 Mapping[SrcTableID, tuple[LinkRow, ...]]
 ```
 
 Owned one-to-one writers return the same result shape through
-`Catalog.write_owned_row_update`, including an empty tuple for an explicit
+`Catalog._apply_owned_row_update`, including an empty tuple for an explicit
 unlink.
 
 Column writers return the stable values accepted by
-`Catalog.write_column_update`:
+`Catalog._apply_column_update`:
 
 ```python
 Mapping[SrcTableID, ValueT]
@@ -411,7 +418,7 @@ Do not predict that requirement in the base contract.
 ## Rebuild sequence
 
 1. Retain and test `StorageLinkSpec`, `LinkUpdate`, and
-   `Catalog.write_link_update` as the stable lower seam.
+   `Catalog._apply_link_update` as the stable private lower seam.
 2. Build an inheritance-oriented lifecycle base and value-preparation base.
    **Complete.**
 3. Test replacement, incremental, typed, ordered, empty, invalid, resolver

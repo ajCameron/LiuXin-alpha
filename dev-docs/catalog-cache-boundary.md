@@ -88,6 +88,10 @@ cache-aware facade:
 4. receives the persisted result; and
 5. reconciles only the affected cache objects.
 
+They are reconciliation-aware conveniences over the public Catalog writer
+boundary, not an independent semantic-validity authority. Their internal
+`_apply_*` methods are private host seams used by configured writers only.
+
 Catalog may also be called directly:
 
 ```python

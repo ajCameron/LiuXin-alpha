@@ -27,9 +27,11 @@ from LiuXin_alpha.utils.calibre_compat.metadata.calibre_metadata_constants impor
 )
 
 from LiuXin_alpha.catalog.field_metadata import FieldMetadata
+from LiuXin_alpha.metadata.identifiers import clean_identifier_key as ck
+from LiuXin_alpha.metadata.identifiers import clean_identifier_value as cv
 
 from LiuXin_alpha.utils.logging import prints
-from LiuXin_alpha.utils.text.icu import sort_key, lower as icu_lower
+from LiuXin_alpha.utils.text.icu import sort_key
 from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 comparability layer
@@ -80,6 +82,8 @@ NULL_VALUES = {
     "language": "und",
 }
 
+_DEFAULT_AUTHORS = (_("Unknown"),)
+
 field_metadata = FieldMetadata()
 
 
@@ -99,36 +103,6 @@ def reset_field_metadata():
     """
     global field_metadata
     field_metadata = FieldMetadata()
-
-
-def ck(typ):
-    """
-    Normalize an identifier scheme by case folding, trimming, and removing colons and commas.
-
-    Example:
-        >>> ck(' DOI: ')
-        'doi'
-
-
-    :param typ: Identifier scheme string.
-    :return: Normalized scheme string.
-    """
-    return icu_lower(typ).strip().replace(":", "").replace(",", "")
-
-
-def cv(val):
-    """
-    Trim an identifier value and replace commas with vertical bars.
-
-    Example:
-        >>> cv(' 10.1/a,b ')
-        '10.1/a|b'
-
-
-    :param val: Identifier value string.
-    :return: Cleaned identifier value.
-    """
-    return val.strip().replace(",", "|")
 
 
 # Todo: Include all calibre fields, marked as such
@@ -558,55 +532,6 @@ class calibreMetadata(object):
         from LiuXin_alpha.metadata.opf_tools import metadata_to_opf_file
 
         return metadata_to_opf_file(self, path, default_lang=default_lang)
-
-    def write_to_database(
-        self,
-        database,
-        *,
-        fields=None,
-        target_level="work",
-        item_id=None,
-        target_row=None,
-        replace=False,
-        mark_dirty=True,
-    ):
-        """
-        Persist supported relation fields through the WEMI metadata writer.
-
-        Supply item_id or target_row to select a LiuXin target, or store a LiuXin item id in
-        db_id/application_id. Writer validation, skip/error reporting, and transaction
-        behavior are delegated.
-
-        Example:
-            Exercise writer delegation with pytest::
-
-                python -m pytest -q tests/metadata/containers/test_item_metadata_hydrator.py
-
-
-        :param database: Caller-owned database used by the metadata writer for persistence;
-            this method does not close it.
-        :param fields: Optional iterable of supported relation fields to write; None uses
-            writer defaults.
-        :param target_level: WEMI level for relation writes, defaulting to work.
-        :param item_id: Optional item identifier forwarded to the hydrator or OPF adapter.
-        :param target_row: Optional explicit target row or row mapping.
-        :param replace: Whether to replace existing relations for selected fields.
-        :param mark_dirty: Whether to mark changed target metadata dirty.
-        :return: MetadataWriteReport describing changes, skipped operations, and errors.
-        """
-        from LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_metadata_writer import (
-            LiuXinWEMIMetadataWriter,
-        )
-
-        return LiuXinWEMIMetadataWriter(database).write(
-            self,
-            fields=fields,
-            target_level=target_level,
-            item_id=item_id,
-            target_row=target_row,
-            replace=replace,
-            mark_dirty=mark_dirty,
-        )
 
     def get_identifiers(self):
         """
@@ -1207,7 +1132,7 @@ class calibreMetadata(object):
         :param val: Explicit numeric value; None reads this book's series_index.
         :return: Formatted series index string.
         """
-        from LiuXin_alpha.metadata import fmt_sidx
+        from LiuXin_alpha.metadata.utils import fmt_sidx
 
         v = self.series_index if val is None else val
         try:
@@ -1538,6 +1463,25 @@ class calibreMetadata(object):
         return bool(self.title or self.author or self.comments or self.tags)
 
     # }}}
+
+
+def calibreMetaInformation(title, authors=_DEFAULT_AUTHORS):
+    """Construct a Calibre metadata record from values or another record.
+
+    This legacy-named factory lives beside :class:`calibreMetadata`, the type it
+    constructs.  A metadata-like first argument supplies both title and authors and is
+    copied through the constructor's ``other`` behavior.
+
+    Example:
+        >>> calibreMetaInformation("Example", ["Ada"]).title
+        'Example'
+    """
+    source = None
+    if hasattr(title, "title") and hasattr(title, "authors"):
+        source = title
+        title = source.title
+        authors = source.authors
+    return calibreMetadata(title, authors, other=source)
 
 
 def field_from_string(field, raw, field_metadata):

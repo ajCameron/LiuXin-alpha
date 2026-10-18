@@ -22,8 +22,10 @@ import numbers
 import os
 import re
 import sys
+import threading
 import traceback
 from collections import defaultdict
+from collections.abc import Iterator, MutableMapping
 from contextlib import suppress
 from copy import deepcopy
 from functools import partial
@@ -1579,10 +1581,18 @@ def _prefs():
 
 
 prefs = ConfigProxy(_prefs())
-if prefs["installation_uuid"] is None:
-    import uuid
 
-    prefs["installation_uuid"] = str(uuid.uuid4())
+
+def ensure_installation_uuid() -> str:
+    """Create and persist the legacy installation UUID at an explicit bootstrap boundary."""
+
+    value = prefs["installation_uuid"]
+    if value is None:
+        import uuid
+
+        value = str(uuid.uuid4())
+        prefs["installation_uuid"] = value
+    return str(value)
 
 
 def read_raw_tweaks():
@@ -1656,17 +1666,48 @@ def write_tweaks(raw):
         f.write(raw)
 
 
-# Todo: All tweaks should now point here (and, eventually, become part of preferences) - go through and check
-# Todo: Merge with preferences
-try:
-    tweaks = read_tweaks()
-except Exception as e:
-    from LiuXin_alpha.preferences import preferences as calibre_tweaks
+class _LazyTweaks(MutableMapping[str, object]):
+    """Load executable legacy tweaks only when a caller first requests a value."""
 
-    wrn_str = "Unable to read tweaks from file.\n"
-    wrn_str += "Falling back to default calibre tweaks.\n"
-    LiuXin_warning_print(wrn_str)
-    tweaks = calibre_tweaks
+    def __init__(self) -> None:
+        self._values: dict[str, object] | None = None
+        self._lock = threading.RLock()
+
+    def _loaded(self) -> dict[str, object]:
+        with self._lock:
+            if self._values is None:
+                try:
+                    self._values = read_tweaks()
+                except Exception:
+                    from LiuXin_alpha.preferences import preferences as calibre_tweaks
+
+                    wrn_str = "Unable to read tweaks from file.\n"
+                    wrn_str += "Falling back to default calibre tweaks.\n"
+                    LiuXin_warning_print(wrn_str)
+                    self._values = {
+                        key: calibre_tweaks[key]
+                        for key in calibre_tweaks._active_variables
+                    }
+            return self._values
+
+    def __getitem__(self, key: str) -> object:
+        return self._loaded()[key]
+
+    def __setitem__(self, key: str, value: object) -> None:
+        self._loaded()[key] = value
+
+    def __delitem__(self, key: str) -> None:
+        del self._loaded()[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._loaded())
+
+    def __len__(self) -> int:
+        return len(self._loaded())
+
+
+# Todo: Merge the retained Calibre tweak compatibility keys with resolved settings.
+tweaks: MutableMapping[str, object] = _LazyTweaks()
 
 
 def reset_tweaks_to_default():

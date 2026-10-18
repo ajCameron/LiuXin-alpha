@@ -1,9 +1,12 @@
 # Column metadata policy
 
 LiuXin stores one complete policy row for every physical table column in
-`column_metadata`. The policy controls equality, validation, empty-value
-handling, and merge behavior in database writers; it never changes,
-lowercases, title-cases, or otherwise rewrites stored display text.
+`column_metadata`. The policy describes intended equality, validation,
+empty-value handling, and merge behavior for consumers; it never changes,
+lowercases, title-cases, or otherwise rewrites stored display text. A stored
+profile is declarative metadata, not evidence that a value has been validated.
+Public semantic writes remain governed by the
+[Catalog write-validation contract](catalog-write-validation-contract.md).
 
 ## Decision rule
 
@@ -34,7 +37,7 @@ Each `column_metadata` row stores:
 | `comparison_column` | Optional derived key in the same table used for equality lookup. |
 | `empty_value_policy` | `null_is_missing`, `null_or_blank_is_missing`, or `preserve`. |
 | `merge_policy` | `replace`, `set_union`, `append`, or `preserve_existing`. |
-| `validation_profile` | Explicit declarative validator. `none` means no specialized validator; typed profiles include `identifier`, `code`, `boolean`, `number`, `date_time`, `locator`, `json`, `hash`, `normalized_key`, and the display-text profiles. |
+| `validation_profile` | Declarative name of the validator a semantic writer should apply. `none` means no specialized validator; typed profiles include `identifier`, `code`, `boolean`, `number`, `date_time`, `locator`, `json`, `hash`, `normalized_key`, and the display-text profiles. The label does not execute validation. |
 | `formatting_options` | Immutable JSON-compatible hints for representing the value, such as `template`, `date_format`, `number_format`, `separator`, or `empty_value`. |
 | `display_options` | Immutable JSON-compatible surface hints, such as `label`, `description`, `visible`, `editable`, `multiline`, `width`, or `alignment`. |
 
@@ -46,7 +49,9 @@ normalization because case and filesystem spelling can be significant.
 Taxonomy terms use `set_union`; `comments.comment`, `notes.note`, and
 `synopses.synopsis` use `append`; other display columns use `replace`.
 Validation profile names are declarative contracts for consumers and do not
-themselves rewrite stored values.
+themselves validate or rewrite stored values. Pure metadata-semantic validators
+belong in `metadata`; Catalog chooses and invokes them for semantic writes;
+database adapters retain only storage-representation checks.
 
 Formatting and display options are deliberately open JSON objects rather than
 backend- or toolkit-specific classes. Empty objects are the neutral default.
@@ -294,8 +299,9 @@ row overrides the canonical default for that database.
 Every other policy field follows the same naming rule: drivers prefix the
 method with `direct_`, while the wrapper and database expose the unprefixed
 name. Each field setter reads the complete record, replaces only the requested
-field, validates the result, and persists it through the complete-policy
-setter.
+field, validates the `ColumnMetadata` policy record itself, and persists it
+through the complete-policy setter. That operation validates the declaration,
+not the data held in the described application column.
 
 `get_column_metadata` returns a frozen typed `ColumnMetadata` value. To change
 one field while retaining the rest, use `dataclasses.replace` and persist the

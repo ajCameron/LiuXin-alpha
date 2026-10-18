@@ -96,26 +96,6 @@ def _resolve_base_dir() -> Path:
     return Path.cwd().resolve()
 
 
-def _makedirs(path: Path, mode: int = CONFIG_DIR_MODE) -> None:
-    """
-    Create a directory tree if needed.
-
-    Example:
-        Exercise  makedirs through a consuming regression::
-
-            python -m pytest -q tests/test_constants.py
-
-
-    :param path: Filesystem path read, written, normalized or validated by the
-        operation.
-    :param mode: Open or adapter mode controlling read/write behavior.
-    :return: None; the operation mutates state, writes output or performs cleanup in
-        place.
-    """
-
-    os.makedirs(str(path), mode=mode, exist_ok=True)
-
-
 # ---------------------------------------------------------------------------
 # Base folders
 # ---------------------------------------------------------------------------
@@ -124,9 +104,8 @@ _BASE_DIR = _resolve_base_dir()
 _PREFS_DIR = _env_path("LIUXIN_PREFS_DIR") or (_BASE_DIR / "LiuXin_prefs")
 _CONFIG_DIR = _env_path("LIUXIN_CONFIG_DIR") or (_PREFS_DIR / "calibre_config")
 
-# Keep side effects small but sufficient: `Config` touches files under config_dir.
-_makedirs(_PREFS_DIR, mode=CONFIG_DIR_MODE)
-_makedirs(_CONFIG_DIR, mode=CONFIG_DIR_MODE)
+# Path discovery is pure.  Components that persist configuration create their
+# destination directory at the explicit write boundary.
 
 
 # ---------------------------------------------------------------------------

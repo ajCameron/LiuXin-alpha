@@ -19,7 +19,7 @@ import shutil
 import textwrap
 from types import SimpleNamespace
 
-from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.file_formats.conversion.plugin import InputFormatPlugin, OptionRecommendation
 from LiuXin_alpha.file_formats.archive_preflight import (
     normalized_zip_member_name,
     validate_zip_member_infos,
@@ -855,7 +855,7 @@ class ComicInput(InputFormatPlugin):
         :return: The normalized value, metadata record, path, stream result or collection
             described above.
         """
-        from LiuXin_alpha.metadata.utils import calibreMetaInformation as MetaInformation
+        from LiuXin_alpha.metadata.book.base import calibreMetaInformation as MetaInformation
         from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
         from LiuXin_alpha.file_formats.toc import TOC
 

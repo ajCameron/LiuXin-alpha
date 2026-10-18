@@ -89,7 +89,13 @@ class Preferences:
         "tuple_64",
     }
 
-    def __init__(self, backup_folder: Optional[str] = None, cont_backup: Optional[bool] = True) -> None:
+    def __init__(
+        self,
+        backup_folder: Optional[str] = None,
+        cont_backup: Optional[bool] = True,
+        *,
+        upgrade_on_load: bool = True,
+    ) -> None:
         """
         Detects an existing preferences file. Tries to load it. If it can't load the file then falls back on the defaults.
 
@@ -101,6 +107,7 @@ class Preferences:
 
         :param backup_folder: Value supplied for backup folder under the utility contract.
         :param cont_backup: Value supplied for cont backup under the utility contract.
+        :param upgrade_on_load: Whether loading may repair or create the preference file.
         :return: None; validated state is stored on the receiving object.
         """
         self.continuous_backup = cont_backup
@@ -144,7 +151,7 @@ class Preferences:
         self.config = ConfigParser.RawConfigParser()
 
         # Load defaults, overlay any on-disk values, and upgrade the file if it is missing fields
-        self.load(upgrade_on_load=True)
+        self.load(upgrade_on_load=upgrade_on_load)
 
         # Derive and store some additional information about the comnfig which will enable a more elegant interface
         self.keys_dict = self.load_keys_dict(self.config)
@@ -232,10 +239,14 @@ class Preferences:
                 disk_cfg = self._read_config_from_path(self.config_file_path)
             except Exception:
                 # Backup broken file, then regenerate from defaults
-                try:
-                    shutil.copy2(self.config_file_path, self.config_file_path + ".broken")
-                except Exception:
-                    pass
+                if upgrade_on_load:
+                    try:
+                        shutil.copy2(
+                            self.config_file_path,
+                            self.config_file_path + ".broken",
+                        )
+                    except Exception:
+                        pass
                 disk_cfg = None
                 needs_save = True
 
@@ -2234,4 +2245,11 @@ def string_to_set(set_string):
 # ----------------------------------------------------------------------------------------------------------------------
 
 # Setup the default preferences object
-preferences = Preferences()
+preferences = Preferences(upgrade_on_load=False)
+
+
+def initialize_preferences() -> Preferences:
+    """Explicitly create or upgrade the process-global preference file."""
+
+    preferences.load(upgrade_on_load=True)
+    return preferences

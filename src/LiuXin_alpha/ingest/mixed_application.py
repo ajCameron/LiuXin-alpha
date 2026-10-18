@@ -1,10 +1,12 @@
 """
 Compose transient discovery or SQLite-backed mixed-file ingestion for surfaces.
 
-Requests carry coordinator options and callbacks, not a live service graph.
+Requests carry coordinator options and callbacks. Durable ingestion receives an
+already-open Library from its application boundary.
 Discovery uses a transient StorageManager without opening the requested database;
-real ingestion constructs Database and a database-backed manager here. Report
-publication, process locking, signal handlers, and CLI exit codes belong to callers.
+real ingestion uses the injected library's database-backed manager. Report
+publication, lifecycle ownership, process locking, signal handlers, and CLI exit
+codes belong to callers.
 This layer neither wraps the run in a transaction nor converts raised failures
 into result objects. Earlier database or storage effects can survive a failure.
 """
@@ -13,20 +15,18 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Mapping
-from contextlib import nullcontext, redirect_stdout
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 from uuid import UUID
 
-from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.storage import api
+from LiuXin_alpha.storage.durable_manager import StorageManager
 from LiuXin_alpha.storage.ingest import (
     MixedFormatIngestCoordinator,
     MixedIngestBudget,
     MixedIngestReport,
 )
-from LiuXin_alpha.storage.durable_manager import StorageManager
 
 type ProgressCallback = Callable[[str, Mapping[str, object]], None]
 type CancellationCallback = Callable[[], bool]
@@ -278,6 +278,8 @@ def _coordinator(
 
 def execute_mixed_ingest(
     request: MixedIngestApplicationRequest,
+    *,
+    library: Any | None = None,
 ) -> MixedIngestApplicationResult:
     """
     Execute one discovery or SQLite-backed ingest and return its unmodified report.
@@ -332,73 +334,39 @@ def execute_mixed_ingest(
     database_path = request.database_path
     if database_path is None:
         raise ValueError("database_path is required for durable mixed ingest")
+    if library is None:
+        raise ValueError("library is required for durable mixed ingest")
     database_path = database_path.expanduser().resolve(strict=False)
-    create = not database_path.exists()
-    _emit(
-        request,
-        logging.INFO,
-        "database_open_started",
-        "Opening LiuXin catalogue",
-        database=str(database_path),
-        create=create,
-    )
-    stdout_context = (
-        nullcontext()
-        if request.database_stdout is None
-        else redirect_stdout(request.database_stdout)
-    )
-    with stdout_context:
-        database = Database(
-            metadata={"database_path": str(database_path)},
-            db_type="SQLite",
-            create=create,
-            backup=False,
-            enable_storage_manager=False,
-        )
-    if request.database_stdout is not None:
-        request.database_stdout.flush()
-    _emit(
-        request,
-        logging.INFO,
-        "database_open_complete",
-        "LiuXin catalogue opened",
-        database=str(database_path),
-        created=create,
-    )
-
-    manager = StorageManager(db=database, startup_on_add=True)
-    with database, manager:
-        if not create:
-            bootstrap = manager.load_from_database(startup=True)
-            for issue in bootstrap.issues:
-                _emit(
-                    request,
-                    logging.WARNING,
-                    "store_bootstrap_issue",
-                    "Store bootstrap warning",
-                    store_ref=(
-                        None if issue.store_ref is None else str(issue.store_ref)
-                    ),
-                    store_name=issue.store_name,
-                    reason=issue.reason,
-                )
+    manager = library.storage
+    bootstrap = library.storage_bootstrap_report
+    if bootstrap is not None:
+        for issue in bootstrap.issues:
             _emit(
                 request,
-                logging.INFO if bootstrap.ok else logging.WARNING,
-                "store_bootstrap_complete",
-                "Store bootstrap complete",
-                discovered_configurations=bootstrap.discovered_configurations,
-                loaded_stores=bootstrap.loaded_stores,
-                skipped_configurations=bootstrap.skipped_configurations,
-                failed_configurations=bootstrap.failed_configurations,
-                issue_count=len(bootstrap.issues),
-                ok=bootstrap.ok,
+                logging.WARNING,
+                "store_bootstrap_issue",
+                "Store bootstrap warning",
+                store_ref=(None if issue.store_ref is None else str(issue.store_ref)),
+                store_name=issue.store_name,
+                reason=issue.reason,
             )
-        report = _coordinator(manager, request).ingest(
-            request.source_root,
-            run_id=request.run_id,
+        _emit(
+            request,
+            logging.INFO if bootstrap.ok else logging.WARNING,
+            "store_bootstrap_complete",
+            "Store bootstrap complete",
+            discovered_configurations=bootstrap.discovered_configurations,
+            loaded_stores=bootstrap.loaded_stores,
+            skipped_configurations=bootstrap.skipped_configurations,
+            failed_configurations=bootstrap.failed_configurations,
+            issue_count=len(bootstrap.issues),
+            ok=bootstrap.ok,
         )
-        metadata_is_durable = manager.metadata_is_durable
+    report = _coordinator(manager, request).ingest(
+        request.source_root,
+        run_id=request.run_id,
+    )
+    metadata_is_durable = manager.metadata_is_durable
 
     return MixedIngestApplicationResult(
         mode="ingest",

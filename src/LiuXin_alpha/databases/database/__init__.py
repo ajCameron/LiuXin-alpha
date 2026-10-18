@@ -2,7 +2,7 @@
 """
 Compose the live database facade from drivers, row helpers and runtime services.
 
-Database selects a backend, attaches its wrapper/macros, classifies schema metadata and optionally starts maintenance and storage. Constructors and helper methods can write to the database. Its context manager performs cleanup rather than defining a rollback transaction; concurrent callers must coordinate access according to the selected driver and operation.
+Database selects a backend, attaches its wrapper/macros, classifies schema metadata and optionally starts maintenance and storage. Constructors and helper methods can write to the database. Those writes enforce backend representation and integrity, not general metadata validity; supported metadata changes belong through Catalog. Its context manager performs cleanup rather than defining a rollback transaction; concurrent callers must coordinate access according to the selected driver and operation.
 """
 
 from __future__ import annotations, unicode_literals
@@ -189,6 +189,11 @@ class Database(
 
     Construction may create a schema, repair sentinel rows, start maintenance and load Stores. Most row helpers delegate backend work through driver_wrapper. Use close or a context manager to release database handles; closing attempts to commit pending work, including after a context-body exception. Backend operations and construction are not one atomic transaction.
 
+    Database is intentionally not a semantic metadata boundary. Direct row,
+    macro, or driver writes may persist any value accepted by storage constraints.
+    Use Catalog repositories or ``catalog.mutations.writer`` when metadata meaning
+    and operation validity must be guaranteed.
+
     Example:
         With metadata pointing at a disposable existing library, use with Database(metadata=metadata, enable_maintenance=False) as db: and perform reads inside the block. Disabling maintenance alone does not disable bootstrap writes.
     """
@@ -223,11 +228,11 @@ class Database(
         create: bool = False,
         backup: bool = True,
         existing_driver: Optional[DatabaseDriverAPI] = None,
-        enable_storage_manager: bool = True,
+        enable_storage_manager: bool = False,
         strict_storage_manager_bootstrap: bool = False,
         storage_startup_on_add: bool = False,
         repair_bootstrap_rows: bool = True,
-        enable_maintenance: bool = True,
+        enable_maintenance: bool = False,
     ) -> None:
         """
         Open or create a backend and attach the shared queues and runtime services.
@@ -387,7 +392,7 @@ class Database(
         existing_driver: DatabaseDriverAPI,
         *,
         repair_bootstrap_rows: bool = True,
-        enable_maintenance: bool = True,
+        enable_maintenance: bool = False,
     ) -> None:
         """
         Bind an existing driver, classify its schema and initialize runtime helpers.
@@ -465,7 +470,7 @@ class Database(
         create=False,
         backup=True,
         repair_bootstrap_rows: bool = True,
-        enable_maintenance: bool = True,
+        enable_maintenance: bool = False,
     ):
         """
         Select a backend and create its schema when explicit or required for a new file.
@@ -552,7 +557,7 @@ class Database(
 
         self._initialise_runtime_collaborators(enable_maintenance=enable_maintenance)
 
-    def _initialise_runtime_collaborators(self, *, enable_maintenance: bool = True) -> None:
+    def _initialise_runtime_collaborators(self, *, enable_maintenance: bool = False) -> None:
         """
         Bind maintenance callbacks, preferences and collaborator back-references.
 

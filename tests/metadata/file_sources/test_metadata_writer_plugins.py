@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import io
 
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 
 
 def _plugin_map():
@@ -28,7 +28,7 @@ def _plugin_map():
 
     :return: The deterministic value, row, identity or collection described above.
     """
-    from LiuXin_alpha.customize.builtins.metadata_writers import get_metadata_set_plugins
+    from LiuXin_alpha.metadata.file_sources.builtin_writers import get_metadata_set_plugins
 
     return {plugin.__name__: plugin for plugin in get_metadata_set_plugins()}
 
@@ -64,7 +64,7 @@ def test_htmlz_writer_delegates_to_extz_set_metadata(monkeypatch) -> None:
         state.
     :return: None; the function records state or raises through its assertions.
     """
-    import LiuXin_alpha.customize.builtins.metadata_writers as writers_mod
+    import LiuXin_alpha.metadata.file_sources.builtin_writers as writers_mod
 
     calls = {}
     monkeypatch.setattr(
@@ -97,7 +97,7 @@ def test_txtz_writer_delegates_to_txtz_set_metadata(monkeypatch) -> None:
         state.
     :return: None; the function records state or raises through its assertions.
     """
-    import LiuXin_alpha.customize.builtins.metadata_writers as writers_mod
+    import LiuXin_alpha.metadata.file_sources.builtin_writers as writers_mod
 
     calls = {}
     monkeypatch.setattr(

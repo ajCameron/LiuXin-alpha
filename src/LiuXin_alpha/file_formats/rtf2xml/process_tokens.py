@@ -1049,10 +1049,6 @@ class ProcessTokens:
             return 0
         num = "%0.2f" % round(numerator / denominator, 2)
         return num
-        string_num = str(num)
-        if string_num[-2:] == ".0":
-            string_num = string_num[:-2]
-        return string_num
 
     def split_let_num(self: _typing.Self, token: _typing.Any) -> tuple[_typing.Any, ...]:
         """

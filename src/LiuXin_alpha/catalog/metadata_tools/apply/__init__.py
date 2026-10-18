@@ -3,6 +3,8 @@
 Link legacy metadata Rows to resources with method-specific recovery policies.
 """
 
+from LiuXin_alpha.catalog.row_mutations import atomic_write, link_rows, repository_for, unlink_rows
+
 from LiuXin_alpha.databases.api import DatabaseAPI
 
 from LiuXin_alpha.databases.row import Row
@@ -22,8 +24,8 @@ class Apply(LabelApplyMixin):
     Group row-link helpers with caller-wired Add and Ensure peers.
 
     Several methods insert/resolve metadata before validating a resource, and
-    some recover integrity errors by deleting/replacing links. No common
-    transaction wraps these operations. Return values are usually link Rows.
+    some legacy-only routes recover integrity errors by deleting/replacing links.
+    Public methods join one portable transaction. Return values are usually link Rows.
 
     Example:
         After Catalog composition, resolve metadata through catalog.apply and
@@ -49,6 +51,7 @@ class Apply(LabelApplyMixin):
     # Todo: This takes a single object - so should be comment
     # Todo: Standardize resource_row to resource
     # Todo: And singular to plural
+    @atomic_write
     def comments(self, comment, resource_row):
         """
         Create or reuse a Comment Row and link it to a resource.
@@ -89,9 +92,10 @@ class Apply(LabelApplyMixin):
             )
             raise InputIntegrityError(err_str)
 
-        link_row = self.db.interlink_rows(primary_row=resource_row, secondary_row=synopsis_row)
+        link_row = link_rows(self, primary_row=resource_row, secondary_row=synopsis_row)
         return link_row
 
+    @atomic_write
     def cover(self, cover, resource_row):
         """
         Link an existing concrete Cover Row to a resource.
@@ -126,9 +130,10 @@ class Apply(LabelApplyMixin):
             )
             raise InputIntegrityError(err_str)
 
-        link_row = self.db.interlink_rows(primary_row=resource_row, secondary_row=cover_row)
+        link_row = link_rows(self, primary_row=resource_row, secondary_row=cover_row)
         return link_row
 
+    @atomic_write
     def creator(
         self,
         resource_row,
@@ -166,7 +171,7 @@ class Apply(LabelApplyMixin):
             )
             raise InputIntegrityError(err_str)
 
-        link_row = self.db.interlink_rows(
+        link_row = link_rows(self,
             primary_row=resource_row,
             secondary_row=creator_row,
             priority=creator_priority,
@@ -174,6 +179,7 @@ class Apply(LabelApplyMixin):
         )
         return link_row
 
+    @atomic_write
     def genre(self, resource_row, genre, genre_priority="highest"):
         """
         Resolve a Genre after checking its resource link route.
@@ -210,9 +216,10 @@ class Apply(LabelApplyMixin):
             err_str = default_log.log_variables(err_str, "ERROR", ("resource_table", resource_table), ("genre", genre))
             raise InputIntegrityError(err_str)
 
-        link_row = self.db.interlink_rows(primary_row=resource_row, secondary_row=genre_row, priority=genre_priority)
+        link_row = link_rows(self, primary_row=resource_row, secondary_row=genre_row, priority=genre_priority)
         return link_row
 
+    @atomic_write
     def identifier(
         self,
         resource_row,
@@ -288,7 +295,7 @@ class Apply(LabelApplyMixin):
             )
             raise InputIntegrityError(err_str)
 
-        link_row = self.db.interlink_rows(
+        link_row = link_rows(self,
             primary_row=resource_row,
             secondary_row=identifier_row,
             priority=identifier_priority,
@@ -299,6 +306,7 @@ class Apply(LabelApplyMixin):
     # ------------------------------------------------------------------------------------------------------------------
     # - LANGUAGE METHODS
     # Todo: Also want to ship with a language table
+    @atomic_write
     def language(self, language, resource_row, link_type=None):
         """
         Resolve a Language and replace its link after an integrity error.
@@ -331,15 +339,18 @@ class Apply(LabelApplyMixin):
             raise InputIntegrityError(err_str)
 
         try:
-            link_row = self.db.interlink_rows(primary_row=resource_row, secondary_row=language_row, type=link_type)
+            link_row = link_rows(self, primary_row=resource_row, secondary_row=language_row, type=link_type)
         except DatabaseIntegrityError:
+            if repository_for(self, str(resource_row.table)) is not None:
+                raise
             # The title is probably already linked to a language - delete that link and try again
-            self.db.unlink_interlink(primary_row=resource_row, secondary_row=language_row)
-            link_row = self.db.interlink_rows(primary_row=resource_row, secondary_row=language_row, type=link_type)
+            unlink_rows(self, primary_row=resource_row, secondary_row=language_row)
+            link_row = link_rows(self, primary_row=resource_row, secondary_row=language_row, type=link_type)
 
         return link_row
 
     # Todo: It would seem all of these need, at least, a basic function test
+    @atomic_write
     def contained_language(self, language, title_row):
         """
         Link a Language with the contained_in relationship type.
@@ -358,10 +369,13 @@ class Apply(LabelApplyMixin):
         )
 
         try:
-            self.db.interlink_rows(primary_row=title_row, secondary_row=language, type="contained_in")
+            link_rows(self, primary_row=title_row, secondary_row=language, type="contained_in")
         except DatabaseIntegrityError:
+            if repository_for(self, str(title_row.table)) is not None:
+                raise
             pass
 
+    @atomic_write
     def available_language(self, language, title_row):
         """
         Link a Language with the available_language relationship type.
@@ -378,10 +392,13 @@ class Apply(LabelApplyMixin):
         assert isinstance(language, Row), "must pass the language in the form of a row"
 
         try:
-            self.db.interlink_rows(primary_row=title_row, secondary_row=language, type="available_language")
+            link_rows(self, primary_row=title_row, secondary_row=language, type="available_language")
         except DatabaseIntegrityError:
+            if repository_for(self, str(title_row.table)) is not None:
+                raise
             pass
 
+    @atomic_write
     def primary_language(self, language, title_row):
         """
         Set a legacy title's primary Language through metadata_sql.
@@ -402,6 +419,7 @@ class Apply(LabelApplyMixin):
     # ------------------------------------------------------------------------------------------------------------------
 
     # Todo - :param note_type: What type of note is being applied? Options include bio, note & synopsis
+    @atomic_write
     def note(self, note, resource):
         """
         Create or reuse a Note, then link it as the primary endpoint.
@@ -449,11 +467,12 @@ class Apply(LabelApplyMixin):
             )
             raise InputIntegrityError(err_str)
 
-        link_row = self.db.interlink_rows(primary_row=note_row, secondary_row=resource, priority="highest")
+        link_row = link_rows(self, primary_row=note_row, secondary_row=resource, priority="highest")
         return link_row
 
     # Todo: Not thread safe - needs upgrading (add autoincrement?)
     # Todo: title_row should be resource row? For consistency.
+    @atomic_write
     def publisher(self, publisher, title_row):
         """
         Resolve a Publisher and link it, promoting an existing legacy link on error.
@@ -479,14 +498,17 @@ class Apply(LabelApplyMixin):
             raise InputIntegrityError("publisher type not recognized")
 
         try:
-            link_row = self.db.interlink_rows(primary_row=publisher_row, secondary_row=title_row)
+            link_row = link_rows(self, primary_row=publisher_row, secondary_row=title_row)
         except DatabaseIntegrityError:
+            if repository_for(self, str(title_row.table)) is not None:
+                raise
             link_row = self.db.get_interlink_row(primary_row=publisher_row, secondary_row=title_row)
             link_priority_max = int(self.db.get_max("publisher_title_link_priority")) + 1
             link_row["publisher_title_link_priority"] = link_priority_max
             link_row.sync()
         return link_row
 
+    @atomic_write
     def rating(self, rating, rating_type, resource_row):
         """
         Resolve a Rating and replace same-type links after an integrity error.
@@ -537,20 +559,22 @@ class Apply(LabelApplyMixin):
             raise InputIntegrityError(err_str)
 
         try:
-            link_row = self.db.interlink_rows(
+            link_row = link_rows(self,
                 primary_row=resource_row,
                 secondary_row=rating_row,
                 type=rating_type,
                 priority="not_set",
             )
         except DatabaseIntegrityError:
+            if repository_for(self, str(resource_row.table)) is not None:
+                raise
             # Break the old link and make a new one
             self.db.unlink_all(
                 primary_row=resource_row,
                 secondary_table="ratings",
                 type_filter=rating_type,
             )  #
-            link_row = self.db.interlink_rows(
+            link_row = link_rows(self,
                 primary_row=resource_row,
                 secondary_row=rating_row,
                 type=rating_type,
@@ -559,6 +583,7 @@ class Apply(LabelApplyMixin):
 
         return link_row
 
+    @atomic_write
     def series(self, series, series_index, resource_row, stand=True):
         """
         Resolve a Series and attach its index to the resource link.
@@ -591,11 +616,12 @@ class Apply(LabelApplyMixin):
             raise InputIntegrityError(err_str)
 
         # Link the series to the resource with the given index
-        link_row = self.db.interlink_rows(primary_row=resource_row, secondary_row=series_row, index=series_index)
+        link_row = link_rows(self, primary_row=resource_row, secondary_row=series_row, index=series_index)
 
         return link_row, series_row
 
     # Todo: standarize resource_row to resource
+    @atomic_write
     def subject(self, subject, resource_row, stand=True):
         """
         Resolve a Subject and link it to the resource.
@@ -622,8 +648,9 @@ class Apply(LabelApplyMixin):
             raise InputIntegrityError(err_str)
 
         # Link the subject to the resource
-        self.db.interlink_rows(primary_row=resource_row, secondary_row=subject_row)
+        link_rows(self, primary_row=resource_row, secondary_row=subject_row)
 
+    @atomic_write
     def synopsis(self, synopsis, resource):
         """
         Create or reuse a Synopsis Row and link it to a resource.
@@ -669,5 +696,5 @@ class Apply(LabelApplyMixin):
             )
             raise InputIntegrityError(err_str)
 
-        link_row = self.db.interlink_rows(primary_row=resource, secondary_row=synopsis_row)
+        link_row = link_rows(self, primary_row=resource, secondary_row=synopsis_row)
         return link_row

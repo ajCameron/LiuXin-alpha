@@ -14,7 +14,7 @@ from __future__ import (
 from typing import TYPE_CHECKING
 
 from LiuXin_alpha.caches.write.base_writer import BaseWriter
-from LiuXin_alpha.catalog import Catalog
+from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.databases.macro_types import LinkValue
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types

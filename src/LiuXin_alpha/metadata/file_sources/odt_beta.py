@@ -22,7 +22,8 @@ from LiuXin_alpha.file_formats.odf.draw import Frame as ODFFrame
 from LiuXin_alpha.file_formats.odf.draw import Image as ODFImage
 from LiuXin_alpha.file_formats.odf.namespaces import DCNS, METANS
 from LiuXin_alpha.file_formats.odf.opendocument import load as od_load
-from LiuXin_alpha.metadata.utils import calibreMetaInformation, check_isbn, string_to_authors
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
+from LiuXin_alpha.metadata.utils import check_isbn, string_to_authors
 from LiuXin_alpha.utils.image_tools.imghdr import identify
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 from LiuXin_alpha.utils.localization import canonicalize_lang, trans as _

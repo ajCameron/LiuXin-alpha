@@ -167,14 +167,14 @@ def test_txt_input_broken_encoding_falls_back_to_replacement(tmp_path: Path, mon
             return types.SimpleNamespace(metadata=types.SimpleNamespace())
 
     html_input = _HTMLInput()
-    fake_ui = types.ModuleType("LiuXin_alpha.customize.ui")
+    fake_ui = types.ModuleType("LiuXin_alpha.file_formats.plugin_runtime")
     fake_ui.plugin_for_input_format = lambda fmt: html_input if fmt == "html" else None
     fake_ui.get_file_type_metadata = (
         lambda stream, file_ext, calibre=True: types.SimpleNamespace(title="Broken", authors=["A"])
     )
     fake_meta = types.ModuleType("LiuXin_alpha.file_formats.oeb.transforms.metadata")
     fake_meta.meta_info_to_oeb_metadata = lambda mi, metadata, log: None
-    monkeypatch.setitem(sys.modules, "LiuXin_alpha.customize.ui", fake_ui)
+    monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.plugin_runtime", fake_ui)
     monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.oeb.transforms.metadata", fake_meta)
 
     payload = UNICODE_TORTURE.encode("utf-8") + bytes([0x81, 0x8D, 0x90, 0xFF])

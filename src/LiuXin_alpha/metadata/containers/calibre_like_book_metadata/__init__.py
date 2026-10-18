@@ -245,54 +245,6 @@ class CalibreLikeLiuXinBookMetaData(
 
         return metadata_to_opf_file(self, path, default_lang=default_lang)
 
-    def write_to_database(
-        self,
-        database,
-        *,
-        fields=None,
-        target_level="work",
-        item_id=None,
-        target_row=None,
-        replace=False,
-        mark_dirty=True,
-    ):
-        """
-        Persist supported relation fields through LiuXinWEMIMetadataWriter.
-
-        Supply item_id or target_row unless the object has been enriched with database-id
-        fields. The writer owns target resolution, validation, and error/skip reporting;
-        this facade does not manage a transaction.
-
-        Example:
-            Exercise persistence with pytest::
-
-                python -m pytest -q tests/metadata/containers/test_item_metadata_hydrator.py
-
-
-        :param database: Caller-owned database used by the WEMI writer for persistence; this
-            method does not close it.
-        :param fields: Optional relation-field iterable; None selects writer defaults.
-        :param target_level: WEMI level for the target relations, defaulting to work.
-        :param item_id: Optional LiuXin item id used to resolve the write target.
-        :param target_row: Optional explicit row or mapping identifying the write target.
-        :param replace: Whether to replace selected existing relations.
-        :param mark_dirty: Whether the writer should mark changed metadata dirty.
-        :return: Metadata write report describing row/link changes, skips, and errors.
-        """
-        from LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_metadata_writer import (
-            LiuXinWEMIMetadataWriter,
-        )
-
-        return LiuXinWEMIMetadataWriter(database).write(
-            self,
-            fields=fields,
-            target_level=target_level,
-            item_id=item_id,
-            target_row=target_row,
-            replace=replace,
-            mark_dirty=mark_dirty,
-        )
-
     def __setattr__(self, key: str, value):
         """
         Normalize a field name and dispatch its value to the legacy metadata stores.

@@ -18,7 +18,7 @@ from typing import Any
 
 import pytest
 
-from LiuXin_alpha.catalog import Catalog
+from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.catalog.write import (
     CatalogOwnedRowOneToOneWriter,
     CatalogOwnedRowUpdate,
@@ -179,7 +179,7 @@ class _Catalog:
         self.db = SimpleNamespace(macros=_Macros())
         self.updates: list[CatalogOwnedRowUpdate[Any]] = []
 
-    def write_owned_row_update(
+    def _apply_owned_row_update(
         self,
         update: CatalogOwnedRowUpdate[Any],
     ) -> Mapping[int, tuple[LinkRow, ...]]:
@@ -399,7 +399,7 @@ def test_owned_row_configuration_requires_one_to_one_writable_target() -> None:
     one_to_one, table, _column_spec = _target()
     with pytest.raises(ValueError, match="primary key"):
         CatalogOwnedRowUpdate(one_to_one, table, table.columns[0])
-    with pytest.raises(TypeError, match="write_owned_row_update"):
+    with pytest.raises(TypeError, match="_apply_owned_row_update"):
         CatalogOwnedRowOneToOneWriter(
             object(),  # type: ignore[arg-type]
             one_to_one,
@@ -425,8 +425,8 @@ def test_catalog_facade_applies_and_type_checks_owned_row_updates() -> None:
     catalog = Catalog(SimpleNamespace(macros=macros))
     update = CatalogOwnedRowUpdate(link_spec, table, column, {1: "value"})
 
-    assert catalog.write_owned_row_update(update) == {
+    assert catalog._apply_owned_row_update(update) == {
         1: (LinkRow(1, 101),),
     }
     with pytest.raises(TypeError, match="CatalogOwnedRowUpdate"):
-        catalog.write_owned_row_update(object())  # type: ignore[arg-type]
+        catalog._apply_owned_row_update(object())  # type: ignore[arg-type]

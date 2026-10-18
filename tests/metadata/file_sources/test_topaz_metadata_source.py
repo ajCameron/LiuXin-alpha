@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 
 
 def _values(raw):
@@ -193,7 +193,7 @@ def test_topaz_reader_plugin_is_available_and_preserves_stream_position() -> Non
 
     :return: None; the function records state or raises through its assertions.
     """
-    from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
+    from LiuXin_alpha.metadata.file_sources.builtin_readers import get_metadata_reader_plugins
 
     stream = io.BytesIO(_build_topaz_bytes(title="Plugin Title", authors="Alice; Bob"))
     stream.seek(4)

@@ -11,17 +11,15 @@ Example:
 """
 from __future__ import annotations
 
-import io
 from datetime import date, datetime, timezone
-from xml.etree import ElementTree
 
 import pytest
 
-from LiuXin_alpha.errors import InputIntegrityError
-from LiuXin_alpha.file_formats.oeb.base import OPF
-from LiuXin_alpha.metadata import ebook_metadata_tools
-from LiuXin_alpha.metadata import utils
-from LiuXin_alpha.utils.libraries.liuxin_etree import etree
+from LiuXin_alpha.metadata import ebook_metadata_tools, utils
+from LiuXin_alpha.metadata import identifiers as identifier_policy
+from LiuXin_alpha.metadata.identifiers import (
+    validate_legacy_identifier as validate_identifier,
+)
 
 
 def test_numeric_author_and_title_helpers_cover_edge_shapes() -> None:
@@ -47,26 +45,6 @@ def test_numeric_author_and_title_helpers_cover_edge_shapes() -> None:
     )
     assert utils.authors_to_string(None) == ""
 
-    assert utils.author_to_author_sort("", method="nocomma") == ""
-    assert utils.author_to_author_sort("Plato", method="nocomma") == "Plato"
-    assert utils.author_to_author_sort("Arthur C Clarke", method="copy") == "Arthur C Clarke"
-    assert utils.author_to_author_sort("Dr Arthur C Clarke Jr", method="nocomma") == "Clarke Arthur C Jr"
-    assert utils.author_to_author_sort("Dr Prof", method="nocomma") == "Dr Prof"
-    assert utils.author_to_author_sort("Jr Sr", method="nocomma") == "Jr Sr"
-    assert utils.author_to_author_sort("Clarke, Arthur", method="comma") == "Clarke, Arthur"
-    assert utils.author_to_author_sort("Ada Lovelace", method=None) == "Lovelace, Ada"
-    assert utils.author_to_author_sort("ACME Corporation", method="nocomma") == "ACME Corporation"
-    assert utils.authors_to_sort_string(["Arthur C Clarke", "Ada Lovelace"]) == (
-        "Clarke, Arthur C & Lovelace, Ada"
-    )
-
-    assert utils.get_title_sort_pat("spa") is utils.get_title_sort_pat("spa")
-    assert utils.title_sort("The Hobbit") == "Hobbit, The"
-    assert utils.title_sort('"The Hobbit') == "Hobbit, The"
-    assert utils.title_sort("The Hobbit", order="strictly_alphabetic") == "The Hobbit"
-    assert utils.title_sort("El Aleph", lang="spa") == "Aleph, El"
-
-
 def test_roman_series_identifier_and_doi_helpers() -> None:
     """
     Verify roman series identifier and doi helpers.
@@ -87,11 +65,10 @@ def test_roman_series_identifier_and_doi_helpers() -> None:
     assert utils.fmt_sidx(4, use_roman=True) == "IV"
     assert utils.fmt_sidx(object()).startswith("<object object")
 
-    assert utils.check_isbn10("0261103571") == "0261103571"
-    assert utils.check_isbn10("not-isbn") is None
-    assert utils.check_isbn13("9780261103573") == "9780261103573"
-    assert utils.check_isbn13("9780000000040") == "9780000000040"
-    assert utils.check_isbn13("bad") is None
+    assert utils.check_isbn10 is identifier_policy.check_isbn10
+    assert utils.check_isbn13 is identifier_policy.check_isbn13
+    assert utils.validate_identifier is identifier_policy.validate_legacy_identifier
+    assert validate_identifier is identifier_policy.validate_legacy_identifier
     assert utils.check_isbn("0-261-10357-1") == "0261103571"
     assert utils.check_isbn(None) is None
     assert utils.check_isbn("0000000000") is None
@@ -107,15 +84,7 @@ def test_roman_series_identifier_and_doi_helpers() -> None:
     assert utils.check_doi("") is None
     assert utils.check_doi("not a doi") is None
 
-    utils.validate_identifier("isbn", "0261103571")
-    utils.validate_identifier("isbn", "9780261103573")
-    with pytest.raises(InputIntegrityError):
-        utils.validate_identifier("isbn", "not-an-isbn")
-    with pytest.raises(NotImplementedError):
-        utils.validate_identifier("doi", "10.1234/example")
-
-
-def test_calibre_metadata_resource_and_collection_helpers(tmp_path) -> None:
+def test_resource_and_collection_helpers(tmp_path) -> None:
     """
     Verify calibre metadata resource and collection helpers.
 
@@ -128,14 +97,6 @@ def test_calibre_metadata_resource_and_collection_helpers(tmp_path) -> None:
     :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
     :return: None; the function records state or raises through its assertions.
     """
-    source = utils.calibreMetaInformation("Title", ["Author"])
-    source.publisher = "Publisher"
-    copied = utils.calibreMetaInformation(source)
-
-    assert copied.title == "Title"
-    assert copied.authors == ["Author"]
-    assert copied.publisher == "Publisher"
-
     book_dir = tmp_path / "book root"
     book_dir.mkdir()
     chapter = book_dir / "chapter é.xhtml"
@@ -189,72 +150,6 @@ def test_calibre_metadata_resource_and_collection_helpers(tmp_path) -> None:
         "chapter%20%C3%A9.xhtml",
         "text/chapter2.xhtml",
     ]
-
-
-def test_opf_version_parse_manifest_and_language_helpers(tmp_path) -> None:
-    """
-    Verify opf version parse manifest and language helpers.
-
-    Example:
-        Exercise test opf version parse manifest and language helpers through its owning regression module::
-
-            python -m pytest -q tests/metadata/test_utils_coverage.py
-
-
-    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
-    :return: None; the function records state or raises through its assertions.
-    """
-    assert utils.parse_opf_version("3.0") == utils.OPFVersion(3, 0, 0)
-    assert utils.parse_opf_version("bad") == utils.OPFVersion(2, 0, 0)
-    assert utils.parse_opf_version("4.bad") == utils.OPFVersion(4, 0, 0)
-
-    raw = b"""<?xml version='1.0' encoding='utf-8'?>
-<package xmlns="http://www.idpf.org/2007/opf" version="3.0">
-  <manifest><item id="chap" href="chapter.xhtml"/></manifest>
-</package>
-"""
-    path = tmp_path / "metadata.opf"
-    path.write_bytes(raw)
-
-    assert utils.parse_opf(path).tag == OPF("package")
-    assert utils.parse_opf(io.BytesIO(raw)).tag == OPF("package")
-    assert utils.parse_opf(raw.decode("utf-8")).tag == OPF("package")
-    with pytest.raises(ValueError, match="Empty file"):
-        utils.parse_opf(b"")
-
-    assert utils.normalize_languages(["en-US", "zho-TW"], ["eng", "zho", "qaa-x-private"]) == [
-        "en-US",
-        "zh-TW",
-        "qaa-X",
-    ]
-    assert utils.normalize_languages(["zh-Hant-TW"], ["zho"]) == ["zh-TW"]
-    assert utils.normalize_languages(["", "-US"], ["", None]) == []
-
-    assert utils.ensure_unique("cover.jpg", {"cover.jpg", "cover-1.jpg"}) == "cover-2.jpg"
-
-    root = etree.Element(OPF("package"))
-    etree.SubElement(root, OPF("manifest"))
-    item = utils.create_manifest_item(root, "cover.jpg", "cover", media_type=None)
-    assert item.get("href") == "cover.jpg"
-    assert item.get("id") == "cover"
-    assert item.get("media-type") == "image/jpeg"
-
-    stdlib_root = ElementTree.Element(OPF("package"))
-    ElementTree.SubElement(stdlib_root, OPF("manifest"))
-    existing = ElementTree.SubElement(stdlib_root.find(OPF("manifest")), OPF("item"))
-    existing.set("id", "cover")
-    existing.set("href", "cover.jpg")
-
-    item = utils.create_manifest_item(stdlib_root, "cover.jpg", "cover")
-    assert item.get("href") == "cover-1.jpg"
-    assert item.get("id") == "cover-1"
-    assert item.get("media-type") == "image/jpeg"
-
-    no_manifest = etree.Element(OPF("package"))
-    assert utils.create_manifest_item(no_manifest, "cover.bin", "cover") is None
-    etree.SubElement(no_manifest, OPF("manifest"))
-    item = utils.create_manifest_item(no_manifest, "payload.unknownext", "payload", media_type=None)
-    assert item.get("media-type") == "application/octet-stream"
 
 
 def test_ebook_metadata_tools_timestamp_and_identifier_helpers() -> None:
@@ -340,22 +235,6 @@ def test_ebook_metadata_tools_author_title_and_name_helpers(monkeypatch: pytest.
 
     assert ebook_metadata_tools.authors_to_string(["Ada & Bob", "Grace"]) == "Ada && Bob & Grace"
     assert ebook_metadata_tools.authors_to_string(None) == ""
-    assert ebook_metadata_tools.author_to_author_sort("", method="nocomma") == ""
-    assert ebook_metadata_tools.author_to_author_sort("Plato", method="nocomma") == "Plato"
-    assert ebook_metadata_tools.author_to_author_sort("Arthur C Clarke", method="copy") == "Arthur C Clarke"
-    assert ebook_metadata_tools.author_to_author_sort("Dr Arthur C Clarke Jr", method="nocomma") == (
-        "Clarke Arthur C Jr"
-    )
-    assert ebook_metadata_tools.author_to_author_sort("Dr Prof", method="nocomma") == "Dr Prof"
-    assert ebook_metadata_tools.author_to_author_sort("Jr Sr", method="nocomma") == "Jr Sr"
-    assert ebook_metadata_tools.author_to_author_sort("Clarke, Arthur", method="comma") == "Clarke, Arthur"
-    assert ebook_metadata_tools.author_to_author_sort("ACME Corporation", method="nocomma") == "ACME Corporation"
-    assert ebook_metadata_tools.authors_to_sort_string(["Arthur C Clarke"]) == "Clarke, Arthur C"
-    assert ebook_metadata_tools.get_title_sort_pat("spa") is ebook_metadata_tools.get_title_sort_pat("spa")
-    assert ebook_metadata_tools.title_sort("The Hobbit") == "Hobbit, The"
-    assert ebook_metadata_tools.title_sort('"The Hobbit') == "Hobbit, The"
-    assert ebook_metadata_tools.title_sort("The Hobbit", order="strictly_alphabetic") == "The Hobbit"
-
     assert ebook_metadata_tools.check_name("Ada Lovelace") is True
     assert ebook_metadata_tools.check_name("Dr Ada Lovelace") is True
     assert ebook_metadata_tools.check_name("Unknown Token") is False
@@ -386,25 +265,8 @@ def test_unicode_and_foreign_language_torture_for_metadata_helpers(tmp_path) -> 
     ]
     assert ebook_metadata_tools.authors_to_string(authors) == "李 白 & 山田 太郎 & أحمد && سارة & שרה"
 
-    # The legacy sort helper is Roman-name shaped, but it must not lose
-    # non-Latin tokens while applying that shape.
-    assert utils.author_to_author_sort("李 白", method="nocomma") == "白 李"
-    assert utils.author_to_author_sort("山田 太郎", method="nocomma") == "太郎 山田"
-    assert ebook_metadata_tools.author_to_author_sort("李 白", method="nocomma") == "白 李"
-
-    assert utils.title_sort("L’Étranger", lang="fra") == "Étranger, L’"
-    assert utils.title_sort("Die Verwandlung", lang="deu") == "Verwandlung, Die"
-    assert utils.title_sort("Las ciudades invisibles", lang="spa") == "ciudades invisibles, Las"
-    assert ebook_metadata_tools.title_sort("L’Étranger", lang="fra") == "Étranger, L’"
-    assert ebook_metadata_tools.title_sort("Die Verwandlung", lang="deu") == "Verwandlung, Die"
-
     assert utils.check_doi("前缀 10.5555/測試-δοκιμή😀 trailing") == "10.5555/測試-δοκιμή😀"
     assert ebook_metadata_tools.check_doi("مقدمة 10.5555/اختبار/世界") == "10.5555/اختبار/世界"
-
-    assert utils.normalize_languages(
-        ["ja-JP", "ara-EG", "he-IL", "zh-Hans-CN"],
-        ["jpn", "ara", "heb", "zho", "kor"],
-    ) == ["ja-JP", "ar-EG", "he-IL", "zh-CN", "ko"]
 
     now = datetime(2020, 1, 1, tzinfo=timezone.utc)
     assert ebook_metadata_tools.to_epoch_ms("発売日 Date(1609459200000) 測試", now=now) == 1_609_459_200_000
@@ -424,14 +286,3 @@ def test_unicode_and_foreign_language_torture_for_metadata_helpers(tmp_path) -> 
         "%E7%AC%AC1%E7%AB%A0%20caf%C3%A9%20%F0%9F%98%80.xhtml"
         "#%E7%AB%A0%20%F0%9F%98%80"
     )
-
-    raw = """<?xml version='1.0' encoding='utf-8'?>
-<package xmlns="http://www.idpf.org/2007/opf" version="3.0">
-  <metadata>
-    <dc:title xmlns:dc="http://purl.org/dc/elements/1.1/">雪国 — 😀</dc:title>
-    <dc:language xmlns:dc="http://purl.org/dc/elements/1.1/">ja-JP</dc:language>
-  </metadata>
-  <manifest><item id="章" href="text/第1章.xhtml"/></manifest>
-</package>
-"""
-    assert utils.parse_opf(raw).tag == OPF("package")

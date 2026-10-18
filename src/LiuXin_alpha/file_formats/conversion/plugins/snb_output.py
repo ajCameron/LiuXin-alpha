@@ -16,7 +16,7 @@ from __future__ import annotations
 import typing as _typing
 import os
 
-from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.file_formats.conversion.plugin import OutputFormatPlugin, OptionRecommendation
 
 from LiuXin_alpha.constants import __appname__, __version__
 from LiuXin_alpha.utils.localization import trans as _
@@ -336,7 +336,7 @@ class SNBOutput(OutputFormatPlugin):
 
 if __name__ == "__main__":
 
-    from LiuXin_alpha.customize.profiles import HanlinV3Output
+    from LiuXin_alpha.file_formats.conversion.profiles import HanlinV3Output
 
     from LiuXin_alpha.file_formats.oeb.reader import OEBReader
     from LiuXin_alpha.file_formats.oeb.base import OEBBook

@@ -53,7 +53,10 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver import SQ
 
 # Todo: Don't do this...
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils import *
-from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils import _author_to_author_sort, title_sort
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils import (
+    _author_sort_sql_value,
+)
+from LiuXin_alpha.metadata.title_names import title_to_title_sort
 
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.calibre_emulation_mixin import CalibreEmulationMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.sql_execution_mixin import SQLExecutionMixin
@@ -125,8 +128,10 @@ class Connection(apsw.Connection):
         encoding = next(self.execute("pragma encoding"))[0]
         self.createcollation("PYNOCASE", partial(pynocase, encoding=encoding))
 
-        self.createscalarfunction("title_sort", title_sort, 1)
-        self.createscalarfunction("author_to_author_sort", _author_to_author_sort, 1)
+        self.createscalarfunction("title_sort", title_to_title_sort, 1)
+        self.createscalarfunction(
+            "author_to_author_sort", _author_sort_sql_value, 1
+        )
         self.createscalarfunction("uuid4", lambda: str(uuid.uuid4()), 0)
 
         # Dummy functions for dynamically created filters
@@ -660,8 +665,8 @@ class DatabaseDriver(
         conn.create_function("NEW_DIRTY_RECORD", 2, lambda table, row_id: self.maintainer_callback.new_dirty_record(table, row_id))
 
         # calibre - functions included here for compatibility
-        conn.create_function("title_sort", 1, title_sort)
-        conn.create_function("author_to_author_sort", 1, _author_to_author_sort)
+        conn.create_function("title_sort", 1, title_to_title_sort)
+        conn.create_function("author_to_author_sort", 1, _author_sort_sql_value)
         conn.create_function("uuid4", 0, lambda: str(uuid.uuid4()))
 
         # calibre - Dummy functions for dynamically created filters

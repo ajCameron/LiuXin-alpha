@@ -261,6 +261,7 @@ class ColumnNormalizationProfile(str, Enum):
     NONE = "none"
     UNICODE_NFC = "unicode_nfc"
     UNICODE_NFC_TRIM_CASEFOLD = "unicode_nfc_trim_casefold"
+    UNICODE_NFKC_WHITESPACE_CASEFOLD = "unicode_nfkc_whitespace_casefold"
     TAG_SEARCH_TERM = "tag_search_term"
     TITLE_SEARCH_TERM = "title_search_term"
 
@@ -625,22 +626,25 @@ COMPARISON_COLUMNS: dict[tuple[str, str], tuple[str, ColumnNormalizationProfile]
         "custom_column_name_norm",
         ColumnNormalizationProfile.UNICODE_NFC_TRIM_CASEFOLD,
     ),
-    ("tags", "tag"): ("tag_phash", ColumnNormalizationProfile.TAG_SEARCH_TERM),
+    ("tags", "tag"): (
+        "tag_phash",
+        ColumnNormalizationProfile.UNICODE_NFKC_WHITESPACE_CASEFOLD,
+    ),
     ("labels", "label_text"): (
         "label_text_norm",
-        ColumnNormalizationProfile.TAG_SEARCH_TERM,
+        ColumnNormalizationProfile.UNICODE_NFKC_WHITESPACE_CASEFOLD,
     ),
     ("genres", "genre"): (
         "genre_phash",
-        ColumnNormalizationProfile.TITLE_SEARCH_TERM,
+        ColumnNormalizationProfile.UNICODE_NFKC_WHITESPACE_CASEFOLD,
     ),
     ("subjects", "subject"): (
         "subject_phash",
-        ColumnNormalizationProfile.TITLE_SEARCH_TERM,
+        ColumnNormalizationProfile.UNICODE_NFKC_WHITESPACE_CASEFOLD,
     ),
     ("series", "series"): (
         "series_name_norm",
-        ColumnNormalizationProfile.TITLE_SEARCH_TERM,
+        ColumnNormalizationProfile.UNICODE_NFKC_WHITESPACE_CASEFOLD,
     ),
     ("replication_policies", "replication_policy_name"): (
         "replication_policy_name_norm",

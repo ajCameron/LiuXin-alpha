@@ -4,8 +4,8 @@ This note freezes where controlled vocabularies should live.
 
 ## Rule of thumb
 
-- **Database-constrained vocabularies** live in `LiuXin_alpha.databases` because
-  the database generator and constraint layer need them directly.
+- **Bibliographic vocabularies** live in `LiuXin_alpha.metadata`, including when
+  database schema generation consumes them to build constraints.
 - **Core metadata typing** for W/E/M/I ids and agent-credit roles lives in
   `LiuXin_alpha.metadata.metadata_types`.
 - **Shared metadata-family vocabularies** for additional metadata containers
@@ -13,11 +13,16 @@ This note freezes where controlled vocabularies should live.
 
 ## Current canonical homes
 
-### `LiuXin_alpha.databases.db_types`
+### `LiuXin_alpha.metadata.identifiers`
 
 - `IdentifierEntityType`
 - `IdentifierScheme`
-- MARC relator codes and their allowed sets
+- per-entity identifier scheme sets
+
+### `LiuXin_alpha.metadata.relators`
+
+- `MarcRelatorRole`
+- per-WEMI MARC relator role sets
 
 ### `LiuXin_alpha.metadata.metadata_types`
 

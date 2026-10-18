@@ -2,8 +2,8 @@
 Implement configured entity persistence and exact-first repository matching.
 
 ExactEntityRepository combines base CRUD with a subclass-supplied identity spec,
-mutation/reuse restrictions, and persistence-only derived fields. Matching delegates
-to a fresh matcher without writes; create/update normalize storage payloads separately.
+mutation/reuse restrictions. Matching delegates to a fresh matcher without writes;
+create/update use the shared repository preparation policy.
 Read-only entities and entities requiring contextual creation have distinct rules.
 """
 
@@ -20,7 +20,7 @@ from ..api.common import (
     RowMapping,
 )
 from ..matching.exact_matcher import ExactEntityMatcher, ExactEntitySpec
-from ..matching.policy import normalise_match_text, raise_for_unresolved
+from ..matching.policy import raise_for_unresolved
 from .base import BaseRepository
 
 
@@ -33,7 +33,7 @@ class ExactEntityRepository(BaseRepository):
     ExactEntityMatcher instances. The bound/default policy governs selection, with approximate
     fallback explicitly requested per call.
 
-    Persistence derives only configured normalized fields missing from the supplied payload. Mutable
+    Persistence derives keys from the database identity declarations. Mutable
     controls create/update/delete and match_or_create; reusable additionally controls
     match_or_create, not direct reads or matching. The class adds no encompassing transaction around
     matching and creation and does not acquire ownership of the database.
@@ -48,47 +48,10 @@ class ExactEntityRepository(BaseRepository):
 
     match_spec: ClassVar[ExactEntitySpec]
 
-    def _normalise_storage_input(self, data: RowInput) -> dict[str, object]:
-        """
-        Normalize persistence keys and fill absent configured derived-text fields.
-
-        Use BaseRepository.normalise_input with its strict defaults, then process destination/source
-        pairs in spec order. Derive a destination only when its source value is non-None and the
-        destination key is absent. Explicit destination values, including None or inconsistent text,
-        remain unchanged. Derivation uses normalise_match_text: NFKC/case-folding, punctuation
-        removal, and ampersand expansion. It does not read the stored row or merge old values during
-        updates.
-
-        The first pass validates supplied fields. Derived destination names are added afterward and
-        are checked by the later base create/update normalization. Values not replaced by derivation
-        retain their original references; input is not mutated.
-
-        Example:
-            >>> from types import SimpleNamespace
-            >>> repository = ExactEntityRepository(SimpleNamespace(
-            ...     driver_wrapper=SimpleNamespace(get_column_headings=lambda table: ("text", "norm")),
-            ... ))
-            >>> repository.match_spec = ExactEntitySpec(
-            ...     "Value", "values", "id", "text", ("text",), ("text",),
-            ...     normalized_storage_fields=(("norm", "text"),),
-            ... )
-            >>> repository._normalise_storage_input({"text": "A & B!"})
-            {'text': 'A & B!', 'norm': 'a and b'}
-            >>> repository._normalise_storage_input({"text": "New", "norm": None})
-            {'text': 'New', 'norm': None}
-
-
-        :param data: Mapping of writable aliases or storage columns for this persistence operation.
-        :return: New storage-column dictionary with eligible missing derived fields populated.
-        :raises Exception: Base input/schema validation, missing configuration, and text-conversion failures propagate.
-        """
-
-        result = super().normalise_input(data)
-        for destination, source in self.match_spec.normalized_storage_fields:
-            source_value = result.get(source)
-            if source_value is not None and destination not in result:
-                result[destination] = normalise_match_text(source_value)
-        return result
+    def _prepare_write(self, data: RowInput, *, existing: RowMapping | None = None) -> dict[str, object]:
+        """Apply the same mutability gate to scalar and batch repository writes."""
+        self._require_mutable()
+        return super()._prepare_write(data, existing=existing)
 
     def _require_mutable(self) -> None:
         """
@@ -119,12 +82,12 @@ class ExactEntityRepository(BaseRepository):
         """
         Check mutability, derive persistence fields, and delegate insertion to base CRUD.
 
-        Reject immutable entities before input or schema inspection. Strictly normalize supplied
-        keys and derive missing configured values, then let BaseRepository.create normalize the
-        result again, reject an empty payload, and validate the returned ID after insertion.
+        Reject immutable entities before input or schema inspection. BaseRepository.create
+        validates supplied columns and derives keys from schema declarations, rejects an
+        empty payload, and validates the returned ID inside the insertion transaction.
         Non-reusable entities still permit direct creation; contextual relationship requirements are
         the caller's responsibility or backend constraints. This method does not perform matching or
-        add an outer transaction.
+        add a transaction outside base CRUD.
 
         Example:
             >>> label_id = catalog.labels.create({"text": "To read"})  # doctest: +SKIP
@@ -137,33 +100,31 @@ class ExactEntityRepository(BaseRepository):
         """
 
         self._require_mutable()
-        return super().create(self._normalise_storage_input(data))
+        return super().create(data)
 
     def update(self, entity_id: EntityId, data: RowInput) -> None:
         """
         Check mutability and normalize derived values before updating an existing row.
 
-        Unlike BaseRepository.update, this wrapper normalizes the incoming payload before the entity
-        existence check. The base update then requires the row and normalizes the resulting storage
-        mapping again before writing. Missing derived values are recomputed only from sources
-        supplied in this update; existing row values are not consulted. Explicit derived fields,
-        including None, are preserved. Even an empty update checks mutability, schema, and row
-        existence.
+        The base update reads the row and prepares the partial update inside its
+        transaction. Supplied source values determine their keys; key-only updates
+        derive from the stored source. Explicit derived fields cannot override that
+        policy. Even an empty update checks mutability, schema, and row existence.
 
         Example:
             >>> catalog.labels.update(label_id, {"text": "Finished"})  # doctest: +SKIP
 
 
-        :param entity_id: ID required by base update after the first persistence normalization.
-        :param data: Fields to replace, with eligible missing derived fields added from supplied source values.
+        :param entity_id: ID required by base update before payload preparation.
+        :param data: Fields to replace, with declared identity keys derived during preparation.
         :return: None after the base update returns.
         :raises CatalogMutationError: If mutation is forbidden or input normalization rejects fields.
-        :raises CatalogNotFoundError: If the row is absent after initial payload normalization.
+        :raises CatalogNotFoundError: If the row is absent.
         :raises Exception: ID/schema validation, derived-value conversion, and update failures propagate.
         """
 
         self._require_mutable()
-        super().update(entity_id, self._normalise_storage_input(data))
+        super().update(entity_id, data)
 
     def delete(self, entity_id: EntityId) -> None:
         """

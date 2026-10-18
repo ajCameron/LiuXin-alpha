@@ -42,7 +42,7 @@ from LiuXin_alpha.file_formats.mobi.reader.headers import (
 )
 from LiuXin_alpha.file_formats.opf.opf2 import OPF, OPFCreator
 from LiuXin_alpha.file_formats.toc import TOC
-from LiuXin_alpha.metadata.utils import calibreMetaInformation as MetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation as MetaInformation
 from LiuXin_alpha.utils.calibre import entity_to_unicode, xml_entity_to_unicode
 from LiuXin_alpha.utils.libraries.calibre_chardet import ENCODING_PATS
 from LiuXin_alpha.utils.libraries.cleantext import clean_ascii_chars

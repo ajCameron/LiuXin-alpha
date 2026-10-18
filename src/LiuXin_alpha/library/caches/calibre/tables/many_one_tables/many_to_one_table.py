@@ -196,39 +196,50 @@ class CalibreManyToOneTable(BaseManyToOneTable[T], MultiTableMixin):
         """
         raise ValueError(f"You CANNOT set the typed property directly. Use a different class.")
 
+    def get_subtable(self, type_filter: str) -> "CalibreManyToOneTable":
+        """Return an untyped projection of one role, retaining priority ordering."""
+        if self.priority:
+            from .priority_many_to_one_table import CalibrePriorityManyToOneTable
+
+            return CalibrePriorityManyToOneTable.from_typed_table(self, type_filter)
+        return CalibreManyToOneTable.from_typed_table(self, type_filter)
+
     @classmethod
     def from_typed_table(
-        cls, original_table: Union["CalibreTypedManyToOneTable", "CalibrePriorityTypedManyToOneTable"], type_filter: str
+        cls, original_table: "CalibreManyToOneTable", type_filter: str
     ) -> "CalibreManyToOneTable":
+        """Project one link type in both directions, preserving known identities.
+
+        Owners linked only through other types remain known but have no value in
+        this projection. Maps are copied so editing the projection cannot mutate
+        the source cache or another type's relationships.
         """
-        Build a ManyToManyTable from existing maps.
-
-        Example:
-            Exercise CalibreManyToOneTable.from typed table through a consuming regression::
-
-                python -m pytest -q tests/library/test_unified_library.py
-
-
-        :param original_table: Value supplied for original table under the utility contract.
-        :param type_filter: Value supplied for type filter under the utility contract.
-        :return: The normalized value, metadata record, path, stream result or collection
-            described above.
-        """
-        assert isinstance(original_table, CalibreManyToOneTable)
-        assert original_table.typed, f"{original_table=} must be typed to use this method."
-
+        if not original_table.typed:
+            raise ValueError("A typed source table is required")
         sub_table = cls(
             name=original_table.name,
             metadata=original_table.metadata,
             link_table=original_table.link_table,
+            custom=original_table.custom,
         )
-        sub_table.is_subtable = True
-
-        # Todo: Need to filter for the link types - so we need to store them
-        sub_table.id_map = original_table.id_map
-        sub_table.book_col_map = original_table.book_col_map
-        sub_table.col_book_map = original_table.col_book_map[type_filter]
-
+        sub_table._copy_subtable_metadata(original_table)
+        sub_table.book_col_map.update(
+            {
+                book_id: item_id
+                if original_table.book_type_map.get(book_id) == type_filter
+                else None
+                for book_id, item_id in original_table.book_col_map.items()
+            }
+        )
+        container = list if sub_table.priority else set
+        sub_table.col_book_map.update(
+            {
+                item_id: container(book_ids)
+                for item_id, book_ids in original_table.col_book_map.get(
+                    type_filter, {}
+                ).items()
+            }
+        )
         return sub_table
 
     @staticmethod

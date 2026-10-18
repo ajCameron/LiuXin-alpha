@@ -479,6 +479,7 @@ class DatabaseMetadataMixin:
 
     def iter_normalized_identity_specs(
         self: "DatabaseAPI",
+        *, table: str | None = None,
     ) -> Iterator[NormalizedIdentitySpec]:
         """
         Yield normalized-identity declarations from the wrapper iterator.
@@ -492,7 +493,7 @@ class DatabaseMetadataMixin:
         :return: Iterator yielding NormalizedIdentitySpec objects.
         """
 
-        yield from self.driver_wrapper.iter_normalized_identity_specs()
+        yield from self.driver_wrapper.iter_normalized_identity_specs(table=table)
 
     def derive_identity_value(
         self: "DatabaseAPI",

@@ -4,8 +4,8 @@ Expose normalized database identities and parent-linked tree operations through 
 Identity normalization delegates to database policy. Tree helpers use schema
 headings and portable macros, with root-to-row lineage and breadth-first subtree
 reads. Metadata declares request shapes but is not a validator or authorization
-layer. Writes perform sequential macro calls followed by cache reconciliation;
-this adapter adds no transaction or rollback if a later write or report fails.
+layer. Tree writes validate and mutate within one portable transaction, delegating
+Catalog-owned rows to repositories. Cache reconciliation follows the commit.
 """
 
 # pyright: reportImportCycles=false
@@ -477,8 +477,8 @@ class CoreDatabaseSemanticsAPI:
     Register normalized-identity and parent-linked tree handlers without owning database state.
 
     Direct handler calls bypass the runtime's dispatch lock, envelope conversion,
-    and lifecycle events. Tree mutation validation precedes sequential writes,
-    but this adapter does not make those reads/writes atomic.
+    and lifecycle events. Tree mutation validation and writes share a transaction; Catalog-owned
+    rows use their semantic repositories.
 
     Example:
         >>> adapter = CoreDatabaseSemanticsAPI()
@@ -1007,11 +1007,11 @@ class CoreDatabaseSemanticsAPI:
         """
         Validate requested parent/children and cycle safety, then set every listed child's parent and reconcile.
 
-        All validation precedes writes, but no lock/transaction spans those reads
-        and macro updates here. IDs are converted via int(str(value)); booleans are
+        Tree validation and row updates share a portable transaction. Catalog-owned
+        tables use their repositories. IDs are converted via int(str(value)); booleans are
         rejected and duplicates retained. An empty sequence still yields a nested
-        receipt and reconciliation. Later update/report failures do not roll back
-        earlier updates, and update return values are ignored.
+        receipt and reconciliation. A later update failure rolls back earlier writes;
+        reconciliation runs after commit, and update return values are ignored.
 
         Example:
             >>> receipt = CoreDatabaseSemanticsAPI.tree_nest(runtime, command)  # doctest: +SKIP
@@ -1025,45 +1025,47 @@ class CoreDatabaseSemanticsAPI:
         payload = _payload(command)
         table = _required_text(payload, "table")
         parent_id = _required_int(payload, "parent_id")
-        _tree_get(runtime, table, parent_id)
-        raw_ids = payload.get("child_ids")
-        if not isinstance(raw_ids, Sequence) or isinstance(raw_ids, (str, bytes)):
-            raise CoreDispatchError("`child_ids` must be an array.")
-        child_ids: list[int] = []
-        for value in raw_ids:
-            if isinstance(value, bool):
-                raise CoreDispatchError("Every `child_ids` value must be an integer.")
-            child_id = int(str(value))
-            _tree_get(runtime, table, child_id)
-            if child_id == parent_id:
-                raise CoreDispatchError(
-                    "A tree row cannot be nested beneath itself.",
-                    code="tree_cycle",
-                )
-            descendant_ids = {
-                int(row[_tree_columns(runtime, table)[0]])
-                for row in _tree_walk_rows(runtime, table, child_id)
-            }
-            if parent_id in descendant_ids:
-                raise CoreDispatchError(
-                    "Tree nesting would create a cycle.",
-                    code="tree_cycle",
-                    details={
-                        "table": table,
-                        "parent_id": parent_id,
-                        "child_id": child_id,
-                    },
-                )
-            child_ids.append(child_id)
-        id_column, parent_column = _tree_columns(runtime, table)
         macros = _macros(runtime)
-        for child_id in child_ids:
-            macros.update_row(
-                table,
-                child_id,
-                {parent_column: parent_id},
-                id_column=id_column,
-            )
+        with macros.transaction():
+            _tree_get(runtime, table, parent_id)
+            raw_ids = payload.get("child_ids")
+            if not isinstance(raw_ids, Sequence) or isinstance(raw_ids, (str, bytes)):
+                raise CoreDispatchError("`child_ids` must be an array.")
+            child_ids: list[int] = []
+            for value in raw_ids:
+                if isinstance(value, bool):
+                    raise CoreDispatchError("Every `child_ids` value must be an integer.")
+                child_id = int(str(value))
+                _tree_get(runtime, table, child_id)
+                if child_id == parent_id:
+                    raise CoreDispatchError(
+                        "A tree row cannot be nested beneath itself.",
+                        code="tree_cycle",
+                    )
+                descendant_ids = {
+                    int(row[_tree_columns(runtime, table)[0]])
+                    for row in _tree_walk_rows(runtime, table, child_id)
+                }
+                if parent_id in descendant_ids:
+                    raise CoreDispatchError(
+                        "Tree nesting would create a cycle.",
+                        code="tree_cycle",
+                        details={
+                            "table": table,
+                            "parent_id": parent_id,
+                            "child_id": child_id,
+                        },
+                    )
+                child_ids.append(child_id)
+            id_column, parent_column = _tree_columns(runtime, table)
+            repository = runtime.services.catalog.repositories.for_table(table)
+            for child_id in child_ids:
+                if repository is not None:
+                    repository.update(child_id, {parent_column: parent_id})
+                else:
+                    macros.update_row(
+                        table, child_id, {parent_column: parent_id}, id_column=id_column,
+                    )
         return runtime.services.reconcile(
             {
                 "table": table,
@@ -1083,8 +1085,8 @@ class CoreDatabaseSemanticsAPI:
 
         Descendants precede ancestors; peers are reversed relative to the walk.
         deleted_count counts planned row deletions, not checked macro return values.
-        No transaction or retry compensation is added, so a later failure can leave
-        prior rows deleted and newly concurrent descendants outside the read snapshot.
+        Traversal and deletion share one transaction, so a later failure rolls back
+        earlier deletions. Concurrent changes remain subject to backend isolation.
 
         Example:
             >>> receipt = CoreDatabaseSemanticsAPI.tree_delete(runtime, command)  # doctest: +SKIP
@@ -1104,19 +1106,20 @@ class CoreDatabaseSemanticsAPI:
         table = _required_text(payload, "table")
         row_id = _required_int(payload, "row_id")
         id_column, _parent_column = _tree_columns(runtime, table)
-        rows = _tree_walk_rows(runtime, table, row_id)
-        record = _tree_record(
-            table=table,
-            id_column=id_column,
-            row=rows[0],
-        )
         macros = _macros(runtime)
-        for value in reversed(rows):
-            macros.delete_row(
-                table,
-                value[id_column],
+        with macros.transaction():
+            rows = _tree_walk_rows(runtime, table, row_id)
+            record = _tree_record(
+                table=table,
                 id_column=id_column,
+                row=rows[0],
             )
+            repository = runtime.services.catalog.repositories.for_table(table)
+            for value in reversed(rows):
+                if repository is not None:
+                    repository.delete(value[id_column])
+                else:
+                    macros.delete_row(table, value[id_column], id_column=id_column)
         return runtime.services.reconcile(
             {
                 "deleted": True,

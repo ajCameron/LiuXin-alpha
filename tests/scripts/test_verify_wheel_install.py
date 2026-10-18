@@ -148,7 +148,7 @@ def test_wheel_inspection_rejects_test_package_leaks(tmp_path: Path) -> None:
 
     with pytest.raises(
         verify_wheel_install.WheelVerificationError,
-        match="Development-only test or demo",
+        match="Excluded test, demo or retired",
     ):
         verify_wheel_install.inspect_wheel(wheel, REPO_ROOT)
 
@@ -212,5 +212,51 @@ def test_wheel_inspection_rejects_missing_calibre_resource(tmp_path: Path) -> No
     with pytest.raises(
         verify_wheel_install.WheelVerificationError,
         match="templates/html.css",
+    ):
+        verify_wheel_install.inspect_wheel(wheel, REPO_ROOT)
+
+
+@pytest.mark.parametrize(
+    "member",
+    [
+        "LiuXin_alpha/utils/plugins/linux/images_rc.py",
+        "LiuXin_alpha/utils/plugins/fallbacks/imageops (2).py",
+        "LiuXin_alpha/new_component/copy (12).py",
+    ],
+)
+def test_wheel_inspection_rejects_obsolete_source_artifacts(
+    tmp_path: Path, member: str
+) -> None:
+    """Reject deleted artifacts even when a stale build directory reintroduces them."""
+    wheel = tmp_path / "stale-build.whl"
+    with zipfile.ZipFile(wheel, "w") as archive:
+        archive.writestr(member, b"pass")
+    with pytest.raises(
+        verify_wheel_install.WheelVerificationError, match="Unused source artifacts"
+    ):
+        verify_wheel_install.inspect_wheel(wheel, REPO_ROOT)
+
+
+@pytest.mark.parametrize(
+    "member",
+    [
+        "LiuXin_alpha/library/api/__init__.py",
+        "LiuXin_alpha/library/caches/memory_sqlite/cache.py",
+        "LiuXin_alpha/library/caches/numpy/tables.py",
+        "LiuXin_alpha/library/backup.py",
+        "LiuXin_alpha/library/restore.py",
+        "LiuXin_alpha/library/legacy.py",
+        "LiuXin_alpha/library/backend.py",
+    ],
+)
+def test_wheel_inspection_rejects_retired_library_modules(
+    tmp_path: Path, member: str
+) -> None:
+    """Do not ship the disconnected Library prototypes through stale build output."""
+    wheel = tmp_path / "retired-library.whl"
+    with zipfile.ZipFile(wheel, "w") as archive:
+        archive.writestr(member, b"pass")
+    with pytest.raises(
+        verify_wheel_install.WheelVerificationError, match="retired modules"
     ):
         verify_wheel_install.inspect_wheel(wheel, REPO_ROOT)

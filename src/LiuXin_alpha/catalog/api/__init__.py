@@ -11,7 +11,7 @@ Example:
     >>> candidate = MetadataCandidate({"title": "Frankenstein"}, source="manual")
     >>> candidate.data["title"]
     'Frankenstein'
-    >>> from LiuXin_alpha.catalog import Catalog
+    >>> from LiuXin_alpha.catalog.catalog import Catalog
     >>> catalog: CatalogAPI = Catalog(db)  # doctest: +SKIP
     >>> work_id = catalog.works.match_or_create(candidate)  # doctest: +SKIP
 
@@ -22,8 +22,8 @@ for validation, copying, persistence, and identity-decision behavior.
 
 from .catalog import CatalogAPI
 from .common import (
-    CatalogError,
     CatalogAmbiguousMatchError,
+    CatalogError,
     CatalogMatchConflictError,
     CatalogMatchError,
     CatalogMutationError,
@@ -70,7 +70,11 @@ from .metadata_tools_api import (
     FingerprintToolsAPI,
     IntralinkerAPI,
 )
-from .mutations_api import CatalogMutationsAPI
+from .mutations_api import (
+    CatalogMutationsAPI,
+    MetadataWriteReportAPI,
+    MetadataWriteReportMapping,
+)
 
 __all__ = [
     "AddAPI",
@@ -110,6 +114,8 @@ __all__ = [
     "MatchEvidenceKind",
     "MatchResult",
     "MetadataCandidate",
+    "MetadataWriteReportAPI",
+    "MetadataWriteReportMapping",
     "RowInput",
     "RowMapping",
     "SerializedFieldMetadataState",

@@ -17,7 +17,8 @@ search policy.
 Application code should construct the composed facade:
 
 ```python
-from LiuXin_alpha.caches import CacheQuery, CacheSort, create_cache
+from LiuXin_alpha.caches.api import CacheQuery, CacheSort
+from LiuXin_alpha.caches.cache import create_cache
 
 cache = create_cache(db, "schema_backed")
 page = cache.query(
@@ -44,7 +45,7 @@ The storage cache is now plugin-backed.
 Plugin tests or backend development that wants a raw backend can use:
 
 ```python
-from LiuXin_alpha.caches import create_storage_cache
+from LiuXin_alpha.caches.cache_plugins import create_storage_cache
 
 cache = create_storage_cache(db, "schema_backed")
 cache.read()
@@ -60,7 +61,7 @@ If code needs to branch on backend semantics, it should prefer declared
 capabilities over class-name checks:
 
 ```python
-from LiuXin_alpha.caches import get_cache_plugin_capabilities
+from LiuXin_alpha.caches.cache_plugins import get_cache_plugin_capabilities
 
 caps = get_cache_plugin_capabilities("database_backed")
 assert caps.live_reads is True

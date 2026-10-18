@@ -18,7 +18,6 @@ from collections.abc import Iterable, Mapping
 from copy import deepcopy
 from typing import Any, ClassVar, Literal, TypeAlias, cast
 
-from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api import (
     ExpressionIdentityAPI,
     ExpressionRelationKey,
@@ -38,6 +37,7 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api import (
     WorkRelationLink,
     WorkRelationTarget,
 )
+from LiuXin_alpha.metadata.containers._row_like import row_id, row_mapping
 from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
     CalibreLikeLiuXinBookMetaData,
 )
@@ -50,27 +50,20 @@ from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_m
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.manifestation_metadata_container import (
     ManifestationMetadata,
 )
-from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.work_metadata_container import (
-    WorkMetadata,
-)
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.projection_views import (
     LiuXinWEMITextView,
     LiuXinWEMIValuesView,
 )
-
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.work_metadata_container import (
+    WorkMetadata,
+)
 
 WemiLevel: TypeAlias = Literal["work", "expression", "manifestation", "item"]
 WemiMetadataBundle: TypeAlias = (
-    WorkMetadata
-    | ExpressionMetadata
-    | ManifestationMetadata
-    | ItemMetadata
+    WorkMetadata | ExpressionMetadata | ManifestationMetadata | ItemMetadata
 )
 WemiIdentity: TypeAlias = (
-    WorkIdentityAPI
-    | ExpressionIdentityAPI
-    | ManifestationIdentityAPI
-    | ItemIdentityAPI
+    WorkIdentityAPI | ExpressionIdentityAPI | ManifestationIdentityAPI | ItemIdentityAPI
 )
 WemiRelationLink: TypeAlias = (
     WorkRelationLink
@@ -85,10 +78,7 @@ WemiRelationTarget: TypeAlias = (
     | ItemRelationTarget
 )
 WemiRelationKey: TypeAlias = (
-    WorkRelationKey
-    | ExpressionRelationKey
-    | ManifestationRelationKey
-    | ItemRelationKey
+    WorkRelationKey | ExpressionRelationKey | ManifestationRelationKey | ItemRelationKey
 )
 
 
@@ -748,7 +738,9 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         }
 
     @property
-    def relation_link_ids(self) -> dict[WemiLevel, dict[str, tuple[RelationLinkID, ...]]]:
+    def relation_link_ids(
+        self,
+    ) -> dict[WemiLevel, dict[str, tuple[RelationLinkID, ...]]]:
         """
         Collect non-None persisted link ids for every bundle relation bucket.
 
@@ -957,7 +949,9 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
                 lines.append("    empty")
                 continue
 
-            identity_mapping = self._pretty_identity_mapping(level, identity, include_empty)
+            identity_mapping = self._pretty_identity_mapping(
+                level, identity, include_empty
+            )
             if identity_mapping:
                 self._append_pretty_mapping(lines, identity_mapping, indent="    ")
 
@@ -1047,12 +1041,10 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
         :return: Compact LiuXinWEMIMetadata representation.
         """
-        return (
-            "LiuXinWEMIMetadata(title={!r}, item_id={!r}, work_id={!r})".format(
-                self.display_title,
-                self.get_database_id("item"),
-                self.get_database_id("work"),
-            )
+        return "LiuXinWEMIMetadata(title={!r}, item_id={!r}, work_id={!r})".format(
+            self.display_title,
+            self.get_database_id("item"),
+            self.get_database_id("work"),
         )
 
     def _iter_title_candidates(self) -> Iterable[str | None]:
@@ -1186,9 +1178,7 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         :return: None.
         """
         object.__getattribute__(self, "_data")[field] = OrderedDict(
-            (str(value), None)
-            for value in values
-            if str(value).strip()
+            (str(value), None) for value in values if str(value).strip()
         )
 
     @classmethod
@@ -1196,13 +1186,11 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         cls,
         source: Any,
         *,
-        database: Any = None,
         item_id: int | None = None,
-        source_row: Mapping[str, Any] | Row | None = None,
-        replace_metadata: bool = False,
+        source_row: Mapping[str, Any] | Any | None = None,
     ) -> "LiuXinWEMIMetadata":
         """
-        Import OPF fields and optionally merge them into a database-hydrated WEMI slice.
+        Import OPF fields into a persistence-free WEMI slice.
 
         The OPF helper can infer an item id. Its result is returned when already of the
         requested class; otherwise it is merged into a new cls instance.
@@ -1215,79 +1203,22 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
         :param source: OPF source accepted by the OPF reader, such as bytes, a path or a
             readable stream.
-        :param database: Optional caller-owned database/read source used when an item id or
-            source row is available.
         :param item_id: Optional item row id; overrides an item id extracted from
             source_row.
         :param source_row: Database Row or source mapping supplying identity fields and
             row-id hints.
-        :param replace_metadata: Replace supported existing metadata when True; otherwise
-            use the family merge rules.
         :return: Imported WEMI metadata object.
         """
         from LiuXin_alpha.metadata.opf_tools import liuxin_wemi_metadata_from_opf
 
         metadata = liuxin_wemi_metadata_from_opf(
             source,
-            database=database,
             item_id=item_id,
             source_row=source_row,
-            replace_metadata=replace_metadata,
         )
         if isinstance(metadata, cls):
             return metadata
         return cls(other=metadata)
-
-    def write_to_database(
-        self,
-        database: Any,
-        *,
-        fields: Iterable[str] | None = None,
-        target_level: str | None = "work",
-        item_id: int | None = None,
-        target_row: Row | Mapping[str, Any] | None = None,
-        replace: bool = False,
-        mark_dirty: bool = True,
-    ) -> Any:
-        """
-        Delegate supported relation-backed changes to a new WEMI writer.
-
-        The returned report can contain both changes and errors; this facade adds no
-        transaction or rollback boundary. Core identity fields and storage rows are outside
-        the writer's scope.
-
-        Example:
-            Exercise this contract with pytest::
-
-                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
-
-
-        :param database: Caller-owned writable database passed to the writer.
-        :param fields: Optional supported field names; None uses the writer defaults.
-        :param target_level: Preferred WEMI level, default work; unresolved targets may fall
-            back to another level.
-        :param item_id: Optional fallback item id used when direct target and bundle resolution do not select a Row.
-        :param target_row: Optional explicit database Row or mapping with the preferred
-            level id.
-        :param replace: Treat selected values as authoritative, unlinking stale terms and
-            deleting stale entity identifiers when True.
-        :param mark_dirty: Request best-effort dirty marking after reported changes when
-            True.
-        :return: Write report containing changes, skipped operations and errors.
-        """
-        from LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_metadata_writer import (
-            LiuXinWEMIMetadataWriter,
-        )
-
-        return LiuXinWEMIMetadataWriter(database).write(
-            self,
-            fields=fields,
-            target_level=target_level,
-            item_id=item_id,
-            target_row=target_row,
-            replace=replace,
-            mark_dirty=mark_dirty,
-        )
 
     def get_wemi_metadata(self, level: str) -> WemiMetadataBundle:
         """
@@ -1669,7 +1600,9 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
         :return: Tuple of newly added term strings.
         """
-        return self._sync_legacy_terms_from_wemi(field="subject", relation_key="subjects")
+        return self._sync_legacy_terms_from_wemi(
+            field="subject", relation_key="subjects"
+        )
 
     def sync_legacy_series_from_wemi(self) -> tuple[str, ...]:
         """
@@ -1737,7 +1670,9 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
         return tuple(synced)
 
-    def _sync_legacy_terms_from_wemi(self, *, field: str, relation_key: WemiRelationKey) -> tuple[str, ...]:
+    def _sync_legacy_terms_from_wemi(
+        self, *, field: str, relation_key: WemiRelationKey
+    ) -> tuple[str, ...]:
         """
         Append distinct relation terms to an existing legacy field mapping.
 
@@ -1796,10 +1731,9 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         :return: Stripped term text, or None.
         """
         mapping: Mapping[str, Any]
-        if isinstance(target, Row):
-            mapping = target.row_dict
-        elif isinstance(target, Mapping):
-            mapping = target
+        candidate_mapping = row_mapping(target)
+        if candidate_mapping is not None:
+            mapping = candidate_mapping
         elif isinstance(target, str):
             text = target.strip()
             return text or None
@@ -1849,10 +1783,9 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         :return: First convertible id, or None.
         """
         mapping: Mapping[str, Any]
-        if isinstance(target, Row):
-            mapping = target.row_dict
-        elif isinstance(target, Mapping):
-            mapping = target
+        candidate_mapping = row_mapping(target)
+        if candidate_mapping is not None:
+            mapping = candidate_mapping
         else:
             mapping = {}
 
@@ -1866,8 +1799,9 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
                 return int(value)
             except (TypeError, ValueError, OverflowError):
                 continue
-        if isinstance(target, Row) and target.row_id is not None:
-            return int(target.row_id)
+        target_row_id = row_id(target)
+        if target_row_id is not None:
+            return int(target_row_id)
         return None
 
     @staticmethod
@@ -1887,10 +1821,9 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         :return: Scheme/value tuple, or None.
         """
         mapping: Mapping[str, Any]
-        if isinstance(target, Row):
-            mapping = target.row_dict
-        elif isinstance(target, Mapping):
-            mapping = target
+        candidate_mapping = row_mapping(target)
+        if candidate_mapping is not None:
+            mapping = candidate_mapping
         else:
             mapping = {}
 
@@ -2080,8 +2013,7 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         elif isinstance(value, (list, tuple, set, frozenset)):
             values = list(value)
             rendered = [
-                cls._format_pretty_value(one_value)
-                for one_value in values[:max_items]
+                cls._format_pretty_value(one_value) for one_value in values[:max_items]
             ]
             if len(values) > max_items:
                 rendered.append("... (+{} more)".format(len(values) - max_items))
@@ -2362,44 +2294,6 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         """
         return cls.from_mapping(payload)
 
-    @classmethod
-    def from_database(
-        cls,
-        database: Any,
-        *,
-        item_id: int | None = None,
-        source_row: Mapping[str, Any] | Row | None = None,
-    ) -> "LiuXinWEMIMetadata":
-        """
-        Build an eager slice using the central database hydrator.
-
-        Supply item_id or source_row. This delegates construction to the hydrator, which
-        returns LiuXinWEMIMetadata rather than constructing cls itself. The caller owns the
-        read-source lifetime.
-
-        Example:
-            Exercise this contract with pytest::
-
-                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
-
-
-        :param database: Caller-owned database/read source retained for metadata access; it
-            is not closed here.
-        :param item_id: Optional item row id; overrides an item id extracted from
-            source_row.
-        :param source_row: Database Row or source mapping supplying identity fields and
-            row-id hints.
-        :return: Eager WEMI metadata slice.
-        """
-        from LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_metadata_hydrator import (
-            LiuXinWEMIMetadataHydrator,
-        )
-
-        return LiuXinWEMIMetadataHydrator(database).get_liuxin_wemi_metadata(
-            item_id=item_id,
-            source_row=source_row,
-        )
-
     @staticmethod
     def _bundle_from_mapping(
         bundle_type: type[WemiMetadataBundle],
@@ -2524,7 +2418,9 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         for storage_name in self._METADATA_STORAGE_BY_LEVEL.values():
             current_bundle = object.__getattribute__(self, storage_name)
             incoming_bundle = object.__getattribute__(other, storage_name)
-            if replace_metadata or not self._metadata_bundle_has_content(current_bundle):
+            if replace_metadata or not self._metadata_bundle_has_content(
+                current_bundle
+            ):
                 object.__setattr__(self, storage_name, deepcopy(incoming_bundle))
 
     @staticmethod
@@ -2542,7 +2438,10 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         :return: True for any identity or link; False for an empty bundle.
         """
         for identity_attr in ("work", "expression", "manifestation", "item"):
-            if hasattr(bundle, identity_attr) and getattr(bundle, identity_attr) is not None:
+            if (
+                hasattr(bundle, identity_attr)
+                and getattr(bundle, identity_attr) is not None
+            ):
                 return True
 
         for relation_key in bundle.relation_names():

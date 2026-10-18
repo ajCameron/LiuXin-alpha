@@ -30,7 +30,8 @@ from LiuXin_alpha.ingest.remote_html import (
 )
 from LiuXin_alpha.ingest.stores import adopt_store as adopt_configured_store
 from LiuXin_alpha.ingest.stores import ingest_store as ingest_configured_store
-from LiuXin_alpha.metadata.containers import ItemMetadata, ItemMetadataHydrator
+from LiuXin_alpha.catalog.retrieval.hydration import ItemMetadataHydrator
+from LiuXin_alpha.metadata.containers import ItemMetadata
 from LiuXin_alpha.storage.api import (
     Digest,
     DigitalAssetID,
@@ -60,7 +61,10 @@ from LiuXin_alpha.storage.durable_manager import StorageBootstrapReport, Storage
 
 class Library:
     """
-    Unified access point for database + storage flows.
+    Non-owning facade over an already-open database and optional storage manager.
+
+    Use ``core.LibraryServices.open`` to construct and own a complete library
+    graph. Closing this facade never closes either borrowed collaborator.
 
     Example:
         Exercise Library through a consuming regression::
@@ -71,21 +75,11 @@ class Library:
     def __init__(
         self,
         *,
-        database: Optional[Database] = None,
-        database_path: str | pathlib.Path | None = None,
-        db_type: str = "SQLite",
-        database_metadata: Mapping[str, Any] | None = None,
-        create: bool = False,
-        backup: bool = False,
-        enable_storage_manager: bool = True,
-        strict_storage_manager_bootstrap: bool = False,
-        storage_startup_on_add: bool = False,
-        enable_maintenance: bool = True,
-        repair_bootstrap_rows: bool = True,
-        close_database_on_close: Optional[bool] = None,
+        database: Database,
+        storage: StorageManager | None = None,
     ) -> None:
         """
-        Initialize and validate the library state.
+        Retain borrowed collaborators without opening or taking ownership of them.
 
         Example:
             Exercise Library.  init   through a consuming regression::
@@ -93,75 +87,14 @@ class Library:
                 python -m pytest -q tests/library/test_unified_library.py
 
 
-        :param database: Value supplied for database under the utility contract.
-        :param database_path: Value supplied for database path under the utility contract.
-        :param db_type: Value supplied for db type under the utility contract.
-        :param database_metadata: Value supplied for database metadata under the utility
-            contract.
-        :param create: Value supplied for create under the utility contract.
-        :param backup: Value supplied for backup under the utility contract.
-        :param enable_storage_manager: Value supplied for enable storage manager under the
-            utility contract.
-        :param strict_storage_manager_bootstrap: Value supplied for strict storage manager
-            bootstrap under the utility contract.
-        :param storage_startup_on_add: Value supplied for storage startup on add under the
-            utility contract.
-        :param enable_maintenance: Value supplied for enable maintenance under the utility
-            contract.
-        :param repair_bootstrap_rows: Value supplied for repair bootstrap rows under the
-            utility contract.
-        :param close_database_on_close: Value supplied for close database on close under the
-            utility contract.
+        :param database: Already-open database borrowed for the facade's lifetime.
+        :param storage: Already-open manager, or the database's temporary storage
+            back-reference when omitted.
         :return: None; validated state is stored on the receiving object.
         """
-        if database is None and database_path is None:
-            raise ValueError("Provide either `database` or `database_path`.")
-        if database is not None and database_path is not None:
-            raise ValueError("Provide only one of `database` or `database_path`.")
-
-        if database is None:
-            assert database_path is not None
-            server_database = str(db_type).strip().casefold() in {
-                "postgres",
-                "postgresql",
-                "pg",
-            }
-            if server_database:
-                target = str(database_path)
-                metadata = {
-                    "database_path": target,
-                    **dict(database_metadata or {}),
-                }
-                if target.startswith(("postgres://", "postgresql://")):
-                    metadata["postgres_url"] = target
-                else:
-                    metadata["postgres_service"] = target
-            else:
-                path = pathlib.Path(database_path).expanduser()
-                if create:
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                metadata = {"database_path": str(path)}
-            database = Database(
-                metadata=metadata,
-                db_type=db_type,
-                create=create,
-                backup=backup,
-                enable_storage_manager=enable_storage_manager,
-                strict_storage_manager_bootstrap=strict_storage_manager_bootstrap,
-                storage_startup_on_add=storage_startup_on_add,
-                enable_maintenance=enable_maintenance,
-                repair_bootstrap_rows=repair_bootstrap_rows,
-            )
-            self._owns_database = True
-        else:
-            self._owns_database = False
-
         self._database = database
+        self._storage = storage if storage is not None else getattr(database, "storage", None)
         self._closed = False
-
-        if close_database_on_close is None:
-            close_database_on_close = self._owns_database
-        self._close_database_on_close = bool(close_database_on_close)
 
     @property
     def database(self) -> Database:
@@ -209,7 +142,7 @@ class Library:
         :return: The normalized value, metadata record, path, stream result or collection
             described above.
         """
-        storage = getattr(self._database, "storage", None)
+        storage = self._storage
         if storage is None:
             raise RuntimeError("Storage manager is not enabled for this library instance.")
         return storage
@@ -427,6 +360,12 @@ class Library:
         if not clean_updates:
             raise ValueError("No writable updates were provided for table {!r}.".format(target_table))
 
+        from LiuXin_alpha.catalog.repositories.group import CatalogRepositories
+
+        repository = CatalogRepositories.from_database(self._database).for_table(target_table)
+        if repository is not None:
+            repository.update(int(row_id), clean_updates)
+            return dict(repository.require(int(row_id)))
         changed = False
         for key, value in clean_updates.items():
             if row[key] != value:
@@ -579,7 +518,13 @@ class Library:
             raise ValueError("No row found in {} for id {}.".format(target_table, int(row_id)))
 
         deleted = self._row_to_plain_dict(row)
-        self._database.delete(row)
+        from LiuXin_alpha.catalog.repositories.group import CatalogRepositories
+
+        repository = CatalogRepositories.from_database(self._database).for_table(target_table)
+        if repository is not None:
+            repository.delete(int(row_id))
+        else:
+            self._database.delete(row)
         return deleted
 
     def save_store_row(self, *, store_payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -1546,7 +1491,7 @@ class Library:
 
     def close(self) -> None:
         """
-        Perform the close operation under explicit file-format and conversion rules.
+        Mark this facade closed without closing its borrowed collaborators.
 
         Example:
             Exercise Library.close through a consuming regression::
@@ -1560,8 +1505,6 @@ class Library:
         if self._closed:
             return
         self._closed = True
-        if self._close_database_on_close:
-            self._database.close()
 
     def __enter__(self) -> "Library":
         """

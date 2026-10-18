@@ -11,7 +11,8 @@ Portable macros own persistence; this protocol adds no transaction or locking la
 
 from __future__ import annotations
 
-from typing import Protocol, Sequence, runtime_checkable
+from collections.abc import Sequence
+from typing import Protocol, runtime_checkable
 
 from LiuXin_alpha.catalog.api.common import EntityId, RowInput, RowMapping
 
@@ -28,8 +29,11 @@ class BaseRepositoryAPI(Protocol):
     rather than enforced immutable objects. Use get for optional absence and require for an explicit
     error.
 
-    Creation excludes caller-assigned IDs. Read-before-write methods and higher-level match/create
-    workflows do not gain an enclosing transaction from this protocol.
+    Public ``create``, ``update``, and ``delete`` methods are part of the supported Catalog write
+    boundary. Concrete semantic repositories must establish their own write preconditions rather
+    than treating a surface or caller as proof of validation. Creation excludes caller-assigned
+    IDs. Read-before-write methods and higher-level match/create workflows do not gain an enclosing
+    transaction from this protocol.
 
     Example:
         >>> repository: BaseRepositoryAPI = catalog.works  # doctest: +SKIP
@@ -105,10 +109,10 @@ class BaseRepositoryAPI(Protocol):
         """
         Normalize writable fields, insert one entity, and check the returned ID.
 
-        BaseRepository rejects empty normalized payloads and caller-supplied ID columns. Other field
-        validation follows the live schema, aliases, subclass rules, and backend constraints; it
-        does not independently validate every value's type. The result must be an integer other than
-        bool, but no sign check is performed.
+        BaseRepository rejects empty prepared payloads and caller-supplied ID columns. Other field
+        validation follows the live schema, aliases, the concrete repository's write-preparation
+        policy, and backend constraints. The result must be an integer other than bool, but no sign
+        check is performed.
 
         Insertion and transaction handling belong to portable macros. The returned-ID check occurs
         after insertion and does not undo a write if that check fails.
@@ -117,7 +121,7 @@ class BaseRepositoryAPI(Protocol):
             >>> work_id = catalog.works.create({"title": "Frankenstein"})  # doctest: +SKIP
 
 
-        :param data: Nonempty mapping of public aliases or storage columns; values are passed through normalization.
+        :param data: Nonempty mapping of public aliases or storage columns passed through repository write preparation.
         :return: The integer ID returned by insertion.
         :raises TypeError: If data or its keys have unsuitable types.
         :raises CatalogMutationError: If normalization rejects fields, the payload is empty, or insertion returns a non-integer/boolean ID.
@@ -126,13 +130,13 @@ class BaseRepositoryAPI(Protocol):
 
     def update(self, entity_id: EntityId, data: RowInput) -> None:
         """
-        Require an existing entity, then normalize and replace the supplied fields.
+        Require an existing entity, then prepare and replace the supplied fields.
 
-        Existence is checked before payload validation, including for an empty update.
-        BaseRepository skips the macro write for no changes; otherwise it passes only supplied
-        fields to update_row. It does not compare them to stored values first. The existence check
-        and write have no enclosing repository transaction; driver behavior determines concurrency
-        and transaction semantics.
+        Existence is checked before payload validation, including for an empty update, and the
+        shallow stored row is supplied to the concrete repository's write-preparation policy.
+        BaseRepository skips the macro write for no changes; otherwise it passes the prepared
+        fields to update_row. The existence check and write have no enclosing repository
+        transaction; driver behavior determines concurrency and transaction semantics.
 
         Example:
             >>> catalog.works.update(work_id, {"canonical_title": "Frankenstein"})  # doctest: +SKIP

@@ -12,7 +12,8 @@ import os
 from typing import Optional
 
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
-from LiuXin_alpha.metadata.ebook_metadata_tools import title_sort, to_epoch_ms
+from LiuXin_alpha.metadata.ebook_metadata_tools import to_epoch_ms
+from LiuXin_alpha.metadata.title_names import title_to_title_sort
 
 
 def _clean_optional(value: str) -> Optional[str]:
@@ -263,7 +264,7 @@ class NewTitleWizardCommand(TerminalCommandAPI):
         if not title:
             raise ValueError("Title cannot be blank.")
 
-        default_sort = title_sort(title)
+        default_sort = title_to_title_sort(title)
         title_sort_value = (
             browser.prompt_text("Title sort", default=default_sort).strip()
             or default_sort

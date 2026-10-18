@@ -514,6 +514,27 @@ def test_maintenance_thread_is_started(open_db):
     assert hasattr(thread, "stop")
 
 
+def test_database_constructor_does_not_start_runtime_services(
+    driver_spec,
+    db_metadata,
+) -> None:
+    """Database defaults to persistence only; Core owns storage and maintenance."""
+
+    from LiuXin_alpha.databases.database import Database
+
+    db = Database(
+        metadata=db_metadata,
+        db_type=driver_spec.db_type,
+        create=False,
+        backup=False,
+    )
+    try:
+        assert db.maintenance is None
+        assert db.storage is None
+    finally:
+        db.close()
+
+
 def test_close_stops_maintenance_thread(open_db):
     """
     Check close changes the retained maintainer’s keep_running flag from true to false.

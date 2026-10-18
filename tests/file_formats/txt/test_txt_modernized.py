@@ -343,7 +343,7 @@ def test_txt_input_convert_plain_and_txtz_smoke(tmp_path: Path, monkeypatch) -> 
             return types.SimpleNamespace(metadata=types.SimpleNamespace())
 
     html_input = _HTMLInput()
-    fake_ui = types.ModuleType("LiuXin_alpha.customize.ui")
+    fake_ui = types.ModuleType("LiuXin_alpha.file_formats.plugin_runtime")
     fake_ui.plugin_for_input_format = lambda fmt: html_input if fmt == "html" else None
     fake_ui.get_file_type_metadata = (
         lambda stream, file_ext, calibre=True: types.SimpleNamespace(title="TXT Smoke", authors=["A"])
@@ -351,7 +351,7 @@ def test_txt_input_convert_plain_and_txtz_smoke(tmp_path: Path, monkeypatch) -> 
     fake_meta = types.ModuleType("LiuXin_alpha.file_formats.oeb.transforms.metadata")
     fake_meta.meta_info_to_oeb_metadata = lambda mi, metadata, log: None
 
-    monkeypatch.setitem(sys.modules, "LiuXin_alpha.customize.ui", fake_ui)
+    monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.plugin_runtime", fake_ui)
     monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.oeb.transforms.metadata", fake_meta)
 
     plugin = txt_input_mod.TXTInput(None)
@@ -546,7 +546,7 @@ def test_txt_input_does_not_leave_root_index_files_on_failure(
             self.option = types.SimpleNamespace(name=name)
             self.recommended_value = val
 
-    fake_ui = types.ModuleType("LiuXin_alpha.customize.ui")
+    fake_ui = types.ModuleType("LiuXin_alpha.file_formats.plugin_runtime")
 
     def _raise_convert(stream, options, file_ext, log, accelerators):
         """
@@ -580,7 +580,7 @@ def test_txt_input_does_not_leave_root_index_files_on_failure(
     fake_meta = types.ModuleType("LiuXin_alpha.file_formats.oeb.transforms.metadata")
     fake_meta.meta_info_to_oeb_metadata = lambda mi, metadata, log: None
 
-    monkeypatch.setitem(sys.modules, "LiuXin_alpha.customize.ui", fake_ui)
+    monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.plugin_runtime", fake_ui)
     monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.oeb.transforms.metadata", fake_meta)
     monkeypatch.chdir(project_root)
 

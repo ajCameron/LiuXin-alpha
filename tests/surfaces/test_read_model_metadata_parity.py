@@ -14,7 +14,8 @@ from typing import Any
 
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.metadata import metadata_from_database
+from LiuXin_alpha.catalog.retrieval.hydration import WorkMetadataHydrator
+from LiuXin_alpha.catalog.retrieval.metadata import metadata_from_database
 from LiuXin_alpha.metadata.containers import WorkMetadata
 
 from tests.surfaces.test_read_model_api import (
@@ -104,7 +105,9 @@ def _relation_texts(metadata: WorkMetadata, relation: str, *columns: str) -> lis
     ]
 
 
-def _wemi_relation_texts(metadata: Any, level: str, relation: str, *columns: str) -> list[str]:
+def _wemi_relation_texts(
+    metadata: Any, level: str, relation: str, *columns: str
+) -> list[str]:
     """
     Extract nonempty preferred text from relation targets at a selected WEMI level.
 
@@ -176,8 +179,12 @@ def _build_metadata_fixture(
     )
 
     work_row = db.get_row_from_id("works", work_id)
-    db.interlink_rows(primary_row=work_row, secondary_row=db.get_row_from_id("agents", agent_id))
-    db.interlink_rows(primary_row=work_row, secondary_row=db.get_row_from_id("series", series_id))
+    db.interlink_rows(
+        primary_row=work_row, secondary_row=db.get_row_from_id("agents", agent_id)
+    )
+    db.interlink_rows(
+        primary_row=work_row, secondary_row=db.get_row_from_id("series", series_id)
+    )
 
     label_id = None
     if include_legacy_label:
@@ -190,7 +197,9 @@ def _build_metadata_fixture(
     tag_id = None
     if include_real_tag:
         tag_id = _insert_tag_row(db, text="Canonical Tag")
-        db.interlink_rows(primary_row=work_row, secondary_row=db.get_row_from_id("tags", tag_id))
+        db.interlink_rows(
+            primary_row=work_row, secondary_row=db.get_row_from_id("tags", tag_id)
+        )
 
     expression_row = db.get_row_from_id("expressions", expression_id)
     manifestation_row = db.get_row_from_id("manifestations", manifestation_id)
@@ -214,7 +223,9 @@ def _build_metadata_fixture(
     return ids
 
 
-def test_read_model_payload_matches_work_metadata_relations(driver_spec, tmp_path: Path) -> None:
+def test_read_model_payload_matches_work_metadata_relations(
+    driver_spec, tmp_path: Path
+) -> None:
     """
     Compare work identity, title, authors, tags, series, and format filename against WorkMetadata relation projections.
 
@@ -239,7 +250,7 @@ def test_read_model_payload_matches_work_metadata_relations(driver_spec, tmp_pat
         _app, backend = _build_backend(db)
 
         payload = backend.work_metadata_payload(work_row)
-        metadata = WorkMetadata.from_database(db, work_id=ids["work_id"])
+        metadata = WorkMetadataHydrator(db).from_work_id(ids["work_id"])
 
         assert metadata.work is not None
         assert payload["id"] == metadata.work.work_id
@@ -251,14 +262,20 @@ def test_read_model_payload_matches_work_metadata_relations(driver_spec, tmp_pat
             "agent_sort_name",
         )
         assert payload["tags"] == _relation_texts(metadata, "tags", "tag", "tag_name")
-        assert payload["series"] == _relation_texts(metadata, "series", "series", "series_name")[0]
+        assert (
+            payload["series"]
+            == _relation_texts(metadata, "series", "series", "series_name")[0]
+        )
         assert payload["formats"] == ["EPUB"]
-        assert payload["format_metadata"]["EPUB"]["name"] == _relation_texts(
-            metadata,
-            "files",
-            "file_name",
-            "file_original_name",
-        )[0]
+        assert (
+            payload["format_metadata"]["EPUB"]["name"]
+            == _relation_texts(
+                metadata,
+                "files",
+                "file_name",
+                "file_original_name",
+            )[0]
+        )
 
 
 def test_read_model_payload_matches_item_wemi_metadata_projection(
@@ -296,13 +313,16 @@ def test_read_model_payload_matches_item_wemi_metadata_projection(
         assert payload["tags"] == list(metadata.tags.keys())
         assert payload["series"] == next(iter(metadata.series.keys()))
         assert payload["formats"] == ["EPUB"]
-        assert payload["format_metadata"]["EPUB"]["name"] == _wemi_relation_texts(
-            metadata,
-            "item",
-            "files",
-            "file_name",
-            "file_original_name",
-        )[0]
+        assert (
+            payload["format_metadata"]["EPUB"]["name"]
+            == _wemi_relation_texts(
+                metadata,
+                "item",
+                "files",
+                "file_name",
+                "file_original_name",
+            )[0]
+        )
 
 
 def test_read_model_label_fallback_matches_wemi_labels_when_real_tags_are_empty(

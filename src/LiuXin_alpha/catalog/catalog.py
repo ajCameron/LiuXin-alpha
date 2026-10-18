@@ -4,7 +4,8 @@ Compose concrete Catalog owners and expose their shared repository shortcuts.
 Catalog retains a borrowed database, builds legacy metadata tools and nineteen
 entity repositories, and wires matching, retrieval, and mutation services around
 them. The facade delegates schema-driven writes to writer owners and normalized
-update objects. It adds no database lifecycle management or transaction wrapper.
+update objects. It adds no database lifecycle management; individual mutation
+owners establish their documented transaction scope.
 CatalogRepositories supplies the grouped instances and validated name lookup.
 
 Example:
@@ -16,10 +17,8 @@ Example:
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
-from LiuXin_alpha.catalog.api import CatalogAPI
 from LiuXin_alpha.catalog.api.common import DatabaseHandle
 from LiuXin_alpha.catalog.matching import (
     DEFAULT_MATCHING_POLICY,
@@ -27,6 +26,7 @@ from LiuXin_alpha.catalog.matching import (
     MatchingPolicy,
 )
 from LiuXin_alpha.catalog.metadata_tools import Add, Apply, Ensure, Intralinker
+from LiuXin_alpha.catalog.mutations import CatalogMutations
 from LiuXin_alpha.catalog.repositories import (
     AgentRepository,
     AnnotationRepository,
@@ -34,8 +34,8 @@ from LiuXin_alpha.catalog.repositories import (
     ExpressionRepository,
     GenreRepository,
     IdentifierRepository,
-    ItemRepository,
     ItemIdentifierRepository,
+    ItemRepository,
     LabelRepository,
     LanguageRepository,
     ManifestationRepository,
@@ -48,7 +48,7 @@ from LiuXin_alpha.catalog.repositories import (
     TitleRepository,
     WorkRepository,
 )
-from LiuXin_alpha.catalog.mutations import CatalogMutations
+from LiuXin_alpha.catalog.repositories.group import CatalogRepositories
 from LiuXin_alpha.catalog.retrieval import CatalogRetrieval
 from LiuXin_alpha.catalog.write import (
     CatalogColumnUpdate,
@@ -57,119 +57,13 @@ from LiuXin_alpha.catalog.write import (
     SchemaCatalogWriter,
     create_catalog_writer,
 )
+from LiuXin_alpha.catalog.write.host_api import CatalogWriterHostAPI
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.db_types import SrcTableID
     from LiuXin_alpha.databases.macro_types import LinkRow
 
 
-@dataclass(slots=True)
-class CatalogRepositories:
-    """
-    Hold the nineteen repository instances composed by a Catalog.
-
-    The group stores supplied instances without validation or rebinding their dependencies. Its
-    slotted fields remain assignable. Catalog convenience properties return these same members,
-    while for_name resolves only public names from the explicit repository registry.
-
-    Example:
-        >>> repositories = catalog.repositories  # doctest: +SKIP
-        >>> repositories.works is catalog.works  # doctest: +SKIP
-        True
-
-
-    :ivar works: Repository for works representing intellectual creations.
-    :ivar expressions: Repository for expressions representing realizations of Works.
-    :ivar manifestations: Repository for manifestations representing publication embodiments.
-    :ivar items: Repository for items representing individual copies.
-    :ivar agents: Repository for agents and their contributions to WEMI entities.
-    :ivar identifiers: Repository for scheme-aware entity identifiers and their WEMI links.
-    :ivar item_identifiers: Repository for identifiers observed on individual Items.
-    :ivar titles: Repository for logical titles and their WEMI relationships.
-    :ivar notes: Repository for notes attached to WEMI entities.
-    :ivar tags: Repository for reusable Tag values.
-    :ivar labels: Repository for reusable Label values.
-    :ivar genres: Repository for genre values and their entity relationships.
-    :ivar subjects: Repository for subject values and their entity relationships.
-    :ivar series: Repository for series values and their entity relationships.
-    :ivar languages: Repository for language values and their entity relationships.
-    :ivar ratings: Repository for rating values and their entity relationships.
-    :ivar comments: Repository for comment values and their entity relationships.
-    :ivar synopses: Repository for synopsis text and its entity relationships.
-    :ivar annotations: Repository for annotations scoped to individual Items.
-    """
-
-    works: WorkRepository
-    expressions: ExpressionRepository
-    manifestations: ManifestationRepository
-    items: ItemRepository
-    agents: AgentRepository
-    identifiers: IdentifierRepository
-    item_identifiers: ItemIdentifierRepository
-    titles: TitleRepository
-    notes: NoteRepository
-    tags: TagRepository
-    labels: LabelRepository
-    genres: GenreRepository
-    subjects: SubjectRepository
-    series: SeriesRepository
-    languages: LanguageRepository
-    ratings: RatingRepository
-    comments: CommentRepository
-    synopses: SynopsisRepository
-    annotations: AnnotationRepository
-
-    def for_name(self, repository_name: str) -> Any:
-        """
-        Resolve a public singular or plural repository name within this group.
-
-        Names are stripped, case-folded, and have hyphens replaced with underscores before explicit
-        singular aliases are applied. Only names in the public repository registry are accepted;
-        arbitrary attributes cannot be selected. Resolution returns the currently stored member
-        without constructing a repository or reading schema/database state.
-
-        Example:
-            >>> catalog.repositories.for_name(" Item-Identifier ") is catalog.item_identifiers  # doctest: +SKIP
-            True
-
-
-        :param repository_name: Public singular or plural entity name, allowing surrounding whitespace and hyphens.
-        :return: The existing repository instance stored under the normalized public name.
-        :raises TypeError: If repository_name is not a string.
-        :raises KeyError: If the normalized name is absent from the public registry.
-        """
-
-        if not isinstance(repository_name, str):
-            raise TypeError("repository_name must be a string")
-        normalized = repository_name.strip().casefold().replace("-", "_")
-        aliases = {
-            "work": "works",
-            "expression": "expressions",
-            "manifestation": "manifestations",
-            "item": "items",
-            "agent": "agents",
-            "identifier": "identifiers",
-            "item_identifier": "item_identifiers",
-            "title": "titles",
-            "note": "notes",
-            "tag": "tags",
-            "label": "labels",
-            "genre": "genres",
-            "subject": "subjects",
-            "language": "languages",
-            "rating": "ratings",
-            "comment": "comments",
-            "synopsis": "synopses",
-            "annotation": "annotations",
-        }
-        normalized = aliases.get(normalized, normalized)
-        from LiuXin_alpha.catalog.api.repositories import (
-            CATALOG_REPOSITORY_NAMES,
-        )
-
-        if normalized not in CATALOG_REPOSITORY_NAMES:
-            raise KeyError(f"unknown Catalog repository: {repository_name!r}")
-        return getattr(self, normalized)
 
 
 class Catalog:
@@ -248,50 +142,11 @@ class Catalog:
         self.apply.add = self.add
         self.apply.ensure = self.ensure
 
-        self.repositories = CatalogRepositories(
-            works=WorkRepository(db),
-            expressions=ExpressionRepository(db),
-            manifestations=ManifestationRepository(db),
-            items=ItemRepository(db),
-            agents=AgentRepository(db),
-            identifiers=IdentifierRepository(db),
-            item_identifiers=ItemIdentifierRepository(db),
-            titles=TitleRepository(db),
-            notes=NoteRepository(db),
-            tags=TagRepository(db),
-            labels=LabelRepository(db),
-            genres=GenreRepository(db),
-            subjects=SubjectRepository(db),
-            series=SeriesRepository(db),
-            languages=LanguageRepository(db),
-            ratings=RatingRepository(db),
-            comments=CommentRepository(db),
-            synopses=SynopsisRepository(db),
-            annotations=AnnotationRepository(db),
-        )
-        for repository in (
-            self.repositories.works,
-            self.repositories.expressions,
-            self.repositories.manifestations,
-            self.repositories.items,
-            self.repositories.agents,
-            self.repositories.identifiers,
-            self.repositories.item_identifiers,
-            self.repositories.titles,
-            self.repositories.notes,
-            self.repositories.tags,
-            self.repositories.labels,
-            self.repositories.genres,
-            self.repositories.subjects,
-            self.repositories.series,
-            self.repositories.languages,
-            self.repositories.ratings,
-            self.repositories.comments,
-            self.repositories.synopses,
-            self.repositories.annotations,
-        ):
-            repository.bind_repositories(self.repositories)
-            repository.bind_matching_policy(matching_policy)
+        self.repositories = CatalogRepositories.from_database(db, matching_policy)
+        self.add.repositories = self.repositories
+        self.ensure.repositories = self.repositories
+        self.apply.repositories = self.repositories
+        self.intralink.repositories = self.repositories
         self.matching = CatalogMatching(
             db=db,
             repositories=self.repositories,
@@ -333,7 +188,7 @@ class Catalog:
         """
 
         return create_catalog_writer(
-            cast(CatalogAPI, self),
+            cast(CatalogWriterHostAPI, self),
             src_table,
             dst_column,
             force_refresh=force_refresh,
@@ -352,7 +207,8 @@ class Catalog:
         """
         Select a schema writer and forward its bulk update arguments.
 
-        Selection uses create_writer on each call. Positional and remaining keyword arguments pass
+        This is the public advanced, schema-driven write path. Selection uses create_writer on each
+        call. Positional and remaining keyword arguments pass
         unchanged to writer.write, so accepted replacement, incremental, rich-link, and type-scope
         forms depend on that writer. The facade adds no transaction, exception translation, or
         result conversion; execution and failure guarantees belong to the selected writer and
@@ -396,7 +252,8 @@ class Catalog:
         """
         Select a schema writer and apply one source/value instruction.
 
-        The facade forwards src_id, dst_value, and kwargs to writer.write_one on a newly selected
+        This is the public advanced, schema-driven single-value path. The facade forwards src_id,
+        dst_value, and kwargs to writer.write_one on a newly selected
         writer. Scalar, collection, rich-link, and clear values have the meanings accepted by that
         writer. The returned mapping is not unwrapped; writer-specific validation, atomicity, and
         failure behavior are preserved.
@@ -426,12 +283,12 @@ class Catalog:
         )
         return writer.write_one(src_id, dst_value, **kwargs)
 
-    def write_link_update(
+    def _apply_link_update(
         self,
         update: LinkUpdate,
     ) -> Mapping[SrcTableID, tuple[LinkRow, ...]]:
         """
-        Apply a normalized link instruction through the database macro surface.
+        Apply a normalized link instruction through the private writer-host seam.
 
         The concrete facade checks the update type, then calls update.write(db.macros).
         Replacement/incremental composition and type scope belong to LinkUpdate; its final
@@ -440,8 +297,8 @@ class Catalog:
         error translation is added.
 
         Example:
-            >>> result = catalog.write_link_update(link_update)  # doctest: +SKIP
-
+            A configured link writer calls this seam after building and validating
+            its ``LinkUpdate``; application code calls the writer instead.
 
         :param update: LinkUpdate containing replacement or incremental instructions for a directed link specification.
         :return: Complete resulting link rows keyed by affected source ID, or the update's empty mapping.
@@ -453,38 +310,46 @@ class Catalog:
             raise TypeError("update must be a LinkUpdate")
         return update.write(self.db.macros)
 
-    def write_column_update(
+    def _apply_column_update(
         self,
         update: CatalogColumnUpdate[object],
     ) -> Mapping[SrcTableID, object]:
         """
-        Apply a normalized same-table column instruction to the borrowed database.
+        Apply a normalized column instruction through the private writer-host seam.
 
-        The concrete facade checks the update type and delegates to update.write(db). Nonempty
-        instructions use the database bulk-column operation; empty values return without a database
-        write. The result is the update's stored value mapping, not a fresh read of database values
-        after triggers or coercion.
+        Catalog-owned tables use their repositories, including partial-value
+        validation, within one available macro transaction. Other schema tables
+        retain their database adapter. The receipt preserves the requested values.
 
         Example:
-            >>> result = catalog.write_column_update(column_update)  # doctest: +SKIP
-
+            A configured column writer calls this seam after building and validating
+            its ``CatalogColumnUpdate``; application code calls the writer instead.
 
         :param update: CatalogColumnUpdate containing table/column specifications and source-ID values.
         :return: The update's stable value mapping, returned after successful application or immediately when empty.
         :raises TypeError: If update is not a CatalogColumnUpdate in the concrete facade.
-        :raises Exception: Database write failures propagate without an extra facade transaction.
+        :raises Exception: Validation or persistence failures propagate.
         """
 
         if not isinstance(update, CatalogColumnUpdate):
             raise TypeError("update must be a CatalogColumnUpdate")
-        return update.write(self.db)
+        if not update.values:
+            return update.values
+        repository = self.repositories.for_table(update.table_spec.name)
+        if repository is None:
+            return update.write(self.db)
+        repository._update_many({
+            row_id: {update.column_spec.name: value}
+            for row_id, value in update.values.items()
+        })
+        return update.values
 
-    def write_owned_row_update(
+    def _apply_owned_row_update(
         self,
         update: CatalogOwnedRowUpdate[object],
     ) -> Mapping[SrcTableID, tuple[LinkRow, ...]]:
         """
-        Apply normalized values for a destination owned through a one-to-one link.
+        Apply normalized owned values through the private writer-host seam.
 
         The concrete facade checks the update type and calls update.write(db.macros). Non-null
         values replace existing destination values or create and link a row; None removes the link
@@ -493,8 +358,8 @@ class Catalog:
         resolves the macros attribute.
 
         Example:
-            >>> result = catalog.write_owned_row_update(owned_update)  # doctest: +SKIP
-
+            A configured owned-row writer calls this seam after building and validating
+            its ``CatalogOwnedRowUpdate``; application code calls the writer instead.
 
         :param update: CatalogOwnedRowUpdate with a one-to-one link, destination column, and replacement values.
         :return: Complete resulting link rows keyed by affected source ID, or an empty mapping for no values.
@@ -504,7 +369,36 @@ class Catalog:
 
         if not isinstance(update, CatalogOwnedRowUpdate):
             raise TypeError("update must be a CatalogOwnedRowUpdate")
-        return update.write(self.db.macros)
+        repository = self.repositories.for_table(update.destination_table.name)
+        if repository is None:
+            return update.write(self.db.macros)
+        if not update.values:
+            return {}
+        from LiuXin_alpha.databases.macro_types import LinkValue
+        from LiuXin_alpha.catalog.api.common import CatalogMutationError
+
+        macros = self.db.macros
+        result = {}
+        with macros.transaction():
+            for source_id, value in update.values.items():
+                current = macros.get_link_rows(update.link_spec, source_id)
+                if len(current) > 1:
+                    raise CatalogMutationError(
+                        f"one-to-one source {source_id!r} has multiple destinations"
+                    )
+                if value is None:
+                    result[source_id] = macros.replace_links(update.link_spec, source_id, ())
+                elif current:
+                    repository.update(
+                        current[0].secondary_id, {update.destination_column.name: value}
+                    )
+                    result[source_id] = tuple(current)
+                else:
+                    destination_id = repository.create({update.destination_column.name: value})
+                    result[source_id] = macros.replace_links(
+                        update.link_spec, source_id, (LinkValue(destination_id),)
+                    )
+        return result
 
     @property
     def works(self) -> WorkRepository:

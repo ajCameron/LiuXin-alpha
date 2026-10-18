@@ -193,14 +193,14 @@ def html_input(monkeypatch) -> _CapturingHTMLInput:
         described above.
     """
     captured = _CapturingHTMLInput()
-    fake_ui = types.ModuleType("LiuXin_alpha.customize.ui")
+    fake_ui = types.ModuleType("LiuXin_alpha.file_formats.plugin_runtime")
     fake_ui.plugin_for_input_format = lambda fmt: captured if fmt == "html" else None
     fake_ui.get_file_type_metadata = (
         lambda stream, file_ext, calibre=True: types.SimpleNamespace(title="Hostile Markup", authors=["Tester"])
     )
     fake_meta = types.ModuleType("LiuXin_alpha.file_formats.oeb.transforms.metadata")
     fake_meta.meta_info_to_oeb_metadata = lambda mi, metadata, log: None
-    monkeypatch.setitem(sys.modules, "LiuXin_alpha.customize.ui", fake_ui)
+    monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.plugin_runtime", fake_ui)
     monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.oeb.transforms.metadata", fake_meta)
     return captured
 

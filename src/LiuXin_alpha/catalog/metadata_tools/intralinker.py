@@ -2,6 +2,8 @@
 Delegate same-table relationship creation through legacy named helpers.
 """
 
+from LiuXin_alpha.catalog.row_mutations import atomic_write, intralink_rows
+
 # The corresponding class for interlinked is apply
 # Todo: Update a bunch of the doc strings to actually reflect reality
 
@@ -34,6 +36,7 @@ class Intralinker(object):
 
         self.db = database
 
+    @atomic_write
     def creator_creator(self, primary, secondary, link_type=None):
         """
         Delegate an intralink between two Creator/Agent rows.
@@ -51,9 +54,10 @@ class Intralinker(object):
         :param link_type: Relationship type passed unchanged; None uses database policy.
         :return: Link result returned by database.intralink_rows.
         """
-        row = self.db.intralink_rows(primary_row=primary, secondary_row=secondary, link_type=link_type)
+        row = intralink_rows(self, primary_row=primary, secondary_row=secondary, link_type=link_type)
         return row
 
+    @atomic_write
     def cover_cover(self, primary, secondary, link_type=None):
         """
         Delegate an intralink between two Cover rows.
@@ -71,9 +75,10 @@ class Intralinker(object):
         :param link_type: Relationship type passed unchanged; None uses database policy.
         :return: Link result returned by database.intralink_rows.
         """
-        row = self.db.intralink_rows(primary_row=primary, secondary_row=secondary, link_type=link_type)
+        row = intralink_rows(self, primary_row=primary, secondary_row=secondary, link_type=link_type)
         return row
 
+    @atomic_write
     def file_file(self, primary, secondary, link_type=None):
         """
         Delegate an intralink between two File rows.
@@ -91,9 +96,10 @@ class Intralinker(object):
         :param link_type: Relationship type passed unchanged; None uses database policy.
         :return: Link result returned by database.intralink_rows.
         """
-        row = self.db.intralink_rows(primary_row=primary, secondary_row=secondary, link_type=link_type)
+        row = intralink_rows(self, primary_row=primary, secondary_row=secondary, link_type=link_type)
         return row
 
+    @atomic_write
     def folder_store_folder_store(self, primary, secondary, link_type=None):
         """
         Delegate an intralink between two folder/store rows.
@@ -111,9 +117,10 @@ class Intralinker(object):
         :param link_type: Relationship type passed unchanged; None uses database policy.
         :return: Link result returned by database.intralink_rows.
         """
-        row = self.db.intralink_rows(primary_row=primary, secondary_row=secondary, link_type=link_type)
+        row = intralink_rows(self, primary_row=primary, secondary_row=secondary, link_type=link_type)
         return row
 
+    @atomic_write
     def identifier_identifier(self, primary, secondary, link_type=None):
         """
         Delegate an intralink between two Identifier rows.
@@ -131,9 +138,10 @@ class Intralinker(object):
         :param link_type: Relationship type passed unchanged; None uses database policy.
         :return: Link result returned by database.intralink_rows.
         """
-        row = self.db.intralink_rows(primary_row=primary, secondary_row=secondary, link_type=link_type)
+        row = intralink_rows(self, primary_row=primary, secondary_row=secondary, link_type=link_type)
         return row
 
+    @atomic_write
     def tag_tag(self, primary, secondary, link_type=None):
         """
         Delegate an intralink between two Tag rows.
@@ -151,9 +159,10 @@ class Intralinker(object):
         :param link_type: Relationship type passed unchanged; None uses database policy.
         :return: Link result returned by database.intralink_rows.
         """
-        row = self.db.intralink_rows(primary_row=primary, secondary_row=secondary, link_type=link_type)
+        row = intralink_rows(self, primary_row=primary, secondary_row=secondary, link_type=link_type)
         return row
 
+    @atomic_write
     def title_title(self, primary, secondary, link_type=None):
         """
         Delegate an intralink between two Title rows.
@@ -171,9 +180,10 @@ class Intralinker(object):
         :param link_type: Relationship type passed unchanged; None uses database policy.
         :return: Link result returned by database.intralink_rows.
         """
-        row = self.db.intralink_rows(primary_row=primary, secondary_row=secondary, link_type=link_type)
+        row = intralink_rows(self, primary_row=primary, secondary_row=secondary, link_type=link_type)
         return row
 
+    @atomic_write
     def publisher_publisher(self, primary, secondary, link_type=None):
         """
         Delegate an intralink between two publisher/organisation rows.
@@ -191,9 +201,10 @@ class Intralinker(object):
         :param link_type: Relationship type passed unchanged; None uses database policy.
         :return: Link result returned by database.intralink_rows.
         """
-        row = self.db.intralink_rows(primary_row=primary, secondary_row=secondary, link_type=link_type)
+        row = intralink_rows(self, primary_row=primary, secondary_row=secondary, link_type=link_type)
         return row
 
+    @atomic_write
     def generic(self, primary, secondary, link_type=None):
         """
         Delegate an intralink between two compatible same-family rows.
@@ -211,5 +222,5 @@ class Intralinker(object):
         :param link_type: Relationship type passed unchanged; None uses database policy.
         :return: Link result returned by database.intralink_rows.
         """
-        row = self.db.intralink_rows(primary_row=primary, secondary_row=secondary, link_type=link_type)
+        row = intralink_rows(self, primary_row=primary, secondary_row=secondary, link_type=link_type)
         return row

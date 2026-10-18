@@ -12,7 +12,8 @@ import sqlite3
 
 import pytest
 
-from LiuXin_alpha.caches import create_cache, create_storage_cache
+from LiuXin_alpha.caches.cache import create_cache
+from LiuXin_alpha.caches.cache_plugins import create_storage_cache
 from LiuXin_alpha.databases.database import Database
 
 

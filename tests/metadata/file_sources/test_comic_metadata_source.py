@@ -205,7 +205,7 @@ def test_comic_metadata_reader_plugin_uses_series_index_customization() -> None:
 
     :return: None; the function records state or raises through its assertions.
     """
-    from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
+    from LiuXin_alpha.metadata.file_sources.builtin_readers import get_metadata_reader_plugins
 
     payload = {
         "ComicBookInfo/1.0": {
@@ -270,7 +270,7 @@ def test_cbr_metadata_uses_rar_extractor_and_comment_metadata(monkeypatch) -> No
         :param series_index: Value supplied for series index in the focused test operation.
         :return: The deterministic value, row, identity or collection described above.
         """
-        from LiuXin_alpha.metadata.utils import calibreMetaInformation
+        from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 
         md = calibreMetaInformation("CBR Title", ["Artist"])
         md.series = "CBR Series"

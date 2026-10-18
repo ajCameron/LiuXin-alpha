@@ -17,7 +17,7 @@ import os
 import re
 from itertools import cycle
 
-from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.file_formats.conversion.plugin import InputFormatPlugin, OptionRecommendation
 from LiuXin_alpha.file_formats.archive_preflight import (
     normalized_zip_member_name,
     validate_zip_member_infos,

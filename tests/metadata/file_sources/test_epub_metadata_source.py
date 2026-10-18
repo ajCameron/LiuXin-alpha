@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 from tests.support.file_format_epub import EPUB_AUTHORS, EPUB_TITLE, build_unicode_epub
 from tests.support.file_format_unicode import assert_no_replacement_chars
 
@@ -368,7 +368,7 @@ def test_epub_metadata_reader_plugin_is_available(md_test_fixture) -> None:
         operation.
     :return: None; the function records state or raises through its assertions.
     """
-    from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
+    from LiuXin_alpha.metadata.file_sources.builtin_readers import get_metadata_reader_plugins
 
     fixture = md_test_fixture(file_ext="epub", file_num=1, verify_hash=True)
 
@@ -399,7 +399,7 @@ def test_epub_metadata_reads_generated_multilingual_fixture_path_stream_and_plug
     :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
     :return: None; the function records state or raises through its assertions.
     """
-    from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
+    from LiuXin_alpha.metadata.file_sources.builtin_readers import get_metadata_reader_plugins
     from LiuXin_alpha.metadata.file_sources.epub import get_metadata, get_metadata_inplace, get_quick_metadata
 
     fixture = build_unicode_epub(tmp_path / "metadata_Καλημέρα_世界.epub", include_image=True)

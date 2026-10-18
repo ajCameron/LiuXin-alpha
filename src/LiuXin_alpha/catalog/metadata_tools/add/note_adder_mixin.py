@@ -4,6 +4,7 @@ Insert a legacy note row from the supplied value.
 
 from __future__ import unicode_literals
 
+from LiuXin_alpha.catalog.row_mutations import atomic_write, persist_row
 from LiuXin_alpha.databases.row import Row
 
 
@@ -18,6 +19,7 @@ class NoteAdderMixin:
         An empty value reaches Row validation unchanged; this helper does not reject it first.
     """
 
+    @atomic_write
     def note(self, note):
         """
         Insert a legacy note row from the supplied value.
@@ -34,5 +36,5 @@ class NoteAdderMixin:
         """
         note_row = Row(database=self.db)
         note_row["note"] = note
-        note_row.sync()
+        persist_row(self, note_row)
         return note_row

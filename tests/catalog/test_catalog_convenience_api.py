@@ -13,7 +13,7 @@ import uuid
 
 import pytest
 
-from LiuXin_alpha.catalog import Catalog
+from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.catalog.api import CatalogMutationError
 from LiuXin_alpha.catalog.api.mutations_api import MetadataWriterAPI
 from LiuXin_alpha.catalog.api.repositories import (
@@ -126,6 +126,7 @@ def test_convenience_contracts_and_repository_lookup_are_public(db) -> None:
     assert isinstance(catalog.repositories, CatalogRepositoriesAPI)
     assert isinstance(catalog.mutations.writer, MetadataWriterAPI)
     assert isinstance(catalog.retrieval, CatalogRetrievalAPI)
+    assert catalog.retrieval.metadata.db is catalog.db
     assert isinstance(catalog.retrieval.hierarchy, HierarchyRetrieverAPI)
     assert isinstance(catalog.retrieval.graph, WemiGraphRetrieverAPI)
     assert isinstance(catalog.agents, AgentRepositoryAPI)

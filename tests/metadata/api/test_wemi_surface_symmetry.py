@@ -9,15 +9,14 @@ Example:
 
         python -m pytest -q tests/metadata/api/test_wemi_surface_symmetry.py
 """
+
 from __future__ import annotations
 
 import importlib
 import inspect
-
 from typing import get_args, get_origin, get_type_hints
 
 import pytest
-
 
 LEVELS = [
     {
@@ -113,10 +112,10 @@ def test_core_wemi_surfaces_are_symmetrical(entry: dict[str, str]) -> None:
         f"LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.{entry['impl_metadata_module']}"
     )
     hydrator_module = importlib.import_module(
-        f"LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.{entry['hydrator_module']}"
+        f"LiuXin_alpha.catalog.retrieval.hydration.{entry['hydrator_module']}"
     )
     source_root = importlib.import_module(
-        "LiuXin_alpha.metadata.api.from_database_api.wemi_sources"
+        "LiuXin_alpha.catalog.api.retrieval.hydration.wemi_sources"
     )
 
     assert hasattr(api_identity_module, entry["api_identity_class"])
@@ -141,7 +140,7 @@ def test_core_wemi_surfaces_are_symmetrical(entry: dict[str, str]) -> None:
 
     metadata_class = getattr(impl_metadata_module, entry["impl_metadata_class"])
     assert hasattr(metadata_class, "from_mapping")
-    assert hasattr(metadata_class, "from_database")
+    assert not hasattr(metadata_class, "from_database")
     assert hasattr(metadata_class, "to_mapping")
 
     api_metadata_class = getattr(api_metadata_module, entry["api_metadata_class"])
@@ -171,7 +170,9 @@ def test_core_wemi_surfaces_are_symmetrical(entry: dict[str, str]) -> None:
     assert "physical database table" in api_doc
     assert hasattr(api_metadata_module, entry["api_relation_key"])
     assert get_args(relation_key_alias) == api_metadata_class.relation_names()
-    assert entry["api_relation_key"] in str(inspect.signature(api_metadata_class.relation_names).return_annotation)
+    assert entry["api_relation_key"] in str(
+        inspect.signature(api_metadata_class.relation_names).return_annotation
+    )
     validate_signature = inspect.signature(api_metadata_class.validate_relation_name)
     assert validate_signature.parameters["relation_key"].annotation == "str"
     assert validate_signature.return_annotation == entry["api_relation_key"]
@@ -208,7 +209,9 @@ def test_core_wemi_surfaces_are_symmetrical(entry: dict[str, str]) -> None:
 
 
 @pytest.mark.parametrize("entry", LEVELS, ids=[entry["level"] for entry in LEVELS])
-def test_core_wemi_relation_contract_uses_relation_key_parameter(entry: dict[str, str]) -> None:
+def test_core_wemi_relation_contract_uses_relation_key_parameter(
+    entry: dict[str, str],
+) -> None:
     """
     Verify core wemi relation contract uses relation key parameter.
 
@@ -236,7 +239,9 @@ def test_core_wemi_relation_contract_uses_relation_key_parameter(entry: dict[str
             "get_relation_links",
             "set_relation_links",
         ):
-            parameters = inspect.signature(getattr(metadata_class, method_name)).parameters
+            parameters = inspect.signature(
+                getattr(metadata_class, method_name)
+            ).parameters
             assert "relation_key" in parameters
             assert "relation" not in parameters
             assert parameters["relation_key"].annotation == entry["api_relation_key"]
@@ -247,7 +252,9 @@ def test_core_wemi_relation_contract_uses_relation_key_parameter(entry: dict[str
         "get_relation_links",
         "set_relation_links",
     ):
-        parameters = inspect.signature(getattr(api_metadata_class, method_name)).parameters
+        parameters = inspect.signature(
+            getattr(api_metadata_class, method_name)
+        ).parameters
         assert "relation_key" in parameters
         assert "relation" not in parameters
         assert parameters["relation_key"].annotation == entry["api_relation_key"]
@@ -296,7 +303,10 @@ def test_expression_flags_contract_uses_structured_tokens() -> None:
     expression_flags_property = identity_class.expression_flags
 
     assert api_module.ExpressionFlags == tuple[str, ...]
-    assert get_type_hints(expression_flags_property.fget)["return"] == api_module.ExpressionFlags
+    assert (
+        get_type_hints(expression_flags_property.fget)["return"]
+        == api_module.ExpressionFlags
+    )
     assert (
         get_type_hints(expression_flags_property.fset)["expression_flags"]
         == api_module.ExpressionFlags | None

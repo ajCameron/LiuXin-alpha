@@ -79,58 +79,27 @@ class CalibreTypedManyToManyTable(CalibreManyToManyTable[T]):
         self.book_col_map = defaultdict(self._type_container)
 
     @classmethod
-    def from_priority_typed_table(cls, db, original_table: CalibreManyToManyTable, type_filter: str) -> None:
-        """
-        Factor method to build a ManyToManyTable from existing maps.
-
-        Example:
-            Exercise CalibreTypedManyToManyTable.from priority typed table through a consuming regression::
-
-                python -m pytest -q tests/library/test_unified_library.py
-
-
-        :param db: Value supplied for db under the utility contract.
-        :param original_table: Value supplied for original table under the utility contract.
-        :param type_filter: Value supplied for type filter under the utility contract.
-        :return: None; the operation mutates state, writes output or performs cleanup in
-            place.
-        """
-
-        # assert isinstance(
-        #     original_table, CalibrePriorityTypedManyToManyTable
-        # ), "only PriorityTypedManyToManyTables are supported by this method"
-
-        assert original_table.priority and original_table.typed
-
+    def from_priority_typed_table(
+        cls, db, original_table: CalibreManyToManyTable, type_filter: str
+    ):
+        """Drop priority while retaining the requested role in a typed snapshot."""
+        if not original_table.priority or not original_table.typed:
+            raise ValueError("A priority typed source table is required")
+        projection = CalibreManyToManyTable.from_typed_table(
+            db=db, original_table=original_table, type_filter=type_filter
+        )
         sub_table = cls(
             name=original_table.name,
             metadata=original_table.metadata,
             link_table=original_table.link_table,
+            custom=original_table.custom,
         )
-        sub_table.is_subtable = True
-        sub_table.set_link_table(db=db)
-
-        sub_table.id_map = original_table.id_map
-        sub_table.book_col_map = original_table.book_col_map[type_filter]
-        sub_table.col_book_map = original_table.col_book_map[type_filter]
-
-    # Todo: type_filter should be one of the permitted types in the main table - implement that
-    def get_subtable(self, db, type_filter: str) -> CalibreManyToManyTable:
-        """
-        Returns a subtable of the current table with data restricted to a specific type filter.
-
-        Example:
-            Exercise CalibreTypedManyToManyTable.get subtable through a consuming regression::
-
-                python -m pytest -q tests/library/test_unified_library.py
-
-
-        :param db: Value supplied for db under the utility contract.
-        :param type_filter: Value supplied for type filter under the utility contract.
-        :return: The normalized value, metadata record, path, stream result or collection
-            described above.
-        """
-        return CalibreManyToManyTable.from_typed_table(db=db, original_table=self, type_filter=type_filter)
+        sub_table._copy_subtable_metadata(projection)
+        sub_table.book_col_map[type_filter].update(projection.book_col_map)
+        sub_table.col_book_map[type_filter].update(projection.col_book_map)
+        sub_table.known_link_types = {type_filter}
+        sub_table.seen_books = set(projection.seen_books)
+        return sub_table
 
     @staticmethod
     def _type_container() -> dict[Union[SrcTableID, DstTableID], Iterable[Union[SrcTableID, DstTableID]]]:

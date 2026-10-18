@@ -405,10 +405,22 @@ def db(driver_spec: DriverSpec, db_metadata: dict):
     """
     from LiuXin_alpha.databases.database import Database
 
-    database = Database(metadata=db_metadata, db_type=driver_spec.db_type, create=False, backup=False)
+    database = Database(
+        metadata=db_metadata,
+        db_type=driver_spec.db_type,
+        create=False,
+        backup=False,
+        enable_storage_manager=True,
+        enable_maintenance=False,
+    )
     try:
         yield database
     finally:
+        try:
+            if database.storage is not None:
+                database.storage.close()
+        except Exception:
+            pass
         try:
             database.driver.close()
         except Exception:

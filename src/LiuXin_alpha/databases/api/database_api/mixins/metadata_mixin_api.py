@@ -1,7 +1,7 @@
 """
 Declare DatabaseMetadataMixinAPI operations for database facade implementations.
 
-Repeated declarations are retained; the later definition supplies the runtime member. Abstract bodies perform no backend work. Concrete behavior and its limitations are described for callers without changing that implementation.
+Abstract bodies perform no backend work. Concrete behavior and its limitations are described for callers without changing that implementation.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ class DatabaseMetadataMixinAPI(abc.ABC):
     """
     Specify schema metadata, cached identifiers and column/identity policies.
 
-    Implement every abstract member before instantiating this interface. Backend resource and transaction policies remain the concrete implementation responsibility. Unlike the abstract hooks, the two case-sensitivity aliases have concrete forwarding bodies. Later UUID/library/version properties replace their earlier declarations.
+    Implement every abstract member before instantiating this interface. Backend resource and transaction policies remain the concrete implementation responsibility. Unlike the abstract hooks, the two case-sensitivity aliases have concrete forwarding bodies.
 
     Example:
         >>> import inspect
@@ -38,98 +38,6 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         True
     """
 
-    @property
-    @abc.abstractmethod
-    def uuid(self) -> str:
-        """
-        Return the cached database UUID or load it once from the wrapper.
-
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: A None cache triggers another load. The _uuid attribute must already exist; this getter does not generate a missing UUID itself.
-
-        Example:
-            For an initialized concrete db, db.uuid reads its cached value or follows the documented backend lookup path.
-
-
-        :return: Cached wrapper UUID value.
-        """
-
-    @uuid.setter
-    @abc.abstractmethod
-    def uuid(self, value: str) -> None:
-        """
-        Assign the UUID cache before asking the wrapper to persist it.
-
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: If persistence fails, the assigned cache is not restored.
-
-        Example:
-            For an open db, db.uuid = replacement_uuid updates the local cache and delegates storage.
-
-
-        :param value: UUID value passed unchanged to the wrapper.
-        :return: None.
-        """
-
-    @property
-    @abc.abstractmethod
-    def library_id(self) -> str:
-        """
-        Read a cached library identifier, generating one when the query returns None.
-
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: The nonempty query result is retained directly without extracting its first column; its shape therefore depends on wrapper.get(all=False). A missing value invokes the setter and writes through macros. Reading this property is not always read-only.
-
-        Example:
-            For an initialized concrete db, db.library_id reads its cached value or follows the documented backend lookup path.
-
-
-        :return: Cached wrapper query result, or generated UUID text.
-        """
-
-    @library_id.setter
-    @abc.abstractmethod
-    def library_id(self, value: str) -> None:
-        """
-        Cache the textual library identifier and delegate storage of the original value.
-
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: The cache changes before storage and is not restored on failure.
-
-        Example:
-            For an open db, db.library_id = replacement_uuid caches its text and calls the library-ID macro.
-
-
-        :param value: Identifier converted to text for the cache but passed unchanged to macros.
-        :return: None.
-        """
-
-    @property
-    @abc.abstractmethod
-    def database_version(self) -> str:
-        """
-        Return the cached version or read the last version row from the primary connection.
-
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: A None result is queried again on the next access. This method does not create a version row or explicitly close its cursor.
-
-        Example:
-            For an initialized concrete db, db.database_version reads its cached value or follows the documented backend lookup path.
-
-
-        :return: Last queried version value, or None when there are no rows.
-        """
-
-    @database_version.setter
-    @abc.abstractmethod
-    def database_version(self, value: str) -> None:
-        """
-        Cache version text before passing the original value to its storage macro.
-
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: The cached value remains changed if the macro rejects a protected version table or otherwise fails.
-
-        Example:
-            When the backend permits version changes, db.database_version = version delegates persistence after updating the cache.
-
-
-        :param value: Version converted to text for the cache and passed unchanged to macros.
-        :return: None.
-        """
 
     @abc.abstractmethod
     def get_tables(self, force_refresh: bool = False) -> Iterable[str]:
@@ -410,7 +318,7 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def iter_normalized_identity_specs(self) -> Iterator[NormalizedIdentitySpec]:
+    def iter_normalized_identity_specs(self, *, table: str | None = None) -> Iterator[NormalizedIdentitySpec]:
         """
         Yield normalized-identity declarations from the wrapper iterator.
 

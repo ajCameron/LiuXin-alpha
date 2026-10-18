@@ -16,7 +16,7 @@ import os
 import typing as _typing
 from urllib.parse import unquote_to_bytes
 
-from LiuXin_alpha.customize.conversion import InputFormatPlugin
+from LiuXin_alpha.file_formats.conversion.plugin import InputFormatPlugin
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
@@ -109,9 +109,9 @@ class CHMInput(InputFormatPlugin):
         :return: The normalized value, metadata record, path, stream result or collection
             described above.
         """
-        from LiuXin_alpha.customize.ui import plugin_for_input_format
+        from LiuXin_alpha.file_formats.plugin_runtime import plugin_for_input_format
         from LiuXin_alpha.file_formats.chm.metadata import get_metadata_from_reader
-        from LiuXin_alpha.metadata.utils import calibreMetaInformation
+        from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 
         self.opts = options
 

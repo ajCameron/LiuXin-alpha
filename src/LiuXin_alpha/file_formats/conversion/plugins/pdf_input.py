@@ -16,7 +16,7 @@ from __future__ import annotations
 import typing as _typing
 import os
 
-from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.file_formats.conversion.plugin import InputFormatPlugin, OptionRecommendation
 from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
     choose_conversion_workdir,
 )
@@ -123,7 +123,7 @@ class PDFInput(InputFormatPlugin):
                 return self.convert_new(stream, accelerators)
             pdftohtml(os.getcwd(), stream.name, options.no_images)
 
-            from LiuXin_alpha.customize.ui import get_file_type_metadata
+            from LiuXin_alpha.file_formats.plugin_runtime import get_file_type_metadata
 
             log.debug("Retrieving document metadata...")
             mi = get_file_type_metadata(stream, "pdf")

@@ -202,7 +202,7 @@ class Reader(FormatReader):
         self.log.info("Converting text to OEB...")
         stream = io.BytesIO(raw_txt)
 
-        from LiuXin_alpha.customize.ui import plugin_for_input_format
+        from LiuXin_alpha.file_formats.plugin_runtime import plugin_for_input_format
 
         txt_plugin = plugin_for_input_format("txt")
         for opt in txt_plugin.options:

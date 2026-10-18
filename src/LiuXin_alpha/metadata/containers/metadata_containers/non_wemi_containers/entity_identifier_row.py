@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar
 
-from LiuXin_alpha.databases.db_types import IdentifierEntityType, IdentifierScheme
+from LiuXin_alpha.metadata.identifiers import IdentifierEntityType, IdentifierScheme
 
 from ._row_base import MetadataTableRow
 

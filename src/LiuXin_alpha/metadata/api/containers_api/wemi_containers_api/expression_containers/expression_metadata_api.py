@@ -2,7 +2,7 @@
 Define the editable relation-bundle contract for expression metadata.
 
 The API combines an optional identity, typed relation links, projections, mapping
-conversion and writer delegation without implementing persistence itself.
+conversion without persistence behavior. Catalog owns all database writes.
 
 Example:
     >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_metadata_container import ExpressionMetadata
@@ -18,11 +18,6 @@ import dataclasses
 from typing import ClassVar, Iterable, Literal, Mapping, Optional, Self, TypeAlias, cast
 
 
-from LiuXin_alpha.metadata.api.containers_api.metadata_write_api import (
-    MetadataWriteDatabaseAPI,
-    MetadataWriteReportAPI,
-    MetadataWriteTargetRow,
-)
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.agent_containers.agent_identity_api import AgentIdentityAPI
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_target_api import (
     MetadataRecord,
@@ -342,38 +337,6 @@ class ExpressionMetadataAPI(WemiMetadataRelationsAPI[ExpressionRelationKey, Expr
         :param relation_key: Supported relation name or alias.
         :param links: Iterable of replacement links.
         :return: None.
-        """
-
-    @abc.abstractmethod
-    def write_to_database(
-        self,
-        database: MetadataWriteDatabaseAPI,
-        *,
-        fields: Iterable[str] | None = None,
-        item_id: int | None = None,
-        target_row: MetadataWriteTargetRow | None = None,
-        replace: bool = False,
-        mark_dirty: bool = True,
-    ) -> MetadataWriteReportAPI:
-        """
-        Require persistence of supported expression relation changes through a caller-owned write database.
-
-        Field selection, target resolution, replacement, dirty marking, transactions and
-        report contents belong to the implementation.
-
-        Example:
-            Exercise writer delegation with pytest::
-
-            python -m pytest -q tests/metadata/containers/test_item_metadata_hydrator.py
-
-
-        :param database: Caller-owned metadata write database.
-        :param fields: Optional fields to write; None selects implementation defaults.
-        :param item_id: Optional item id for target resolution.
-        :param target_row: Optional target Row or mapping.
-        :param replace: Request replacement rather than append semantics when True.
-        :param mark_dirty: Request dirty marking when True.
-        :return: MetadataWriteReportAPI describing the operation.
         """
 
     @property

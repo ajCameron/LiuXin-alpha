@@ -29,7 +29,7 @@ from LiuXin_alpha.metadata.book.base import calibreMetadata
 from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
     CalibreLikeLiuXinBookMetaData,
 )
-from LiuXin_alpha.metadata.utils import normalize_languages as normalize_languages_impl
+from LiuXin_alpha.file_formats.opf.utils import normalize_languages as normalize_languages_impl
 from LiuXin_alpha.utils.decompression.localunzip import LocalZipFile
 from LiuXin_alpha.utils.image_tools.imghdr import identify
 from LiuXin_alpha.utils.libraries.calibre_zipfile import BadZipfile, ZipFile, safe_replace

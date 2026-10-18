@@ -311,6 +311,7 @@ def test_config_refuses_legacy_py_content(cb) -> None:
     """
     c = cb.Config("legacy", description="legacy")
     c.add_opt("x", default=1)
+    Path(c.config_file_path).parent.mkdir(parents=True, exist_ok=True)
     Path(c.config_file_path).write_text("# legacy\nx = 99\n", encoding="utf-8")
     with pytest.raises(cb.LegacyConfigError):
         _ = c.parse()
@@ -337,6 +338,7 @@ def test_config_proxy_caches_until_refresh(cb) -> None:
     assert p.get("x") == 1
 
     # Update the file out-of-band; proxy should not see until refresh.
+    Path(c.config_file_path).parent.mkdir(parents=True, exist_ok=True)
     Path(c.config_file_path).write_text('{"x": 99}', encoding="utf-8")
     assert p.get("x") == 1
 
@@ -344,8 +346,7 @@ def test_config_proxy_caches_until_refresh(cb) -> None:
     assert p.get("x") == 99
 
 
-def test_global_prefs_installation_uuid_written(cb) -> None:
-    # Import-time side effect should ensure UUID exists.
+def test_global_prefs_installation_uuid_written_only_when_requested(cb) -> None:
     """
     Perform the test global prefs installation uuid written utility operation under explicit compatibility rules.
 
@@ -359,14 +360,26 @@ def test_global_prefs_installation_uuid_written(cb) -> None:
     :return: None; the operation mutates state, writes output or performs cleanup in
         place.
     """
-    uuid = cb.prefs["installation_uuid"]
+    global_cfg = Path(cb.config_dir) / "global.py.json"
+    assert not global_cfg.exists()
+
+    uuid = cb.ensure_installation_uuid()
     assert isinstance(uuid, str)
     assert len(uuid) >= 8
 
     # And it should be persisted to the config file.
-    global_cfg = Path(cb.config_dir) / "global.py.json"
     assert global_cfg.exists()
     assert "installation_uuid" in global_cfg.read_text(encoding="utf-8")
+
+
+def test_import_does_not_create_or_execute_tweaks(cb) -> None:
+    """Importing config_base leaves the configured directory absent until first use."""
+
+    config_directory = Path(cb.config_dir)
+    assert not config_directory.exists()
+
+    assert cb.tweaks["example_tweak"] == 1
+    assert (config_directory / "tweaks.py").is_file()
 
 
 def test_tweaks_roundtrip_and_context_manager(cb) -> None:

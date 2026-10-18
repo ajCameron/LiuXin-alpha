@@ -55,7 +55,7 @@ def test_library_register_rclone_http_store(db, monkeypatch) -> None:
 
     monkeypatch.setattr(backend_module, "run_rclone_json", _fake_run_rclone_json)
 
-    lib = Library(database=db, close_database_on_close=False)
+    lib = Library(database=db)
     report = lib.register_rclone_http_store(
         "remote:",
         store_name="library_web_mirror",

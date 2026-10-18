@@ -100,7 +100,6 @@ class ExactEntitySpec:
     :ivar policy_field: Single field used for opt-in approximate fallback, or None to disable it.
     :ivar reusable: Repository policy allowing match_or_create reuse; the matcher itself does not enforce this flag.
     :ivar mutable: Repository CRUD permission flag, independent of matcher reads.
-    :ivar normalized_storage_fields: Destination/source column pairs derived during repository writes, not required matcher inputs.
     """
 
     entity_name: str
@@ -120,7 +119,6 @@ class ExactEntitySpec:
     policy_field: str | None = None
     reusable: bool = True
     mutable: bool = True
-    normalized_storage_fields: tuple[tuple[str, str], ...] = ()
 
 
 def _normalise_exact_text(value: object, *, casefold: bool) -> str:

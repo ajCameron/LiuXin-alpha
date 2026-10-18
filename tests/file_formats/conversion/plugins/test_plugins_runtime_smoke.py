@@ -244,7 +244,7 @@ def _install_html_pipeline_stubs(monkeypatch, returned_oeb) -> None:
     :return: None; the operation mutates state, writes output or performs cleanup in
         place.
     """
-    fake_ui = types.ModuleType("LiuXin_alpha.customize.ui")
+    fake_ui = types.ModuleType("LiuXin_alpha.file_formats.plugin_runtime")
     fake_ui.plugin_for_input_format = lambda fmt: _HTMLInputStub(returned_oeb) if fmt == "html" else None
     fake_ui.get_file_type_metadata = (
         lambda stream, file_ext, calibre=True: types.SimpleNamespace(title="Smoke Title", authors=["Smoke Author"])
@@ -253,7 +253,7 @@ def _install_html_pipeline_stubs(monkeypatch, returned_oeb) -> None:
     fake_oeb_meta = types.ModuleType("LiuXin_alpha.file_formats.oeb.transforms.metadata")
     fake_oeb_meta.meta_info_to_oeb_metadata = lambda mi, metadata, log: None
 
-    monkeypatch.setitem(sys.modules, "LiuXin_alpha.customize.ui", fake_ui)
+    monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.plugin_runtime", fake_ui)
     monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.oeb.transforms.metadata", fake_oeb_meta)
 
 

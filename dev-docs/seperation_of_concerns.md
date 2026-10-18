@@ -1,4 +1,14 @@
-# Separation of concerns: `surfaces`, `library`, `cache`, and `database`
+# Historical separation model: `surfaces`, `library`, `cache`, and `database`
+
+Status: **superseded on 2026-10-11**
+
+This note preserves an earlier four-layer model for design history. It is not
+the current ownership contract: in particular, it predates the distinct
+`metadata`, `catalog`, `storage`, and `core` responsibilities and places too
+much semantic authority in `database`. Use the canonical
+[separation-of-concerns guide](<04 - Seperation of Concerns.md>) and the
+[Catalog write-validation contract](catalog-write-validation-contract.md) for
+new work.
 
 ## Note on terminology
 

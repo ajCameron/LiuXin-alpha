@@ -25,7 +25,7 @@ from LiuXin_alpha.utils.libraries.liuxin_six import itervalues
 
 from LiuXin_alpha.utils.python_tools import uniq
 
-from LiuXin_alpha.metadata.ebook_metadata_tools import title_sort
+from LiuXin_alpha.metadata.title_names import title_to_title_sort
 
 from LiuXin_alpha.utils.config.config_base import tweaks, prefs
 from LiuXin_alpha.utils.logging import default_log
@@ -698,7 +698,7 @@ class CalibreView(object):
             lang = lang_map.get(book_id, None) or None
             if lang:
                 lang = lang[0]
-            return title_sort(
+            return title_to_title_sort(
                 self.cache._field_for("series", book_id, default_value=""),
                 order=tweaks["title_series_sorting"],
                 lang=lang,

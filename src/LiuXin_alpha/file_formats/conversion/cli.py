@@ -23,7 +23,7 @@ import os
 from optparse import OptionGroup, Option
 from collections import OrderedDict
 
-from LiuXin_alpha.customize.conversion import OptionRecommendation
+from LiuXin_alpha.file_formats.conversion.plugin import OptionRecommendation
 
 from LiuXin_alpha.file_formats.conversion import ConversionUserFeedBack
 

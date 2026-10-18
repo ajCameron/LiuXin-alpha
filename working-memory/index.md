@@ -1,17 +1,52 @@
 # Working Memory Index
 
-Current status: **project documentation inventory complete**. All 1,372 units,
-2,671 files and 42,166 declarations are verified, with no partial files.
-[Latest checkpoint](project-docstrings-l001-l037-2026-10-05.md).
-Nothing remains. The final focused result matches baseline; 95
-regressions and all full quality checks passed.
-Discovery records 39 unrelated review-hash differences.
+Current checkpoint: **Legacy review fixes and regression coverage**. See
+[legacy fixes](legacy-review-fixes-2026-10-17.md) for the six findings,
+retired Library facades, migrated callers and validation. The earlier
+[unreachable-code review](unreachable-code-review-2026-10-16.md) records the
+preceding dispatch fixes and dead-source cleanup.
 
-Updated: 2026-10-05
+Previous checkpoint: **Catalog audit checkpoint for moving off unstable WSL**.
+Branch `catalog-write-consolidation` includes the earlier green commits and the
+latest audit fixes. The final PostgreSQL fixes are not live-verified; this is a
+draft-PR handoff, not completion signoff. See the latest relocation checkpoint in
+[active notes](catalog-write-consolidation-2026-10-15.md) for results and exact
+remaining work.
+
+The previous file-format containment lane is complete. Its
+[checkpoint](file-formats-containment-2026-10-13.md) records 2,597 passing
+regressions, clean quality checks and remaining metadata/application debt.
+
+The documentation inventory campaign completed on 2026-10-05: 1,372 units,
+2,671 files and 42,166 declarations were verified, with no partial files.
+Its [final checkpoint](project-docstrings-l001-l037-2026-10-05.md) retains the
+historical verification and review-hash observations.
+
+Updated: 2026-10-17
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [legacy-review-fixes-2026-10-17.md](legacy-review-fixes-2026-10-17.md)
+  Non-destructive metadata refresh, Python 3 custom values, typed cache projections,
+  retired Library facades, fixture migration and regression evidence.
+
+- [unreachable-code-review-2026-10-16.md](unreachable-code-review-2026-10-16.md)
+  Tag/custom-column dispatch fixes, dead-source cleanup, reachability disposition
+  and isolated validation.
+
+- [catalog-write-consolidation-2026-10-15.md](catalog-write-consolidation-2026-10-15.md)
+  Active consolidation of identity preparation, semantic row routing, container
+  transactions and Row adapters; implementation checkpoints and remaining audit.
+
+- [file-formats-containment-2026-10-13.md](file-formats-containment-2026-10-13.md)
+  Completed standalone file-plugin containment, compatibility guarantees, validation
+  and remaining metadata/application dependencies.
+
+- [layer-direction-ratchet-plan-2026-10-09.md](layer-direction-ratchet-plan-2026-10-09.md)
+  Architecture migration decisions and completed metadata/Catalog ownership
+  slices; file-format containment has its own newer checkpoint above.
 
 - [project-docstrings-l001-l037-2026-10-05.md](project-docstrings-l001-l037-2026-10-05.md)
   Final retained fixture-database compatibility track: 318 declarations and 52
@@ -728,7 +763,7 @@ Start here for active handoff notes. This index should stay short.
   matching, immutable relation-to-relation normalization, incremental
   composition, atomic portable bulk replacement, streaming per-link views,
   read-only mapping access to link extras, lazy destination values, a typed
-  `Catalog.write_link_update(...)` facade, and complete focused coverage.
+  `Catalog._apply_link_update(...)` private writer-host seam, and complete focused coverage.
 
 - [postgresql-deployment-checkpoint-2026-07-18.md](postgresql-deployment-checkpoint-2026-07-18.md)
   Pre-direction-change checkpoint covering database/storage stabilization,

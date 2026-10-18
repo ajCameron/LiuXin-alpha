@@ -16,13 +16,13 @@ from copy import deepcopy
 
 from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, Iterable, Union
 
-from LiuXin_alpha.catalog import Catalog
+from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.catalog.api.common import MetadataCandidate
 from LiuXin_alpha.utils.libraries.liuxin_six import string_types
 
 from LiuXin_alpha.databases.adaptors import get_adapter
 from LiuXin_alpha.errors import DatabaseIntegrityError
-from LiuXin_alpha.metadata.ebook_metadata_tools import author_to_author_sort
+from LiuXin_alpha.metadata.author_names import author_to_author_sort
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems, basestring, \
     dict_itervalues as itervalues
 from LiuXin_alpha.utils.logging import default_log
@@ -236,7 +236,7 @@ class BaseWriter:
             if is_authors:
 
                 # Todo: Use this in the add.creator method, by default
-                aus = author_to_author_sort(val)
+                aus = author_to_author_sort(val, method=None)
 
                 # Todo: Why does this happen? Make sure that it happens everywhere it should. Should add to add.creator
                 catalog = Catalog(db)
@@ -387,7 +387,7 @@ class BaseWriter:
             table.id_map[item_id] = val
             dirtied.update(table.col_book_map[item_id])
             if is_authors:
-                table.asort_map[item_id] = author_to_author_sort(val)
+                table.asort_map[item_id] = author_to_author_sort(val, method=None)
 
     def do_generic_one_to_many_db_update(
         self,

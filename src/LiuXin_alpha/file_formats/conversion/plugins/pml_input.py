@@ -18,7 +18,7 @@ import glob
 import shutil
 import os
 
-from LiuXin_alpha.customize.conversion import InputFormatPlugin
+from LiuXin_alpha.file_formats.conversion.plugin import InputFormatPlugin
 from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
     choose_conversion_workdir,
 )
@@ -209,7 +209,7 @@ class PMLInput(InputFormatPlugin):
             for item in pages + images:
                 manifest_items.append((item, None))
 
-            from LiuXin_alpha.customize.ui import get_file_type_metadata
+            from LiuXin_alpha.file_formats.plugin_runtime import get_file_type_metadata
 
             log.debug("Reading metadata from input file...")
             mi = get_file_type_metadata(stream, "pml")

@@ -16,7 +16,12 @@ from datetime import datetime, timezone
 import pytest
 
 from LiuXin_alpha.metadata.book import base as book_base
-from LiuXin_alpha.metadata.book.base import calibreMetadata, field_from_string, human_readable
+from LiuXin_alpha.metadata.book.base import (
+    calibreMetadata,
+    calibreMetaInformation,
+    field_from_string,
+    human_readable,
+)
 
 
 def _text_multiple_meta(name: str = "Custom Tags") -> dict[str, object]:
@@ -63,6 +68,18 @@ def _series_meta(name: str = "Custom Series") -> dict[str, object]:
         "is_multiple": {},
         "display": {},
     }
+
+
+def test_calibre_metadata_factory_builds_and_copies_records() -> None:
+    """The record-owned convenience factory retains its legacy copy behavior."""
+    source = calibreMetaInformation("Title", ["Author"])
+    source.publisher = "Publisher"
+
+    copied = calibreMetaInformation(source)
+
+    assert copied.title == "Title"
+    assert copied.authors == ["Author"]
+    assert copied.publisher == "Publisher"
 
 
 def test_calibre_metadata_core_accessors_identifiers_and_copies() -> None:

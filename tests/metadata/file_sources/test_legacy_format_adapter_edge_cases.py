@@ -18,7 +18,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
 

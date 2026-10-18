@@ -23,6 +23,7 @@ from LiuXin_alpha.databases.schema_specs import (
     StorageTableSpec,
 )
 
+
 class CatalogColumnWriter[RawValueT, ValueT](
     CatalogValueWriter[
         RawValueT,
@@ -61,8 +62,8 @@ class CatalogColumnWriter[RawValueT, ValueT](
         :return: None; the function records state or raises through its assertions.
         """
 
-        if not callable(getattr(catalog, "write_column_update", None)):
-            raise TypeError("catalog must provide write_column_update")
+        if not callable(getattr(catalog, "_apply_column_update", None)):
+            raise TypeError("catalog must provide _apply_column_update")
         # Reuse the value object's structural validation without retaining a
         # second representation of the target.
         CatalogColumnUpdate(table_spec, column_spec)
@@ -200,7 +201,7 @@ class CatalogColumnWriter[RawValueT, ValueT](
             raise ValueError("update target does not match writer target")
         return cast(
             Mapping[SrcTableID, ValueT],
-            self.catalog.write_column_update(update),
+            self.catalog._apply_column_update(update),
         )
 
 

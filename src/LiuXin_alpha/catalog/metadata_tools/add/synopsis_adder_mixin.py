@@ -4,6 +4,7 @@ Insert a legacy synopsis row from the supplied value.
 
 from __future__ import unicode_literals
 
+from LiuXin_alpha.catalog.row_mutations import atomic_write, persist_row
 from LiuXin_alpha.databases.row import Row
 
 
@@ -18,6 +19,7 @@ class SynopsisAdderMixin:
         An empty value reaches Row validation unchanged; this helper does not reject it first.
     """
 
+    @atomic_write
     def synopsis(self, synopsis):
         """
         Insert a legacy synopsis row from the supplied value.
@@ -34,5 +36,5 @@ class SynopsisAdderMixin:
         """
         synopsis_row = Row(database=self.db)
         synopsis_row["synopsis"] = synopsis
-        synopsis_row.sync()
+        persist_row(self, synopsis_row)
         return synopsis_row

@@ -1936,7 +1936,7 @@ class CoreApplicationAPI:
         :param item_id: Item identifier passed unchanged to the hydrator.
         :return: Hydrated LiuXin WEMI metadata container; loading failures propagate.
         """
-        from LiuXin_alpha.metadata.containers import (
+        from LiuXin_alpha.catalog.retrieval.hydration import (
             LiuXinWEMIMetadataHydrator,
         )
 
@@ -1994,7 +1994,7 @@ class CoreApplicationAPI:
         :param query: Query with item_id and optional default_lang for OPF serialization.
         :return: Item ID and serialized OPF content; hydration/serialization errors propagate.
         """
-        from LiuXin_alpha.metadata import metadata_to_opf_bytes
+        from LiuXin_alpha.metadata.facade import metadata_to_opf_bytes
 
         payload = _payload(query)
         item_id = _required_int(payload, "item_id")
@@ -2699,11 +2699,10 @@ class CoreApplicationAPI:
         command: "CoreCommand",
     ) -> dict[str, Any]:
         """
-        Create a raw database Row from idless values, project it, and reconcile read-side state.
+        Create a row through its Catalog owner and reconcile read-side state.
 
-        This is administrative row creation, not a Catalog entity operation.
-        Database validation applies; the schema description's advisory writable
-        flag is not checked here. Projection or reconciliation may fail after creation.
+        Tables outside Catalog retain the low-level administrative Row adapter.
+        Projection or reconciliation may fail after creation.
 
         Example:
             >>> receipt = CoreApplicationAPI().admin_row_create(runtime, command)  # doctest: +SKIP
@@ -2717,11 +2716,16 @@ class CoreApplicationAPI:
 
         payload = _payload(command)
         table = _required_text(payload, "table")
-        row = Row.from_idless_row_dict(
-            runtime.services.database,
-            row_dict=_mapping(payload, "values"),
-            table=table,
-        )
+        repository = runtime.services.catalog.repositories.for_table(table)
+        if repository is not None:
+            row_id = repository.create(_mapping(payload, "values"))
+            row = repository.require(row_id)
+        else:
+            row = Row.from_idless_row_dict(
+                runtime.services.database,
+                row_dict=_mapping(payload, "values"),
+                table=table,
+            )
         return self._semantic_receipt(
             runtime,
             {
@@ -2736,11 +2740,10 @@ class CoreApplicationAPI:
         command: "CoreCommand",
     ) -> dict[str, Any]:
         """
-        Delegate raw field updates to the library and reconcile its returned row value.
+        Update through the semantic repository when Catalog owns the table.
 
-        The library result is placed directly in record.values without _row_record
-        projection. Library validation and update policy remain authoritative;
-        reconciliation is a separate post-write operation.
+        Other tables retain the Library administrative adapter. Reconciliation
+        is a separate post-write operation.
 
         Example:
             >>> receipt = CoreApplicationAPI().admin_row_update(runtime, command)  # doctest: +SKIP
@@ -2753,11 +2756,16 @@ class CoreApplicationAPI:
         payload = _payload(command)
         table = _required_text(payload, "table")
         row_id = _required_int(payload, "row_id")
-        row = runtime.services.library.update_row_fields(
-            table=table,
-            row_id=row_id,
-            updates=_mapping(payload, "updates"),
-        )
+        repository = runtime.services.catalog.repositories.for_table(table)
+        if repository is not None:
+            repository.update(row_id, _mapping(payload, "updates"))
+            row = dict(repository.require(row_id))
+        else:
+            row = runtime.services.library.update_row_fields(
+                table=table,
+                row_id=row_id,
+                updates=_mapping(payload, "updates"),
+            )
         return self._semantic_receipt(
             runtime,
             {
@@ -2777,10 +2785,10 @@ class CoreApplicationAPI:
         command: "CoreCommand",
     ) -> dict[str, Any]:
         """
-        Delegate raw row deletion to the library and reconcile its returned deletion outcome.
+        Delete through the semantic repository when Catalog owns the table.
 
         No confirmation field or separate impact query is required by this
-        handler. Dependency handling and deletion policy belong to the library;
+        handler. Other tables retain the Library administrative adapter;
         reconciliation failure does not introduce an adapter-level rollback.
 
         Example:
@@ -2794,10 +2802,15 @@ class CoreApplicationAPI:
         payload = _payload(command)
         table = _required_text(payload, "table")
         row_id = _required_int(payload, "row_id")
-        deleted = runtime.services.library.delete_row(
-            table=table,
-            row_id=row_id,
-        )
+        repository = runtime.services.catalog.repositories.for_table(table)
+        if repository is not None:
+            deleted = dict(repository.require(row_id))
+            repository.delete(row_id)
+        else:
+            deleted = runtime.services.library.delete_row(
+                table=table,
+                row_id=row_id,
+            )
         return self._semantic_receipt(
             runtime,
             {
@@ -2849,7 +2862,10 @@ class CoreApplicationAPI:
         priority = payload.get("priority", "highest")
         if priority is None:
             priority = "highest"
-        database.interlink_rows(
+        from LiuXin_alpha.catalog.row_mutations import link_rows
+
+        link_rows(
+            runtime.services.catalog,
             primary_row=primary,
             secondary_row=secondary,
             priority=priority,
@@ -2900,7 +2916,9 @@ class CoreApplicationAPI:
         )
         if primary is None or secondary is None:
             raise CoreDispatchError("Both relationship endpoint rows must exist.")
-        database.unlink_interlink(primary, secondary)
+        from LiuXin_alpha.catalog.row_mutations import unlink_rows
+
+        unlink_rows(runtime.services.catalog, primary, secondary)
         return self._semantic_receipt(
             runtime,
             {

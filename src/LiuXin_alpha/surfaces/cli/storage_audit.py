@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import argparse
 import contextlib
-import importlib
 import json
 import sys
 
@@ -74,9 +73,10 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+@contextlib.contextmanager
 def _open_library(**kwargs: object):
     """
-    Lazily import Library and construct it with the caller's unmodified keywords.
+    Open and yield Library through Core's lifecycle owner.
 
     This helper performs no validation itself; main uses it only after path checks.
     Import/constructor errors propagate to that caller.
@@ -85,11 +85,16 @@ def _open_library(**kwargs: object):
         >>> library = _open_library(database_path=path, db_type="SQLite")  # doctest: +SKIP
 
 
-    :param kwargs: Constructor keywords forwarded directly to the Library facade.
-    :return: Newly constructed Library instance, not yet entered as a context manager.
+    :param kwargs: Opening keywords forwarded to ``LibraryServices.open``.
+    :return: Context-managed iterator yielding the owner's non-owning Library facade.
     """
-    library_module = importlib.import_module("LiuXin_alpha.library")
-    return library_module.Library(**kwargs)
+    from LiuXin_alpha.core.library_services import LibraryServices
+
+    with LibraryServices.open(
+        **kwargs,
+        enable_maintenance=False,
+    ) as lifecycle:
+        yield lifecycle.library
 
 
 def main(argv: Sequence[str] | None = None) -> int:

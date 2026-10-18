@@ -67,7 +67,7 @@ class TestDBCustomColumns(TestDatabaseBuilder):
     @staticmethod
     def purge_tables(scratch_db):
         """
-        Don't want any asset data - so removing it here (as bad asset data breaks the cache when we trying and load it). It also breaks the legacy library class we need up to write the custom columns.
+        Remove asset data that would otherwise interfere with cache fixture loading.
 
         Example:
             Exercise TestDBCustomColumns.purge tables through a consuming regression::
@@ -85,7 +85,7 @@ class TestDBCustomColumns(TestDatabaseBuilder):
     @staticmethod
     def detail_databases(scratch_db):
         """
-        Add the custom columns t
+        Add the five empty custom columns using the existing database connection.
 
         Example:
             Exercise TestDBCustomColumns.detail databases through a consuming regression::
@@ -96,15 +96,15 @@ class TestDBCustomColumns(TestDatabaseBuilder):
         :param scratch_db: Scratch database receiving deterministic schema and rows.
         :return: None; fixture state or the supplied destination is updated in place.
         """
-        # Todo: Metadata should be a property
-        live_database_path = scratch_db.metadata["database_path"]
+        from LiuXin_alpha.databases.custom_columns import CustomColumns
 
-        from LiuXin_alpha.library.legacy import LibraryDatabase
-
-        live_legacy_database = LibraryDatabase(library_path=live_database_path)
+        # FRBR databases may also expose a read-only books compatibility view.
+        # Attach new storage to the physical manifestation table when available.
+        owner = "manifestations" if "manifestations" in scratch_db.main_tables else "books"
+        custom_columns = CustomColumns(scratch_db, table=owner)
 
         # Create the test columns
-        live_legacy_database.create_custom_column(
+        custom_columns.create_custom_column(
             label="test_cc_1_label",
             name="test_cc_1_name",
             datatype="text",
@@ -112,7 +112,7 @@ class TestDBCustomColumns(TestDatabaseBuilder):
             editable=True,
             display=None,
         )
-        live_legacy_database.create_custom_column(
+        custom_columns.create_custom_column(
             label="test_cc_2_label",
             name="test_cc_2_name",
             datatype="bool",
@@ -120,7 +120,7 @@ class TestDBCustomColumns(TestDatabaseBuilder):
             editable=True,
             display=None,
         )
-        live_legacy_database.create_custom_column(
+        custom_columns.create_custom_column(
             label="test_cc_3_label",
             name="test_cc_3_name",
             datatype="comments",
@@ -128,7 +128,7 @@ class TestDBCustomColumns(TestDatabaseBuilder):
             editable=True,
             display=None,
         )
-        live_legacy_database.create_custom_column(
+        custom_columns.create_custom_column(
             label="test_cc_4_label",
             name="test_cc_4_name",
             datatype="text",
@@ -136,7 +136,7 @@ class TestDBCustomColumns(TestDatabaseBuilder):
             editable=True,
             display=None,
         )
-        live_legacy_database.create_custom_column(
+        custom_columns.create_custom_column(
             label="test_cc_5_label",
             name="test_cc_5_name",
             datatype="series",

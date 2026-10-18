@@ -73,7 +73,7 @@ class DriverWrapperMetadataMixin:
 
     def get_relation_type(self, name: str) -> Optional[str]:
         """
-        Look up a schema object's type in the SQLite catalog by name.
+        Use native backend relation introspection, or the SQLite catalog adapter.
 
         Stringifies name, binds it in a case-insensitive sqlite_master query and
         lowercases/strips the first non-None type cell. Does not restrict catalog types to
@@ -98,6 +98,10 @@ class DriverWrapperMetadataMixin:
             query failure.
         """
         name = str(name)
+        driver = getattr(self, "driver", None)
+        native = getattr(type(driver), "direct_get_relation_type", None)
+        if callable(native):
+            return native(driver, name)
         try:
             cur = self.execute(
                 "SELECT type FROM sqlite_master WHERE name = ? COLLATE NOCASE LIMIT 1;",
@@ -382,7 +386,7 @@ class DriverWrapperMetadataMixin:
 
         return self.driver.direct_get_normalized_identity_spec(table, value_column)
 
-    def iter_normalized_identity_specs(self) -> Iterator[NormalizedIdentitySpec]:
+    def iter_normalized_identity_specs(self, *, table: str | None = None) -> Iterator[NormalizedIdentitySpec]:
         """
         Yield database identity declarations after checking physical references.
 
@@ -402,7 +406,7 @@ class DriverWrapperMetadataMixin:
         :return: An iterator of NormalizedIdentitySpec records supported by the database.
         """
 
-        yield from self.driver.direct_iter_normalized_identity_specs()
+        yield from self.driver.direct_iter_normalized_identity_specs(table=table)
 
     def set_comparison_column(
         self,

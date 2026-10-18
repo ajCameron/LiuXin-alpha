@@ -18,7 +18,7 @@ import glob
 import re
 import textwrap
 
-from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.file_formats.conversion.plugin import InputFormatPlugin, OptionRecommendation
 from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
     choose_conversion_workdir,
 )
@@ -407,7 +407,7 @@ class RTFInput(InputFormatPlugin):
         """
         from lxml import etree
         from LiuXin_alpha.metadata.file_sources import get_metadata
-        from LiuXin_alpha.metadata.utils import calibreMetaInformation
+        from LiuXin_alpha.metadata.book.base import calibreMetaInformation
         from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
         from LiuXin_alpha.file_formats.rtf2xml.ParseRtf import RtfInvalidCodeException
 

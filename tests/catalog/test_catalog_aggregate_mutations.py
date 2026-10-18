@@ -18,7 +18,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from LiuXin_alpha.catalog import Catalog
+from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.catalog.api.common import CatalogMutationError
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.errors import DatabaseIntegrityError

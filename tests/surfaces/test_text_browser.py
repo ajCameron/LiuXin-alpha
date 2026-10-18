@@ -14,11 +14,13 @@ from __future__ import annotations
 import builtins
 import io
 import signal
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
 
 from LiuXin_alpha.core import workflow_jobs as core_workflow_jobs
+from LiuXin_alpha.core.library_services import LibraryServices
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.ingest.sources.wget_utils import WgetResult
@@ -51,6 +53,21 @@ from LiuXin_alpha.surfaces.terminal.plugins import TerminalLifecyclePluginAPI
 from LiuXin_alpha.utils.jobs import JobRequest
 from LiuXin_alpha.utils.jobs.manager import InMemoryJobManager
 from tests.support._surface_storage_tables import ensure_surface_asset_tables
+
+
+@contextmanager
+def _open_database_with_storage(*, database_path: Path, db_type: str):
+    """Yield a database while Core's owner manages its storage graph."""
+
+    with LibraryServices.open(
+        database_path=database_path,
+        db_type=db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+        enable_maintenance=False,
+    ) as lifecycle:
+        yield lifecycle.database
 
 
 def _disable_rclone_streaming(*_args, **_kwargs):
@@ -2591,12 +2608,12 @@ def test_text_browser_new_store_wizard_creates_row(driver_spec, tmp_path: Path) 
     store_dir = tmp_path / "managed_store"
     assert not store_dir.exists()
 
-    # kind(default=1), root path, create dir yes, name default, read-only default(no),
+    # kind, root path, create dir yes, name default, read-only default(no),
     # online default(yes), refresh storage manager no
     input_stream = io.StringIO(
         "\n".join(
             [
-                "",
+                "on_disk_existing_managed_drive",
                 str(store_dir),
                 "y",
                 "",
@@ -2608,12 +2625,9 @@ def test_text_browser_new_store_wizard_creates_row(driver_spec, tmp_path: Path) 
         + "\n"
     )
 
-    with Database(
-        metadata={"database_path": str(db_path)},
+    with _open_database_with_storage(
+        database_path=db_path,
         db_type=driver_spec.db_type,
-        create=True,
-        backup=False,
-        storage_startup_on_add=False,
     ) as db:
         shell = TextDatabaseBrowser(db, input=input_stream, output=output)
         rc = shell.run_commands(["add store"])
@@ -2652,12 +2666,9 @@ def test_text_browser_new_store_wizard_updates_existing_row(driver_spec, tmp_pat
     store_dir = tmp_path / "existing_store"
     store_dir.mkdir(parents=True, exist_ok=True)
 
-    with Database(
-        metadata={"database_path": str(db_path)},
+    with _open_database_with_storage(
+        database_path=db_path,
         db_type=driver_spec.db_type,
-        create=True,
-        backup=False,
-        storage_startup_on_add=False,
     ) as db:
         _insert_store_row(
             db,
@@ -2667,12 +2678,12 @@ def test_text_browser_new_store_wizard_updates_existing_row(driver_spec, tmp_pat
             is_read_only=0,
         )
 
-        # kind=2 unmanaged, root path, name default, read-only default(yes), online default(yes),
+        # unmanaged kind, root path, name default, read-only default(yes), online default(yes),
         # update existing yes (default), refresh no
         input_stream = io.StringIO(
             "\n".join(
                 [
-                    "2",
+                    "on_disk_existing_unmanaged_drive",
                     str(store_dir),
                     "",
                     "",
@@ -2723,7 +2734,7 @@ def test_text_browser_new_store_wizard_refresh_routes_via_core_operations(
     input_stream = io.StringIO(
         "\n".join(
             [
-                "",
+                "on_disk_existing_managed_drive",
                 str(store_dir),
                 "y",
                 "",
@@ -2785,7 +2796,6 @@ def test_text_browser_new_store_wizard_refresh_routes_via_core_operations(
 
                 row = Library(
                     database=db,
-                    close_database_on_close=False,
                 ).save_store_row(store_payload=payload_dict["store"])
                 return {"store": row}
             if name == "storage.refresh":
@@ -2843,7 +2853,7 @@ def test_text_browser_new_store_wizard_refresh_works_with_default_core_runtime(d
     input_stream = io.StringIO(
         "\n".join(
             [
-                "",
+                "on_disk_existing_managed_drive",
                 str(store_dir),
                 "y",
                 "",
@@ -2855,12 +2865,9 @@ def test_text_browser_new_store_wizard_refresh_works_with_default_core_runtime(d
         + "\n"
     )
 
-    with Database(
-        metadata={"database_path": str(db_path)},
+    with _open_database_with_storage(
+        database_path=db_path,
         db_type=driver_spec.db_type,
-        create=True,
-        backup=False,
-        storage_startup_on_add=False,
     ) as db:
         shell = TextDatabaseBrowser(db, input=input_stream, output=output)
         rc = shell.run_commands(["add store"])
@@ -5753,7 +5760,6 @@ def test_text_browser_set_command_routes_via_core(driver_spec, tmp_path: Path, m
             assert name == "rows.get"
             row = Library(
                 database=db,
-                close_database_on_close=False,
             ).get_row(**payload_dict)
             return {
                 "record": {
@@ -5783,7 +5789,6 @@ def test_text_browser_set_command_routes_via_core(driver_spec, tmp_path: Path, m
             assert name == "admin.row.update"
             row = Library(
                 database=db,
-                close_database_on_close=False,
             ).update_row_fields(
                 table=payload_dict["table"],
                 row_id=payload_dict["row_id"],
@@ -6072,7 +6077,7 @@ def test_text_browser_delete_command_routes_via_core(driver_spec, tmp_path: Path
             """
             payload_dict = dict(payload or {})
             query_calls.append((str(name), payload_dict))
-            library = Library(database=db, close_database_on_close=False)
+            library = Library(database=db)
             if name == "rows.get":
                 row = library.get_row(**payload_dict)
                 return {
@@ -6106,7 +6111,6 @@ def test_text_browser_delete_command_routes_via_core(driver_spec, tmp_path: Path
             assert name == "admin.row.delete"
             return Library(
                 database=db,
-                close_database_on_close=False,
             ).delete_row(**payload_dict)
 
         monkeypatch.setattr(shell, "execute_core_query", _record_query)

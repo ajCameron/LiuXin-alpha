@@ -10,13 +10,44 @@ retrieval helpers, mutation services, and compatibility metadata tools over the
 same database and identity policy.
 
 ```python
-from LiuXin_alpha.catalog import Catalog
+from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.catalog.api import CatalogAPI
 
 catalog: CatalogAPI = Catalog(db)
 ```
 
 Closing or discarding `catalog` does not close `db`.
+
+## Write-validity boundary
+
+Every public Catalog mutation must establish semantic validity itself. Callers
+may validate early for better feedback, but Catalog does not treat surfaces,
+declarations, annotations, or prior workflow steps as trusted proof.
+
+The layers cooperate:
+
+- `metadata` supplies pure normalization and value validation;
+- Catalog validates complete operations and relationships before persistence;
+- database constraints retain structural, referential, uniqueness, and
+  concurrency-safe enforcement.
+
+The supported boundary consists of `catalog.mutations.writer.*`, public
+repository CRUD and specialised mutations, and the advanced schema-driven
+`catalog.create_writer`/`write`/`write_one` trio. Higher-level Library, Core,
+and application operations remain inside the contract only by delegating to
+those routes; their own checks are never the sole guard.
+
+`catalog.add`, `ensure`, `apply`, and `intralink` remain supported Row-oriented
+compatibility routes, but are deprecated for new code and are being moved
+progressively behind canonical mutations. Direct use of `catalog.db`, database
+drivers, raw macros, direct SQL, private helpers, or the private writer-host
+`_apply_*` methods is outside this guarantee. Cache writer methods delegate to
+Catalog and do not define another semantic boundary.
+
+The boundary is adopted but still being enforced repository by repository;
+curated identifier generic CRUD is the first completed slice. See the dated
+[write-validation contract](catalog-write-validation-contract.md) for current
+gaps and migration order.
 
 ## Choosing an API area
 
@@ -25,6 +56,7 @@ Closing or discarding `catalog` does not close `db`.
 | Read/create/update/delete one entity family | `catalog.works`, `catalog.items`, etc. |
 | Decide identity without writing | `catalog.matching` |
 | Read a coherent WEMI slice | `catalog.retrieval.bundles` |
+| Hydrate metadata from a database/cache or overlay OPF onto persisted metadata | `catalog.retrieval.metadata` |
 | Read immediate WEMI adjacency or a bounded descendant graph | `catalog.retrieval.hierarchy`, `catalog.retrieval.graph` |
 | Build a display-neutral summary/title | `catalog.retrieval.projections` |
 | Create/link WEMI entities or attach/replace several metadata groups | `catalog.mutations.writer` |
@@ -477,7 +509,8 @@ if catalog.mutations.policy.can_merge(
 ```
 
 Policy checks are advisory and side-effect-free; writers validate again inside
-their transaction.
+their transaction. A caller must not treat a successful policy probe as a
+validation token that allows the writer to skip its own checks.
 
 ## Core direct and RPC operations
 
@@ -511,7 +544,8 @@ The convenience operation names are:
 ## Generic schema-backed writes
 
 `create_writer`, `write`, and `write_one` are useful when code deliberately
-targets the schema-defined storage shape:
+targets the schema-defined storage shape. They are supported public Catalog
+entry points, not permission to call the prepared-update seam directly:
 
 ```python
 catalog.write_one(
@@ -524,6 +558,11 @@ catalog.write_one(
 
 Prefer repository or mutation methods when a semantic operation exists. They
 make identity, ownership, relationship, and transaction rules clearer.
+
+The writer selected by these methods performs its declared adaptation and
+validation before using Catalog's private `_apply_*` host methods. Those
+underscored methods and prepared update objects are implementation details and
+are intentionally absent from `CatalogAPI`.
 
 ## Field metadata containers
 
@@ -567,5 +606,6 @@ catalog.apply.creator(
 )
 ```
 
-Use this surface when integrating an existing Row-oriented workflow. New
+Use this surface when integrating an existing Row-oriented workflow. It remains
+supported while it is migrated, but is deprecated for new code. New
 ID/mapping-oriented code should start with repositories.

@@ -149,22 +149,6 @@ class _DummyItemMetadata(ItemMetadataAPI):
         relation_key = self.validate_relation_name(relation_key)
         self._links[relation_key] = list(links)
 
-    def write_to_database(self, *args, **kwargs):
-        """
-        Perform the write to database test-helper operation with deterministic inputs.
-
-        Example:
-            Exercise DummyItemMetadata.write to database through its owning regression module::
-
-                python -m pytest -q tests/metadata/api/test_item_metadata_container_api.py
-
-
-        :param args: Positional values forwarded by the test double.
-        :param kwargs: Keyword values forwarded by the test double.
-        :return: The deterministic value, row, identity or collection described above.
-        """
-        return None
-
     def to_mapping(self, include_related: bool = True) -> MutableMetadataRecord:
         """
         Perform the to mapping test-helper operation with deterministic inputs.

@@ -226,9 +226,9 @@ def test_render_html_svg_workaround_uses_qt_renderer_when_no_static_cover(
     """
     html = tmp_path / "chapter.xhtml"
     html.write_text("<html><body><p>Chapter text</p></body></html>", encoding="utf-8")
-    fake_gui = types.ModuleType("LiuXin_alpha.surfaces.gui2")
+    fake_gui = types.ModuleType("LiuXin_alpha.file_formats.rendering")
     fake_gui.is_ok_to_use_qt = lambda: True
-    monkeypatch.setitem(sys.modules, "LiuXin_alpha.surfaces.gui2", fake_gui)
+    monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.rendering", fake_gui)
     monkeypatch.setattr(
         cover_module,
         "render_html_data",
@@ -252,6 +252,8 @@ def test_gui2_compatibility_module_is_importable() -> None:
         place.
     """
     gui2 = importlib.import_module("LiuXin_alpha.surfaces.gui2")
+    rendering = importlib.import_module("LiuXin_alpha.file_formats.rendering")
+    assert gui2.pixmap_to_data is rendering.pixmap_to_data
 
     assert isinstance(gui2.config, dict)
     assert gui2.is_ok_to_use_qt() is False

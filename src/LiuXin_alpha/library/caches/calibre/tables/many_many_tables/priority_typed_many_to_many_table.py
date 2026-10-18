@@ -49,7 +49,7 @@ class CalibrePriorityTypedManyToManyTable(CalibreManyToManyTable):
     """
 
     _priority: bool = True
-    _typed: bool = False
+    _typed: bool = True
 
     def __init__(
         self, name: str, metadata: MetadataDict, link_table: InterLinkTableName = None, custom: bool = False

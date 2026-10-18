@@ -36,11 +36,8 @@ from LiuXin_alpha.utils.calibre_compat.ebooks.metadata.book.base import MetaInfo
 from LiuXin_alpha.metadata.utils import soft_float_to_int
 
 from LiuXin_alpha.metadata.constants import CREATOR_CATEGORIES
-from LiuXin_alpha.metadata.ebook_metadata_tools import (
-
-    check_isbn,
-    author_to_author_sort,
-)
+from LiuXin_alpha.metadata.author_names import author_to_author_sort
+from LiuXin_alpha.metadata.ebook_metadata_tools import check_isbn
 from LiuXin_alpha.metadata.utils import string_to_authors
 
 # Todo: Eventually to be replaced with one metadata to rule them all
@@ -48,7 +45,7 @@ from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import CalibreL
 from LiuXin_alpha.metadata.constants import creator_to_marc
 # Todo: Make sure everything has been refactored to a sensible place
 from LiuXin_alpha.file_formats.toc import TOC
-from LiuXin_alpha.metadata.utils import parse_opf, pretty_print_opf as _pretty_print
+from LiuXin_alpha.file_formats.opf.utils import parse_opf, pretty_print_opf as _pretty_print
 
 from LiuXin_alpha.preferences import preferences as prefs
 
@@ -4197,7 +4194,7 @@ def metadata_to_opf(mi: _typing.Any, as_string: bool = True, default_lang: _typi
             factory(
                 tag=DC("creator"),
                 text=cr,
-                sort=author_to_author_sort(cr),
+                sort=author_to_author_sort(cr, method=None),
                 role=creator_to_marc(category),
             )
     # --------

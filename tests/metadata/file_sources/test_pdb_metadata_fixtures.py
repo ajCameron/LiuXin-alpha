@@ -18,11 +18,11 @@ from pathlib import Path
 
 import pytest
 
-from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
-from LiuXin_alpha.customize.builtins.metadata_writers import get_metadata_set_plugins
+from LiuXin_alpha.metadata.file_sources.builtin_readers import get_metadata_reader_plugins
+from LiuXin_alpha.metadata.file_sources.builtin_writers import get_metadata_set_plugins
 from LiuXin_alpha.file_formats.pdb.header import PdbHeaderReader
 from LiuXin_alpha.metadata.file_sources.pdb import PdbFormatError, get_metadata, get_pheader_ident, set_metadata
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 
 
 def _get_reader_plugin_cls():

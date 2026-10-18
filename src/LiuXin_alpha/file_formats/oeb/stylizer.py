@@ -545,7 +545,7 @@ class Stylizer(object):
         if self.profile is None:
             # Use the default profile. This should really be using opts.output_profile,
             # but I don't want to risk changing it, as doing so might well have hard to debug font size effects.
-            from LiuXin_alpha.customize.ui import output_profiles
+            from LiuXin_alpha.file_formats.plugin_runtime import output_profiles
 
             for x in output_profiles():
                 if x.short_name == "default":

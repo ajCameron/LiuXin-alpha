@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 
 from LiuXin_alpha.file_formats.pdb.header import PdbHeaderReader
 from LiuXin_alpha.file_formats.pdb.plucker.reader import DATATYPE_METADATA, MIBNUM_TO_NAME, SectionHeader
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 from LiuXin_alpha.metadata.utils import string_to_authors
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log

@@ -168,6 +168,8 @@ RUFF_CMD=(
     "src/LiuXin_alpha/storage/storage_manager/manager.py"
     "src/LiuXin_alpha/storage/storage_manager/mixins"
     "scripts/check_modern_import_cycles.py"
+    "scripts/check_layer_direction.py"
+    "scripts/check_import_footprint.py"
     "scripts/check_internal_type_contracts.py"
     "scripts/run_format_checks.py"
     "tests/scripts/test_run_format_checks.py"
@@ -176,6 +178,8 @@ RUFF_CMD=(
     "tests/core/test_evacuation_workflow.py"
     "tests/core/test_program_workflow_facade.py"
     "tests/scripts/test_check_modern_import_cycles.py"
+    "tests/scripts/test_check_layer_direction.py"
+    "tests/scripts/test_check_import_footprint.py"
     "tests/scripts/test_public_documentation_boundaries.py"
     "scripts/audit_project_docstrings.py"
     "scripts/normalize_docstrings.py"
@@ -198,6 +202,14 @@ FORMAT_CMD=(
 IMPORT_CYCLE_CMD=(
     "${VENV_PYTHON}"
     "${REPO_ROOT}/scripts/check_modern_import_cycles.py"
+)
+LAYER_DIRECTION_CMD=(
+    "${VENV_PYTHON}"
+    "${REPO_ROOT}/scripts/check_layer_direction.py"
+)
+IMPORT_FOOTPRINT_CMD=(
+    "${VENV_PYTHON}"
+    "${REPO_ROOT}/scripts/check_import_footprint.py"
 )
 INTERNAL_CONTRACT_CMD=(
     "${VENV_PYTHON}"
@@ -237,6 +249,8 @@ MODERN_COMPLEXITY_CMD=(
     "src/LiuXin_alpha/catalog/api/metadata_tools_api/facades.py"
     "src/LiuXin_alpha/surfaces/cli/storage_commands"
     "scripts/check_modern_import_cycles.py"
+    "scripts/check_layer_direction.py"
+    "scripts/check_import_footprint.py"
     "scripts/run_format_checks.py"
 )
 STORAGE_MANAGER_COMPLEXITY_CMD=(
@@ -289,6 +303,10 @@ printf 'file_formats annotation step: '
 print_cmd "${FILE_FORMAT_ANNOTATION_CMD[@]}"
 printf 'modern import-cycle step: '
 print_cmd "${IMPORT_CYCLE_CMD[@]}"
+printf 'layer-direction step: '
+print_cmd "${LAYER_DIRECTION_CMD[@]}"
+printf 'import-footprint step: '
+print_cmd "${IMPORT_FOOTPRINT_CMD[@]}"
 printf 'modern complexity step: '
 print_cmd "${MODERN_COMPLEXITY_CMD[@]}"
 printf 'storage-manager complexity step: '
@@ -333,6 +351,8 @@ STATUS=0
 "${FORMAT_CMD[@]}"
 "${FILE_FORMAT_ANNOTATION_CMD[@]}"
 "${IMPORT_CYCLE_CMD[@]}"
+"${LAYER_DIRECTION_CMD[@]}"
+"${IMPORT_FOOTPRINT_CMD[@]}"
 "${RUFF_CMD[@]}"
 "${MODERN_COMPLEXITY_CMD[@]}"
 "${STORAGE_MANAGER_COMPLEXITY_CMD[@]}"

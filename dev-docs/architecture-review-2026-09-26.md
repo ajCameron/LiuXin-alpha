@@ -158,9 +158,9 @@ everywhere; and `database_repository.py` using only `db.macros`, with no SQL.
 
 | ID | Sev | Finding | Key evidence |
 |---|---|---|---|
-| CM-1 | H | A live mutation path bypasses Catalog. Core's `metadata.write` and the tag/series replace commands go to `metadata/write_workflows.py` and on to the 1,569-line `LiuXinWEMIMetadataWriter`. That writer does its own find-or-create, uses no transaction, and swallows exceptions. The legacy-mutation boundary test cannot see this path | `core/runtime.py:239-304,1669-1710`; `liuxin_wemi_metadata_writer.py:840-929` |
+| CM-1 | H | **Resolved 2026-10-11.** Core's `metadata.write` now enters `catalog.mutations.writer.write_values`; the writer/report/workflow are Catalog-owned and the operation uses an available macro transaction. | `core/runtime.py`; `catalog/mutations/metadata_writer.py`; `catalog/mutations/container_writer.py` |
 | CM-2 | H | Three incompatible normalisations write to the same columns. For "Sci-Fi & Fantasy": the writer's tag rule gives `sci-fi&fantasy`, the writer's title rule gives `sci`, and Catalog gives `sci fi and fantasy`. Catalog never derives `tag_phash`, which facets sort on | `databases/column_metadata.py:628-644`; `catalog/matching/entity_specs.py:39-76,149` |
-| CM-3 | M-H | WEMI containers are active records: the hydrators (2,260 lines) call `db.*` directly, and the containers expose `write_to_database`. There are two read models for "metadata of item N": the hydrators and `catalog.retrieval` | `work_metadata_hydrator.py:40-578` |
+| CM-3 | M-H | **Write half resolved 2026-10-11.** Metadata containers are passive and no longer expose `write_to_database`; persistence enters through Catalog. Hydrator/database reads and the duplicate read models remain migration debt. | `catalog/mutations/metadata_writer.py`; `metadata/containers/` |
 | CM-4 | M | The frozen legacy tools (Add/Ensure/Apply/Intralinker, 4.9k lines) are eagerly built on every Catalog and advertised on `CatalogAPI`. Their protocols anchor the 121-module cycle | `catalog/catalog.py:239-249`; `metadata_tools_api/common.py:17` |
 | CM-5 | M | At least seven representations of "a book's metadata". `LiuXinWEMIMetadata` subclasses the Calibre shape. Nothing owns the conversion from containers to `MetadataCandidate` | `library/library_metadata.py`; `caches/write/*` |
 | CM-6 | M | The same concepts are implemented several times: `standardize.py` vs `standardization.py` (17 shared names, some with diverging bodies); ISBN handling in 6 places; identifier-scheme aliases in 7; language normalisation in 4; author sort in 4 | `metadata/standardize.py`; `metadata/standardization.py` |
@@ -202,6 +202,22 @@ Good here: the shared `archive_preflight`, the frozen `ConversionReport` and
 edge types, sign-off discipline (e.g. the LIT writer fails loudly), and CI lanes
 with an installed-wheel conversion smoke test.
 
+**2026-10-13 update:** FF-6's specific `metadata.utils` → OEB/OPF edge is
+resolved. OPF helpers now belong to `file_formats.opf.utils`, while the metadata
+record factory belongs beside the record class. Focused behavior was
+transplanted with the code. The largest runtime SCC fell from 280 to 220 and the
+combined SCC from 311 to 220; the wider conversion/plugin findings remain open.
+
+**2026-10-13 FF-1 update:** the reusable plugin lifecycle now belongs to
+`plugin_system.base`, and conversion contracts belong to
+`file_formats.conversion.plugin`. All built-in converters import those owners;
+the historical `customize` modules are exact-identity compatibility surfaces.
+Cold-import budgets forbid the contracts from re-entering composition or higher
+application domains. This resolves the ownership edge described by FF-1 and
+reduces the largest runtime and combined SCCs from 220 to 218. Remaining
+format-to-UI/customization edges are tracked separately rather than being
+disguised with dynamic imports.
+
 ### utils, customize and configuration (UT)
 
 | ID | Sev | Finding | Key evidence |
@@ -221,7 +237,7 @@ with an installed-wheel conversion smoke test.
 
 | ID | Sev | Finding | Key evidence |
 |---|---|---|---|
-| RP-1 | H | The layer direction is enforced only for surfaces. The cycle checker keeps an edge only if its target is protected, so it cannot see cycles through unprotected modules. Widened to all modern packages, it finds a 121-module runtime SCC. Commit `3ac8fde5` got past the boundary test with `importlib` | `scripts/check_modern_import_cycles.py:207-216` |
+| RP-1 | H | **Mitigated 2026-10-12.** The original review found only surface enforcement and a 121-module domain SCC. The whole-package direction ratchet now records every known backward/dynamic edge; package-root isolation reduced the measured domain SCC to 48. Fresh-process budgets additionally catch implicit parent-package execution. Existing reviewed debt still requires migration. | `scripts/check_layer_direction.py`; `scripts/check_import_footprint.py`; `scripts/layer_direction_baseline.json` |
 | RP-2 | H | 48 files that `.gitignore` excludes are tracked, about 129 MB: `.tmp/` benchmark DBs (99 MB) and full-suite JSON reports in `working-memory/test-results` (31 MB). Also tracked: the root scraper SQLite with its `-wal` and `-shm` files, `extensions_source.zip`, `src/wget-log`, and prefs with instance UUIDs | `git ls-files -ci --exclude-standard` |
 | RP-3 | M-H | The docstring campaign dominates churn: a 4.7 MB inventory keyed to per-file hashes that go stale on every functional edit. In the last two commits, 809 files changed only docstrings and 31 changed code. 68% of the queued declarations are in inherited, test or dead code, even though the quality-gates doc calls raw docstring totals "not a sensible pass/fail target" | `dev-docs/project-docstrings-work-units.json` |
 | RP-4 | M | Two test trees. `src/LiuXin_tests` (20k lines) is a dead near-duplicate of `tests/support/test_databases` and imports `tests.support` backwards | — |
@@ -286,7 +302,7 @@ These claims were re-checked by hand in `01674d15`:
 - **ST-2:** `_common()` forwards only name and UUID.
 - **FF-3:** the EMF import sits outside the `try`.
 - **UT-1:** `paths.py` runs `_makedirs` at import.
-- **CM-1:** `metadata.write` is routed to `metadata.write_workflows`.
+- **CM-1:** Resolved 2026-10-11: `metadata.write` is routed to the Catalog mutation writer.
 - **RP-1:** sample cycle edges confirmed.
 
 Comparison with the unpushed working copy (2026-09-26):

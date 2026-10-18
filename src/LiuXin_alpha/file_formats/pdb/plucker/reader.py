@@ -979,7 +979,7 @@ class Reader(FormatReader):
                     self.log.error("Failed to write composite image with uid %s: %s" % (uid, e))
 
         # Run the HTML through the html processing plugin.
-        from LiuXin_alpha.customize.ui import plugin_for_input_format
+        from LiuXin_alpha.file_formats.plugin_runtime import plugin_for_input_format
 
         html_input = plugin_for_input_format("html")
         for opt in html_input.options:

@@ -302,7 +302,7 @@ def test_chm_input_convert_glue_with_fakes(tmp_path: Path, monkeypatch: pytest.M
         described above.
     """
     import LiuXin_alpha.file_formats.conversion.plugins.chm_input as chm_input_mod
-    from LiuXin_alpha.metadata.utils import calibreMetaInformation
+    from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 
     class _Opt:
         """
@@ -341,7 +341,7 @@ def test_chm_input_convert_glue_with_fakes(tmp_path: Path, monkeypatch: pytest.M
         """
         options = (_Opt("breadth_first", False),)
 
-    fake_ui = types.ModuleType("LiuXin_alpha.customize.ui")
+    fake_ui = types.ModuleType("LiuXin_alpha.file_formats.plugin_runtime")
     fake_ui.plugin_for_input_format = lambda fmt: _HTMLPlugin() if fmt == "html" else None
 
     fake_metadata_mod = types.ModuleType("LiuXin_alpha.file_formats.chm.metadata")
@@ -349,7 +349,7 @@ def test_chm_input_convert_glue_with_fakes(tmp_path: Path, monkeypatch: pytest.M
         "Stub Title", ["Stub Author"]
     )
 
-    monkeypatch.setitem(sys.modules, "LiuXin_alpha.customize.ui", fake_ui)
+    monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.plugin_runtime", fake_ui)
     monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.chm.metadata", fake_metadata_mod)
 
     class _FakeReader:

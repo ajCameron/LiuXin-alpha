@@ -483,7 +483,7 @@ def test_fb2_input_convert_smoke_with_metadata_fallback(tmp_path: Path, monkeypa
     """
     import LiuXin_alpha.file_formats.conversion.plugins.fb2_input as fb2_input_mod
 
-    fake_ui = types.ModuleType("LiuXin_alpha.customize.ui")
+    fake_ui = types.ModuleType("LiuXin_alpha.file_formats.plugin_runtime")
     fake_ui.get_file_type_metadata = lambda stream, file_ext, calibre=True: types.SimpleNamespace(
         title="FB2 Smoke",
         authors=["Smoke Author"],
@@ -608,7 +608,7 @@ def test_fb2_input_convert_smoke_with_metadata_fallback(tmp_path: Path, monkeypa
 
     fake_opf2.OPFCreator = _OPFCreator
 
-    monkeypatch.setitem(sys.modules, "LiuXin_alpha.customize.ui", fake_ui)
+    monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.plugin_runtime", fake_ui)
     monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.opf.opf2", fake_opf2)
     monkeypatch.chdir(tmp_path)
 

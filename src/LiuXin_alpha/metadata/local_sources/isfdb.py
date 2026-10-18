@@ -22,7 +22,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
-from LiuXin_alpha.metadata.utils import calibreMetaInformation, check_isbn
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
+from LiuXin_alpha.metadata.utils import check_isbn
 from LiuXin_alpha.metadata.web_sources.base import Option, Source
 from LiuXin_alpha.metadata.web_sources.http_client import log_message
 from LiuXin_alpha.utils.date import parse_only_date

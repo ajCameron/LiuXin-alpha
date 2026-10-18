@@ -43,7 +43,7 @@ from LiuXin_alpha.metadata.constants import INTERNAL_EBOOK_ID_SCHEMA
 from LiuXin_alpha.metadata.constants import INTERNAL_EBOOK_REKEY_SCHEME
 from LiuXin_alpha.metadata.constants import METADATA_NULL_VALUES
 from LiuXin_alpha.metadata.standardize import standardize_id_name, standardize_creator_category, string_to_authors, standardize_lang, standardize_internal_id_name, standardize_rating_type, standardize_tag
-from LiuXin_alpha.metadata.utils import authors_to_sort_string
+from LiuXin_alpha.metadata.author_names import authors_to_sort_string
 
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log

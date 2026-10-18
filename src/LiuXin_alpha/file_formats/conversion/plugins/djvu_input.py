@@ -19,7 +19,7 @@ import typing as _typing
 import os
 from io import BytesIO
 
-from LiuXin_alpha.customize.conversion import InputFormatPlugin
+from LiuXin_alpha.file_formats.conversion.plugin import InputFormatPlugin
 from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
     choose_conversion_workdir,
 )
@@ -78,7 +78,7 @@ class DJVUInput(InputFormatPlugin):
         work_root = choose_conversion_workdir("_djvu_input")
         with CurrentDir(work_root):
             # Run the HTMLized text through the html processing plugin.
-            from LiuXin_alpha.customize.ui import plugin_for_input_format
+            from LiuXin_alpha.file_formats.plugin_runtime import plugin_for_input_format
 
             html_input = plugin_for_input_format("html")
             for opt in html_input.options:
@@ -103,7 +103,7 @@ class DJVUInput(InputFormatPlugin):
             os.remove(htmlfile.name)
 
             # Set metadata from file.
-            from LiuXin_alpha.customize.ui import get_file_type_metadata
+            from LiuXin_alpha.file_formats.plugin_runtime import get_file_type_metadata
             from LiuXin_alpha.file_formats.oeb.transforms.metadata import (
                 meta_info_to_oeb_metadata,
             )

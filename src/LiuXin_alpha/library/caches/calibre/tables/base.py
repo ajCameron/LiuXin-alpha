@@ -338,6 +338,24 @@ class MultiTableMixin:
         # Type column - when the type of a link is set
         self.link_table_type: Optional[TableColumnName] = None
 
+    def _copy_subtable_metadata(self, original_table) -> None:
+        """Keep known identities and link bindings on an independent projection."""
+        self.is_subtable = True
+        self.id_map = dict(original_table.id_map)
+        self.seen_book_ids = set(original_table.seen_book_ids)
+        self.seen_item_ids = set(original_table.seen_item_ids)
+        for attribute in (
+            "lx_table_name",
+            "table_id_col",
+            "linked_to",
+            "link_table",
+            "link_table_bt_id_column",
+            "link_table_table_id_column",
+            "link_table_priority_col",
+            "link_table_type",
+        ):
+            setattr(self, attribute, getattr(original_table, attribute, None))
+
     def set_link_table(self, db, set_type: bool = False) -> None:
         """
         Set the value for self.link_table and self.link_table_bt_column -

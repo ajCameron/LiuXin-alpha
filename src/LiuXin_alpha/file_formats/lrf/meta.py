@@ -35,7 +35,7 @@ from shutil import copyfileobj
 import xml.dom.minidom as dom
 
 from LiuXin_alpha.metadata.utils import authors_to_string
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 from LiuXin_alpha.metadata.utils import string_to_authors
 from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
     CalibreLikeLiuXinBookMetaData as MetaData,

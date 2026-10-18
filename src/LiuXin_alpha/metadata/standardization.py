@@ -224,23 +224,11 @@ def standardize_title(target_string):
 # 1.2) Convert any existing separators to u'_' and drop everything after the second separator
 # 1.3) convert to lower case and drop all spaces
 # 2) take the last name of the first author - stick it in front of the title followed by an _
-LITTLE_WORDS = ("on", "the", "a", "at", "of", "and")
-ALL_DROP_CHARACTERS = (
-    ".",
-    ",",
-    '"',
-    "'",
-    "?",
-    "!",
-    "$",
-    "%",
-    "^",
-    "&",
-    "*",
-    "#",
-    ":",
-    ";",
-    "-",
+from LiuXin_alpha.metadata.text_identity import (
+    LEGACY_LITTLE_WORDS as LITTLE_WORDS,
+    LEGACY_DROP_CHARACTERS as ALL_DROP_CHARACTERS,
+    legacy_tag_search_term,
+    legacy_title_search_term,
 )
 
 
@@ -310,28 +298,7 @@ def make_simpler_search_term(search_string):
     """
     # Based on how the title string is normalized in the standardize_title method this should drop everything after the
     # second separator
-    search_string = deepcopy(search_string)
-    search_string_tokens = search_string.split("-")
-    search_string = search_string_tokens[0]
-
-    # Dropping all characters in the ALL_DROP_CHARACTERS list
-    new_title_string = ""
-    for char in search_string:
-        if char not in ALL_DROP_CHARACTERS:
-            new_title_string += char
-    search_string = new_title_string
-
-    # Dropping all words on the little words list
-    search_string = search_string.lower()
-    search_string = re.sub(r"\s+", " ", search_string)
-    search_string_tokens = search_string.split()
-    new_search_string_tokens = []
-    for token in search_string_tokens:
-        if token not in LITTLE_WORDS:
-            new_search_string_tokens.append(token)
-    search_string_tokens = new_search_string_tokens
-    search_string = "_".join(search_string_tokens)
-    return search_string
+    return legacy_title_search_term(search_string)
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -352,7 +319,7 @@ def make_simpler_search_term(search_string):
 #     - normalizes unicode (accent-insensitive)
 #     - compiles regexes once
 #     - contains a substantially larger mapping
-from LiuXin_alpha.metadata import standardize_genre as _genre_std
+import LiuXin_alpha.metadata.standardize_genre as _genre_std
 
 
 # Public alias retained for backwards compatibility
@@ -440,10 +407,7 @@ def make_tag_search_term(tag_string):
     :param tag_string: Tag string to normalize.
     :return: Compact case-insensitive comparison string.
     """
-    tag_string = deepcopy(tag_string)
-    tag_string = re.sub(r"\s+", "", tag_string)
-    tag_string = tag_string.lower()
-    return tag_string
+    return legacy_tag_search_term(tag_string)
 
 
 def standardize_tag(tag_string):

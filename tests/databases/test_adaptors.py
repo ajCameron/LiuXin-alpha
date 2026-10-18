@@ -20,13 +20,13 @@ from LiuXin_alpha.databases.adaptors import (
     adapt_date,
     adapt_datetime,
     adapt_identifiers,
+    adapt_languages,
     adapt_number,
     cc_adapt_bool,
     cc_adapt_enum,
     cc_adapt_number,
     cc_adapt_rating,
     cc_adapt_text,
-    clean_identifier,
     get_adapter,
     get_series_values,
     multiple_text,
@@ -669,113 +669,6 @@ class TestAdaptBool:
 
 
 # ---------------------------------------------------------------------------
-# clean_identifier
-# ---------------------------------------------------------------------------
-
-
-class TestCleanIdentifier:
-    """
-    Check identifier scheme cleanup and value punctuation.
-
-    Example:
-        >>> TestCleanIdentifier().test_strips_colons_from_type()
-    """
-    def test_strips_colons_from_type(self) -> None:
-        """
-        Remove the trailing colon from the isbn scheme.
-
-        Example:
-            >>> TestCleanIdentifier().test_strips_colons_from_type()
-
-
-        :return: None; raises AssertionError if the stated contract regresses.
-        """
-        typ, val = clean_identifier("isbn:", "1234567890")
-        assert typ == "isbn"
-
-    def test_strips_commas_from_type(self) -> None:
-        """
-        Remove commas from a supplied identifier scheme.
-
-        The assertion only checks absence of commas, not the entire resulting scheme.
-
-        Example:
-            >>> TestCleanIdentifier().test_strips_commas_from_type()
-
-
-        :return: None; raises AssertionError if the stated contract regresses.
-        """
-        typ, val = clean_identifier("my,type", "value")
-        assert "," not in typ
-
-    def test_replaces_commas_with_pipe_in_val(self) -> None:
-        """
-        Replace the comma inside an identifier value with a pipe.
-
-        Example:
-            >>> TestCleanIdentifier().test_replaces_commas_with_pipe_in_val()
-
-
-        :return: None; raises AssertionError if the stated contract regresses.
-        """
-        typ, val = clean_identifier("key", "val,ue")
-        assert val == "val|ue"
-
-    def test_normalises_type_to_lowercase(self) -> None:
-        """
-        Lowercase the uppercase ISBN scheme.
-
-        Example:
-            >>> TestCleanIdentifier().test_normalises_type_to_lowercase()
-
-
-        :return: None; raises AssertionError if the stated contract regresses.
-        """
-        typ, val = clean_identifier("ISBN", "9780000000000")
-        assert typ == "isbn"
-
-    def test_empty_type_and_val(self) -> None:
-        """
-        Preserve empty scheme and value strings.
-
-        Example:
-            >>> TestCleanIdentifier().test_empty_type_and_val()
-
-
-        :return: None; raises AssertionError if the stated contract regresses.
-        """
-        typ, val = clean_identifier("", "")
-        assert typ == ""
-        assert val == ""
-
-    def test_none_type_becomes_empty(self) -> None:
-        """
-        Convert a None scheme to an empty string.
-
-        Example:
-            >>> TestCleanIdentifier().test_none_type_becomes_empty()
-
-
-        :return: None; raises AssertionError if the stated contract regresses.
-        """
-        typ, val = clean_identifier(None, "value")
-        assert typ == ""
-
-    def test_none_val_becomes_empty(self) -> None:
-        """
-        Convert a None identifier value to an empty string.
-
-        Example:
-            >>> TestCleanIdentifier().test_none_val_becomes_empty()
-
-
-        :return: None; raises AssertionError if the stated contract regresses.
-        """
-        typ, val = clean_identifier("isbn", None)
-        assert val == ""
-
-
-# ---------------------------------------------------------------------------
 # adapt_identifiers
 # ---------------------------------------------------------------------------
 
@@ -798,6 +691,15 @@ def _simple_to_tuple(x: str) -> list[str]:
     if not x:
         return []
     return [p.strip() for p in x.split(",") if p.strip()]
+
+
+def test_adapt_languages_converts_serialized_input_before_normalizing() -> None:
+    """Keep serialized field parsing at the database adapter boundary."""
+
+    assert adapt_languages(_simple_to_tuple, "eng,spa,eng") == (
+        "English",
+        "Spanish; Castilian",
+    )
 
 
 class TestAdaptIdentifiers:

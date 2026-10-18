@@ -18,7 +18,7 @@ from types import SimpleNamespace
 import pytest
 
 from LiuXin_alpha.file_formats.pdb.header import PdbHeaderBuilder
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 
 
 def _values(raw):

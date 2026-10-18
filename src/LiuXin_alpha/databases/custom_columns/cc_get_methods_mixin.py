@@ -11,7 +11,6 @@ from functools import partial
 from typing import Optional, TYPE_CHECKING, Any
 
 from LiuXin_alpha.preferences import preferences
-from LiuXin_alpha.utils.libraries.liuxin_six import six_cmp as cmp
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.custom_columns_api import CustomColumnsAPI
@@ -21,7 +20,7 @@ class CCGetMethodsMixin:
     """
     Expose cached custom values, series extras and stored value inventories.
 
-    Select metadata by label before num. A configured results cache is required for positional/ID reads; the plain empty data dictionary used by standalone CustomColumns construction does not provide the complete interface. Multiple text reads retain a Python 2 cmp-sort call when sort_alpha is enabled.
+    Select metadata by label before num. A configured results cache is required for positional/ID reads; the plain empty data dictionary used by standalone CustomColumns construction does not provide the complete interface. Multiple text reads use stable case-insensitive sorting when sort_alpha is enabled.
 
     Example:
         A host with a populated results cache can call get_custom(book_id, num=column_id, index_is_id=True) to read that owner’s current cached value.
@@ -37,7 +36,7 @@ class CCGetMethodsMixin:
         """
         Read one custom value from a positional or ID-indexed cache row.
 
-        Locate the slot through FIELD_MAP[data["num"]]. If display.sort_alpha is true for multiple text, list.sort(cmp=...) raises TypeError on Python 3. Other datatypes return the stored object unchanged.
+        Locate the slot through FIELD_MAP[data["num"]]. If display.sort_alpha is true for multiple text, sort the new list by lowercase form. Other datatypes return the stored object unchanged.
 
         Example:
             >>> from types import SimpleNamespace
@@ -53,7 +52,6 @@ class CCGetMethodsMixin:
         :return: Cached value, with text/multiple strings split into a new list; empty such values become [].
         :raises NotImplementedError: Neither label nor num is supplied.
         :raises KeyError: The chosen metadata key is absent.
-        :raises TypeError: Alphabetical multiple-text sorting passes the unsupported cmp keyword.
         """
         if label is not None:
             data = self.custom_column_label_map[label]
@@ -67,7 +65,7 @@ class CCGetMethodsMixin:
         if data["is_multiple"] and data["datatype"] == "text":
             ans = ans.split(data["multiple_seps"]["cache_to_list"]) if ans else []
             if data["display"].get("sort_alpha", False):
-                ans.sort(cmp = lambda x, y: cmp(x.lower(), y.lower()))
+                ans.sort(key=str.lower)
 
         return ans
 
@@ -123,7 +121,7 @@ class CCGetMethodsMixin:
         """
         Return a cached custom value together with its optional series extra.
 
-        Resolve owner ID first and read data._data. Apply the same multiple-text splitting and unsupported cmp sorting as get_custom. For series, query the link extra separately, so cached value and SQL extra need not form a consistent snapshot.
+        Resolve owner ID first and read data._data. Apply the same multiple-text splitting and case-insensitive sorting as get_custom. For series, query the link extra separately, so cached value and SQL extra need not form a consistent snapshot.
 
         Example:
             Given a populated host cache, get_custom_and_extra(owner_id, num=column_id, index_is_id=True) returns (cached_value, None) for a non-series column.
@@ -136,7 +134,6 @@ class CCGetMethodsMixin:
         :return: Pair (value, extra), using None for the extra on non-series columns.
         :raises NotImplementedError: Neither label nor num is supplied.
         :raises KeyError: The chosen metadata key is absent.
-        :raises TypeError: Alphabetical multiple-text sorting uses the unsupported cmp keyword.
         """
         if label is not None:
             data = self.custom_column_label_map[label]
@@ -152,7 +149,7 @@ class CCGetMethodsMixin:
         if data["is_multiple"] and data["datatype"] == "text":
             ans = ans.split(data["multiple_seps"]["cache_to_list"]) if ans else []
             if data["display"].get("sort_alpha", False):
-                ans.sort(cmp=lambda x, y: cmp(x.lower(), y.lower()))
+                ans.sort(key=str.lower)
 
         # add future datatypes with an extra column here
         if data["datatype"] != "series":

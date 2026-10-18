@@ -21,18 +21,16 @@ from collections.abc import Callable, Iterable, Mapping
 from copy import deepcopy
 from typing import Any
 
-from LiuXin_alpha.databases.row import Row
+from LiuXin_alpha.metadata.containers._row_like import row_id, row_mapping
 from LiuXin_alpha.metadata.containers.metadata_containers.lazy_value_to_id import (
     LazyValueToID,
 )
 from LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_metadata import (
     LiuXinWEMIMetadata,
-    WemiLevel,
     WemiRelationKey,
     WemiRelationLink,
 )
 from LiuXin_alpha.metadata.standardize import standardize_id_name
-
 
 LegacyValueToIDLoader = Callable[[], Mapping[str, Any]]
 WemiRelationLoader = Callable[[], Iterable[WemiRelationLink]]
@@ -168,7 +166,9 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         :return: None.
         """
         level_key = self.normalize_wemi_level(level)
-        relation_key = self.get_wemi_metadata(level_key).validate_relation_name(relation_key)
+        relation_key = self.get_wemi_metadata(level_key).validate_relation_name(
+            relation_key
+        )
         loaders = object.__getattribute__(self, "_lazy_relation_loaders")
         loaders[(level_key, relation_key)] = loader
 
@@ -195,7 +195,9 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         :return: List of current links in the requested bucket.
         """
         level_key = self.normalize_wemi_level(level)
-        relation_key = self.get_wemi_metadata(level_key).validate_relation_name(relation_key)
+        relation_key = self.get_wemi_metadata(level_key).validate_relation_name(
+            relation_key
+        )
         loaders = object.__getattribute__(self, "_lazy_relation_loaders")
         loader = loaders.pop((level_key, relation_key), None)
         if loader is not None:
@@ -224,7 +226,9 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
             ``RELATION_KEYS``.
         :return: New list containing the link targets.
         """
-        return [link.target for link in self.get_wemi_relation_links(level, relation_key)]
+        return [
+            link.target for link in self.get_wemi_relation_links(level, relation_key)
+        ]
 
     def to_calibre(self) -> Any:
         """
@@ -324,9 +328,7 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         if fields is None:
             data = object.__getattribute__(self, "_data")
             fields = [
-                key
-                for key, value in data.items()
-                if isinstance(value, LazyValueToID)
+                key for key, value in data.items() if isinstance(value, LazyValueToID)
             ]
             if not object.__getattribute__(self, "_lazy_identifiers_loaded"):
                 fields.append("identifiers")
@@ -352,9 +354,7 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         """
         data = object.__getattribute__(self, "_data")
         fields = [
-            key
-            for key, value in data.items()
-            if isinstance(value, LazyValueToID)
+            key for key, value in data.items() if isinstance(value, LazyValueToID)
         ]
         if not object.__getattribute__(self, "_lazy_identifiers_loaded"):
             fields.append("identifiers")
@@ -661,10 +661,9 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         :return: First usable stripped text, or None.
         """
         mapping: Mapping[str, Any]
-        if isinstance(target, Row):
-            mapping = target.row_dict
-        elif isinstance(target, Mapping):
-            mapping = target
+        candidate_mapping = row_mapping(target)
+        if candidate_mapping is not None:
+            mapping = candidate_mapping
         elif isinstance(target, str):
             text = target.strip()
             return text or None
@@ -723,10 +722,9 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         :return: Converted id, or None.
         """
         mapping: Mapping[str, Any]
-        if isinstance(target, Row):
-            mapping = target.row_dict
-        elif isinstance(target, Mapping):
-            mapping = target
+        candidate_mapping = row_mapping(target)
+        if candidate_mapping is not None:
+            mapping = candidate_mapping
         else:
             mapping = {}
 
@@ -753,8 +751,9 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
                 return int(value)
             except (TypeError, ValueError, OverflowError):
                 continue
-        if isinstance(target, Row) and target.row_id is not None:
-            return int(target.row_id)
+        target_row_id = row_id(target)
+        if target_row_id is not None:
+            return int(target_row_id)
         return None
 
     def lazy_legacy_terms_from_relation(
@@ -822,10 +821,9 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         :param target: Rating Row or mapping; other objects provide no rating fields.
         :return: Source/value pair, or (None, None) when no rating is available.
         """
-        if isinstance(target, Row):
-            mapping = target.row_dict
-        elif isinstance(target, Mapping):
-            mapping = target
+        candidate_mapping = row_mapping(target)
+        if candidate_mapping is not None:
+            mapping = candidate_mapping
         else:
             mapping = {}
 
@@ -836,50 +834,16 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         if rating in (None, ""):
             return None, None
 
-        key = "calibre" if mapping.get("rating_for_calibre_tag_viewer") not in (None, "") else None
+        key = (
+            "calibre"
+            if mapping.get("rating_for_calibre_tag_viewer") not in (None, "")
+            else None
+        )
         if key is None and source not in (None, ""):
             key = str(source)
         if key is None:
             key = "rating"
         return key, rating
-
-    @classmethod
-    def from_database(
-        cls,
-        database: Any,
-        *,
-        item_id: int | None = None,
-        source_row: Mapping[str, Any] | Row | None = None,
-    ) -> "LazyLiuXinWEMIMetadata":
-        """
-        Build a lazy slice using the dedicated database hydrator.
-
-        Provide item_id or source_row. The returned loaders retain the caller-owned
-        database, which must remain usable for later reads.
-
-        Example:
-            Exercise this contract with pytest::
-
-                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
-
-
-        :param database: Caller-owned database/read source retained for metadata access; it
-            is not closed here.
-        :param item_id: Optional item row id; overrides an item id extracted from
-            source_row.
-        :param source_row: Database Row or source mapping supplying identity fields and
-            row-id hints.
-        :return: New lazy metadata slice.
-        """
-        from LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_lazy_metadata_hydrator import (
-            LazyLiuXinWEMIMetadataHydrator,
-        )
-
-        hydrator = LazyLiuXinWEMIMetadataHydrator(database)
-        return hydrator.get_lazy_liuxin_wemi_metadata(
-            item_id=item_id,
-            source_row=source_row,
-        )
 
     def __deepcopy__(self, memo: dict[int, Any]) -> "LazyLiuXinWEMIMetadata":
         """

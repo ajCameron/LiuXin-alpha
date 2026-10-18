@@ -16,7 +16,7 @@ from __future__ import annotations
 import os
 import typing as _typing
 
-from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.file_formats.conversion.plugin import InputFormatPlugin, OptionRecommendation
 from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
     choose_conversion_workdir,
 )
@@ -369,7 +369,7 @@ class TXTInput(InputFormatPlugin):
                 html = convert_basic(txt, epub_split_size_kb=flow_size)
 
             # Run the HTMLized text through the html processing plugin.
-            from LiuXin_alpha.customize.ui import plugin_for_input_format
+            from LiuXin_alpha.file_formats.plugin_runtime import plugin_for_input_format
 
             html_input = plugin_for_input_format("html")
             # Use the default encoding from the html input package
@@ -395,7 +395,7 @@ class TXTInput(InputFormatPlugin):
             os.remove(htmlfile.name)
 
             # Set metadata from file.
-            from LiuXin_alpha.customize.ui import get_file_type_metadata
+            from LiuXin_alpha.file_formats.plugin_runtime import get_file_type_metadata
             from LiuXin_alpha.file_formats.oeb.transforms.metadata import (
                 meta_info_to_oeb_metadata,
             )

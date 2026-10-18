@@ -22,7 +22,7 @@ class CCSetMethodsMixin:
     """
     Coordinate custom value writes with legacy cache and notification hooks.
 
-    Single and bulk writers delegate to _set_custom; the specialized text/multiple path uses temporary SQL tables. Existing adapter, macro and host-interface limitations propagate, including cleanup_tags failures for ordinary nonblank strings.
+    Single and bulk writers delegate to _set_custom; the specialized text/multiple path uses temporary SQL tables. Existing adapter, macro and host-interface limitations propagate.
 
     Example:
         On a compatible host, set_custom(owner_id, 4, num=column_id, commit=False) stages a scalar update and dirtying while leaving the final explicit commit to its caller.
@@ -39,10 +39,10 @@ class CCSetMethodsMixin:
         """
         Apply additions and removals to several editable text/multiple values.
 
-        Validate column editability/type, then clean both tag lists before checking empty owners or a no-op. Current CustomColumns.cleanup_tags fails for ordinary nonblank text. With a compatible override, exact additions win over identical removals, new values are inserted, fixed-name TEMP tables drive link changes, then owners are dirtied and committed before cache refresh. Temporary tables are not removed in a finally block, and one-shot owner iterators can be exhausted before later steps.
+        Validate column editability/type, then clean both tag lists before checking empty owners or a no-op. Tag normalization accepts text and bytes. Exact additions win over identical removals, new values are inserted, fixed-name TEMP tables drive link changes, then owners are dirtied and committed before cache refresh. Temporary tables are not removed in a finally block, and one-shot owner iterators can be exhausted before later steps.
 
         Example:
-            With a host supplying working tag cleanup and a reusable ID list, set_custom_bulk_multiple([1, 2], add=["Travel"], num=column_id) adds the tag to both owners.
+            With a host supplying a reusable ID list, set_custom_bulk_multiple([1, 2], add=["Travel"], num=column_id) adds the tag to both owners.
 
 
         :param cc_row_ids: Reusable owner-ID iterable; consumed by several database/cache/notification steps.
@@ -55,7 +55,6 @@ class CCSetMethodsMixin:
         :raises NotImplementedError: Neither label nor num is supplied.
         :raises KeyError: The selected metadata record is absent.
         :raises ValueError: The column is noneditable or not text/multiple.
-        :raises AttributeError: The current ordinary-string cleanup path attempts .decode on str.
         """
         if add is None:
             add = []

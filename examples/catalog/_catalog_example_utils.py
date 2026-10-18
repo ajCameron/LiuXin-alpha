@@ -29,7 +29,7 @@ from _example_utils import bootstrap_src_path, dump_json
 
 bootstrap_src_path()
 
-from LiuXin_alpha.catalog import Catalog
+from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.databases.database import Database
 
 

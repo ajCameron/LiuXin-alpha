@@ -43,7 +43,7 @@ def is_supported(path: _typing.Any) -> bool:
         operation.
     :return: True when the documented condition holds; otherwise False.
     """
-    from LiuXin_alpha.customize.ui import available_input_formats
+    from LiuXin_alpha.file_formats.plugin_runtime import available_input_formats
 
     ext = os.path.splitext(path)[1].replace(".", "").lower()
     ext = re.sub(r"(x{0,1})htm(l{0,1})", "html", ext)

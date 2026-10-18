@@ -11,14 +11,24 @@ Example:
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
 from pathlib import Path
 from uuid import UUID, uuid4
 
+from LiuXin_alpha.core.library_services import LibraryServices
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.library import Library
 from LiuXin_alpha.storage.stores import FilesystemStore
 from tests.support._surface_storage_tables import ensure_surface_asset_tables
+
+
+@contextmanager
+def _open_library(**kwargs):
+    """Yield the facade while LibraryServices owns its test resources."""
+
+    with LibraryServices.open(enable_maintenance=False, **kwargs) as lifecycle:
+        yield lifecycle.library
 
 
 def _insert_store_row(
@@ -88,7 +98,7 @@ def test_library_facade_stores_and_reads_assets_by_id_hash_and_location(
     managed_root = tmp_path / "managed_store"
     managed_root.mkdir(parents=True, exist_ok=True)
 
-    with Library(
+    with _open_library(
         database_path=db_path,
         db_type=driver_spec.db_type,
         create=True,
@@ -149,7 +159,7 @@ def test_library_facade_ingests_an_enumerable_store(
     source = FilesystemStore(tmp_path / "source")
     source.store_bytes(b"imported", location="incoming/book.epub")
 
-    with Library(
+    with _open_library(
         database_path=tmp_path / "store-ingest.sqlite",
         db_type=driver_spec.db_type,
         create=True,
@@ -196,7 +206,7 @@ def test_library_facade_registers_and_routes_unmanaged_disk(
     unmanaged_root.mkdir(parents=True, exist_ok=True)
     (unmanaged_root / "book.epub").write_bytes(b"ebook")
 
-    with Library(
+    with _open_library(
         database_path=db_path,
         db_type=driver_spec.db_type,
         create=True,
@@ -235,7 +245,7 @@ def test_library_replica_deletion_is_explicit_and_tombstoned(
     :return: None; the operation mutates state, writes output or performs cleanup in
         place.
     """
-    with Library(
+    with _open_library(
         database_path=tmp_path / "delete.sqlite",
         db_type=driver_spec.db_type,
         create=True,

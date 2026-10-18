@@ -22,7 +22,6 @@ import pprint
 import traceback
 import random
 import re
-import shutil
 import operator
 from io import BytesIO
 from functools import partial
@@ -137,7 +136,8 @@ from LiuXin_alpha.errors import NoSuchFormat
 from LiuXin_alpha.file_formats import check_ebook_format
 from LiuXin_alpha.file_formats.opf.opf2 import metadata_to_opf
 
-from LiuXin_alpha.metadata.utils import string_to_authors, author_to_author_sort
+from LiuXin_alpha.metadata.author_names import author_to_author_sort
+from LiuXin_alpha.metadata.utils import string_to_authors
 from LiuXin_alpha.metadata.book.base import calibreMetadata as Metadata
 from LiuXin_alpha.metadata.containers.book_metadata import BookMetadata as LiuXinMetadata
 
@@ -4308,7 +4308,7 @@ class CalibreCache(BaseCalibreCache):
     @read_api
     def data_for_find_identical_books(self):
         """
-        Return data that can be used to implement :meth:`find_identical_books` in a worker process without access to the db. See databases.utils for an implementation.
+        Return data that can be used to implement :meth:`find_identical_books` in a worker process without access to the db. See catalog.matching.legacy_books for the standalone policy.
 
         Example:
             Exercise CalibreCache.data for find identical books through a consuming regression::
@@ -4373,7 +4373,9 @@ class CalibreCache(BaseCalibreCache):
         :return: The normalized value, metadata record, path, stream result or collection
             described above.
         """
-        from LiuXin_alpha.databases.utils import fuzzy_title
+        from LiuXin_alpha.catalog.matching.title_normalization import (
+            normalise_fuzzy_title,
+        )
 
         identical_book_ids = set()
         if mi.authors:
@@ -4403,8 +4405,8 @@ class CalibreCache(BaseCalibreCache):
 
             for book_id in book_ids:
                 fbook_title = self.unlock.field_for("title", book_id)
-                fbook_title = fuzzy_title(fbook_title)
-                mbook_title = fuzzy_title(mi.title)
+                fbook_title = normalise_fuzzy_title(fbook_title)
+                mbook_title = normalise_fuzzy_title(mi.title)
                 if fbook_title == mbook_title:
                     identical_book_ids.add(book_id)
         return identical_book_ids
@@ -5005,63 +5007,5 @@ def loc_from_formats_field(formats_field, book_id, fmt):
         return loc
     except:
         raise NoSuchFormat("Record %d has no fmt: %s" % (book_id, fmt))
-
-
-# Todo: This needs to actually be written and tested for a calibre library
-def import_library(library_key, importer, library_path, progress=None, abort=None):
-    """
-    Perform the import library operation under explicit file-format and conversion rules.
-
-    Example:
-        Exercise import library through a consuming regression::
-
-            python -m pytest -q tests/library/test_unified_library.py
-
-
-    :param library_key: Value supplied for library key under the utility contract.
-    :param importer: Value supplied for importer under the utility contract.
-    :param library_path: Value supplied for library path under the utility contract.
-    :param progress: Value supplied for progress under the utility contract.
-    :param abort: Value supplied for abort under the utility contract.
-    :return: The normalized value, metadata record, path, stream result or collection
-        described above.
-    """
-    from LiuXin_alpha.library.backend import DB
-
-    metadata = importer.metadata[library_key]
-    total = metadata["total"]
-    if progress is not None:
-        progress("metadata.db", 0, total)
-    if abort is not None and abort.is_set():
-        return
-    with open(os.path.join(library_path, "metadata.db"), "wb") as f:
-        src = importer.start_file(metadata["metadata.db"], "metadata.db for " + library_path)
-        shutil.copyfileobj(src, f)
-        src.close()
-    cache = CalibreCache(DB(library_path, load_user_formatter_functions=False))
-    cache.init()
-    format_data = {int(book_id): data for book_id, data in metadata["format_data"].iteritems()}
-    for i, (book_id, fmt_key_map) in enumerate(format_data.iteritems()):
-        if abort is not None and abort.is_set():
-            return
-        title = cache._field_for("title", book_id)
-        if progress is not None:
-            progress(title, i + 1, total)
-        cache._update_path((book_id,), mark_as_dirtied=False)
-        for fmt, fmtkey in fmt_key_map.iteritems():
-            if fmt == ".cover":
-                stream = importer.start_file(fmtkey, _("Cover for %s") % title)
-                path = cache._field_for("path", book_id).replace("/", os.sep)
-                cache.backend.set_cover(book_id, path, stream, no_processing=True)
-            else:
-                stream = importer.start_file(fmtkey, _("{0} format for {1}").format(fmt.upper(), title))
-                size, fname = cache._do_add_format(book_id, fmt, stream, mtime=stream.mtime)
-                cache.fields["formats"].table.update_fmt(book_id, fmt, fname, size, cache.backend)
-            stream.close()
-        cache.dump_metadata({book_id})
-    if progress is not None:
-        progress(_("Completed"), total, total)
-    return cache
-
 
 # }}}

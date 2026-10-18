@@ -6,7 +6,8 @@ allowed metadata vocabulary, the FRBR generator should draw that constraint from
 
 ## Canonical homes
 
-- Database-constrained identifier vocabularies live in `LiuXin_alpha.databases.db_types`.
+- Identifier vocabularies live in `LiuXin_alpha.metadata.identifiers`.
+- MARC relator vocabulary lives in `LiuXin_alpha.metadata.relators`.
 - Shared additional-metadata-family vocabularies live in
   `LiuXin_alpha.metadata.constants.container_vocabularies`.
 - The FRBR generator is responsible for turning those canonical vocabularies into SQL
@@ -20,8 +21,8 @@ The following are already generator-aligned and active in the schema:
 - `entity_identifier_scheme` (constrained by entity type)
 - `item_identifier_scheme`
 
-These constraints are generated from `db_types`, not duplicated as hand-written SQL
-lists in the schema files.
+These constraints are generated from `metadata.identifiers`, not duplicated as
+hand-written SQL lists in the schema files.
 
 ## Prepared for future schema columns
 
@@ -53,7 +54,7 @@ concertising later, but it is not part of this stage.
 
 When adding a new DB-constrained metadata vocabulary:
 
-1. define the canonical values in the correct home;
+1. define the canonical values in metadata;
 2. teach the generator to substitute a placeholder from that canonical source;
 3. use the placeholder in the SQL file once the column actually exists;
 4. add a test proving the generated SQL contains the expected values.

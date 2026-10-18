@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 
 
 def _values(raw):
@@ -364,7 +364,7 @@ def test_extz_legacy_htmlz_expectations_via_plugin(md_test_fixture) -> None:
         operation.
     :return: None; the function records state or raises through its assertions.
     """
-    from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
+    from LiuXin_alpha.metadata.file_sources.builtin_readers import get_metadata_reader_plugins
 
     fixture = md_test_fixture(file_ext="htmlz", file_num=1, verify_hash=True)
     plugins = get_metadata_reader_plugins()
@@ -416,7 +416,7 @@ def test_extz_reader_plugins_available(md_test_fixture) -> None:
         operation.
     :return: None; the function records state or raises through its assertions.
     """
-    from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
+    from LiuXin_alpha.metadata.file_sources.builtin_readers import get_metadata_reader_plugins
 
     txtz_fixture = md_test_fixture(file_ext="txtz", file_num=1, verify_hash=True)
     classes = {p.__name__: p for p in get_metadata_reader_plugins()}

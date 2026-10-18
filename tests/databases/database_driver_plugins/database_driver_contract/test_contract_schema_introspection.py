@@ -410,7 +410,7 @@ def test_column_metadata_policy_is_complete_and_persisted(driver) -> None:
     metadata = driver.direct_get_column_metadata("tags", "tag")
 
     assert metadata.semantic_role is ColumnSemanticRole.TAXONOMY_TERM
-    assert metadata.normalization_profile is ColumnNormalizationProfile.TAG_SEARCH_TERM
+    assert metadata.normalization_profile is ColumnNormalizationProfile.UNICODE_NFKC_WHITESPACE_CASEFOLD
     assert metadata.comparison_column == "tag_phash"
     assert metadata.empty_value_policy is ColumnEmptyValuePolicy.NULL_OR_BLANK_IS_MISSING
     assert metadata.merge_policy is ColumnMergePolicy.SET_UNION

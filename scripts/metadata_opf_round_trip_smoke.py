@@ -226,7 +226,9 @@ def resolve_database(
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
-    explicit = _existing_path(database) or _existing_path(os.environ.get("LIUXIN_ISFDB_TEST_DB"))
+    explicit = _existing_path(database) or _existing_path(
+        os.environ.get("LIUXIN_ISFDB_TEST_DB")
+    )
     if explicit is not None:
         return explicit
 
@@ -331,7 +333,9 @@ def prepare_write_back_database(
     )
 
 
-def quiet_call(func: Callable[..., T], *args: object, quiet: bool = True, **kwargs: object) -> T:
+def quiet_call(
+    func: Callable[..., T], *args: object, quiet: bool = True, **kwargs: object
+) -> T:
     """
     Perform the quiet call operation under explicit file-format and conversion rules.
 
@@ -355,7 +359,9 @@ def quiet_call(func: Callable[..., T], *args: object, quiet: bool = True, **kwar
             return func(*args, **kwargs)
 
 
-def select_item_ids(db: Any, explicit_item_ids: Iterable[int], *, limit: int) -> tuple[int, ...]:
+def select_item_ids(
+    db: Any, explicit_item_ids: Iterable[int], *, limit: int
+) -> tuple[int, ...]:
     """
     Perform the select item ids operation under explicit file-format and conversion rules.
 
@@ -480,23 +486,37 @@ def round_trip_item(
         )
         after = metadata_snapshot(round_tripped)
         errors = list(compare_snapshots(before, after, strict=strict))
-        added_tags = tuple(str(tag).strip() for tag in write_back_add_tags if str(tag).strip())
+        added_tags = tuple(
+            str(tag).strip() for tag in write_back_add_tags if str(tag).strip()
+        )
         if write_back:
+            from LiuXin_alpha.catalog.catalog import Catalog
+
             _add_tags(round_tripped, added_tags)
             _progress(f"item {int(item_id)}: writing metadata back", enabled=progress)
             report = quiet_call(
-                round_tripped.write_to_database,
-                db,
+                Catalog(db).mutations.writer.write_container,
+                round_tripped,
                 fields=tuple(write_back_fields or ("tags", "series", "identifiers")),
                 item_id=int(item_id),
                 replace=write_back_replace,
                 quiet=quiet,
             )
             to_mapping = getattr(report, "to_mapping", None)
-            write_report = to_mapping() if callable(to_mapping) else {"repr": repr(report)}
-            for error in write_report.get("errors", ()) if isinstance(write_report, Mapping) else ():
+            write_report = (
+                to_mapping() if callable(to_mapping) else {"repr": repr(report)}
+            )
+            for error in (
+                write_report.get("errors", ())
+                if isinstance(write_report, Mapping)
+                else ()
+            ):
                 errors.append(f"write-back error: {error}")
-            if added_tags and isinstance(write_report, Mapping) and not write_report.get("changed"):
+            if (
+                added_tags
+                and isinstance(write_report, Mapping)
+                and not write_report.get("changed")
+            ):
                 errors.append("write-back did not apply requested tag additions")
         status = "OK" if not errors else "FAIL"
         _progress(
@@ -545,7 +565,9 @@ def metadata_snapshot(metadata: Any) -> dict[str, Any]:
         described above.
     """
     return {
-        "title": _scalar(_first_present(metadata, "title", "display_title", "canonical_title")),
+        "title": _scalar(
+            _first_present(metadata, "title", "display_title", "canonical_title")
+        ),
         "authors": _values(_first_present(metadata, "authors")),
         "tags": _values(_first_present(metadata, "tags")),
         "series": _values(_first_present(metadata, "series")),
@@ -689,7 +711,7 @@ def _metadata_facade() -> Any:
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
-    from LiuXin_alpha import metadata as metadata_facade
+    from LiuXin_alpha.catalog.retrieval import metadata as metadata_facade
 
     return metadata_facade
 
@@ -889,15 +911,23 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Smoke-test DB -> metadata -> OPF -> metadata against a real LiuXin database."
     )
-    parser.add_argument("database", nargs="?", default="", help="Explicit .test_db/.sqlite path.")
-    parser.add_argument("--database", dest="database_option", default="", help=argparse.SUPPRESS)
-    parser.add_argument("--data-root", default="", help="Data root containing test_databases/ bundles.")
+    parser.add_argument(
+        "database", nargs="?", default="", help="Explicit .test_db/.sqlite path."
+    )
+    parser.add_argument(
+        "--database", dest="database_option", default="", help=argparse.SUPPRESS
+    )
+    parser.add_argument(
+        "--data-root", default="", help="Data root containing test_databases/ bundles."
+    )
     parser.add_argument(
         "--bundle-name",
         default="",
         help="Specific ISFDB test database bundle. Defaults to the newest isfdb*.test_db found.",
     )
-    parser.add_argument("--db-type", default="sqlite", help="Database driver type. Default: sqlite.")
+    parser.add_argument(
+        "--db-type", default="sqlite", help="Database driver type. Default: sqlite."
+    )
     parser.add_argument(
         "--item-id",
         action="append",
@@ -905,17 +935,48 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default=[],
         help="Item id to smoke-test. Can be repeated. Defaults to the first --limit item rows.",
     )
-    parser.add_argument("--limit", type=int, default=1, help="Number of item rows to test when --item-id is omitted.")
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=1,
+        help="Number of item rows to test when --item-id is omitted.",
+    )
     parser.add_argument("--source", choices=("database", "cache"), default="database")
-    parser.add_argument("--lazy", action="store_true", help="Hydrate lazy metadata objects.")
-    parser.add_argument("--strict", action="store_true", help="Require tags, series, and identifiers to match exactly.")
-    parser.add_argument("--replace-metadata", action="store_true", help="Replace hydrated fields when applying OPF data.")
-    parser.add_argument("--default-lang", default=None, help="Default language to use when writing OPF.")
-    parser.add_argument("--opf-dir", default=None, help="Directory to write OPF files into.")
-    parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
-    parser.add_argument("--json-out", default=None, help="Optional path to write the JSON report.")
-    parser.add_argument("--no-quiet", action="store_true", help="Do not suppress noisy metadata/database output.")
-    parser.add_argument("--no-progress", action="store_true", help="Do not print progress messages to stderr.")
+    parser.add_argument(
+        "--lazy", action="store_true", help="Hydrate lazy metadata objects."
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Require tags, series, and identifiers to match exactly.",
+    )
+    parser.add_argument(
+        "--replace-metadata",
+        action="store_true",
+        help="Replace hydrated fields when applying OPF data.",
+    )
+    parser.add_argument(
+        "--default-lang", default=None, help="Default language to use when writing OPF."
+    )
+    parser.add_argument(
+        "--opf-dir", default=None, help="Directory to write OPF files into."
+    )
+    parser.add_argument(
+        "--json", action="store_true", help="Print machine-readable JSON."
+    )
+    parser.add_argument(
+        "--json-out", default=None, help="Optional path to write the JSON report."
+    )
+    parser.add_argument(
+        "--no-quiet",
+        action="store_true",
+        help="Do not suppress noisy metadata/database output.",
+    )
+    parser.add_argument(
+        "--no-progress",
+        action="store_true",
+        help="Do not print progress messages to stderr.",
+    )
     parser.add_argument(
         "--write-back",
         action="store_true",
@@ -956,7 +1017,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _report_mapping(results: list[MetadataOPFRoundTripResult], database_path: Path) -> dict[str, Any]:
+def _report_mapping(
+    results: list[MetadataOPFRoundTripResult], database_path: Path
+) -> dict[str, Any]:
     """
     Perform the report mapping operation under explicit file-format and conversion rules.
 
@@ -998,7 +1061,11 @@ def _print_text_report(report: Mapping[str, Any]) -> None:
     print("Round trips:", report["count"], "Failures:", report["failures"])
     for result in report["results"]:
         status = "OK" if result["ok"] else "FAIL"
-        title = result.get("after", {}).get("title") or result.get("before", {}).get("title") or "<untitled>"
+        title = (
+            result.get("after", {}).get("title")
+            or result.get("before", {}).get("title")
+            or "<untitled>"
+        )
         print(f"[{status}] item {result['item_id']}: {title}")
         for error in result.get("errors", ()):
             print("  -", error)
@@ -1067,7 +1134,9 @@ def main(argv: list[str] | None = None) -> int:
 
     report = _report_mapping(results, database_path)
     if args.json_out:
-        Path(args.json_out).write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
+        Path(args.json_out).write_text(
+            json.dumps(report, indent=2, sort_keys=True), encoding="utf-8"
+        )
     if args.json:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:

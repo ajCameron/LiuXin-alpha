@@ -37,7 +37,8 @@ and outstanding work, not as a replacement for the subsystem guides.
 ## Catalog and metadata
 
 - [Catalog API usage](catalog-api-usage.md), [matching policy](catalog-matching-policy.md),
-  and [cache boundary](catalog-cache-boundary.md).
+  [write-validation contract](catalog-write-validation-contract.md), and
+  [cache boundary](catalog-cache-boundary.md).
 - [Link writers](catalog-link-writer-architecture.md),
   [legacy mutation migration](catalog-legacy-mutation-migration.md),
   [fitness review](catalog-fitness-review.md), and [roadmap](catalog-roadmap.md).
@@ -103,6 +104,8 @@ and dated handoff before treating a sketch as a shipped contract.
 - [Whole-repository architecture review](architecture-review-2026-09-26.md):
   dated 2026-09-26 findings on lifecycle, layering, duplicate ownership, safety
   invariants and legacy containment, with a prioritised action list.
+- [Import-footprint ratchet](import-footprint-ratchet.md): dated runtime budgets
+  protecting passive package roots and reusable API/leaf imports.
 - [Project motivation](<01 - Introduction.md>), [top-level module notes](top-level-modules-notes.md),
   [earlier separation model](seperation_of_concerns.md),
   [ideas](thoughts.md), and [cross-project TODOs](global_todo.md).

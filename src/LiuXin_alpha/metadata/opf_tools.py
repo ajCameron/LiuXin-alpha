@@ -20,16 +20,17 @@ from typing import Any, Literal
 
 from LiuXin_alpha.file_formats.opf.opf import (
     _sanitize_metadata_for_xml,
+)
+from LiuXin_alpha.file_formats.opf.opf import (
     set_metadata as _set_opf_metadata,
 )
 from LiuXin_alpha.file_formats.opf.opf2 import metadata_to_opf as _metadata_to_opf
 from LiuXin_alpha.metadata.book.base import calibreMetadata as CoreCalibreMetadata
 from LiuXin_alpha.metadata.file_sources.opf import get_metadata as _get_opf_metadata
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 from LiuXin_alpha.utils.calibre_compat.ebooks.metadata.book.base import (
     Metadata as OPFCalibreMetadata,
 )
-
 
 OPFMetadataKind = Literal["calibre", "liuxin", "wemi"]
 
@@ -234,17 +235,14 @@ def liuxin_metadata_from_opf(source: Any) -> Any:
 def liuxin_wemi_metadata_from_opf(
     source: Any,
     *,
-    database: Any = None,
     item_id: int | None = None,
     source_row: Any = None,
-    replace_metadata: bool = False,
 ) -> Any:
     """
-    Parse legacy OPF fields, infer an item ID, and optionally overlay them onto database-hydrated WEMI metadata.
+    Parse legacy OPF fields and construct a persistence-free WEMI metadata slice.
 
-    Hydrate only when a database and an inferred ID or source row are supplied;
-    otherwise construct WEMI metadata from the parsed object. Attach ItemIdentity only
-    when an inferred ID exists and the result has no item database ID.
+    Attach ItemIdentity only when an inferred ID exists. Database hydration and
+    overlay policy belong to ``catalog.retrieval.metadata``.
 
     Example:
         Exercise the owning behavior with pytest::
@@ -253,13 +251,9 @@ def liuxin_wemi_metadata_from_opf(
 
 
     :param source: OPF source accepted by liuxin_metadata_from_opf.
-    :param database: Database-like source retained for metadata reads; this facade does
-        not close it.
     :param item_id: Explicit item ID, converted with int and preferred over source_row.
     :param source_row: Row object with a mapping row_dict, or mapping containing
         item_id.
-    :param replace_metadata: Overlay policy passed to smart_update when hydrating WEMI
-        from a database.
     :return: WEMI metadata container; OPF alone does not reconstruct the full WEMI
         graph.
     """
@@ -273,15 +267,7 @@ def liuxin_wemi_metadata_from_opf(
     opf_metadata = liuxin_metadata_from_opf(source)
     source_item_id = _item_id_from_inputs(item_id=item_id, source_row=source_row)
 
-    if database is not None and (source_item_id is not None or source_row is not None):
-        metadata = LiuXinWEMIMetadata.from_database(
-            database,
-            item_id=source_item_id,
-            source_row=source_row,
-        )
-        metadata.smart_update(opf_metadata, replace_metadata=replace_metadata)
-    else:
-        metadata = LiuXinWEMIMetadata(other=opf_metadata)
+    metadata = LiuXinWEMIMetadata(other=opf_metadata)
 
     if source_item_id is not None and metadata.get_database_id("item") is None:
         metadata.item = ItemIdentity(item_id=source_item_id)
@@ -293,17 +279,15 @@ def metadata_from_opf(
     source: Any,
     *,
     kind: OPFMetadataKind | str = "liuxin",
-    database: Any = None,
     item_id: int | None = None,
     source_row: Any = None,
-    replace_metadata: bool = False,
 ) -> Any:
     """
     Normalize a representation selector and dispatch to Calibre, LiuXin, or WEMI parsing.
 
     Accept calibre/calibre_metadata, liuxin/liu_xin/metadata, and
     wemi/liuxin_wemi/liu_xin_wemi. Case, outer whitespace, and hyphens are normalized.
-    Only WEMI parsing consumes database/overlay options; unknown selectors raise
+    Only WEMI parsing consumes optional identity hints; unknown selectors raise
     ValueError before reading the source.
 
     Example:
@@ -314,12 +298,8 @@ def metadata_from_opf(
 
     :param source: OPF path, bytes/bytearray, XML string, or readable stream.
     :param kind: Output representation, defaulting to liuxin.
-    :param database: Database-like source retained for metadata reads; this facade does
-        not close it.
-    :param item_id: Optional item identifier forwarded to the hydrator or OPF adapter.
-    :param source_row: Optional source row identifying the item or WEMI slice.
-    :param replace_metadata: Overlay policy passed to smart_update when hydrating WEMI
-        from a database.
+    :param item_id: Optional item identifier attached to WEMI output.
+    :param source_row: Optional row-like mapping used to infer the item identifier.
     :return: Metadata object in the selected representation.
     """
     normalized = str(kind).strip().lower().replace("-", "_")
@@ -330,10 +310,8 @@ def metadata_from_opf(
     if normalized in {"wemi", "liuxin_wemi", "liu_xin_wemi"}:
         return liuxin_wemi_metadata_from_opf(
             source,
-            database=database,
             item_id=item_id,
             source_row=source_row,
-            replace_metadata=replace_metadata,
         )
     raise ValueError(
         "Unknown OPF metadata kind {!r}. Expected 'liuxin', 'calibre', or 'wemi'.".format(
@@ -376,7 +354,9 @@ def _as_calibre_metadata(metadata: Any) -> OPFCalibreMetadata:
             clone = OPFCalibreMetadata(clone.title, clone.authors, other=clone)
         else:
             core_clone = calibreMetaInformation(clone)
-            clone = OPFCalibreMetadata(core_clone.title, core_clone.authors, other=core_clone)
+            clone = OPFCalibreMetadata(
+                core_clone.title, core_clone.authors, other=core_clone
+            )
 
     _normalize_calibre_for_opf(clone)
     return clone
@@ -401,7 +381,9 @@ def _normalize_calibre_for_opf(metadata: CoreCalibreMetadata) -> None:
         above.
     :return: None; updates the supplied object in place.
     """
-    title_sort = getattr(metadata, "title_sort", None) or getattr(metadata, "titlesort", None)
+    title_sort = getattr(metadata, "title_sort", None) or getattr(
+        metadata, "titlesort", None
+    )
     if title_sort:
         metadata.title_sort = title_sort
 

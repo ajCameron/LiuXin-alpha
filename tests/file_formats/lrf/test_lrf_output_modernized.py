@@ -458,9 +458,9 @@ def _install_fake_oeb_output(monkeypatch: pytest.MonkeyPatch, write_opf: bool = 
                 encoding="utf-8",
             )
 
-    fake_ui = types.ModuleType("LiuXin_alpha.customize.ui")
+    fake_ui = types.ModuleType("LiuXin_alpha.file_formats.plugin_runtime")
     fake_ui.plugin_for_output_format = lambda fmt: _OEBOutput() if fmt == "oeb" else None
-    monkeypatch.setitem(sys.modules, "LiuXin_alpha.customize.ui", fake_ui)
+    monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.plugin_runtime", fake_ui)
 
 
 def test_lrf_options_unicode_torture_sanitizes_text_fields() -> None:

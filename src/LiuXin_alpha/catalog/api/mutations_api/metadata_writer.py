@@ -4,10 +4,11 @@ Define coordinated WEMI and semantic metadata writer contracts.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from typing import Protocol, runtime_checkable
+from collections.abc import Iterable, Mapping, Sequence
+from typing import Any, Protocol, runtime_checkable
 
 from ..common import CreatedWemiStack, EntityId, RowInput, WemiLevel
+from .metadata_write import MetadataWriteReportAPI
 
 
 @runtime_checkable
@@ -15,15 +16,74 @@ class MetadataWriterAPI(Protocol):
     """
     Coordinate WEMI creation, links and selected metadata attachment/merge operations.
 
-    Explicit graph/replacement methods require macro transactions. Attachment
-    and merge methods also support legacy handles without a callable transaction,
-    where atomicity is not guaranteed. Policy checks are preliminary rather than
-    a complete validation of all repository payloads.
+    These public methods form the preferred boundary for coordinated semantic
+    writes; callers should not reproduce them with raw database operations.
+    Explicit graph/replacement methods require macro transactions. Attachment and
+    merge methods also support legacy handles without a callable transaction,
+    where atomicity is not guaranteed. Each method documents any remaining
+    validation or atomicity limitation rather than shifting responsibility to its
+    caller.
 
     Example:
         Attach a title and role-bearing Agent mapping through
         ``catalog.mutations.writer.attach_metadata`` for coordinated repository writes.
     """
+
+    def write_container(
+        self,
+        metadata: object,
+        *,
+        fields: Iterable[str] | None = None,
+        target_level: str | None = None,
+        item_id: int | None = None,
+        target_row: object | None = None,
+        replace: bool = False,
+        mark_dirty: bool = True,
+    ) -> MetadataWriteReportAPI:
+        """
+        Persist passive container values through the Catalog mutation boundary.
+
+        Example:
+            Use ``catalog.mutations.writer.write_container(metadata, fields=("tags",))``.
+
+
+        :param metadata: Passive metadata value source; it need not expose persistence.
+        :param fields: Supported relation fields, or None for shape-specific defaults.
+        :param target_level: Preferred WEMI target level.
+        :param item_id: Optional Item anchor used for WEMI resolution.
+        :param target_row: Optional explicit target row or identity mapping.
+        :param replace: Replace rather than append selected relationships.
+        :param mark_dirty: Mark a changed target dirty when supported.
+        :return: Report of Catalog-owned persistence effects.
+        """
+
+    def write_values(
+        self,
+        *,
+        item_id: int,
+        values: Mapping[str, object],
+        fields: Iterable[str] | None = None,
+        kind: str = "liuxin",
+        replace: bool = False,
+        target_level: str = "work",
+        mark_dirty: bool = True,
+    ) -> Mapping[str, Any]:
+        """
+        Apply public metadata values through Catalog and return a stable receipt.
+
+        Example:
+            Use ``catalog.mutations.writer.write_values(item_id=7, values={"tags": ["Gothic"]})``.
+
+
+        :param item_id: Item anchoring target-level resolution.
+        :param values: Nonempty supported field/value mapping.
+        :param fields: Explicit field selection, or None to use values keys.
+        :param kind: Metadata projection used for hydration.
+        :param replace: Replace rather than append selected relationships.
+        :param target_level: Preferred WEMI target level.
+        :param mark_dirty: Mark a changed target dirty when supported.
+        :return: Catalog write receipt and detailed report mapping.
+        """
 
     def create_wemi_stack(
         self,
@@ -62,7 +122,9 @@ class MetadataWriterAPI(Protocol):
             an explicit Work ID is not preserved, or link metadata cannot be represented.
         """
 
-    def attach_metadata(self, *, level: WemiLevel, entity_id: EntityId, data: RowInput) -> None:
+    def attach_metadata(
+        self, *, level: WemiLevel, entity_id: EntityId, data: RowInput
+    ) -> None:
         """
         Apply direct fields and attachment groups using an available macro transaction.
 
@@ -176,7 +238,9 @@ class MetadataWriterAPI(Protocol):
         :raises CatalogMutationError: The pair is not an adjacent downward WEMI relationship.
         """
 
-    def merge_entities(self, *, level: WemiLevel, source_id: EntityId, target_id: EntityId) -> None:
+    def merge_entities(
+        self, *, level: WemiLevel, source_id: EntityId, target_id: EntityId
+    ) -> None:
         """
         Fill missing target fields and transfer selected relationships before deleting the source.
 

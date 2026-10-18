@@ -70,6 +70,8 @@ jobs:
             tests/scripts/test_internal_type_contracts.py \
             tests/scripts/test_workflow_ownership.py \
             tests/scripts/test_check_modern_import_cycles.py \
+            tests/scripts/test_check_layer_direction.py \
+            tests/scripts/test_check_import_footprint.py \
             tests/surfaces/test_shared_surface_dependencies.py \
             tests/surfaces/test_cli_dependency_contracts.py \
             tests/surfaces/test_terminal_dependency_contracts.py \

@@ -424,7 +424,7 @@ def install_htmlz_input_pipeline_stubs(monkeypatch, metadata_info=None) -> HTMLZ
     """
     recorder = HTMLZInputPipelineRecorder(metadata_info=metadata_info)
 
-    fake_ui = types.ModuleType("LiuXin_alpha.customize.ui")
+    fake_ui = types.ModuleType("LiuXin_alpha.file_formats.plugin_runtime")
 
     def plugin_for_input_format(fmt: str):
         """
@@ -494,7 +494,7 @@ def install_htmlz_input_pipeline_stubs(monkeypatch, metadata_info=None) -> HTMLZ
 
     fake_meta_transform.meta_info_to_oeb_metadata = meta_info_to_oeb_metadata
 
-    monkeypatch.setitem(sys.modules, "LiuXin_alpha.customize.ui", fake_ui)
+    monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.plugin_runtime", fake_ui)
     monkeypatch.setitem(
         sys.modules,
         "LiuXin_alpha.file_formats.oeb.transforms.metadata",

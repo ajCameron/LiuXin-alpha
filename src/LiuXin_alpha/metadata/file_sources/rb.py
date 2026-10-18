@@ -15,7 +15,8 @@ from __future__ import annotations
 import os
 import struct
 
-from LiuXin_alpha.metadata.utils import calibreMetaInformation, string_to_authors
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
+from LiuXin_alpha.metadata.utils import string_to_authors
 from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types, six_unicode
 from LiuXin_alpha.utils.logging import default_log
 

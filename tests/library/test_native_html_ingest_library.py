@@ -76,7 +76,7 @@ def test_library_register_native_html_store(db, monkeypatch) -> None:
 
     monkeypatch.setattr(backend_module.NativeHtmlReadOnlyStorageBackend, "_fetch_url", _fake_fetch)
 
-    lib = Library(database=db, close_database_on_close=False)
+    lib = Library(database=db)
     report = lib.register_native_html_store(
         "https://example.com/library/",
         store_name="library_native_web_mirror",

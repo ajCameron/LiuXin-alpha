@@ -16,8 +16,8 @@ import os
 from datetime import date
 from typing import Any, Iterable, Mapping
 
-from LiuXin_alpha.customize import FileTypePlugin
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.plugin_system.file_types import FileTypePlugin
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 from LiuXin_alpha.utils.date import parse_only_date
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
@@ -276,7 +276,7 @@ def get_comic_book_info(d, mi, series_index: str = "volume"):
     comma-separated names are reversed, and valid publication years use mid-month dates.
 
     Example:
-        >>> from LiuXin_alpha.metadata.utils import calibreMetaInformation
+        >>> from LiuXin_alpha.metadata.book.base import calibreMetaInformation
         >>> mi = calibreMetaInformation(None, ['Unknown'])
         >>> get_comic_book_info({'title': 'Example', 'rating': 4}, mi)
         >>> mi.title, mi.rating

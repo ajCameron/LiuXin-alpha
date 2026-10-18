@@ -1226,12 +1226,18 @@ def register_existing_disk_with_database_path(
     :param attach_store_links: Whether to add supported primary links for accepted file rows.
     :param refresh_storage_manager: Whether to call available bootstrap_storage_manager(clear_existing=True) after the scan.
     :param progress_callback: Best-effort synchronous observer receiving the live mutable report.
-    :return: Registration report after successful database context exit.
+    :return: Registration report after successful delegated lifecycle-owner cleanup.
     """
-    from LiuXin_alpha.databases.database import Database
+    from LiuXin_alpha.core.library_services import LibraryServices
 
-    metadata = {"database_path": str(pathlib.Path(database_path))}
-    with Database(metadata=metadata, db_type=db_type, create=False, backup=False) as db:
+    with LibraryServices.open(
+        database_path=pathlib.Path(database_path),
+        db_type=db_type,
+        create=False,
+        backup=False,
+        enable_maintenance=False,
+    ) as lifecycle:
+        db = lifecycle.database
         return register_existing_disk_as_unmanaged_store(
             db,
             disk_path=disk_path,
@@ -1302,10 +1308,16 @@ def register_rclone_http_readonly_with_database_path(
     :param progress_callback: Best-effort synchronous observer receiving the live mutable report.
     :return: Delegated registration report after successful context exit.
     """
-    from LiuXin_alpha.databases.database import Database
+    from LiuXin_alpha.core.library_services import LibraryServices
 
-    metadata = {"database_path": str(pathlib.Path(database_path))}
-    with Database(metadata=metadata, db_type=db_type, create=False, backup=False) as db:
+    with LibraryServices.open(
+        database_path=pathlib.Path(database_path),
+        db_type=db_type,
+        create=False,
+        backup=False,
+        enable_maintenance=False,
+    ) as lifecycle:
+        db = lifecycle.database
         return register_rclone_http_readonly_store_files(
             db,
             remote_url=remote_url,

@@ -145,7 +145,7 @@ def get_pdf_printer(opts: _typing.Any, for_comic: bool = False, output_file_name
         described above.
     """
     _require_qt()
-    from LiuXin_alpha.surfaces.gui2 import must_use_qt
+    from LiuXin_alpha.file_formats.rendering import must_use_qt
 
     must_use_qt()
 
@@ -346,7 +346,7 @@ class PDFWriter(QObject):  # {{{
         :return: None; validated state is stored on the receiving object.
         """
         _require_qt()
-        from LiuXin_alpha.surfaces.gui2 import must_use_qt
+        from LiuXin_alpha.file_formats.rendering import must_use_qt
         from LiuXin_alpha.utils.podofo import get_podofo
 
         must_use_qt()

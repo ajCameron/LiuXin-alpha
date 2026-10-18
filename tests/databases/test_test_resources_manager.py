@@ -13,11 +13,13 @@ Example:
 from __future__ import annotations
 
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
 from uuid import UUID
 
 import pytest
 
+from LiuXin_alpha.core.library_services import LibraryServices
 from LiuXin_alpha.databases.database import Database
 from tests.support import test_resources_manager as trm
 
@@ -39,6 +41,21 @@ SEMANTIC_DB_NAMES = (
     "pathological_relations_db_0",
     "weird_data_db_0",
 )
+
+
+@contextmanager
+def _open_database_with_storage(*, database_path: Path, db_type: str):
+    """Yield a database while LibraryServices owns its complete storage graph."""
+
+    with LibraryServices.open(
+        database_path=database_path,
+        db_type=db_type,
+        create=False,
+        backup=False,
+        storage_startup_on_add=False,
+        enable_maintenance=False,
+    ) as lifecycle:
+        yield lifecycle.database
 
 
 def _relation_exists(conn: sqlite3.Connection, name: str) -> bool:
@@ -852,12 +869,9 @@ def test_stores_assets_db_0_provisions_real_store_backed_assets(provision_test_d
     finally:
         conn.close()
 
-    with Database(
-        metadata={"database_path": str(provisioned.db_path)},
+    with _open_database_with_storage(
+        database_path=provisioned.db_path,
         db_type=driver_spec.db_type,
-        create=False,
-        backup=False,
-        storage_startup_on_add=False,
     ) as db:
         assert db.storage is not None
         first_file = db.get_all_rows("files", iterator_return=False)[0]
@@ -911,12 +925,9 @@ def test_stores_assets_db_1_provisions_multi_store_assets(provision_test_databas
     finally:
         conn.close()
 
-    with Database(
-        metadata={"database_path": str(provisioned.db_path)},
+    with _open_database_with_storage(
+        database_path=provisioned.db_path,
         db_type=driver_spec.db_type,
-        create=False,
-        backup=False,
-        storage_startup_on_add=False,
     ) as db:
         assert db.storage is not None
         rows = db.get_all_rows("files", iterator_return=False)
@@ -988,12 +999,9 @@ def test_images_covers_db_0_provisions_cover_heavy_store_assets(provision_test_d
     finally:
         conn.close()
 
-    with Database(
-        metadata={"database_path": str(provisioned.db_path)},
+    with _open_database_with_storage(
+        database_path=provisioned.db_path,
         db_type=driver_spec.db_type,
-        create=False,
-        backup=False,
-        storage_startup_on_add=False,
     ) as db:
         assert db.storage is not None
         first_image = db.get_all_rows("images", iterator_return=False)[0]
@@ -1048,12 +1056,9 @@ def test_images_covers_db_1_provisions_cover_variants_and_gaps(provision_test_da
     finally:
         conn.close()
 
-    with Database(
-        metadata={"database_path": str(provisioned.db_path)},
+    with _open_database_with_storage(
+        database_path=provisioned.db_path,
         db_type=driver_spec.db_type,
-        create=False,
-        backup=False,
-        storage_startup_on_add=False,
     ) as db:
         first_image = db.get_all_rows("images", iterator_return=False)[0]
         got = _read_stored_bytes(

@@ -20,7 +20,7 @@ from threading import Event, Thread
 from typing import Mapping
 
 from LiuXin_alpha.file_formats.opf.opf2 import OPF, metadata_to_opf
-from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 from LiuXin_alpha.metadata.web_sources.base import dump_caches, load_caches
 from LiuXin_alpha.metadata.web_sources.covers import download_cover, run_download
 from LiuXin_alpha.metadata.web_sources.identify import identify

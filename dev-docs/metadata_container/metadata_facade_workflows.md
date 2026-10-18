@@ -1,26 +1,31 @@
-# Metadata Facade Workflows
+# Catalog Metadata Retrieval and Metadata OPF Workflows
 
-Date: 2026-05-07
+Date: 2026-05-07; ownership revised 2026-10-12
 Status: working guide / current caller contract
 
-This note describes the public workflow surface exposed from
-`LiuXin_alpha.metadata`. It is deliberately about caller behavior, not the full
-container internals.
+This note describes two explicit workflow surfaces. Database/cache hydration and
+persistence-aware OPF overlays belong to
+`LiuXin_alpha.catalog.retrieval.metadata`. Persistence-free OPF parsing and
+serialization belong to `LiuXin_alpha.metadata.facade`. The
+`LiuXin_alpha.metadata` package root remains passive.
 
-Use the top-level facade when code wants to:
+Use the explicit facade when code wants to:
 
 - hydrate metadata from a database or cache
 - choose WEMI, LiuXin, or Calibre-shaped metadata views
 - serialize metadata to OPF
 - hydrate metadata from OPF
-- write supported metadata changes back to a database
+
+Metadata objects are passive values. For supported metadata changes, pass them
+to the Catalog mutation writer; containers deliberately expose no database-write
+method.
 
 ## Main entry points
 
 The main read entry point is:
 
 ```python
-from LiuXin_alpha import metadata
+from LiuXin_alpha.catalog.retrieval import metadata
 
 md = metadata.metadata_from_database(db, item_id=1)
 ```
@@ -105,12 +110,14 @@ object materialized.
 
 ## OPF exchange
 
-OPF helpers are available through the same facade:
+Pure OPF helpers are available without Catalog or a database:
 
 ```python
-raw = metadata.metadata_to_opf_bytes(md)
-metadata.metadata_to_opf_file(md, "metadata.opf")
-from_opf = metadata.metadata_from_opf(raw, kind="wemi", database=db, item_id=1)
+from LiuXin_alpha.metadata import facade as metadata_values
+
+raw = metadata_values.metadata_to_opf_bytes(md)
+metadata_values.metadata_to_opf_file(md, "metadata.opf")
+detached = metadata_values.metadata_from_opf(raw, kind="wemi", item_id=1)
 ```
 
 OPF is an exchange format here, not a full persistence format for the WEMI
@@ -118,21 +125,41 @@ graph. It can preserve common book metadata such as title, authors, tags,
 series, publisher-ish fields, and identifiers, but it does not carry every
 database relation edge or internal provenance field.
 
-When hydrating WEMI from OPF, pass `database` and `item_id` when possible. That
-lets the OPF fields overlay an existing WEMI chain instead of creating a thin
-detached metadata object.
-
-## Database write-back
-
-Writing metadata back to the database is explicit:
+When OPF fields should overlay an existing WEMI chain, use the Catalog-owned
+retrieval surface:
 
 ```python
-report = md.write_to_database(
-    db,
+from_opf = metadata.metadata_from_opf(
+    raw,
+    kind="wemi",
+    database=db,
+    item_id=1,
+)
+```
+
+An already-composed Catalog exposes the same ownership as
+`catalog.retrieval.metadata.from_database(...)`, `.lazy_from_database(...)`,
+`.from_cache(...)`, and `.from_opf(...)`.
+
+## Catalog-owned write-back
+
+Writing metadata is explicit and Catalog-owned:
+
+```python
+from LiuXin_alpha.catalog.catalog import Catalog
+
+catalog = Catalog(db)
+report = catalog.mutations.writer.write_container(
+    md,
     fields=("tags", "series", "identifiers"),
     item_id=1,
 )
 ```
+
+Do not call a raw Database or macro API for this workflow. Database operations
+enforce representation and storage integrity, but perform no general metadata
+validity check. Catalog owns semantic validation, target resolution, transaction
+scope, and the write report.
 
 Supported write-back is relation/identifier focused. Current expected fields
 include:
@@ -152,8 +179,8 @@ identifier rows. Replace mode treats requested values as authoritative for the
 target row:
 
 ```python
-report = md.write_to_database(
-    db,
+report = catalog.mutations.writer.write_container(
+    md,
     fields=("tags", "identifiers"),
     item_id=1,
     replace=True,

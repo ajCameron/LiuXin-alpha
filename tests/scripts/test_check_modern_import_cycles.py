@@ -86,6 +86,21 @@ def test_current_modern_seams_are_acyclic() -> None:
     assert main([]) == 0
 
 
+def test_catalog_retrieval_and_cache_composition_are_protected() -> None:
+    """Keep both sides of the former Catalog/cache cycle in the strict clean zone."""
+    root = Path(__file__).resolve().parents[2] / "src"
+    inventory = collect_imports(root)
+    expected = {
+        "LiuXin_alpha.catalog.catalog",
+        "LiuXin_alpha.catalog.retrieval",
+        "LiuXin_alpha.catalog.retrieval.metadata",
+        "LiuXin_alpha.caches.cache",
+        "LiuXin_alpha.caches.read_cache",
+    }
+
+    assert expected <= set(inventory.modules)
+
+
 @pytest.mark.parametrize("package", ["cli", "terminal"])
 def test_surface_scope_includes_every_new_and_nested_owner(package: str) -> None:
     """
@@ -275,6 +290,74 @@ def test_relative_package_imports_resolve_and_prefixes_respect_boundaries(
     assert graph["demo.nested"] == {"demo.nested.leaf"}
     assert graph["demo.nested.leaf"] == {"demo", "demo.sibling"}
     assert graph["demo.sibling"] == {"demo.nested.leaf"}
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        '__import__("demo.leaf")',
+        'import importlib\nimportlib.import_module("demo.leaf")',
+        'import importlib as loader\nloader.import_module("demo.leaf")',
+        'from importlib import import_module\nimport_module("demo.leaf")',
+        'from importlib import import_module as load\nload("demo.leaf")',
+    ],
+)
+def test_literal_dynamic_imports_are_graph_edges(
+    tmp_path: Path, statement: str
+) -> None:
+    """Literal dynamic import calls participate in the dependency graph."""
+
+    _write(tmp_path / "demo/owner.py", statement + "\n")
+    _write(tmp_path / "demo/leaf.py", "")
+
+    inventory = collect_imports(tmp_path, protected_prefixes=("demo",))
+
+    assert inventory.graph()["demo.owner"] == {"demo.leaf"}
+    assert inventory.unresolved_dynamic == ()
+
+
+def test_unresolved_dynamic_imports_are_reported_separately(tmp_path: Path) -> None:
+    """Non-literal and relative dynamic imports remain visible without fake edges."""
+
+    _write(
+        tmp_path / "demo/owner.py",
+        "import importlib\n"
+        "name = 'demo.leaf'\n"
+        "importlib.import_module(name)\n"
+        "def later():\n"
+        "    return __import__(name)\n"
+        "importlib.import_module('.leaf', __package__)\n",
+    )
+    _write(tmp_path / "demo/leaf.py", "")
+
+    inventory = collect_imports(tmp_path, protected_prefixes=("demo",))
+
+    assert inventory.graph()["demo.owner"] == set()
+    assert [entry.expression for entry in inventory.unresolved_dynamic] == [
+        "name",
+        "name",
+        "'.leaf'",
+    ]
+    assert [entry.kind for entry in inventory.unresolved_dynamic] == [
+        ImportKind.IMPORT_TIME,
+        ImportKind.DEFERRED,
+        ImportKind.IMPORT_TIME,
+    ]
+
+
+def test_collector_honours_python_source_encoding(tmp_path: Path) -> None:
+    """The scanner reads encoding-cookie source through Python's tokenizer rules."""
+
+    owner = tmp_path / "demo/owner.py"
+    owner.parent.mkdir(parents=True, exist_ok=True)
+    owner.write_bytes(
+        b"# -*- coding: latin-1 -*-\nLABEL = 'Espa\xf1a'\nimport demo.leaf\n"
+    )
+    _write(tmp_path / "demo/leaf.py", "")
+
+    assert build_graph(tmp_path, protected_prefixes=("demo",))["demo.owner"] == {
+        "demo.leaf"
+    }
 
 
 def test_context_is_restored_after_branches_and_nested_bodies(tmp_path: Path) -> None:

@@ -41,7 +41,9 @@ for candidate in (str(REPO_ROOT), str(SRC_ROOT)):
     if candidate not in sys.path:
         sys.path.insert(0, candidate)
 
-from LiuXin_alpha.caches import Cache, CacheQuery, CacheSort, create_storage_cache  # noqa: E402
+from LiuXin_alpha.caches.api import CacheQuery, CacheSort  # noqa: E402
+from LiuXin_alpha.caches.cache import Cache  # noqa: E402
+from LiuXin_alpha.caches.cache_plugins import create_storage_cache  # noqa: E402
 from LiuXin_alpha.surfaces.web_readonly.app import _open_database  # noqa: E402
 
 

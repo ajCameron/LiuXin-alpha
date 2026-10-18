@@ -15,7 +15,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from LiuXin_alpha.caches import write
+import LiuXin_alpha.caches.write as write
 from LiuXin_alpha.databases.db_types import MANY_MANY, MANY_ONE, ONE_MANY
 
 SOURCE_ROOT = Path(__file__).resolve().parents[3] / "src"

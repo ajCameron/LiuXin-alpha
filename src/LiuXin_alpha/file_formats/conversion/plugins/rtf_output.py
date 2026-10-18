@@ -16,7 +16,7 @@ from __future__ import annotations
 import typing as _typing
 import os
 
-from LiuXin_alpha.customize.conversion import OutputFormatPlugin
+from LiuXin_alpha.file_formats.conversion.plugin import OutputFormatPlugin
 
 __license__ = "GPL 3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
