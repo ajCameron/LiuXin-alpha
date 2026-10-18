@@ -1,7 +1,19 @@
 # Working Memory Index
 
 Current branch: **architecture-review-followup**, based on `ce239fd4` from
-`configuration-ownership`. The [September architecture review](../dev-docs/architecture-review-2026-09-26.md)
+`configuration-ownership`. The new
+[documentation and project structural review](../dev-docs/architectural_reviews/documentation-structural-review-2026-10-18.md)
+covers both the pending documentation layout and current package architecture.
+It recommends preserving subsystem grouping, completing the existing path migration,
+and separating current contracts from decisions and history. The dated audit found
+47 missing local links, 86 links to locally available untracked evidence, and old
+path consumers in packaging, tests and source. The full report is also copied into
+the main checkout's requested `dev-docs/architectural_reviews/` folder; no existing
+user files or moves were changed. All 25 documentation tests pass in this isolated
+checkout, and the report's five links resolve in both trees. Next: reconcile newer
+contracts with pending moves, then complete and validate that path migration.
+
+The [September architecture review](../dev-docs/architecture-review-2026-09-26.md)
 now has dated status/evidence/remaining-work notes for all 68 findings, a concrete
 commit trail, current priorities and freshly checked graph/artifact/protection
 facts. All 25 existing documentation checks pass; all 53 review links resolve.
