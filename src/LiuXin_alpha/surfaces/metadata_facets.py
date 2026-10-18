@@ -10,8 +10,6 @@ from __future__ import annotations
 
 from typing import Optional
 
-from LiuXin_alpha.metadata.standardization import make_tag_search_term
-
 
 TAG_TOKENS = frozenset({"tag", "tags"})
 LABEL_TOKENS = frozenset({"label", "labels"})
@@ -115,60 +113,24 @@ def resolve_tag_or_label_table_token(token: str, tables: set[str]) -> Optional[s
     return None
 
 
-def tag_search_value(tag_text: str) -> str:
-    """
-    Normalize tag text for schema-compatible searching.
-
-    The shared normalization removes whitespace and lowercases text; it is not a
-    cryptographic hash despite legacy column names such as ``tag_phash``.
-
-    Example:
-        >>> tag_search_value("Science Fiction")
-        'sciencefiction'
-
-
-    :param tag_text: Tag display text accepted by the shared string normalizer.
-    :return: Whitespace-free lowercase search key.
-    """
-    return make_tag_search_term(tag_text)
-
-
 def tag_search_column_and_value(
-    table: str, columns: set[str], tag_text: str
+    db, table: str, columns: set[str], tag_text: str
 ) -> tuple[str, str]:
+    """Select a tag field and ask the database to derive any stored identity key.
+
+    Raw text schemas use exact display matching. When an identity column exists,
+    a missing or invalid declaration is an error; no local policy substitutes for it.
     """
-    Choose the schema-specific column and value for a tag search.
-
-    Tags use ``tag_phash`` when available, otherwise raw ``tag``. Labels prefer
-    normalized text, then hash, then raw text, then raw ``label``. The final raw
-    fallback column is assumed rather than checked; this is not schema validation.
-
-    Example:
-        >>> tag_search_column_and_value("tags", {"tag_phash"}, "Science Fiction")
-        ('tag_phash', 'sciencefiction')
-
-
-    :param table: Exact supported table name, ``tags`` or ``labels``.
-    :param columns: Available column names used to select the preferred search representation.
-    :param tag_text: Display text, normalized only for normalized/hash-column searches.
-    :return: Search column and normalized or original value appropriate to that choice.
-    :raises ValueError: If the table name is unsupported.
-    """
-    normalized = tag_search_value(tag_text)
     if table == "tags":
         if "tag_phash" in columns:
-            return "tag_phash", normalized
+            return "tag_phash", db.derive_identity_value("tags", "tag", tag_text)
         return "tag", tag_text
-
     if table == "labels":
-        if "label_text_norm" in columns:
-            return "label_text_norm", normalized
-        if "label_phash" in columns:
-            return "label_phash", normalized
-        if "label_text" in columns:
-            return "label_text", tag_text
-        return "label", tag_text
-
+        source = "label_text" if "label_text" in columns else "label"
+        for identity in ("label_text_norm", "label_phash"):
+            if identity in columns:
+                return identity, db.derive_identity_value("labels", source, tag_text)
+        return source, tag_text
     raise ValueError("Unsupported tag table: {!r}".format(table))
 
 
@@ -225,48 +187,16 @@ def tag_row_identity_column(table: str) -> str:
 def build_tag_row_payload(
     table: str, columns: set[str], tag_text: str
 ) -> dict[str, object]:
-    """
-    Build a schema-compatible payload for a new tag-like row.
-
-    Tags always receive raw ``tag`` text and optionally a normalized hash field.
-    Labels require ``label_text`` or ``label`` and receive any supported normalized
-    fields. Input text is retained for display; no uniqueness/existence check or
-    database write is performed.
-
-    Example:
-        >>> build_tag_row_payload("labels", {"label", "label_phash"}, "Science Fiction")
-        {'label': 'Science Fiction', 'label_phash': 'sciencefiction'}
-
-
-    :param table: Exact target family, ``tags`` or ``labels``.
-    :param columns: Schema columns controlling optional normalized fields and label text selection.
-    :param tag_text: Original display text and input to shared search normalization.
-    :return: New field-value mapping ready for the caller's insertion operation.
-    :raises ValueError: For an unsupported table or a labels schema lacking a supported text column.
-    """
-    normalized = tag_search_value(tag_text)
+    """Supply display text; Catalog owns derived identity fields on insertion."""
     if table == "tags":
-        row_dict: dict[str, object] = {"tag": tag_text}
-        if "tag_phash" in columns:
-            row_dict["tag_phash"] = normalized
-        return row_dict
-
+        return {"tag": tag_text}
     if table == "labels":
-        row_dict = {}
-        if "label_text" in columns:
-            row_dict["label_text"] = tag_text
-        elif "label" in columns:
-            row_dict["label"] = tag_text
-        else:
-            raise ValueError(
-                "`labels` table has no supported text column (`label_text`/`label`)."
-            )
-        if "label_text_norm" in columns:
-            row_dict["label_text_norm"] = normalized
-        if "label_phash" in columns:
-            row_dict["label_phash"] = normalized
-        return row_dict
-
+        for column in ("label_text", "label"):
+            if column in columns:
+                return {column: tag_text}
+        raise ValueError(
+            "`labels` table has no supported text column (`label_text`/`label`)."
+        )
     raise ValueError("Unsupported tag table: {!r}".format(table))
 
 
@@ -281,10 +211,11 @@ def search_tag_rows(db, table: str, tag_text: str) -> list[object]:
         >>> from unittest.mock import Mock
         >>> db = Mock()
         >>> db.get_column_headings.return_value = ["tag", "tag_phash"]
+        >>> db.derive_identity_value.return_value = "science fiction"
         >>> db.search.return_value = []
         >>> search_tag_rows(db, "tags", "Science Fiction")
         []
-        >>> db.search.assert_called_once_with("tags", "tag_phash", "sciencefiction")
+        >>> db.search.assert_called_once_with("tags", "tag_phash", "science fiction")
 
 
     :param db: Facade exposing column headings and column/value search.
@@ -293,7 +224,9 @@ def search_tag_rows(db, table: str, tag_text: str) -> list[object]:
     :return: List of all returned matching rows in backend order.
     """
     columns = set(db.get_column_headings(table))
-    search_column, search_value = tag_search_column_and_value(table, columns, tag_text)
+    search_column, search_value = tag_search_column_and_value(
+        db, table, columns, tag_text
+    )
     return list(db.search(table, search_column, search_value))
 
 
@@ -308,5 +241,4 @@ __all__ = [
     "tag_row_identity_column",
     "tag_row_text",
     "tag_search_column_and_value",
-    "tag_search_value",
 ]

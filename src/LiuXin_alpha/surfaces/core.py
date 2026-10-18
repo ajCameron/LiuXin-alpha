@@ -929,6 +929,46 @@ class CoreSurfaceModel:
         """
         return self.query_rows(str(table), limit=0).total_count
 
+    def derive_identity_value(self, table: str, value_column: str, value: Any) -> Any:
+        """Derive a lookup key using the catalogue's declared identity policy."""
+        result = _mapping(
+            self.client.query(
+                "schema.identity.derive",
+                payload={"table": table, "value_column": value_column, "value": value},
+            ),
+            label="schema.identity.derive result",
+        )
+        return result["identity_value"]
+
+    def find_identity_row(
+        self,
+        table: str,
+        value_column: str,
+        value: Any,
+        *,
+        scope_values: Mapping[str, Any] | None = None,
+    ) -> CoreRow | None:
+        """Resolve a declared identity and scope in Core, then fetch its row."""
+        result = _mapping(
+            self.client.query(
+                "schema.identity.resolve",
+                payload={
+                    "table": table,
+                    "value_column": value_column,
+                    "value": value,
+                    "scope_values": None
+                    if scope_values is None
+                    else dict(scope_values),
+                },
+            ),
+            label="schema.identity.resolve result",
+        )
+        identity = result["identity"]
+        if identity is None:
+            return None
+        identity = _mapping(identity, label="canonical identity")
+        return self.row(table, int(identity["row_id"]))
+
     def search(
         self,
         table: str,
@@ -1908,6 +1948,23 @@ class CoreDatabaseView:
         """
         rows = list(self.model.rows(table))
         return iter(rows) if iterator_return else rows
+
+    def derive_identity_value(self, table: str, value_column: str, value: Any) -> Any:
+        """Delegate identity derivation to the Core model without local policy."""
+        return self.model.derive_identity_value(table, value_column, value)
+
+    def find_identity_row(
+        self,
+        table: str,
+        value_column: str,
+        value: Any,
+        *,
+        scope_values: Mapping[str, Any] | None = None,
+    ) -> CoreRow | None:
+        """Find the canonical row without duplicating key or scope policy."""
+        return self.model.find_identity_row(
+            table, value_column, value, scope_values=scope_values
+        )
 
     def search(
         self,

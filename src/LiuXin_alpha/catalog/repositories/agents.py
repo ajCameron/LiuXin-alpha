@@ -134,7 +134,6 @@ class AgentRepository(BaseRepository):
         return payload
 
 
-
     def create_person(
         self,
         data: RowInput,
@@ -244,15 +243,11 @@ class AgentRepository(BaseRepository):
                 id_column="org_agent_id",
             )
             if parent_id is not None:
-                self._macros.insert_row(
-                    "org_agent_relations",
-                    {
-                        "org_agent_relation_child_agent_id": agent_id,
-                        "org_agent_relation_parent_agent_id": parent_id,
-                        "org_agent_relation_type": relation_type.strip(),
-                        "org_agent_relation_note": relation_note,
-                    },
-                    id_column="org_agent_relation_id",
+                self.relate_organisations(
+                    agent_id,
+                    parent_id,
+                    relation_type=relation_type,
+                    note=relation_note,
                 )
             self._attach_agent_metadata(
                 agent_id,
@@ -262,6 +257,39 @@ class AgentRepository(BaseRepository):
                 synopses=synopses,
             )
         return agent_id
+
+    def relate_organisations(
+        self,
+        child_id: EntityId,
+        parent_id: EntityId,
+        *,
+        relation_type: str = "imprint_of",
+        note: str | None = None,
+    ) -> EntityId:
+        """Link two organisation aggregates in the active transaction.
+
+        Require both subtype rows and a nonblank relation type. Repeating an
+        existing child/parent/type edge returns its ID without replacing its note.
+        Other validation or persistence errors propagate to the transaction owner.
+        """
+        if not isinstance(relation_type, str) or not relation_type.strip():
+            raise ValueError("relation_type must be a non-empty string")
+        identity = {
+            "org_agent_relation_child_agent_id": child_id,
+            "org_agent_relation_parent_agent_id": parent_id,
+            "org_agent_relation_type": relation_type.strip(),
+        }
+        with self._macros.transaction():
+            self._require_organisation(child_id)
+            self._require_organisation(parent_id)
+            existing = self._macros.get_rows("org_agent_relations", where=identity)
+            if existing:
+                return int(existing[0]["org_agent_relation_id"])
+            return self._macros.insert_row(
+                "org_agent_relations",
+                {**identity, "org_agent_relation_note": note},
+                id_column="org_agent_relation_id",
+            )
 
     def _agent_payload(self, data: RowInput, *, required_type: str) -> dict[str, object]:
         """

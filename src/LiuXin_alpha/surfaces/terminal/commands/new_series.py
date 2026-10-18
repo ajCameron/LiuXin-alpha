@@ -11,7 +11,6 @@ from typing import Optional
 
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.metadata.standardization import (
-    make_title_search_term,
     make_series_phash,
 )
 from LiuXin_alpha.metadata.title_names import title_to_title_sort
@@ -84,7 +83,7 @@ class NewSeriesWizardCommand(TerminalCommandAPI):
         """
         Validate prompted series data, create and reload the row, then optionally link the creator at priority zero.
 
-        Duplicate lookup uses phash when supported, otherwise series text. Optional
+        Duplicate lookup uses the declared series identity. Optional
         fields absent from the schema are omitted after prompting/validation.
         Creator-link lookup errors are treated as no link and followed by a new
         relation request. No rollback is attempted if reload, linking, or output
@@ -167,16 +166,12 @@ class NewSeriesWizardCommand(TerminalCommandAPI):
                     "No agent exists with agent_id={}.".format(creator_agent_id)
                 )
 
-        duplicate_column = "series_phash" if "series_phash" in columns else "series"
-        duplicate_term = (
-            series_phash if duplicate_column == "series_phash" else series_name
-        )
-        existing = browser.db.search("series", duplicate_column, duplicate_term)
-        if existing:
+        existing = browser.db.find_identity_row("series", "series", series_name)
+        if existing is not None:
             browser.emit(
                 "Possible duplicate series exists: series_id={} series={!r}".format(
-                    existing[0]["series_id"],
-                    existing[0]["series"],
+                    existing["series_id"],
+                    existing["series"],
                 )
             )
             proceed_duplicate = browser.prompt_yes_no(
@@ -211,8 +206,6 @@ class NewSeriesWizardCommand(TerminalCommandAPI):
         row_dict = {"series": series_name}
         if "series_sort" in columns:
             row_dict["series_sort"] = series_sort
-        if "series_name_norm" in columns:
-            row_dict["series_name_norm"] = make_title_search_term(series_name)
         if "series_phash" in columns:
             row_dict["series_phash"] = series_phash
         if "series_parent_id" in columns and parent_row is not None:

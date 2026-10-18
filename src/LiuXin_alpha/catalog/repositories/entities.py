@@ -39,7 +39,8 @@ class TagRepository(ExactEntityRepository):
     TAG_SPEC configures tags/tag_id, with name/text/value aliases for tag and phash for tag_phash.
     Candidate identity includes supplied tag and tag_phash; scalar exact searches only tag. Tag text
     uses NFKC/whitespace normalization and case-folding while preserving punctuation. CRUD remains
-    separate from matching, and no hash is derived by this repository.
+    separate from matching. Base CRUD derives persisted keys from the database identity
+    declarations, so callers cannot override a key independently of its source text.
 
     Example:
         >>> repository = TagRepository(None)
@@ -61,11 +62,10 @@ class LabelRepository(ExactEntityRepository):
     Store reusable operational Labels with supplied or derived normalized text.
 
     LABEL_SPEC configures labels/label_id. name/text/value address label_text and
-    normalized/normalised address label_text_norm. Create/update derive the norm from supplied text
-    only when the norm key is absent, preserving explicit None or custom values. Candidate identity
-    and scalar lookup can use text and norm; text comparison is case-folded and approximate fallback uses
-    the label_text policy field only when explicitly enabled. This class does not enforce
-    consistency between an explicit norm and its source text.
+    normalized/normalised address label_text_norm. Base CRUD derives the stored key from the
+    source text using the database identity declaration; explicit keys cannot override it.
+    Candidate matching and scalar lookup can use text and norm. Approximate fallback uses
+    the label_text matching field only when explicitly enabled and does not define storage keys.
 
     Example:
         >>> repository = LabelRepository(None)
@@ -136,11 +136,11 @@ class SubjectRepository(ExactEntityRepository):
 
 class SeriesRepository(ExactEntityRepository):
     """
-    Store hierarchical Series and derive missing normalized names for persistence.
+    Store hierarchical Series with schema-derived normalized names for persistence.
 
     SERIES_SPEC configures series/series_id. name/value address series, and normalized/normalised
     address series_name_norm; sort, phash, over_author, parent_id, parent_position, tree_id, and
-    full are also aliases. Supplied names derive a norm only when its key is absent. Candidate
+    full are also aliases. Base CRUD always derives keys from the declared source policy. Candidate
     identity covers name, normalized name, hash, and full name; series_sort is not an identity
     field. Scalar lookup searches the three name forms with case-folded exact comparison. Parent
     scope is optional, and approximate fallback uses series only when enabled.

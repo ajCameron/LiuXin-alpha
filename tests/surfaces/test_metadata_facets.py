@@ -16,7 +16,6 @@ from LiuXin_alpha.surfaces.metadata_facets import (
     search_tag_rows,
     tag_row_text,
     tag_search_column_and_value,
-    tag_search_value,
 )
 
 
@@ -33,7 +32,9 @@ class _FakeDb:
         (['tags'], 2)
     """
 
-    def __init__(self, *, tables, counts=None, columns=None, rows=None) -> None:
+    def __init__(
+        self, *, tables, counts=None, columns=None, rows=None, identities=None
+    ) -> None:
         """
         Copy configured schema/count/search fixtures and start an empty search-call log.
 
@@ -56,6 +57,13 @@ class _FakeDb:
         }
         self._rows = {key: list(value) for key, value in dict(rows or {}).items()}
         self.search_calls: list[tuple[str, str, str]] = []
+        self._identities = dict(identities or {})
+        self.identity_calls: list[tuple[str, str, str]] = []
+
+    def derive_identity_value(self, table, column, value):
+        """Return an explicitly configured policy result; missing declarations fail."""
+        self.identity_calls.append((table, column, value))
+        return self._identities[(table, column, value)]
 
     def get_tables(self):
         """
@@ -204,84 +212,60 @@ def test_resolve_tag_or_label_table_token(
 
 
 def test_tag_search_column_and_value_prefers_normalized_columns() -> None:
-    """
-    Check normalized tag/label column precedence and raw-text fallbacks for representative schemas.
-
-    Example:
-        >>> test_tag_search_column_and_value_prefers_normalized_columns()
-
-
-    :return: ``None`` when each tested schema chooses the intended column and value representation.
-    """
-    normalized = tag_search_value("Arabian Frights")
-
-    assert tag_search_column_and_value(
-        "tags", {"tag", "tag_phash"}, "Arabian Frights"
-    ) == ("tag_phash", normalized)
-    assert tag_search_column_and_value("tags", {"tag"}, "Arabian Frights") == (
-        "tag",
-        "Arabian Frights",
+    """Every key comes from the advertised policy, while raw searches stay exact."""
+    text = "Arabian Frights"
+    normalized = "custom declared key"
+    sources = [("tags", "tag"), ("labels", "label_text"), ("labels", "label")]
+    db = _FakeDb(
+        tables={"tags", "labels"},
+        identities={(table, column, text): normalized for table, column in sources},
     )
-    assert tag_search_column_and_value(
-        "labels", {"label_text", "label_text_norm"}, "Arabian Frights"
-    ) == ("label_text_norm", normalized)
-    assert tag_search_column_and_value(
-        "labels", {"label", "label_phash"}, "Arabian Frights"
-    ) == ("label_phash", normalized)
-    assert tag_search_column_and_value("labels", {"label_text"}, "Arabian Frights") == (
-        "label_text",
-        "Arabian Frights",
-    )
+    for table, source, identity in (
+        ("tags", "tag", "tag_phash"),
+        ("labels", "label_text", "label_text_norm"),
+        ("labels", "label", "label_phash"),
+    ):
+        assert tag_search_column_and_value(db, table, {source, identity}, text) == (
+            identity,
+            normalized,
+        )
+        assert tag_search_column_and_value(db, table, {source}, text) == (source, text)
+    assert db.identity_calls == [(table, source, text) for table, source in sources]
 
 
 def test_search_tag_rows_uses_shared_column_selection() -> None:
-    """
-    Verify tag searching returns configured rows and sends the normalized hash-column query.
-
-    Example:
-        >>> test_search_tag_rows_uses_shared_column_selection()
-
-
-    :return: ``None`` when both returned rows and the recorded search call match expectations.
-    """
-    normalized = tag_search_value("Arabian Frights")
+    """The declared identity drives the exact lookup without a second transformation."""
+    normalized = "custom declared key"
     rows = [{"tag": "Arabian Frights"}]
     db = _FakeDb(
         tables={"tags"},
         columns={"tags": ("tag", "tag_phash")},
+        identities={("tags", "tag", "Arabian Frights"): normalized},
         rows={("tags", "tag_phash", normalized): rows},
     )
-
     assert search_tag_rows(db, "tags", "Arabian Frights") == rows
+    assert db.identity_calls == [("tags", "tag", "Arabian Frights")]
     assert db.search_calls == [("tags", "tag_phash", normalized)]
 
 
+def test_search_tag_rows_propagates_missing_identity_policy() -> None:
+    """A missing declaration must not silently become a miss or a local rule."""
+    db = _FakeDb(tables={"tags"}, columns={"tags": ("tag", "tag_phash")})
+    with pytest.raises(KeyError):
+        search_tag_rows(db, "tags", "Arabian Frights")
+    assert db.search_calls == []
+
+
 def test_build_tag_row_payload_matches_current_tags_and_labels_columns() -> None:
-    """
-    Verify exact creation payloads for current tags and both supported legacy label text layouts.
-
-    Example:
-        >>> test_build_tag_row_payload_matches_current_tags_and_labels_columns()
-
-
-    :return: ``None`` when original text and schema-selected normalized fields are preserved.
-    """
-    assert build_tag_row_payload("tags", {"tag", "tag_phash"}, "Arabian Frights") == {
-        "tag": "Arabian Frights",
-        "tag_phash": tag_search_value("Arabian Frights"),
-    }
-    assert build_tag_row_payload(
-        "labels", {"label_text", "label_text_norm"}, "Arabian Frights"
-    ) == {
-        "label_text": "Arabian Frights",
-        "label_text_norm": tag_search_value("Arabian Frights"),
-    }
-    assert build_tag_row_payload(
-        "labels", {"label", "label_phash"}, "Arabian Frights"
-    ) == {
-        "label": "Arabian Frights",
-        "label_phash": tag_search_value("Arabian Frights"),
-    }
+    """Creation payloads contain source text and leave derived keys to Catalog."""
+    for table, source, identity in (
+        ("tags", "tag", "tag_phash"),
+        ("labels", "label_text", "label_text_norm"),
+        ("labels", "label", "label_phash"),
+    ):
+        assert build_tag_row_payload(table, {source, identity}, "Arabian Frights") == {
+            source: "Arabian Frights"
+        }
 
 
 def test_build_tag_row_payload_requires_legacy_label_text_column() -> None:

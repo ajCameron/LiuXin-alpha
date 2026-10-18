@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import queue as Queue
 
-from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
+from typing import Optional, Union, TYPE_CHECKING
 
 from copy import deepcopy
 
@@ -19,7 +19,6 @@ from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
 
 from LiuXin_alpha.metadata.standardization import make_creator_phash
 from LiuXin_alpha.metadata.standardization import make_series_phash
-from LiuXin_alpha.metadata.standardization import make_tag_search_term
 from LiuXin_alpha.metadata.standardization import standardize_creator_name
 from LiuXin_alpha.metadata.standardization import standardize_genre
 from LiuXin_alpha.metadata.standardization import standardize_language
@@ -725,73 +724,12 @@ class Ensure:
 
     @atomic_write
     def tag(self, tag_text: str) -> "RowAPI":
+        """Reuse or create a Tag through the catalogue's declared identity policy.
+
+        Lookup and creation share the enclosing transaction. Missing repository
+        capability and identity errors propagate; no alternate key is derived here.
         """
-        Resolve by search hash, then exact text, otherwise insert a Tag.
-
-        TypeError from hash generation becomes InputIntegrityError. Multiple
-        matches at either lookup raise; no lookup/create transaction is opened.
-
-        Example:
-            A unique phonetic/search-hash match wins before exact text is checked.
-
-
-        :param tag_text: Text preserved for insertion; make_tag_search_term derives the matching hash.
-        :return: Unique hash/text match or newly created Tag Row.
-        :raises InputIntegrityError: Hash generation rejects the input type.
-        :raises DatabaseIntegrityError: A hash or exact-text lookup has multiple matches.
-        """
-        # Makes a tag search term - searches the database for that tag search term - if it exists returns the
-        # appropriate row - if not, makes the row and then returns it.
-        owned_row = ensure_value(self, "tags", "tag", tag_text)
-        if owned_row is not None:
-            return owned_row
-        try:
-            tag_phash = make_tag_search_term(tag_text)
-        except TypeError as e:
-            err_str = "Type error while trying to ensure tag - tag was probably not a string"
-            err_str = default_log.log_exception(
-                err_str,
-                e,
-                "ERROR",
-                ("tag_text", tag_text),
-                ("type(tag)", type(tag_text)),
-            )
-            raise InputIntegrityError(err_str)
-
-        # Todo: Need a database with tag_phash, creator_phash e.t.c.
-        # Try matching on the phash
-        tag_phash_rows = self.db.search(table="tags", column="tag_phash", search_term=tag_phash)
-        if len(tag_phash_rows) == 1:
-            return tag_phash_rows[0]
-        elif len(tag_phash_rows) > 1:
-            err_str = "tag_phash matched to multiple tags - which shouldn't happen. Check the database"
-            err_str = default_log.log_variables(
-                err_str,
-                "ERROR",
-                ("tag_text", tag_text),
-                ("tag_phash", tag_phash),
-                ("tag_phash_rows", tag_phash_rows),
-            )
-            raise DatabaseIntegrityError(err_str)
-
-        # Try matching on the actual tag text - just in case
-        tag_rows = self.db.search(table="tags", column="tag", search_term=tag_text)
-        if len(tag_rows) == 1:
-            return tag_rows[0]
-        elif len(tag_rows) > 1:
-            err_str = "tag text matched to multiple tags - which shouldn't happen. Check the database"
-            err_str = default_log.log_variables(
-                err_str,
-                "ERROR",
-                ("tag_text", tag_text),
-                ("tag_phash", tag_phash),
-                ("tag_rows", tag_rows),
-            )
-            raise DatabaseIntegrityError(err_str)
-
-        # If this point has been reached the row cannot be matched - create a new one
-        tag_row = Row(database=self.db)
-        tag_row["tag"] = tag_text
-        tag_row["tag_phash"] = tag_phash
-        persist_row(self, tag_row)
-        return tag_row
+        row = ensure_value(self, "tags", "tag", tag_text)
+        if row is None:
+            raise InputIntegrityError("Tag identity requires the Catalog tag repository.")
+        return row
