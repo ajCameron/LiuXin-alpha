@@ -1,6 +1,15 @@
 # Working Memory Index
 
-Current branch: **configuration-ownership**, ready
+Current branch: **architecture-review-followup**, based on `ce239fd4` from
+`configuration-ownership`. The [September architecture review](../dev-docs/architecture-review-2026-09-26.md)
+now has dated status/evidence/remaining-work notes for all 68 findings, a concrete
+commit trail, current priorities and freshly checked graph/artifact/protection
+facts. All 25 existing documentation checks pass; all 53 review links resolve.
+This is a documentation-only branch. #122/#123 remain open; implemented work is
+explicitly distinguished from main. Work uses the isolated checkout so the main
+checkout's pending documentation moves and user edits remain intact.
+
+Previous branch: **configuration-ownership**, ready
 [PR #123](https://github.com/ajCameron/LiuXin-alpha/pull/123), based on #122.
 Core now owns profile selection and composes a single application preference store;
 profile paths and settings reach database bootstrap, dispatch and managed workers.

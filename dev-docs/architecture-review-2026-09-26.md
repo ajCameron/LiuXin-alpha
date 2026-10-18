@@ -2,7 +2,9 @@
 
 Date: 2026-09-26
 
-Status: Review findings and recommendations; no architecture changes implemented.
+Status: Historical review with a source-checked implementation follow-up dated
+2026-10-18. The original findings and line references are retained below; the
+dated status tables describe what is implemented and what remains.
 
 This review assesses the whole repository against the architecture described in
 [top-level structure](<02 - Top Level Structure.md>) and
@@ -16,7 +18,7 @@ particular refactor is safe. The dated handoff is in the
 enforcement. This was not a bug hunt, but the real defects it turned up are
 listed.
 
-**Evidence base**
+**Original evidence base (September review)**
 - Source: the pushed `codex/project-docstrings` branch at `01674d15`.
 - Method: eight parallel reviewers, one per subsystem. They used static
   analysis, AST scans and reading the code.
@@ -26,7 +28,96 @@ listed.
   were also compared with the unpushed working copy of 2026-09-26 (see
   *Evidence and limits*). Line numbers refer to `01674d15`.
 
-## Verdict
+## Current assessment — 2026-10-18
+
+Reviewed source: `ce239fd4` on `configuration-ownership`, including implementation
+commit `d59407f3`. This documentation branch, `architecture-review-followup`, starts
+there. **Implemented does not mean merged into main:** [#122][pr122] and
+[#123][pr123] are still open at this review. #119–#121 were merged into intermediate
+branches after #118 reached main; #122 carries those changes into main. #123 adds
+configuration ownership. Merge #122 first, then retarget #123 to main.
+
+The original diagnosis was useful, but its present-tense headline is now too broad:
+
+| September theme | Position at the reviewed checkpoint |
+|---|---|
+| Nobody owns lifecycle | `core.LibraryServices` now owns startup, rollback and teardown; `Library` borrows its collaborators and Database defaults to persistence-only construction. Legacy opt-ins, path wrappers and transaction-on-close behavior remain. |
+| Layer direction is aspirational | Whole-package checks now include deferred and literal dynamic imports, alongside cold-import budgets. Policy, hydration and conversion contracts have moved to their owners. Fifteen reviewed backward edges and a 217-module runtime component remain; passing a ratchet does not mean acyclic architecture. |
+| Several owners for one concept | Supported bibliographic writes and stored identities now converge on Catalog/schema-owned boundaries. Core owns category semantics, and #123 supplies one application settings store. Jobs, ingest coordination and overlapping registries remain open; unrelated component settings and per-library DBPrefs are intentionally distinct. |
+| Safety by convention | **Still a priority.** HTTP dispatch, physical deletion policy, compatibility-backend `read_only` forwarding and caller-owned backup staging cleanup retain the concrete gaps described below. Lifecycle and write consolidation did not fix these. |
+| Legacy code looks live | Proven dead definitions, copy artifacts, the unused Qt blob and broken Library facades were removed; the fixture caller migrated. Other compatibility code is live or directly tested. Import-graph unreachability alone is not evidence for deletion. |
+
+Status vocabulary in the subsystem updates: **Resolved** closes the named
+boundary/defect; **Partial** identifies completed work and an explicit remainder;
+**Open** means the cited issue is still present or its proposed change is not
+implemented. These are architectural assessments, not a claim of complete test
+coverage. Old counts, percentages and source line numbers below remain historical
+unless explicitly remeasured here.
+
+### Concrete change trail
+
+| Change | Commits and evidence |
+|---|---|
+| Library lifecycle | `472d71d0`; [opening-path review](lifecycle-opening-path-review-2026-10-09.md), [LibraryServices](../src/LiuXin_alpha/core/library_services.py), [failure/teardown regressions](../tests/core/test_library_services_lifecycle.py). |
+| Pure metadata policy and Catalog boundaries | `2709f504`, `862576cb`, `9ff593a2`; [layer migration record](../working-memory/layer-direction-ratchet-plan-2026-10-09.md), [Catalog write contract](catalog-write-validation-contract.md). Hydration is now in `catalog.retrieval`, and container vocabularies are metadata-owned. |
+| Canonical writes, identities and rollback | `5f085a13`, `18040e46`, `3a4934cc`, `f40881b6`; [write consolidation](../working-memory/catalog-write-consolidation-2026-10-15.md), [ownership follow-up](../working-memory/ownership-consolidation-2026-10-18.md), [real-backend parity](../tests/catalog/test_write_boundary_parity.py). The later follow-up supersedes the earlier PostgreSQL-pending note: SQLite, APSW and live PostgreSQL were exercised. |
+| Conversion/plugin containment | `f8723b96`, `f1bb7622`; [containment record](../working-memory/file-formats-containment-2026-10-13.md), [native runtime regressions](../tests/file_formats/test_plugin_runtime.py). |
+| Dead code, broken facades and cache defects | `06bf503d`, `af2cebd0`; [reachability disposition](../working-memory/unreachable-code-review-2026-10-16.md), [legacy fixes](../working-memory/legacy-review-fixes-2026-10-17.md). The later retirement of `library.legacy`/`backend` supersedes their earlier retained disposition. |
+| Connection cleanup and test storage pressure | `152991fa`, `5cc3d5f5`, `d70cabb8`, `819b0a67`; [telemetry and cleanup record](../working-memory/test-vm-telemetry-2026-10-17.md). Auxiliary handles close, completed scratch is reclaimed, and durable telemetry survives cleanup. This supports the storage-pressure diagnosis without proving the original VM crash cause. |
+| Category read semantics | `daa6a0ed`, [#121][pr121]; [read ownership record](../working-memory/catalogue-read-ownership-2026-10-18.md), [direct/HTTP parity tests](../tests/surfaces/test_category_read_ownership.py). |
+| Application configuration | `d59407f3`, [#123][pr123]; [configuration contract](configuration-ownership.md), [handoff](../working-memory/configuration-ownership-2026-10-18.md), [profile/worker regressions](../tests/preferences/test_configuration_ownership.py). |
+
+### Remaining work in priority order
+
+1. Close CO-4/SU-6's transport and capability boundaries; implement ST-1/ST-2's
+   deletion/read-only enforcement and ST-6's staging ownership. Test refusals at
+   the actual public boundaries, not only higher-level evacuation workflows.
+2. Finish DB-1/DB-2's low-level transaction/creation semantics and ST-3's storage
+   mutation ownership. A resource context and a transaction context need explicit,
+   different contracts. Remove the remaining lower-layer opening wrappers.
+3. Continue the focused ownership sequence with jobs, ingest and plugin
+   composition (CO-8, ST-5, UT-3/4/5), including restart, cancellation, remote logs
+   and priority order. Configuration propagation through workers is not durable
+   job-state ownership.
+4. Address the concrete remaining format failures and conversion reporting
+   (FF-3/4/7/8), then simplify retained metadata/cache compatibility boundaries.
+5. Remove tracked generated artifacts, fix CI environment/baseline failures and
+   enable required checks (RP-2/5/7). Keep documentation tied to behavior; do not
+   restart a bulk inventory campaign merely to refresh hashes.
+
+### Verification and limits of this follow-up
+
+The source and commit checks were read-only. A fresh whole-package inventory
+matches the checked-in ratchet: **1,798 modules, 15 backward edges, 28 unresolved
+dynamic imports**; largest domain/runtime/combined SCCs are **9/217/217**. No SCC
+contains both Catalog and caches. The narrower protected-cycle scope contains
+**243 modules**, so the old 12% figure must not be presented as the scope of the
+whole-package direction check. That check applies named direction rules, not a
+complete ban on every possible cross-package dependency.
+
+Git still tracks **47 ignored files, 134,661,257 bytes (128.4 MiB)**. The classic
+GitHub protection endpoint reports `Branch not protected`, and effective rules
+for `main` are empty as checked on 2026-10-18. These are freshly checked RP-2/RP-7
+facts, not inherited September assumptions.
+
+Earlier validation is attributed to its change record: 2,597 passing containment
+cases; 236 distinct passing write/identity cases; 331 passing read-model cases;
+943 passing configuration cases after the corrected follow-up. These selections
+overlap and must not be added together. The configuration quality gate passed.
+The integration PR's full run had 7,176 passes and 40 failures (eight missing
+repo-local Ruff, 22 missing encryption dependency, ten existing lazy-export/image
+backend failures). This is not a green full-suite claim. This documentation update
+does not rerun the application suite or certify native ICU, optional integrations,
+all missing imports, or every historical reachability/similarity count.
+
+For this documentation change, all **25 existing documentation link/boundary
+tests pass**. A separate check confirms that all **68 finding IDs** have exactly
+one dated status row and all **53 relative document/source links** resolve.
+The fresh graph/ignored-file inventory and test reports are retained in the main
+checkout's ignored `working-memory/test-results/architecture-review-20261018/`.
+No production source, existing inventory baseline or runtime policy was changed.
+
+## Original verdict (2026-09-26)
 
 The **modern seams are good**: portable macros, the typed plugin registries,
 the Catalog repository/matcher/writer split, the Core command envelope, the
@@ -74,7 +165,10 @@ named lifecycle ownership, storage bootstrapping in `Database`,
 metadata/catalog persistence, and configuration. This review confirms all four
 with evidence and shows each is broader than stated.
 
-## Priority actions
+## Original priority actions, with current disposition
+
+The proposals below are retained for traceability. Their current status follows
+the tables; they are not fourteen untouched tasks.
 
 ### Now: small, high value, low risk
 
@@ -105,7 +199,29 @@ with evidence and shows each is broader than stated.
 | 13 | Split StorageManager into constructor-injected services; fold `DriverWrapper` into `Database`; move `metadata/web_sources` out of `metadata`; put the web apps on a shared WSGI base rather than inheritance | ST-4, DB-5, CM-8, SU-5 |
 | 14 | Rescope the docstring campaign to modern packages, and derive staleness from git instead of committed per-file hashes | RP-3 |
 
+### Disposition of the original action list — 2026-10-18
+
+| Action | Current disposition |
+|---|---|
+| 1 | **Open:** HTTP transport still forwards generic commands/queries, including `invoke`; wire encoding is not authorization. |
+| 2 | **Open:** manager deletion lacks the proposed loss-policy guard; four compatibility builders still drop `read_only`. |
+| 3 | **Partial:** LRF registration is fixed. The discarded plugin priority sort, EMF import, exceptional Database exit and staging deletion remain. |
+| 4 | **Partial:** lifecycle, installed-wheel, focused import and cold-budget checks exist. There is no demonstrated replacement for the proposed comprehensive unresolved-static-import inventory. Do not blindly import modules that execute code on import. |
+| 5 | **Open:** tracked-ignored cleanup is unfinished (fresh count above). Test scratch cleanup and removal of dead source assets solve different problems. |
+| 6 | **Implemented core boundary, partial migration:** `LibraryServices` owns the graph and failure unwind; maintenance job scheduling and removal of lower-layer path wrappers remain. Storage table ownership is separate. |
+| 7 | **Implemented ratchets, remaining debt:** all package modules are scanned; literal dynamic/deferred edges and SCC measurements are checked. Reviewed exceptions remain explicit. |
+| 8 | **Implemented supported writes/identity boundary:** Core admin CRUD and compatibility adapters route through Catalog; persisted keys use declared policy. Admin authorization remains open. Audit/repair is collision-aware; the user explicitly excluded an old-schema migration/backfill project. No user database was migrated. |
+| 9 | **Partial:** hydrators moved to Catalog and category semantics moved to Core. Work/search/file/acquisition projections, server-side listing costs and some host coupling remain. |
+| 10 | **Implemented application settings boundary in #123:** `ConfigurationPaths` plus one Preferences store fulfill the role without a class named RuntimeSettings. Startup hooks and non-configuration scratch defaults remain. |
+| 11 | **Partial, revised approach:** proven dead code and unusable facades were retired, with wheel guards. Tested compatibility features were retained explicitly; wholesale quarantine/exclusion was not implemented. |
+| 12 | **Partial:** reusable contracts and standalone conversion assembly moved below application composition. The compatibility host is still named `customize`; other registry ownership remains. |
+| 13 | **Open:** StorageManager service decomposition, DriverWrapper folding, web acquisition relocation and shared web-app composition are not delivered by the owner moves. |
+| 14 | **Superseded as a scheduling proposal:** the broad docstring campaign completed in `8919fd57`; it was not rescoped as proposed. Hash/inventory maintenance remains a tooling decision, not a prerequisite to functional work. |
+
 ## Findings by subsystem
+
+The finding tables retain the September evidence and earlier dated amendments.
+Each following October status table is the current assessment at `ce239fd4`.
 
 Severity: **H** (undermines the stated architecture or makes cross-subsystem
 change unsafe), **M**, **L**.
@@ -124,6 +240,20 @@ change unsafe), **M**, **L**.
 | DB-8 | M | `databases` reads global preferences (title-sort, series-index tweaks) to compute stored values, while core uses per-library `DBPrefs` | `SQL/databasedriver/utils.py:583-607` |
 | DB-9 | L | The composite schema-version string is hand-bumped across three layers, with its format arguments in the wrong order | `SQLite/__init__.py:20-26` |
 
+#### DB status update — 2026-10-18
+
+| ID | Status | Concrete change and remaining action |
+|---|---|---|
+| DB-1 | Partial | [LibraryServices](../src/LiuXin_alpha/core/library_services.py) owns open/close and failure unwind; Database storage/maintenance defaults are off (`472d71d0`). Auxiliary connection cleanup was fixed in `152991fa`. **Still open:** `Database.__exit__` calls close without exception-sensitive rollback, and `create_new_database(blank=True)` can delete existing data. Separate lifecycle success from transaction/create safety. |
+| DB-2 | Partial | Catalog mutations, Row adapters and Agent aggregates now share macro transaction ownership; late-failure rollback is tested on SQLite/APSW/PostgreSQL (`18040e46`, `f40881b6`). `DriverWrapper.lock` is still a connection, legacy direct APIs remain, and close can commit. Audit/remove those escape routes rather than claiming one universal transaction API. |
+| DB-3 | Partial | Pure author/title sorting, identifier/language rules and WEMI/container vocabularies moved to metadata; matching policy moved to Catalog (`2709f504`, `9ff593a2`). [normalized_identities](../src/LiuXin_alpha/databases/normalized_identities.py) now selects schema declarations and delegates text normalization. Column-role/merge/display declarations remain in databases: distinguish schema metadata from residual bibliographic policy before moving more. |
+| DB-4 | Partial | Dead Library cache prototypes and broken facades were removed (`06bf503d`, `af2cebd0`). MetadataSQL is still instantiated by Database, legacy Calibre caches remain, and maintenance plugins still target `creators`. Map supported callers and migrate/retire these individually; the old 35k-line estimate is not a fresh inventory. |
+| DB-5 | Open | Database/DriverWrapper facade layers remain. Duplicate definitions were removed, but that does not collapse delegation or unify SQLite/APSW implementations. Consolidate only with backend contract/parity coverage. |
+| DB-6 | Open | Modern writes use the portable gateway, but legacy macro dialects and the large implementation remain. Inventory live legacy calls and migrate by capability; the September 74/102 count has not been rerun. |
+| DB-7 | Partial | Modern cache writes delegate through Catalog's write boundary; this removes competing preparation policy. The StorageCacheAPI link-table `update_db` contract and separate NumPy implementations remain. Document or reduce those roles; do not equate canonical persistence with a unified cache architecture. |
+| DB-8 | Partial | Author/title policy moved out of database utilities; #123 binds application preferences before bootstrap and dispatch, with profile-specific sort caches. DBPrefs remains intentionally library-local. Audit direct SQL-UDF and out-of-dispatch consumers for settings scope before claiming every global read is gone. |
+| DB-9 | Open | `get_SQLite_driver_master_version` still preserves the swapped/omitted version fields; documentation now describes it explicitly. Replace or retire this compatibility string with an actual schema-version contract. |
+
 ### core, library, ingest and jobs (CO)
 
 | ID | Sev | Finding | Key evidence |
@@ -137,6 +267,20 @@ change unsafe), **M**, **L**.
 | CO-7 | M | Many composition roots besides `SurfaceCoreSession`: `ingest/mixed_application.py`, `surfaces/cli/storage_audit.py` (via `importlib`), `core/workflow_jobs.py`, reconcile, `remote_html` and backup. Their maintenance defaults differ | `ingest/mixed_application.py:351-369`; `surfaces/core.py:203` |
 | CO-8 | M | Fragmented jobs and ingest. The durable `jobs/` package has no importers; the live system is an in-memory singleton in `utils/jobs`. Run state is persisted in four places. There are at least six ingest entry paths, and no live ingest path touches Catalog | `utils/jobs/__init__.py:17-18`; `jobs/repository.py` |
 | CO-9 | L | The terminal's local job-manager fallback is dead, and would show the wrong jobs against a remote Core | `surfaces/terminal/browser.py:151-152` |
+
+#### CO status update — 2026-10-18
+
+| ID | Status | Concrete change and remaining action |
+|---|---|---|
+| CO-1 | Partial | The missing wget utility import was corrected, Library is an injected facade, and lifecycle plus installed-wheel checks exercise real Core opening. Optional acquisition/format handling is still not a comprehensive import-everything guarantee. Retain explicit availability reporting and add a scoped missing-import inventory. |
+| CO-2 | Resolved | `472d71d0` introduced ExitStack-based graph ownership, compensating teardown, independent closer attempts and handler-locked shutdown. [Lifecycle regressions](../tests/core/test_library_services_lifecycle.py) cover failed opens, close failures, maintenance and borrowed databases. Job draining and transaction-on-close are separate CO-8/DB-1 follow-ups. |
+| CO-3 | Partial | The supported [Library facade](../src/LiuXin_alpha/library/library.py) now receives Catalog/storage/cache; eleven dead modules and `legacy`/`backend`/archive importer were retired, with fixture migration and wheel rejection. Retained metadata/cache helpers and Core's domain workflow responsibilities still need deliberate disposition. |
+| CO-4 | Open | [HTTP dispatch](../src/LiuXin_alpha/core/transport/http.py) still forwards names/payloads to runtime; [runtime](../src/LiuXin_alpha/core/runtime.py) registers `invoke` with only `transport_stable=False`. No request authentication/Origin/Content-Type enforcement closes this boundary. Restrict remotely callable capabilities and server-owned path/executable options; test denied requests. |
+| CO-5 | Open | Runtime still holds `_command_lock` around every handler, including waits and synchronous work. Move long operations/waits out of the shared critical section and define timeout/cancellation semantics; adding settings contexts did not change concurrency. |
+| CO-6 | Open | Multiple endpoint installers, storage surfaces and the privileged local runtime remain. Reconcile endpoint ownership and expose constrained clients; historical endpoint/stub counts need a new inventory before setting deletion targets. |
+| CO-7 | Partial | The [opening-path migration](lifecycle-opening-path-review-2026-10-09.md) routes jobs/audit through LibraryServices and makes mixed ingest consume an injected Library. Remote-HTML/reconcile path wrappers still open via a deferred Core dependency. Retire those wrappers and finish resolved-settings propagation through direct opening APIs. |
+| CO-8 | Open | Core still uses the in-memory `utils.jobs` manager alongside durable `jobs` repository/worker/scheduler contracts and several ingest coordinators. #123 propagates settings through threads/fork/spawn; it does not unify persistence, restart, cancellation or run state. This remains the next focused ownership programme. |
+| CO-9 | Open | The terminal still constructs a fallback `default_job_manager`, and job-view fallback code remains. Remove or explicitly restrict it to local operation; remote job status/logs must come from the selected Core. |
 
 ### storage (ST)
 
@@ -153,6 +297,18 @@ change unsafe), **M**, **L**.
 Good here: the driver → Store → registry layering; a single mechanical delete
 chokepoint in `driver_backed_api.py:1008-1027`; `CREATE_ONLY` defaults
 everywhere; and `database_repository.py` using only `db.macros`, with no SQL.
+
+#### ST status update — 2026-10-18
+
+| ID | Status | Concrete change and remaining action |
+|---|---|---|
+| ST-1 | Open | [remove_replica](../src/LiuXin_alpha/storage/storage_manager/mixins/replicas.py) still defaults to deleting bytes and reaches [router.delete](../src/LiuXin_alpha/storage/storage_manager/mixins/router.py) without mode/last-copy policy. Add one enforced loss-policy boundary with refusal tests across direct, Core and CLI paths. |
+| ST-2 | Open | Implementation moved to [utils/backend_registry](../src/LiuXin_alpha/storage/utils/backend_registry.py), but `_common` still forwards only name/UUID; managed, flat, Calibre-like and SQLite builders omit `read_only`. Forward and enforce it through each resulting Store, including delete/write refusal tests. |
+| ST-3 | Open | Reconcile still creates legacy `files`/`file_store_links`, and Core storage-graph CRUD still uses database macros. Catalog bibliographic consolidation does not make StorageManager the storage-table writer. Choose the storage mutation owner and reconcile cache/revision/transaction guarantees across all adapters. |
+| ST-4 | Open | Storage helpers moved and documentation improved, but the manager's mixin/shared-state design and durable mapping adapters remain; `storage/utils/store.py` still exists. Introduce cohesive injected services after mapping callers; old MRO/attribute counts are historical. |
+| ST-5 | Open | Crawler backends still depend on acquisition code in `ingest.sources`; registration/adoption paths remain split. Move acquisition orchestration above storage and retain backend adapters for byte access. Lifecycle delegation alone does not remove this cycle. |
+| ST-6 | Open | [Squashfs backup](../src/LiuXin_alpha/storage/backup/squashfs_backup_workflow.py) still calls `rmtree(self._builder.staging_root)` when cleanup is enabled, including an explicitly supplied root. Track owned scratch separately and prove unrelated caller files survive success/failure cleanup. |
+| ST-7 | Partial | Some storage helpers/aliases moved; `storage.backend_registry` is now an export surface over `storage.utils.backend_registry`, not another registry implementation. Remaining aliases and `storage_types.py` require caller-by-caller retirement decisions, not deletion based on the old filename list. |
 
 ### catalog and metadata (CM)
 
@@ -172,6 +328,20 @@ Good here: the protocol-only `catalog/api`; lazy, read-only matchers with an
 injected `MatchingPolicy`; the 41-line `catalog/write/host_api.py` leaf; and
 modern catalog using no raw SQL.
 
+#### CM status update — 2026-10-18
+
+| ID | Status | Concrete change and remaining action |
+|---|---|---|
+| CM-1 | Resolved | Core `metadata.write` enters Catalog's mutation writer; container writes and compatibility paths were subsequently routed through shared repositories/relationships (`862576cb`, `18040e46`, `f40881b6`). Real-backend rollback tests cover failures after earlier attachments. Keep this boundary protected. |
+| CM-2 | Resolved | [metadata.text_identity](../src/LiuXin_alpha/metadata/text_identity.py) owns pure profiles; database declarations select the stored policy, including `tag_phash`. Repository, driver, Row, macro and surface lookup paths now agree (`5f085a13`, `f40881b6`). Matching heuristics and sort presentation stay separate. Current-schema audit/repair remains; no old-schema import/backfill project is authorized or claimed. |
+| CM-3 | Resolved | The earlier write-only update is stale: containers are passive and hydration/read-source ownership also moved to [catalog.retrieval](../src/LiuXin_alpha/catalog/retrieval/metadata.py) in `9ff593a2`. Category read duplication was addressed in `daa6a0ed`; broader projection/performance work belongs to SU-1. |
+| CM-4 | Partial | Add/Ensure/Apply/Intralinker are still eagerly attached, but modern methods now adapt to `catalog.row_mutations`, repositories and relationships instead of independent sidecar persistence. Catalog/caches no longer share an SCC. Frozen SQL reference helpers remain explicitly tested; separate their retirement from supported convenience adapters. |
+| CM-5 | Open | Moving persistence and hydration clarifies ownership without eliminating the multiple metadata shapes. Define container/candidate/receipt conversion contracts and supported representations; the seven-shape count has not been re-inventoried. |
+| CM-6 | Partial | Author sort, title sort, language normalization and curated identifiers now have metadata owners (`2709f504`, `862576cb`); callers and tests moved with them. `standardize.py`/`standardization.py` and distinct legacy ISBN contracts remain. Consolidate only after specifying intentional behavior differences. |
+| CM-7 | Open | `catalog.field_metadata` still creates reviewed upward dependencies from custom columns and metadata book records/codecs. Its consumers are not all dead. Extract a lower-level descriptor contract or migrate live users before removing the compatibility implementation. |
+| CM-8 | Open | Web acquisition, worker/HTTP behavior and configuration remain in `metadata.web_sources`. Define a provider contract and move orchestration to the acquisition owner; the original line count is historical. |
+| CM-9 | Open / decision needed | `catalog.mutations.metadata_writer` still performs some macro link operations directly. Shared `CatalogRelationships` now owns other paths; decide which coordinated operations should delegate there and verify equivalent validation/transaction semantics. Do not force high-level aggregates through LinkWriter solely to reduce an owner count. |
+
 ### surfaces (SU)
 
 | ID | Sev | Finding | Key evidence |
@@ -184,6 +354,19 @@ modern catalog using no raw SQL.
 | SU-6 | M | "Read-only" is naming only. Read-only apps receive a full `CoreClientAPI`, the read-only base issues `storage.refresh`, and there is no auth or authorisation seam. The loopback guard exists only in `cli/serve.py` | `web_readonly/app.py:3766-3787,4178-4190` |
 | SU-7 | M | The terminal duplicates CLI operator features and reads job logs from the local filesystem, which breaks against a remote Core. Neither the terminal nor Tk has an installed entry point | `terminal/job_view.py:264-320` |
 | SU-8 | L | Test-only or dead code, and permanent alias modules | `thumbnail_cache.py`; `cli/storage.py` |
+
+#### SU status update — 2026-10-18
+
+| ID | Status | Concrete change and remaining action |
+|---|---|---|
+| SU-1 | Partial | `daa6a0ed` makes Core own category source/count/order/membership; surfaces adapt receipts, preserve errors and page remote results. [Parity tests](../tests/surfaces/test_category_read_ownership.py) cover tags/labels variants over direct and HTTP Core. Generic Work/search/file/acquisition projections, host callbacks, server-side materialization and non-atomic multi-read behavior remain outside that slice. |
+| SU-2 | Partial | Core `admin.row.*`, generic forms and compatibility writes now route known bibliographic mutations through Catalog, closing the semantic validation bypass. The large Core-to-legacy facade remains, and admin authorization is not implemented. Preserve validated adapters while narrowing privileges and reducing obsolete API emulation. |
+| SU-3 | Partial | Literal `importlib` calls are visible to the gates and CLI audit explicitly uses LibraryServices; mixed ingest consumes borrowed services. Terminal database commands still use raw `sqlite3`, and direct surface composition remains. Decide which operator actions are legitimate bootstrap boundaries and migrate the others to Core. |
+| SU-4 | Partial | Format rendering/comments moved below surfaces and now emit real image data (`f1bb7622`); broken `library.legacy` is gone. `surfaces.categories` still has a legacy cache caller, and metadata book rendering retains upward edges in the baseline. Remove those consumers/edges deliberately. |
+| SU-5 | Open | The read-only web base still underlies the application family by implementation inheritance. Shared category behavior reduces semantic duplication but is not a WSGI composition refactor; old method-similarity counts were not rerun. |
+| SU-6 | Open | Read-only applications still accept `CoreClientAPI` and issue `storage.refresh`. Introduce a read capability and enforce server-side authorization; loopback defaults are not that boundary. Coordinate with CO-4. |
+| SU-7 | Open | [Terminal job logs](../src/LiuXin_alpha/surfaces/terminal/job_view.py) still read a local Path. Add a Core log retrieval contract and decide the intended installed terminal/Tk launch experience; shared CLI operator code is a separate simplification. |
+| SU-8 | Partial | The retired `surfaces/cli/storage.py` facade now has an absence/owner guard (`e1308b65`); duplicate web definitions were removed. Retained thumbnail helpers and aliases need actual caller/contract evidence before further retirement. |
 
 ### file_formats (FF)
 
@@ -218,6 +401,19 @@ reduces the largest runtime and combined SCCs from 220 to 218. Remaining
 format-to-UI/customization edges are tracked separately rather than being
 disguised with dynamic imports.
 
+#### FF status update — 2026-10-18
+
+| ID | Status | Concrete change and remaining action |
+|---|---|---|
+| FF-1 | Resolved | `f8723b96` moved generic lifecycle to `plugin_system.base` and conversion contracts to `file_formats.conversion.plugin`; `f1bb7622` added standalone native assembly. Internal format callers no longer depend on the application host for these contracts; cold budgets and direction rules enforce it. Wider metadata/format cycles remain separate. |
+| FF-2 | Partial | LRF now registers `LRFInput`, with a regression against duplicate LIT entries, and real native HTML-to-EPUB/plugin runtime tests exercise assembly. Optional-provider failures can still be swallowed/logged and the compatibility host has ordering debt (UT-5). Make availability/failure reporting explicit. |
+| FF-3 | Open | The missing DOCX EMF import remains outside its `try` in [images.py](../src/LiuXin_alpha/file_formats/docx/images.py); the reviewed missing module is still absent. Containment and passing selected conversions do not certify the old 60-import list. Refresh that inventory, then fix/retire handlers with real format inputs rather than mocked missing modules. |
+| FF-4 | Partial | Headless rendering replaced format-to-surface shims and PNG serialization is real. [HTML2ZIP.run](../src/LiuXin_alpha/file_formats/html/to_zip.py) still raises that GUI conversion is unavailable. Implement resource-preserving headless import or explicitly disable/report this provider; Qt bootstrap remains separate. |
+| FF-5 | Open | OPF utilities moved to the format owner, but `opf/__init__.py` and `opf2.py`, plus duplicated top-level helpers, remain. Choose canonical implementations and migrate imports with parser/writer compatibility tests. |
+| FF-6 | Partial | The specific generic `metadata.utils` → OEB/OPF edge is removed (`9ff593a2`); helpers live in `file_formats.opf.utils`. Format readers and metadata providers still form a larger component (fresh whole-runtime SCC: 217). Define provider/record contracts before claiming the whole cycle resolved. |
+| FF-7 | Open | `run_conversion_job` still returns paths, format labels, existence and `size_bytes`, not the ConversionReport loss receipt. Carry structured loss/unsupported-feature results through job/Core/API contracts and establish production use for the edge registry. |
+| FF-8 | Partial | The reachability audit retired only proven dead code and retained formats/tools with direct tests or standalone entrypoints. The old 107-module count is not a safe deletion list. Input plugin execution still uses temporary process-CWD changes and cleanup; isolate concurrent conversions and verify caller-directory safety. |
+
 ### utils, customize and configuration (UT)
 
 | ID | Sev | Finding | Key evidence |
@@ -232,6 +428,21 @@ disguised with dynamic imports.
 | UT-8 | L | `utils/plugins/linux/images_rc.py` is a 7.5 MB, 114k-line PyQt5 resource blob with no importers | — |
 | UT-9 | L | The error hierarchy is split. `errors.ImportError` shadows the builtin. There are two unrelated `StorageError`s. `CoreError` sits outside the root | `errors.py:58` |
 | UT-10 | L | `startup_scripts` is dead but still has live side effects through `ptempfiles` | — |
+
+#### UT status update — 2026-10-18
+
+| ID | Status | Concrete change and remaining action |
+|---|---|---|
+| UT-1 | Partial | #123 makes application preferences lazy, path resolution non-writing and tweak inputs literal-only; imports no longer load/execute application settings. `startup_scripts.__init__` still modifies `sys.meta_path`/builtins through `utils.ptempfiles`. Remove that remaining startup dependency rather than claiming all foundation imports are inert. |
+| UT-2 | Resolved | [configuration.py](../src/LiuXin_alpha/configuration.py), Core settings composition and the shared Preferences view replace conflicting application stores/paths (`d59407f3`). Manifest selection reaches bootstrap, dispatch, workers and sort caches; INI owns ordinary writes. DBPrefs and component namespaces remain distinct by design. Process workers use copy semantics; singleton component lifetimes are still documented limitations. |
+| UT-3 | Partial | Inert package roots, explicit `customize.builtins.registry`, lower-level contracts and native format runtime remove the need for standalone conversion to initialize the application fleet. `customize.ui` still calls `initialize_plugins()` at import and catches provider failures. Finish host lifecycle/registry composition; 803 modules/140 plugins is a historical measurement. |
+| UT-4 | Partial | Generic lifecycle/file hooks/preferences and conversion/metadata providers now have explicit owners below the compatibility host. Database, storage, cache and terminal registries remain separate domains. Map duplicate discovery for the same capability before consolidating; do not merge independent registries merely because there are several. |
+| UT-5 | Open | `customize.ui` still discards `sorted(_initialized_plugins, ...)`; device-driver builtins still reference the removed package and registry assembly catches their failure. Fix observable provider ordering and retire or explicitly report unsupported devices. |
+| UT-6 | Partial | Author/title/identifier/language policy moved into metadata, including the broken author-sort utility; file-hook and rendering responsibilities moved to their owners. Other upward utility and calibre_compat dependencies remain. Continue by responsibility, with caller migration and import-budget checks. |
+| UT-7 | Partial | All six numbered copy artifacts were removed and wheel verification rejects them (`06bf503d`). Vendored forks and stale third-party copies remain; assess upstream replacement, local patches and licensing per library instead of treating them as one deletion batch. |
+| UT-8 | Resolved | Unused 7,497,537-byte `images_rc.py` was deleted in `06bf503d`; installed-wheel verification rejects its return. This does not resolve the separate Qt/Pillow compatibility failures. |
+| UT-9 | Open | The project error hierarchy and shadowing names were not consolidated. Define public exception families and compatibility/transport mapping before changing callers. |
+| UT-10 | Open | `ptempfiles` still imports `startup_scripts.prefs_folder_manager`, executing the package initializer. It is not entirely dead while that edge remains; move the needed folder helper and then retire the hook-bearing package. |
 
 ### repository, packaging, tests and enforcement (RP)
 
@@ -251,7 +462,24 @@ direction rules, self-tests, an honest scope statement), fresh-process import
 tests, an explicitly scoped wheel with an install-and-convert gate, and the
 repo-root hygiene guard in `tests/conftest.py`.
 
-## Reference tables
+#### RP status update — 2026-10-18
+
+| ID | Status | Concrete change and remaining action |
+|---|---|---|
+| RP-1 | Partial | The whole-package direction ratchet, literal dynamic-import analysis, SCC ceilings and 23 cold-import budgets are implemented; fresh metrics are above. The 243-module protected acyclic scope is a different measure. Fifteen backward edges and 28 unresolved dynamic imports remain, and cache source-direction policy is still deliberately undecided. |
+| RP-2 | Open | Fresh `git ls-files -ci --exclude-standard` plus object-size checks find 47 tracked ignored files (128.4 MiB). Telemetry cleanup reclaims runtime scratch but does not untrack these objects, scraper output or committed instance preferences. Review fixture/artifact ownership, remove generated tracked files and add the promised gate. History reclamation would be a separate decision. |
+| RP-3 | Partial / superseded | `8919fd57` completed the broad campaign; the completion record reports 1,372 units, 2,671 files and 42,166 declarations. Functional PRs now update affected docs. The per-file hash inventory still exists; completion is not adoption of the proposed git-derived staleness scheme. Avoid a new blanket hash-refresh exercise. |
+| RP-4 | Partial | The authoritative `test_db_6` fixture migrated off broken Library APIs, and its `src/LiuXin_tests` duplicate was deleted (`af2cebd0`). The rest of the legacy test tree still exists and remains wheel-excluded. Retire duplicates through the existing test-source-of-truth policy. |
+| RP-5 | Partial | Wheel guards now reject numbered copies, the Qt blob and retired Library paths; fresh installed-wheel checks previously passed. `past*` is still packaged, optional dependency expectations remain uneven, and current CI lacks encryption/Ruff in the full-suite environment. Audit packaging/dependency contracts independently of successful smoke conversion. |
+| RP-6 | Partial | Application settings now default to XDG/home locations with no import-time mkdir (#123). `constants.paths` still derives other scratch/debug folders from the base directory, which can fall back to CWD, and committed instance preferences remain. Finish operational-directory ownership without conflating it with application configuration. |
+| RP-7 | Open | Fresh GitHub checks confirm no classic main protection and no effective branch rules. CI includes architecture, wheel, format and full-suite lanes, but #122's full run is not green. Correct dependency setup and known failures, reconcile gate documentation, then require appropriate checks; duplicate lane coverage is still a scheduling decision. |
+| RP-8 | Open | Focused behavior coverage improved for lifecycle, caches, Catalog, read models and profiles. No tree-wide mirroring/private-access migration was done, and retired Library code makes the old coverage ratio obsolete. Prioritize public-boundary tests for live behavior rather than a cosmetic test-tree reshuffle. |
+
+## Reference tables (September snapshot)
+
+These tables describe `01674d15`, not the current tree. Fresh enforcement metrics
+are in the current assessment above; the configuration table is superseded by
+[the configuration ownership contract](configuration-ownership.md).
 
 ### Architectural enforcement coverage
 
@@ -285,7 +513,7 @@ The core program trees are covered separately by the workflow-ownership test.
 | `DBPrefs` | Per-library preferences via `core/services.py`; undocumented |
 | About 35 other `LIUXIN_*` / `CALIBRE_*` env vars | Scattered, often read at import time; the README lists 4 |
 
-## Evidence and limits
+## Original evidence and limits
 
 These claims were re-checked by hand in `01674d15`:
 
@@ -341,3 +569,7 @@ or the docstring inventory.
 - [Catalog legacy mutation migration](catalog-legacy-mutation-migration.md)
 - [Conversion pipeline sign-off](conversion_pipeline/conversion_pipeline_signoff.md)
 - [Working-memory handoff](../working-memory/code-review-2026-09-26.md)
+
+[pr121]: https://github.com/ajCameron/LiuXin-alpha/pull/121
+[pr122]: https://github.com/ajCameron/LiuXin-alpha/pull/122
+[pr123]: https://github.com/ajCameron/LiuXin-alpha/pull/123
