@@ -34,7 +34,7 @@ from LiuXin_alpha.surfaces.cli.storage_commands import (
     store_add,
     store_wizard,
 )
-from LiuXin_alpha.surfaces.system_profile import (
+from LiuXin_alpha.core.settings import (
     PROFILE_POINTER_FORMAT,
     apply_system_profile,
 )

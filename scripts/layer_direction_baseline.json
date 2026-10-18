@@ -43,7 +43,7 @@
     {"expression": "f'{qt_pkg}.QtGui'", "kind": "deferred", "line": 148, "source": "LiuXin_alpha.utils.image_tools.img_fallback"},
     {"expression": "f'{qt_pkg}.QtGui'", "kind": "deferred", "line": 177, "source": "LiuXin_alpha.utils.image_tools.img_fallback"},
     {"expression": "f'{qt_pkg}.QtCore'", "kind": "deferred", "line": 25, "source": "LiuXin_alpha.utils.image_tools.serialization"},
-    {"expression": "request.module_name", "kind": "deferred", "line": 189, "source": "LiuXin_alpha.utils.jobs.api"},
+    {"expression": "request.module_name", "kind": "deferred", "line": 191, "source": "LiuXin_alpha.utils.jobs.api"},
     {"expression": "name", "kind": "deferred", "line": 54, "source": "LiuXin_alpha.utils.libraries.liuxin_html5lib.treewalkers"},
     {"expression": "plat_pkg", "kind": "deferred", "line": 245, "source": "LiuXin_alpha.utils.plugins"},
     {"expression": "f'{qt_pkg}.QtCore'", "kind": "deferred", "line": 120, "source": "LiuXin_alpha.utils.plugins.fallbacks.imageops"},

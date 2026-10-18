@@ -1,11 +1,11 @@
 """
-Select deployment manifests, resolve local paths, and manage a per-user connection pointer for surfaces.
+Select deployment manifests, resolve local paths, and manage the per-user connection pointer for Core composition.
 
 Explicit selectors take precedence over environment selectors and the persisted
 connection. Bounded UTF-8 JSON reads validate manifest/pointer structure; they do
 not probe Core, open a database, or guarantee referenced paths exist. Named-profile
-pointers can chain to manifests with cycle detection. Deployment values are not
-application preferences, and path resolution is not confinement to a system root.
+pointers can chain to manifests with cycle detection. Deployment values select the application preference paths before Core opens
+resources, and path resolution is not confinement to a system root.
 
 Persistence writes only the selected manifest path and pointer metadata, not the
 manifest contents. Redaction is a limited display helper, not a comprehensive
@@ -19,13 +19,13 @@ import argparse
 import json
 import os
 import tempfile
-
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
+from LiuXin_alpha.configuration import ConfigurationPaths, user_configuration_directory
 
 SYSTEM_MANIFEST_NAME = "liuxin-system.json"
 SYSTEM_MANIFEST_FORMAT = "liuxin.system"
@@ -86,8 +86,8 @@ def default_named_profile_path(name: str) -> Path:
 
     Empty names, dot/dot-dot, and either slash separator are rejected. Other
     characters are not sanitized, and .json is appended even when already present.
-    A truthy XDG_CONFIG_HOME is expanded; otherwise use ~/.config. A relative
-    XDG_CONFIG_HOME remains relative here, and nothing is created or read.
+    A truthy XDG_CONFIG_HOME is expanded; otherwise use ~/.config. Relative XDG_CONFIG_HOME is resolved consistently with active-connection paths.
+    Nothing is created or read.
 
     Example:
         >>> default_named_profile_path(" research ").name
@@ -95,22 +95,18 @@ def default_named_profile_path(name: str) -> Path:
 
 
     :param name: Name converted to text and stripped before simple-name validation.
-    :return: Unresolved profile JSON path beneath the selected config root's liuxin/profiles directory.
+    :return: Absolute profile JSON path beneath the selected config root's liuxin/profiles directory.
     :raises ValueError: If the normalized name is empty, dot/dot-dot, or contains a path separator.
     """
 
     token = str(name).strip()
-    if not token or token in {".", ".."} or any(
-        separator in token for separator in ("/", "\\")
+    if (
+        not token
+        or token in {".", ".."}
+        or any(separator in token for separator in ("/", "\\"))
     ):
         raise ValueError("A named LiuXin profile must be a simple name.")
-    config_home = os.environ.get("XDG_CONFIG_HOME")
-    root = (
-        Path(config_home).expanduser()
-        if config_home
-        else Path.home() / ".config"
-    )
-    return root / "liuxin" / "profiles" / (token + ".json")
+    return user_configuration_directory() / "profiles" / (token + ".json")
 
 
 def named_profiles_directory() -> Path:
@@ -122,7 +118,7 @@ def named_profiles_directory() -> Path:
         'profiles'
 
 
-    :return: The selected config root's liuxin/profiles path, possibly relative under a relative XDG_CONFIG_HOME.
+    :return: The selected config root's liuxin/profiles path, resolved to an absolute path.
     """
 
     return default_named_profile_path("profile").parent
@@ -165,9 +161,8 @@ def active_connection_path() -> Path:
     """
     Resolve the per-user liuxin/active-connection.json location without requiring it to exist.
 
-    Use expanded XDG_CONFIG_HOME when truthy, otherwise ~/.config. Unlike named
-    profile path construction, this makes relative roots absolute and resolves
-    existing symlinks; it does not enforce confinement or create directories.
+    Use expanded XDG_CONFIG_HOME when truthy, otherwise ~/.config. Like named-profile path construction, this makes relative roots absolute and
+    resolves existing symlinks; it does not enforce confinement or create directories.
 
     Example:
         >>> active_connection_path().is_absolute()
@@ -177,9 +172,7 @@ def active_connection_path() -> Path:
     :return: Resolved path used for reading, replacing, or clearing the persisted selector.
     """
 
-    config_home = os.environ.get("XDG_CONFIG_HOME")
-    root = Path(config_home).expanduser() if config_home else Path.home() / ".config"
-    return (root / "liuxin" / ACTIVE_CONNECTION_NAME).resolve(strict=False)
+    return user_configuration_directory() / ACTIVE_CONNECTION_NAME
 
 
 def persisted_manifest_path() -> Path | None:
@@ -208,15 +201,14 @@ def persisted_manifest_path() -> Path | None:
         return None
     if len(content) > MAX_ACTIVE_CONNECTION_BYTES:
         raise ValueError(
-            "Persisted LiuXin connection exceeds the 64 KiB safety limit: {!s}."
-            .format(path)
+            f"Persisted LiuXin connection exceeds the 64 KiB safety limit: {path!s}."
         )
     try:
         raw = json.loads(content.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise ValueError(
-            "Invalid persisted LiuXin connection {!s}: {}; run `liuxin disconnect` "
-            "and connect again.".format(path, error)
+            f"Invalid persisted LiuXin connection {path!s}: {error}; run `liuxin disconnect` "
+            "and connect again."
         ) from error
     if not isinstance(raw, Mapping):
         raise ValueError("Persisted LiuXin connection must contain a JSON object.")
@@ -261,22 +253,23 @@ def persist_manifest_path(manifest: str | os.PathLike[str]) -> Path:
     selected = Path(manifest).expanduser().resolve(strict=False)
     if not selected.is_file():
         raise FileNotFoundError(
-            "Cannot persist a connection to a missing manifest: {!s}.".format(
-                selected
-            )
+            f"Cannot persist a connection to a missing manifest: {selected!s}."
         )
     path = active_connection_path()
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    payload = json.dumps(
-        {
-            "format": ACTIVE_CONNECTION_FORMAT,
-            "version": ACTIVE_CONNECTION_VERSION,
-            "manifest": str(selected),
-        },
-        ensure_ascii=True,
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8") + b"\n"
+    payload = (
+        json.dumps(
+            {
+                "format": ACTIVE_CONNECTION_FORMAT,
+                "version": ACTIVE_CONNECTION_VERSION,
+                "manifest": str(selected),
+            },
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        + b"\n"
+    )
     descriptor, temporary_name = tempfile.mkstemp(
         prefix=".active-connection-",
         suffix=".tmp",
@@ -388,8 +381,7 @@ def selected_manifest_path(
 
     if root_value:
         return (
-            Path(root_value).expanduser().resolve(strict=False)
-            / SYSTEM_MANIFEST_NAME,
+            Path(root_value).expanduser().resolve(strict=False) / SYSTEM_MANIFEST_NAME,
             source,
         )
     if profile_value:
@@ -428,7 +420,7 @@ def load_system_profile(
     None/empty-string tests. Endpoint syntax and reachability are not checked.
     Driver type is stripped, with falsey values defaulting to SQLite; non-None
     database_metadata must be a mapping. SQLite/APSW database paths and nonempty
-    root/store/materialization/log paths resolve relative to the final manifest,
+    root/store/materialization/log/preferences/config paths resolve relative to the final manifest,
     permitting missing targets and traversal outside its directory. Other database
     selectors remain unchanged. The outer selection source survives pointer chains.
 
@@ -463,9 +455,7 @@ def load_system_profile(
         return None
     path = path.resolve(strict=False)
     if path in _seen:
-        raise ValueError(
-            "LiuXin profile pointers contain a cycle at {!s}.".format(path)
-        )
+        raise ValueError(f"LiuXin profile pointers contain a cycle at {path!s}.")
     try:
         with path.open("rb") as stream:
             content = stream.read(MAX_SYSTEM_MANIFEST_BYTES + 1)
@@ -477,8 +467,8 @@ def load_system_profile(
             else ""
         )
         raise FileNotFoundError(
-            "LiuXin system manifest does not exist: {!s}; run `liuxin init` "
-            "or select another system.{}".format(path, connection_hint)
+            f"LiuXin system manifest does not exist: {path!s}; run `liuxin init` "
+            f"or select another system.{connection_hint}"
         ) from error
     if len(content) > MAX_SYSTEM_MANIFEST_BYTES:
         raise ValueError("LiuXin system manifest exceeds the 1 MiB limit.")
@@ -486,9 +476,7 @@ def load_system_profile(
         raw = json.loads(content.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise ValueError(
-            "Invalid UTF-8 JSON in LiuXin system manifest {!s}: {}".format(
-                path, error
-            )
+            f"Invalid UTF-8 JSON in LiuXin system manifest {path!s}: {error}"
         ) from error
     if not isinstance(raw, Mapping):
         raise ValueError("LiuXin system manifest must contain a JSON object.")
@@ -497,14 +485,11 @@ def load_system_profile(
         version = values.get("version")
         if type(version) is not int or version != PROFILE_POINTER_VERSION:
             raise ValueError(
-                "Unsupported LiuXin named-profile pointer version in {!s}."
-                .format(path)
+                f"Unsupported LiuXin named-profile pointer version in {path!s}."
             )
         manifest = values.get("manifest")
         if not isinstance(manifest, str) or not manifest.strip():
-            raise ValueError(
-                "LiuXin named-profile pointer has no manifest path."
-            )
+            raise ValueError("LiuXin named-profile pointer has no manifest path.")
         target = Path(manifest).expanduser()
         if not target.is_absolute():
             raise ValueError(
@@ -524,21 +509,19 @@ def load_system_profile(
             source=source or "profile",
         )
     if values.get("format") != SYSTEM_MANIFEST_FORMAT:
-        raise ValueError(
-            "Unsupported LiuXin system manifest format in {!s}.".format(path)
-        )
+        raise ValueError(f"Unsupported LiuXin system manifest format in {path!s}.")
     try:
         version_value = values.get("version", 0)
         if not isinstance(version_value, (str, int, float)):
             raise TypeError
         version = int(version_value)
     except (TypeError, ValueError) as error:
-        raise ValueError("LiuXin system manifest version must be an integer.") from error
+        raise ValueError(
+            "LiuXin system manifest version must be an integer."
+        ) from error
     if version != SYSTEM_MANIFEST_VERSION:
         raise ValueError(
-            "Unsupported LiuXin system manifest version {} in {!s}.".format(
-                version, path
-            )
+            f"Unsupported LiuXin system manifest version {version} in {path!s}."
         )
     database = values.get("database")
     endpoint = values.get("core_endpoint")
@@ -562,6 +545,8 @@ def load_system_profile(
     for name in (
         "system_root",
         "store_root",
+        "preferences_directory",
+        "config_directory",
         "materialization_root",
         "log_directory",
     ):
@@ -582,8 +567,9 @@ def apply_system_profile(args: argparse.Namespace) -> ResolvedSystemProfile | No
     A loaded profile replaces database, endpoint, driver type, and a shallow copy
     of connection metadata. Materialization/log paths are filled only if those
     attributes already exist and are None/empty; system/store roots and other
-    manifest fields are not copied. The final manifest path is recorded. Errors
-    propagate without rollback of namespace assignments already made.
+    manifest fields are not copied. Fixed application/component paths are attached
+    as configuration_paths for local Core composition; the final manifest path is
+    recorded. Errors propagate without rollback of namespace assignments already made.
 
     Example:
         >>> args = argparse.Namespace(core_endpoint="http://127.0.0.1:8080")
@@ -623,18 +609,21 @@ def apply_system_profile(args: argparse.Namespace) -> ResolvedSystemProfile | No
             "`liuxin connect`."
         )
     values = resolved.values
+    # This immutable path selection is passed into Core; it never mutates env
+    # or changes an already-open session's configuration.
+    args.configuration_paths = ConfigurationPaths.resolve(
+        system_root=resolved.system_root,
+        preferences_dir=values.get("preferences_directory"),
+        config_dir=values.get("config_directory"),
+    )
     args.database = values.get("database") or None
     args.core_endpoint = values.get("core_endpoint") or None
     args.db_type = str(values.get("db_type") or getattr(args, "db_type", "SQLite"))
-    setattr(
-        args,
-        "database_metadata",
-        dict(values.get("database_metadata") or {}),
-    )
+    args.database_metadata = dict(values.get("database_metadata") or {})
     for name in ("materialization_root", "log_directory"):
         if hasattr(args, name) and getattr(args, name, None) in (None, ""):
             setattr(args, name, values.get(name) or None)
-    setattr(args, "resolved_system_manifest", str(resolved.path))
+    args.resolved_system_manifest = str(resolved.path)
     return resolved
 
 
@@ -726,7 +715,7 @@ def _redact_url(value: str) -> str:
     except ValueError:
         return value
     if port is not None:
-        hostname += ":{}".format(port)
+        hostname += f":{port}"
     username = "" if parsed.username is None else parsed.username + ":<redacted>@"
     return urlunsplit(
         (parsed.scheme, username + hostname, parsed.path, parsed.query, parsed.fragment)

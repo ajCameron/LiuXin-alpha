@@ -1,22 +1,34 @@
 # Working Memory Index
 
-Current branch: **catalog-read-model-consolidation**, ready
-[PR #121](https://github.com/ajCameron/LiuXin-alpha/pull/121), a focused catalogue-category
-read follow-up to [PR #120](https://github.com/ajCameron/LiuXin-alpha/pull/120).
-The latest outcomes cover 331 distinct passing cases; project quality gates pass.
-See [catalogue read ownership](catalogue-read-ownership-2026-10-18.md) for the shared
-Core policy, surface adapters, validation and publication status.
+Current branch: **configuration-ownership**, the next focused ownership PR.
+Core now owns profile selection and composes a single application preference store;
+profile paths and settings reach database bootstrap, dispatch and managed workers.
+See [configuration ownership](configuration-ownership-2026-10-18.md) for details,
+validation and the remaining jobs/ingest/registry work. Latest targeted outcomes
+cover 943 passing cases; project quality gates pass. Serial telemetry retained at
+least 14.87 GiB of C: headroom with no swap use or OOM kills.
 
-Previous branch: **ownership-consolidation**, ready PR #120,
+[Integration PR #122](https://github.com/ajCameron/LiuXin-alpha/pull/122) brings the
+reviewed #119–#121 work into main: those PRs were merged into intermediate branches
+after #118 had already reached main. The configuration PR is stacked on #122.
+The stale storage-facade CI guard is fixed; integration checks and its architecture
+CI jobs pass. Its full suite has 40 failures: 30 CI dependency/setup failures and
+the ten previously recorded lazy-export/image-backend cases; see the handoff.
+
+Previous branch: **catalog-read-model-consolidation**, merged PR #121.
+Its latest outcomes cover 331 distinct passing cases; project quality gates pass.
+See [catalogue read ownership](catalogue-read-ownership-2026-10-18.md).
+
+Previous branch: **ownership-consolidation**, merged PR #120,
 a focused writes/normalisation follow-up to #119. Its focused runs now have 236 distinct passing cases, including 66
 write-boundary cases across SQLite, APSW and live PostgreSQL; all 18 previous
 write/normalisation failures are green. See
 [ownership consolidation](ownership-consolidation-2026-10-18.md) for the ownership
 map, validation and remaining work. The user selected
-separate PRs for the remaining read models, configuration and workflow/registry
-areas, and regards WSL as healthy after freeing storage.
+separate PRs for these ownership areas. Jobs, ingest and registry ownership remain
+after configuration. The user regards WSL as healthy after freeing storage.
 
-Previous diagnostic branch: **test-vm-telemetry**, PR #119 (based on ready PR #118).
+Previous diagnostic branch: **test-vm-telemetry**, merged PR #119 (based on #118).
 See [test VM telemetry](test-vm-telemetry-2026-10-17.md) for the isolated branch,
 crash investigation evidence and opt-in durable test/resource logs. All collected
 cases are covered across two serial segments: 8,196 passed, 29 failed, 87 skipped,
@@ -55,6 +67,10 @@ Updated: 2026-10-18
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [configuration-ownership-2026-10-18.md](configuration-ownership-2026-10-18.md)
+  Core selection, unified application settings, isolated paths/workers, literal
+  tweak inputs and the integration/configuration PR sequence.
 
 - [catalogue-read-ownership-2026-10-18.md](catalogue-read-ownership-2026-10-18.md)
   Shared category sources/counts, bounded surface pages, error preservation and

@@ -20,7 +20,7 @@ from unittest.mock import Mock
 import pytest
 
 from LiuXin_alpha.surfaces import presentation
-from LiuXin_alpha.surfaces import system_profile as profiles
+from LiuXin_alpha.core import settings as profiles
 from LiuXin_alpha.surfaces.acquisition_types import CoreStoredFile
 
 
@@ -100,11 +100,11 @@ def test_named_path_normalization_and_relative_xdg_root(
     monkeypatch.setenv("XDG_CONFIG_HOME", "relative-config")
     assert profiles.default_named_profile_path(" reading ") == Path(
         "relative-config/liuxin/profiles/reading.json"
-    )
+    ).resolve()
     assert (
         profiles.default_named_profile_path("reading.json").name == "reading.json.json"
     )
-    assert not profiles.named_profiles_directory().is_absolute()
+    assert profiles.named_profiles_directory().is_absolute()
     assert profiles.active_connection_path() == (
         Path.cwd() / "relative-config/liuxin/active-connection.json"
     )

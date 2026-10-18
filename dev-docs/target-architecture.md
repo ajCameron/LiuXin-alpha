@@ -114,7 +114,7 @@ Supporting decisions (2026-09-28):
   environment, manifest or profile) and defaults. It then passes that object to
   `LibraryServices.open` and down to lower layers. How precedence works, and
   what happens to the legacy preference and tweak stores, is left to the
-  configuration decision area.
+  [configuration ownership contract](configuration-ownership.md).
 - **Multiple libraries stay possible.** Core keeps `LibraryServices` instances
   in a registry keyed by library identity, with a single default library today.
   New APIs should take or resolve a library rather than assume one global
@@ -203,10 +203,11 @@ with nothing below `core` importing it.
 - **`library` holds only the facade.** Of its 51 modules, 46 are unreachable
   from Core or surfaces: the legacy Calibre cache, `legacy`, `backend`,
   `restore` and so on. They should move to a quarantined legacy package.
-- **Settings resolution moves into core.** The manifest and profile resolver in
-  `surfaces/system_profile.py` becomes core's settings resolver, and surfaces
-  keep only argument parsing. This reverses the current placement, where
-  deployment manifests are owned only by surfaces.
+- **Core owns settings resolution.** `core/settings.py` selects manifests and
+  profiles. Surfaces retain argument parsing; `create_core` composes the selected
+  preference store before opening resources. See the
+  [configuration ownership contract](configuration-ownership.md) for precedence,
+  path isolation, literal tweak inputs and worker propagation.
 - **Lower-layer helpers that open a database by path change signature.** They
   take handles instead. This covers:
   - `storage/reconcile/store_db_sync.py`;
@@ -251,7 +252,7 @@ Each step should leave the full test suite green.
      a default library.
    - The per-library parts of `CoreServices` move across.
    - Shutdown becomes ordered and locked, with collected errors.
-4. **Move settings resolution into core.** `surfaces/system_profile.py` becomes
+4. **Move settings resolution into core (implemented).** `core/settings.py` is now
    core's resolver, and surfaces pass selectors to it.
 5. **Migrate the other code paths.**
    - `core/workflow_jobs.py` uses `LibraryServices`.
@@ -314,8 +315,8 @@ are not yet decided and should be added here as sections when they are:
 - completion of the adopted single Catalog write path across every semantic
   repository and compatibility writer;
 - a single catalogue read model;
-- configuration precedence and the legacy preference stores (ownership is
-  decided: core resolves settings; see section 1);
+- remaining component-specific configuration integrations beyond the composed
+  application store (see [configuration ownership](configuration-ownership.md));
 - containment of legacy Calibre code.
 
 ## Related documentation
@@ -325,5 +326,6 @@ are not yet decided and should be added here as sections when they are:
 - [Catalog write-validation contract](catalog-write-validation-contract.md)
 - [Whole-repository architecture review, 2026-09-26](architecture-review-2026-09-26.md)
 - [Top-level architecture review, 2026-09-17](top-level-architecture-review.md)
+- [Configuration ownership](configuration-ownership.md)
 - [Core API](core-api.md) and [core workflow ownership](core-program-workflows.md)
 - [Maintainability quality gates](maintainability-quality-gates.md)

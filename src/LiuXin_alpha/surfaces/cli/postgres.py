@@ -47,7 +47,7 @@ from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.schema import (
     create_postgres_schema,
 )
 from LiuXin_alpha.surfaces.cli.common import emit_bytes, json_bytes
-from LiuXin_alpha.surfaces.system_profile import (
+from LiuXin_alpha.core.settings import (
     SYSTEM_MANIFEST_FORMAT,
     SYSTEM_MANIFEST_NAME,
     SYSTEM_MANIFEST_VERSION,

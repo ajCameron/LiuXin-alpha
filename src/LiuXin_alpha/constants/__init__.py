@@ -24,7 +24,12 @@ import string
 import logging
 
 from LiuXin_alpha.constants.file_extensions import IMAGE_EXTENSIONS, COMPRESSED_FILE_EXTENSIONS, IMAGE_EXTENSIONS_DOTTED
-from LiuXin_alpha.constants.paths import LiuXin_calibre_caches, LiuXin_calibre_config_folder, config_dir, CONFIG_DIR_MODE
+from LiuXin_alpha.constants.paths import (
+    LiuXin_calibre_caches,
+    LiuXin_calibre_config_folder as LiuXin_calibre_config_folder,
+    config_dir as config_dir,
+    CONFIG_DIR_MODE as CONFIG_DIR_MODE,
+)
 
 from LiuXin_alpha.utils.logging import LiuXin_print
 
@@ -523,32 +528,8 @@ CREATOR_MARC_DICT = {"author": "aut",
 
 python_plugins = []
 
-# config_dir {{{
+# config_dir is exported unchanged from constants.paths.
 
-if "LIUXIN_CONFIG_DIR" in os.environ:
-    config_dir = os.path.abspath(os.environ["LIUXIN_CONFIG_DIR"])
-
-elif "CALIBRE_CONFIG_DIRECTORY" in os.environ:
-    config_dir = os.path.abspath(os.environ["CALIBRE_CONFIG_DIRECTORY"])
-
-elif iswindows:
-    config_dir = LiuXin_calibre_config_folder
-
-# elif iswindows:
-#     if plugins['winutil'][0] is None:
-#         raise Exception(plugins['winutil'][1])
-#     config_dir = plugins['winutil'][0].special_folder_path(plugins['winutil'][0].CSIDL_APPDATA)
-#     if not os.access(config_dir, os.W_OK|os.X_OK):
-#         config_dir = os.path.expanduser('~')
-#     config_dir = os.path.join(config_dir, 'calibre')
-
-elif isosx:
-    config_dir = os.path.expanduser("~/Library/Preferences/calibre")
-
-else:
-    bdir = os.path.abspath(os.path.expanduser(os.environ.get("XDG_CONFIG_HOME", "~/.config")))
-    config_dir = os.path.join(bdir, "calibre")
-# }}}
 
 # ----------------------------------------------------------------------------------------------------------------------
 #

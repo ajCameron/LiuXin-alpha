@@ -47,7 +47,7 @@ from LiuXin_alpha.databases.maintenance import Maintainer
 from LiuXin_alpha.databases.metadata_sql import MetadataSQL
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
-from LiuXin_alpha.preferences import preferences
+from LiuXin_alpha.configuration import current_preferences
 
 # Py2/Py3 compatibility layer
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
@@ -233,6 +233,7 @@ class Database(
         storage_startup_on_add: bool = False,
         repair_bootstrap_rows: bool = True,
         enable_maintenance: bool = False,
+        application_preferences=None,
     ) -> None:
         """
         Open or create a backend and attach the shared queues and runtime services.
@@ -253,9 +254,11 @@ class Database(
         :param storage_startup_on_add: Request Store startup while loading configurations when True.
         :param repair_bootstrap_rows: Allow rating and null-row repair writes during initialization.
         :param enable_maintenance: Start maintenance and attach its callback when True.
+        :param application_preferences: Store selected before construction; omitted values use the lazy process view.
         :return: None; the instance owns the resulting database connections.
         :raises AssertionError: Both existing_driver and metadata are supplied.
         """
+        self.preferences = current_preferences() if application_preferences is None else application_preferences
         self.metadata = None
         self.type = None
 
@@ -561,7 +564,7 @@ class Database(
         """
         Bind maintenance callbacks, preferences and collaborator back-references.
 
-        Assign the global preferences object directly. Wire db on the driver, wrapper, macros and metadata helper. Repeated initialization does not stop a previous maintainer and is not an atomic replacement.
+        Retain the application preferences selected at construction. Wire db on the driver, wrapper, macros and metadata helper. Repeated initialization does not stop a previous maintainer and is not an atomic replacement.
 
         Example:
             Database(enable_maintenance=False, metadata=metadata) uses the no-op callback path while still binding its existing collaborators.
@@ -585,8 +588,8 @@ class Database(
             self.driver.maintainer_callback = _NoopMaintainerCallback()
             self.clean = lambda *args, **kwargs: None
 
-        # Global database preferences - just a copy of the main program preferences, but can be overridden if needed
-        self.preferences = preferences
+        # Preferences are bound before driver/storage construction and survive
+        # maintenance reinitialization. Resolve the lazy default only at construction.
 
         # As this probably hasn't been done for the existing driver - load a reference to this database into the macros
         # and the driver - the two places that it should be needed

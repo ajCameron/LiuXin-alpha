@@ -10,7 +10,7 @@ an empty receipt token but selects library preferences through the helper's fall
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, MutableMapping
 from typing import TYPE_CHECKING, Any, cast
 
 from LiuXin_alpha.core.errors import CoreDispatchError
@@ -179,7 +179,9 @@ def preferences_set(
     scope = str(payload.get("scope") or "library").strip().lower()
     store = _preference_store(runtime, scope)
     setter = getattr(store, "set", None)
-    if callable(setter):
+    if isinstance(store, MutableMapping):
+        store[key] = payload["value"]
+    elif callable(setter):
         setter(key, payload["value"])
     else:
         store[key] = payload["value"]

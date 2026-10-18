@@ -73,6 +73,10 @@ CONVERSION_CONTRACT_FORBIDDEN_DOMAINS = PLUGIN_CONTRACT_FORBIDDEN_DOMAINS - {
 
 IMPORT_BUDGETS = (
     ImportBudget("LiuXin_alpha", 1),
+    # Pure configuration leaves add one module to constants consumers; constrain
+    # the leaves themselves rather than allowing eager preference/store loading.
+    ImportBudget("LiuXin_alpha.configuration", 2, ISOLATED_DOMAINS),
+    ImportBudget("LiuXin_alpha.configuration_defaults", 2, ISOLATED_DOMAINS),
     ImportBudget("LiuXin_alpha.plugin_system", 2),
     ImportBudget(
         "LiuXin_alpha.plugin_system.base",
@@ -86,27 +90,27 @@ IMPORT_BUDGETS = (
     ),
     ImportBudget(
         "LiuXin_alpha.plugin_system.configuration",
-        30,
+        31,
         PLUGIN_CONTRACT_FORBIDDEN_DOMAINS,
     ),
     ImportBudget(
         "LiuXin_alpha.file_formats.conversion.profiles",
-        30,
+        31,
         CONVERSION_CONTRACT_FORBIDDEN_DOMAINS,
     ),
     ImportBudget(
         "LiuXin_alpha.file_formats.plugin_runtime",
-        36,
+        37,
         CONVERSION_CONTRACT_FORBIDDEN_DOMAINS,
     ),
     ImportBudget(
         "LiuXin_alpha.file_formats.rendering",
-        15,
+        16,
         CONVERSION_CONTRACT_FORBIDDEN_DOMAINS,
     ),
     ImportBudget(
         "LiuXin_alpha.file_formats.conversion.plugin",
-        30,
+        31,
         CONVERSION_CONTRACT_FORBIDDEN_DOMAINS,
     ),
     ImportBudget(

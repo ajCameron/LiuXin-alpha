@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import importlib
 import json
-import os
 import sys
 import types
 from datetime import datetime, timezone
@@ -160,6 +159,8 @@ def _import_config_tools(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     _install_clint_stubs()
     _install_liuxin_dateutil_stubs()
     _set_isolated_env(tmp_path, monkeypatch)
+    from LiuXin_alpha import configuration
+    monkeypatch.setattr(configuration, "_default", None)
 
     _clear_modules(
         "LiuXin_alpha.constants.paths",
