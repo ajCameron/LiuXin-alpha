@@ -301,3 +301,40 @@ The earlier 8,335-case coverage predates this fix; the complete suite was not
 repeated. Its 29 failures remain tracked separately. This focused measurement
 establishes release of these database allocations, not Windows VHD compaction or
 the cause of the unexplained host free-space changes.
+
+## Exact failed-test rerun — 2026-10-18
+
+At commit `152991fa`, reran exactly the 29 failed node IDs from the checked
+full-suite coverage manifest, with the six database-lock cases first. All
+**29 failed again**, at the same source lines and with the same failure kinds;
+none moved to setup or teardown. Pytest completed normally with exit status 1
+in 111.48 seconds (112.65 seconds including JSON-reported overhead).
+
+- Six creator/organisation sidecar writes still raise `database is locked`.
+- Two direct-insert tag identity assertions retain spaces.
+- Ten browser tag/genre lookup or normalization assertions still fail.
+- Three surface contracts still expect removed paths or attributes.
+- Eight image fallback cases still fail. These tests intentionally exercise
+  operation without PyQt5 or external image backends; installing those backends
+  would not establish the promised Pillow fallback behavior.
+
+The shutdown fix did not resolve the locks during writes. Transaction ownership
+in the creator/organisation path is the next investigation; it has not yet been
+changed. No production or test source was modified for this rerun.
+
+Serial execution used a fresh basetemp, aggressive cleanup, faulthandler,
+durable telemetry, JSON reporting and the established disk/memory guards. Peak
+sampled pytest-tree RSS was 120.3 MiB; WSL available RAM stayed above 6.59 GiB,
+swap remained unused, and OOM counters stayed at zero. C: free space stayed near
+15.43 GiB. Neither resource guard fired and WSL remained up.
+
+Visible allocated scratch peaked at 7.9 MiB. All 29 post-test descriptor
+snapshots and the session-finish snapshot recorded **zero deleted files held
+open**. The 3.93 MiB reusable session template left after pytest exited was
+removed from this run's owned basetemp; prior diagnostics were preserved.
+Telemetry and sampler exits were clean and every JSONL record parsed.
+
+Artifacts in the Windows checkout (ignored by Git):
+`working-memory/test-results/failed-tests-rerun-20261018T002755Z`. This contains
+the exact selected IDs, baseline failures, launcher, report, test log, telemetry,
+descriptor probe, comparison summary, analysis script and cleanup record.

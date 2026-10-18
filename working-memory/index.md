@@ -8,6 +8,9 @@ cases are covered across two serial segments: 8,196 passed, 29 failed, 87 skippe
 The connection cleanup follow-up now closes auxiliary driver handles: 80 lifecycle
 checks passed (two Windows-only skips), and a 14-test probe reduced deleted-open
 database storage from 54.7 MiB to zero at every test boundary.
+An exact rerun on 2026-10-18 reproduced all 29 previous failures, including the
+six database locks, with zero deleted-open files between tests and stable host
+resources. Investigate transaction ownership in creator/organisation writes next.
 
 Current checkpoint: **Legacy review fixes and regression coverage**. See
 [legacy fixes](legacy-review-fixes-2026-10-17.md) for the six findings,
@@ -31,7 +34,7 @@ The documentation inventory campaign completed on 2026-10-05: 1,372 units,
 Its [final checkpoint](project-docstrings-l001-l037-2026-10-05.md) retains the
 historical verification and review-hash observations.
 
-Updated: 2026-10-17
+Updated: 2026-10-18
 
 Start here for active handoff notes. This index should stay short.
 
