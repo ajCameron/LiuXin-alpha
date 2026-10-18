@@ -1,6 +1,15 @@
 # Working Memory Index
 
-Current diagnostic branch: **test-vm-telemetry**, PR #119 (based on ready PR #118).
+Current branch: **ownership-consolidation**, a focused writes/normalisation follow-up
+to #119. Its focused runs now have 236 distinct passing cases, including 66
+write-boundary cases across SQLite, APSW and live PostgreSQL; all 18 previous
+write/normalisation failures are green. See
+[ownership consolidation](ownership-consolidation-2026-10-18.md) for the ownership
+map, validation and remaining work. The user selected
+separate PRs for the remaining read models, configuration and workflow/registry
+areas, and regards WSL as healthy after freeing storage.
+
+Previous diagnostic branch: **test-vm-telemetry**, PR #119 (based on ready PR #118).
 See [test VM telemetry](test-vm-telemetry-2026-10-17.md) for the isolated branch,
 crash investigation evidence and opt-in durable test/resource logs. All collected
 cases are covered across two serial segments: 8,196 passed, 29 failed, 87 skipped,
@@ -10,7 +19,7 @@ checks passed (two Windows-only skips), and a 14-test probe reduced deleted-open
 database storage from 54.7 MiB to zero at every test boundary.
 An exact rerun on 2026-10-18 reproduced all 29 previous failures, including the
 six database locks, with zero deleted-open files between tests and stable host
-resources. Investigate transaction ownership in creator/organisation writes next.
+resources. The current focused PR addresses that transaction-ownership finding.
 
 Current checkpoint: **Legacy review fixes and regression coverage**. See
 [legacy fixes](legacy-review-fixes-2026-10-17.md) for the six findings,
@@ -20,10 +29,10 @@ preceding dispatch fixes and dead-source cleanup.
 
 Previous checkpoint: **Catalog audit checkpoint for moving off unstable WSL**.
 Branch `catalog-write-consolidation` includes the earlier green commits and the
-latest audit fixes. The final PostgreSQL fixes are not live-verified; this is a
-draft-PR handoff, not completion signoff. See the latest relocation checkpoint in
-[active notes](catalog-write-consolidation-2026-10-15.md) for results and exact
-remaining work.
+latest audit fixes. The original relocation checkpoint lacked live PostgreSQL
+verification; the current ownership follow-up now verifies the public write
+boundaries on a disposable cluster. See
+[historical notes](catalog-write-consolidation-2026-10-15.md) for that handoff.
 
 The previous file-format containment lane is complete. Its
 [checkpoint](file-formats-containment-2026-10-13.md) records 2,597 passing
@@ -39,6 +48,10 @@ Updated: 2026-10-18
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [ownership-consolidation-2026-10-18.md](ownership-consolidation-2026-10-18.md)
+  Focused write/normalisation ownership fixes, real-backend rollback/identity
+  regressions and the remaining consolidation plan.
 
 - [test-vm-telemetry-2026-10-17.md](test-vm-telemetry-2026-10-17.md)
   PR promotion, serial VM diagnostics, durable test phases and independent resource

@@ -14,8 +14,6 @@ import uuid
 
 import pytest
 
-from LiuXin_alpha.metadata.standardization import make_tag_search_term
-
 
 _CONTRACT_TABLE = "contract_crud_roundtrips"
 
@@ -248,7 +246,7 @@ def test_update_roundtrip(driver, crud_table: str, crud_cols: Dict[str, str], pi
 
 def test_identity_key_is_derived_on_direct_insert_and_update(driver) -> None:
     """
-    Require tag_phash to match the shared normalizer after insertion, row update, and bulk column update.
+    Require the declared full-text identity after insertion, row update, and bulk column update.
 
     Example:
         Run the owning tests with pytest::
@@ -263,19 +261,19 @@ def test_identity_key_is_derived_on_direct_insert_and_update(driver) -> None:
     original = f"Driver Identity {uuid.uuid4().hex}"
     row_id = driver.direct_add_simple_row_dict({"tag": original})
     row = driver.direct_get_row_dict_from_id("tags", row_id)
-    assert row["tag_phash"] == make_tag_search_term(original)
+    assert row["tag_phash"] == original.casefold()
 
     changed = f"Changed Identity {uuid.uuid4().hex}"
     driver.direct_update_row_dict({"tag_id": row_id, "tag": changed})
     row = driver.direct_get_row_dict_from_id("tags", row_id)
     assert row["tag"] == changed
-    assert row["tag_phash"] == make_tag_search_term(changed)
+    assert row["tag_phash"] == changed.casefold()
 
     bulk_changed = f"Bulk Identity {uuid.uuid4().hex}"
     driver.direct_update_columns({row_id: bulk_changed}, field="tag")
     row = driver.direct_get_row_dict_from_id("tags", row_id)
     assert row["tag"] == bulk_changed
-    assert row["tag_phash"] == make_tag_search_term(bulk_changed)
+    assert row["tag_phash"] == bulk_changed.casefold()
 
 
 def test_delete_roundtrip(driver, crud_table: str, crud_cols: Dict[str, str], pick_payload) -> None:

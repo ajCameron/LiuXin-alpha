@@ -11,9 +11,9 @@ from typing import Any, Iterable, Optional, Sequence, Union
 from LiuXin_alpha.utils.libraries.liuxin_six import string_types
 
 from LiuXin_alpha.databases.api import RowAPI
-from LiuXin_alpha.catalog.row_mutations import atomic_write, link_rows, create_row, persist_row
+from LiuXin_alpha.catalog.row_mutations import atomic_write, link_rows, create_row, repository_for
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
+from LiuXin_alpha.errors import InputIntegrityError
 from LiuXin_alpha.metadata.constants import CREATOR_TYPES
 from LiuXin_alpha.metadata.author_names import author_to_author_sort
 from LiuXin_alpha.utils.language_tools import best_effort_language_id
@@ -25,8 +25,9 @@ class AgentCreatorOrgMixin:
     Supply Agent aggregate creation to a host with database and peer helpers.
 
     Methods call shared helpers through self; a composing class can override
-    coercion behavior. Add uses WEMI date coercion through its MRO. Sequential
-    sidecar, link and identifier writes are not wrapped in a transaction.
+    coercion behavior. Add uses WEMI date coercion through its MRO. Agent repositories
+    own subtype and relation writes; each public workflow
+    shares one enclosing macro transaction with its metadata attachments.
 
     Example:
         A legacy Creator call builds a person Agent, a human sidecar and optional
@@ -93,48 +94,6 @@ class AgentCreatorOrgMixin:
                 return int(text)
         return None
 
-    @staticmethod
-    def _normalize_aliases(agent_aliases: Optional[Union[str, Sequence[str]]]) -> Optional[str]:
-        """
-        Strip aliases and deduplicate by lowercase spelling in encounter order.
-
-        Embedded (#BREAK#) text is not escaped or split; None entries are ignored.
-
-        Example:
-            >>> AgentCreatorOrgMixin._normalize_aliases([" A ", "a", None, "B"])
-            'A(#BREAK#)B'
-
-
-        :param agent_aliases: String treated as one alias, or sequence of stringifiable values; None allowed.
-        :return: (#BREAK#)-joined first spellings, or None when empty.
-        """
-
-        if agent_aliases is None:
-            return None
-
-        if isinstance(agent_aliases, string_types):
-            values = [agent_aliases]
-        else:
-            values = list(agent_aliases)
-
-        normalized = []
-        seen = set()
-        for value in values:
-            if value is None:
-                continue
-            alias = str(value).strip()
-            if not alias:
-                continue
-            key = alias.lower()
-            if key in seen:
-                continue
-            seen.add(key)
-            normalized.append(alias)
-
-        if not normalized:
-            return None
-        return "(#BREAK#)".join(normalized)
-
     def _has_insertable_table(self, table_name: str) -> bool:
         """
         Check table presence and reject views, treating inspection errors as absence.
@@ -173,24 +132,6 @@ class AgentCreatorOrgMixin:
                 "Cannot run `{}`: schema does not expose insertable `{}`.".format(for_method, table_name)
             )
 
-    def _set_row_values(self, row: RowAPI, payload: dict[str, Any]) -> None:
-        """
-        Assign allowed payload columns, then sync the Row once.
-
-        Example:
-            A None value for an allowed column is written rather than filtered out.
-
-
-        :param row: Mutable Row exposing allowed_columns.
-        :param payload: Column/value mapping; unknown columns are ignored.
-        :return: None; synchronizes even an empty accepted payload.
-        """
-
-        for col, value in payload.items():
-            if col in row.allowed_columns:
-                row[col] = value
-        persist_row(self, row)
-
     def _first_row_for_value(self, table: str, column: str, value: Any) -> Optional[RowAPI]:
         """
         Search one column and select the first returned Row.
@@ -209,39 +150,6 @@ class AgentCreatorOrgMixin:
         if rows:
             return rows[0]
         return None
-
-    def _upsert_sidecar(
-        self,
-        *,
-        table: str,
-        fk_column: str,
-        fk_value: int,
-        payload: dict[str, Any],
-    ) -> RowAPI:
-        """
-        Update the first matching sidecar or insert a new payload.
-
-        No uniqueness lock or transaction protects the lookup/insertion interval.
-
-        Example:
-            An existing row ignores unknown payload columns, while insertion passes the payload to Row creation.
-
-
-        :param table: Sidecar table to search/insert.
-        :param fk_column: Foreign-key column used to find an existing sidecar.
-        :param fk_value: Owner ID used in lookup and as the insertion default.
-        :param payload: Payload; can override the foreign-key default on insertion.
-        :return: Existing updated Row or new Row.
-        """
-
-        current = self._first_row_for_value(table=table, column=fk_column, value=fk_value)
-        if current is not None:
-            self._set_row_values(current, payload)
-            return current
-
-        row_dict = {fk_column: fk_value}
-        row_dict.update(payload)
-        return create_row(self, row_dict=row_dict, table=table)
 
     def _extract_agent_id(self, row: RowAPI) -> Optional[int]:
         """
@@ -487,23 +395,23 @@ class AgentCreatorOrgMixin:
         """
         Insert an Agent, then optional sidecars and related metadata.
 
-        The agents table is checked before type validation. Sidecar capability checks
-        and attachment resolution occur after Agent insertion; failures can leave a
-        partial aggregate. Add resolves shared date helpers through WEMIAdderMixin
-        before AgentCreatorOrgMixin. No encompassing transaction is opened.
+        The Agent repository owns aliases and subtype creation. Person and organisation
+        details must match the selected type and cannot be combined. Attachment
+        failures roll back the enclosing macro transaction. Add resolves shared date
+        helpers through WEMIAdderMixin before AgentCreatorOrgMixin.
 
         Example:
-            Adding both sidecar payloads attempts both independently of the selected Agent type.
+            Person details use the same aggregate writer as catalog.agents.create_person.
 
 
         :param agent_canonical_name: Canonical name stored unchanged; no local nonempty check.
         :param agent_type: Case/whitespace-normalized type; common person/organisation aliases are accepted.
         :param agent_sort_name: Sort name stored unchanged.
-        :param agent_aliases: String or sequence; strip and deduplicate case-insensitively, joining with (#BREAK#).
+        :param agent_aliases: String or sequence; the Agent repository applies Unicode alias equivalence.
         :param agent_note: Note stored unchanged.
         :param agent_created_timestamp_ep_k: Creation timestamp via the active coercion helper; also sets modification time.
-        :param human_sidecar: Truthy person-sidecar payload to upsert after Agent insertion.
-        :param org_sidecar: Truthy organisation-sidecar payload to upsert after Agent insertion.
+        :param human_sidecar: Truthy person details forwarded to the Agent repository aggregate.
+        :param org_sidecar: Truthy organisation details forwarded to the Agent repository aggregate.
         :param linked_languages: Language Rows, strings or IDs resolved and linked with native type/priority zero.
         :param linked_notes: Concrete Rows or strings inserted as Notes and linked at priority zero.
         :param linked_synopses: Concrete Rows or strings inserted as Synopses and linked at priority zero.
@@ -543,7 +451,7 @@ class AgentCreatorOrgMixin:
             "agent_canonical_name": agent_canonical_name,
             "agent_sort_name": agent_sort_name,
             # Aliases are stored as a normalized delimiter-joined string.
-            "agent_aliases": self._normalize_aliases(agent_aliases),
+            "agent_aliases": agent_aliases,
             # Free-form annotation for provenance/import notes.
             "agent_note": agent_note,
         }
@@ -554,26 +462,18 @@ class AgentCreatorOrgMixin:
             payload["agent_created_timestamp_ep_k"] = created_epk
             payload["agent_modified_timestamp_ep_k"] = created_epk
 
-        agent_row = create_row(self, row_dict=payload, table="agents")
-        agent_id = int(agent_row["agent_id"])
-
+        repository = repository_for(self, "agents")
+        if repository is None:
+            raise InputIntegrityError("Agent aggregates require the Catalog agent repository.")
+        if human_sidecar and org_sidecar:
+            raise InputIntegrityError("An Agent cannot have both person and organisation details.")
         if human_sidecar:
-            self._require_insertable_table("human_agents", for_method="agent(human_sidecar)")
-            self._upsert_sidecar(
-                table="human_agents",
-                fk_column="human_agent_agent_id",
-                fk_value=agent_id,
-                payload=human_sidecar,
-            )
-
-        if org_sidecar:
-            self._require_insertable_table("org_agents", for_method="agent(org_sidecar)")
-            self._upsert_sidecar(
-                table="org_agents",
-                fk_column="org_agent_agent_id",
-                fk_value=agent_id,
-                payload=org_sidecar,
-            )
+            agent_id = repository.create_person(payload, details=human_sidecar)
+        elif org_sidecar:
+            agent_id = repository.create_organisation(payload, details=org_sidecar)
+        else:
+            agent_id = repository.create(payload)
+        agent_row = Row(self.db, dict(repository.require(agent_id)))
 
         for language in linked_languages or []:
             language_row = self._language_to_row(language)
@@ -622,7 +522,7 @@ class AgentCreatorOrgMixin:
 
         Requires insertable agents and human_agents before role validation. Missing
         identifier-table capability silently omits identifiers. All aggregate writes
-        follow agent() without an encompassing transaction.
+        share the enclosing transaction, including failures in later attachments.
 
         Example:
             A multiword name is split heuristically into first, middle and last names.
@@ -750,14 +650,12 @@ class AgentCreatorOrgMixin:
         """
         Insert an organisation Agent with a sidecar and optional parent relation.
 
-        Required Agent/sidecar tables are checked before insertion. Parent ID
-        validation occurs after creation when the relation table is available.
-        DatabaseIntegrityError while inserting the parent relation is suppressed;
-        other failures propagate after earlier writes. No enclosing transaction
-        is opened.
+        The Agent repository owns subtype creation and parent validation. A parent
+        requires the organisation relation table; missing capability or invalid
+        parents fail the aggregate and roll back all its writes.
 
         Example:
-            If org_agent_relations is unavailable, a supplied parent is silently ignored.
+            A person Agent cannot serve as the parent of an organisation.
 
 
         :param organisation: Name converted to stripped text.
@@ -773,8 +671,8 @@ class AgentCreatorOrgMixin:
         :param organisation_website: Website stored in the sidecar and optionally as a primary url identifier.
         :param organisation_contact_email: Contact email stored unchanged.
         :param organisation_description: Description text stored unchanged.
-        :param organisation_parent: Concrete parent Row or integer Agent ID; evaluated only if the relation table is insertable.
-        :param organisation_relation_type: Relation type, default imprint_of, stored unchanged.
+        :param organisation_parent: Concrete parent Row or integer Agent ID; the Agent repository validates its organisation subtype.
+        :param organisation_relation_type: Nonblank relation type, default imprint_of, trimmed by the Agent repository.
         :param organisation_relation_note: Relation note stored on the edge and appended to Agent notes.
         :param organisation_language: Optional Language Row/string/ID to link.
         :param organisation_synopsis: Optional Synopsis Row/string to link.
@@ -819,7 +717,8 @@ class AgentCreatorOrgMixin:
             linked_synopses=[organisation_synopsis] if organisation_synopsis is not None else None,
         )
 
-        if organisation_parent is not None and self._has_insertable_table("org_agent_relations"):
+        if organisation_parent is not None:
+            self._require_insertable_table("org_agent_relations", for_method="organisation(parent)")
             parent_agent_id = None
             if isinstance(organisation_parent, Row):
                 parent_agent_id = self._extract_agent_id(organisation_parent)
@@ -828,20 +727,12 @@ class AgentCreatorOrgMixin:
             if parent_agent_id is None:
                 raise InputIntegrityError("Could not extract parent agent id from organisation_parent.")
 
-            relation_payload = {
-                # Directed edge: child imprint/sub-org -> parent org.
-                "org_agent_relation_child_agent_id": int(agent_row["agent_id"]),
-                "org_agent_relation_parent_agent_id": int(parent_agent_id),
-                # Relation semantics (imprint_of, owned_by, etc.).
-                "org_agent_relation_type": organisation_relation_type,
-                # Optional human-readable rationale/context.
-                "org_agent_relation_note": organisation_relation_note,
-            }
-            try:
-                create_row(self, row_dict=relation_payload, table="org_agent_relations")
-            except DatabaseIntegrityError:
-                # Duplicate edge (same child/parent/type) or equivalent constraint - safe to ignore.
-                pass
+            repository_for(self, "agents").relate_organisations(
+                int(agent_row["agent_id"]),
+                int(parent_agent_id),
+                relation_type=organisation_relation_type,
+                note=organisation_relation_note,
+            )
 
         agent_id = int(agent_row["agent_id"])
         self._entity_identifier(agent_id=agent_id, scheme="url", value=organisation_website, is_primary=1)
@@ -887,7 +778,7 @@ class AgentCreatorOrgMixin:
         Translate legacy Publisher values into an organisation Agent.
 
         Unsupported non-text/non-Row descriptions are ignored. Aggregate and later
-        identifier writes are sequential, with no encompassing transaction.
+        identifier writes share the enclosing transaction and roll back together.
 
         Example:
             A description Row from synopses is linked as a Synopsis; other Row tables use the Note-link path.

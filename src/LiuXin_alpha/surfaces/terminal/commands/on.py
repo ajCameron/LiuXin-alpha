@@ -9,7 +9,7 @@ occur outside the per-link recovery handler. Languages are lookup-only.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Optional
 
 from LiuXin_alpha.surfaces.metadata_facets import (
     build_tag_row_payload,
@@ -20,7 +20,6 @@ from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.surfaces.terminal.commands.link import _resolve_table_token
 from LiuXin_alpha.metadata.standardization import (
     make_series_phash,
-    make_tag_search_term,
     make_title_search_term,
     standardize_genre,
     standardize_language,
@@ -288,103 +287,39 @@ def _resolve_or_create_tag_row(browser, tag_text: str, *, create: bool):
 
 
 def _resolve_or_create_genre_row(browser, genre_text: str, *, create: bool):
-    """
-    Match a genre using its available hash/sort/text column, optionally creating a row.
-
-    Search chooses exactly one column: ``genre_phash``, then ``genre_sort``, then
-    raw ``genre``. A miss does not retry less-normalized columns. New rows retain
-    the original genre text and add standardized fields supported by the schema.
-
-    Example:
-        >>> resolved = _resolve_or_create_genre_row(browser, "Science fiction", create=False)  # doctest: +SKIP
-
-
-    :param browser: Host providing schema/search reads and Core row creation.
-    :param genre_text: Original genre text from which sort and search-hash values are derived.
-    :param create: Whether a lookup miss may create a genre row.
-    :return: ``("genres", row)`` for a match/new row, or ``None`` when lookup-only finds none.
-    :raises ValueError: If the genres table is absent.
-    """
-    tables = set(browser.db.get_tables())
-    if "genres" not in tables:
+    """Resolve a root genre by its declared key, or create it through Catalog."""
+    if "genres" not in set(browser.db.get_tables()):
         raise ValueError("Database schema does not contain `genres` table.")
     columns = set(browser.db.get_column_headings("genres"))
-
-    genre_sort = standardize_genre(genre_text)
-    genre_phash = make_title_search_term(genre_sort)
-    if "genre_phash" in columns:
-        search_column = "genre_phash"
-        search_value = genre_phash
-    elif "genre_sort" in columns:
-        search_column = "genre_sort"
-        search_value = genre_sort
-    else:
-        search_column = "genre"
-        search_value = genre_text
-
-    rows = browser.db.search("genres", search_column, search_value)
-    if rows:
-        return "genres", rows[0]
+    row = browser.db.find_identity_row(
+        "genres", "genre", genre_text, scope_values={"genre_parent_id": None}
+    )
+    if row is not None:
+        return "genres", row
     if not create:
         return None
-
     row_dict: dict[str, object] = {"genre": genre_text}
     if "genre_sort" in columns:
-        row_dict["genre_sort"] = genre_sort
-    if "genre_phash" in columns:
-        row_dict["genre_phash"] = genre_phash
-    row = _create_row(browser, "genres", row_dict)
-    return "genres", row
+        row_dict["genre_sort"] = standardize_genre(genre_text)
+    return "genres", _create_row(browser, "genres", row_dict)
 
 
 def _resolve_or_create_subject_row(browser, subject_text: str, *, create: bool):
-    """
-    Match a subject through its available sort/hash/text column, optionally inserting it.
-
-    Search uses ``subject_sort`` before ``subject_phash`` before raw ``subject``;
-    only the chosen column is queried. Sort and hash both use the title-search
-    normalization, while a new row retains original display text.
-
-    Example:
-        >>> resolved = _resolve_or_create_subject_row(browser, "Astronomy", create=False)  # doctest: +SKIP
-
-
-    :param browser: Host supplying schema/search access and Core row creation.
-    :param subject_text: Display text and normalization input for the subject.
-    :param create: Whether a missing match may be inserted.
-    :return: ``("subjects", row)`` for a match/new row, or ``None`` on a lookup-only miss.
-    :raises ValueError: If the subjects table is absent.
-    """
-    tables = set(browser.db.get_tables())
-    if "subjects" not in tables:
+    """Resolve a root subject by its declared key, or create it through Catalog."""
+    if "subjects" not in set(browser.db.get_tables()):
         raise ValueError("Database schema does not contain `subjects` table.")
     columns = set(browser.db.get_column_headings("subjects"))
-
-    subject_sort = make_title_search_term(subject_text)
-    subject_phash = subject_sort
-    if "subject_sort" in columns:
-        search_column = "subject_sort"
-        search_value = subject_sort
-    elif "subject_phash" in columns:
-        search_column = "subject_phash"
-        search_value = subject_phash
-    else:
-        search_column = "subject"
-        search_value = subject_text
-
-    rows = browser.db.search("subjects", search_column, search_value)
-    if rows:
-        return "subjects", rows[0]
+    row = browser.db.find_identity_row(
+        "subjects", "subject", subject_text, scope_values={"subject_parent_id": None}
+    )
+    if row is not None:
+        return "subjects", row
     if not create:
         return None
-
     row_dict: dict[str, object] = {"subject": subject_text}
     if "subject_sort" in columns:
-        row_dict["subject_sort"] = subject_sort
-    if "subject_phash" in columns:
-        row_dict["subject_phash"] = subject_phash
-    row = _create_row(browser, "subjects", row_dict)
-    return "subjects", row
+        row_dict["subject_sort"] = make_title_search_term(subject_text)
+    return "subjects", _create_row(browser, "subjects", row_dict)
 
 
 def _resolve_language_row(browser, language_text: str, *, create: bool):
@@ -455,61 +390,22 @@ def _resolve_language_row(browser, language_text: str, *, create: bool):
 
 
 def _resolve_or_create_series_row(browser, series_text: str, *, create: bool):
-    """
-    Try available series hash/name/sort lookups in order, then optionally create normalized fields.
-
-    Search order is hash, normalized name, sort key, and standardized display name.
-    Unlike genre/subject matching, later columns are tried after a miss. Search
-    exceptions also become misses, so creation can follow failed reads.
-
-    Example:
-        >>> resolved = _resolve_or_create_series_row(browser, "Voyages", create=False)  # doctest: +SKIP
-
-
-    :param browser: Host supplying series schema/search reads and Core row creation.
-    :param series_text: Name standardized before matching and creation.
-    :param create: Whether exhaustion of the search order may insert a series row.
-    :return: ``("series", row)`` for a match/new row, or ``None`` after a lookup-only miss.
-    :raises ValueError: If the series table is absent.
-    """
-    tables = set(browser.db.get_tables())
-    if "series" not in tables:
+    """Resolve series by its declared identity, preserving distinct full-text keys."""
+    if "series" not in set(browser.db.get_tables()):
         raise ValueError("Database schema does not contain `series` table.")
-
     columns = set(browser.db.get_column_headings("series"))
     series_name = standardize_series(series_text)
-    series_sort = title_to_title_sort(series_name)
-    series_name_norm = make_title_search_term(series_name)
-    series_phash = make_series_phash("", series_name)
-
-    search_order: list[tuple[str, str]] = []
-    if "series_phash" in columns:
-        search_order.append(("series_phash", series_phash))
-    if "series_name_norm" in columns:
-        search_order.append(("series_name_norm", series_name_norm))
-    if "series_sort" in columns:
-        search_order.append(("series_sort", series_sort))
-    search_order.append(("series", series_name))
-
-    for column, value in search_order:
-        try:
-            rows = browser.db.search("series", column, value)
-        except Exception:
-            rows = []
-        if rows:
-            return "series", rows[0]
+    row = browser.db.find_identity_row("series", "series", series_name)
+    if row is not None:
+        return "series", row
     if not create:
         return None
-
     row_dict: dict[str, object] = {"series": series_name}
     if "series_sort" in columns:
-        row_dict["series_sort"] = series_sort
-    if "series_name_norm" in columns:
-        row_dict["series_name_norm"] = series_name_norm
+        row_dict["series_sort"] = title_to_title_sort(series_name)
     if "series_phash" in columns:
-        row_dict["series_phash"] = series_phash
-    row = _create_row(browser, "series", row_dict)
-    return "series", row
+        row_dict["series_phash"] = make_series_phash("", series_name)
+    return "series", _create_row(browser, "series", row_dict)
 
 
 def _resolve_source_row(browser, kind: str, value: str, *, create: bool):
@@ -565,10 +461,10 @@ def _resolve_source_row(browser, kind: str, value: str, *, create: bool):
 
 def _parse_tag_values(raw_values: list[str]) -> list[str]:
     """
-    Split comma-separated tag tokens and retain the first spelling of each normalized value.
+    Split comma-separated tag tokens and discard exact duplicate inputs.
 
-    Blank pieces are ignored. Deduplication uses tag-search normalization rather
-    than literal text equality; whitespace within a nonblank piece is retained.
+    Blank pieces are ignored. Identity equivalence is resolved by the catalogue
+    when looking up each value; the parser preserves distinct display spellings.
 
     Example:
         >>> _parse_tag_values(["history,history", "science"])
@@ -580,16 +476,15 @@ def _parse_tag_values(raw_values: list[str]) -> list[str]:
     :raises ValueError: If no nonblank tag pieces remain.
     """
     values: list[str] = []
-    seen_norm: set[str] = set()
+    seen: set[str] = set()
     for raw in raw_values:
         for piece in str(raw).split(","):
             value = piece.strip()
             if not value:
                 continue
-            norm = make_tag_search_term(value)
-            if norm in seen_norm:
+            if value in seen:
                 continue
-            seen_norm.add(norm)
+            seen.add(value)
             values.append(value)
     if not values:
         raise ValueError("Tag value cannot be blank.")

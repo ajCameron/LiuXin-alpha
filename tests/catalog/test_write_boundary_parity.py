@@ -13,6 +13,7 @@ import pytest
 
 from LiuXin_alpha.catalog.api.common import CatalogMutationError
 from LiuXin_alpha.catalog.catalog import Catalog
+from LiuXin_alpha.catalog.metadata_tools import Add
 from LiuXin_alpha.core.errors import CoreHandlerError
 from LiuXin_alpha.core.runtime import CoreRuntime
 from LiuXin_alpha.databases.database import Database
@@ -77,6 +78,98 @@ def _stack(catalog, **overrides):
             **overrides,
         }
     )
+
+
+@pytest.mark.parametrize("operation", ["creator", "organisation", "publisher"])
+def test_agent_helper_late_failure_rolls_back_complete_aggregate(
+    write_runtime, monkeypatch, operation
+):
+    """Row adapters roll back subtype, relation and metadata writes together."""
+    _runtime, catalog, db = write_runtime
+    parent = catalog.agents.create_organisation({"name": "Existing parent"})
+    tables = (
+        "agents",
+        "human_agents",
+        "org_agents",
+        "org_agent_relations",
+        "notes",
+        "entity_identifiers",
+    )
+    before = {table: db.macros.get_rows(table) for table in tables}
+    add = Add(db)
+
+    def reject_attachment(**kwargs):
+        raise RuntimeError("late agent attachment failure")
+
+    monkeypatch.setattr(add, "_entity_identifier", reject_attachment)
+    with pytest.raises(RuntimeError, match="late agent attachment failure"):
+        if operation == "creator":
+            add.creator("Rollback Person", creator_bio="Rolled back biography")
+        elif operation == "organisation":
+            add.organisation("Rollback Organisation", organisation_parent=parent)
+        else:
+            add.publisher("Rollback Publisher", publisher_parent=parent)
+
+    assert {table: db.macros.get_rows(table) for table in tables} == before
+
+
+def test_agent_helper_aliases_match_repository_policy(write_runtime):
+    """Compatibility inputs preserve the repository's Unicode alias equivalence."""
+    _runtime, catalog, db = write_runtime
+    aliases = [" Ａｄａ ", "ada", "ß", "SS"]
+    direct = catalog.agents.create({"name": "Direct aliases", "aliases": aliases})
+    adapted = Add(db).agent("Adapted aliases", agent_aliases=aliases)
+    assert catalog.agents.require(direct)["agent_aliases"] == "Ａｄａ(#BREAK#)ß"
+    assert adapted["agent_aliases"] == catalog.agents.require(direct)["agent_aliases"]
+
+
+def test_agent_helper_rejects_non_organisation_parent_atomically(write_runtime):
+    """Legacy argument spelling does not bypass the aggregate parent's policy."""
+    _runtime, catalog, db = write_runtime
+    person = catalog.agents.create_person({"name": "Person cannot be parent"})
+    before = catalog.agents.list()
+    with pytest.raises(CatalogMutationError, match="not an organisation"):
+        Add(db).organisation("Invalid child", organisation_parent=person)
+    assert catalog.agents.list() == before
+
+
+def test_surface_tag_lookup_uses_the_stored_identity_policy(write_runtime):
+    """Local and Core views distinguish spaced keys and honor Unicode identity."""
+    from LiuXin_alpha.core.proxies.local import LocalCoreClient
+    from LiuXin_alpha.surfaces.core import CoreDatabaseView
+    from LiuXin_alpha.surfaces.metadata_facets import search_tag_rows
+
+    runtime, catalog, db = write_runtime
+    spaced = catalog.tags.create({"text": "Space Opera"})
+    compact = catalog.tags.create({"text": "SpaceOpera"})
+    for view in (db, CoreDatabaseView(LocalCoreClient(runtime))):
+        for text, expected in (
+            ("Space Opera", spaced),
+            ("Ｓｐａｃｅ\tＯｐｅｒａ", spaced),
+            ("SpaceOpera", compact),
+        ):
+            rows = search_tag_rows(view, "tags", text)
+            assert [int(row["tag_id"]) for row in rows] == [expected]
+
+
+def test_terminal_tag_write_keeps_distinct_full_text_keys(write_runtime):
+    """Terminal input cannot merge values that the Catalog treats as distinct."""
+    import io
+
+    from LiuXin_alpha.core.proxies.local import LocalCoreClient
+    from LiuXin_alpha.surfaces.terminal.browser import TextDatabaseBrowser
+
+    runtime, catalog, db = write_runtime
+    work_id = catalog.works.create({"title": "Distinct tag keys"})
+    output = io.StringIO()
+    browser = TextDatabaseBrowser(LocalCoreClient(runtime), output=output)
+    assert browser.execute_line(f'on works {work_id} tag "Space Opera, SpaceOpera"'), (
+        output.getvalue()
+    )
+    linked = db.get_interlinked_rows(
+        primary_row=db.get_row_from_id("works", work_id), secondary_table="tags"
+    )
+    assert {row["tag"] for row in linked} == {"Space Opera", "SpaceOpera"}
 
 
 def test_explicit_work_ids_obey_repository_policy_and_late_rollback(
@@ -332,3 +425,84 @@ def test_tree_delete_rolls_back_on_late_failure(write_runtime, monkeypatch):
             "tree.delete", {"table": "genres", "row_id": parent, "confirm": True}
         )
     assert catalog.genres.list() == before
+
+
+@pytest.mark.parametrize(
+    "table,column", [("genres", "genre"), ("subjects", "subject"), ("series", "series")]
+)
+def test_terminal_facet_resolution_uses_identity_not_sort_or_phonetic_keys(
+    write_runtime, table, column
+):
+    """Distinct full-text keys survive lookup even when legacy sort keys collide."""
+    from types import SimpleNamespace
+
+    from LiuXin_alpha.core.proxies.local import LocalCoreClient
+    from LiuXin_alpha.surfaces.core import CoreDatabaseView
+    from LiuXin_alpha.surfaces.terminal.commands import on
+
+    runtime, catalog, _db = write_runtime
+    repository = getattr(catalog, table)
+    compact = repository.create({column: "SpaceOpera", column + "_sort": "spaceopera"})
+    spaced = repository.create({column: "Space Opera", column + "_sort": "spaceopera"})
+    browser = SimpleNamespace(db=CoreDatabaseView(LocalCoreClient(runtime)))
+    resolver = getattr(on, "_resolve_or_create_" + column + "_row")
+    for text, expected in (("Space Opera", spaced), ("SpaceOpera", compact)):
+        resolved_table, row = resolver(browser, text, create=False)
+        assert resolved_table == table
+        assert int(row[column + "_id"]) == expected
+    assert resolver(browser, "Missing Value", create=False) is None
+
+
+@pytest.mark.parametrize("table,column", [("genres", "genre"), ("subjects", "subject")])
+def test_terminal_facet_resolution_preserves_root_scope(write_runtime, table, column):
+    """An identically named child cannot replace a root facet during assignment."""
+    from types import SimpleNamespace
+
+    from LiuXin_alpha.core.proxies.local import LocalCoreClient
+    from LiuXin_alpha.surfaces.core import CoreDatabaseView
+    from LiuXin_alpha.surfaces.terminal.commands import on
+
+    runtime, catalog, _db = write_runtime
+    repository = getattr(catalog, table)
+    parent = repository.create({column: "Parent"})
+    repository.create({column: "Space Opera", column + "_parent_id": parent})
+    root_id = repository.create({column: "Space Opera"})
+    browser = SimpleNamespace(db=CoreDatabaseView(LocalCoreClient(runtime)))
+    resolver = getattr(on, "_resolve_or_create_" + column + "_row")
+    _table, row = resolver(browser, "Space Opera", create=False)
+    assert int(row[column + "_id"]) == root_id
+
+
+def test_organisation_relation_reuses_only_the_same_validated_edge(write_runtime):
+    """Idempotent edges retain their note, and invalid endpoints still fail."""
+    _runtime, catalog, db = write_runtime
+    parent = catalog.agents.create_organisation({"name": "Relation parent"})
+    child = catalog.agents.create_organisation({"name": "Relation child"})
+    edge = catalog.agents.relate_organisations(child, parent, note="Original note")
+    assert (
+        catalog.agents.relate_organisations(
+            child, parent, relation_type=" imprint_of ", note="Ignored duplicate note"
+        )
+        == edge
+    )
+    rows = db.macros.get_rows("org_agent_relations")
+    assert len(rows) == 1
+    assert rows[0]["org_agent_relation_note"] == "Original note"
+    person = catalog.agents.create_person({"name": "Invalid relation child"})
+    with pytest.raises(CatalogMutationError, match="not an organisation"):
+        catalog.agents.relate_organisations(person, parent)
+    with pytest.raises(ValueError, match="non-empty string"):
+        catalog.agents.relate_organisations(child, parent, relation_type=" ")
+    assert db.macros.get_rows("org_agent_relations") == rows
+
+
+def test_tag_helpers_share_identity_for_creation_and_reuse(write_runtime):
+    """Compatibility writes and ensure distinguish full-text keys and reuse Unicode forms."""
+    _runtime, catalog, _db = write_runtime
+    spaced = catalog.add.tag("Space Opera", tag_phash="wrong-policy")
+    compact = catalog.ensure.tag("SpaceOpera")
+    assert spaced["tag_phash"] == "space opera"
+    assert compact["tag_phash"] == "spaceopera"
+    assert spaced.row_id != compact.row_id
+    assert catalog.ensure.tag(" ＳＰＡＣＥ   ＯＰＥＲＡ ").row_id == spaced.row_id
+    assert len(catalog.tags.list()) == 2

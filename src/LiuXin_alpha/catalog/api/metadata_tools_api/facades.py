@@ -349,23 +349,23 @@ class AddAPI(Protocol):
         """
         Insert an Agent, then optional sidecars and related metadata.
 
-        The agents table is checked before type validation. Sidecar capability checks
-        and attachment resolution occur after Agent insertion; failures can leave a
-        partial aggregate. Add resolves shared date helpers through WEMIAdderMixin
-        before AgentCreatorOrgMixin. No encompassing transaction is opened.
+        The Agent repository owns aliases and subtype creation. Person and organisation
+        details must match the selected type and cannot be combined. Attachment
+        failures roll back the enclosing macro transaction. Add resolves shared date
+        helpers through WEMIAdderMixin before AgentCreatorOrgMixin.
 
         Example:
-            Adding both sidecar payloads attempts both independently of the selected Agent type.
+            Person details use the same aggregate writer as catalog.agents.create_person.
 
 
         :param agent_canonical_name: Canonical name stored unchanged; no local nonempty check.
         :param agent_type: Case/whitespace-normalized type; common person/organisation aliases are accepted.
         :param agent_sort_name: Sort name stored unchanged.
-        :param agent_aliases: String or sequence; strip and deduplicate case-insensitively, joining with (#BREAK#).
+        :param agent_aliases: String or sequence; the Agent repository applies Unicode alias equivalence.
         :param agent_note: Note stored unchanged.
         :param agent_created_timestamp_ep_k: Creation timestamp via the active coercion helper; also sets modification time.
-        :param human_sidecar: Truthy person-sidecar payload to upsert after Agent insertion.
-        :param org_sidecar: Truthy organisation-sidecar payload to upsert after Agent insertion.
+        :param human_sidecar: Truthy person details forwarded to the Agent repository aggregate.
+        :param org_sidecar: Truthy organisation details forwarded to the Agent repository aggregate.
         :param linked_languages: Language Rows, strings or IDs resolved and linked with native type/priority zero.
         :param linked_notes: Concrete Rows or strings inserted as Notes and linked at priority zero.
         :param linked_synopses: Concrete Rows or strings inserted as Synopses and linked at priority zero.
@@ -402,7 +402,7 @@ class AddAPI(Protocol):
 
         Requires insertable agents and human_agents before role validation. Missing
         identifier-table capability silently omits identifiers. All aggregate writes
-        follow agent() without an encompassing transaction.
+        share the enclosing transaction, including failures in later attachments.
 
         Example:
             A multiword name is split heuristically into first, middle and last names.
@@ -455,14 +455,12 @@ class AddAPI(Protocol):
         """
         Insert an organisation Agent with a sidecar and optional parent relation.
 
-        Required Agent/sidecar tables are checked before insertion. Parent ID
-        validation occurs after creation when the relation table is available.
-        DatabaseIntegrityError while inserting the parent relation is suppressed;
-        other failures propagate after earlier writes. No enclosing transaction
-        is opened.
+        The Agent repository owns subtype creation and parent validation. A parent
+        requires the organisation relation table; missing capability or invalid
+        parents fail the aggregate and roll back all its writes.
 
         Example:
-            If org_agent_relations is unavailable, a supplied parent is silently ignored.
+            A person Agent cannot serve as the parent of an organisation.
 
 
         :param organisation: Name converted to stripped text.
@@ -478,8 +476,8 @@ class AddAPI(Protocol):
         :param organisation_website: Website stored in the sidecar and optionally as a primary url identifier.
         :param organisation_contact_email: Contact email stored unchanged.
         :param organisation_description: Description text stored unchanged.
-        :param organisation_parent: Concrete parent Row or integer Agent ID; evaluated only if the relation table is insertable.
-        :param organisation_relation_type: Relation type, default imprint_of, stored unchanged.
+        :param organisation_parent: Concrete parent Row or integer Agent ID; the Agent repository validates its organisation subtype.
+        :param organisation_relation_type: Nonblank relation type, default imprint_of, trimmed by the Agent repository.
         :param organisation_relation_note: Relation note stored on the edge and appended to Agent notes.
         :param organisation_language: Optional Language Row/string/ID to link.
         :param organisation_synopsis: Optional Synopsis Row/string to link.
@@ -509,38 +507,18 @@ class AddAPI(Protocol):
         organization_synopsis: RowAPI | str | None = None,
     ) -> RowAPI:
         """
-        Describe the US-spelled compatibility alias and its concrete keyword limitation.
+        Forward the US-spelled alias with only two keyword translations.
 
-        The implementation translates only organization and organization_sort.
-        Remaining options work positionally or with UK-spelled implementation
-        keywords; supplying their US-spelled protocol keywords raises TypeError.
-        The advertised signature is retained for compatibility, with this mismatch
-        recorded rather than silently changing executable behavior.
+        If both spellings of one translated key are supplied, the US key remains
+        and may fail at the organisation call.
 
         Example:
-            ``catalog.add.organization("Publisher", organization_sort="Publisher")``
-            uses the two supported US keyword spellings.
+            Use UK-spelled organisation_aliases for additional options; organization_aliases is not translated.
 
 
-        :param organization: Name converted to stripped text.
-        :param organization_sort: Sort name; None uses the stripped name.
-        :param organization_aliases: US-spelled keyword not translated by the current concrete alias; use its organisation_* counterpart.
-        :param organization_note: US-spelled keyword not translated by the current concrete alias; use its organisation_* counterpart.
-        :param organization_legal_name: US-spelled keyword not translated by the current concrete alias; use its organisation_* counterpart.
-        :param organization_trading_name: US-spelled keyword not translated by the current concrete alias; use its organisation_* counterpart.
-        :param organization_registration_id: US-spelled keyword not translated by the current concrete alias; use its organisation_* counterpart.
-        :param organization_jurisdiction: US-spelled keyword not translated by the current concrete alias; use its organisation_* counterpart.
-        :param organization_founded_date: US-spelled keyword not translated by the current concrete alias; use its organisation_* counterpart.
-        :param organization_dissolved_date: US-spelled keyword not translated by the current concrete alias; use its organisation_* counterpart.
-        :param organization_website: US-spelled keyword not translated by the current concrete alias; use its organisation_* counterpart.
-        :param organization_contact_email: US-spelled keyword not translated by the current concrete alias; use its organisation_* counterpart.
-        :param organization_description: US-spelled keyword not translated by the current concrete alias; use its organisation_* counterpart.
-        :param organization_parent: US-spelled keyword not translated by the current concrete alias; use its organisation_* counterpart.
-        :param organization_relation_type: US-spelled keyword not translated by the current concrete alias; use its organisation_* counterpart.
-        :param organization_relation_note: US-spelled keyword not translated by the current concrete alias; use its organisation_* counterpart.
-        :param organization_language: US-spelled keyword not translated by the current concrete alias; use its organisation_* counterpart.
-        :param organization_synopsis: US-spelled keyword not translated by the current concrete alias; use its organisation_* counterpart.
-        :return: Organisation Agent Row when arguments are accepted.
+        :param args: Positional arguments forwarded to organisation.
+        :param kwargs: Keywords forwarded after translating organization and organization_sort when their UK keys are absent.
+        :return: Result of organisation; unsupported/conflicting keywords can raise TypeError.
         """
         ...
 
@@ -560,7 +538,7 @@ class AddAPI(Protocol):
         Translate legacy Publisher values into an organisation Agent.
 
         Unsupported non-text/non-Row descriptions are ignored. Aggregate and later
-        identifier writes are sequential, with no encompassing transaction.
+        identifier writes share the enclosing transaction and roll back together.
 
         Example:
             A description Row from synopses is linked as a Synopsis; other Row tables use the Note-link path.
@@ -741,14 +719,14 @@ class AddAPI(Protocol):
 
     def tag(self, tag: str, tag_phash: str | None = None) -> RowAPI:
         """
-        Insert a Tag with a supplied or generated search hash.
+        Insert a Tag through the Catalog identity policy.
 
         Example:
-            Supplying an empty hash preserves it because only None requests generation.
+            The catalogue derives the key from tag text, including when a hash is supplied.
 
 
         :param tag: Tag text preserved unchanged.
-        :param tag_phash: Search hash; None calls make_tag_search_term(tag).
+        :param tag_phash: Accepted input key; Catalog rederives it from tag text.
         :return: Created database Row; synchronization and schema errors propagate.
         """
         ...
@@ -1315,20 +1293,10 @@ class EnsureAPI(Protocol):
         ...
 
     def tag(self, tag_text: str) -> RowAPI:
-        """
-        Resolve by search hash, then exact text, otherwise insert a Tag.
+        """Reuse or create a Tag through the catalogue's declared identity policy.
 
-        TypeError from hash generation becomes InputIntegrityError. Multiple
-        matches at either lookup raise; no lookup/create transaction is opened.
-
-        Example:
-            A unique phonetic/search-hash match wins before exact text is checked.
-
-
-        :param tag_text: Text preserved for insertion; make_tag_search_term derives the matching hash.
-        :return: Unique hash/text match or newly created Tag Row.
-        :raises InputIntegrityError: Hash generation rejects the input type.
-        :raises DatabaseIntegrityError: A hash or exact-text lookup has multiple matches.
+        Lookup and creation share the enclosing transaction. Missing repository
+        capability and identity errors propagate; no alternate key is derived here.
         """
         ...
 
