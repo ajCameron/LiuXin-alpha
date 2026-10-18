@@ -1,6 +1,7 @@
 # Working Memory Index
 
-Current branch: **configuration-ownership**, the next focused ownership PR.
+Current branch: **configuration-ownership**, ready
+[PR #123](https://github.com/ajCameron/LiuXin-alpha/pull/123), based on #122.
 Core now owns profile selection and composes a single application preference store;
 profile paths and settings reach database bootstrap, dispatch and managed workers.
 See [configuration ownership](configuration-ownership-2026-10-18.md) for details,

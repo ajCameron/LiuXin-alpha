@@ -1,5 +1,9 @@
 # Configuration ownership — 2026-10-18
 
+Published as ready [PR #123](https://github.com/ajCameron/LiuXin-alpha/pull/123),
+**Unify application configuration and Core profile ownership**, on
+`configuration-ownership`. Implementation checkpoint: `d59407f3`.
+
 The user requested the next focused branch through to a PR after the write and
 catalogue-read PRs were merged. Work continues in `/tmp/liuxin-test-vm-telemetry`;
 the Windows checkout's staged/unstaged edits and the shared data symlink are untouched.
