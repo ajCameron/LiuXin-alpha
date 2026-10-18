@@ -86,4 +86,9 @@ footprint, basedpyright, mypy and internal typing contracts. `quality.log` retai
 the full output. Scoped Pyflakes checks for every changed Python file and
 `git diff --check` also pass.
 
-Publication: prepared as a ready PR against `ownership-consolidation` (#120).
+Publication: ready [PR #121](https://github.com/ajCameron/LiuXin-alpha/pull/121),
+**Unify catalogue category sources, counts and paging**, against
+`ownership-consolidation` (#120). Code checkpoint: `daa6a0ed`.
+
+Next focused ownership area: configuration composition and precedence, followed
+by jobs/ingest/plugin-registry boundaries from the ownership map.

@@ -1,7 +1,9 @@
 # Working Memory Index
 
-Current branch: **catalog-read-model-consolidation**, a focused catalogue-category
+Current branch: **catalog-read-model-consolidation**, ready
+[PR #121](https://github.com/ajCameron/LiuXin-alpha/pull/121), a focused catalogue-category
 read follow-up to [PR #120](https://github.com/ajCameron/LiuXin-alpha/pull/120).
+The latest outcomes cover 331 distinct passing cases; project quality gates pass.
 See [catalogue read ownership](catalogue-read-ownership-2026-10-18.md) for the shared
 Core policy, surface adapters, validation and publication status.
 
