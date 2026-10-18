@@ -44,6 +44,7 @@ def _subject() -> ReadModelBackend:
     model.columns.return_value = ("work_id", "work_title")
     model.related_tables.return_value = ()
     model.record_count.return_value = 0
+    model.browse_categories.return_value = ({"tables": ["labels"], "count": 0},)
     model.rows.return_value = ()
     model.row.return_value = None
     model.related.return_value = ((), ())
@@ -198,7 +199,7 @@ def test_grouping_and_tag_selection_keep_fallback_identity_and_global_precedence
         >>> test_grouping_and_tag_selection_keep_fallback_identity_and_global_precedence()
 
 
-    :return: None after fallback identity, tag/label precedence, and unconditional author-table fallback checks.
+    :return: None after fallback identity, tag/label precedence, and Core-owned author-table absence checks.
     """
     backend = _subject()
     related = {"labels": [{"label_id": 1}], "empty": []}
@@ -211,38 +212,40 @@ def test_grouping_and_tag_selection_keep_fallback_identity_and_global_precedence
         and rows == related["labels"]
         and rows is not related["labels"]
     )
-    backend.model.record_count.return_value = 1
+    backend.model.browse_categories.return_value = ({"tables": ["tags"]},)
     assert backend.work_tag_rows(related) == ("tags", [])
-    backend.model.table_exists.return_value = False
-    assert backend.author_tables() == ["agents"]
+    backend.model.browse_categories.return_value = ({"tables": []},)
+    assert backend.author_tables() == []
 
 
 def test_category_paging_keeps_rating_placeholder_sharing_and_normalized_direction() -> (
     None
 ):
-    """
-    Sort rating requests by label, preserve nested row identity, and canonicalize unknown direction to ascending.
-
-    Example:
-        >>> test_category_paging_keeps_rating_placeholder_sharing_and_normalized_direction()
-
-
-    :return: None after rating/name order, normalized metadata, and shallow-copy assertions.
-    """
+    """Pass rating sorting to Core, retaining row values and normalized direction."""
     backend = _subject()
-    original = [
-        {"label": "B", "count": 99, "row": {}},
-        {"label": "A", "count": 0, "row": {}},
-    ]
-    backend.category_rows = Mock(return_value=original)
+    values = {"tag_id": 7, "tag": "A"}
+    backend.model.browse_category_items.return_value = {
+        "records": [
+            {"table": "tags", "id": 7, "label": "A", "work_count": 0, "record": values}
+        ],
+        "total_count": 2,
+        "offset": 0,
+        "complete": False,
+    }
     result = backend.category_items_payload(
         " TAGS ", num=1, offset=0, sort=" RATING ", sort_order="unknown"
     )
     assert result["category"] == "tags" and result["sort"] == "rating"
     assert result["sort_order"] == "asc" and result["total_num"] == 2
     assert result["items"][0]["label"] == "A"
-    assert result["items"][0] is not original[1]
-    assert result["items"][0]["row"] is original[1]["row"]
+    assert result["items"][0]["row"].values is values
+    backend.model.browse_category_items.assert_called_once_with(
+        "tags",
+        limit=1,
+        offset=0,
+        sort="rating",
+        ascending=True,
+    )
 
 
 def test_file_and_metadata_payloads_preserve_zero_fallback_and_duplicate_formats() -> (

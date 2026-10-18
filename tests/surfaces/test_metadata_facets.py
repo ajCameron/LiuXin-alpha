@@ -144,43 +144,10 @@ def test_preferred_tag_table_uses_real_tags_for_write_like_flows() -> None:
     assert preferred_tag_table(db) == "tags"
 
 
-def test_preferred_tag_table_can_fall_back_to_labels_for_browse_categories() -> None:
-    """
-    Cover populated preference across mixed, tags-only, and labels-only schemas.
-
-    Example:
-        >>> test_preferred_tag_table_can_fall_back_to_labels_for_browse_categories()
-
-
-    :return: ``None`` when each population/schema combination selects the expected table.
-    """
-    empty_tags_db = _FakeDb(tables={"tags", "labels"}, counts={"tags": 0})
-    populated_tags_db = _FakeDb(tables={"tags", "labels"}, counts={"tags": 2})
-    tags_only_db = _FakeDb(tables={"tags"}, counts={"tags": 0})
-    labels_only_db = _FakeDb(tables={"labels"})
-
-    assert preferred_tag_table(empty_tags_db, prefer_populated_tags=True) == "labels"
-    assert preferred_tag_table(populated_tags_db, prefer_populated_tags=True) == "tags"
-    assert preferred_tag_table(tags_only_db, prefer_populated_tags=True) == "tags"
-    assert preferred_tag_table(labels_only_db, prefer_populated_tags=True) == "labels"
-
-
-def test_preferred_tag_table_treats_count_errors_as_usable_tags() -> None:
-    """
-    Verify an unavailable tag count does not force a fallback to labels.
-
-    The fake raises ``KeyError`` for its unconfigured count, exercising the helper's
-    count-error policy rather than simulating a genuine zero count.
-
-    Example:
-        >>> test_preferred_tag_table_treats_count_errors_as_usable_tags()
-
-
-    :return: ``None`` when count failure still selects tags.
-    """
-    db = _FakeDb(tables={"tags", "labels"})
-
-    assert preferred_tag_table(db, prefer_populated_tags=True) == "tags"
+@pytest.mark.parametrize("tables,expected", [({"tags"}, "tags"), ({"labels"}, "labels"), (set(), None)])
+def test_write_tag_target_depends_only_on_schema(tables, expected) -> None:
+    """Write selection does not ask for a count or apply the browse-source policy."""
+    assert preferred_tag_table(_FakeDb(tables=tables)) == expected
 
 
 @pytest.mark.parametrize(

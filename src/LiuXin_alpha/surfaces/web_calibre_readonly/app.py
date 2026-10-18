@@ -24,7 +24,7 @@ import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 from urllib.parse import parse_qs, quote, unquote
 from wsgiref.simple_server import make_server
 
@@ -929,7 +929,7 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
 
     def _author_tables(self) -> list[str]:
         """
-        Borrow the catalogue's preferred agent-table list and its agents fallback.
+        Borrow Core's advertised author-source list, preserving confirmed absence.
 
         Example:
             >>> tables = app._author_tables()  # doctest: +SKIP
@@ -952,17 +952,17 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
         """
         return self.catalog.browse_count(kind)
 
-    def _tag_category_table(self) -> str:
+    def _tag_category_table(self) -> Optional[str]:
         """
-        Use the catalogue read model's selected tag source, defaulting to tags.
+        Use Core's selected tag source, preserving confirmed absence.
 
         Example:
             >>> table = app._tag_category_table()  # doctest: +SKIP
 
 
-        :return: Truthy selected table or tags; the fallback is not rechecked for existence.
+        :return: Selected tag source, or None when Core advertises none.
         """
-        return self.catalog.read_model.tag_category_table() or "tags"
+        return self.catalog.read_model.tag_category_table()
 
     def _nav_buttons(self) -> str:
         """
@@ -1972,7 +1972,7 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
         """
         related: dict[str, list[object]] = {}
         for linked_table in ("expressions", "files", self._tag_category_table(), "series"):
-            if not self._table_exists(linked_table):
+            if linked_table is None or not self._table_exists(linked_table):
                 continue
             linked_rows = self.read_model.interlinked_rows(row, linked_table)
             if linked_rows:
@@ -2717,7 +2717,7 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
             return self._render_book_page(raw_row_id)
         return super()._render_row_page(table, raw_row_id)
 
-    def _render_linked_works_page(self, table: str, raw_row_id: str, *, kind: str) -> str:
+    def _render_linked_works_page(self, table: Optional[str], raw_row_id: str, *, kind: str) -> str:
         """
         Render every directly grouped work for a selected category entity without pagination.
 
@@ -2730,12 +2730,12 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
             >>> page = app._render_linked_works_page("agents", "7", kind="authors")  # doctest: +SKIP
 
 
-        :param table: Entity table whose existence, row, and related groups are queried.
+        :param table: Selected entity table, or None for a category with no source.
         :param raw_row_id: Entity ID converted from stripped string text to int.
         :param kind: Presentation category, normally authors/series/tags; not an authorization check.
         :return: Complete linked-work listing or explanatory error-page HTML.
         """
-        if not self._table_exists(table):
+        if table is None or not self._table_exists(table):
             return self._render_layout(
                 title="Missing category row",
                 body_html="<section class='panel'><h2 class='section-title'>Unknown record</h2></section>",

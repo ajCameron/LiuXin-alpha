@@ -29,6 +29,9 @@ fresh inventory of this branch.
 | Ingest | `core.workflow_jobs`, `core.program_services.ingest`, `ingest.mixed_application` and source-specific pipelines participate; storage reconciliation still owns some discovery/application operations. | Map entrypoints to the same ingest coordinator and policies, retaining source/backend adapters. Verify preview, write, cancellation, failure and local/remote parity. |
 | Plugin registries | Registries exist for formats, metadata readers, storage, database drivers, caches and terminal lifecycle plugins. Some apparent duplicates (`storage.backend_registry`, `customize.builtins.registry`) are exports rather than independent implementations. | Distinguish domain-specific registries from competing registries for the same capability. Remove duplicate discovery/selection for a capability and test precedence, failures, plugin lifetime and lazy imports. |
 
+The next catalogue-read slice is tracked in
+[catalogue read ownership](catalogue-read-ownership-2026-10-18.md).
+
 ## First PR: writes and normalisation
 
 Preserve the established full-text NFKC/casefold/whitespace default and
