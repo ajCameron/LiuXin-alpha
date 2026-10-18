@@ -22,4 +22,4 @@ at **413/813 units, 9,742/19,479 declarations and 662/1,237 files**. F141 is nex
 - [Quality](test-results/docstrings-f121-f140-2026-10-05/quality.log)
 - [Reconciliation](test-results/docstrings-f121-f140-2026-10-05/reconciliation.json)
 - [Previous checkpoint](project-docstrings-f101-f120-2026-10-05.md)
-- [Completion plan](../dev-docs/project-docstrings-completion-plan.md)
+- [Completion plan](../dev-docs/hacking/project-docstrings-completion-plan.md)

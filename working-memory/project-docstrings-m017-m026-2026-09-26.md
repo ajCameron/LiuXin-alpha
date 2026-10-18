@@ -107,4 +107,4 @@ PostgreSQL or network service was used. Token usage is unavailable.
 - [Authoring refinements](test-results/docstrings-m017-m026-2026-09-26/authoring-refinements.json)
 - [Documentation diff](test-results/docstrings-m017-m026-2026-09-26/docstrings.diff)
 - [Previous checkpoint](project-docstrings-m007-m016-2026-09-25.md)
-- [Completion plan](../dev-docs/project-docstrings-completion-plan.md)
+- [Completion plan](../dev-docs/hacking/project-docstrings-completion-plan.md)

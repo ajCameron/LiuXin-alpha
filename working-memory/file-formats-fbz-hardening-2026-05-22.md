@@ -69,8 +69,8 @@ HTMLZ, DOCX, and comics:
 
 Updated:
 
-- `dev-docs/file-formats/fb2/README.md`
-- `dev-docs/file-format-unicode-conversion.md`
+- `dev-docs/file_formats/fb2/README.md`
+- `dev-docs/file_formats/file-format-unicode-conversion.md`
 
 The docs now describe `.fb2` as XML-backed by default and `.fbz` as the strict
 single-FB2-member archive-backed variant.

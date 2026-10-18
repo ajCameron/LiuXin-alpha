@@ -1,7 +1,7 @@
 # Todo
 
 - Break the seven modern import-cycle components recorded in
-  [maintainability-quality-gates.md](maintainability-quality-gates.md), then
+  [maintainability-quality-gates.md](architectural_reviews/maintainability-quality-gates.md), then
   extract bounded services from `core/program_api.py` and
   `surfaces/cli/storage_commands` before widening the strict ratchet.
 - Consolidate duplicate full-suite CI ownership, replace the compile-only
@@ -14,7 +14,7 @@
   explicit capability edges, fallback reporting, shared archive preflight, and
   format-level done criteria.
 - Continue the alpha-native semantic test DB series from
-  [07 - Test Databases.md](07%20-%20Test%20Databases.md) by adding `_db_2`
+  [07 - Test Databases.md](<07 - Test Databases.md>) by adding `_db_2`
   members only where a third semantic shape is justified, and only add
   `compat_projection_db_0` if we decide to support a real compatibility
   contract.

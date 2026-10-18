@@ -14,7 +14,7 @@ or unsupported containers may still return conservative metadata.
 
 Durable docs:
 
-- `dev-docs/malformed-input-fuzzing.md`
+- `dev-docs/hacking/testing/malformed-input-fuzzing.md`
 
 ## RTF/SNB/LRX Lane
 

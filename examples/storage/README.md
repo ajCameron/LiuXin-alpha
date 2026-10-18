@@ -72,7 +72,7 @@ of individually valid archives from multiplying each backend's own limits.
 backend dependencies without creating the catalogue or cache. A real recursive
 run needs a managed cache outside the source tree only when it encounters a
 nested container. See
-`dev-docs/storage/mixed_ingest_operations.md` for the run contract.
+`dev-docs/storage_and_backup/mixed_ingest_operations.md` for the run contract.
 
 The mixed command is also the unattended-run surface. It creates a complete
 append-only JSONL event stream through LiuXin's internal event-log handler and

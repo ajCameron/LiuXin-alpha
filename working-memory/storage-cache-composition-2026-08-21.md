@@ -53,7 +53,7 @@ authoritative, and standalone `Database.storage` remains usable without Core.
 ## Follow-ups
 
 The production-hardening list in
-`dev-docs/storage/storage_component_status.md` is complete. The 50,000-book
+`dev-docs/storage_and_backup/storage_component_status.md` is complete. The 50,000-book
 cache run confirms bounded mutation refresh, while its roughly 745 MiB peak RSS
 also confirms the architecture decision: storage may share Core's configured
 cache but must remain fully usable through direct repository reads.

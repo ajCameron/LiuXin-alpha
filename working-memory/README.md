@@ -36,7 +36,7 @@ Examples:
 
 - Link to files in `working-memory/` with paths relative to the note.
 - Refer to canonical project files with repository-relative paths such as
-  `dev-docs/catalog-roadmap.md`.
+  `dev-docs/catalog/catalog-roadmap.md`.
 - Do not commit machine-specific checkout paths.
 
 ## Rule of thumb

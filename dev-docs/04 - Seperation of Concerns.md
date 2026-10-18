@@ -7,12 +7,12 @@ Status: **canonical ownership guide; migrations remain in progress**
 This document defines where new behavior belongs. The more detailed
 [top-level structure](<02 - Top Level Structure.md>) describes the intended
 shape, and the dated
-[Catalog write-validation contract](catalog-write-validation-contract.md)
+[Catalog write-validation contract](catalog/catalog-write-validation-contract.md)
 defines the semantic write guarantee. Existing compatibility code may still
 cross these boundaries; that debt is not precedent for new code.
 
 The executable migration boundary is described in the
-[layer-direction ratchet](layer-direction-ratchet.md). Existing backward edges
+[layer-direction ratchet](architectural_reviews/layer-direction-ratchet.md). Existing backward edges
 are exact reviewed debt, not exceptions available to new code.
 
 ## Layer map
@@ -64,7 +64,7 @@ implementations. Import contracts and implementations from their owning modules:
   and `caches.cache_plugins` for bundled backends.
 
 This is enforced by the fresh-process
-[import-footprint ratchet](import-footprint-ratchet.md). It complements static
+[import-footprint ratchet](architectural_reviews/import-footprint-ratchet.md). It complements static
 layer checks by observing the modules Python actually executes through package
 initializers.
 

@@ -25,7 +25,7 @@ which also contains the packaging baseline and stages 1–8.
   repository rulesets. No remote configuration was changed. The CI guide
   records the retired matrix status names for future required-check setup.
 - Add [developer navigation](../dev-docs/README.md), linked from the root
-  README, and [CI ownership](../dev-docs/continuous-integration.md). Distinguish
+  README, and [CI ownership](../dev-docs/hacking/testing/continuous-integration.md). Distinguish
   maintained contracts from design notes and roadmaps.
 - Replace developer-specific links in the test-database guide and the local
   startup example. Two March benchmark outputs are absent from the checkout;

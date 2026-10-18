@@ -12,7 +12,7 @@ import does not initialize every bundled backend or pull database implementation
 the caller.
 
 See ``dev-docs/04 - Seperation of Concerns.md`` and
-``dev-docs/catalog-cache-boundary.md``.
+``dev-docs/catalog/catalog-cache-boundary.md``.
 """
 
 from __future__ import annotations

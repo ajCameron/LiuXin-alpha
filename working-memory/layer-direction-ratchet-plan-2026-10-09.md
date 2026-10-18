@@ -12,7 +12,7 @@ of the current dependency component.
 This plan follows the original findings in
 [`working-memory/code-review-2026-09-26.md`](code-review-2026-09-26.md) and the
 target decisions in
-[`dev-docs/target-architecture.md`](../dev-docs/target-architecture.md). It
+[`dev-docs/architectural_reviews/target-architecture.md`](../dev-docs/architectural_reviews/target-architecture.md). It
 supersedes the review's dependency counts, but not its substantive findings.
 
 ## Current evidence
@@ -352,7 +352,7 @@ and scoped Ruff, formatting, and diff checks were clean.
 ## Decision recorded: Catalog write validity (2026-10-11)
 
 The canonical
-[`Catalog write-validation contract`](../dev-docs/catalog-write-validation-contract.md)
+[`Catalog write-validation contract`](../dev-docs/catalog/catalog-write-validation-contract.md)
 now records the layer boundary agreed during this migration:
 
 - `metadata` owns pure value normalization and semantic validation;

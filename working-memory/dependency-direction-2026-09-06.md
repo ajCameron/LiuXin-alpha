@@ -47,7 +47,7 @@ are not modeled. Fresh-process import tests complement the static gate.
 CI now includes the scanner, independent surface-import/compatibility tests,
 and writer import/dispatch tests.
 
-Canonical policy: [maintainability quality gates](../dev-docs/maintainability-quality-gates.md), especially
+Canonical policy: [maintainability quality gates](../dev-docs/architectural_reviews/maintainability-quality-gates.md), especially
 “Dependency direction and import contexts.”
 
 ## Verification at stage-3 completion

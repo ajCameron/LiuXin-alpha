@@ -1,3 +1,6 @@
+
+# Todo: Need to update for the current project
+
 > [!CAUTION]
 > **Deprecated:** This document describes the previous storage model and is
 > retained only so useful material can be salvaged later. It is not
@@ -104,8 +107,7 @@ occupied by different bytes or by a non-file path.
 
 # Files
 
-When you put a request in to a store (either by hash, or id from the files table) you get a file object back.
-
+When you put a request in to a store (either by hash, or id from the files table) you can get a file object back.
 
 # Remote mirroring (read-only HTTP via rclone)
 

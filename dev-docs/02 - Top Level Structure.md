@@ -1,7 +1,7 @@
+
 # Top-level structure
 
-Reviewed: **2026-10-19**, against source at `6508d5e0` on
-`architecture-review-followup`.
+Reviewed: **2026-10-19**, against source at `6508d5e0` on `architecture-review-followup`.
 
 Status: **Current architecture overview, with remaining migrations identified.**
 The reviewed source includes the writes, category-read and configuration ownership
@@ -473,25 +473,25 @@ enforced scopes, not a claim of universal architectural correctness.
 
 [responsibilities]: <04 - Seperation of Concerns.md>
 [structural-review]: architectural_reviews/documentation-structural-review-2026-10-18.md
-[layer-rules]: layer-direction-ratchet.md
-[import-checks]: import-footprint-ratchet.md
-[core-api]: core-api.md
-[catalog-api]: catalog-api-usage.md
-[write-contract]: catalog-write-validation-contract.md
-[matching-policy]: catalog-matching-policy.md
+[layer-rules]: architectural_reviews/layer-direction-ratchet.md
+[import-checks]: architectural_reviews/import-footprint-ratchet.md
+[core-api]: core/core-api.md
+[catalog-api]: catalog/catalog-api-usage.md
+[write-contract]: catalog/catalog-write-validation-contract.md
+[matching-policy]: catalog/catalog-matching-policy.md
 [metadata-guide]: metadata_container/metadata_container_system_guide.md
-[database-guide]: LiuXin_database_field_guide.md
-[storage-guide]: storage/README.md
-[storage-api]: storage/storage_api.md
-[cache-contract]: catalog-cache-boundary.md
-[cli-composition]: cli-composition.md
-[terminal-composition]: terminal-composition.md
-[ingest-guide]: storage/mixed_ingest_operations.md
-[format-guide]: file-formats/README.md
-[plugin-guide]: file-formats/plugin-composition.md
-[packaging]: packaging.md
+[database-guide]: databases/LiuXin_database_field_guide.md
+[storage-guide]: storage_and_backup/README.md
+[storage-api]: storage_and_backup/storage_api.md
+[cache-contract]: catalog/catalog-cache-boundary.md
+[cli-composition]: surfaces/cli-composition.md
+[terminal-composition]: surfaces/terminal-composition.md
+[ingest-guide]: storage_and_backup/mixed_ingest_operations.md
+[format-guide]: file_formats/README.md
+[plugin-guide]: file_formats/plugin-composition.md
+[packaging]: hacking/packaging.md
 [library-services]: ../src/LiuXin_alpha/core/library_services.py
 [core-factory]: ../src/LiuXin_alpha/core/factory.py
-[lifecycle-review]: lifecycle-opening-path-review-2026-10-09.md
+[lifecycle-review]: architectural_reviews/lifecycle-opening-path-review-2026-10-09.md
 [read-failures]: read-model-failures.md
-[quality-gates]: maintainability-quality-gates.md
+[quality-gates]: architectural_reviews/maintainability-quality-gates.md

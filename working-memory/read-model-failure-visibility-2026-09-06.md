@@ -56,8 +56,8 @@ on `codex/package-calibre-resources`.
   and strict-leaf typing scopes remain intact.
 
 Canonical policy: [read-model failure boundaries](../dev-docs/read-model-failures.md);
-also linked from [Core API](../dev-docs/core-api.md) and
-[maintainability quality gates](../dev-docs/maintainability-quality-gates.md).
+also linked from [Core API](../dev-docs/core/core-api.md) and
+[maintainability quality gates](../dev-docs/architectural_reviews/maintainability-quality-gates.md).
 
 ## Verification
 

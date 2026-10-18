@@ -20,4 +20,4 @@ Remaining: **300 units, 452 files and 6,983 declarations**. F241 is next.
 - [Quality](test-results/docstrings-f221-f240-2026-10-05/quality.log)
 - [Reconciliation](test-results/docstrings-f221-f240-2026-10-05/reconciliation.json)
 - [Previous checkpoint](project-docstrings-f201-f220-2026-10-05.md)
-- [Completion plan](../dev-docs/project-docstrings-completion-plan.md)
+- [Completion plan](../dev-docs/hacking/project-docstrings-completion-plan.md)

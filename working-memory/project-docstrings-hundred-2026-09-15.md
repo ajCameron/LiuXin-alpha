@@ -9,8 +9,8 @@ Next: **D096**. Total D progress: **95/232 units**,
 **2345/5,719 declarations**, **131/388 complete files**.
 Overall: **853/2,732 complete files**, **37 verified partial-file declarations**.
 
-[Inventory](../dev-docs/project-docstrings-work-units.json),
-[plan](../dev-docs/project-docstrings-completion-plan.md), and
+[Inventory](../dev-docs/hacking/project-docstrings-work-units.json),
+[plan](../dev-docs/hacking/project-docstrings-completion-plan.md), and
 [campaign](test-results/docstrings-d-2026-09-14/campaign.json) retain source hashes,
 exact selections, terminal exits and milestone evidence. The earlier pause is
 historical. Existing implementation limitations remain documented, not repaired.

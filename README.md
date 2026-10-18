@@ -31,7 +31,7 @@ The wheel owns its database schema and complete Calibre compatibility-resource
 bundle. Installed HTML-to-EPUB conversion is part of the packaging gate. An
 operator can overlay bundle files with `LIUXIN_CALIBRE_RESOURCES_DIR`; existing
 resource layouts below `LIUXIN_BASE_DIR` remain compatible. See
-`dev-docs/packaging.md` for the exact resolution and dependency boundaries.
+`dev-docs/hacking/packaging.md` for the exact resolution and dependency boundaries.
 
 Activate it with:
 
@@ -53,7 +53,7 @@ smoke coverage across the rest of the project—run:
 ```
 
 The runner also exposes `database` and `smoke` streams; omitting `--stream`
-still runs the full suite. See `dev-docs/test-streams.md` for the
+still runs the full suite. See `dev-docs/hacking/test-streams.md` for the
 selection and maintenance rules.
 
 The full-suite helper also expects this repo-local venv:
@@ -75,7 +75,7 @@ ratcheted modules with Ruff, and runs `basedpyright` and `mypy` over a
 zero-error target. Use `--install` when the `typing` extra still needs to be
 installed or updated. The target is deliberately ratcheted rather than
 claiming that inherited compatibility code is already strict. See
-`dev-docs/maintainability-quality-gates.md` for scope and expansion rules.
+`dev-docs/architectural_reviews/maintainability-quality-gates.md` for scope and expansion rules.
 
 ## Storage ingest CLI
 
@@ -108,7 +108,7 @@ liuxin storage ingest --help
 Use `--discover-only` for classification with no catalogue writes and
 `--preflight-only` to check an intended remote-host run before creating its
 SQLite catalogue or materialization cache. See
-`dev-docs/storage/mixed_ingest_operations.md` for the full run, resume,
+`dev-docs/storage_and_backup/mixed_ingest_operations.md` for the full run, resume,
 logging, locking, signals, reports, and service-supervision contract.
 Completed and interrupted attempts can be inspected without reading JSONL by
 hand:
@@ -133,7 +133,7 @@ liuxin metadata dump-json --database catalogue.sqlite --all --output metadata.js
 
 Every command can instead use `--core-endpoint`. File paths always refer to the
 CLI host and are transferred as bounded bytes; embedded writes create a new
-artifact by default. See `dev-docs/metadata-cli.md` for the complete command,
+artifact by default. See `dev-docs/metadata/metadata-cli.md` for the complete command,
 JSON, atomic-output, in-place safety, and remote-operation contracts.
 
 ## Operational CLI
@@ -168,7 +168,7 @@ explains the selected deployment and
 transfer paths belong to the CLI host; ingest, conversion, and backup workflow
 paths belong to the Core host. HTTP services default to loopback because they
 do not provide built-in authentication or TLS. See
-`dev-docs/operational-cli.md` for the command map and safety contract.
+`dev-docs/surfaces/operational-cli.md` for the command map and safety contract.
 
 ## PostgreSQL Backend
 
@@ -184,5 +184,5 @@ already exist. Server-level role/database provisioning remains explicit in the
 runbook.
 
 ```text
-dev-docs/postgresql-backend.md
+dev-docs/databases/postgresql-backend.md
 ```

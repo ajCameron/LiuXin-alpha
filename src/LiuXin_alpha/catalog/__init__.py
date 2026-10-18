@@ -10,7 +10,7 @@ This keeps contract imports independent from repositories, matching, metadata
 containers, caches, and database implementations.
 
 See ``dev-docs/04 - Seperation of Concerns.md`` and
-``dev-docs/catalog-api-usage.md``.
+``dev-docs/catalog/catalog-api-usage.md``.
 """
 
 from __future__ import annotations

@@ -67,4 +67,4 @@ helpers must not be replayed against this completed batch.
 - [Inventory reconciliation](test-results/docstrings-m157-m176-2026-10-04/reconciliation.json)
 - [Documentation diff](test-results/docstrings-m157-m176-2026-10-04/docstrings.diff)
 - [Previous checkpoint](project-docstrings-m147-m156-2026-10-04.md)
-- [Completion plan](../dev-docs/project-docstrings-completion-plan.md)
+- [Completion plan](../dev-docs/hacking/project-docstrings-completion-plan.md)

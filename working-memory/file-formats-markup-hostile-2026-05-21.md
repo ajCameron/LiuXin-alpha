@@ -5,7 +5,7 @@ Branch: `file-formats-markup-hostile-hardening`
 Started after PR #71 merged. This is the optional lightweight-markup pass
 before moving into ODT/container conversion.
 
-Durable doc: `dev-docs/file-format-unicode-conversion.md`.
+Durable doc: `dev-docs/file_formats/file-format-unicode-conversion.md`.
 
 ## Scope
 

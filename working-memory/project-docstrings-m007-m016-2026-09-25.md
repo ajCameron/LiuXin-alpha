@@ -98,4 +98,4 @@ unavailable.
 - [Final parameter wording corrections](test-results/docstrings-m007-m016-2026-09-25/final-wording-amendments.json)
 - [Documentation diff](test-results/docstrings-m007-m016-2026-09-25/docstrings.diff)
 - [Previous checkpoint and D completion](project-docstrings-d229-m006-2026-09-25.md)
-- [Completion plan](../dev-docs/project-docstrings-completion-plan.md)
+- [Completion plan](../dev-docs/hacking/project-docstrings-completion-plan.md)

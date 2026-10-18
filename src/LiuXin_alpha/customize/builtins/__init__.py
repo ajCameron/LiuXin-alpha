@@ -5,7 +5,7 @@ Consumers that need the complete compatibility fleet must import
 ``LiuXin_alpha.customize.builtins.registry`` explicitly. Individual provider
 modules remain independently importable.
 
-See ``dev-docs/file-formats/plugin-composition.md``.
+See ``dev-docs/file_formats/plugin-composition.md``.
 """
 
 from __future__ import annotations

@@ -17,4 +17,4 @@ Project coverage is **2,435/2,671 files** and **37,816 declarations**. Remaining
 - [Quality](test-results/docstrings-f341-f347-2026-10-05/quality.log)
 - [Reconciliation](test-results/docstrings-f341-f347-2026-10-05/reconciliation.json)
 - [Previous checkpoint](project-docstrings-f321-f340-2026-10-05.md)
-- [Completion plan](../dev-docs/project-docstrings-completion-plan.md)
+- [Completion plan](../dev-docs/hacking/project-docstrings-completion-plan.md)

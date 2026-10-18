@@ -48,4 +48,4 @@ Historical evidence helpers must not be replayed against this completed batch.
 - [Inventory reconciliation](test-results/docstrings-m267-m274-2026-10-05/reconciliation.json)
 - [Documentation diff](test-results/docstrings-m267-m274-2026-10-05/docstrings.diff)
 - [Previous checkpoint](project-docstrings-m237-m266-2026-10-05.md)
-- [Completion plan](../dev-docs/project-docstrings-completion-plan.md)
+- [Completion plan](../dev-docs/hacking/project-docstrings-completion-plan.md)

@@ -1,7 +1,7 @@
 # Storage production-hardening checkpoint - 2026-08-21
 
 The storage follow-up checklist recorded in
-`dev-docs/storage/storage_component_status.md` has been worked through.
+`dev-docs/storage_and_backup/storage_component_status.md` has been worked through.
 
 Implemented and covered:
 
@@ -413,7 +413,7 @@ acknowledges that the current transports have no authentication or TLS. Core
 HTTP request bodies now have a configurable hard ceiling.
 
 The detailed command and safety contract is recorded in
-`dev-docs/operational-cli.md`; deployment prerequisites include every packaged
+`dev-docs/surfaces/operational-cli.md`; deployment prerequisites include every packaged
 CLI module and that runbook. Focused command-contract tests cover the installed
 tree, named operation payloads, job lifecycle, rich storage hints, tortured
 client paths, acquisition bytes, Core-host workflow paths, maintenance

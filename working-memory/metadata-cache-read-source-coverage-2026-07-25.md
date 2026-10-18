@@ -53,7 +53,7 @@ Focused post-change result:
   and lifecycle state, and assertions recognize that the session owns the
   composed facade.
 - The FRBR smoke reads the canonical
-  `dev-docs/column-metadata.md` path rather than the removed
+  `dev-docs/databases/column-metadata.md` path rather than the removed
   `docs/development/column-metadata.md` path.
 
 ## Validation

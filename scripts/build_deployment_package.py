@@ -53,15 +53,15 @@ REQUIRED_DEPLOYMENT_PATHS = (
     Path("src/LiuXin_alpha/surfaces/cli/metadata.py"),
     Path("src/LiuXin_alpha/surfaces/cli/postgres.py"),
     Path("src/LiuXin_alpha/surfaces/cli/serve.py"),
-    Path("src/LiuXin_alpha/surfaces/cli/storage.py"),
+    Path("src/LiuXin_alpha/surfaces/cli/storage_commands/__init__.py"),
     Path("src/LiuXin_alpha/surfaces/cli/workflows.py"),
-    Path("src/LiuXin_alpha/surfaces/system_profile.py"),
+    Path("src/LiuXin_alpha/core/settings.py"),
     Path("scripts/create_venv.sh"),
     Path("scripts/run_postgres_live_smoke.py"),
-    Path("dev-docs/metadata-cli.md"),
-    Path("dev-docs/operational-cli.md"),
-    Path("dev-docs/postgresql-backend.md"),
-    Path("dev-docs/storage/mixed_ingest_operations.md"),
+    Path("dev-docs/metadata/metadata-cli.md"),
+    Path("dev-docs/surfaces/operational-cli.md"),
+    Path("dev-docs/databases/postgresql-backend.md"),
+    Path("dev-docs/storage_and_backup/mixed_ingest_operations.md"),
 )
 
 DEFAULT_EXCLUDED_TOP_LEVEL = {
@@ -413,7 +413,7 @@ def build_source_metadata(
             "cli_executable": "liuxin",
         },
         "postgres": {
-            "runbook": "dev-docs/postgresql-backend.md",
+            "runbook": "dev-docs/databases/postgresql-backend.md",
             "live_smoke": "scripts/run_postgres_live_smoke.py",
             "generated_helpers": [
                 "deploy/remote_install.sh",
@@ -1046,7 +1046,7 @@ Exit 0 is complete/ready, 1 is a completed run with issues or a runtime
 failure, 2 is command configuration, 130 is SIGINT, and 143 is SIGTERM. A
 graceful signal writes a cancelled report; send a second signal only to force
 the Python boundary to unwind. See
-`dev-docs/storage/mixed_ingest_operations.md` for supervision, logging, resume,
+`dev-docs/storage_and_backup/mixed_ingest_operations.md` for supervision, logging, resume,
 and safety details.
 
 ## Metadata operations
@@ -1062,7 +1062,7 @@ Read one Item or create an atomic, deterministic all-Item JSON dump:
 
 The same leaf commands accept `--core-endpoint`. Embedded-file commands always
 read paths on this CLI host, transfer bounded bytes, and create a new artifact
-by default. See `dev-docs/metadata-cli.md` for catalogue writes, OPF, safe file
+by default. See `dev-docs/metadata/metadata-cli.md` for catalogue writes, OPF, safe file
 rewrite, online identify/cover jobs, and the explicit unmanaged in-place mode.
 
 ## Operational Core and workflows
@@ -1085,7 +1085,7 @@ Every Core-backed leaf accepts `--database` or `--core-endpoint`. File-transfer
 commands read and write CLI-host paths; workflow paths are resolved on the Core
 host. Mutating maintenance commands preview unless `--yes` is supplied. HTTP
 surfaces bind to loopback by default because they have no built-in TLS or
-authentication. See `dev-docs/operational-cli.md` for the complete map and
+authentication. See `dev-docs/surfaces/operational-cli.md` for the complete map and
 safety contract.
 
 ## PostgreSQL Setup
@@ -1134,7 +1134,7 @@ deploy/postgres_remote_setup.sh \\
   --runtime-url postgresql://liuxin_runtime@localhost/liuxin
 ```
 
-See `dev-docs/postgresql-backend.md` for the longer runbook.
+See `dev-docs/databases/postgresql-backend.md` for the longer runbook.
 """
 
 
