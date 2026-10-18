@@ -1,8 +1,8 @@
 """
 Adapt tag-like lookup, display, and creation payloads to current tags and legacy labels schemas.
 
-Table selection is policy-specific: writes normally prefer tags, while callers
-can request a populated-tags preference for browsing. Helpers only select fields
+Write table selection prefers tags whenever present. Catalogue browsing selects
+its source through Core browse queries. Helpers only select fields
 or perform reads; payload construction does not insert a record.
 """
 
@@ -35,50 +35,14 @@ def database_table_names(db) -> set[str]:
     return {str(table) for table in db.get_tables()}
 
 
-def preferred_tag_table(
-    db,
-    *,
-    prefer_populated_tags: bool = False,
-    tables: Optional[set[str]] = None,
-) -> Optional[str]:
+def preferred_tag_table(db, *, tables: Optional[set[str]] = None) -> Optional[str]:
+    """Choose a write target, preferring an existing tags table regardless of count.
+
+    Labels remain the target only for a labels-only schema. This helper does not
+    select browse sources; Core owns that policy and its read failures.
     """
-    Choose the usable tag-like table for the current catalogue schema.
-
-    Tags win by default without a count query. With the populated preference,
-    a positive tag count or a count/conversion error still selects tags; otherwise
-    labels win when available. Neither choice verifies readable text columns.
-
-    Example:
-        >>> preferred_tag_table(None, tables={"tags", "labels"})
-        'tags'
-        >>> preferred_tag_table(None, tables={"labels"})
-        'labels'
-
-
-    :param db: Facade supplying table names and, when requested, the tag record count.
-    :param prefer_populated_tags: Permit labels when tags have a nonpositive count and labels exist.
-    :param tables: Optional precomputed table-name set; ``None`` triggers facade enumeration.
-    :return: ``tags``, ``labels``, or ``None`` when neither is advertised.
-    """
-    available_tables = set(tables) if tables is not None else database_table_names(db)
-
-    if "tags" in available_tables:
-        if prefer_populated_tags:
-            try:
-                if int(db.get_record_count("tags")) > 0:
-                    return "tags"
-            except Exception:
-                return "tags"
-            if "labels" not in available_tables:
-                return "tags"
-        else:
-            return "tags"
-
-    if "labels" in available_tables:
-        return "labels"
-    if "tags" in available_tables:
-        return "tags"
-    return None
+    available = set(tables) if tables is not None else database_table_names(db)
+    return next((table for table in ("tags", "labels") if table in available), None)
 
 
 def resolve_tag_or_label_table_token(token: str, tables: set[str]) -> Optional[str]:

@@ -21,8 +21,6 @@ from LiuXin_alpha.surfaces.read_model import ReadModelBackend
 from LiuXin_alpha.surfaces.opds.api import decode_compat_token, encode_compat_token, normalized_category_key
 from LiuXin_alpha.surfaces.acquisition_types import ResolvedFileTarget as _ResolvedFileTarget
 from LiuXin_alpha.surfaces.presentation import (
-    coerce_int as _coerce_int,
-    escape as _escape,
     row_value as _row_value,
 )
 
@@ -159,7 +157,7 @@ class CalibreCatalogBackend:
 
     def author_tables(self) -> list[str]:
         """
-        Delegate preferred agent-table discovery, retaining the read model's agents fallback.
+        Delegate Core's author-source selection, preserving an empty source list.
 
         Example:
             >>> tables = backend.author_tables()  # doctest: +SKIP
@@ -297,8 +295,8 @@ class CalibreCatalogBackend:
         Select works for a normalized category and plain item ID, with first-nonempty-table behavior for authors.
 
         Author results are not merged across tables. Tags use the read model's
-        selected tag source or tags fallback; series uses its own table. Work-list
-        categories ignore the item token and choose title/recent ordering. Unlike
+        selected tag source, or an empty list when absent; series uses its own
+        table. Work-list categories ignore the item token and choose title/recent ordering. Unlike
         category normalization, item text is not compatibility-hex decoded here.
 
         Example:
@@ -319,7 +317,8 @@ class CalibreCatalogBackend:
                     break
             return rows
         if kind == "tags":
-            return self.works_for_linked_entity(self.read_model.tag_category_table() or "tags", item_token)
+            table = self.read_model.tag_category_table()
+            return [] if table is None else self.works_for_linked_entity(table, item_token)
         if kind == "series":
             return self.works_for_linked_entity("series", item_token)
         if kind in {"allbooks", "titles"}:

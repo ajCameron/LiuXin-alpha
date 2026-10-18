@@ -1,6 +1,13 @@
 # Working Memory Index
 
-Current branch: **ownership-consolidation**, ready [PR #120](https://github.com/ajCameron/LiuXin-alpha/pull/120),
+Current branch: **catalog-read-model-consolidation**, ready
+[PR #121](https://github.com/ajCameron/LiuXin-alpha/pull/121), a focused catalogue-category
+read follow-up to [PR #120](https://github.com/ajCameron/LiuXin-alpha/pull/120).
+The latest outcomes cover 331 distinct passing cases; project quality gates pass.
+See [catalogue read ownership](catalogue-read-ownership-2026-10-18.md) for the shared
+Core policy, surface adapters, validation and publication status.
+
+Previous branch: **ownership-consolidation**, ready PR #120,
 a focused writes/normalisation follow-up to #119. Its focused runs now have 236 distinct passing cases, including 66
 write-boundary cases across SQLite, APSW and live PostgreSQL; all 18 previous
 write/normalisation failures are green. See
@@ -48,6 +55,10 @@ Updated: 2026-10-18
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [catalogue-read-ownership-2026-10-18.md](catalogue-read-ownership-2026-10-18.md)
+  Shared category sources/counts, bounded surface pages, error preservation and
+  direct/HTTP parity across SQLite and APSW.
 
 - [ownership-consolidation-2026-10-18.md](ownership-consolidation-2026-10-18.md)
   Focused write/normalisation ownership fixes, real-backend rollback/identity

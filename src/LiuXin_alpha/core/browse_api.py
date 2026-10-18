@@ -1,9 +1,10 @@
 """
 Project Works, related categories, legacy files, managed Replicas, and cover candidates for Core clients.
 
-Read-source compatibility fallbacks can turn missing capabilities or selected
-lookup failures into empty collections; these projections are not atomic database
-snapshots. Paging happens after full reads and projection. Acquisition trusts stored
+Category source selection, counts and entity pages are owned here for every
+surface. Failed or incomplete category reads propagate. Other read-source
+compatibility fallbacks can still turn missing capabilities or selected lookup
+failures into empty collections; these projections are not atomic snapshots. Paging happens after full reads and projection. Acquisition trusts stored
 paths/URLs and uses redirects or whole-byte reads without a size cap, path-confinement
 policy, or independent Replica verification. Outer Core dispatch supplies wire
 encoding; this module does not render a UI or start a transport server.
@@ -20,13 +21,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urljoin
 
+from LiuXin_alpha.core.application_api import CoreApplicationAPI
+from LiuXin_alpha.core.queries import CoreQuery
 from LiuXin_alpha.core.description import CorePayloadFieldDescription
 from LiuXin_alpha.core.errors import CoreDispatchError
 from LiuXin_alpha.storage.api import Location
 from LiuXin_alpha.storage.utils.store_configuration import store_configuration_from_row
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.core.queries import CoreQuery
     from LiuXin_alpha.core.runtime import CoreRuntime
 
 
@@ -35,6 +37,61 @@ _CATEGORY_TABLES: dict[str, tuple[str, ...]] = {
     "tags": ("tags", "labels"),
     "series": ("series",),
 }
+
+
+def _category_count(runtime: "CoreRuntime", table: str) -> int:
+    """Count without materializing rows, retaining structured cache capability errors."""
+    source = runtime.services.read_source
+    if not callable(getattr(source, "query_cache", None)):
+        return int(source.get_record_count(table))
+    result = CoreApplicationAPI().rows_query(
+        runtime, CoreQuery("rows.query", {"table": table, "limit": 0})
+    )
+    _require_complete_category_read(result, table)
+    return int(result["total_count"])
+
+
+def _require_complete_category_read(result: Mapping[str, Any], table: str) -> None:
+    """Reject incomplete provider results instead of advertising partial totals."""
+    if not result["complete"]:
+        raise CoreDispatchError(
+            "The configured read source returned an incomplete category query.",
+            code="read_query_unavailable",
+            details={"table": table, "reason": "incomplete"},
+        )
+
+
+def _category_tables(runtime: "CoreRuntime", category: str) -> list[str]:
+    """Select category sources once for the catalogue, never per linked Work.
+
+    Populated tags take precedence; empty tags yield to an available labels
+    table. A tags-only catalogue retains its empty source. Count failures
+    propagate instead of silently changing the selected family.
+    """
+    available = _tables(runtime)
+    selected = [table for table in _CATEGORY_TABLES[category] if table in available]
+    if category == "tags" and selected == ["tags", "labels"]:
+        return ["tags" if _category_count(runtime, "tags") > 0 else "labels"]
+    return selected
+
+
+def _category_related_rows(
+    runtime: "CoreRuntime",
+    table: str,
+    row_id: int,
+    related_table: str,
+) -> list[dict[str, Any]]:
+    """Read a known category endpoint without guessing its table or hiding failures."""
+    source = runtime.services.read_source
+    row = source.get_row_from_id(table, row_id)
+    if row is None or related_table not in _tables(runtime):
+        return []
+    return [
+        _row_mapping(value)
+        for value in source.get_interlinked_rows(
+            target_row=row, secondary_table=related_table
+        )
+    ]
 
 
 def _field(
@@ -418,7 +475,7 @@ def _related_rows(
 
 def _primary_text(table: str, row: Mapping[str, Any]) -> str:
     """
-    Choose a display label from preferred title/name/label/value fields, then suffix matches, then a table/ID fallback.
+    Prefer canonical Agent names and label text, then generic display fields and a table/ID fallback.
 
     Only None and the empty string are skipped; zero, whitespace, and other
     non-string values are stringified. Generic suffix matches follow row order.
@@ -434,7 +491,12 @@ def _primary_text(table: str, row: Mapping[str, Any]) -> str:
     :return: Selected value as text, or a title-cased table stem and optional heuristic ID.
     """
     stem = table.rstrip("s")
-    preferred = (
+    preferred = {
+        "labels": ("label_text", "label"),
+        "agents": ("agent_canonical_name", "agent_name"),
+        "human_agents": ("agent_canonical_name", "agent_name"),
+        "org_agents": ("agent_canonical_name", "agent_name"),
+    }.get(table, ()) + (
         "{}_title".format(stem),
         "{}_name".format(stem),
         "{}_label".format(stem),
@@ -486,11 +548,12 @@ def _work_summary(
     row: Mapping[str, Any],
 ) -> dict[str, Any]:
     """
-    Project a Work's title, raw record, authors, series, and the first nonempty tags/labels relationship family.
+    Project a Work using the catalogue-wide tag source shared with browse counts.
 
     Author rows from agents/human_agents/org_agents are concatenated without
-    deduplication. Tags take precedence over labels rather than being merged.
-    Every relation lookup follows the compatibility helper's fallback/error policy.
+    deduplication. Tags use the globally selected family even when this Work
+    only has labels. Tag read failures propagate; other relationships retain
+    the compatibility helper's existing fallback policy.
 
     Example:
         >>> summary = _work_summary(runtime, work_row)  # doctest: +SKIP
@@ -518,19 +581,15 @@ def _work_summary(
         }
         for value in _related_rows(runtime, row, "series")
     ]
-    tag_rows: list[dict[str, Any]] = []
-    for table in _CATEGORY_TABLES["tags"]:
-        linked_tags = _related_rows(runtime, row, table)
-        if linked_tags:
-            tag_rows = [
-                {
-                    "id": value.get(_id_column(runtime, table)),
-                    "table": table,
-                    "name": _primary_text(table, value),
-                }
-                for value in linked_tags
-            ]
-            break
+    tag_rows = [
+        {
+            "id": value.get(_id_column(runtime, table)),
+            "table": table,
+            "name": _primary_text(table, value),
+        }
+        for table in _category_tables(runtime, "tags")
+        for value in _category_related_rows(runtime, "works", int(work_id), table)
+    ]
     return {
         "work_id": work_id,
         "title": _primary_text("works", row),
@@ -1117,6 +1176,7 @@ class CoreBrowseAPI:
             "browse.categories",
             self.categories,
             summary="List display-neutral top-level library browse categories.",
+            payload_fields=(_field("category", field_type="string"),),
             tags=("browse", "catalog", "read"),
         )
         query(
@@ -1190,54 +1250,41 @@ class CoreBrowseAPI:
         )
 
     @staticmethod
-    def categories(
-        runtime: "CoreRuntime",
-        query: "CoreQuery",
-    ) -> dict[str, Any]:
+    def categories(runtime: "CoreRuntime", query: "CoreQuery") -> dict[str, Any]:
+        """Return category counts and their authoritative entity-table selections.
+
+        An optional category limits the read to that category. Counts use the
+        source count operation (a structured query for caches) without projecting
+        rows or reading relationships.
+        Tags and labels are alternative sources, never summed. Reads are fresh
+        but not an atomic snapshot; source and transport failures propagate.
         """
-        Return all/newest plus author/tag/series category declarations with fully read row counts.
-
-        Work counts are zero if works is not advertised. Entity counts sum every
-        available candidate table, not distinct people/labels or related Work counts.
-        Empty or unavailable categories remain present with zero counts.
-
-        Example:
-            >>> result = CoreBrowseAPI.categories(runtime, query)  # doctest: +SKIP
-
-
-        :param runtime: Runtime providing table enumeration and full-row reads from its read source.
-        :param query: Query envelope, ignored; no filter/pagination options are consumed.
-        :return: Ordered category records for all, newest, authors, tags, and series, including entity-table lists.
-        """
-        del query
+        requested = str(_payload(query).get("category") or "").strip().lower()
+        kinds = [requested] if requested else ["all", "newest", *_CATEGORY_TABLES]
         available = _tables(runtime)
-        works_count = len(_all_rows(runtime, "works")) if "works" in available else 0
-        records: list[dict[str, Any]] = [
-            {
-                "category": "all",
-                "label": "All works",
-                "count": works_count,
-                "entity_category": False,
-            },
-            {
-                "category": "newest",
-                "label": "Newest",
-                "count": works_count,
-                "entity_category": False,
-            },
-        ]
-        for category, candidates in _CATEGORY_TABLES.items():
-            selected = [table for table in candidates if table in available]
-            count = sum(len(_all_rows(runtime, table)) for table in selected)
-            records.append(
-                {
-                    "category": category,
-                    "label": category.title(),
-                    "count": count,
-                    "entity_category": True,
-                    "tables": selected,
-                }
-            )
+        counts: dict[str, int] = {}
+        records = []
+        for category in kinds:
+            if category in {"all", "newest"}:
+                selected = ["works"] if "works" in available else []
+            elif category in _CATEGORY_TABLES:
+                selected = _category_tables(runtime, category)
+            else:
+                raise CoreDispatchError(
+                    "Unknown browse category `{}`.".format(category)
+                )
+            for table in selected:
+                if table not in counts:
+                    counts[table] = _category_count(runtime, table)
+            entry: dict[str, Any] = {
+                "category": category,
+                "label": "All works" if category == "all" else category.title(),
+                "count": sum(counts[table] for table in selected),
+                "entity_category": category in _CATEGORY_TABLES,
+            }
+            if category in _CATEGORY_TABLES:
+                entry["tables"] = selected
+            records.append(entry)
         return {"categories": records}
 
     @staticmethod
@@ -1253,6 +1300,8 @@ class CoreBrowseAPI:
         ascending, so True puts larger Work IDs first; this differs from works().
         Other Work sorts use casefolded titles. Entity popularity sorts by Work count
         then label; other sorts use labels. Unknown sort tokens fall back to text sort.
+        Entity sources share categories() selection, including global tag preference.
+        Failed or incomplete entity reads propagate; no partial page is published.
 
         Example:
             >>> result = CoreBrowseAPI.category_items(runtime, query)  # doctest: +SKIP
@@ -1285,14 +1334,16 @@ class CoreBrowseAPI:
                     reverse=not ascending,
                 )
         else:
-            available = _tables(runtime)
             records = []
-            for table in _CATEGORY_TABLES[category]:
-                if table not in available:
-                    continue
-                for row in _all_rows(runtime, table):
+            for table in _category_tables(runtime, category):
+                result = CoreApplicationAPI().rows_query(
+                    runtime, CoreQuery("rows.query", {"table": table})
+                )
+                _require_complete_category_read(result, table)
+                for record in result["records"]:
+                    row = record["values"]
                     row_id = row.get(_id_column(runtime, table))
-                    works = _related_rows(runtime, row, "works")
+                    works = _category_related_rows(runtime, table, int(row_id), "works")
                     records.append(
                         {
                             "category": category,
@@ -1335,7 +1386,8 @@ class CoreBrowseAPI:
         Page Work summaries selected by category identity and raw-row text, then sorted by title or numeric ID.
 
         Category defaults all. Entity categories choose the first candidate table
-        containing category_id and return empty if none does; matching is not merged
+        containing category_id within the selected category sources and return empty
+        if none does; matching is not merged
         across tables. Text searches flattened raw row values before author/tag
         enrichment. Recent sorting uses Work ID, not timestamps. Newest defaults
         to descending recent order; otherwise defaults are ascending title order.
@@ -1366,7 +1418,7 @@ class CoreBrowseAPI:
             table = next(
                 (
                     value
-                    for value in _CATEGORY_TABLES[category]
+                    for value in _category_tables(runtime, category)
                     if _get_row(runtime, value, category_id) is not None
                 ),
                 None,
@@ -1377,7 +1429,7 @@ class CoreBrowseAPI:
             rows = (
                 []
                 if category_row is None
-                else _related_rows(runtime, category_row, "works")
+                else _category_related_rows(runtime, str(table), category_id, "works")
             )
         elif category in {"all", "newest"}:
             rows = _all_rows(runtime, "works")

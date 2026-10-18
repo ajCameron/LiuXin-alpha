@@ -587,7 +587,7 @@ class OpdsReadOnlyApplication(ReadOnlyWebApplication):
         Select linked works for exact authors, tags, or series category tokens.
 
         Author tables are tried in preference order until the first nonempty
-        result, not merged. Tags use the read model's chosen table or tags fallback.
+        result, not merged. Tags use Core's chosen table, returning empty when absent.
         Unlike the catalogue's broader helper, this method does not normalize
         category aliases or handle all-books categories. Read failures propagate.
 
@@ -609,7 +609,8 @@ class OpdsReadOnlyApplication(ReadOnlyWebApplication):
                     break
             return rows
         if category == "tags":
-            return self.catalog.works_for_linked_entity(self.catalog.read_model.tag_category_table() or "tags", item_token)
+            table = self.catalog.read_model.tag_category_table()
+            return [] if table is None else self.catalog.works_for_linked_entity(table, item_token)
         if category == "series":
             return self.catalog.works_for_linked_entity("series", item_token)
         return []
@@ -633,8 +634,8 @@ class OpdsReadOnlyApplication(ReadOnlyWebApplication):
         related: dict[str, list[object]] = {}
         # OPDS entries only need a small subset of linked data. Avoid building the
         # full generic related-entity graph for each work row.
-        for linked_table in ("expressions", "files", self.catalog.read_model.tag_category_table() or "tags", "series"):
-            if not self._table_exists(linked_table):
+        for linked_table in ("expressions", "files", self.catalog.read_model.tag_category_table(), "series"):
+            if linked_table is None or not self._table_exists(linked_table):
                 continue
             linked_rows = self.read_model.interlinked_rows(row, linked_table)
             if linked_rows:

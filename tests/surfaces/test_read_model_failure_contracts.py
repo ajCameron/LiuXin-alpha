@@ -112,8 +112,8 @@ def backend() -> ReadModelBackend:
         ),
         ("search_entries", ("雪",), {}, "query_rows"),
         ("works_for_linked_entity", ("tags", "7"), {}, "row"),
-        ("author_tables", (), {}, "table_exists"),
-        ("tag_category_table", (), {}, "record_count"),
+        ("author_tables", (), {}, "browse_categories"),
+        ("tag_category_table", (), {}, "browse_categories"),
         ("work_rows", (), {"sorted_by": "title"}, "columns"),
     ],
 )

@@ -818,6 +818,55 @@ class CoreSurfaceModel:
         record = result.get("record")
         return None if record is None else self._row(record)
 
+    def browse_categories(
+        self, category: str | None = None
+    ) -> tuple[dict[str, Any], ...]:
+        """Read fresh Core category counts and source tables without fetching entities.
+
+        The optional category restricts both counts and source selection. Query
+        and malformed-response failures propagate; no schema cache is consulted.
+        """
+        payload = {} if category is None else {"category": category}
+        result = _mapping(
+            self.client.query("browse.categories", payload),
+            label="browse.categories result",
+        )
+        records = result["categories"]
+        if not isinstance(records, Sequence) or isinstance(records, (str, bytes)):
+            raise TypeError("browse.categories `categories` must be an array.")
+        return tuple(dict(_mapping(record, label="category")) for record in records)
+
+    def browse_category_items(
+        self,
+        category: str,
+        *,
+        limit: int = 1000,
+        offset: int = 0,
+        sort: str = "name",
+        ascending: bool = True,
+    ) -> dict[str, Any]:
+        """Fetch one Core-owned category page, capped at 1,000 wire records.
+
+        Counts, source selection and ordering belong to Core. The receipt's
+        ``complete`` means the end of this listing, unlike rows.query's provider
+        completeness flag. Errors remain visible to the surface.
+        """
+        return dict(
+            _mapping(
+                self.client.query(
+                    "browse.category.items",
+                    {
+                        "category": category,
+                        "limit": max(0, min(int(limit), 1000)),
+                        "offset": max(0, int(offset)),
+                        "sort": sort,
+                        "ascending": ascending,
+                    },
+                ),
+                label="browse.category.items result",
+            )
+        )
+
     def query_rows(
         self,
         table: str,
