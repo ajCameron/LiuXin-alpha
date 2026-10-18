@@ -66,30 +66,219 @@ remaining exceptions; the diagram does not imply that all old crossings are gone
 
 ## Package responsibilities
 
-All paths in this table are relative to `src/LiuXin_alpha/`.
+Paths below are relative to `src/LiuXin_alpha/`. The table is a quick index;
+each package's section explains its role and points to its detailed contracts.
 
-| Package | Responsibility | Where to look next |
-| --- | --- | --- |
-| `core` | Application configuration, resource composition, process services and the public command/query contract. Its application services dispatch work to the responsible subsystem. | [Core API][core-api]; `core/factory.py`, `core/library_services.py`, `core/program_services/`. |
-| `library` | The supported Library facade and workflows combining bibliographic and file operations. It uses supplied collaborators instead of reopening them. | `library/library.py`; the lifecycle section below. |
-| `catalog` | Bibliographic identity, repositories, matching, semantic mutations and persistence-aware metadata retrieval. | [Catalog usage][catalog-api], [write contract][write-contract], [matching policy][matching-policy]. |
-| `metadata` | Metadata values, WEMI vocabulary, pure normalization/validation, codecs and file metadata providers. Persistence-aware hydration belongs to Catalog. | [Container guide][metadata-guide]; `metadata/facade.py`, `metadata/file_sources/`. |
-| `databases` | Connections, drivers, SQL, schema, structural constraints, transactions and low-level repair machinery. | [Database field guide][database-guide]; `databases/database/` and `databases/database_driver_plugins/`. |
-| `storage` | Bytes, assets, replicas, stores, physical placement, verification, backup execution and recovery. | [Storage index][storage-guide] and [API][storage-api]. |
-| `caches` | Derived rows, relationships, indexes and read acceleration; reconciliation-aware write conveniences delegate to Catalog. | [Catalog/cache contract][cache-contract]. |
-| `surfaces` | CLI, terminal, GUI and web adapters: input parsing, presentation, progress and delivery framing. | [CLI composition][cli-composition], [terminal composition][terminal-composition]. |
-| `ingest` | Discovery, extraction, candidates, provenance and acquisition pipelines. Application workflows coordinate acceptance and storage. | [Mixed-ingest operations][ingest-guide]; `ingest/mixed_application.py`. |
-| `jobs` | Durable task records and scheduling/execution contracts. Domain work remains with its workflow owner. | `jobs/api.py`, `jobs/repository.py`; Core's long-running-operation contract. |
-| `file_formats` | Format implementations, container handling, conversion contracts/profiles and the standalone format-plugin runtime. | [Format index][format-guide]; `file_formats/conversion/`, `file_formats/plugin_runtime.py`. |
-| `plugin_system` | Passive, format-neutral lifecycle, hook/stream contracts, shared plugin settings and loading mechanics. | [Plugin composition][plugin-guide]; `plugin_system/`. |
-| `customize` | Application provider-fleet composition and retained compatibility exports. | [Plugin composition][plugin-guide]; `customize/`. |
-| `utils`, `constants`, `resources`, `startup_scripts` | Shared primitives, vendored helpers, constants, packaged resources and startup integration. Some legacy policy remains here as migration debt. | [Packaging][packaging]; the responsibility guide before adding new domain behaviour to a utility module. |
+| Package | Summary |
+| --- | --- |
+| [core](#core) | Application composition, lifecycle and public operations. |
+| [library](#library) | Workflows combining bibliographic records and files. |
+| [catalog](#catalog) | Metadata-aware persistence, identity and retrieval. |
+| [metadata](#metadata) | Metadata values, rules, codecs and providers. |
+| [databases](#databases) | Connections, schema, SQL and transactions. |
+| [storage](#storage) | Bytes, stores, replicas and recovery. |
+| [caches](#caches) | Derived reads and change reconciliation. |
+| [surfaces](#surfaces) | Interfaces for people and external programs. |
+| [ingest](#ingest) | Discovery, extraction and acquisition pipelines. |
+| [jobs](#jobs) | Durable task records and execution contracts. |
+| [file_formats](#file_formats) | File formats, containers and conversion. |
+| [plugin_system](#plugin_system) | Shared plugin contracts and loading mechanics. |
+| [customize](#customize) | Application plugin selection and composition. |
+| [utils](#utils) | Shared primitives and vendored helpers. |
+| [constants](#constants) | Application constants and compatibility values. |
+| [resources](#resources) | Installed runtime assets and resource lookup. |
+| [startup_scripts](#startup_scripts) | Retained legacy startup integration. |
 
 Package-root docstrings are signposts. Import concrete implementations and
 contracts from their owning modules; do not expect passive roots such as
-`metadata`, `catalog`, `caches` or `storage` to assemble services. The supported
-`Library` facade remains; the unusable `library.legacy` and `library.backend`
-modules were retired and are not alternative application APIs.
+`metadata`, `catalog`, `caches` or `storage` to assemble services.
+
+### core
+
+Core is the application boundary: it selects configuration, composes services,
+owns the resources it creates and exposes commands and queries. Its application
+services dispatch domain work to Catalog, storage and the relevant workflows.
+
+Start with the [Core API][core-api], `core/factory.py`,
+`core/library_services.py` and `core/program_services/`. The
+[lifecycle section](#composition-and-lifecycle) explains which collaborators Core
+owns and which it borrows.
+
+### library
+
+Library brings bibliographic and file operations together. Its supported facade
+uses supplied Catalog, database and storage collaborators to coordinate library
+workflows; it does not reopen them or replace their domain rules.
+
+The facade lives in `library/library.py`. The unusable `library.legacy` and
+`library.backend` modules were retired and are not alternative application APIs.
+Keep workflow coordination here while leaving composition with Core, metadata
+validity with Catalog and physical operations with storage.
+
+### catalog
+
+Catalog turns persistence into bibliographic operations. It owns repositories,
+identity matching, semantic mutations and persistence-aware metadata retrieval.
+A domain operation can span several tables without exposing that storage layout
+to its caller.
+
+Use the [Catalog API guide][catalog-api] for entry points, the
+[write contract][write-contract] for validation boundaries and the
+[matching policy][matching-policy] for identity decisions. Its internal areas and
+their relationship to metadata and caches are explained under
+[metadata writes and reads](#metadata-writes-and-reads).
+
+### metadata
+
+Metadata defines values, containers, WEMI vocabulary, pure normalization and
+validation, codecs and file metadata providers. It supplies the meaning that
+Catalog applies to persistent records. Database/cache-backed hydration belongs
+to Catalog rather than to the value containers.
+
+Start with the [container guide][metadata-guide], `metadata/facade.py` for pure
+OPF/container transformations, and `metadata/file_sources/` for file metadata
+readers and writers. A metadata value object does not own a database transaction.
+
+### databases
+
+Databases owns connections, drivers, SQL execution, schema, structural constraints,
+transactions and low-level repair machinery. It persists both bibliographic and
+storage records while leaving their domain policy to Catalog and storage.
+
+The main entry points are `databases/database/` and
+`databases/database_driver_plugins/`; the [database field guide][database-guide]
+provides orientation. Database constraints remain necessary even when application
+code has validated a value, particularly for concurrent writes.
+
+### storage
+
+Storage manages bytes, assets, replicas, stores and physical placement. It performs
+verification, backup execution and recovery through backend contracts, and records
+the resulting storage state through the database layer.
+
+See the [storage index][storage-guide] and [storage API][storage-api]. Bibliographic
+identity remains with Catalog. Cross-domain workflows coordinate the two; storage
+does not decide which Work an imported file represents. Remaining deletion and
+recovery-policy boundaries are described below.
+
+### caches
+
+Caches supplies derived rows, relationships, indexes and read acceleration. A
+backend may serve loaded snapshots or live reads according to its capabilities.
+Reconciliation-aware write conveniences delegate semantic changes to Catalog.
+
+The [Catalog/cache contract][cache-contract] defines read, write and invalidation
+behaviour. Cache contents are derived state, not another authority for identity
+or validation. Direct persistence changes do not automatically refresh every
+independent cache instance.
+
+### surfaces
+
+Surfaces contains CLI, terminal, GUI and web adapters. It translates external
+input into application requests and turns results into presentation, progress
+updates or delivery responses. Domain rules remain behind the application API.
+
+Start with [CLI composition][cli-composition] and
+[terminal composition][terminal-composition]. New operations should use named
+Core commands and queries, keeping interface-specific formatting and interaction
+out of Catalog, storage and their workflows.
+
+### ingest
+
+Ingest discovers inputs, extracts candidates and provenance, and runs acquisition
+pipelines. A candidate still needs Catalog acceptance; finding or parsing a file
+does not make its metadata valid or choose its storage policy.
+
+See [mixed-ingest operations][ingest-guide] and `ingest/mixed_application.py`.
+Mixed ingest consumes an injected Library for application work. Coordinating
+acceptance, file operations, cancellation and recovery remains an explicit
+workflow responsibility.
+
+### jobs
+
+Jobs provides durable task records and scheduling/worker contracts. A job invokes
+the workflow that owns an action; scheduling a mutation does not transfer metadata
+validation or storage placement policy to the job system.
+
+Start with `jobs/api.py`, `jobs/repository.py` and the long-running-operation
+contract in the [Core API][core-api]. Core execution services and `utils.jobs`
+primitives still have distinct lifecycles; their consolidation remains work to do.
+
+### file_formats
+
+File formats owns format implementations, container handling, conversion contracts
+and profiles, and the native runtime for standalone format plugins. Reusable
+format code must not depend on application registry assembly or database-backed
+library composition.
+
+The [format index][format-guide] leads to individual format dossiers. Shared
+conversion code lives in `file_formats/conversion/`, and standalone plugin
+composition in `file_formats/plugin_runtime.py`. File metadata providers have
+their separate implementation home in `metadata.file_sources`.
+
+### plugin_system
+
+Plugin system supplies passive, format-neutral lifecycle, hook and stream
+contracts, shared plugin settings and loading mechanics. These are foundations
+for different plugin families, not an application provider registry.
+
+Importing its package root does not discover providers or start services. The
+[plugin composition guide][plugin-guide] explains how these contracts relate to
+format implementations and application composition.
+
+### customize
+
+Customize selects and composes the application provider fleet, retains compatibility
+exports and binds initialized instances into the native format runtime. It is a
+composition owner above the neutral plugin contracts and format implementations.
+
+See the [plugin composition guide][plugin-guide]. Registry initialization and
+provider ordering still need consolidation; contract extraction did not remove
+all application-level plugin ownership debt.
+
+### utils
+
+Utils contains shared primitives, vendored libraries and compatibility helpers.
+The existing tree also retains some older configuration, execution and domain
+responsibilities, so placement here is not evidence that a helper is policy-free.
+
+Use the [responsibility guide][responsibilities] when deciding where shared code
+belongs. General mechanics can live in utilities; bibliographic normalization,
+application selection and storage policy belong to their named owners even when
+several callers need them.
+
+### constants
+
+Constants exposes application identity, platform/file-extension values and
+historical compatibility settings. `constants/file_extensions.py` groups extension
+sets; `constants/paths.py` retains path-related compatibility and scratch defaults.
+
+Application preference selection belongs to Core and the configuration layer,
+as described under [configuration](#configuration). The remaining path defaults
+are migration work, not a second configuration model to extend for new features.
+
+### resources
+
+Resources holds packaged runtime assets and resolves them through the installed
+package. Its lookup helpers use `importlib.resources` rather than assuming that a
+developer checkout exists. Inherited callers needing real paths require an
+unpacked installation.
+
+See the [packaging contract][packaging] and `resources/__init__.py`. Other resource
+owners, such as the database schema tree, remain with their packages; build
+configuration declares which assets ship. Instance data and mutable preferences
+do not belong in the installed resource tree.
+
+### startup_scripts
+
+Startup scripts retains legacy initialization for preferences, directory
+preparation and file opening. Importing its root still installs a legacy PyQt4
+import hook and replaces the `lopen` builtin; it is not a passive utility import.
+
+New application startup belongs to Core's explicit composition path. Existing
+startup hooks need caller and side-effect migration before retirement. Their
+presence does not establish that modern configuration or resource ownership
+should be implemented here.
 
 ## Composition and lifecycle
 

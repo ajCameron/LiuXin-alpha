@@ -5,14 +5,19 @@ Current branch: **architecture-review-followup**, based on `ce239fd4` from
 [top-level structure guide](<../dev-docs/02 - Top Level Structure.md>) was rewritten
 on 2026-10-19 as a current overview: package ownership, a relationship diagram,
 owned versus borrowed resources, configuration, writes/reads, ingest/jobs and
-plugin composition. The obsolete Catalog proposal, speculative APIs and starter
-migration plan were removed. The user's surface/lifecycle additions are retained
+plugin composition. A follow-up replaces the dense package table with a short
+linked summary and a dedicated section for each of the 17 top-level packages,
+including separate utils/constants/resources/startup sections. The obsolete Catalog
+proposal, speculative APIs and starter migration plan were removed. The user's
+surface/lifecycle additions are retained
 with the ownership limits made explicit. Both checkouts have the same guide content;
-reference-link destinations match their different documentation layouts. All 31
-local link occurrences resolve in each tree; all 25 existing documentation checks
-pass in the isolated checkout. Main-checkout changes in this step are limited to
+reference-link destinations match their different documentation layouts. All 53
+local link occurrences resolve in each tree, including 20 checked heading links;
+all 25 existing documentation checks pass in the isolated checkout.
+Main-checkout changes in this step are limited to
 the requested guide. Evidence is local-only under
-`working-memory/test-results/top-level-structure-20261019/`.
+`working-memory/test-results/top-level-structure-20261019/` and the follow-up
+`working-memory/test-results/top-level-modules-20261019/`.
 
 The new
 [documentation and project structural review](../dev-docs/architectural_reviews/documentation-structural-review-2026-10-18.md)
