@@ -1,5 +1,17 @@
 # Working Memory Index
 
+Current diagnostic branch: **test-vm-telemetry**, PR #119 (based on ready PR #118).
+See [test VM telemetry](test-vm-telemetry-2026-10-17.md) for the isolated branch,
+crash investigation evidence and opt-in durable test/resource logs. All collected
+cases are covered across two serial segments: 8,196 passed, 29 failed, 87 skipped,
+23 xfailed. The VM stayed up; a telemetry/mock collision was fixed before resuming.
+The connection cleanup follow-up now closes auxiliary driver handles: 80 lifecycle
+checks passed (two Windows-only skips), and a 14-test probe reduced deleted-open
+database storage from 54.7 MiB to zero at every test boundary.
+An exact rerun on 2026-10-18 reproduced all 29 previous failures, including the
+six database locks, with zero deleted-open files between tests and stable host
+resources. Investigate transaction ownership in creator/organisation writes next.
+
 Current checkpoint: **Legacy review fixes and regression coverage**. See
 [legacy fixes](legacy-review-fixes-2026-10-17.md) for the six findings,
 retired Library facades, migrated callers and validation. The earlier
@@ -22,11 +34,17 @@ The documentation inventory campaign completed on 2026-10-05: 1,372 units,
 Its [final checkpoint](project-docstrings-l001-l037-2026-10-05.md) retains the
 historical verification and review-hash observations.
 
-Updated: 2026-10-17
+Updated: 2026-10-18
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [test-vm-telemetry-2026-10-17.md](test-vm-telemetry-2026-10-17.md)
+  PR promotion, serial VM diagnostics, durable test phases and independent resource
+  sampling, immediate scratch cleanup, complete serial coverage across two segments,
+  telemetry mock isolation, the verified driver connection cleanup fix, and remaining
+  host-space leads.
 
 - [legacy-review-fixes-2026-10-17.md](legacy-review-fixes-2026-10-17.md)
   Non-destructive metadata refresh, Python 3 custom values, typed cache projections,
