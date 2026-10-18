@@ -1,6 +1,8 @@
 # Ownership consolidation — 2026-10-18
 
-Status: first focused PR implemented and tested; publication in progress. Branch `ownership-consolidation` starts at
+Status: published for review as [PR #120](https://github.com/ajCameron/LiuXin-alpha/pull/120),
+**Consolidate Agent writes and facet normalisation**. Code checkpoint: `f40881b6`.
+Branch `ownership-consolidation` starts at
 `85eaa2f0`, the pushed head of telemetry/storage PR #119. Work reuses the isolated
 `/tmp/liuxin-test-vm-telemetry` checkout to avoid another repository copy. The main
 Windows checkout's staged and unstaged user edits remain separate.

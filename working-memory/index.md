@@ -1,7 +1,7 @@
 # Working Memory Index
 
-Current branch: **ownership-consolidation**, a focused writes/normalisation follow-up
-to #119. Its focused runs now have 236 distinct passing cases, including 66
+Current branch: **ownership-consolidation**, ready [PR #120](https://github.com/ajCameron/LiuXin-alpha/pull/120),
+a focused writes/normalisation follow-up to #119. Its focused runs now have 236 distinct passing cases, including 66
 write-boundary cases across SQLite, APSW and live PostgreSQL; all 18 previous
 write/normalisation failures are green. See
 [ownership consolidation](ownership-consolidation-2026-10-18.md) for the ownership
