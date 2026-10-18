@@ -49,7 +49,7 @@ def test_workflow_owners_remain_bounded(relative: str) -> None:
                 assert metrics.line_count(node) <= 160, (path, node.name)
 
 
-@pytest.mark.parametrize("relative", ("core/program_api.py", "surfaces/cli/storage.py"))
+@pytest.mark.parametrize("relative", ("core/program_api.py",))
 def test_compatibility_facades_do_not_reaccumulate_workflows(relative: str) -> None:
     """
     Perform the test compatibility facades do not reaccumulate workflows operation under explicit file-format and conversion rules.
@@ -64,6 +64,9 @@ def test_compatibility_facades_do_not_reaccumulate_workflows(relative: str) -> N
     :return: None; the operation mutates state, writes output or performs cleanup in
         place.
     """
+    # The retired storage facade must stay absent; its command owners above
+    # retain size limits and the dependency test below forbids back imports.
+    assert not (ROOT / "src/LiuXin_alpha/surfaces/cli/storage.py").exists()
     path = ROOT / "src/LiuXin_alpha" / relative
     metrics = SourceMetrics(path.read_text())
     assert metrics.line_count() <= 250
