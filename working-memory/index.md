@@ -1,7 +1,20 @@
 # Working Memory Index
 
 Current branch: **architecture-review-followup**, based on `ce239fd4` from
-`configuration-ownership`. The new
+`configuration-ownership`. The
+[top-level structure guide](<../dev-docs/02 - Top Level Structure.md>) was rewritten
+on 2026-10-19 as a current overview: package ownership, a relationship diagram,
+owned versus borrowed resources, configuration, writes/reads, ingest/jobs and
+plugin composition. The obsolete Catalog proposal, speculative APIs and starter
+migration plan were removed. The user's surface/lifecycle additions are retained
+with the ownership limits made explicit. Both checkouts have the same guide content;
+reference-link destinations match their different documentation layouts. All 31
+local link occurrences resolve in each tree; all 25 existing documentation checks
+pass in the isolated checkout. Main-checkout changes in this step are limited to
+the requested guide. Evidence is local-only under
+`working-memory/test-results/top-level-structure-20261019/`.
+
+The new
 [documentation and project structural review](../dev-docs/architectural_reviews/documentation-structural-review-2026-10-18.md)
 covers both the pending documentation layout and current package architecture.
 It recommends preserving subsystem grouping, completing the existing path migration,
@@ -84,7 +97,7 @@ The documentation inventory campaign completed on 2026-10-05: 1,372 units,
 Its [final checkpoint](project-docstrings-l001-l037-2026-10-05.md) retains the
 historical verification and review-hash observations.
 
-Updated: 2026-10-18
+Updated: 2026-10-19
 
 Start here for active handoff notes. This index should stay short.
 
