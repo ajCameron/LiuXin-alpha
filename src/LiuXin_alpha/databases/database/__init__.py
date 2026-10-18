@@ -635,7 +635,7 @@ class Database(
         """
         Replace the driver and rebuild wrapper, macros and metadata SQL bindings.
 
-        Close the old wrapper first. For a different driver, try committing its primary connection, roll back only if commit fails, then close it. Cleanup errors are suppressed. Install the new wrapper and convenience aliases, including storage aliases, which may become None. This does not rerun schema discovery, queue wiring or all runtime back-references; failures during new setup leave partial state.
+        Close the old wrapper first. For a different driver, try committing its primary connection, roll back only if commit fails, then close it and call the driver's close method to release its other connections. Auxiliary transactions are not committed. Cleanup errors are suppressed. Install the new wrapper and convenience aliases, including storage aliases, which may become None. This does not rerun schema discovery, queue wiring or all runtime back-references; failures during new setup leave partial state.
 
         Example:
             For a compatible open replacement driver, db.set_driver(replacement) releases the previous database connections before constructing its new wrapper.
@@ -673,6 +673,10 @@ class Database(
                 pass
             try:
                 old_driver.conn = None
+            except Exception:
+                pass
+            try:
+                old_driver.close()
             except Exception:
                 pass
 
@@ -754,7 +758,7 @@ class Database(
         """
         Stop maintenance and release database connections with best-effort cleanup.
 
-        Request maintenance stop and wait at most one second for its thread. Close the wrapper or fallback lock, then attempt to commit and close the primary connection; roll back only if that commit fails. Suppress ordinary cleanup errors. Repeated calls tolerate cleared state. This does not call StorageManager.close or the driver-wide close method, and cannot guarantee every reference cycle is removed.
+        Request maintenance stop and wait at most one second for its thread. Close the wrapper or fallback lock, then attempt to commit and close the primary connection; roll back only if that commit fails. Call the driver's close method to release its other connections without committing auxiliary transactions. Suppress ordinary cleanup errors. Repeated calls tolerate cleared state. This does not call StorageManager.close and cannot guarantee every reference cycle is removed.
 
         Example:
             Use db.close() in a finally block to release an open facade; pending primary-connection changes may be committed.
@@ -821,6 +825,14 @@ class Database(
                     pass
         except Exception:
             pass
+
+        # The driver also owns connections opened for helper operations. Closing
+        # only conn leaves those handles holding files even after scratch unlink.
+        if driver is not None:
+            try:
+                driver.close()
+            except Exception:
+                pass
 
         # Remove convenience aliases that can keep connections alive
         for attr in (

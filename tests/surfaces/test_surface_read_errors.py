@@ -29,7 +29,7 @@ from LiuXin_alpha.surfaces.web_readonly.app import ReadOnlyWebApplication
 
 def _app(application_type=ApiReadOnlyApplication):
     """
-    Perform the app operation under explicit file-format and conversion rules.
+    Build an application with empty Core reads and explicit category sources.
 
     Example:
         Exercise  app through a consuming regression::
@@ -56,6 +56,24 @@ def _app(application_type=ApiReadOnlyApplication):
     model.related.return_value = ((), ())
     model.related_tables.return_value = ()
     model.record_count.return_value = 0
+    categories = [
+        {
+            "category": kind,
+            "count": 0,
+            "entity_category": bool(tables),
+            "tables": tables,
+        }
+        for kind, tables in (
+            ("all", []),
+            ("newest", []),
+            ("authors", ["agents"]),
+            ("tags", ["tags"]),
+            ("series", ["series"]),
+        )
+    ]
+    model.browse_categories.side_effect = lambda category=None: tuple(
+        row for row in categories if category is None or row["category"] == category
+    )
     model.query_rows.return_value = CoreRowPage((), 0, 0, None, True, "test")
     application.model = model
     application.read_model.model = model
@@ -313,7 +331,10 @@ def test_explicitly_unavailable_files_are_not_query_failures(method) -> None:
         (ApiReadOnlyApplication, "/api/search?q=snow", "query_rows"),
         (ApiReadOnlyApplication, "/api/tags/7", "row"),
         (OpdsReadOnlyApplication, "/opds/search/snow", "query_rows"),
-        (CalibreReadOnlyWebApplication, "/ajax/search/main", "query_rows"),
+        # The AJAX receipt includes an independent Core-owned catalogue count.
+        (CalibreReadOnlyWebApplication, "/ajax/search/main", "browse_categories"),
+        (ApiReadOnlyApplication, "/api/categories", "browse_categories"),
+        (ApiReadOnlyApplication, "/api/tags", "browse_category_items"),
     ],
 )
 def test_wsgi_server_reports_failure_without_exposing_private_error_text(
