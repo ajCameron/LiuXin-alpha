@@ -1,12 +1,11 @@
 """
-Insert a Tag with a supplied or generated search hash.
+Insert a Tag through the Catalog identity policy.
 """
 
 from __future__ import unicode_literals
 
 from LiuXin_alpha.catalog.row_mutations import atomic_write, persist_row
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.metadata.standardization import make_tag_search_term
 
 
 class TagAdderMixin:
@@ -17,24 +16,24 @@ class TagAdderMixin:
     Validation and synchronization failures propagate to the caller.
 
     Example:
-        Supplying an empty hash preserves it because only None requests generation.
+        The catalogue derives the key from tag text, including when a hash is supplied.
     """
 
     @atomic_write
     def tag(self, tag, tag_phash=None):
         """
-        Insert a Tag with a supplied or generated search hash.
+        Insert a Tag through the Catalog identity policy.
 
         Example:
-            Supplying an empty hash preserves it because only None requests generation.
+            The catalogue derives the key from tag text, including when a hash is supplied.
 
 
         :param tag: Tag text preserved unchanged.
-        :param tag_phash: Search hash; None calls make_tag_search_term(tag).
+        :param tag_phash: Accepted input key; Catalog rederives it from tag text.
         :return: Created database Row; synchronization and schema errors propagate.
         """
         tag_row = Row(database=self.db)
         tag_row["tag"] = tag
-        tag_row["tag_phash"] = tag_phash if tag_phash is not None else make_tag_search_term(tag)
+        tag_row["tag_phash"] = tag_phash
         persist_row(self, tag_row)
         return tag_row

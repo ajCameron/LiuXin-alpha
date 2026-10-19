@@ -1,9 +1,8 @@
 """
 Prompt for a subject and optional existing parent before creating it through Core.
 
-Duplicate checking always queries ``subject_sort`` even though payload inclusion
-of that field is schema-dependent. This module does not silently fall back after
-an incompatible-schema read failure.
+Duplicate checking uses the declared identity within the chosen parent scope.
+Sort text is separate presentation metadata. Identity and read failures propagate.
 """
 
 from __future__ import annotations
@@ -60,7 +59,7 @@ class NewSubjectWizardCommand(TerminalCommandAPI):
 
     def execute(self, browser, args: list[str]) -> bool:
         """
-        Validate the subject and optional parent, check sort-value duplicates, and submit confirmed creation.
+        Validate the subject and optional parent, check scoped identity duplicates, and submit confirmed creation.
 
         Parent lookup precedes mutation even when the schema cannot store a parent.
         Supported parent-ID/parent fields are selected in that order. Creation and
@@ -109,16 +108,21 @@ class NewSubjectWizardCommand(TerminalCommandAPI):
                     "No subject exists with subject_id={}.".format(parent_id)
                 )
 
-        existing = browser.db.search("subjects", "subject_sort", subject_sort)
-        if existing:
+        existing = browser.db.find_identity_row(
+            "subjects",
+            "subject",
+            subject_text,
+            scope_values={"subject_parent_id": parent_id},
+        )
+        if existing is not None:
             browser.emit(
                 "Possible duplicate subject exists: subject_id={} subject={!r}".format(
-                    existing[0]["subject_id"],
-                    existing[0]["subject"],
+                    existing["subject_id"],
+                    existing["subject"],
                 )
             )
             proceed_duplicate = browser.prompt_yes_no(
-                "Create another subject with this sort value?", default=False
+                "Create another subject with this identity and parent?", default=False
             )
             if not proceed_duplicate:
                 raise ValueError("Subject wizard canceled to avoid duplicate entry.")

@@ -14,7 +14,7 @@ from LiuXin_alpha.surfaces.metadata_facets import (
     search_tag_rows,
     tag_row_identity_column,
     tag_row_text,
-    tag_search_value,
+    tag_search_column_and_value,
 )
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 
@@ -94,7 +94,12 @@ class NewTagWizardCommand(TerminalCommandAPI):
         if not tag_text:
             raise ValueError("Tag text cannot be blank.")
 
-        tag_norm = tag_search_value(tag_text)
+        _column, tag_norm = tag_search_column_and_value(
+            browser.db,
+            tag_table,
+            set(browser.db.get_column_headings(tag_table)),
+            tag_text,
+        )
         description = _clean_optional(
             browser.prompt_text("Tag description", default="")
         )
@@ -131,7 +136,7 @@ class NewTagWizardCommand(TerminalCommandAPI):
             raise ValueError("Tag wizard canceled.")
 
         if tag_table == "tags":
-            tag_data = {"text": tag_text, "phash": tag_norm}
+            tag_data = {"text": tag_text}
             if description is not None and "tag_description" in set(
                 browser.db.get_column_headings("tags")
             ):
@@ -151,7 +156,7 @@ class NewTagWizardCommand(TerminalCommandAPI):
 
         if tag_table == "labels":
             columns = set(browser.db.get_column_headings("labels"))
-            label_data = {"text": tag_text, "normalized": tag_norm}
+            label_data = {"text": tag_text}
             if description is not None and "label_description" in columns:
                 label_data["description"] = description
             result = browser.execute_core_command(

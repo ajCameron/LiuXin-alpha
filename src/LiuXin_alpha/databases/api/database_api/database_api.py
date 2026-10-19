@@ -62,7 +62,7 @@ class DatabaseAPI(
         """
         Replace the driver and rebuild wrapper, macros and metadata SQL bindings.
 
-        Abstract declaration; subclasses supply the operation. In the concrete Database implementation: Close the old wrapper first. For a different driver, try committing its primary connection, roll back only if commit fails, then close it. Cleanup errors are suppressed. Install the new wrapper and convenience aliases, including storage aliases, which may become None. This does not rerun schema discovery, queue wiring or all runtime back-references; failures during new setup leave partial state.
+        Abstract declaration; subclasses supply the operation. In the concrete Database implementation: Close the old wrapper first. For a different driver, try committing its primary connection, roll back only if commit fails, then close it and call the driver's close method to release its other connections. Auxiliary transactions are not committed. Cleanup errors are suppressed. Install the new wrapper and convenience aliases, including storage aliases, which may become None. This does not rerun schema discovery, queue wiring or all runtime back-references; failures during new setup leave partial state.
 
         Example:
             For a compatible open replacement driver, db.set_driver(replacement) releases the previous database connections before constructing its new wrapper.
@@ -194,7 +194,7 @@ class DatabaseAPI(
         """
         Stop maintenance and release database connections with best-effort cleanup.
 
-        Abstract declaration; subclasses supply the operation. In the concrete Database implementation: Request maintenance stop and wait at most one second for its thread. Close the wrapper or fallback lock, then attempt to commit and close the primary connection; roll back only if that commit fails. Suppress ordinary cleanup errors. Repeated calls tolerate cleared state. This does not call StorageManager.close or the driver-wide close method, and cannot guarantee every reference cycle is removed.
+        Abstract declaration; subclasses supply the operation. In the concrete Database implementation: Request maintenance stop and wait at most one second for its thread. Close the wrapper or fallback lock, then attempt to commit and close the primary connection; roll back only if that commit fails. Call the driver's close method to release its other connections without committing auxiliary transactions. Suppress ordinary cleanup errors. Repeated calls tolerate cleared state. This does not call StorageManager.close and cannot guarantee every reference cycle is removed.
 
         Example:
             Use db.close() in a finally block to release an open facade; pending primary-connection changes may be committed.

@@ -2,7 +2,9 @@
 Project Core catalogue reads into shared browse, search, metadata, file, and image payloads.
 
 The backend borrows a surface host for display policy and a CoreSurfaceModel for
-schema, rows, and relationship reads. Confirmed absence and explicitly incomplete
+schema, rows, and relationship reads. Core owns browse category sources, counts,
+entity ordering and membership counts; this adapter adds surface links and row
+wrappers. Confirmed absence and explicitly incomplete
 optimized queries have empty/fallback paths; query, transport, iteration, and
 programming failures remain visible. Payload construction may perform repeated
 reads and is not an atomic snapshot or a general JSON-serialization boundary.
@@ -480,41 +482,17 @@ class ReadModelBackend:
         return mapping.get(str(category or "").strip().lower(), str(category or "").replace("_", " ").title())
 
     def author_tables(self) -> list[str]:
-        """
-        List present agent tables in preferred schema order, with agents as an unconditional final fallback.
-
-        Example:
-            >>> tables = backend.author_tables()  # doctest: +SKIP
-
-
-        :return: Existing agents/human_agents/org_agents names, or ['agents'] even when none exists.
-        """
-        tables = []
-        for table in ("agents", "human_agents", "org_agents"):
-            if self._table_exists(table):
-                tables.append(table)
-        return tables or ["agents"]
+        """Return Core's advertised author sources; confirmed absence stays empty."""
+        return list(self.read_source.browse_categories("authors")[0]["tables"])
 
     def tag_category_table(self) -> Optional[str]:
+        """Return Core's catalogue-wide tag source, propagating selection errors.
+
+        Core prefers populated tags, then available labels, and retains an empty
+        tags-only source. A Work without links in that source has no browse tags.
         """
-        Prefer populated tags, otherwise labels when present, retaining an empty tags-only table as a valid category source.
-
-        Count tags only when it appears in the schema; count/schema errors remain
-        visible even when labels is available. Labels is selected without a count.
-
-        Example:
-            >>> table = backend.tag_category_table()  # doctest: +SKIP
-
-
-        :return: tags or labels according to availability/count precedence, otherwise None.
-        """
-        available = set(self.read_source.table_names())
-        if "tags" in available:
-            if self.table_record_count("tags") > 0 or "labels" not in available:
-                return "tags"
-        if "labels" in available:
-            return "labels"
-        return "tags" if "tags" in available else None
+        tables = self.read_source.browse_categories("tags")[0]["tables"]
+        return str(tables[0]) if tables else None
 
     def work_tag_rows(self, related_rows_by_table: dict[str, list[object]]) -> tuple[Optional[str], list[object]]:
         """
@@ -647,21 +625,12 @@ class ReadModelBackend:
         return list(self._related_rows_by_table(row).get("works", []))
 
     def category_rows(self, kind: str) -> list[dict[str, object]]:
-        """
-        Build browse entries for exact work, author, tag, or series category tokens.
+        """Present Core-owned author, tag and series entries with surface links.
 
-        allbooks/titles use title ordering; recent/newest use descending work ID.
-        Author entries are sorted within each preferred agent table, not globally
-        across tables. Tags use the selected tags/labels source; series requires
-        its table. Entity counts materialize linked works, while work entries have
-        count zero. Unknown or differently cased tokens return no entries.
-
-        Example:
-            >>> entries = backend.category_rows("authors")  # doctest: +SKIP
-
-
-        :param kind: Exact built-in category token, not normalized by this method.
-        :return: Fresh entry dicts with table, original row, raw ID, label, count, and host URL or empty text.
+        Entity lists are fetched in bounded pages; Core owns their source,
+        membership counts and ordering. Work-list aliases retain the existing
+        work projection. Unknown exact tokens return an empty list. Reads are
+        not an atomic snapshot, and failures never return a partial list.
         """
         rows: list[dict[str, object]] = []
         if kind in {"allbooks", "titles", "recent", "newest"}:
@@ -679,145 +648,118 @@ class ReadModelBackend:
                     }
                 )
             return rows
-        if kind == "authors":
-            for table in self.author_tables():
-                for row in sorted(
-                    self._all_rows(table),
-                    key=lambda one: self.host._row_primary_text(table, one).lower(),
-                ):
-                    row_id = _row_value(row, self.host._id_column(table) or "")
-                    works = self.works_for_linked_entity(table, str(row_id))
-                    rows.append(
-                        {
-                            "table": table,
-                            "row": row,
-                            "id": row_id,
-                            "label": self.host._row_primary_text(table, row),
-                            "count": len(works),
-                            "url": self.host._row_href(table, row) or "",
-                        }
-                    )
+        if kind not in {"authors", "tags", "series"}:
             return rows
-        if kind == "tags":
-            tag_table = self.tag_category_table()
-            if tag_table is None:
+        offset = 0
+        while True:
+            page = self.read_source.browse_category_items(kind, offset=offset)
+            rows.extend(self._category_entry(record) for record in page["records"])
+            if page["complete"]:
                 return rows
-            for row in sorted(
-                self._all_rows(tag_table),
-                key=lambda one: self.host._row_primary_text(tag_table, one).lower(),
-            ):
-                row_id = _row_value(row, self.host._id_column(tag_table) or "")
-                works = self.works_for_linked_entity(tag_table, str(row_id))
-                rows.append(
-                    {
-                        "table": tag_table,
-                        "row": row,
-                        "id": row_id,
-                        "label": self.host._row_primary_text(tag_table, row),
-                        "count": len(works),
-                        "url": self.host._row_href(tag_table, row) or "",
-                    }
-                )
-            return rows
-        if kind == "series" and self._table_exists("series"):
-            for row in sorted(
-                self._all_rows("series"),
-                key=lambda one: self.host._row_primary_text("series", one).lower(),
-            ):
-                row_id = _row_value(row, self.host._id_column("series") or "")
-                works = self.works_for_linked_entity("series", str(row_id))
-                rows.append(
-                    {
-                        "table": "series",
-                        "row": row,
-                        "id": row_id,
-                        "label": self.host._row_primary_text("series", row),
-                        "count": len(works),
-                        "url": self.host._row_href("series", row) or "",
-                    }
-                )
-            return rows
-        return rows
+            if not page["records"]:
+                raise ValueError("Core category listing made no paging progress.")
+            offset += len(page["records"])
+
+    def _category_entry(self, record: Mapping[str, Any]) -> dict[str, object]:
+        """Add surface links and a CoreRow to an authoritative category entry."""
+        table = str(record["table"])
+        row_id = record["id"]
+        row = CoreRow(table, None if row_id is None else int(row_id), record["record"])
+        return {
+            "table": table,
+            "row": row,
+            "id": row_id,
+            "label": record["label"],
+            "count": record["work_count"],
+            "url": self.host._row_href(table, row) or "",
+        }
 
     def browse_count(self, kind: str) -> int:
+        """Return Core's fresh category count without materializing entries or links.
+
+        Surface work-list aliases map to all/newest; unknown kinds return zero.
+        Count failures propagate instead of being presented as an empty category.
         """
-        Count materialized category entries or works rather than issuing a lightweight table count.
-
-        Only exact recent requests recent work ordering here; newest still counts
-        title-ordered works. Entity counts include the category builder's linked
-        work reads and can therefore fail on those reads too.
-
-        Example:
-            >>> count = backend.browse_count("titles")  # doctest: +SKIP
-
-
-        :param kind: Exact authors/tags/series or titles/recent/allbooks/newest token.
-        :return: Number of category entities or works, or zero for an unknown token.
-        """
-        if kind in {"authors", "tags", "series"}:
-            return len(self.category_rows(kind))
-        if kind in {"titles", "recent", "allbooks", "newest"}:
-            sorted_by = "recent" if kind == "recent" else "title"
-            return len(self.work_rows(sorted_by=sorted_by))
-        return 0
+        category = {"titles": "all", "allbooks": "all", "recent": "newest"}.get(
+            kind, kind
+        )
+        if category not in {"all", "newest", "authors", "tags", "series"}:
+            return 0
+        return int(self.read_source.browse_categories(category)[0]["count"])
 
     def category_summary_payload(self) -> list[dict[str, object]]:
+        """Present Core's five category counts using surface names in one query.
+
+        No entities or relationships cross the transport for this summary. The
+        counts are fresh but do not constitute an atomic database snapshot.
         """
-        Build the fixed five-category navigation summary with fresh materialized counts.
-
-        All books and newest are marked as work lists; authors, tags, and series
-        are marked as categories. Reads are repeated per entry, not shared as a
-        single snapshot, and failures prevent returning a partial summary.
-
-        Example:
-            >>> summary = backend.category_summary_payload()  # doctest: +SKIP
-
-
-        :return: Ordered name/count/is_category/category dicts for allbooks, newest, authors, tags, and series.
-        """
-        return [
-            {
-                "name": self.category_display_name(category),
-                "count": self.browse_count(count_kind),
-                "is_category": is_category,
-                "category": category,
-            }
-            for category, count_kind, is_category in (
-                ("allbooks", "titles", False),
-                ("newest", "recent", False),
-                ("authors", "authors", True),
-                ("tags", "tags", True),
-                ("series", "series", True),
+        rows = []
+        for entry in self.read_source.browse_categories():
+            category = (
+                "allbooks" if entry["category"] == "all" else str(entry["category"])
             )
-        ]
+            rows.append(
+                {
+                    "name": self.category_display_name(category),
+                    "count": int(entry["count"]),
+                    "is_category": bool(entry["entity_category"]),
+                    "category": category,
+                }
+            )
+        return rows
 
-    def category_items_payload(self, category: str, *, num: int, offset: int, sort: str, sort_order: str) -> dict[str, object]:
-        """
-        Normalize a category request, sort its entries, and return shallow-copied visible entry dicts.
+    def category_items_payload(
+        self, category: str, *, num: int, offset: int, sort: str, sort_order: str
+    ) -> dict[str, object]:
+        """Present a normalized category page with Core-owned entity ordering.
 
-        popularity sorts by integer count then lowercase label; rating uses a
-        constant zero then label, not stored ratings. Other tokens sort by label.
-        Only normalized desc reverses the whole key, including ties. Pagination
-        uses unvalidated Python slicing; row objects nested in copied entries stay
-        shared. Unknown sort tokens are preserved in response metadata.
-
-        Example:
-            >>> page = backend.category_items_payload("tags", num=20, offset=0, sort="name", sort_order="asc")  # doctest: +SKIP
-
-
-        :param category: Falsey-to-empty, stripped lowercase category selector.
-        :param num: Requested slice length, without clamping or integer conversion here.
-        :param offset: Slice start also echoed unchanged in the result.
-        :param sort: Falsey-to-name, stripped lowercase ordering selector.
-        :param sort_order: Falsey-to-asc direction; only stripped lowercase desc means descending.
-        :return: Category name, full count, actual visible count, normalized ordering, offset, and visible entries.
+        Entity requests use pages of at most 1,000 records with nonnegative bounds.
+        Larger requested windows are assembled without silently truncating them.
+        Work-list aliases retain their existing local presentation sorting.
+        Rating is a name-order placeholder; unknown directions mean ascending.
         """
         kind = str(category or "").strip().lower()
-        raw_rows = self.category_rows(kind)
         sort_key = str(sort or "name").strip().lower()
         ascending = str(sort_order or "asc").strip().lower() != "desc"
+        if kind in {"authors", "tags", "series"}:
+            limit, offset = max(0, int(num)), max(0, int(offset))
+            page = self.read_source.browse_category_items(
+                kind,
+                limit=limit,
+                offset=offset,
+                sort=sort_key,
+                ascending=ascending,
+            )
+            records = list(page["records"])
+            total_count = page["total_count"]
+            while not page["complete"] and len(records) < limit:
+                if not page["records"]:
+                    raise ValueError("Core category listing made no paging progress.")
+                page = self.read_source.browse_category_items(
+                    kind,
+                    limit=limit - len(records),
+                    offset=offset + len(records),
+                    sort=sort_key,
+                    ascending=ascending,
+                )
+                records.extend(page["records"])
+            items = [self._category_entry(record) for record in records]
+            return {
+                "category": kind,
+                "category_name": self.category_display_name(kind),
+                "total_num": total_count,
+                "offset": offset,
+                "num": len(items),
+                "sort": sort_key,
+                "sort_order": "asc" if ascending else "desc",
+                "items": items,
+            }
+        raw_rows = self.category_rows(kind)
         if sort_key == "popularity":
-            key_fn = lambda item: (int(item.get("count") or 0), str(item.get("label") or "").lower())
+            key_fn = lambda item: (
+                int(item.get("count") or 0),
+                str(item.get("label") or "").lower(),
+            )
         elif sort_key == "rating":
             key_fn = lambda item: (0, str(item.get("label") or "").lower())
         else:
@@ -878,7 +820,7 @@ class ReadModelBackend:
 
         Credit ordering follows role/priority, not an author-role filter. Credits
         and relationships are read separately; tag-table selection may query the
-        schema/count again. Text uses fixed English prefixes and a middle-dot
+        Core category selection again. Text uses fixed English prefixes and a middle-dot
         separator without HTML escaping or clipping individual names.
 
         Example:

@@ -17,6 +17,7 @@ from wsgiref.util import setup_testing_defaults
 
 from LiuXin_alpha.core import CoreHttpDaemon, RemoteCoreClient, create_core
 from LiuXin_alpha.surfaces.api_readonly.app import ApiReadOnlyApplication
+from LiuXin_alpha.surfaces.metadata_facets import search_tag_rows
 from LiuXin_alpha.surfaces.opds_readonly.app import OpdsReadOnlyApplication
 from LiuXin_alpha.surfaces.terminal.browser import TextDatabaseBrowser
 from LiuXin_alpha.surfaces.tkinter_gui.backend import TkGuiBackend
@@ -153,6 +154,25 @@ def _exercise_surface_client(client, *, label: str, tmp_path: Path) -> None:
     )
     assert browser.run_commands(("use works", "count", "browse 5 0")) == 0
     assert "Seed Work" in output.getvalue()
+
+    # Exercise identity derivation and scoped resolution over both transports.
+    assert browser.run_commands(
+        (
+            f'on works 1 tag "{label} Space Opera, {label} SpaceOpera"',
+            f'on works 1 genre "{label} Science Fiction"',
+            f'on works 1 genre "{label} Science Fiction"',
+        )
+    ) == 0
+    spaced = search_tag_rows(browser.db, "tags", f"{label} Ｓｐａｃｅ Ｏｐｅｒａ")
+    compact = search_tag_rows(browser.db, "tags", f"{label} SpaceOpera")
+    assert len(spaced) == len(compact) == 1
+    assert spaced[0]["tag_id"] != compact[0]["tag_id"]
+    genre = browser.db.find_identity_row(
+        "genres", "genre", f"{label} SCIENCE FICTION",
+        scope_values={"genre_parent_id": None},
+    )
+    assert genre is not None
+    assert genre["genre"] == f"{label} Science Fiction"
 
     session = TkGuiSession.from_client(
         client,

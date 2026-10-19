@@ -115,6 +115,22 @@ class AgentRepositoryAPI(BaseRepositoryAPI, Protocol):
         :raises Exception: Remaining validation and database failures propagate; writes inside the aggregate transaction roll back.
         """
 
+    def relate_organisations(
+        self,
+        child_id: EntityId,
+        parent_id: EntityId,
+        *,
+        relation_type: str = "imprint_of",
+        note: str | None = None,
+    ) -> EntityId:
+        """Link validated organisation aggregates in the active transaction.
+
+        Return the existing ID for the same child/parent/type edge without
+        changing its note. Invalid endpoints, blank types and write errors
+        propagate; the operation participates in an enclosing transaction.
+        """
+        ...
+
     def resolve(self, *, name: str, role: str | None = None) -> RowMapping | None:
         """
         Return the first Agent whose canonical name matches normalized input.

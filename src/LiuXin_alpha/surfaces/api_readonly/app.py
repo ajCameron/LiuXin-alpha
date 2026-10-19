@@ -723,14 +723,14 @@ class ApiReadOnlyApplication(ReadOnlyWebApplication):
             if len(parts) == 2:
                 return self._json_response(self._category_collection_payload(kind, limit=limit, offset=offset))
             if len(parts) == 3:
-                table = (self.read_model.tag_category_table() or "tags") if kind == "tags" else "series"
-                payload = self._category_detail_payload(kind=kind, table=table, row_id=parts[2])
+                table = self.read_model.tag_category_table() if kind == "tags" else "series"
+                payload = None if table is None else self._category_detail_payload(kind=kind, table=table, row_id=parts[2])
                 if payload is None:
                     return self._json_response({"error": "missing_category_row", "message": "Category row not found."}, status="404 Not Found")
                 return self._json_response(payload)
             if len(parts) == 4 and parts[3] == "works":
-                table = (self.read_model.tag_category_table() or "tags") if kind == "tags" else "series"
-                rows = self.read_model.works_for_linked_entity(table, parts[2])
+                table = self.read_model.tag_category_table() if kind == "tags" else "series"
+                rows = [] if table is None else self.read_model.works_for_linked_entity(table, parts[2])
                 return self._json_response(self._works_for_category_payload(kind, rows, path=path, limit=limit, offset=offset))
         if kind == "authors":
             if len(parts) == 2:

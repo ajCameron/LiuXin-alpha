@@ -126,8 +126,8 @@ def _search_tag_rows(db: Database, tag_text: str):
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
-    norm = make_tag_search_term(tag_text)
     table = _preferred_tag_table(db)
+    norm = db.derive_identity_value(table, "tag" if table == "tags" else "label_text", tag_text)
     if table == "tags":
         return "tags", db.search("tags", "tag_phash", norm)
     return "labels", db.search("labels", "label_text_norm", norm)
@@ -8582,7 +8582,7 @@ def test_text_browser_on_genre_creates_and_links_genre(driver_spec, tmp_path: Pa
         shell = TextDatabaseBrowser(db, output=output)
         assert shell.execute_line("on works {} genre \"Science Fiction\"".format(work_row["work_id"]))
 
-        genre_phash = make_title_search_term(standardize_genre("Science Fiction"))
+        genre_phash = db.derive_identity_value("genres", "genre", "Science Fiction")
         genre_rows = db.search("genres", "genre_phash", genre_phash)
         assert genre_rows
         genre_row = genre_rows[0]
@@ -8719,7 +8719,6 @@ def test_text_browser_new_genre_wizard_creates_genre(driver_spec, tmp_path: Path
                 [
                     "Science Fiction",
                     "",
-                    "",
                     str(parent_id),
                     "2",
                     "Fiction > Science Fiction",
@@ -8735,7 +8734,7 @@ def test_text_browser_new_genre_wizard_creates_genre(driver_spec, tmp_path: Path
         assert rows
         row = rows[0]
         assert row["genre_sort"] == standardize_genre("Science Fiction")
-        assert row["genre_phash"] == make_title_search_term(standardize_genre("Science Fiction"))
+        assert row["genre_phash"] == "science fiction"
         assert int(row["genre_parent_id"]) == parent_id
         assert int(row["genre_position"]) == 2
         assert row["genre_full"] == "Fiction > Science Fiction"
@@ -8766,7 +8765,6 @@ def test_text_browser_new_genre_invalid_parent_id_rejected(driver_spec, tmp_path
         "\n".join(
             [
                 "Genre X",
-                "",
                 "",
                 "abc",
             ]
@@ -8806,7 +8804,6 @@ def test_text_browser_new_genre_legacy_alias_still_works(driver_spec, tmp_path: 
         "\n".join(
             [
                 "Legacy Genre",
-                "",
                 "",
                 "",
                 "",

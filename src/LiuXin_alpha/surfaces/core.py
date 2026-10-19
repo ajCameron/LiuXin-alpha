@@ -818,6 +818,55 @@ class CoreSurfaceModel:
         record = result.get("record")
         return None if record is None else self._row(record)
 
+    def browse_categories(
+        self, category: str | None = None
+    ) -> tuple[dict[str, Any], ...]:
+        """Read fresh Core category counts and source tables without fetching entities.
+
+        The optional category restricts both counts and source selection. Query
+        and malformed-response failures propagate; no schema cache is consulted.
+        """
+        payload = {} if category is None else {"category": category}
+        result = _mapping(
+            self.client.query("browse.categories", payload),
+            label="browse.categories result",
+        )
+        records = result["categories"]
+        if not isinstance(records, Sequence) or isinstance(records, (str, bytes)):
+            raise TypeError("browse.categories `categories` must be an array.")
+        return tuple(dict(_mapping(record, label="category")) for record in records)
+
+    def browse_category_items(
+        self,
+        category: str,
+        *,
+        limit: int = 1000,
+        offset: int = 0,
+        sort: str = "name",
+        ascending: bool = True,
+    ) -> dict[str, Any]:
+        """Fetch one Core-owned category page, capped at 1,000 wire records.
+
+        Counts, source selection and ordering belong to Core. The receipt's
+        ``complete`` means the end of this listing, unlike rows.query's provider
+        completeness flag. Errors remain visible to the surface.
+        """
+        return dict(
+            _mapping(
+                self.client.query(
+                    "browse.category.items",
+                    {
+                        "category": category,
+                        "limit": max(0, min(int(limit), 1000)),
+                        "offset": max(0, int(offset)),
+                        "sort": sort,
+                        "ascending": ascending,
+                    },
+                ),
+                label="browse.category.items result",
+            )
+        )
+
     def query_rows(
         self,
         table: str,
@@ -928,6 +977,46 @@ class CoreSurfaceModel:
         :return: Backend total converted to int, defaulting to zero for absent or falsey metadata.
         """
         return self.query_rows(str(table), limit=0).total_count
+
+    def derive_identity_value(self, table: str, value_column: str, value: Any) -> Any:
+        """Derive a lookup key using the catalogue's declared identity policy."""
+        result = _mapping(
+            self.client.query(
+                "schema.identity.derive",
+                payload={"table": table, "value_column": value_column, "value": value},
+            ),
+            label="schema.identity.derive result",
+        )
+        return result["identity_value"]
+
+    def find_identity_row(
+        self,
+        table: str,
+        value_column: str,
+        value: Any,
+        *,
+        scope_values: Mapping[str, Any] | None = None,
+    ) -> CoreRow | None:
+        """Resolve a declared identity and scope in Core, then fetch its row."""
+        result = _mapping(
+            self.client.query(
+                "schema.identity.resolve",
+                payload={
+                    "table": table,
+                    "value_column": value_column,
+                    "value": value,
+                    "scope_values": None
+                    if scope_values is None
+                    else dict(scope_values),
+                },
+            ),
+            label="schema.identity.resolve result",
+        )
+        identity = result["identity"]
+        if identity is None:
+            return None
+        identity = _mapping(identity, label="canonical identity")
+        return self.row(table, int(identity["row_id"]))
 
     def search(
         self,
@@ -1908,6 +1997,23 @@ class CoreDatabaseView:
         """
         rows = list(self.model.rows(table))
         return iter(rows) if iterator_return else rows
+
+    def derive_identity_value(self, table: str, value_column: str, value: Any) -> Any:
+        """Delegate identity derivation to the Core model without local policy."""
+        return self.model.derive_identity_value(table, value_column, value)
+
+    def find_identity_row(
+        self,
+        table: str,
+        value_column: str,
+        value: Any,
+        *,
+        scope_values: Mapping[str, Any] | None = None,
+    ) -> CoreRow | None:
+        """Find the canonical row without duplicating key or scope policy."""
+        return self.model.find_identity_row(
+            table, value_column, value, scope_values=scope_values
+        )
 
     def search(
         self,

@@ -11,7 +11,6 @@ from typing import Optional
 
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.metadata.standardization import (
-    make_title_search_term,
     standardize_genre,
 )
 
@@ -83,7 +82,7 @@ class NewGenreWizardCommand(TerminalCommandAPI):
         """
         Validate prompted genre fields and create a schema-filtered catalog payload after confirmation.
 
-        Duplicate search uses the phash column when available, otherwise raw genre
+        Duplicate search uses the declared identity and parent scope for genre
         text. Parent lookup occurs even if no supported parent field can be stored.
         Optional positions are integers without a local range check. Cancellation
         raises; Core/result/output failures propagate without post-write rollback.
@@ -118,11 +117,7 @@ class NewGenreWizardCommand(TerminalCommandAPI):
             or default_sort
         )
 
-        default_phash = make_title_search_term(genre_sort)
-        genre_phash = (
-            browser.prompt_text("Genre phash", default=default_phash).strip()
-            or default_phash
-        )
+        genre_phash = browser.db.derive_identity_value("genres", "genre", genre_text)
 
         parent_id_text = browser.prompt_text("Parent genre id (optional)", default="")
         parent_id = _safe_int(parent_id_text)
@@ -143,20 +138,18 @@ class NewGenreWizardCommand(TerminalCommandAPI):
             browser.prompt_text("Genre full path (optional)", default="")
         )
 
-        duplicate_column = "genre_phash" if "genre_phash" in columns else "genre"
-        duplicate_term = (
-            genre_phash if duplicate_column == "genre_phash" else genre_text
+        existing = browser.db.find_identity_row(
+            "genres", "genre", genre_text, scope_values={"genre_parent_id": parent_id}
         )
-        existing = browser.db.search("genres", duplicate_column, duplicate_term)
-        if existing:
+        if existing is not None:
             browser.emit(
                 "Possible duplicate genre exists: genre_id={} genre={!r}".format(
-                    existing[0]["genre_id"],
-                    existing[0]["genre"],
+                    existing["genre_id"],
+                    existing["genre"],
                 )
             )
             proceed_duplicate = browser.prompt_yes_no(
-                "Create another genre with this phash?", default=False
+                "Create another genre with this identity and parent?", default=False
             )
             if not proceed_duplicate:
                 raise ValueError("Genre wizard canceled to avoid duplicate entry.")
@@ -168,7 +161,7 @@ class NewGenreWizardCommand(TerminalCommandAPI):
                     [
                         ("genre", genre_text),
                         ("sort", genre_sort),
-                        ("phash", genre_phash),
+                        ("normalized", genre_phash),
                         ("parent_id", parent_id if parent_id is not None else ""),
                     ],
                 )
@@ -183,8 +176,6 @@ class NewGenreWizardCommand(TerminalCommandAPI):
         row_dict = {"genre": genre_text}
         if "genre_sort" in columns:
             row_dict["genre_sort"] = genre_sort
-        if "genre_phash" in columns:
-            row_dict["genre_phash"] = genre_phash
         if parent_row is not None:
             if "genre_parent_id" in columns:
                 row_dict["genre_parent_id"] = parent_row.row_id
