@@ -23,6 +23,9 @@ def test_customize_namespace_boundaries_are_budgeted() -> None:
 
     assert "LiuXin_alpha.customize" in modules
     assert "LiuXin_alpha.customize.builtins" in modules
+    assert "LiuXin_alpha.customize.application" in modules
+    assert "LiuXin_alpha.customize.ui" in modules
+    assert "LiuXin_alpha.plugin_system.loading" in modules
 
 
 def test_plugin_contract_boundaries_are_budgeted() -> None:

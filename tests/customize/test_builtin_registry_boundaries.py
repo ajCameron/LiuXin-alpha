@@ -18,3 +18,22 @@ def test_explicit_registry_preserves_conversion_plugins() -> None:
     names = {plugin.__name__ for plugin in plugins}
 
     assert {"EPUBInput", "EPUBOutput", "MOBIInput", "MOBIOutput"} <= names
+
+
+def test_application_registry_extends_the_standalone_file_catalogue() -> None:
+    """File provider membership and tie order have one composition owner."""
+    from LiuXin_alpha.customize.builtins.registry import plugins
+    from LiuXin_alpha.file_formats.plugin_defaults import builtin_plugins
+
+    file_plugins = builtin_plugins()
+    assert plugins[: len(file_plugins)] == file_plugins
+    assert all(plugins.count(provider) == 1 for provider in file_plugins)
+
+
+def test_legacy_provider_list_attributes_delegate_to_the_catalogue() -> None:
+    """Explicit inspection preserves historical list/name attributes without state copies."""
+    from LiuXin_alpha.customize import ui
+    from LiuXin_alpha.customize.builtins.registry import plugins
+
+    assert ui.builtin_plugins is plugins
+    assert ui.builtin_names == frozenset(plugin.name for plugin in plugins)

@@ -2,6 +2,8 @@
 # Top-level structure
 
 Reviewed: **2026-10-19**, against source at `6508d5e0` on `architecture-review-followup`.
+Plugin ownership updated **2026-10-19** on `plugin-composition-ownership`, following
+documentation PR #124; this follow-up is not yet on `main`.
 
 Status: **Current architecture overview, with remaining migrations identified.**
 The reviewed source includes the writes, category-read and configuration ownership
@@ -219,7 +221,7 @@ their separate implementation home in `metadata.file_sources`.
 ### plugin_system
 
 Plugin system supplies passive, format-neutral lifecycle, hook and stream
-contracts, shared plugin settings and loading mechanics. These are foundations
+contracts, shared plugin settings and common loading/priority rules. These are foundations
 for different plugin families, not an application provider registry.
 
 Importing its package root does not discover providers or start services. The
@@ -228,13 +230,14 @@ format implementations and application composition.
 
 ### customize
 
-Customize selects and composes the application provider fleet, retains compatibility
-exports and binds initialized instances into the native format runtime. It is a
-composition owner above the neutral plugin contracts and format implementations.
+`customize.application` selects and composes the application providers, manages
+their lifecycle and binds initialized instances into the native format runtime.
+Importing it is passive; explicit startup or the first application lookup loads
+providers. `customize.ui` delegates for compatibility and owns no registry state.
 
-See the [plugin composition guide][plugin-guide]. Registry initialization and
-provider ordering still need consolidation; contract extraction did not remove
-all application-level plugin ownership debt.
+See the [plugin composition guide][plugin-guide]. Both hosts share file-provider
+membership and loading/priority rules. The inherited package name, unrelated cache
+and folder-driver remnants, and unsupported providers remain cleanup work.
 
 ### utils
 
@@ -436,13 +439,14 @@ different owners:
 - `file_formats` owns conversion input/output contracts, implementations and a
   native runtime for standalone format use. `metadata.file_sources` owns file
   metadata readers and writers.
-- `customize` composes the application fleet and binds initialized instances into
-  the format runtime; compatibility exports remain here.
+- `customize.application` explicitly composes application plugins and binds their
+  instances into the format runtime; `customize.ui` is a compatibility export.
 
 Format implementations must not reach back into Core, Library, persistence or
-application registry assembly. The containment work is implemented; application
-registry initialization, provider ordering and some acquisition composition still
-need consolidation. Keep format behaviour in the [format dossiers][format-guide]
+application registry assembly. Shared loading enforces stable descending priority;
+the application extends the standalone file-provider catalogue. Cold-import and
+dependency checks enforce these boundaries. Unsupported providers and some
+acquisition composition still need work. Keep format behaviour in the [format dossiers][format-guide]
 and shared composition rules in the [plugin guide][plugin-guide].
 
 ## Where a new change belongs

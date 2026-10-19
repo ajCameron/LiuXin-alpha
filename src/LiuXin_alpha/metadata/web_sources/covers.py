@@ -51,7 +51,7 @@ def _iter_cover_plugins():
         above.
     """
     try:
-        from LiuXin_alpha.customize.ui import metadata_plugins
+        from LiuXin_alpha.customize.application import metadata_plugins
     except Exception as err:
         default_log.log_exception("Unable to import metadata_plugins for cover download.", err, "DEBUG")
         return []

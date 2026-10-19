@@ -4,7 +4,7 @@ from LiuXin_alpha.plugin_system.zipplugin import *  # noqa: F403
 
 if __name__ == "__main__":
     from tempfile import NamedTemporaryFile
-    from LiuXin_alpha.customize.ui import add_plugin
+    from LiuXin_alpha.customize.application import add_plugin
     from LiuXin_alpha.utils.storage.local import CurrentDir
 
     path = sys.argv[-1]

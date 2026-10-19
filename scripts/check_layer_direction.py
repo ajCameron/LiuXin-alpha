@@ -112,6 +112,8 @@ def direction_reason(edge: ImportEdge) -> str | None:
     target_package = _package(edge.target)
     if source_package is None or target_package is None:
         return None
+    if edge.target == "LiuXin_alpha.customize.ui":
+        return "production callers must use customize.application or file_formats.plugin_runtime"
     if target_package in FORBIDDEN_TARGETS.get(source_package, ()):
         return f"{source_package} must not depend on {target_package}"
     return None

@@ -20,10 +20,10 @@ from collections import defaultdict
 from LiuXin_alpha.utils.logging import default_log
 
 try:
-    from LiuXin_alpha.customize.ui import run_plugins_on_import
+    from LiuXin_alpha.file_formats.plugin_runtime import run_plugins_on_import
 except ImportError:
 
-    default_log.exception('LiuXin_alpha.customize.ui - cannot import run_plugins_on_import')
+    default_log.exception('LiuXin_alpha.file_formats.plugin_runtime - cannot import run_plugins_on_import')
 
     def run_plugins_on_import(file):
         """
@@ -43,10 +43,10 @@ except ImportError:
 
 
 try:
-    from LiuXin_alpha.customize.ui import run_plugins_on_postimport
+    from LiuXin_alpha.file_formats.plugin_runtime import run_plugins_on_postimport
 except ImportError:
 
-    default_log.exception('LiuXin_alpha.customize.ui - cannot import run_plugins_on_postimport')
+    default_log.exception('LiuXin_alpha.file_formats.plugin_runtime - cannot import run_plugins_on_postimport')
 
     def run_plugins_on_postimport(file):
         """
@@ -66,10 +66,10 @@ except ImportError:
 
 
 try:
-    from LiuXin_alpha.customize.ui import run_plugins_on_postadd
+    from LiuXin_alpha.file_formats.plugin_runtime import run_plugins_on_postadd
 except ImportError:
 
-    default_log.exception('LiuXin_alpha.customize.ui - cannot import run_plugins_on_postadd')
+    default_log.exception('LiuXin_alpha.file_formats.plugin_runtime - cannot import run_plugins_on_postadd')
 
     def run_plugins_on_postadd(file, *args, **kwargs):
         """
@@ -91,10 +91,10 @@ except ImportError:
 
 
 try:
-    from LiuXin_alpha.customize.ui import run_import_plugins
+    from LiuXin_alpha.file_formats.plugin_runtime import run_import_plugins
 except ImportError:
 
-    default_log.exception('LiuXin_alpha.customize.ui - cannot import run_import_plugins')
+    default_log.exception('LiuXin_alpha.file_formats.plugin_runtime - cannot import run_import_plugins')
 
     def run_import_plugins(file, *args, **kwargs):
         """

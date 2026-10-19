@@ -123,6 +123,21 @@ IMPORT_BUDGETS = (
         35,
         CUSTOMIZE_NAMESPACE_FORBIDDEN_DOMAINS,
     ),
+    ImportBudget(
+        "LiuXin_alpha.customize.application",
+        44,
+        CUSTOMIZE_NAMESPACE_FORBIDDEN_DOMAINS - {"file_formats"},
+    ),
+    ImportBudget(
+        "LiuXin_alpha.customize.ui",
+        45,
+        CUSTOMIZE_NAMESPACE_FORBIDDEN_DOMAINS - {"file_formats"},
+    ),
+    ImportBudget(
+        "LiuXin_alpha.plugin_system.loading",
+        30,
+        PLUGIN_CONTRACT_FORBIDDEN_DOMAINS,
+    ),
     ImportBudget("LiuXin_alpha.metadata", 2),
     ImportBudget(
         "LiuXin_alpha.metadata.identifiers",

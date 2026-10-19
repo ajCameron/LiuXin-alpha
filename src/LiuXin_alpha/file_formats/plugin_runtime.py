@@ -14,6 +14,7 @@ import sys
 import traceback
 import typing as _typing
 from collections.abc import Callable, Iterable, Iterator
+from contextlib import contextmanager
 from threading import RLock
 from typing import Any, BinaryIO
 
@@ -46,20 +47,42 @@ _initialized_plugins: list[Plugin] | None = None
 _initialization_lock = RLock()
 
 
+@contextmanager
+def initialization_scope() -> Iterator[None]:
+    """Serialize host and standalone startup, allowing same-thread callbacks."""
+    with _initialization_lock:
+        yield
+
+
+def replace_plugins(builder: Callable[[], Iterable[Plugin]]) -> tuple[Plugin, ...]:
+    """Build and bind a fleet, restoring the previous binding if startup aborts.
+
+    Reentrant format lookups see an empty fleet while building. Other threads
+    wait for publication instead of starting a second standalone registry.
+    """
+    with _initialization_lock:
+        previous = _initialized_plugins
+        bind_plugins(())
+        try:
+            plugins = tuple(builder())
+            bind_plugins(plugins)
+            return plugins
+        except BaseException:
+            if previous is None:
+                reset_plugins()
+            else:
+                bind_plugins(previous)
+            raise
+
+
 def _ensure_plugins() -> None:
     """Initialize the standalone file-plugin fleet on first use."""
-    global _initialized_plugins
     with _initialization_lock:
         if _initialized_plugins is not None:
             return
         from LiuXin_alpha.file_formats.plugin_defaults import build_plugins
 
-        _initialized_plugins = []
-        try:
-            bind_plugins(build_plugins())
-        except BaseException:
-            _initialized_plugins = None
-            raise
+        replace_plugins(build_plugins)
 
 
 def bind_plugins(plugins: Iterable[Plugin]) -> None:
@@ -86,8 +109,10 @@ def reset_plugins() -> None:
 
 def initialized_plugins() -> Iterator[Plugin]:
     """Yield the active file-plugin instances in their established order."""
-    _ensure_plugins()
-    yield from _initialized_plugins or ()
+    with _initialization_lock:
+        _ensure_plugins()
+        plugins = tuple(_initialized_plugins or ())
+    yield from plugins
 
 
 _on_import: dict[str, list[Plugin]] = {}
@@ -847,3 +872,24 @@ def available_output_formats() -> set[str]:
         if not is_disabled(plugin):
             formats.add(plugin.file_type)
     return formats
+
+
+def run_import_plugins(path_or_stream: str | os.PathLike[str] | BinaryIO, fmt: str) -> str:
+    """Run file-import hooks for a path or a binary stream.
+
+    Streams are rewound and copied to a persistent temporary file with the
+    supplied format extension; the returned path belongs to the caller. Path
+    inputs are passed to the hooks directly. This does not start application plugins.
+    """
+    from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryFile
+
+    fmt = fmt.lower()
+    if hasattr(path_or_stream, "seek"):
+        path_or_stream.seek(0)
+        pt = PersistentTemporaryFile("_import_plugin." + fmt)
+        shutil.copyfileobj(path_or_stream, pt, 1024**2)
+        pt.close()
+        path = pt.name
+    else:
+        path = path_or_stream
+    return run_plugins_on_import(path)

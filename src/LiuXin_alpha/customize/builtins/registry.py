@@ -4,7 +4,8 @@
 Assemble the complete built-in plugin compatibility registry.
 
 Importing this explicit composition module loads the bundled providers and builds
-``plugins`` in historical order. The package initializer deliberately does not.
+``plugins`` from shared file providers plus application-only families. The package
+initializer deliberately does not.
 
 Example:
     Exercise   init   through a consuming regression::
@@ -15,15 +16,8 @@ Example:
 # Todo: Make sure all MD extractors can cope with a file or path being passed in
 
 from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.file_formats.plugin_defaults import builtin_plugins as file_builtin_plugins
 
-try:
-    from LiuXin_alpha.file_formats.html.to_zip import HTML2ZIP
-except Exception as e:
-    default_log.log_exception("Failed to import HTML2ZIP", e, "DEBUG")
-    HTML2ZIP = None
-
-from LiuXin_alpha.file_formats.conversion.builtins import get_input_plugins
-from LiuXin_alpha.file_formats.conversion.builtins import get_output_plugins
 try:
     from LiuXin_alpha.customize.builtins.device_drivers import get_device_driver_plugins
 except Exception as e:
@@ -44,16 +38,7 @@ except Exception as e:
         """
         return []
 
-from LiuXin_alpha.file_formats.import_plugins import get_file_type_plugins
 from LiuXin_alpha.customize.builtins.metadata_downloaders import get_web_md_plugins
-from LiuXin_alpha.metadata.file_sources.builtin_readers import get_metadata_reader_plugins
-from LiuXin_alpha.metadata.file_sources.builtin_writers import get_metadata_set_plugins
-try:
-    from LiuXin_alpha.file_formats.conversion.profiles import input_profiles, output_profiles
-except Exception as e:
-    default_log.log_exception("Failed to import profiles", e, "DEBUG")
-    input_profiles, output_profiles = [], []
-
 try:
     from LiuXin_alpha.library.catalogs.csv_xml import CSV_XML
     from LiuXin_alpha.library.catalogs.bibtex import BIBTEX
@@ -61,13 +46,6 @@ try:
 except Exception as e:
     default_log.log_exception("Failed to import catalog plugins", e, "DEBUG")
     CSV_XML = BIBTEX = EPUB_MOBI = None
-
-try:
-    from LiuXin_alpha.metadata.file_sources.archive import ArchiveExtract, get_comic_metadata
-except Exception as e:
-    default_log.log_exception("Failed to import archive metadata plugins", e, "DEBUG")
-    ArchiveExtract = None
-    get_comic_metadata = None
 
 try:
     from LiuXin_alpha.metadata.liuxin_plugins.md_synthesizer import SynthesisMDInputTransform
@@ -79,58 +57,15 @@ except Exception as e:
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
 
-plugins = []
-
-# builtin plugins from calibre - LiuXin has been provided with calibre emulation  features so that they should all
-# continue to work, and new plugins should just function after the conversiopn process
-
-# To archive plugins {{{
-
-plugins += get_file_type_plugins()
-for optional_plugin in (HTML2ZIP, ArchiveExtract):
-    if optional_plugin is not None:
-        plugins.append(optional_plugin)
-
-# }}}
-
-# Add in the metadata reader plugins
-# {{{
-
-plugins += get_metadata_reader_plugins()
-# }}}
-
-# ----------------------------------------------------------------------------------------------------------------------
-#
-# - METADATA WRITER PLUGINS START HERE
-#
-# ----------------------------------------------------------------------------------------------------------------------
-
-# Metadata writer plugins {{
-
-
-plugins += get_metadata_set_plugins()
-
-# }}}
-
-# Conversion plugins {{{
-
-plugins += get_input_plugins()
-
-plugins += get_output_plugins()
-
-
-# }}}
+# File providers have one catalogue for both standalone and application hosts.
+# Application-only families extend that catalogue below.
+plugins = file_builtin_plugins()
 
 # Catalog plugins {{{
 
 for optional_plugin in (CSV_XML, BIBTEX, EPUB_MOBI):
     if optional_plugin is not None:
         plugins.append(optional_plugin)
-# }}}
-
-# Profiles {{{
-
-plugins += list(input_profiles) + list(output_profiles)
 # }}}
 
 # Device driver plugins {{{

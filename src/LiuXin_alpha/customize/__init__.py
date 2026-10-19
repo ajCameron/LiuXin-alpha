@@ -348,7 +348,7 @@ class CatalogPlugin(Plugin):  # {{{
             place.
         """
         from LiuXin_alpha.customize.builtins.registry import plugins as builtin_plugins
-        from LiuXin_alpha.customize.ui import config
+        from LiuXin_alpha.plugin_system.configuration import config
         from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryDirectory
 
         if not type(self) in builtin_plugins and self.name not in config["disabled_plugins"]:

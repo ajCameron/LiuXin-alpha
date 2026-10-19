@@ -81,14 +81,23 @@ The shortest useful description is:
 - `surfaces` translate external input and output; they are never a trusted
   substitute for lower-layer validation.
 - `plugin_system` defines format-neutral lifecycle, file-hook and metadata-stream
-  contracts, shared settings, and ZIP loading mechanics; it never selects domain
+  contracts, shared settings, ZIP loading and common priority/failure rules; it never selects domain
   provider fleets or assembles application services;
 - `file_formats` owns format implementations, conversion contracts and profiles,
   and standalone file-plugin composition; it must not import `customize`,
   surfaces, library, Core, Catalog, databases, caches, storage, ingest, or jobs;
 - metadata reader/writer implementations belong to `metadata.file_sources`;
-  `customize` retains compatibility exports and composes the application fleet,
-  binding its initialized instances into `file_formats.plugin_runtime`.
+  `customize.application` owns application startup, management and lookups,
+  extending the standalone file-provider catalogue and binding its initialized
+  instances into `file_formats.plugin_runtime`. Its import is passive;
+  `customize.ui` contains compatibility exports only. New production imports of
+  that compatibility module are forbidden by the layer gate.
+
+Both plugin hosts use descending priority, stable registration order on ties and
+installed providers first at equal priority. The shared loader implements this
+rule; composition owners choose the providers. See the
+[plugin composition contract](file_formats/plugin-composition.md) for startup,
+refresh and failure semantics, including remaining compatibility debt.
 
 ## Semantic write validity
 

@@ -80,7 +80,11 @@ def test_standalone_html_conversion_avoids_application_composition(
         capture_output=True,
         text=True,
         timeout=120,
-        env={**os.environ, "LIUXIN_BASE_DIR": str(tmp_path)},
+        env={
+            **os.environ,
+            "LIUXIN_BASE_DIR": str(tmp_path),
+            "PYTHONPATH": str(Path(__file__).resolve().parents[2] / "src"),
+        },
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert json.loads(result.stdout.splitlines()[-1])["output_size"] > 0
@@ -220,6 +224,31 @@ def test_rendering_serializer_retains_image_bytes() -> None:
     assert pixmap_to_data(None) == b""
 
 
+def test_stream_import_adapter_uses_bound_file_hooks(isolated_runtime) -> None:
+    """The historical stream adapter is now owned by the standalone runtime."""
+    seen = []
+
+    class Inspect(FileTypePlugin):
+        file_types = {"example"}
+        on_import = True
+
+        def run(self, path):
+            seen.append(Path(path).read_bytes())
+            return path
+
+    plugin_runtime.bind_plugins([Inspect(None)])
+    stream = io.BytesIO(b"book contents")
+    stream.seek(5)
+    path = Path(plugin_runtime.run_import_plugins(stream, "EXAMPLE"))
+    try:
+        assert path.read_bytes() == b"book contents"
+        assert seen == [b"book contents"]
+        assert plugin_runtime.run_import_plugins(str(path), "example") == str(path)
+        assert seen == [b"book contents", b"book contents"]
+    finally:
+        path.unlink()
+
+
 @pytest.mark.parametrize("native_first", (False, True))
 def test_application_host_rebinds_shared_runtime(
     tmp_path: Path, native_first: bool
@@ -232,6 +261,8 @@ def test_application_host_rebinds_shared_runtime(
         if sys.argv[1] == 'True':
             assert runtime.plugin_for_input_format('epub') is not None
         from LiuXin_alpha.customize import ui
+        # Importing the compatibility API is passive; host startup is explicit.
+        ui.initialize_plugins()
         from LiuXin_alpha.plugin_system.configuration import config
         assert ui.config is config is runtime.config
         assert ui.plugin_for_input_format is runtime.plugin_for_input_format
@@ -255,6 +286,7 @@ def test_application_host_rebinds_shared_runtime(
         timeout=120,
         env={
             **os.environ,
+            "PYTHONPATH": str(Path(__file__).resolve().parents[2] / "src"),
             "LIUXIN_BASE_DIR": str(tmp_path),
             "LIUXIN_CONFIG_DIR": str(tmp_path / "config"),
         },

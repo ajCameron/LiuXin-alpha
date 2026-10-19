@@ -30,6 +30,30 @@ def test_repository_matches_reviewed_layer_baseline() -> None:
 
 
 @pytest.mark.parametrize("context", tuple(ImportKind))
+def test_production_callers_cannot_depend_on_the_legacy_plugin_ui(
+    tmp_path: Path, context: ImportKind
+) -> None:
+    """Compatibility exports cannot grow back into the application owner."""
+    statement = "from LiuXin_alpha.customize.ui import initialized_plugins\n"
+    if context == ImportKind.DEFERRED:
+        statement = "def load():\n    " + statement
+    elif context == ImportKind.TYPE_ONLY:
+        statement = (
+            "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    " + statement
+        )
+    _write(tmp_path / "LiuXin_alpha/customize/ui.py", "")
+    _write(tmp_path / "LiuXin_alpha/core/service.py", statement)
+    inventory = collect_imports(tmp_path, protected_prefixes=("LiuXin_alpha",))
+    edge = next(
+        edge for edge in inventory.edges if edge.target.endswith("customize.ui")
+    )
+    assert edge.kind == context
+    assert direction_reason(edge) == (
+        "production callers must use customize.application or file_formats.plugin_runtime"
+    )
+
+
+@pytest.mark.parametrize("context", tuple(ImportKind))
 @pytest.mark.parametrize("source", ("metadata", "file_formats", "plugin_system"))
 def test_new_backward_edge_fails_with_context(
     tmp_path: Path, context: ImportKind, source: str

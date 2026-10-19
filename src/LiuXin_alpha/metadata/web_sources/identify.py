@@ -129,7 +129,7 @@ def _iter_metadata_plugins(capabilities):
         above.
     """
     try:
-        from LiuXin_alpha.customize.ui import metadata_plugins
+        from LiuXin_alpha.customize.application import metadata_plugins
     except Exception:
         return []
     try:
@@ -153,7 +153,7 @@ def _iter_all_metadata_plugins():
         above.
     """
     try:
-        from LiuXin_alpha.customize.ui import all_metadata_plugins
+        from LiuXin_alpha.customize.application import all_metadata_plugins
     except Exception:
         return []
     try:

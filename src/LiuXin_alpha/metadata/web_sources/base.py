@@ -776,7 +776,7 @@ def get_cached_cover_urls(mi):
         above.
     """
     try:
-        from LiuXin_alpha.customize.ui import metadata_plugins
+        from LiuXin_alpha.customize.application import metadata_plugins
     except Exception:
         return
     for plugin in metadata_plugins(["identify"]):
@@ -802,7 +802,7 @@ def dump_caches():
         above.
     """
     try:
-        from LiuXin_alpha.customize.ui import metadata_plugins
+        from LiuXin_alpha.customize.application import metadata_plugins
     except Exception:
         return {}
     ans = {}
@@ -828,7 +828,7 @@ def load_caches(dump):
     :return: None.
     """
     try:
-        from LiuXin_alpha.customize.ui import metadata_plugins
+        from LiuXin_alpha.customize.application import metadata_plugins
     except Exception:
         return
     for plugin in metadata_plugins(["identify"]):
