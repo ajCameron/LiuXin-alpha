@@ -34,7 +34,7 @@ The ratchet encodes the ownership direction documented in
 - Core cannot depend on surfaces.
 
 The plugin/format rules, updated on **2026-10-19**, also apply within the merged
-`plugin_system` package:
+`plugins` package:
 
 - File formats cannot import application plugin modules, caches, Catalog, Core,
   databases, ingest, jobs, Library, storage or surfaces. Imports of the retired
@@ -49,7 +49,7 @@ The plugin/format rules, updated on **2026-10-19**, also apply within the merged
 The authoritative host-prefix list is `PLUGIN_HOST_PREFIXES` in
 [the layer checker](../../scripts/check_layer_direction.py); the cold-import
 checker reuses it. Combining the packages did not relax those boundaries. See
-the [composition contract](../plugin_system/plugin-composition.md).
+the [composition contract](../plugins/plugin-composition.md).
 
 Cache's long-term rank is intentionally absent until its role is decided.
 

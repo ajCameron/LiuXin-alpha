@@ -1,11 +1,11 @@
 # Import-footprint ratchet
 
-**Follow-up — 2026-10-19:** PR #125 consolidates `customize` into `plugin_system`
-and removes the old namespace and forwarding shims. Application assembly now
-lives in `plugin_system.application`, with module-level dependency and cold-import
-checks separating it from neutral mechanics. Earlier package names and counts
-below describe their dated checkpoints. See the current
-[plugin composition contract](../plugin_system/plugin-composition.md).
+**Follow-up — 2026-10-19:** PR #125 consolidated `customize` into `plugin_system`;
+that package is now named `plugins`. Both former namespaces are retired.
+Application assembly lives in `plugins.application`, with module-level dependency
+and cold-import checks separating it from neutral mechanics. Earlier package
+names and counts below describe their dated checkpoints. See the current
+[plugin composition contract](../plugins/plugin-composition.md).
 
 
 Decision date: **2026-10-12**
@@ -38,16 +38,17 @@ performance targets to consume.
 
 ## Current plugin boundaries — 2026-10-19
 
-At `78a01b61`, 25 cold-import budgets are enforced. `plugin_system` has a two-module
+The rename preserves the 25 cold-import budgets established at `78a01b61`.
+`plugins` has a two-module
 ceiling; its `builtins` namespace has three. The application API has a 44-module
 ceiling and must not discover or initialize the provider fleet when imported.
 Neutral plugin leaves and standalone format modules also reject the application
 prefixes defined by `PLUGIN_HOST_PREFIXES` in the layer checker, even though they
-now share the `plugin_system` top-level name.
+now share the `plugins` top-level name.
 
-The [composition contract](../plugin_system/plugin-composition.md#enforced-boundaries)
-lists the plugin and format ceilings. `customize` and its forwarding modules have
-been removed; their entries below are historical measurements, not supported
+The [composition contract](../plugins/plugin-composition.md#enforced-boundaries)
+lists the plugin and format ceilings. `customize`, `plugin_system` and their
+forwarding modules have been removed; their entries below are historical measurements, not supported
 imports or current budgets. Namespace and installed-wheel tests enforce retirement.
 
 ## Measurement history

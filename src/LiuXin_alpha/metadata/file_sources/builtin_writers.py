@@ -7,10 +7,10 @@ for callers.
 Example:
     Exercise metadata writers through a consuming regression::
 
-        python -m pytest -q tests/plugin_system/test_plugin_base.py
+        python -m pytest -q tests/plugins/test_plugin_base.py
 """
 
-from LiuXin_alpha.plugin_system.file_types import MetadataWriterPlugin
+from LiuXin_alpha.plugins.file_types import MetadataWriterPlugin
 
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
@@ -39,7 +39,7 @@ else:
         Example:
             Exercise DocXMetadataWriter through a consuming regression::
 
-                python -m pytest -q tests/plugin_system/test_plugin_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Set DOCX metadata"
         file_types = frozenset(["docx"])
@@ -52,7 +52,7 @@ else:
             Example:
                 Exercise DocXMetadataWriter.set metadata through a consuming regression::
 
-                    python -m pytest -q tests/plugin_system/test_plugin_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -87,7 +87,7 @@ else:
         Example:
             Exercise EPUBMetadataWriter through a consuming regression::
 
-                python -m pytest -q tests/plugin_system/test_plugin_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Set EPUB metadata"
         file_types = frozenset(["epub"])
@@ -100,7 +100,7 @@ else:
             Example:
                 Exercise EPUBMetadataWriter.set metadata through a consuming regression::
 
-                    python -m pytest -q tests/plugin_system/test_plugin_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -133,7 +133,7 @@ else:
         Example:
             Exercise FB2MetadataWriter through a consuming regression::
 
-                python -m pytest -q tests/plugin_system/test_plugin_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Set FB2 metadata"
         file_types = frozenset(["fb2", "fbz"])
@@ -146,7 +146,7 @@ else:
             Example:
                 Exercise FB2MetadataWriter.set metadata through a consuming regression::
 
-                    python -m pytest -q tests/plugin_system/test_plugin_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -180,7 +180,7 @@ else:
         Example:
             Exercise HTMLZMetadataWriter through a consuming regression::
 
-                python -m pytest -q tests/plugin_system/test_plugin_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Set HTMLZ metadata"
         file_types = frozenset(["htmlz"])
@@ -194,7 +194,7 @@ else:
             Example:
                 Exercise HTMLZMetadataWriter.set metadata through a consuming regression::
 
-                    python -m pytest -q tests/plugin_system/test_plugin_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -228,7 +228,7 @@ else:
         Example:
             Exercise LRFMetadataWriter through a consuming regression::
 
-                python -m pytest -q tests/plugin_system/test_plugin_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Set LRF metadata"
         file_types = frozenset(["lrf"])
@@ -241,7 +241,7 @@ else:
             Example:
                 Exercise LRFMetadataWriter.set metadata through a consuming regression::
 
-                    python -m pytest -q tests/plugin_system/test_plugin_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -281,7 +281,7 @@ else:
         Example:
             Exercise MOBIMetadataWriter through a consuming regression::
 
-                python -m pytest -q tests/plugin_system/test_plugin_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Set MOBI metadata"
         file_types = frozenset(["mobi", "prc", "azw", "azw3", "azw4"])
@@ -295,7 +295,7 @@ else:
             Example:
                 Exercise MOBIMetadataWriter.set metadata through a consuming regression::
 
-                    python -m pytest -q tests/plugin_system/test_plugin_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -334,7 +334,7 @@ else:
         Example:
             Exercise PDBMetadataWriter through a consuming regression::
 
-                python -m pytest -q tests/plugin_system/test_plugin_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Set PDB metadata"
         file_types = {"pdb"}
@@ -348,7 +348,7 @@ else:
             Example:
                 Exercise PDBMetadataWriter.set metadata through a consuming regression::
 
-                    python -m pytest -q tests/plugin_system/test_plugin_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -381,7 +381,7 @@ else:
         Example:
             Exercise PDFMetadataWriter through a consuming regression::
 
-                python -m pytest -q tests/plugin_system/test_plugin_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Set PDF metadata"
         file_types = frozenset(["pdf"])
@@ -395,7 +395,7 @@ else:
             Example:
                 Exercise PDFMetadataWriter.set metadata through a consuming regression::
 
-                    python -m pytest -q tests/plugin_system/test_plugin_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -428,7 +428,7 @@ else:
         Example:
             Exercise RTFMetadataWriter through a consuming regression::
 
-                python -m pytest -q tests/plugin_system/test_plugin_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Set RTF metadata"
         file_types = frozenset(["rtf"])
@@ -441,7 +441,7 @@ else:
             Example:
                 Exercise RTFMetadataWriter.set metadata through a consuming regression::
 
-                    python -m pytest -q tests/plugin_system/test_plugin_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -475,7 +475,7 @@ else:
         Example:
             Exercise TOPAZMetadataWriter through a consuming regression::
 
-                python -m pytest -q tests/plugin_system/test_plugin_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Set TOPAZ metadata"
         file_types = frozenset(["tpz", "azw1"])
@@ -489,7 +489,7 @@ else:
             Example:
                 Exercise TOPAZMetadataWriter.set metadata through a consuming regression::
 
-                    python -m pytest -q tests/plugin_system/test_plugin_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -523,7 +523,7 @@ else:
         Example:
             Exercise TXTZMetadataWriter through a consuming regression::
 
-                python -m pytest -q tests/plugin_system/test_plugin_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Set TXTZ metadata"
         file_types = frozenset(["txtz"])
@@ -537,7 +537,7 @@ else:
             Example:
                 Exercise TXTZMetadataWriter.set metadata through a consuming regression::
 
-                    python -m pytest -q tests/plugin_system/test_plugin_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -559,7 +559,7 @@ def get_metadata_set_plugins() -> list[type[MetadataWriterPlugin]]:
     Example:
         Exercise get metadata set plugins through a consuming regression::
 
-            python -m pytest -q tests/plugin_system/test_plugin_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection

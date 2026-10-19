@@ -23,7 +23,7 @@ from __future__ import (
 import textwrap
 import typing as _typing
 
-from LiuXin_alpha.plugin_system.file_types import FileTypePlugin
+from LiuXin_alpha.plugins.file_types import FileTypePlugin
 from LiuXin_alpha.constants import CALIBRE_NUMERIC_VERSION as numeric_version
 
 # Py2/Py3 compatibility layer

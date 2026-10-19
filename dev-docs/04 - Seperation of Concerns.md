@@ -46,7 +46,7 @@ contract so it is visible before a developer explores an implementation:
 - `src/LiuXin_alpha/ingest/__init__.py`
 - `src/LiuXin_alpha/jobs/__init__.py`
 - `src/LiuXin_alpha/file_formats/__init__.py`
-- `src/LiuXin_alpha/plugin_system/__init__.py`
+- `src/LiuXin_alpha/plugins/__init__.py`
 
 Those docstrings are entry-point summaries, not independent policy sources. If
 wording drifts, this guide and the dated write-validation contract take
@@ -80,7 +80,7 @@ The shortest useful description is:
   contract exposed to surfaces;
 - `surfaces` translate external input and output; they are never a trusted
   substitute for lower-layer validation.
-- `plugin_system` owns plugin foundations and application composition in one
+- `plugins` owns plugin foundations and application composition in one
   package. Its neutral leaves (`base`, `file_types`, `configuration`, `loading`,
   `zipplugin`) define lifecycle, stream, settings, loading and priority rules;
   they must not import application families or concrete domain providers;
@@ -89,7 +89,7 @@ The shortest useful description is:
   assembly/families (`application`, `contracts`, `builtins`, retained cache/driver
   modules), surfaces, library, Core, Catalog, databases, caches, storage, ingest or jobs;
 - metadata reader/writer implementations belong to `metadata.file_sources`;
-  `plugin_system.application` owns application startup, management and lookups,
+  `plugins.application` owns application startup, management and lookups,
   extending the standalone file-provider catalogue and binding its initialized
   instances into `file_formats.plugin_runtime`. Its import is passive. The
   `customize` namespace and forwarding shims are retired; callers use the owning
@@ -99,7 +99,7 @@ The shortest useful description is:
 Both plugin hosts use descending priority, stable registration order on ties and
 installed providers first at equal priority. The shared loader implements this
 rule; composition owners choose the providers. See the
-[plugin composition contract](plugin_system/plugin-composition.md) for startup,
+[plugin composition contract](plugins/plugin-composition.md) for startup,
 refresh and failure semantics, including remaining compatibility debt.
 
 ## Semantic write validity

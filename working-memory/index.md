@@ -1,6 +1,26 @@
 # Working Memory Index
 
-Current branch: **plugin-composition-ownership**, continuing
+Current branch: **rename-plugins-package**, based on merge `a5f77cfd`.
+The [package rename](plugins-package-rename-2026-10-19.md) makes `plugins` the sole
+owner, migrating source, tests, documentation, quality scopes and distribution
+checks. Both `customize` and `plugin_system` are retired namespaces; persisted
+plugin settings keep their existing names. The main checkout contains the change,
+with the six unrelated storage edits excluded from the rename commit.
+All 328 focused regressions, complete quality gates and the installed-wheel gate
+pass. The handoff records an existing mismatch in the additional legacy wheel
+checker, reproduced against the previous artifact.
+
+Previous workspace synchronization: **plugin-system-workspace**, based on merge `a5f77cfd`.
+The [workspace synchronization](workspace-plugin-sync-2026-10-19.md) brings the
+merged plugin retirement and documentation into the main checkout. `customize`
+is absent from source and tests, including stale bytecode. The latest guide 02
+edit is present here; six unrelated local storage edits are preserved unchanged.
+The original index/worktree are retained in a recovery stash. Continue work in
+this checkout rather than leaving its source behind the isolated review worktree.
+All 57 focused plugin/runtime/documentation tests, the dependency check and 25
+cold-import budgets pass from the main checkout.
+
+Previous plugin review branch: **plugin-composition-ownership**, completing
 [PR #125](https://github.com/ajCameron/LiuXin-alpha/pull/125). The user's follow-up
 [consolidates both plugin packages](plugin-package-merge-2026-10-19.md) under
 `plugin_system` and removes `customize` and its forwarding shims entirely.

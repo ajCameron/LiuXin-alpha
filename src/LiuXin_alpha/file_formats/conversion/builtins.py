@@ -7,7 +7,7 @@ for callers.
 Example:
     Exercise conversion through a consuming regression::
 
-        python -m pytest -q tests/plugin_system/test_plugin_base.py
+        python -m pytest -q tests/plugins/test_plugin_base.py
 """
 from __future__ import annotations
 
@@ -250,7 +250,7 @@ def get_input_plugins() -> _typing.Any:
     Example:
         Exercise get input plugins through a consuming regression::
 
-            python -m pytest -q tests/plugin_system/test_plugin_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection
@@ -443,7 +443,7 @@ def get_output_plugins() -> _typing.Any:
     Example:
         Exercise get output plugins through a consuming regression::
 
-            python -m pytest -q tests/plugin_system/test_plugin_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection

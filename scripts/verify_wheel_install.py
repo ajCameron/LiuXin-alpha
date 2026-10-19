@@ -61,6 +61,7 @@ REQUIRED_SCHEMA_SPECS = (
 )
 EXCLUDED_PACKAGE_PREFIXES = (
     "LiuXin_alpha/customize/",
+    "LiuXin_alpha/plugin_system/",
     "LiuXin_tests/",
     "LiuXin_alpha/library/api/",
     "LiuXin_alpha/library/caches/memory_sqlite/",
@@ -111,8 +112,8 @@ def _origin_check_program(install_root: Path) -> str:
             "from pathlib import Path",
             f"root = Path({str(install_root)!r}).resolve()",
             (
-                "names = ('LiuXin_alpha', 'LiuXin_alpha.plugin_system.application', "
-                "'LiuXin_alpha.plugin_system.contracts', 'chardet', 'cssselect', 'cssutils', "
+                "names = ('LiuXin_alpha', 'LiuXin_alpha.plugins.application', "
+                "'LiuXin_alpha.plugins.contracts', 'chardet', 'cssselect', 'cssutils', "
                 "'lxml', 'numpy', 'PIL', 'regex')"
             ),
             "origins = {}",
@@ -121,7 +122,8 @@ def _origin_check_program(install_root: Path) -> str:
             "    origins[name] = str(Path(module.__file__).resolve())",
             "assert all(Path(path).is_relative_to(root) for path in origins.values())",
             "assert importlib.util.find_spec('LiuXin_alpha.customize') is None",
-            "host = importlib.import_module('LiuXin_alpha.plugin_system.application')",
+            "assert importlib.util.find_spec('LiuXin_alpha.plugin_system') is None",
+            "host = importlib.import_module('LiuXin_alpha.plugins.application')",
             "assert host._initialized_plugins is None",
             "print(json.dumps(origins, sort_keys=True))",
         )

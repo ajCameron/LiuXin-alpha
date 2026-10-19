@@ -419,7 +419,7 @@ def cache_with_spy_locks(monkeypatch, calibre_backend_db) -> Tuple[CalibreCache,
     :return: Tuple of (uninitialized cache, read spy, write spy); monkeypatch restores
         the lock factory.
     """
-    import LiuXin_alpha.plugin_system.cache.base_cache as base_cache
+    import LiuXin_alpha.plugins.cache.base_cache as base_cache
 
     spy_read = SpyLock("read")
     spy_write = SpyLock("write")

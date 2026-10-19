@@ -11,6 +11,12 @@ the small local `past` compatibility shim. It must not contain the historical
 vendored demo/test subpackages merely because they happen to live below
 `src`.
 
+Plugin infrastructure and application composition ship under `LiuXin_alpha.plugins`.
+The retired `customize` and `plugin_system` packages must not appear in the wheel
+or resolve in the installed runtime. See the
+[import migration guide](../plugins/plugin-composition.md#import-migration) for
+external plugin callers; there are no compatibility aliases.
+
 The following non-Python files are runtime-owned package data:
 
 - FRBR database-generator table, trigger, aggregate SQL, and TOML specs;

@@ -17,7 +17,7 @@ from copy import deepcopy
 
 from typing import TypeVar, Optional, Any, Union
 
-from LiuXin_alpha.plugin_system.cache.base_tables import ONE_MANY
+from LiuXin_alpha.plugins.cache.base_tables import ONE_MANY
 
 from LiuXin_alpha.library.caches.calibre.tables.base import CalibreBaseTable, MultiTableMixin
 from LiuXin_alpha.databases.db_types import TableTypes, MetadataDict, SrcTableID, DstTableID, InterLinkTableName

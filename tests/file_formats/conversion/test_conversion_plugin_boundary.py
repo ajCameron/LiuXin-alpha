@@ -7,7 +7,7 @@ def test_concrete_converter_uses_file_format_contract() -> None:
     """A representative converter subclasses the new owner and generic base."""
     from LiuXin_alpha.file_formats.conversion.plugin import InputFormatPlugin
     from LiuXin_alpha.file_formats.conversion.plugins.epub_input import EPUBInput
-    from LiuXin_alpha.plugin_system.base import Plugin
+    from LiuXin_alpha.plugins.base import Plugin
 
     assert issubclass(EPUBInput, InputFormatPlugin)
     assert issubclass(EPUBInput, Plugin)

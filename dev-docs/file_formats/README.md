@@ -31,8 +31,8 @@ Current dossiers:
 - [PDB](pdb/README.md)
 
 Shared composition policy is recorded in the
-[plugin system guide](../plugin_system/plugin-composition.md). In particular, importing the
-`plugin_system.builtins` namespace must not discover the complete converter fleet.
+[plugin system guide](../plugins/plugin-composition.md). In particular, importing the
+`plugins.builtins` namespace must not discover the complete converter fleet.
 New conversion providers subclass the canonical contracts in
 `LiuXin_alpha.file_formats.conversion.plugin`. The retired `customize` namespace
 has no compatibility shims; the composition guide lists current import owners.

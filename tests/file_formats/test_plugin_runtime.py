@@ -16,8 +16,8 @@ import pytest
 
 from LiuXin_alpha.file_formats import plugin_defaults, plugin_runtime
 from LiuXin_alpha.file_formats.conversion.plugin import InputFormatPlugin
-from LiuXin_alpha.plugin_system import configuration
-from LiuXin_alpha.plugin_system.file_types import (
+from LiuXin_alpha.plugins import configuration
+from LiuXin_alpha.plugins.file_types import (
     FileTypePlugin,
     MetadataReaderPlugin,
     MetadataWriterPlugin,
@@ -69,8 +69,8 @@ def test_standalone_html_conversion_avoids_application_composition(
             text = b''.join(archive.read(name) for name in archive.namelist()
                             if name.endswith(('.html', '.xhtml')))
             assert '你好'.encode() in text
-        forbidden = ('LiuXin_alpha.customize', 'LiuXin_alpha.plugin_system.application',
-                     'LiuXin_alpha.plugin_system.contracts', 'LiuXin_alpha.plugin_system.builtins',
+        forbidden = ('LiuXin_alpha.customize', 'LiuXin_alpha.plugins.application',
+                     'LiuXin_alpha.plugins.contracts', 'LiuXin_alpha.plugins.builtins',
                      'LiuXin_alpha.surfaces',
                      'LiuXin_alpha.library', 'LiuXin_alpha.core')
         assert not [name for name in sys.modules if name.startswith(forbidden)]
@@ -184,7 +184,7 @@ def test_installed_zip_converter_is_available_without_application_host(
     isolated_runtime, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Persisted ZIP plugins use current conversion imports and precede built-ins."""
-    from LiuXin_alpha.plugin_system.zipplugin import loader
+    from LiuXin_alpha.plugins.zipplugin import loader
 
     plugin_name = "lxa_runtime_external"
     archive_path = tmp_path / "external.zip"
@@ -262,10 +262,10 @@ def test_application_host_rebinds_shared_runtime(
         from LiuXin_alpha.file_formats import plugin_runtime as runtime
         if sys.argv[1] == 'True':
             assert runtime.plugin_for_input_format('epub') is not None
-        from LiuXin_alpha.plugin_system import application as ui
+        from LiuXin_alpha.plugins import application as ui
         # Importing the application API is passive; host startup is explicit.
         ui.initialize_plugins()
-        from LiuXin_alpha.plugin_system.configuration import config
+        from LiuXin_alpha.plugins.configuration import config
         assert ui.config is config is runtime.config
         assert ui.plugin_for_input_format is runtime.plugin_for_input_format
         assert ui.quick_metadata is runtime.quick_metadata
@@ -307,7 +307,7 @@ def test_failed_external_load_restores_streams_and_keeps_builtins(
     isolated_runtime, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A broken external plugin cannot redirect host output or prevent fallback."""
-    from LiuXin_alpha.plugin_system.zipplugin import loader
+    from LiuXin_alpha.plugins.zipplugin import loader
 
     stdout, stderr = sys.stdout, sys.stderr
     isolated_runtime["plugins"]["Broken"] = "broken.zip"
