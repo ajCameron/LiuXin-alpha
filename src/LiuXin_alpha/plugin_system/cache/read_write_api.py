@@ -7,7 +7,7 @@ for callers.
 Example:
     Exercise read write api through a consuming regression::
 
-        python -m pytest -q tests/customize/test_customize_base.py
+        python -m pytest -q tests/plugin_system/test_plugin_base.py
 """
 
 
@@ -18,7 +18,7 @@ def api(f):
     Example:
         Exercise api through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param f: Value supplied for f under the utility contract.
@@ -36,7 +36,7 @@ def read_api(f):
     Example:
         Exercise read api through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param f: Value supplied for f under the utility contract.
@@ -55,7 +55,7 @@ def write_api(f):
     Example:
         Exercise write api through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param f: Value supplied for f under the utility contract.

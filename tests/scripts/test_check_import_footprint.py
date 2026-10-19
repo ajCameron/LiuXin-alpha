@@ -16,15 +16,14 @@ def test_repository_cold_import_budgets_pass() -> None:
     assert main([]) == 0
 
 
-def test_customize_namespace_boundaries_are_budgeted() -> None:
-    """Keep generic customization imports separate from plugin composition."""
+def test_plugin_namespace_boundaries_are_budgeted() -> None:
+    """Keep generic plugin imports separate from plugin composition."""
 
     modules = {budget.module for budget in IMPORT_BUDGETS}
 
-    assert "LiuXin_alpha.customize" in modules
-    assert "LiuXin_alpha.customize.builtins" in modules
-    assert "LiuXin_alpha.customize.application" in modules
-    assert "LiuXin_alpha.customize.ui" in modules
+    assert "LiuXin_alpha.plugin_system.contracts" in modules
+    assert "LiuXin_alpha.plugin_system.builtins" in modules
+    assert "LiuXin_alpha.plugin_system.application" in modules
     assert "LiuXin_alpha.plugin_system.loading" in modules
 
 
@@ -110,3 +109,20 @@ def test_forbidden_domain_fails_below_numerical_budget() -> None:
     assert len(errors) == 1
     assert "forbidden domains ['catalog']" in errors[0]
     assert "LiuXin_alpha.catalog.api" in errors[0]
+
+
+def test_same_package_application_imports_are_rejected_below_count_budget() -> None:
+    """A package merger must not hide host imports behind the plugin_system prefix."""
+    budgets = {budget.module: budget for budget in IMPORT_BUDGETS}
+    budget = budgets["LiuXin_alpha.file_formats.plugin_runtime"]
+    report = {
+        "module": budget.module,
+        "project_modules": [
+            budget.module,
+            "LiuXin_alpha.plugin_system.builtins.registry",
+        ],
+    }
+    errors = check_report(budget, report)
+    assert len(errors) == 1
+    assert "loaded forbidden modules" in errors[0]
+    assert "plugin_system.builtins.registry" in errors[0]

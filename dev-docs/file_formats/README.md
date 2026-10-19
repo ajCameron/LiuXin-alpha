@@ -32,10 +32,10 @@ Current dossiers:
 
 Cross-format composition policy is recorded in
 [`plugin-composition.md`](plugin-composition.md). In particular, importing the
-`customize.builtins` namespace must not discover the complete converter fleet.
+`plugin_system.builtins` namespace must not discover the complete converter fleet.
 New conversion providers subclass the canonical contracts in
-`LiuXin_alpha.file_formats.conversion.plugin`; `customize.conversion` exists only
-for historical import compatibility.
+`LiuXin_alpha.file_formats.conversion.plugin`. The retired `customize` namespace
+has no compatibility shims; the composition guide lists current import owners.
 OPF parsing and package-mutation ownership is recorded in
 [`opf-ownership.md`](opf-ownership.md); generic metadata utilities must not
 import OEB/OPF implementations.

@@ -1,5 +1,13 @@
 # Import-footprint ratchet
 
+**Follow-up — 2026-10-19:** PR #125 consolidates `customize` into `plugin_system`
+and removes the old namespace and forwarding shims. Application assembly now
+lives in `plugin_system.application`, with module-level dependency and cold-import
+checks separating it from neutral mechanics. Earlier package names and counts
+below describe their dated checkpoints. See the current
+[plugin composition contract](../file_formats/plugin-composition.md).
+
+
 Decision date: **2026-10-12**
 
 Status: **enforced in tests and the type/quality gate**

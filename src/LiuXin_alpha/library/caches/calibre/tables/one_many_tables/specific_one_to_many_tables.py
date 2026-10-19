@@ -36,7 +36,7 @@ T = TypeVar("T")
 
 
 # Todo: Need to be able to deal with being fed a custom column
-from LiuXin_alpha.customize.cache.base_tables import BaseIdentifiersTable
+from LiuXin_alpha.plugin_system.cache.base_tables import BaseIdentifiersTable
 
 
 

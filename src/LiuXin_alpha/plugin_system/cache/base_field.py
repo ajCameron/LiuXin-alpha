@@ -7,7 +7,7 @@ for callers.
 Example:
     Exercise base field through a consuming regression::
 
-        python -m pytest -q tests/customize/test_customize_base.py
+        python -m pytest -q tests/plugin_system/test_plugin_base.py
 """
 
 from __future__ import unicode_literals, division, absolute_import, print_function
@@ -37,7 +37,7 @@ def identity(x: D) -> D:
     Example:
         Exercise identity through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param x: Value supplied for x under the utility contract.
@@ -57,7 +57,7 @@ class BaseField(Generic[T]):
     Example:
         Exercise BaseField through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     _default_sort_key: Optional[Union[bytes, int, datetime.datetime, tuple]]
@@ -91,7 +91,7 @@ class BaseField(Generic[T]):
         Example:
             Exercise BaseField.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param name: Field, file, function or resource name addressed by the operation.
@@ -150,7 +150,7 @@ class BaseField(Generic[T]):
         Example:
             Exercise BaseField.get link attrs through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: The normalized value, metadata record, path, stream result or collection
@@ -165,7 +165,7 @@ class BaseField(Generic[T]):
         Example:
             Exercise BaseField.  getitem   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param item: Value supplied for item under the utility contract.
@@ -181,7 +181,7 @@ class BaseField(Generic[T]):
         Example:
             Exercise BaseField.startup link attr fields through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -196,7 +196,7 @@ class BaseField(Generic[T]):
         Example:
             Exercise BaseField.read attribute tables through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param db: Value supplied for db under the utility contract.
@@ -221,7 +221,7 @@ class BaseField(Generic[T]):
         Example:
             Exercise BaseField.writer through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: The normalized value, metadata record, path, stream result or collection
@@ -237,7 +237,7 @@ class BaseField(Generic[T]):
         Example:
             Exercise BaseField.writer through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param new_writer: Value supplied for new writer under the utility contract.
@@ -258,7 +258,7 @@ class BaseField(Generic[T]):
         Example:
             Exercise BaseField.default value through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: The normalized value, metadata record, path, stream result or collection
@@ -274,7 +274,7 @@ class BaseField(Generic[T]):
         Example:
             Exercise BaseField.metadata through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: The normalized value, metadata record, path, stream result or collection
@@ -289,7 +289,7 @@ class BaseField(Generic[T]):
         Example:
             Exercise BaseField.book in cache through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -305,7 +305,7 @@ class BaseField(Generic[T]):
         Example:
             Exercise BaseField.item in cache through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param item_id: Value supplied for item id under the utility contract.
@@ -321,7 +321,7 @@ class BaseField(Generic[T]):
         Example:
             Exercise BaseField.for book through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -338,7 +338,7 @@ class BaseField(Generic[T]):
         Example:
             Exercise BaseField.ids for book through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -355,7 +355,7 @@ class BaseField(Generic[T]):
         Example:
             Exercise BaseField.books for through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param item_id: Value supplied for item id under the utility contract.
@@ -371,7 +371,7 @@ class BaseField(Generic[T]):
         Example:
             Exercise BaseField.  iter   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: The normalized value, metadata record, path, stream result or collection
@@ -386,7 +386,7 @@ class BaseField(Generic[T]):
         Example:
             Exercise BaseField.sort keys for books through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param get_metadata: Value supplied for get metadata under the utility contract.
@@ -403,7 +403,7 @@ class BaseField(Generic[T]):
         Example:
             Exercise BaseField.iter searchable values through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param get_metadata: Value supplied for get metadata under the utility contract.
@@ -421,7 +421,7 @@ class BaseField(Generic[T]):
         Example:
             Exercise BaseField.get categories through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param tag_class: Value supplied for tag class under the utility contract.
@@ -441,7 +441,7 @@ class BaseField(Generic[T]):
         Example:
             Exercise BaseField.update cache through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id_val_map: Value supplied for book id val map under the utility
@@ -459,7 +459,7 @@ class BaseField(Generic[T]):
         Example:
             Exercise BaseField.update db through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id_to_val_map: Value supplied for book id to val map under the utility
@@ -480,7 +480,7 @@ class BaseOneToManyField(BaseField[T]):
     Example:
         Exercise BaseOneToManyField through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     def ids_for_book(self, book_id: SrcTableID) -> set[DstTableID]:
@@ -490,7 +490,7 @@ class BaseOneToManyField(BaseField[T]):
         Example:
             Exercise BaseOneToManyField.ids for book through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -506,7 +506,7 @@ class BaseOneToManyField(BaseField[T]):
         Example:
             Exercise BaseOneToManyField.books for through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param item_id: Value supplied for item id under the utility contract.

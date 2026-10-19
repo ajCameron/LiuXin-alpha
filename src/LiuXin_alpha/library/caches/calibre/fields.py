@@ -27,7 +27,7 @@ from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.databases.macro_types import LinkValue
 
 # Todo: These should be stored in base.tables
-from LiuXin_alpha.customize.cache.base_tables import (
+from LiuXin_alpha.plugin_system.cache.base_tables import (
     ONE_ONE,
     MANY_ONE,
     MANY_MANY,

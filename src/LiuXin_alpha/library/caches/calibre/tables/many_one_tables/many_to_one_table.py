@@ -16,14 +16,14 @@ from collections import defaultdict
 
 from typing import Any, Union, TypeVar, Optional, Iterable
 
-from LiuXin_alpha.customize.cache.base_tables import (
+from LiuXin_alpha.plugin_system.cache.base_tables import (
     null,
 )
 
 
 from LiuXin_alpha.errors import InvalidCacheUpdate
 
-from LiuXin_alpha.customize.cache.base_tables import BaseManyToOneTable, MANY_ONE
+from LiuXin_alpha.plugin_system.cache.base_tables import BaseManyToOneTable, MANY_ONE
 
 from LiuXin_alpha.library.caches.calibre.tables.base import null, MultiTableMixin
 from LiuXin_alpha.databases.db_types import (

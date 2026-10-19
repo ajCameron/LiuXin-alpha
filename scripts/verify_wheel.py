@@ -47,6 +47,8 @@ def verify_wheel(wheel_path: Path) -> None:
     """
     with zipfile.ZipFile(wheel_path) as archive:
         members = set(archive.namelist())
+        if any(name.startswith("LiuXin_alpha/customize/") for name in members):
+            raise ValueError("wheel contains the retired customize package")
         missing_members = sorted(REQUIRED_MEMBERS - members)
         if missing_members:
             raise ValueError("wheel is missing runtime files: {}".format(", ".join(missing_members)))

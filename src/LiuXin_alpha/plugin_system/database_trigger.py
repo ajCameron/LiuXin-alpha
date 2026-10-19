@@ -7,7 +7,7 @@ for callers.
 Example:
     Exercise database trigger through a consuming regression::
 
-        python -m pytest -q tests/customize/test_customize_base.py
+        python -m pytest -q tests/plugin_system/test_plugin_base.py
 """
 
 from copy import deepcopy
@@ -19,7 +19,7 @@ class Trigger:
     Example:
         Exercise Trigger through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     def __init__(self, database=None):
@@ -29,7 +29,7 @@ class Trigger:
         Example:
             Exercise Trigger.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param database: Value supplied for database under the utility contract.
@@ -60,7 +60,7 @@ class Trigger:
         Example:
             Exercise Trigger.trigger conditions through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: The normalized value, metadata record, path, stream result or collection
@@ -75,7 +75,7 @@ class Trigger:
         Example:
             Exercise Trigger.process trigger conditions through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -108,7 +108,7 @@ class Trigger:
         Example:
             Exercise Trigger.pull through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param target_id: Value supplied for target id under the utility contract.

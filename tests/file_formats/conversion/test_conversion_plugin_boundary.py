@@ -1,46 +1,6 @@
-"""Protect conversion-plugin ownership and compatibility boundaries."""
+"""Protect conversion-plugin ownership and option contracts."""
 
 from __future__ import annotations
-
-
-def test_generic_plugin_compatibility_export_preserves_identity() -> None:
-    """The historical customize export is the extracted lifecycle class itself."""
-    from LiuXin_alpha.customize import Plugin as CompatibilityPlugin
-    from LiuXin_alpha.customize import PluginPreferences as CompatibilityPreferences
-    from LiuXin_alpha.plugin_system.base import Plugin, PluginPreferences
-
-    assert CompatibilityPlugin is Plugin
-    assert CompatibilityPreferences is PluginPreferences
-
-
-def test_conversion_compatibility_exports_preserve_identities() -> None:
-    """Historical conversion imports resolve to the new canonical classes."""
-    from LiuXin_alpha.customize.conversion import (
-        ConversionOption as CompatibilityOption,
-    )
-    from LiuXin_alpha.customize.conversion import DummyReporter as CompatibilityReporter
-    from LiuXin_alpha.customize.conversion import (
-        InputFormatPlugin as CompatibilityInput,
-    )
-    from LiuXin_alpha.customize.conversion import (
-        OptionRecommendation as CompatibilityRecommendation,
-    )
-    from LiuXin_alpha.customize.conversion import (
-        OutputFormatPlugin as CompatibilityOutput,
-    )
-    from LiuXin_alpha.file_formats.conversion.plugin import (
-        ConversionOption,
-        DummyReporter,
-        InputFormatPlugin,
-        OptionRecommendation,
-        OutputFormatPlugin,
-    )
-
-    assert CompatibilityOption is ConversionOption
-    assert CompatibilityReporter is DummyReporter
-    assert CompatibilityInput is InputFormatPlugin
-    assert CompatibilityOutput is OutputFormatPlugin
-    assert CompatibilityRecommendation is OptionRecommendation
 
 
 def test_concrete_converter_uses_file_format_contract() -> None:

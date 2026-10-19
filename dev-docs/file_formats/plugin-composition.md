@@ -2,7 +2,8 @@
 
 Decision dates: **2026-10-13–2026-10-15**
 
-Updated: **2026-10-19**, explicit application ownership and shared startup policy.
+Updated: **2026-10-19**, unified `plugin_system` package, explicit application
+ownership and shared startup policy. Supersedes the earlier package split.
 
 Status: **standalone containment and application startup boundaries implemented;
 metadata cycles and unsupported application providers remain**
@@ -26,8 +27,9 @@ application composition. The owners are explicit:
 | `file_formats.plugin_runtime` | Selection, file hooks, metadata dispatch and host binding |
 | `file_formats.rendering` | Headless rendering hooks |
 | `file_formats.html.comments` | Plain-text and HTML comment formatting |
-| `customize.application` | Application registry lifecycle, lookups and installed-plugin management |
-| `customize.ui` | Compatibility exports of the application and file APIs; no registry state |
+| `plugin_system.application` | Application registry lifecycle, lookups and installed-plugin management |
+| `plugin_system.contracts` | Application plugin families formerly defined in the customization root |
+| `plugin_system.builtins` | Application catalogue and bundled application families |
 
 The runtime loads its fleet on first use. Both hosts use the shared loader's stable
 descending priority order; external ZIP plugins precede bundled providers at equal
@@ -37,9 +39,9 @@ Ordinary provider failures do not prevent other providers from loading; interrup
 propagate. Loading and initialization restore stdout/stderr after each provider.
 LRF registration selects LRFInput instead of duplicating LITInput.
 
-An application host calls `customize.application.initialize_plugins()` explicitly;
+An application host calls `plugin_system.application.initialize_plugins()` explicitly;
 application lookups also initialize on first use for compatibility. Importing the
-API or `customize.ui` does not discover or initialize providers. The application
+API does not discover or initialize providers. The application
 provider catalogue extends `file_formats.plugin_defaults.builtin_plugins()` with
 application-only families instead of independently assembling the file providers.
 
@@ -57,17 +59,34 @@ A bundled name shadows a conflicting installed entry without mutating settings o
 deleting its archive. Startup no longer invokes removal recursively. Explicit
 installation/removal remains an application operation.
 
-Historical `customize` contracts, provider modules, profiles and UI functions
-remain compatibility exports of the same objects. `library.comments` and
-`surfaces.gui2` similarly export their new owners. New production format callers
-import the owning modules directly. Production imports of `customize.ui` are
-rejected by the static layer gate, including deferred and type-only imports.
+Plugin mechanics and application composition now share `plugin_system`.
+Module-level dependency rules keep neutral leaves below application assembly and
+prevent standalone formats from importing application families. Package and
+application API imports are passive. The old `customize` namespace and forwarding
+modules are removed rather than aliased. Retained cache/folder-driver modules move
+with their callers but still need their own retirement decisions. Database,
+storage and terminal plugin registries remain separate domain owners.
 
-The top-level split is intentional: neutral mechanics in `plugin_system`, file
-policy in `file_formats`, and application composition in `customize.application`.
-The inherited `customize` package name remains for compatibility; unrelated cache
-and folder-driver remnants inside it still need their own retirement decisions.
-Database, storage and terminal plugin registries remain separate domain owners.
+## Import migration
+
+External ZIP plugins must update old imports and be repackaged. There is no
+`customize` compatibility namespace in the source tree or installed wheel.
+
+| Former import | Current owner |
+| --- | --- |
+| `customize.Plugin`, `PluginPreferences` | `plugin_system.base` |
+| `customize.FileTypePlugin`, `MetadataReaderPlugin`, `MetadataWriterPlugin` | `plugin_system.file_types` |
+| Application families such as `customize.CatalogPlugin`, `Archive`, `StoreBase` | `plugin_system.contracts` |
+| Application startup/lookup/management from `customize.ui` | `plugin_system.application` |
+| File dispatch from `customize.ui` | `file_formats.plugin_runtime` |
+| `customize.conversion`, `customize.profiles` | `file_formats.conversion.plugin`, `file_formats.conversion.profiles` |
+| `customize.zipplugin` | `plugin_system.zipplugin` |
+| `customize.builtins.conversion`, `customize.builtins.on_import` | `file_formats.conversion.builtins`, `file_formats.import_plugins` |
+| `customize.builtins.metadata_readers`, `customize.builtins.metadata_writers` | `metadata.file_sources.builtin_readers`, `metadata.file_sources.builtin_writers` |
+| Other retained `customize` modules (`api`, `archives`, `builtins`, `cache`, driver/trigger modules) | Same relative modules under `plugin_system` |
+
+Repository callers, test streams and ZIP-plugin examples use these owners.
+`library.comments` and `surfaces.gui2` retain their separate compatibility exports.
 
 Headless rendering retains the existing Qt availability/bootstrap behavior. Image
 serialization now preserves pixels instead of returning empty bytes; the shared
@@ -77,11 +96,13 @@ processing merely to serialize an image.
 ## Enforced boundaries
 
 The static layer check rejects every direct file-format import into application
-packages, including deferred and type-only imports. Generic plugin mechanics
+packages or application modules within `plugin_system`, including deferred and
+type-only imports. Generic plugin mechanics
 also cannot import format or metadata implementations. Existing metadata-to-
-Catalog/rendering debt stays visible in the whole-package graph. The largest
-runtime and combined components fall from 218 to 217 modules; the 16 existing
-backward-edge allowances and 39 unresolved dynamic imports remain explicit.
+Catalog/rendering debt stays visible in the whole-package graph. At the current
+checkpoint the largest runtime and combined components contain 217 modules;
+15 reviewed backward edges and 28 unresolved dynamic imports remain explicit.
+The package merger adds no backward-edge allowance or larger cycle ceiling.
 
 Fresh-process budgets cover the passive boundaries:
 
@@ -92,13 +113,14 @@ Fresh-process budgets cover the passive boundaries:
 | `file_formats.conversion.plugin`, `file_formats.conversion.profiles` | 31 each |
 | `file_formats.plugin_runtime` | 37 |
 | `file_formats.rendering` | 16 |
-| `customize`, `customize.builtins` | 35 each |
-| `customize.application` | 44 |
-| `customize.ui` | 45 |
+| `plugin_system.contracts` | 35 |
+| `plugin_system.builtins` | 3 |
+| `plugin_system.application` | 44 |
 
-These imports cannot enter application domains. The native HTML-to-EPUB regression
+Neutral imports cannot enter application domains or application plugin modules,
+even when those modules share the `plugin_system` prefix. The native HTML-to-EPUB regression
 also exercises the real fleet, profiles, metadata and output generation in a fresh
-process, checks Unicode content, and rejects loading `customize`, surfaces,
+process, checks Unicode content, and rejects loading application plugin assembly, surfaces,
 library or Core. Full conversion can still load Catalog through the existing
 metadata record/field-metadata dependency; this is not a package-wide isolation
 claim.

@@ -134,7 +134,7 @@ def reread_filetype_plugins() -> None:
     Example:
         Exercise reread filetype plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: None; the operation mutates state, writes output or performs cleanup in
@@ -188,7 +188,7 @@ def _run_filetype_plugins(
     Example:
         Exercise  run filetype plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param path_to_file: Value supplied for path to file under the utility contract.
@@ -264,7 +264,7 @@ def run_plugins_on_postimport(db: Any, book_id: int, fmt: str) -> None:
     Example:
         Exercise run plugins on postimport through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param db: Value supplied for db under the utility contract.
@@ -299,7 +299,7 @@ def input_profiles() -> Iterator[InputProfile]:
     Example:
         Exercise input profiles through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
@@ -317,7 +317,7 @@ def output_profiles() -> Iterator[OutputProfile]:
     Example:
         Exercise output profiles through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
@@ -340,7 +340,7 @@ def reread_metadata_plugins() -> None:
     Example:
         Exercise reread metadata plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: None; the operation mutates state, writes output or performs cleanup in
@@ -377,7 +377,7 @@ def metadata_readers() -> set[MetadataReaderPlugin]:
     Example:
         Exercise metadata readers through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection
@@ -399,7 +399,7 @@ def metadata_writers() -> set[MetadataWriterPlugin]:
     Example:
         Exercise metadata writers through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection
@@ -421,7 +421,7 @@ class QuickMetadata:
     Example:
         Exercise QuickMetadata through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     def __init__(self: _typing.Self) -> None:
@@ -431,7 +431,7 @@ class QuickMetadata:
         Example:
             Exercise QuickMetadata.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; validated state is stored on the receiving object.
@@ -445,7 +445,7 @@ class QuickMetadata:
         Example:
             Exercise QuickMetadata.  enter   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -460,7 +460,7 @@ class QuickMetadata:
         Example:
             Exercise QuickMetadata.  exit   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param args: Positional values forwarded to the compatibility implementation.
@@ -480,7 +480,7 @@ class ApplyNullMetadata:
     Example:
         Exercise ApplyNullMetadata through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     def __init__(self: _typing.Self) -> None:
@@ -490,7 +490,7 @@ class ApplyNullMetadata:
         Example:
             Exercise ApplyNullMetadata.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; validated state is stored on the receiving object.
@@ -504,7 +504,7 @@ class ApplyNullMetadata:
         Example:
             Exercise ApplyNullMetadata.  enter   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -519,7 +519,7 @@ class ApplyNullMetadata:
         Example:
             Exercise ApplyNullMetadata.  exit   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param args: Positional values forwarded to the compatibility implementation.
@@ -539,7 +539,7 @@ class ForceIdentifiers:
     Example:
         Exercise ForceIdentifiers through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     def __init__(self: _typing.Self) -> None:
@@ -549,7 +549,7 @@ class ForceIdentifiers:
         Example:
             Exercise ForceIdentifiers.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; validated state is stored on the receiving object.
@@ -563,7 +563,7 @@ class ForceIdentifiers:
         Example:
             Exercise ForceIdentifiers.  enter   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -578,7 +578,7 @@ class ForceIdentifiers:
         Example:
             Exercise ForceIdentifiers.  exit   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param args: Positional values forwarded to the compatibility implementation.
@@ -600,7 +600,7 @@ def get_file_type_metadata(
     Example:
         Exercise get file type metadata through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -671,7 +671,7 @@ def set_file_type_metadata(
     Example:
         Exercise set file type metadata through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -719,7 +719,7 @@ def can_set_metadata(ftype: str) -> bool:
     Example:
         Exercise can set metadata through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param ftype: Value supplied for ftype under the utility contract.
@@ -743,7 +743,7 @@ def input_format_plugins() -> Iterator[InputFormatPlugin]:
     Example:
         Exercise input format plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
@@ -760,7 +760,7 @@ def plugin_for_input_format(fmt: str) -> Plugin | None:
     Example:
         Exercise plugin for input format through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param fmt: Date, number or template format specification.
@@ -781,7 +781,7 @@ def all_input_formats() -> set[str]:
     Example:
         Exercise all input formats through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection
@@ -801,7 +801,7 @@ def available_input_formats() -> set[str]:
     Example:
         Exercise available input formats through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection
@@ -823,7 +823,7 @@ def output_format_plugins() -> Iterator[OutputFormatPlugin]:
     Example:
         Exercise output format plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
@@ -840,7 +840,7 @@ def plugin_for_output_format(fmt: str) -> Plugin | None:
     Example:
         Exercise plugin for output format through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param fmt: Date, number or template format specification.
@@ -861,7 +861,7 @@ def available_output_formats() -> set[str]:
     Example:
         Exercise available output formats through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection

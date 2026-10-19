@@ -20,11 +20,11 @@ try:
 except ImportError:
     from typing import Self
 
-from LiuXin_alpha.customize.cache.base_tables import (
+from LiuXin_alpha.plugin_system.cache.base_tables import (
     BaseManyToManyTable,
 )
 
-from LiuXin_alpha.customize.cache.base_tables import (
+from LiuXin_alpha.plugin_system.cache.base_tables import (
     MANY_MANY,
     null,
 )

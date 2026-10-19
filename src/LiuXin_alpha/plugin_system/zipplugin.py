@@ -10,7 +10,7 @@ for callers.
 Example:
     Exercise zipplugin through a consuming regression::
 
-        python -m pytest -q tests/customize/test_customize_base.py
+        python -m pytest -q tests/plugin_system/test_plugin_base.py
 """
 from __future__ import unicode_literals, division, absolute_import, print_function
 
@@ -35,7 +35,7 @@ except ModuleNotFoundError:
         Example:
             Exercise  ImpCompat through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
         """
         @staticmethod
         def new_module(name):
@@ -45,7 +45,7 @@ except ModuleNotFoundError:
             Example:
                 Exercise  ImpCompat.new module through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
             :param name: Field, file, function or resource name addressed by the operation.
@@ -62,7 +62,7 @@ except ModuleNotFoundError:
             Example:
                 Exercise  ImpCompat.reload through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
             :param module: Value supplied for module under the utility contract.
@@ -115,7 +115,7 @@ def get_resources(zfp: str, name_or_list_of_names: Union[str, list[str]]) -> dic
     Example:
         Exercise get resources through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param zfp: Value supplied for zfp under the utility contract.
@@ -155,7 +155,7 @@ def load_translations(namespace: dict[str, Any], zfp: str) -> None:
     Example:
         Exercise load translations through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param namespace: Value supplied for namespace under the utility contract.
@@ -196,7 +196,7 @@ class PluginLoader:
     Example:
         Exercise PluginLoader through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     def __init__(self) -> None:
@@ -206,7 +206,7 @@ class PluginLoader:
         Example:
             Exercise PluginLoader.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; validated state is stored on the receiving object.
@@ -225,7 +225,7 @@ class PluginLoader:
         Example:
             Exercise PluginLoader.get icons dummy through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param zfp: Value supplied for zfp under the utility contract.
@@ -242,7 +242,7 @@ class PluginLoader:
         Example:
             Exercise PluginLoader. get actual fullname through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param fullname: Value supplied for fullname under the utility contract.
@@ -293,7 +293,7 @@ class PluginLoader:
         Example:
             Exercise PluginLoader.find module through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param fullname: Value supplied for fullname under the utility contract.
@@ -314,7 +314,7 @@ class PluginLoader:
         Example:
             Exercise PluginLoader.load module through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param fullname: Value supplied for fullname under the utility contract.
@@ -370,7 +370,7 @@ class PluginLoader:
         Example:
             Exercise PluginLoader.load through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param path_to_zip_file: Value supplied for path to zip file under the utility
@@ -427,7 +427,7 @@ class PluginLoader:
         Example:
             Exercise PluginLoader. locate code through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param zf: Value supplied for zf under the utility contract.

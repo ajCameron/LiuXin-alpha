@@ -3,7 +3,7 @@
 Importing this API does not discover or initialize providers. Call
 ``initialize_plugins`` at host startup; application lookups initialize on first
 use for compatibility. File-only operations belong to ``file_formats.plugin_runtime``.
-The historical ``customize.ui`` module delegates here and owns no registry state.
+This is the sole application registry owner; the customize namespace is retired.
 """
 
 from __future__ import annotations
@@ -15,7 +15,9 @@ import traceback
 from collections.abc import Iterable, Iterator
 from typing import TYPE_CHECKING
 
-from LiuXin_alpha.customize import (
+from LiuXin_alpha.file_formats import plugin_runtime
+from LiuXin_alpha.plugin_system.archives import get_compressor_plugins
+from LiuXin_alpha.plugin_system.contracts import (
     Archive,
     CatalogPlugin,
     EditBookToolPlugin,
@@ -27,14 +29,12 @@ from LiuXin_alpha.customize import (
     ViewerPlugin,
     platform,
 )
-from LiuXin_alpha.customize import (
+from LiuXin_alpha.plugin_system.contracts import (
     InterfaceActionBase as InterfaceAction,
 )
-from LiuXin_alpha.customize import (
+from LiuXin_alpha.plugin_system.contracts import (
     StoreBase as Store,
 )
-from LiuXin_alpha.customize.archives import get_compressor_plugins
-from LiuXin_alpha.file_formats import plugin_runtime
 from LiuXin_alpha.plugin_system.loading import build_plugins
 from LiuXin_alpha.plugin_system.zipplugin import loader
 from LiuXin_alpha.utils.config.config_base import (
@@ -50,7 +50,7 @@ except ModuleNotFoundError:
     basestring = str
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.customize.builtins.standardization import (
+    from LiuXin_alpha.plugin_system.builtins.standardization import (
         BaseNameGenerator,
         CreatorStandardize,
         TitlePhashHandler,
@@ -169,7 +169,7 @@ from LiuXin_alpha.plugin_system.configuration import (
 
 def builtin_plugins() -> list[type[Plugin]]:
     """Discover the application providers only when composition is requested."""
-    from LiuXin_alpha.customize.builtins.registry import plugins
+    from LiuXin_alpha.plugin_system.builtins.registry import plugins
 
     return list(plugins)
 
@@ -181,7 +181,7 @@ class NameConflict(ValueError):
     Example:
         Exercise NameConflict through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     pass
@@ -194,7 +194,7 @@ def find_plugin(name: str) -> Plugin | None:
     Example:
         Exercise find plugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param name: Field, file, function or resource name addressed by the operation.
@@ -213,7 +213,7 @@ def load_plugin(path_to_zip_file: str | os.PathLike) -> Plugin:  # {{{
     Example:
         Exercise load plugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param path_to_zip_file: Value supplied for path to zip file under the utility
@@ -236,7 +236,7 @@ def disable_plugin(plugin_or_name: Plugin | str) -> None:
     Example:
         Exercise disable plugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param plugin_or_name: Value supplied for plugin or name under the utility contract.
@@ -263,7 +263,7 @@ def enable_plugin(plugin_or_name: Plugin | str) -> None:
     Example:
         Exercise enable plugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param plugin_or_name: Value supplied for plugin or name under the utility contract.
@@ -287,7 +287,7 @@ def restore_plugin_state_to_default(plugin_or_name: Plugin | str) -> None:
     Example:
         Exercise restore plugin state to default through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param plugin_or_name: Value supplied for plugin or name under the utility contract.
@@ -349,7 +349,7 @@ def interface_actions() -> Iterator[InterfaceAction]:
     Example:
         Exercise interface actions through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
@@ -374,7 +374,7 @@ def preferences_plugins() -> Iterator[PreferencesPlugin]:
     Example:
         Exercise preferences plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
@@ -399,7 +399,7 @@ def store_plugins() -> Iterator[Store]:
     Example:
         Exercise store plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
@@ -418,7 +418,7 @@ def available_store_plugins() -> Iterator[Store]:
     Example:
         Exercise available store plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
@@ -435,7 +435,7 @@ def stores() -> set[Store]:
     Example:
         Exercise stores through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection
@@ -454,7 +454,7 @@ def available_stores() -> set[Store]:
     Example:
         Exercise available stores through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection
@@ -495,7 +495,7 @@ def add_plugin(path_to_zip_file: str | os.PathLike) -> Plugin:
     Example:
         Exercise add plugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param path_to_zip_file: Value supplied for path to zip file under the utility
@@ -536,7 +536,7 @@ def remove_plugin(plugin_or_name: Plugin | str) -> bool:
     Example:
         Exercise remove plugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param plugin_or_name: Value supplied for plugin or name under the utility contract.
@@ -580,7 +580,7 @@ def catalog_plugins() -> Iterator[CatalogPlugin]:
     Example:
         Exercise catalog plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
@@ -597,7 +597,7 @@ def available_catalog_formats() -> set[str]:
     Example:
         Exercise available catalog formats through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection
@@ -618,7 +618,7 @@ def plugin_for_catalog_format(fmt: str) -> Plugin | None:
     Example:
         Exercise plugin for catalog format through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param fmt: Date, number or template format specification.
@@ -641,7 +641,7 @@ def device_plugins(include_disabled: bool = False) -> Iterator[Plugin]:
     Example:
         Exercise device plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param include_disabled: Value supplied for include disabled under the utility
@@ -672,7 +672,7 @@ def disabled_device_plugins() -> Iterator[Plugin]:
     Example:
         Exercise disabled device plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
@@ -703,7 +703,7 @@ def metadata_plugins(capabilities: Iterable[str]) -> Iterator[Plugin]:
     Example:
         Exercise metadata plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param capabilities: Value supplied for capabilities under the utility contract.
@@ -722,7 +722,7 @@ def all_metadata_plugins() -> Iterator[Plugin]:
     Example:
         Exercise all metadata plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
@@ -747,7 +747,7 @@ def all_viewer_plugins() -> Iterator[ViewerPlugin]:
     Example:
         Exercise all viewer plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
@@ -769,7 +769,7 @@ def all_edit_book_tool_plugins() -> Iterator[EditBookToolPlugin]:
     Example:
         Exercise all edit book tool plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
@@ -790,7 +790,7 @@ def available_library_closed_plugins() -> Iterator[LibraryClosedPlugin]:
     Example:
         Exercise available library closed plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
@@ -810,7 +810,7 @@ def has_library_closed_plugins() -> bool:
     Example:
         Exercise has library closed plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: True when the documented condition holds; otherwise False.
@@ -833,7 +833,7 @@ def all_metadata_synthesis_plugins() -> Iterator[MDInputTransform]:
     Example:
         Exercise all metadata synthesis plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
@@ -860,7 +860,7 @@ def initialize_plugin(
     Example:
         Exercise initialize plugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param plugin: Value supplied for plugin under the utility contract.
@@ -888,7 +888,7 @@ def has_external_plugins() -> bool:
     Example:
         Exercise has external plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: True when the documented condition holds; otherwise False.
@@ -943,7 +943,7 @@ def extract_metadata(file_path: str | os.PathLike):
     Example:
         Exercise extract metadata through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param file_path: Value supplied for file path under the utility contract.
@@ -960,7 +960,7 @@ def synthesize_metadata(metadata):
     Example:
         Exercise synthesize metadata through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param metadata: Value supplied for metadata under the utility contract.
@@ -977,14 +977,14 @@ def creator_standardization_plugin() -> type[CreatorStandardize]:
     Example:
         Exercise creator standardization plugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
 
-    from LiuXin_alpha.customize.builtins.standardization import CreatorStandardize
+    from LiuXin_alpha.plugin_system.builtins.standardization import CreatorStandardize
 
     return CreatorStandardize
 
@@ -996,14 +996,14 @@ def title_phash_handler() -> type[TitlePhashHandler]:
     Example:
         Exercise title phash handler through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
 
-    from LiuXin_alpha.customize.builtins.standardization import TitlePhashHandler
+    from LiuXin_alpha.plugin_system.builtins.standardization import TitlePhashHandler
 
     # Overwrite the default creator_standardize method with the actual one
     cs_plugin = creator_standardization_plugin()
@@ -1019,14 +1019,14 @@ def name_generator() -> type[BaseNameGenerator]:
     Example:
         Exercise name generator through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
 
-    from LiuXin_alpha.customize.builtins.standardization import BaseNameGenerator
+    from LiuXin_alpha.plugin_system.builtins.standardization import BaseNameGenerator
 
     return BaseNameGenerator
 
@@ -1038,7 +1038,7 @@ def get_compressor_plugin(read: bool = True, arc_type: str = "zip") -> type[Arch
     Example:
         Exercise get compressor plugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param read: Value supplied for read under the utility contract.
@@ -1075,7 +1075,7 @@ def build_plugin(path: str) -> None:
     Example:
         Exercise build plugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param path: Filesystem path read, written, normalized or validated by the
@@ -1108,7 +1108,7 @@ def option_parser() -> OptionParser:
     Example:
         Exercise option parser through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection
@@ -1175,7 +1175,7 @@ def main(args=sys.argv) -> int:
     Example:
         Exercise main through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param args: Positional values forwarded to the compatibility implementation.

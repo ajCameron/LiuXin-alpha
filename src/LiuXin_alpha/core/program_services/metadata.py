@@ -132,7 +132,7 @@ def metadata_online_sources(
     :return: sources list with merged name/version/capabilities/configured descriptions, not availability guarantees.
     """
     del runtime, query
-    from LiuXin_alpha.customize.application import metadata_plugins
+    from LiuXin_alpha.plugin_system.application import metadata_plugins
 
     plugins: dict[str, Any] = {}
     for capability in ("identify", "cover"):

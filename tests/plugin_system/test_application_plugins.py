@@ -12,10 +12,9 @@ from threading import Event
 
 import pytest
 
-from LiuXin_alpha.customize import application, ui
 from LiuXin_alpha.file_formats import plugin_defaults, plugin_runtime
 from LiuXin_alpha.file_formats.conversion.plugin import InputFormatPlugin
-from LiuXin_alpha.plugin_system import configuration
+from LiuXin_alpha.plugin_system import application, configuration
 from LiuXin_alpha.plugin_system.zipplugin import loader
 
 
@@ -43,7 +42,7 @@ def registry(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
         plugin_runtime.bind_plugins(previous)
 
 
-@pytest.mark.parametrize("module", ("application", "ui"))
+@pytest.mark.parametrize("module", ("application", "contracts", "builtins"))
 def test_import_does_not_discover_or_initialize_plugins(tmp_path: Path, module: str):
     script = f"""
 import importlib
@@ -52,12 +51,12 @@ from LiuXin_alpha.plugin_system.base import Plugin
 def unexpected(self):
     raise AssertionError('import started a plugin')
 Plugin.initialize = unexpected
-importlib.import_module('LiuXin_alpha.customize.{module}')
-from LiuXin_alpha.customize import application
+importlib.import_module('LiuXin_alpha.plugin_system.{module}')
+from LiuXin_alpha.plugin_system import application
 from LiuXin_alpha.file_formats import plugin_runtime
 assert application._initialized_plugins is None
 assert plugin_runtime._initialized_plugins is None
-assert 'LiuXin_alpha.customize.builtins.registry' not in sys.modules
+assert 'LiuXin_alpha.plugin_system.builtins.registry' not in sys.modules
 assert 'LiuXin_alpha.file_formats.plugin_defaults' not in sys.modules
 assert not [m for m in sys.modules if m.startswith(('LiuXin_alpha.metadata',
     'LiuXin_alpha.catalog', 'LiuXin_alpha.library', 'LiuXin_alpha.surfaces'))]
@@ -112,8 +111,6 @@ def test_priority_and_ties_match_for_standalone_and_host(registry, monkeypatch, 
     assert calls == ["External", "Bundled", "Preferred"]
     if host:
         assert tuple(application.initialized_plugins()) == plugins
-        assert tuple(ui.initialized_plugins()) == plugins
-        assert ui.initialize_plugins is application.initialize_plugins
         assert calls == ["External", "Bundled", "Preferred"]
 
 

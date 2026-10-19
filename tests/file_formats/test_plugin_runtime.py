@@ -69,7 +69,9 @@ def test_standalone_html_conversion_avoids_application_composition(
             text = b''.join(archive.read(name) for name in archive.namelist()
                             if name.endswith(('.html', '.xhtml')))
             assert '你好'.encode() in text
-        forbidden = ('LiuXin_alpha.customize', 'LiuXin_alpha.surfaces',
+        forbidden = ('LiuXin_alpha.customize', 'LiuXin_alpha.plugin_system.application',
+                     'LiuXin_alpha.plugin_system.contracts', 'LiuXin_alpha.plugin_system.builtins',
+                     'LiuXin_alpha.surfaces',
                      'LiuXin_alpha.library', 'LiuXin_alpha.core')
         assert not [name for name in sys.modules if name.startswith(forbidden)]
         print(json.dumps({'output_size': output.stat().st_size}))
@@ -181,7 +183,7 @@ def test_metadata_fallback_flags_and_rebinding(isolated_runtime) -> None:
 def test_installed_zip_converter_is_available_without_application_host(
     isolated_runtime, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Persisted ZIP plugins load through historical imports and precede built-ins."""
+    """Persisted ZIP plugins use current conversion imports and precede built-ins."""
     from LiuXin_alpha.plugin_system.zipplugin import loader
 
     plugin_name = "lxa_runtime_external"
@@ -190,7 +192,7 @@ def test_installed_zip_converter_is_available_without_application_host(
         archive.writestr(f"plugin-import-name-{plugin_name}.txt", "")
         archive.writestr(
             "__init__.py",
-            "from LiuXin_alpha.customize.conversion import InputFormatPlugin\n"
+            "from LiuXin_alpha.file_formats.conversion.plugin import InputFormatPlugin\n"
             "class ExternalInput(InputFormatPlugin):\n"
             "    name = 'External runtime input'\n"
             "    file_types = {'epub'}\n",
@@ -260,8 +262,8 @@ def test_application_host_rebinds_shared_runtime(
         from LiuXin_alpha.file_formats import plugin_runtime as runtime
         if sys.argv[1] == 'True':
             assert runtime.plugin_for_input_format('epub') is not None
-        from LiuXin_alpha.customize import ui
-        # Importing the compatibility API is passive; host startup is explicit.
+        from LiuXin_alpha.plugin_system import application as ui
+        # Importing the application API is passive; host startup is explicit.
         ui.initialize_plugins()
         from LiuXin_alpha.plugin_system.configuration import config
         assert ui.config is config is runtime.config
@@ -271,9 +273,6 @@ def test_application_host_rebinds_shared_runtime(
         assert plugin is not None
         assert plugin is ui.find_plugin(plugin.name)
         assert list(runtime.initialized_plugins()) == list(ui.initialized_plugins())
-        from LiuXin_alpha.customize.profiles import InputProfile as historical
-        from LiuXin_alpha.file_formats.conversion.profiles import InputProfile
-        assert historical is InputProfile
         from LiuXin_alpha.surfaces.gui2 import pixmap_to_data as legacy_serializer
         from LiuXin_alpha.file_formats.rendering import pixmap_to_data
         assert legacy_serializer is pixmap_to_data

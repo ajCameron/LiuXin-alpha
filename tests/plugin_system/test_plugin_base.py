@@ -1,13 +1,13 @@
 """
-Provide test customize base utility behavior.
+Provide plugin base utility behavior.
 
 The module keeps compatibility policy, normalization and resource ownership explicit
 for callers.
 
 Example:
-    Exercise test customize base through a consuming regression::
+    Exercise plugin base through a consuming regression::
 
-        python -m pytest -q tests/customize/test_customize_base.py
+        python -m pytest -q tests/plugin_system/test_plugin_base.py
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ import sys
 import zipfile
 from pathlib import Path
 
-from LiuXin_alpha.customize import Plugin, PluginPreferences
+from LiuXin_alpha.plugin_system.base import Plugin, PluginPreferences
 
 
 def test_plugin_preferences_starts_with_empty_defaults() -> None:
@@ -27,7 +27,7 @@ def test_plugin_preferences_starts_with_empty_defaults() -> None:
     Example:
         Exercise test plugin preferences starts with empty defaults through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: None; the operation mutates state, writes output or performs cleanup in
@@ -45,7 +45,7 @@ def test_base_plugin_initializes_core_state() -> None:
     Example:
         Exercise test base plugin initializes core state through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: None; the operation mutates state, writes output or performs cleanup in
@@ -78,8 +78,8 @@ def test_base_plugin_preserves_zip_resource_and_context_lifecycle(
     assert plugin_archive not in sys.path
 
 
-def test_zip_plugin_can_import_historical_conversion_contract(tmp_path: Path) -> None:
-    """An external ZIP module can subclass the compatibility conversion export."""
+def test_zip_plugin_can_import_owned_conversion_contract(tmp_path: Path) -> None:
+    """An external ZIP module subclasses the canonical conversion contract."""
     from LiuXin_alpha.file_formats.conversion.plugin import InputFormatPlugin
 
     module_name = "liuxin_contract_test_zip_plugin"
@@ -87,7 +87,7 @@ def test_zip_plugin_can_import_historical_conversion_contract(tmp_path: Path) ->
     with zipfile.ZipFile(plugin_archive, "w") as archive:
         archive.writestr(
             f"{module_name}.py",
-            "from LiuXin_alpha.customize.conversion import InputFormatPlugin\n"
+            "from LiuXin_alpha.file_formats.conversion.plugin import InputFormatPlugin\n"
             "class ExternalInput(InputFormatPlugin):\n"
             "    name = 'External input'\n",
         )

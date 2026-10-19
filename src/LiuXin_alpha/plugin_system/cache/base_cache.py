@@ -7,12 +7,12 @@ for callers.
 Example:
     Exercise base cache through a consuming regression::
 
-        python -m pytest -q tests/customize/test_customize_base.py
+        python -m pytest -q tests/plugin_system/test_plugin_base.py
 """
 
 from typing import Iterable, Optional, Callable, Union, BinaryIO, Any, TypeVar, Literal
 
-from LiuXin_alpha.customize.cache.read_write_api import api, read_api, write_api
+from LiuXin_alpha.plugin_system.cache.read_write_api import api, read_api, write_api
 from LiuXin_alpha.databases.db_types import MainTableName
 from LiuXin_alpha.databases.locking import create_locks, wrap_simple, SafeReadLock
 from LiuXin_alpha.utils.text.icu import lower as icu_lower
@@ -27,7 +27,7 @@ class CacheAPI:
     Example:
         Exercise CacheAPI through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     def __init__(self, backend):
@@ -37,7 +37,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param backend: Value supplied for backend under the utility contract.
@@ -57,7 +57,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.init through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -72,7 +72,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.read tables through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -87,7 +87,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.initialize tables through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -102,7 +102,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.initialize custom columns through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -117,7 +117,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI. initialize dynamic categories through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -140,7 +140,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.new api through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: The normalized value, metadata record, path, stream result or collection
@@ -156,7 +156,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.library id through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: The normalized value, metadata record, path, stream result or collection
@@ -172,7 +172,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.safe read lock through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -188,7 +188,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.initialize dynamic through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -204,7 +204,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.initialize template cache through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -220,7 +220,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.set user template functions through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param user_template_functions: Value supplied for user template functions under the
@@ -238,7 +238,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.clear composite caches through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_ids: Book identities included in the batched read operation.
@@ -255,7 +255,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.clear search caches through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_ids: Book identities included in the batched read operation.
@@ -272,7 +272,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.last modified through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -288,7 +288,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.clear caches through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_ids: Book identities included in the batched read operation.
@@ -307,7 +307,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.reload from db through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param clear_caches: Value supplied for clear caches under the utility contract.
@@ -324,7 +324,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.field metadata through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -345,7 +345,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.multisort through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param fields: Value supplied for fields under the utility contract.
@@ -364,7 +364,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.search through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param query: Search expression parsed or evaluated by the utility.
@@ -384,7 +384,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.saved search names through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -400,7 +400,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.saved search lookup through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param name: Field, file, function or resource name addressed by the operation.
@@ -417,7 +417,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.saved search set all through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param smap: Value supplied for smap under the utility contract.
@@ -434,7 +434,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.saved search delete through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param name: Field, file, function or resource name addressed by the operation.
@@ -451,7 +451,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.saved search add through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param name: Field, file, function or resource name addressed by the operation.
@@ -469,7 +469,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.saved search rename through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param old_name: Value supplied for old name under the utility contract.
@@ -487,7 +487,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.change search locations through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param newlocs: Value supplied for newlocs under the utility contract.
@@ -504,7 +504,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.refresh search locations through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -526,7 +526,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.field for through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param name: Field, file, function or resource name addressed by the operation.
@@ -545,7 +545,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.fast field for through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param field_obj: Value supplied for field obj under the utility contract.
@@ -565,7 +565,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.all field for through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param field: Metadata or template field addressed by the operation.
@@ -584,7 +584,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.composite for through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param name: Field, file, function or resource name addressed by the operation.
@@ -604,7 +604,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.field ids for through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param name: Field, file, function or resource name addressed by the operation.
@@ -622,7 +622,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.books for field through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param name: Field, file, function or resource name addressed by the operation.
@@ -640,7 +640,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.all book ids through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param rtn_type: Value supplied for rtn type under the utility contract.
@@ -657,7 +657,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.all field ids through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param name: Field, file, function or resource name addressed by the operation.
@@ -674,7 +674,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.all field names through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param field: Metadata or template field addressed by the operation.
@@ -691,7 +691,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.get usage count by id through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param field: Metadata or template field addressed by the operation.
@@ -708,7 +708,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.get id map through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param field: Metadata or template field addressed by the operation.
@@ -725,7 +725,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.get item name through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param field: Metadata or template field addressed by the operation.
@@ -743,7 +743,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.get item id through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param field: Metadata or template field addressed by the operation.
@@ -761,7 +761,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.get item ids through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param field: Metadata or template field addressed by the operation.
@@ -781,7 +781,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.set field through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param name: Field, file, function or resource name addressed by the operation.
@@ -803,7 +803,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.data for has book through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -819,7 +819,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.has book through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param mi: Metadata object exposed to the template function.
@@ -835,7 +835,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.has id through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -857,7 +857,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.rename items through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param field: Metadata or template field addressed by the operation.
@@ -879,7 +879,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.remove items through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param field: Metadata or template field addressed by the operation.
@@ -899,7 +899,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.get books for category through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param category: Value supplied for category under the utility contract.
@@ -926,7 +926,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.get metadata through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -947,7 +947,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.get proxy metadata through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -964,7 +964,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.get metadata for dump through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -990,7 +990,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.set metadata through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -1023,7 +1023,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.create book entry through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param mi: Metadata object exposed to the template function.
@@ -1054,7 +1054,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.add books through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param books: Value supplied for books under the utility contract.
@@ -1077,7 +1077,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.remove books through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_ids: Book identities included in the batched read operation.
@@ -1095,7 +1095,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.data for find identical books through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -1111,7 +1111,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.update data for find identical books through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -1129,7 +1129,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.find identical books through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param mi: Metadata object exposed to the template function.
@@ -1155,7 +1155,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.author data through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param author_ids: Value supplied for author ids under the utility contract.
@@ -1172,7 +1172,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.author sort strings for books through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_ids: Book identities included in the batched read operation.
@@ -1189,7 +1189,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.author sort from authors through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param authors: Value supplied for authors under the utility contract.
@@ -1207,7 +1207,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.set sort for authors through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param author_id_to_sort_map: Value supplied for author id to sort map under the
@@ -1226,7 +1226,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.set link for authors through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param author_id_to_link_map: Value supplied for author id to link map under the
@@ -1249,7 +1249,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.update last modified through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_ids: Book identities included in the batched read operation.
@@ -1272,7 +1272,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.refresh ondevice through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -1294,7 +1294,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.format hash through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -1312,7 +1312,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.format metadata through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -1332,7 +1332,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.book formats through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -1349,7 +1349,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.format files through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -1366,7 +1366,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.has format through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -1383,7 +1383,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.refresh format cache through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -1404,7 +1404,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.get next series num for through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param series: Value supplied for series under the utility contract.
@@ -1431,7 +1431,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.tags older than through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param tag: Value supplied for tag under the utility contract.
@@ -1457,7 +1457,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.lookup by uuid through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param uuid: Value supplied for uuid under the utility contract.
@@ -1482,7 +1482,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.copy format to through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -1506,7 +1506,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.copy formats to through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -1528,7 +1528,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.format abspath through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -1546,7 +1546,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.save original format through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -1565,7 +1565,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.restore original format through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -1583,7 +1583,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.formats through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -1603,7 +1603,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.format through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -1633,7 +1633,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.add format through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -1656,7 +1656,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.remove formats through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param formats_map: Value supplied for formats map under the utility contract.
@@ -1680,7 +1680,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.update path through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_ids: Book identities included in the batched read operation.
@@ -1706,7 +1706,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.cover through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -1726,7 +1726,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.cover or cache through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -1744,7 +1744,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.cover last modified through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -1763,7 +1763,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.copy cover to through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -1784,7 +1784,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.set cover through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id_data_map: Value supplied for book id data map under the utility
@@ -1802,7 +1802,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.add cover cache through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param cover_cache: Value supplied for cover cache under the utility contract.
@@ -1819,7 +1819,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.remove cover cache through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param cover_cache: Value supplied for cover cache under the utility contract.
@@ -1848,7 +1848,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.books in virtual library through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param vl: Value supplied for vl under the utility contract.
@@ -1874,7 +1874,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.get categories through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param sort: Value supplied for sort under the utility contract.
@@ -1900,7 +1900,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.mark as dirty through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_ids: Book identities included in the batched read operation.
@@ -1917,7 +1917,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.commit dirty cache through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -1933,7 +1933,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.get a dirtied book through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -1949,7 +1949,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.clear dirtied through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -1967,7 +1967,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.dirty queue length through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -1988,7 +1988,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.write backup through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -2006,7 +2006,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.read backup through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -2025,7 +2025,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.dump metadata through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_ids: Book identities included in the batched read operation.
@@ -2045,7 +2045,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.restore book through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -2072,7 +2072,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.add custom book data through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param name: Field, file, function or resource name addressed by the operation.
@@ -2093,7 +2093,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.get custom book data through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param name: Field, file, function or resource name addressed by the operation.
@@ -2112,7 +2112,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.delete custom book data through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param name: Field, file, function or resource name addressed by the operation.
@@ -2130,7 +2130,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.get ids for custom book data through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param name: Field, file, function or resource name addressed by the operation.
@@ -2152,7 +2152,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.conversion options through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -2170,7 +2170,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.has conversion options through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_ids: Book identities included in the batched read operation.
@@ -2187,7 +2187,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.delete conversion options through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_ids: Book identities included in the batched read operation.
@@ -2205,7 +2205,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.set conversion options through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param options: Value supplied for options under the utility contract.
@@ -2231,7 +2231,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.create custom column through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param label: Value supplied for label under the utility contract.
@@ -2262,7 +2262,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.set custom column metadata through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param num: Value supplied for num under the utility contract.
@@ -2285,7 +2285,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.delete custom column through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param label: Value supplied for label under the utility contract.
@@ -2308,7 +2308,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.get top level move items through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -2324,7 +2324,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.move library to through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param newloc: Value supplied for newloc under the utility contract.
@@ -2348,7 +2348,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.dump and restore through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param callback: Value supplied for callback under the utility contract.
@@ -2366,7 +2366,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.vacuum through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -2382,7 +2382,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.close through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -2398,7 +2398,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.export library through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param library_key: Value supplied for library key under the utility contract.
@@ -2423,7 +2423,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.virtual libraries for books through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_ids: Book identities included in the batched read operation.
@@ -2445,7 +2445,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.user categories for books through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_ids: Book identities included in the batched read operation.
@@ -2471,7 +2471,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.embed metadata through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_ids: Book identities included in the batched read operation.
@@ -2492,7 +2492,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.get last read positions through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -2511,7 +2511,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.set last read position through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -2537,7 +2537,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.pref through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param name: Field, file, function or resource name addressed by the operation.
@@ -2555,7 +2555,7 @@ class CacheAPI:
         Example:
             Exercise CacheAPI.set pref through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param name: Field, file, function or resource name addressed by the operation.
@@ -2573,7 +2573,7 @@ class BaseCache(CacheAPI):
     Example:
         Exercise BaseCache through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
     def __init__(self, backend):
         """
@@ -2582,7 +2582,7 @@ class BaseCache(CacheAPI):
         Example:
             Exercise BaseCache.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param backend: Value supplied for backend under the utility contract.
@@ -2634,7 +2634,7 @@ class BaseCache(CacheAPI):
         Example:
             Exercise BaseCache.safe read lock through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: The normalized value, metadata record, path, stream result or collection
