@@ -15,7 +15,7 @@ from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
 
 from typing import Union, Optional, Any, TypeVar, Literal
 
-from LiuXin_alpha.plugin_system.cache.base_tables import BaseLinkAttributeTable
+from LiuXin_alpha.plugins.cache.base_tables import BaseLinkAttributeTable
 from LiuXin_alpha.library.caches.calibre.tables.base import CalibreBaseTable
 
 from LiuXin_alpha.library.caches.calibre.tables.one_many_tables import (

@@ -7,8 +7,8 @@ the same persisted customization and enable/disable settings.
 
 from __future__ import annotations
 
-from LiuXin_alpha.plugin_system.base import Plugin
-from LiuXin_alpha.plugin_system.configuration import config
+from LiuXin_alpha.plugins.base import Plugin
+from LiuXin_alpha.plugins.configuration import config
 from LiuXin_alpha.utils.config.config_base import plugin_dir
 from LiuXin_alpha.utils.logging import default_log
 
@@ -61,7 +61,7 @@ def builtin_plugins() -> list[type[Plugin]]:
 
 def build_plugins() -> list[Plugin]:
     """Compose file providers using the shared loading and priority rules."""
-    from LiuXin_alpha.plugin_system.loading import build_plugins as load_plugins
+    from LiuXin_alpha.plugins.loading import build_plugins as load_plugins
     from LiuXin_alpha.file_formats.conversion.plugin import (
         InputFormatPlugin,
         OutputFormatPlugin,
@@ -70,7 +70,7 @@ def build_plugins() -> list[Plugin]:
         InputProfile,
         OutputProfile,
     )
-    from LiuXin_alpha.plugin_system.file_types import (
+    from LiuXin_alpha.plugins.file_types import (
         FileTypePlugin,
         MetadataReaderPlugin,
         MetadataWriterPlugin,

@@ -75,8 +75,8 @@ explicit/lazy, share provider membership and loading/priority policy, then
 consolidate `customize` into `plugin_system`. The old namespace and forwarding
 modules are removed. Neutral mechanics and standalone formats retain enforced
 internal dependency boundaries. The
-[plugin system guide](../plugin_system/README.md) and
-[migration table](../plugin_system/plugin-composition.md#import-migration)
+[plugin system guide](../plugins/README.md) and
+[migration table](../plugins/plugin-composition.md#import-migration)
 describe the resulting API.
 
 This closes the package split and startup ownership work in UT-3/4/5. It does
@@ -84,6 +84,11 @@ not close unsupported device providers, retained cache/driver interfaces,
 provider availability reporting or separate jobs/ingest registry work. The
 September findings and October 13 compatibility-shim checkpoint below remain
 historical evidence; those shims no longer exist.
+
+The subsequent 2026-10-19 naming follow-up renames the consolidated package to
+`plugins`, including its tests and documentation. Imports now use
+`LiuXin_alpha.plugins`; `plugin_system` references in the dated findings below
+identify the earlier checkpoint, not a supported compatibility namespace.
 
 ### Remaining work in priority order
 

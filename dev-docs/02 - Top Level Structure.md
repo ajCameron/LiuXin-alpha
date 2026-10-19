@@ -1,16 +1,18 @@
-
 # Top-level structure
 
-Reviewed: **2026-10-19**, against source at `6508d5e0` on `architecture-review-followup`.
-Plugin ownership checked at `78a01b61` on **2026-10-19**, on `plugin-composition-ownership`, following
-documentation PR #124. PR #125 consolidates `customize` into `plugin_system`;
-this follow-up is not yet on `main`.
+Reviewed: **2026-10-19**, against merged source at `a5f77cfd` on
+`configuration-ownership`, including documentation PR #124 and plugin PR #125.
+Naming follow-up: **2026-10-19**, on `rename-plugins-package`; the consolidated
+`plugin_system` package, tests and documentation are renamed to `plugins`.
 
 Status: **Current architecture overview, with remaining migrations identified.**
-The reviewed source includes the writes, category-read and configuration ownership
-changes prepared for integration in PRs #122/#123. A checkout on an earlier branch
-may not contain those changes yet. This guide describes that implementation
-checkpoint, not a claim that every boundary is complete or already on `main`.
+The `main` checkpoint `54789496` includes the writes, category-read and
+configuration ownership changes from PRs #122/#123. The reviewed
+`configuration-ownership` checkpoint additionally includes the documentation
+reorganisation and the complete `customize` merger. This guide uses the final
+`plugins` name from the follow-up above. Those
+later changes are not in that `main` checkpoint. Branch history and implementation
+status are distinct; the remaining architectural work is identified below.
 
 Use this page to understand the major parts and find the owner of a change.
 The [separation-of-concerns guide][responsibilities] defines the policy for new
@@ -69,8 +71,10 @@ remaining exceptions; the diagram does not imply that all old crossings are gone
 
 ## Package responsibilities
 
-Paths below are relative to `src/LiuXin_alpha/`. The table is a quick index;
-each package's section explains its role and points to its detailed contracts.
+Paths below are relative to `src/LiuXin_alpha/`. There are **16 top-level
+packages** at the reviewed checkpoint. The table is a quick index; each package's
+section explains its role and points to its detailed contracts. The Python files
+beside these directories are covered under [root modules](#root-modules).
 
 | Package | Summary |
 | --- | --- |
@@ -85,7 +89,7 @@ each package's section explains its role and points to its detailed contracts.
 | [ingest](#ingest) | Discovery, extraction and acquisition pipelines. |
 | [jobs](#jobs) | Durable task records and execution contracts. |
 | [file_formats](#file_formats) | File formats, containers and conversion. |
-| [plugin_system](#plugin_system) | Plugin contracts, loading and application composition. |
+| [plugins](#plugins) | Plugin mechanics, shared loading policy and application provider composition. |
 | [utils](#utils) | Shared primitives and vendored helpers. |
 | [constants](#constants) | Application constants and compatibility values. |
 | [resources](#resources) | Installed runtime assets and resource lookup. |
@@ -218,25 +222,31 @@ conversion code lives in `file_formats/conversion/`, and standalone plugin
 composition in `file_formats/plugin_runtime.py`. File metadata providers have
 their separate implementation home in `metadata.file_sources`.
 
-### plugin_system
+### plugins
 
-Plugin system owns plugin infrastructure and application assembly in one top-level
-package. `base`, `file_types`, `configuration`, `loading` and `zipplugin` provide
-neutral lifecycle, stream, settings and loading mechanics. `application` selects
-and initializes application providers, manages installed plugins and binds the
-resulting instances into the standalone format runtime. Application families live
-in `contracts`, with bundled providers in `builtins`.
+`plugins` owns generic plugin mechanics and application plugin composition in
+one top-level package. `base`, `file_types`, `configuration`, `loading` and
+`zipplugin` provide lifecycle, file-hook/metadata-stream contracts, persisted
+plugin settings and loading mechanics. These leaves do not select the
+application's providers.
+
+`application` selects and initializes application providers, manages installed
+plugins and binds the resulting instances into the standalone format runtime.
+Application families live in `contracts`, with the application provider catalogue
+in `builtins.registry`. Core retains ownership of the wider application lifecycle.
 
 Importing the package or application API is passive. Explicit startup or the first
 application lookup initializes providers. Dependency and cold-import checks keep
 neutral leaves and standalone format code independent of application assembly,
 including imports between modules within this package.
 
-The `customize` namespace and its forwarding shims are removed. Both hosts share
-file-provider membership and loading/priority rules. Retained cache/folder-driver
-modules and unsupported device providers still need cleanup. Start with the
-[plugin system index](plugin_system/README.md) and the
-[composition guide][plugin-guide] for internal boundaries and import migration.
+The `customize` and `plugin_system` namespaces and their forwarding shims are
+removed. Import generic
+contracts from their owning leaves, such as `plugins.base.Plugin`, rather
+than from the passive package root. Retained cache/folder-driver modules and
+unsupported device providers still need cleanup. Start with the
+[plugin system index][plugin-index] and the [composition guide][plugin-guide]
+for startup policy, internal boundaries and external-plugin import migration.
 
 ### utils
 
@@ -282,6 +292,26 @@ startup hooks need caller and side-effect migration before retirement. Their
 presence does not establish that modern configuration or resource ownership
 should be implemented here.
 
+## Root modules
+
+Several supporting modules live directly under `LiuXin_alpha` alongside the
+package directories. They have narrower responsibilities than the application
+packages above.
+
+`configuration.py` owns immutable configuration paths and the selected settings
+context. `configuration_defaults.py` declares the application defaults;
+`preferences.py` implements the application store and its lazy view. Core selects
+and supplies that store. `plugins.configuration` separately owns persisted
+plugin settings within the component configuration namespace. See
+[configuration ownership][configuration-guide] for selection, persistence and
+worker propagation.
+
+`errors.py` contains shared exception definitions, but the project still has
+separate domain exception families; its presence does not mean the error hierarchy
+has been consolidated. `_version.py` supplies version information. The root
+`__init__.py` is passive and does not assemble services or re-export the concrete
+Catalog, Library or plugin APIs.
+
 ## Composition and lifecycle
 
 Core owns startup and shutdown for the application resources it creates. The
@@ -312,7 +342,7 @@ work. See the [lifecycle review][lifecycle-review] for the opening-path decision
 
 ### Configuration
 
-In the reviewed implementation, Core selects the deployment/profile and resolves
+Core selects the deployment/profile and resolves
 application settings before opening the local resource graph. `core/settings.py`
 owns selection; `ConfigurationPaths` fixes the application and component paths;
 the lazy application Preferences view provides one application settings store.
@@ -322,8 +352,8 @@ component configuration namespaces retain their separate purposes.
 Surfaces pass the selected settings into Core; a remote client does not redirect
 the server's preference files. Managed workers receive the selected configuration,
 but that propagation does not consolidate their job lifecycles. The detailed
-`configuration-ownership.md` contract accompanies this implementation checkpoint;
-older checkouts predating the configuration change will not contain it.
+[configuration contract][configuration-guide] describes precedence, lazy loading,
+worker propagation and the separate database/component settings domains.
 
 ## Metadata writes and reads
 
@@ -430,24 +460,42 @@ not prove that every low-level deletion route is safe.
 
 ## Formats and plugin composition
 
-Plugin contracts, plugin implementations and application composition have
-different owners:
+Plugin mechanics and application plugin composition share `plugins`;
+format and metadata implementations retain their domain owners:
 
-- `plugin_system` contains neutral plugin mechanics and application assembly.
+- `plugins` contains neutral plugin mechanics and application assembly.
   Its package import does not discover providers or start application services.
 - `file_formats` owns conversion input/output contracts, implementations and a
   native runtime for standalone format use. `metadata.file_sources` owns file
   metadata readers and writers.
-- `plugin_system.application` explicitly composes application plugins and binds
+- `plugins.application` explicitly composes application plugins and binds
   their instances into the format runtime. Neutral plugin modules and standalone
   format modules cannot import this owner or its application provider families.
 
+Standalone file operations initialize their providers on first use through
+`file_formats.plugin_defaults` and the shared loader. Application startup extends
+that same file-provider catalogue with application families, initializes the
+providers and binds its instances into `file_formats.plugin_runtime`. Subsequent
+file operations use those bound instances. This keeps provider selection and
+execution available to standalone consumers without importing the application
+host.
+
+Both startup paths use stable descending priority, with installed providers first
+at equal priority. A shared startup lock prevents duplicate first initialization;
+an interrupted refresh restores the previous registry binding. Registry state is
+still process-wide, and this startup contract does not make concurrent conversions
+or arbitrary provider initialization side effects transactional.
+
 Format implementations must not reach back into Core, Library, persistence or
-application registry assembly. Shared loading enforces stable descending priority;
-the application extends the standalone file-provider catalogue. Cold-import and
-dependency checks enforce these boundaries. Unsupported providers and some
-acquisition composition still need work. Keep format behaviour in the [format dossiers][format-guide]
-and shared composition rules in the [plugin guide][plugin-guide].
+application registry assembly. Cold-import and dependency checks enforce the
+internal boundary even when modules share the `plugins` package. Database,
+storage and terminal registries remain separate domain owners; the package merger
+does not consolidate jobs or ingest coordination. Unsupported providers and
+retained plugin interfaces still need follow-up.
+
+Keep format behaviour in the [format dossiers][format-guide] and shared composition
+rules in the [plugin guide][plugin-guide]. External plugins that imported
+`customize` must follow its migration table; no compatibility namespace remains.
 
 ## Where a new change belongs
 
@@ -459,6 +507,7 @@ and shared composition rules in the [plugin guide][plugin-guide].
 | Move, verify, retain or recover bytes and replicas | `storage` |
 | Coordinate Catalog and storage in a library operation | The Library/application workflow owner; Core exposes and composes it |
 | Change deployment selection, owned resources or public operations | `core` |
+| Change plugin loading, priority, installation or application provider selection | `plugins`, preserving its internal foundation/application boundary |
 | Discover/extract candidates or coordinate durable execution | `ingest` or `jobs`, with the domain action delegated to its owner |
 | Add a parser, format converter or provider | The relevant format/metadata implementation, registered by its composition owner |
 | Parse interface input, render results or frame delivery | `surfaces` |
@@ -480,6 +529,7 @@ enforced scopes, not a claim of universal architectural correctness.
 [layer-rules]: architectural_reviews/layer-direction-ratchet.md
 [import-checks]: architectural_reviews/import-footprint-ratchet.md
 [core-api]: core/core-api.md
+[configuration-guide]: core/configuration-ownership.md
 [catalog-api]: catalog/catalog-api-usage.md
 [write-contract]: catalog/catalog-write-validation-contract.md
 [matching-policy]: catalog/catalog-matching-policy.md
@@ -492,7 +542,8 @@ enforced scopes, not a claim of universal architectural correctness.
 [terminal-composition]: surfaces/terminal-composition.md
 [ingest-guide]: storage_and_backup/mixed_ingest_operations.md
 [format-guide]: file_formats/README.md
-[plugin-guide]: plugin_system/plugin-composition.md
+[plugin-index]: plugins/README.md
+[plugin-guide]: plugins/plugin-composition.md
 [packaging]: hacking/packaging.md
 [library-services]: ../src/LiuXin_alpha/core/library_services.py
 [core-factory]: ../src/LiuXin_alpha/core/factory.py

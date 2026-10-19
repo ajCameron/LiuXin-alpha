@@ -7,7 +7,7 @@ for callers.
 Example:
     Exercise on import through a consuming regression::
 
-        python -m pytest -q tests/plugin_system/test_plugin_base.py
+        python -m pytest -q tests/plugins/test_plugin_base.py
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ import glob
 
 from typing import Type
 
-from LiuXin_alpha.plugin_system.file_types import FileTypePlugin
+from LiuXin_alpha.plugins.file_types import FileTypePlugin
 from LiuXin_alpha.constants import CALIBRE_NUMERIC_VERSION as numeric_version
 
 from LiuXin_alpha.utils.mine_types import guess_type
@@ -46,7 +46,7 @@ else:
         Example:
             Exercise PML2PMLZ through a consuming regression::
 
-                python -m pytest -q tests/plugin_system/test_plugin_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
 
         name = "PML to PMLZ"
@@ -69,7 +69,7 @@ else:
             Example:
                 Exercise PML2PMLZ.run through a consuming regression::
 
-                    python -m pytest -q tests/plugin_system/test_plugin_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param pmlfile: Value supplied for pmlfile under the utility contract.
@@ -128,7 +128,7 @@ else:
         Example:
             Exercise TXT2TXTZ through a consuming regression::
 
-                python -m pytest -q tests/plugin_system/test_plugin_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
 
         name = "TXT to TXTZ"
@@ -151,7 +151,7 @@ else:
             Example:
                 Exercise TXT2TXTZ. get image references through a consuming regression::
 
-                    python -m pytest -q tests/plugin_system/test_plugin_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param txt: Value supplied for txt under the utility contract.
@@ -222,7 +222,7 @@ else:
             Example:
                 Exercise TXT2TXTZ.run through a consuming regression::
 
-                    python -m pytest -q tests/plugin_system/test_plugin_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param path_to_ebook: Value supplied for path to ebook under the utility contract.
@@ -279,7 +279,7 @@ def get_file_type_plugins() -> _typing.Any:
     Example:
         Exercise get file type plugins through a consuming regression::
 
-            python -m pytest -q tests/plugin_system/test_plugin_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection

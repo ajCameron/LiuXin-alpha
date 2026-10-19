@@ -12,7 +12,7 @@ several kinds of material; their authority differs.
 - [Quality gates](maintainability-quality-gates.md): current scopes and commands.
 - [Layer direction](layer-direction-ratchet.md): allowed directions and reviewed debt.
 - [Import footprint](import-footprint-ratchet.md): runtime import boundaries.
-- [Plugin composition](../plugin_system/plugin-composition.md): unified package,
+- [Plugin composition](../plugins/plugin-composition.md): unified package,
   passive startup, shared loading policy and retired-namespace migration.
 
 ## Dated findings

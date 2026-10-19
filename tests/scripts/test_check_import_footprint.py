@@ -21,17 +21,17 @@ def test_plugin_namespace_boundaries_are_budgeted() -> None:
 
     modules = {budget.module for budget in IMPORT_BUDGETS}
 
-    assert "LiuXin_alpha.plugin_system.contracts" in modules
-    assert "LiuXin_alpha.plugin_system.builtins" in modules
-    assert "LiuXin_alpha.plugin_system.application" in modules
-    assert "LiuXin_alpha.plugin_system.loading" in modules
+    assert "LiuXin_alpha.plugins.contracts" in modules
+    assert "LiuXin_alpha.plugins.builtins" in modules
+    assert "LiuXin_alpha.plugins.application" in modules
+    assert "LiuXin_alpha.plugins.loading" in modules
 
 
 def test_plugin_contract_boundaries_are_budgeted() -> None:
     """Keep reusable plugin contracts below composition and application domains."""
     budgets = {budget.module: budget for budget in IMPORT_BUDGETS}
 
-    generic_budget = budgets["LiuXin_alpha.plugin_system.base"]
+    generic_budget = budgets["LiuXin_alpha.plugins.base"]
     conversion_budget = budgets["LiuXin_alpha.file_formats.conversion.plugin"]
 
     assert "customize" in generic_budget.forbidden_domains
@@ -56,8 +56,8 @@ def test_standalone_file_plugin_boundaries_are_budgeted() -> None:
     """Loading the runtime or its contracts cannot assemble application services."""
     budgets = {budget.module: budget for budget in IMPORT_BUDGETS}
     for module in (
-        "plugin_system.file_types",
-        "plugin_system.configuration",
+        "plugins.file_types",
+        "plugins.configuration",
         "file_formats.conversion.profiles",
         "file_formats.plugin_runtime",
         "file_formats.rendering",
@@ -112,17 +112,17 @@ def test_forbidden_domain_fails_below_numerical_budget() -> None:
 
 
 def test_same_package_application_imports_are_rejected_below_count_budget() -> None:
-    """A package merger must not hide host imports behind the plugin_system prefix."""
+    """A package merger must not hide host imports behind the plugins prefix."""
     budgets = {budget.module: budget for budget in IMPORT_BUDGETS}
     budget = budgets["LiuXin_alpha.file_formats.plugin_runtime"]
     report = {
         "module": budget.module,
         "project_modules": [
             budget.module,
-            "LiuXin_alpha.plugin_system.builtins.registry",
+            "LiuXin_alpha.plugins.builtins.registry",
         ],
     }
     errors = check_report(budget, report)
     assert len(errors) == 1
     assert "loaded forbidden modules" in errors[0]
-    assert "plugin_system.builtins.registry" in errors[0]
+    assert "plugins.builtins.registry" in errors[0]

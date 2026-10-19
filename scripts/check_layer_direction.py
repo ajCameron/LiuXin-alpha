@@ -42,7 +42,7 @@ RUNTIME_KINDS = (ImportKind.IMPORT_TIME, ImportKind.DEFERRED)
 # Application families may depend on domain providers. Every other plugin module,
 # including future additions, remains a neutral foundation unless reviewed here.
 PLUGIN_HOST_PREFIXES = tuple(
-    f"{PACKAGE_ROOT}.plugin_system.{name}"
+    f"{PACKAGE_ROOT}.plugins.{name}"
     for name in (
         "application",
         "contracts",
@@ -85,7 +85,7 @@ FORBIDDEN_TARGETS: Mapping[str, frozenset[str]] = {
             "surfaces",
         }
     ),
-    "plugin_system": frozenset({"core", "ingest", "jobs", "storage", "surfaces"}),
+    "plugins": frozenset({"core", "ingest", "jobs", "storage", "surfaces"}),
     "metadata": frozenset(
         {"caches", "catalog", "core", "databases", "library", "storage", "surfaces"}
     ),
@@ -147,11 +147,11 @@ def plugin_direction_reason(edge: ImportEdge) -> str | None:
     source = _package(edge.source)
     if source == "file_formats" and _plugin_host(edge.target):
         return "file_formats must not depend on application plugin modules"
-    if source == "plugin_system" and not _plugin_host(edge.source):
+    if source == "plugins" and not _plugin_host(edge.source):
         if _plugin_host(edge.target):
             return "plugin foundations must not depend on application plugin modules"
         if _package(edge.target) in PLUGIN_FOUNDATION_FORBIDDEN_DOMAINS:
-            return f"plugin_system must not depend on {_package(edge.target)}"
+            return f"plugins must not depend on {_package(edge.target)}"
     return None
 
 

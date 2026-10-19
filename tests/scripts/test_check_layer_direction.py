@@ -33,7 +33,7 @@ def test_repository_matches_reviewed_layer_baseline() -> None:
 @pytest.mark.parametrize("context", tuple(ImportKind))
 @pytest.mark.parametrize(
     "source",
-    ("file_formats.owner", "plugin_system.loading", "plugin_system.future_module"),
+    ("file_formats.owner", "plugins.loading", "plugins.future_module"),
 )
 @pytest.mark.parametrize("target", PLUGIN_HOST_PREFIXES)
 def test_plugin_package_merge_preserves_internal_layer_direction(
@@ -56,7 +56,7 @@ def test_plugin_package_merge_preserves_internal_layer_direction(
 
 
 @pytest.mark.parametrize("context", tuple(ImportKind))
-@pytest.mark.parametrize("source", ("metadata", "file_formats", "plugin_system"))
+@pytest.mark.parametrize("source", ("metadata", "file_formats", "plugins"))
 def test_new_backward_edge_fails_with_context(
     tmp_path: Path, context: ImportKind, source: str
 ) -> None:

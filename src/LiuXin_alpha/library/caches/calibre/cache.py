@@ -166,7 +166,7 @@ from collections import defaultdict
 
 from typing import Any, TypeVar, Optional
 
-from LiuXin_alpha.plugin_system.cache import BaseCache
+from LiuXin_alpha.plugins.cache import BaseCache
 
 from LiuXin_alpha.library.caches.utils import read_api, write_api
 from LiuXin_alpha.catalog.search import Search
@@ -4630,7 +4630,7 @@ class CalibreCache(BaseCalibreCache):
         :return: None; the operation mutates state, writes output or performs cleanup in
             place.
         """
-        from LiuXin_alpha.plugin_system.application import available_library_closed_plugins
+        from LiuXin_alpha.plugins.application import available_library_closed_plugins
 
         for plugin in available_library_closed_plugins():
             try:

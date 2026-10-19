@@ -38,7 +38,7 @@ SEPARATION_OF_CONCERNS_PACKAGE_ROOTS = (
     "jobs",
     "library",
     "metadata",
-    "plugin_system",
+    "plugins",
     "storage",
     "surfaces",
 )
