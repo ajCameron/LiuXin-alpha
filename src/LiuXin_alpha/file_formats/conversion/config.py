@@ -22,7 +22,7 @@ import os
 from LiuXin_alpha.file_formats.conversion.plugin import OptionRecommendation
 
 from LiuXin_alpha.utils.calibre import sanitize_file_name
-from LiuXin_alpha.utils.config.config_tools import config_dir
+from LiuXin_alpha.configuration import configuration_paths
 from LiuXin_alpha.utils.lock import ExclusiveFile
 
 __license__ = "GPL v3"
@@ -30,9 +30,6 @@ __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 
-config_dir = os.path.join(config_dir, "conversion")
-if not os.path.exists(config_dir):
-    os.makedirs(config_dir)
 
 
 def name_to_path(name: _typing.Any) -> _typing.Any:
@@ -49,7 +46,7 @@ def name_to_path(name: _typing.Any) -> _typing.Any:
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
-    return os.path.join(config_dir, sanitize_file_name(name) + ".py")
+    return str(configuration_paths().components / "conversion" / (sanitize_file_name(name) + ".py"))
 
 
 def save_defaults(name: _typing.Any, recs: _typing.Any) -> None:
@@ -69,6 +66,7 @@ def save_defaults(name: _typing.Any, recs: _typing.Any) -> None:
     """
     path = name_to_path(name)
     raw = str(recs)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "wb"):
         pass
     with ExclusiveFile(path) as f:
@@ -91,7 +89,7 @@ def load_defaults(name: _typing.Any) -> _typing.Any:
     """
     path = name_to_path(name)
     if not os.path.exists(path):
-        open(path, "wb").close()
+        return GuiRecommendations()
     with ExclusiveFile(path) as f:
         raw = f.read()
     r = GuiRecommendations()

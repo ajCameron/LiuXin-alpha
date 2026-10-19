@@ -37,7 +37,8 @@ def test_plugin_contract_boundaries_are_budgeted() -> None:
     assert "customize" in conversion_budget.forbidden_domains
     assert "file_formats" not in conversion_budget.forbidden_domains
     assert generic_budget.max_project_modules == 30
-    assert conversion_budget.max_project_modules == 30
+    # Conversion configuration also imports the shared, resource-free path owner.
+    assert conversion_budget.max_project_modules == 31
 
 
 def test_metadata_utility_boundary_is_budgeted() -> None:

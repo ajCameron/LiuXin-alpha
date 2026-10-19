@@ -11,6 +11,11 @@ import pathlib
 from collections.abc import Mapping
 from typing import Any
 
+from LiuXin_alpha.configuration import (
+    ConfigurationPaths,
+    current_preferences,
+    use_preferences,
+)
 from LiuXin_alpha.core.api import CoreClientAPI
 from LiuXin_alpha.core.proxies.remote import RemoteCoreClient
 from LiuXin_alpha.core.runtime import CoreRuntime
@@ -42,6 +47,7 @@ def create_core(
     job_manager: Any | None = None,
     close_job_manager_on_shutdown: bool | None = None,
     preferences: Any | None = None,
+    configuration_paths: ConfigurationPaths | None = None,
     library_preferences: Any | None = None,
     field_metadata: Any | None = None,
     maintenance: Any | None = None,
@@ -88,13 +94,23 @@ def create_core(
     :param api_version: Advertised command/query contract version, converted to text.
     :param job_manager: Optional job manager; omission uses the shared process-default manager.
     :param close_job_manager_on_shutdown: Explicit manager-close policy; ``None`` currently defaults to false.
-    :param preferences: Optional global preference service injected into CoreServices.
+    :param preferences: Optional application store passed to database construction and CoreServices.
+    :param configuration_paths: Fixed application/component paths; exclusive with an injected store. Settings are loaded before opening database/storage resources.
     :param library_preferences: Optional per-library preference service injected into CoreServices.
     :param field_metadata: Optional field-description service injected into CoreServices.
     :param maintenance: Optional maintenance facade injected independently of database-construction flags.
     :return: Initialized in-process runtime with named handlers registered and no HTTP server started.
     :raises ValueError: For conflicting/missing construction inputs or incompatible cache-selection arguments.
     """
+
+    if configuration_paths is not None:
+        if preferences is not None:
+            raise ValueError("Provide preferences or configuration_paths, not both.")
+        from LiuXin_alpha.preferences import Preferences
+
+        preferences = Preferences(paths=configuration_paths, upgrade_on_load=False)
+    if preferences is None and library is None and database is None:
+        preferences = current_preferences()
 
     supplied_library = library is not None
     if supplied_library and (database is not None or database_path is not None):
@@ -103,29 +119,30 @@ def create_core(
     if library is None:
         from LiuXin_alpha.core.library_services import LibraryServices
 
-        library_services = LibraryServices.open(
-            database=database,
-            database_path=database_path,
-            db_type=db_type,
-            database_metadata=database_metadata,
-            create=create,
-            backup=backup,
-            enable_storage_manager=enable_storage_manager,
-            strict_storage_manager_bootstrap=strict_storage_manager_bootstrap,
-            storage_startup_on_add=storage_startup_on_add,
-            enable_maintenance=enable_maintenance,
-            repair_bootstrap_rows=repair_bootstrap_rows,
-            catalog=catalog,
-            cache=cache,
-            cache_type=cache_type,
-            cache_kwargs=cache_kwargs,
-            read_source=read_source,
-            cache_allow_database_fallback=cache_allow_database_fallback,
-            preferences=preferences,
-            library_preferences=library_preferences,
-            field_metadata=field_metadata,
-            maintenance=maintenance,
-        )
+        with use_preferences(preferences):
+            library_services = LibraryServices.open(
+                database=database,
+                database_path=database_path,
+                db_type=db_type,
+                database_metadata=database_metadata,
+                create=create,
+                backup=backup,
+                enable_storage_manager=enable_storage_manager,
+                strict_storage_manager_bootstrap=strict_storage_manager_bootstrap,
+                storage_startup_on_add=storage_startup_on_add,
+                enable_maintenance=enable_maintenance,
+                repair_bootstrap_rows=repair_bootstrap_rows,
+                catalog=catalog,
+                cache=cache,
+                cache_type=cache_type,
+                cache_kwargs=cache_kwargs,
+                read_source=read_source,
+                cache_allow_database_fallback=cache_allow_database_fallback,
+                preferences=preferences,
+                library_preferences=library_preferences,
+                field_metadata=field_metadata,
+                maintenance=maintenance,
+            )
         library = library_services.library
     try:
         return CoreRuntime(

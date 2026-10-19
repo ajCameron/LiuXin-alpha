@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal, overload
 
+from LiuXin_alpha.configuration import ConfigurationPaths
 from LiuXin_alpha.core import CoreClientAPI, core_client, create_core
 
 
@@ -193,6 +194,7 @@ class SurfaceCoreSession:
         endpoint: str | None = None,
         db_type: str = "SQLite",
         database_metadata: Mapping[str, Any] | None = None,
+        configuration_paths: ConfigurationPaths | None = None,
         create: bool = False,
         backup: bool = False,
         cache_type: str | None = None,
@@ -226,6 +228,7 @@ class SurfaceCoreSession:
         :param endpoint: HTTP(S) Core base URL; selects a non-owned remote client.
         :param db_type: Driver selector for local construction, forwarded as text.
         :param database_metadata: Optional local database connection metadata passed to the factory.
+        :param configuration_paths: Core-resolved local settings paths; remote preferences remain server-owned.
         :param create: Whether local database opening requests creation, converted to bool.
         :param backup: Whether local database opening requests driver backup behavior, converted to bool.
         :param cache_type: Optional implementation selector for a locally composed cache.
@@ -268,6 +271,7 @@ class SurfaceCoreSession:
             ),
             db_type=str(db_type),
             database_metadata=database_metadata,
+            configuration_paths=configuration_paths,
             create=bool(create),
             backup=bool(backup),
             cache_type=cache_type,
@@ -2353,7 +2357,7 @@ def open_surface_core_from_args(
     :return: Session configured from resolved arguments, owning a runtime only for local composition.
     :raises ValueError: If no usable connection is selected, selectors conflict, or configuration conversion fails.
     """
-    from LiuXin_alpha.surfaces.system_profile import apply_system_profile
+    from LiuXin_alpha.core.settings import apply_system_profile
 
     apply_system_profile(args)
     return SurfaceCoreSession.open(
@@ -2361,6 +2365,7 @@ def open_surface_core_from_args(
         endpoint=getattr(args, "core_endpoint", None),
         db_type=str(getattr(args, "db_type", "SQLite")),
         database_metadata=getattr(args, "database_metadata", None),
+        configuration_paths=getattr(args, "configuration_paths", None),
         create=create,
         backup=backup,
         cache_type=cache_type,

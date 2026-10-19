@@ -19,6 +19,10 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 import sys
 import codecs
 import logging
+import threading
+from contextvars import ContextVar
+
+from LiuXin_alpha.configuration import current_preferences
 
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
@@ -67,13 +71,48 @@ except ImportError:
 
 from LiuXin_alpha.utils.config.config_base import tweaks
 
-try:
-    tweaks["locale_for_sorting"]
-except KeyError:
-    logger.info("tweaks did not include 'locale_for_sorting'; adding default None value")
-    tweaks["locale_for_sorting"] = None
+# Selection is lazy. Per-thread collators are keyed by effective settings, so
+# importing this module neither reads settings nor fixes a process-wide locale.
+_collator_cache = threading.local()
+_locale_override = ContextVar("liuxin_icu_locale", default=None)
 
-_locale = _collator = _primary_collator = _sort_collator = _numeric_collator = _case_sensitive_collator = None
+
+def _selected_locale():
+    from LiuXin_alpha.utils.localization import get_lang
+
+    store = current_preferences()
+    override = _locale_override.get()
+    if override is not None and override[0] is store and override[1] is not None:
+        return override[1]
+    return tweaks.get("locale_for_sorting") or get_lang()
+
+
+def _configured_collator(kind):
+    locale = _selected_locale()
+    numeric = bool(tweaks.get("numeric_collation", True))
+    key = (locale, kind, numeric)
+    cache = getattr(_collator_cache, "values", None)
+    if cache is None:
+        cache = _collator_cache.values = {}
+    if key not in cache:
+        try:
+            result = _icu.Collator(locale)
+        except Exception as error:
+            logger.warning("Failed to load collator for locale %r (%r); using English", locale, error)
+            result = _icu.Collator("en")
+        if kind == "primary":
+            result.strength = _icu.UCOL_PRIMARY
+        elif kind in {"sort", "numeric"}:
+            result.strength = _icu.UCOL_SECONDARY
+        if kind in {"sort", "case_sensitive"}:
+            result.numeric = numeric
+        elif kind == "numeric":
+            result.numeric = True
+        if kind == "case_sensitive":
+            result.upper_first = True
+        cache[key] = result
+    return cache[key]
+
 
 _none = ""
 _none2 = b""
@@ -129,26 +168,12 @@ def collator():
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
-    global _collator, _locale
-    if _collator is None:
-        if _locale is None:
-            from LiuXin_alpha.utils.localization import get_lang
-
-            if tweaks["locale_for_sorting"]:
-                _locale = tweaks["locale_for_sorting"]
-            else:
-                _locale = get_lang()
-        try:
-            _collator = _icu.Collator(_locale)
-        except Exception as e:
-            logger.warning("Failed to load collator for locale %r (%r); using English", _locale, e)
-            _collator = _icu.Collator("en")
-    return _collator
+    return _configured_collator('base')
 
 
 def change_locale(locale=None):
     """
-    Perform the change locale utility operation under explicit compatibility rules.
+    Override the locale for this context and preference store without persisting it.
 
     Example:
         Exercise change locale through a consuming regression::
@@ -160,9 +185,8 @@ def change_locale(locale=None):
     :return: None; the operation mutates state, writes output or performs cleanup in
         place.
     """
-    global _locale, _collator, _primary_collator, _sort_collator, _numeric_collator, _case_sensitive_collator
-    _collator = _primary_collator = _sort_collator = _numeric_collator = _case_sensitive_collator = None
-    _locale = locale
+    _locale_override.set((current_preferences(), locale))
+    _collator_cache.values = {}
 
 
 def primary_collator():
@@ -178,11 +202,7 @@ def primary_collator():
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
-    global _primary_collator
-    if _primary_collator is None:
-        _primary_collator = collator().clone()
-        _primary_collator.strength = _icu.UCOL_PRIMARY
-    return _primary_collator
+    return _configured_collator('primary')
 
 
 def sort_collator():
@@ -198,16 +218,7 @@ def sort_collator():
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
-    global _sort_collator
-    if _sort_collator is None:
-        _sort_collator = collator().clone()
-        _sort_collator.strength = _icu.UCOL_SECONDARY
-        try:
-            _sort_collator.numeric = tweaks["numeric_collation"]
-        except KeyError:
-            logger.warning("numeric_collation not found in tweaks; setting to True and continuing")
-            _sort_collator.numeric = True
-    return _sort_collator
+    return _configured_collator('sort')
 
 
 def numeric_collator():
@@ -223,12 +234,7 @@ def numeric_collator():
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
-    global _numeric_collator
-    if _numeric_collator is None:
-        _numeric_collator = collator().clone()
-        _numeric_collator.strength = _icu.UCOL_SECONDARY
-        _numeric_collator.numeric = True
-    return _numeric_collator
+    return _configured_collator('numeric')
 
 
 def case_sensitive_collator():
@@ -244,12 +250,7 @@ def case_sensitive_collator():
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
-    global _case_sensitive_collator
-    if _case_sensitive_collator is None:
-        _case_sensitive_collator = collator().clone()
-        _case_sensitive_collator.numeric = sort_collator().numeric
-        _case_sensitive_collator.upper_first = True
-    return _case_sensitive_collator
+    return _configured_collator('case_sensitive')
 
 
 # Templates that will be used to generate various concrete
@@ -261,7 +262,7 @@ _sort_key_template = """
 def {name}(obj):
     try:
         try:
-            return {collator}.{func}(obj)
+            return {collator_func}().{func}(obj)
         except AttributeError:
             return {collator_func}().{func}(obj)
     except TypeError:
@@ -270,7 +271,7 @@ def {name}(obj):
                 obj = obj.decode(sys.getdefaultencoding())
             except ValueError:
                 return obj
-            return {collator}.{func}(obj)
+            return {collator_func}().{func}(obj)
     return b''
 """
 
@@ -278,7 +279,7 @@ _strcmp_template = """
 def {name}(a, b):
     try:
         try:
-            return {collator}.{func}(a, b)
+            return {collator_func}().{func}(a, b)
         except AttributeError:
             return {collator_func}().{func}(a, b)
     except TypeError:
@@ -296,24 +297,24 @@ def {name}(a, b):
                 return cmp(a, b)
         elif b is None:
             b = u''
-        return {collator}.{func}(a, b)
+        return {collator_func}().{func}(a, b)
 """
 
 _change_case_template = """
 def {name}(x):
     try:
         try:
-            return _icu.change_case(x, _icu.{which}, _locale)
+            return _icu.change_case(x, _icu.{which}, _selected_locale())
         except NotImplementedError:
-            collator()  # sets _locale
-            return _icu.change_case(x, _icu.{which}, _locale)
+            collator()  # initializes the selected locale
+            return _icu.change_case(x, _icu.{which}, _selected_locale())
     except TypeError:
         if isinstance(x, bytes):
             try:
                 x = x.decode(sys.getdefaultencoding())
             except ValueError:
                 return x
-            return _icu.change_case(x, _icu.{which}, _locale)
+            return _icu.change_case(x, _icu.{which}, _selected_locale())
         raise
 """
 
@@ -564,10 +565,8 @@ def contractions(col=None):
         described above.
     """
     global _cmap
-    col = col or _collator
-    if col is None:
-        col = collator()
-    ans = _cmap.get(collator, None)
+    col = col if col is not None else collator()
+    ans = _cmap.get(col, None)
     if ans is None:
         ans = col.contractions()
         ans = frozenset(filter(None, ans))

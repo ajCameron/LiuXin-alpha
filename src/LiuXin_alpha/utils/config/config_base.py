@@ -4,8 +4,11 @@
 """
 Store typed configuration options with defaults, persistence and explicit change tracking.
 
-The module keeps compatibility policy, normalization and resource ownership explicit
-for callers.
+Config/ConfigProxy remain serializers for independent component option sets.
+The public prefs and tweaks names share the selected application Preferences;
+they have no cache or persistence file of their own. Raw tweak helpers explicitly
+read/write literal assignment files; changing such an input requires refreshing
+the application store and remains below saved INI values in precedence.
 
 Example:
     Exercise config base through a consuming regression::
@@ -22,19 +25,16 @@ import numbers
 import os
 import re
 import sys
-import threading
-import traceback
 from collections import defaultdict
-from collections.abc import Iterator, MutableMapping
 from contextlib import suppress
 from copy import deepcopy
 from functools import partial
 
-from LiuXin_alpha.constants.paths import CONFIG_DIR_MODE, config_dir
+from LiuXin_alpha.constants.paths import CONFIG_DIR_MODE, config_dir as config_dir
+from LiuXin_alpha.configuration import configuration_paths, preferences as prefs
 from LiuXin_alpha.constants.paths import LiuXin_calibre_plugins_store
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.resources import P
-from LiuXin_alpha.utils.logging import LiuXin_warning_print
 
 
 __license__ = "GPL v3"
@@ -114,7 +114,7 @@ def make_config_dir() -> None:
     :return: None; the operation mutates state, writes output or performs cleanup in
         place.
     """
-    os.makedirs(config_dir, exist_ok=True, mode=CONFIG_DIR_MODE)
+    os.makedirs(configuration_paths().components, exist_ok=True, mode=CONFIG_DIR_MODE)
     os.makedirs(plugin_dir, exist_ok=True, mode=CONFIG_DIR_MODE)
 
 
@@ -1064,7 +1064,7 @@ class Config(ConfigInterface):
             python -m pytest -q tests/utils/config/test_config_base.py
     """
 
-    def __init__(self, basename: str, description: str = "") -> None:
+    def __init__(self, basename: str, description: str = "", *, base_path: str | None = None) -> None:
         """
         Initialize and validate the Config state.
 
@@ -1080,6 +1080,7 @@ class Config(ConfigInterface):
         """
         ConfigInterface.__init__(self, description)
         self.filename_base = basename
+        self.base_path = base_path if base_path is not None else str(configuration_paths().components)
 
     @property
     def config_file_path(self) -> str:
@@ -1095,7 +1096,7 @@ class Config(ConfigInterface):
         :return: The normalized value, metadata record, path, stream result or collection
             described above.
         """
-        return os.path.join(config_dir, self.filename_base + ".py.json")
+        return os.path.join(self.base_path, self.filename_base + ".py.json")
 
     def parse(self):
         """
@@ -1156,8 +1157,7 @@ class Config(ConfigInterface):
         """
         if not self.option_set.has_option(name):
             raise ValueError("The option %s is not defined." % name)
-        if not os.path.exists(config_dir):
-            make_config_dir()
+        os.makedirs(self.base_path, exist_ok=True, mode=CONFIG_DIR_MODE)
 
         src: bytes | str = b""
         with suppress(FileNotFoundError):
@@ -1425,162 +1425,10 @@ class ConfigProxy(object):
         """
         return self.__config.get_option(key).help
 
-def _prefs():
-    """
-    Perform the prefs utility operation under explicit compatibility rules.
-
-    Example:
-        Exercise  prefs through a consuming regression::
-
-            python -m pytest -q tests/utils/config/test_config_base.py
 
 
-    :return: The normalized value, metadata record, path, stream result or collection
-        described above.
-    """
-    c = Config("global", "calibre wide preferences")
-    c.add_opt(
-        "database_path",
-        default=os.path.expanduser("~/library1.db"),
-        help=_("Path to the database in which books are stored"),
-    )
-    c.add_opt(
-        "filename_pattern",
-        default=r"(?P<title>.+) - (?P<author>[^_]+)",
-        help=_("Pattern to guess metadata from filenames"),
-    )
-    c.add_opt("isbndb_com_key", default="", help=_("Access key for isbndb.com"))
-    c.add_opt(
-        "network_timeout",
-        default=5,
-        help=_("Default timeout for network operations (seconds)"),
-    )
-    c.add_opt(
-        "library_path",
-        default=None,
-        help=_("Path to directory in which your library of books is stored"),
-    )
-    c.add_opt(
-        "language",
-        default=None,
-        help=_("The language in which to display the user interface"),
-    )
-    c.add_opt(
-        "output_format",
-        default="EPUB",
-        help=_("The default output format for ebook conversions."),
-    )
-    c.add_opt(
-        "input_format_order",
-        default=[
-            "EPUB",
-            "AZW3",
-            "MOBI",
-            "LIT",
-            "PRC",
-            "FB2",
-            "HTML",
-            "HTM",
-            "XHTM",
-            "SHTML",
-            "XHTML",
-            "ZIP",
-            "ODT",
-            "RTF",
-            "PDF",
-            "TXT",
-        ],
-        help=_("Ordered list of formats to prefer for input."),
-    )
-    c.add_opt("read_file_metadata", default=True, help=_("Read metadata from files"))
-    c.add_opt(
-        "worker_process_priority",
-        default="normal",
-        help=_(
-            "The priority of worker processes. A higher priority "
-            "means they run faster and consume more resources. "
-            "Most tasks like conversion/news download/adding books/etc. "
-            "are affected by this setting."
-        ),
-    )
-    c.add_opt(
-        "swap_author_names",
-        default=False,
-        help=_("Swap author first and last names when reading metadata"),
-    )
-    c.add_opt(
-        "add_formats_to_existing",
-        default=False,
-        help=_("Add new formats to existing book records"),
-    )
-    c.add_opt(
-        "check_for_dupes_on_ctl",
-        default=False,
-        help=_("Check for duplicates when copying to another library"),
-    )
-    c.add_opt("installation_uuid", default=None, help="Installation UUID")
-    c.add_opt(
-        "new_book_tags",
-        default=[],
-        help=_("Tags to apply to books added to the library"),
-    )
-    c.add_opt(
-        "mark_new_books",
-        default=False,
-        help=_(
-            "Mark newly added books. The mark is a temporary mark that is automatically removed when calibre is restarted."
-        ),
-    )
-
-    # these are here instead of the gui preferences because calibredb and
-    # calibre reader_server can execute searches
-    c.add_opt("saved_searches", default={}, help=_("List of named saved searches"))
-    c.add_opt("user_categories", default={}, help=_("User-created tag browser categories"))
-    c.add_opt(
-        "manage_device_metadata",
-        default="manual",
-        help=_("How and when calibre updates metadata on the device."),
-    )
-    c.add_opt(
-        "limit_search_columns",
-        default=False,
-        help=_(
-            "When searching for text without using lookup "
-            "prefixes, as for example, Red instead of title:Red, "
-            "limit the columns searched to those named below."
-        ),
-    )
-    c.add_opt(
-        "limit_search_columns_to",
-        default=["title", "authors", "tags", "series", "publisher"],
-        help=_(
-            "Choose columns to be searched when not using prefixes, "
-            "as for example, when searching for Red instead of "
-            "title:Red. Enter a list of search/lookup names "
-            "separated by commas. Only takes effect if you set the option "
-            "to limit search columns above."
-        ),
-    )
-    c.add_opt(
-        "use_primary_find_in_search",
-        default=True,
-        help=_(
-            "Characters typed in the search box will match their "
-            "accented versions, based on the language you have chosen "
-            "for the calibre interface. For example, in "
-            " English, searching for n will match %s and n, but if "
-            "your language is Spanish it will only match n. Note that "
-            "this is much slower than a simple search on very large "
-            "libraries."
-        )
-        % "\xf1",
-    )
-
-    c.add_opt("migrated", default=False, help="For Internal use. Don't modify.")
-    return c
-
-
-prefs = ConfigProxy(_prefs())
+# This view has no cache or file of its own.
+tweaks = prefs
 
 
 def ensure_installation_uuid() -> str:
@@ -1609,16 +1457,13 @@ def read_raw_tweaks():
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
-    make_config_dir()
     default_tweaks = P("default_tweaks.py", data=True, allow_user_override=False)
 
-    tweaks_file = os.path.join(config_dir, "tweaks.py")
-    if not os.path.exists(tweaks_file):
-        with open(tweaks_file, "wb") as f:
-            f.write(default_tweaks)
-
-    with open(tweaks_file, "rb") as f:
-        return default_tweaks, f.read()
+    tweaks_file = configuration_paths().components / "tweaks.py"
+    try:
+        return default_tweaks, tweaks_file.read_bytes()
+    except FileNotFoundError:
+        return default_tweaks, default_tweaks
 
 
 def read_tweaks():
@@ -1634,16 +1479,13 @@ def read_tweaks():
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
-    default_tweaks, tweaks = read_raw_tweaks()
-    l, g = {}, {}
-    try:
-        exec(tweaks, g, l)
-    except Exception:
-        logger.exception("Failed to load custom tweaks file")
-    dl, dg = {}, {}
-    exec(default_tweaks, dg, dl)
-    dl.update(l)
-    return dl
+    from LiuXin_alpha.configuration_defaults import parse_tweak_values
+
+    default_tweaks, raw = read_raw_tweaks()
+    values = parse_tweak_values(default_tweaks)
+    values.update(parse_tweak_values(raw, filename=str(configuration_paths().components / "tweaks.py")))
+    return values
+
 
 
 def write_tweaks(raw):
@@ -1660,54 +1502,14 @@ def write_tweaks(raw):
     :return: None; the operation mutates state, writes output or performs cleanup in
         place.
     """
-    make_config_dir()
-    tweaks_file = os.path.join(config_dir, "tweaks.py")
+    from LiuXin_alpha.configuration_defaults import parse_tweak_values
+
+    parse_tweak_values(raw)
+    directory = configuration_paths().components
+    directory.mkdir(parents=True, exist_ok=True, mode=CONFIG_DIR_MODE)
+    tweaks_file = directory / "tweaks.py"
     with open(tweaks_file, "wb") as f:
         f.write(raw)
-
-
-class _LazyTweaks(MutableMapping[str, object]):
-    """Load executable legacy tweaks only when a caller first requests a value."""
-
-    def __init__(self) -> None:
-        self._values: dict[str, object] | None = None
-        self._lock = threading.RLock()
-
-    def _loaded(self) -> dict[str, object]:
-        with self._lock:
-            if self._values is None:
-                try:
-                    self._values = read_tweaks()
-                except Exception:
-                    from LiuXin_alpha.preferences import preferences as calibre_tweaks
-
-                    wrn_str = "Unable to read tweaks from file.\n"
-                    wrn_str += "Falling back to default calibre tweaks.\n"
-                    LiuXin_warning_print(wrn_str)
-                    self._values = {
-                        key: calibre_tweaks[key]
-                        for key in calibre_tweaks._active_variables
-                    }
-            return self._values
-
-    def __getitem__(self, key: str) -> object:
-        return self._loaded()[key]
-
-    def __setitem__(self, key: str, value: object) -> None:
-        self._loaded()[key] = value
-
-    def __delitem__(self, key: str) -> None:
-        del self._loaded()[key]
-
-    def __iter__(self) -> Iterator[str]:
-        return iter(self._loaded())
-
-    def __len__(self) -> int:
-        return len(self._loaded())
-
-
-# Todo: Merge the retained Calibre tweak compatibility keys with resolved settings.
-tweaks: MutableMapping[str, object] = _LazyTweaks()
 
 
 def reset_tweaks_to_default():
@@ -1723,11 +1525,9 @@ def reset_tweaks_to_default():
     :return: None; the operation mutates state, writes output or performs cleanup in
         place.
     """
-    default_tweaks = P("default_tweaks.py", data=True, allow_user_override=False)
-    dl, dg = {}, {}
-    exec(default_tweaks, dg, dl)
-    tweaks.clear()
-    tweaks.update(dl)
+    # Reset tweak keys in the selected application store.
+    prefs.restore_tweak_defaults()
+
 
 
 class Tweak(object):
@@ -1769,7 +1569,7 @@ class Tweak(object):
             place.
         """
         self.origval = tweaks[self.name]
-        tweaks[self.name] = self.value
+        tweaks._active_variables[self.name] = self.value
 
     def __exit__(self, *args):
         """
@@ -1785,4 +1585,4 @@ class Tweak(object):
         :return: None; the operation mutates state, writes output or performs cleanup in
             place.
         """
-        tweaks[self.name] = self.origval
+        tweaks._active_variables[self.name] = self.origval

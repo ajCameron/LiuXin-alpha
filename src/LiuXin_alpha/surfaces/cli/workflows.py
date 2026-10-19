@@ -37,7 +37,7 @@ from LiuXin_alpha.surfaces.cli.common import (
     submit_job,
 )
 from LiuXin_alpha.surfaces.cli.ingest_runs import build_ingest_runs_parser
-from LiuXin_alpha.surfaces.system_profile import apply_system_profile
+from LiuXin_alpha.core.settings import apply_system_profile
 
 
 def _core_json(parser: argparse.ArgumentParser) -> None:

@@ -22,6 +22,8 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from dataclasses import dataclass, field
 from multiprocessing import Pipe, Process
+
+from LiuXin_alpha.configuration import bound_preferences, use_preferences
 from typing import Any, Callable, Iterator, Mapping
 
 
@@ -258,7 +260,7 @@ def _execute_with_optional_logging(request: JobRequest, log_path: str | None) ->
             return _execute_request_payload(request)
 
 
-def _process_entry(conn, request: JobRequest, log_path: str | None) -> None:
+def _process_entry(conn, request: JobRequest, log_path: str | None, preferences: Any | None = None) -> None:
     """
     Perform the process entry utility operation under explicit compatibility rules.
 
@@ -275,7 +277,8 @@ def _process_entry(conn, request: JobRequest, log_path: str | None) -> None:
         place.
     """
     try:
-        payload = _execute_with_optional_logging(request, log_path)
+        with use_preferences(preferences):
+            payload = _execute_with_optional_logging(request, log_path)
         conn.send(payload)
     except BaseException:
         conn.send({"ok": False, "result": None, "tb": traceback.format_exc()})
@@ -382,7 +385,8 @@ class ProcessJobBackend(JobBackend):
         effective_log_path = None if no_output else (str(log_path).strip() if log_path else allocate_job_log_path())
 
         parent_conn, child_conn = Pipe(duplex=False)
-        worker = Process(target=_process_entry, args=(child_conn, request, effective_log_path), daemon=True)
+        # Carry the selected store explicitly; spawn does not inherit ContextVars.
+        worker = Process(target=_process_entry, args=(child_conn, request, effective_log_path, bound_preferences()), daemon=True)
         started = time.monotonic()
         worker.start()
         child_conn.close()

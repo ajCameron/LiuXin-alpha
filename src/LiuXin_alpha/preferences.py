@@ -1,11 +1,14 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 """
 Load, validate and expose application preference values.
 
-The module keeps compatibility policy, normalization and resource ownership explicit
-for callers.
+Preferences owns application values, including the former Calibre global/tweak
+keys. Defaults < literal tweaks.py < global.py.json < LiuXin_prefs_file.ini is the
+read precedence. All setting writes target the instance's INI; component-specific
+JSON files and database-local DBPrefs keep their separate domains. The exported
+view is lazy and follows Core's selected context without rebinding module globals.
 
 Example:
     Exercise preferences through a consuming regression::
@@ -13,27 +16,21 @@ Example:
         python -m pytest -q tests/preferences/test_preferences_regression.py
 """
 
-
-try:
-    import ConfigParser
-except:
-    import configparser as ConfigParser
+import configparser as ConfigParser
 
 import json
 import os
 import re
 import shutil
 import uuid
+from collections.abc import Iterator, MutableMapping
+from pathlib import Path
 from copy import deepcopy
 from functools import partial
 
 from typing import Optional, Any, Callable
 
-from LiuXin_alpha.constants.paths import LiuXin_prefs_folder
-
-from LiuXin_alpha.utils.libraries.liuxin_json import LiuXinJSON
-
-from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+from LiuXin_alpha.configuration import ConfigurationPaths, preferences
 
 
 class EncodeError(Exception):
@@ -45,6 +42,7 @@ class EncodeError(Exception):
 
             python -m pytest -q tests/preferences/test_preferences_regression.py
     """
+
     pass
 
 
@@ -57,10 +55,11 @@ class ParseError(Exception):
 
             python -m pytest -q tests/preferences/test_preferences_regression.py
     """
+
     pass
 
 
-class Preferences:
+class Preferences(MutableMapping[str, Any]):
     """
     Stores preferences and tweaks for LiuXin.
 
@@ -95,6 +94,7 @@ class Preferences:
         cont_backup: Optional[bool] = True,
         *,
         upgrade_on_load: bool = True,
+        paths: ConfigurationPaths | None = None,
     ) -> None:
         """
         Detects an existing preferences file. Tries to load it. If it can't load the file then falls back on the defaults.
@@ -108,11 +108,15 @@ class Preferences:
         :param backup_folder: Value supplied for backup folder under the utility contract.
         :param cont_backup: Value supplied for cont backup under the utility contract.
         :param upgrade_on_load: Whether loading may repair or create the preference file.
+        :param paths: Fixed deployment/application and component paths, resolved before opening resources.
         :return: None; validated state is stored on the receiving object.
         """
+        self.paths = paths if paths is not None else ConfigurationPaths.resolve()
         self.continuous_backup = cont_backup
 
         # Initialize tools
+        from LiuXin_alpha.utils.libraries.liuxin_json import LiuXinJSON
+
         self.liuxin_json = LiuXinJSON()
         self.val_to_str_plugins = self.build_val_to_str_plugins()
         self.str_to_val_plugins = self.build_str_to_val_plugins()
@@ -128,7 +132,9 @@ class Preferences:
         self.misc_section = "calibre_tweaks"
 
         # See if there is already a preferences file
-        self.config_file_path = os.path.join(LiuXin_prefs_folder, Preferences.config_file_name)
+        self.config_file_path = str(
+            self.paths.preferences / Preferences.config_file_name
+        )
         self.config_file_exists = os.path.isfile(self.config_file_path)
 
         # Check to see if the config file actually has contents
@@ -155,6 +161,104 @@ class Preferences:
 
         # Derive and store some additional information about the comnfig which will enable a more elegant interface
         self.keys_dict = self.load_keys_dict(self.config)
+
+    def __getstate__(self) -> dict[str, Any]:
+        """Carry fixed paths and loaded values into spawned workers, omitting codecs."""
+        return {
+            key: value
+            for key, value in self.__dict__.items()
+            if key not in {"liuxin_json", "val_to_str_plugins", "str_to_val_plugins"}
+        }
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        """Rebuild codecs without re-reading files or reselecting the worker profile."""
+        self.__dict__.update(state)
+        from LiuXin_alpha.utils.libraries.liuxin_json import LiuXinJSON
+
+        self.liuxin_json = LiuXinJSON()
+        self.val_to_str_plugins = self.build_val_to_str_plugins()
+        self.str_to_val_plugins = self.build_str_to_val_plugins()
+
+    def _read_component_inputs(self) -> None:
+        """Read old tweak/global files; INI values applied afterward take precedence.
+
+        Tweak files accept literal assignments only. Invalid input propagates
+        rather than executing Python or choosing another store silently.
+        Subsequent writes go only to this instance's application INI.
+        """
+        from LiuXin_alpha.configuration_defaults import parse_tweak_values
+
+        values = {}
+        tweak_path = self.paths.components / "tweaks.py"
+        if tweak_path.is_file():
+            values.update(
+                parse_tweak_values(tweak_path.read_bytes(), filename=str(tweak_path))
+            )
+        global_path = self.paths.components / "global.py.json"
+        if global_path.is_file():
+            loaded = json.loads(global_path.read_text(encoding="utf-8"))
+            if not isinstance(loaded, dict):
+                raise ValueError("Global configuration must be a JSON object.")
+            values.update(loaded)
+        for key, value in values.items():
+            if key.startswith("_"):
+                continue
+            section = next(
+                (
+                    section
+                    for section in self.config.sections()
+                    if self.config.has_option(section, key)
+                ),
+                self.misc_section,
+            )
+            self.type_set(
+                section, key, value, ("none" if value is None else type(value).__name__)
+            )
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._active_variables)
+
+    def __len__(self) -> int:
+        return len(self._active_variables)
+
+    def __delitem__(self, key: str) -> None:
+        section = self.get_section(key)
+        self.config.remove_option(section, key)
+        del self._active_variables[key]
+        self._variable_type.pop(key, None)
+        self.keys_dict = self.load_keys_dict(self.config)
+        if self.continuous_backup:
+            self.save()
+
+    def defaults(self) -> dict[str, Any]:
+        """Return independent default values for the unified application store."""
+        return deepcopy(self._defaults)
+
+    def refresh(self) -> None:
+        """Reload the same fixed paths, without rewriting files."""
+        self.load(upgrade_on_load=False)
+
+    def restore_tweak_defaults(self) -> None:
+        """Reset only tweak settings, persisting once if enabled."""
+        for key in self._tweak_keys:
+            value = self._defaults[key]
+            section = next(
+                (
+                    section
+                    for section in self.config.sections()
+                    if self.config.has_option(section, key)
+                ),
+                self.misc_section,
+            )
+            self.type_set(
+                section,
+                key,
+                deepcopy(value),
+                ("none" if value is None else type(value).__name__),
+            )
+        self.keys_dict = self.load_keys_dict(self.config)
+        if self.continuous_backup:
+            self.save()
 
     def _open_text(self, path, mode):
         """
@@ -222,7 +326,36 @@ class Preferences:
         self._active_variables = dict()
         self._variable_type = dict()
 
+        from LiuXin_alpha.configuration_defaults import (
+            GLOBAL_DEFAULTS,
+            TWEAK_DEFAULT_OVERRIDES,
+            parse_tweak_values,
+        )
+
         self.load_default_config()
+        # Existing LiuXin defaults are authoritative for shared keys. The two
+        # compatibility sources supply only additional defaults and explicit values.
+        from LiuXin_alpha.utils.resources import P
+
+        tweak_defaults = parse_tweak_values(
+            P("default_tweaks.py", data=True, allow_user_override=False)
+        )
+        tweak_defaults.update(TWEAK_DEFAULT_OVERRIDES)
+        for key, value in {**tweak_defaults, **GLOBAL_DEFAULTS}.items():
+            if not key.startswith("_") and key not in self._active_variables:
+                self.type_set(
+                    self.misc_section,
+                    key,
+                    value,
+                    ("none" if value is None else type(value).__name__),
+                )
+        self._tweak_keys = {
+            key for key in tweak_defaults if not key.startswith("_")
+        } | set(self.config.options(self.misc_section))
+        self._tweak_keys.difference_update(GLOBAL_DEFAULTS)
+        self._defaults = deepcopy(self._active_variables)
+        self.config_file_exists = Path(self.config_file_path).is_file()
+        self._read_component_inputs()
 
         default_section_for = {}
         for section in self.config.sections():
@@ -260,7 +393,9 @@ class Preferences:
 
                 for option in disk_cfg.options(section):
                     if option in seen_options:
-                        raise AssertionError("config file is not valid - duplicate options")
+                        raise AssertionError(
+                            "config file is not valid - duplicate options"
+                        )
                     seen_options.add(option)
                     disk_options.add(option)
 
@@ -447,7 +582,7 @@ class Preferences:
 
     # Todo: Does config support multiple options called the same thing in different sections? Deal with this.
     @staticmethod
-    def load_keys_dict(config) -> dict[str, frozenset[str]]:
+    def load_keys_dict(config) -> dict[frozenset[str], str]:
         """
         Load the keys dictionary.
 
@@ -521,7 +656,7 @@ class Preferences:
             # Locate the section the option is in for update
             section = self.get_section(key)
 
-            new_val_type = type(value).__name__
+            new_val_type = "none" if value is None else type(value).__name__
             if new_val_type not in self.known_types:
                 raise NotImplementedError("cannot update {} with value {} - unsupported type".format(key, value))
 
@@ -542,7 +677,7 @@ class Preferences:
 
             section = self.misc_section
 
-            new_val_type = type(value).__name__
+            new_val_type = "none" if value is None else type(value).__name__
             if new_val_type not in self.known_types:
                 raise NotImplementedError("cannot update {} with value {} - unsupported type".format(key, value))
 
@@ -559,6 +694,7 @@ class Preferences:
         self._active_variables[key] = value
         self._variable_type[key] = new_val_type
 
+        self.keys_dict = self.load_keys_dict(self.config)
         if self.continuous_backup:
             self.save()
 
@@ -708,7 +844,7 @@ class Preferences:
             return int(key_value)
 
         elif rtn_value_type == "unicode":
-            return six_unicode(key_value)
+            return str(key_value)
 
         else:
             raise NotImplementedError("rtn_value_type {} not recognized".format(rtn_value_type))
@@ -882,910 +1018,9 @@ class Preferences:
         self.add_section("Misc")
         self.set("Misc", "language", "en")
 
-        # All taken directly from calibre
+        # Calibre defaults and the explicit LiuXin differences are composed by
+        # load(); this section is the persistence namespace for those settings.
         self.add_section("calibre_tweaks")
-
-        #: Add separator after completing an author name
-        # Should the completion separator be append
-        # to the end of the completed text to
-        # automatically begin a new completion operation
-        # for authors.
-        # Can be either True or False
-        self.type_set(
-            "calibre_tweaks",
-            "authors_completer_append_separator",
-            False,
-            val_type="bool",
-        )
-
-        #: Author sort name algorithm
-        # The algorithm used to copy author to author_sort
-        # Possible values are:
-        #  invert: use "fn ln" -> "ln, fn"
-        #  copy  : copy author to author_sort without modification
-        #  comma : use 'copy' if there is a ',' in the name, otherwise use 'invert'
-        #  nocomma : "fn ln" -> "ln fn" (without the comma)
-        # When this tweak is changed, the author_sort values stored with each author
-        # must be recomputed by right-clicking on an author in the left-hand tags pane,
-        # selecting 'manage authors', and pressing 'Recalculate all author sort values'.
-        # The author name suffixes are words that are ignored when they occur at the
-        # end of an author name. The case of the suffix is ignored and trailing
-        # periods are automatically handled. The same is true for prefixes.
-        # The author name copy words are a set of words which if they occur in an
-        # author name cause the automatically generated author sort string to be
-        # identical to the author name. This means that the sort for a string like Acme
-        # Inc. will be Acme Inc. instead of Inc., Acme
-        self.set("calibre_tweaks", "author_sort_copy_method", "comma")
-
-        author_name_suffixes = (
-            "Jr",
-            "Sr",
-            "Inc",
-            "Ph.D",
-            "Phd",
-            "MD",
-            "M.D",
-            "I",
-            "II",
-            "III",
-            "IV",
-            "Junior",
-            "Senior",
-        )
-        self.type_set(
-            "calibre_tweaks",
-            "author_name_suffixes",
-            author_name_suffixes,
-            val_type="tuple",
-        )
-
-        author_name_prefixes = ("Mr", "Mrs", "Ms", "Dr", "Prof")
-        self.type_set(
-            "calibre_tweaks",
-            "author_name_prefixes",
-            author_name_prefixes,
-            val_type="tuple",
-        )
-
-        author_name_copywords = (
-            "Corporation",
-            "Company",
-            "Co.",
-            "Agency",
-            "Council",
-            "Committee",
-            "Inc.",
-            "Institute",
-            "Society",
-            "Club",
-            "Team",
-        )
-        self.type_set(
-            "calibre_tweaks",
-            "author_name_copywords",
-            author_name_copywords,
-            val_type="tuple",
-        )
-
-        #: Splitting multiple author names
-        # By default, calibre splits a string containing multiple author names on
-        # ampersands and the words "and" and "with". You can customize the splitting
-        # by changing the regular expression below. Strings are split on whatever the
-        # specified regular expression matches, in addition to ampersands.
-        # Default: r'(?i),?\s+(and|with)\s+'
-        authors_split_regex = r"(?i),?\s+(and|with)\s+"
-        self.type_set("calibre_tweaks", "authors_split_regex", authors_split_regex, val_type="str")
-
-        #: Use author sort in Tag Browser
-        # Set which author field to display in the tags pane (the list of authors,
-        # series, publishers etc on the left hand side). The choices are author and
-        # author_sort. This tweak affects only what is displayed under the authors
-        # category in the tags pane and content server. Please note that if you set this
-        # to author_sort, it is very possible to see duplicate names in the list because
-        # although it is guaranteed that author names are unique, there is no such
-        # guarantee for author_sort values. Showing duplicates won't break anything, but
-        # it could lead to some confusion. When using 'author_sort', the tooltip will
-        # show the author's name.
-        # Examples:
-        #   categories_use_field_for_author_name = 'author'
-        #   categories_use_field_for_author_name = 'author_sort'
-        categories_use_field_for_author_name = "author"
-        self.type_set(
-            "calibre_tweaks",
-            "categories_use_field_for_author_name",
-            categories_use_field_for_author_name,
-            val_type="str",
-        )
-
-        #: Control partitioning of Tag Browser
-        # When partitioning the tags browser, the format of the subcategory label is
-        # controlled by a template: categories_collapsed_name_template if sorting by
-        # name, categories_collapsed_rating_template if sorting by average rating, and
-        # categories_collapsed_popularity_template if sorting by popularity. There are
-        # two variables available to the template: first and last. The variable 'first'
-        # is the initial item in the subcategory, and the variable 'last' is the final
-        # item in the subcategory. Both variables are 'objects'; they each have multiple
-        # values that are obtained by using a suffix. For example, first.name for an
-        # author category will be the name of the author. The sub-values available are:
-        #  name: the printable name of the item
-        #  count: the number of books that references this item
-        #  avg_rating: the average rating of all the books referencing this item
-        #  sort: the sort value. For authors, this is the author_sort for that author
-        #  category: the category (e.g., authors, series) that the item is in.
-        # Note that the "r'" in front of the { is necessary if there are backslashes
-        # (\ characters) in the template. It doesn't hurt anything to leave it there
-        # even if there aren't any backslashes.
-        categories_collapsed_name_template = r"{first.sort:shorten(4,,0)} - {last.sort:shorten(4,,0)}"
-        self.set(
-            "calibre_tweaks",
-            "categories_collapsed_name_template",
-            categories_collapsed_name_template,
-        )
-
-        categories_collapsed_rating_template = r"{first.avg_rating:4.2f:ifempty(0)} - {last.avg_rating:4.2f:ifempty(0)}"
-        self.set(
-            "calibre_tweaks",
-            "categories_collapsed_rating_template",
-            categories_collapsed_rating_template,
-        )
-
-        categories_collapsed_popularity_template = r"{first.count:d} - {last.count:d}"
-        self.set(
-            "calibre_tweaks",
-            "categories_collapsed_popularity_template",
-            categories_collapsed_popularity_template,
-        )
-
-        #: Control order of categories in the tag browser
-        # Change the following dict to change the order that categories are displayed in
-        # the tag browser. Items are named using their lookup name, and will be sorted
-        # using the number supplied. The lookup name '*' stands for all names that
-        # otherwise do not appear. Two names with the same value will be sorted
-        # using the default order; the one used when the dict is empty.
-        # Example: tag_browser_category_order = {'series':1, 'tags':2, '*':3}
-        # resulting in the order series, tags, then everything else in default order.
-        tag_browser_category_order = {"*": 1}
-        self.type_set(
-            "calibre_tweaks",
-            "tag_browser_category_order",
-            tag_browser_category_order,
-            val_type="dict",
-        )
-
-        #: Specify columns to sort the booklist by on startup
-        # Provide a set of columns to be sorted on when calibre starts
-        #  The argument is None if saved sort history is to be used
-        #  otherwise it is a list of column,order pairs. Column is the
-        #  lookup/search name, found using the tooltip for the column
-        #  Order is 0 for ascending, 1 for descending
-        # For example, set it to [('authors',0),('title',0)] to sort by
-        # title within authors.
-        sort_columns_at_startup = None
-        self.type_set(
-            "calibre_tweaks",
-            "sort_columns_at_startup",
-            sort_columns_at_startup,
-            val_type="none",
-        )
-
-        #: Control how dates are displayed
-        # Format to be used for publication date and the timestamp (date).
-        #  A string controlling how the publication date is displayed in the GUI
-        #  d     the day as number without a leading zero (1 to 31)
-        #  dd    the day as number with a leading zero (01 to 31)
-        #  ddd   the abbreviated localized day name (e.g. 'Mon' to 'Sun').
-        #  dddd  the long localized day name (e.g. 'Monday' to 'Sunday').
-        #  M     the month as number without a leading zero (1-12)
-        #  MM    the month as number with a leading zero (01-12)
-        #  MMM   the abbreviated localized month name (e.g. 'Jan' to 'Dec').
-        #  MMMM  the long localized month name (e.g. 'January' to 'December').
-        #  yy    the year as two digit number (00-99)
-        #  yyyy  the year as four digit number
-        #  h     the hours without a leading 0 (0 to 11 or 0 to 23, depending on am/pm) '
-        #  hh    the hours with a leading 0 (00 to 11 or 00 to 23, depending on am/pm) '
-        #  m     the minutes without a leading 0 (0 to 59) '
-        #  mm    the minutes with a leading 0 (00 to 59) '
-        #  s     the seconds without a leading 0 (0 to 59) '
-        #  ss    the seconds with a leading 0 (00 to 59) '
-        #  ap    use a 12-hour clock instead of a 24-hour clock, with "ap"
-        #        replaced by the localized string for am or pm '
-        #  AP    use a 12-hour clock instead of a 24-hour clock, with "AP"
-        #        replaced by the localized string for AM or PM '
-        #  iso   the date with time and timezone. Must be the only format present
-        #  For example, given the date of 9 Jan 2010, the following formats show
-        #  MMM yyyy ==> Jan 2010    yyyy ==> 2010       dd MMM yyyy ==> 09 Jan 2010
-        #  MM/yyyy ==> 01/2010      d/M/yy ==> 9/1/10   yy ==> 10
-        # publication default if not set: MMM yyyy
-        # timestamp default if not set: dd MMM yyyy
-        # last_modified_display_format if not set: dd MMM yyyy
-        gui_pubdate_display_format = "MMM yyyy"
-        self.set("calibre_tweaks", "gui_pubdate_display_format", gui_pubdate_display_format)
-
-        gui_timestamp_display_format = "dd MMM yyyy"
-        self.set(
-            "calibre_tweaks",
-            "gui_timestamp_display_format",
-            gui_timestamp_display_format,
-        )
-
-        gui_last_modified_display_format = "dd MMM yyyy"
-        self.set(
-            "calibre_tweaks",
-            "gui_last_modified_display_format",
-            gui_last_modified_display_format,
-        )
-
-        #: Control sorting of titles and series in the library display
-        # Control title and series sorting in the library view. If set to
-        # 'library_order', the title sort field will be used instead of the title.
-        # Unless you have manually edited the title sort field, leading articles such as
-        # The and A will be ignored. If set to 'strictly_alphabetic', the titles will be
-        # sorted as-is (sort by title instead of title sort). For example, with
-        # library_order, The Client will sort under 'C'. With strictly_alphabetic, the
-        # book will sort under 'T'.
-        # This flag affects Calibre's library display. It has no effect on devices. In
-        # addition, titles for books added before changing the flag will retain their
-        # order until the title is edited. Double-clicking on a title and hitting return
-        # without changing anything is sufficient to change the sort.
-        title_series_sorting = "library_order"
-        self.set("calibre_tweaks", "title_series_sorting", title_series_sorting)
-
-        #: Set the list of words considered to be "articles" for sort strings
-        # Set the list of words that are to be considered 'articles' when computing the
-        # title sort strings. The articles differ by language. By default, calibre uses
-        # a combination of articles from English and whatever language the calibre user
-        # interface is set to. In addition, in some contexts where the book language is
-        # available, the language of the book is used. You can change the list of
-        # articles for a given language or add a new language by editing
-        # per_language_title_sort_articles. To tell calibre to use a language other
-        # than the user interface language, set, default_language_for_title_sort. For
-        # example, to use German, set it to 'deu'. A value of None means the user
-        # interface language is used. The setting title_sort_articles is ignored
-        # (present only for legacy reasons).
-        per_language_title_sort_articles = {
-            # English
-            "eng": (r"A\s+", r"The\s+", r"An\s+"),
-            # Esperanto
-            "epo": (r"La\s+", r"L'", "L\xb4"),
-            # Spanish
-            "spa": (
-                r"El\s+",
-                r"La\s+",
-                r"Lo\s+",
-                r"Los\s+",
-                r"Las\s+",
-                r"Un\s+",
-                r"Una\s+",
-                r"Unos\s+",
-                r"Unas\s+",
-            ),
-            # French
-            "fra": (
-                r"Le\s+",
-                r"La\s+",
-                r"L'",
-                "L´",
-                "L’",
-                r"Les\s+",
-                r"Un\s+",
-                r"Une\s+",
-                r"Des\s+",
-                r"De\s+La\s+",
-                r"De\s+",
-                r"D'",
-                "D\xb4",
-                "L’",
-            ),
-            # Italian
-            "ita": (
-                "Lo\\s+",
-                "Il\\s+",
-                "L'",
-                "L\xb4",
-                "La\\s+",
-                "Gli\\s+",
-                "I\\s+",
-                "Le\\s+",
-                "Uno\\s+",
-                "Un\\s+",
-                "Una\\s+",
-                "Un'",
-                "Un\xb4",
-                "Dei\\s+",
-                "Degli\\s+",
-                "Delle\\s+",
-                "Del\\s+",
-                "Della\\s+",
-                "Dello\\s+",
-                "Dell'",
-                "Dell\xb4",
-            ),
-            # Portuguese
-            "por": (
-                r"A\s+",
-                r"O\s+",
-                r"Os\s+",
-                r"As\s+",
-                r"Um\s+",
-                r"Uns\s+",
-                r"Uma\s+",
-                r"Umas\s+",
-            ),
-            # Romanian
-            "ron": (
-                r"Un\s+",
-                r"O\s+",
-                r"Nişte\s+",
-            ),
-            # German
-            "deu": (
-                r"Der\s+",
-                r"Die\s+",
-                r"Das\s+",
-                r"Den\s+",
-                r"Ein\s+",
-                r"Eine\s+",
-                r"Einen\s+",
-                r"Dem\s+",
-                r"Des\s+",
-                r"Einem\s+",
-                r"Eines\s+",
-            ),
-            # Dutch
-            "nld": (
-                r"De\s+",
-                r"Het\s+",
-                r"Een\s+",
-                r"'n\s+",
-                r"'s\s+",
-                r"Ene\s+",
-                r"Ener\s+",
-                r"Enes\s+",
-                r"Den\s+",
-                r"Der\s+",
-                r"Des\s+",
-                r"'t\s+",
-            ),
-            # Swedish
-            "swe": (
-                r"En\s+",
-                r"Ett\s+",
-                r"Det\s+",
-                r"Den\s+",
-                r"De\s+",
-            ),
-            # Turkish
-            "tur": (r"Bir\s+",),
-            # Afrikaans
-            "afr": (
-                r"'n\s+",
-                r"Die\s+",
-            ),
-            # Greek
-            "ell": (
-                r"O\s+",
-                r"I\s+",
-                r"To\s+",
-                r"Ta\s+",
-                r"Tus\s+",
-                r"Tis\s+",
-                r"'Enas\s+",
-                r"'Mia\s+",
-                r"'Ena\s+",
-                r"'Enan\s+",
-            ),
-            # Hungarian
-            "hun": (
-                r"A\s+",
-                r"Az\s+",
-                r"Egy\s+",
-            ),
-        }
-        self.type_set(
-            "calibre_tweaks",
-            "per_language_title_sort_articles",
-            per_language_title_sort_articles,
-            val_type="dict_64",
-        )
-
-        default_language_for_title_sort = None
-        self.type_set(
-            "calibre_tweaks",
-            "default_language_for_title_sort",
-            default_language_for_title_sort,
-            val_type="none",
-        )
-
-        title_sort_articles = r"^(A|The|An)\s+"
-        self.set("calibre_tweaks", "title_sort_articles", title_sort_articles)
-
-        #: Specify a folder calibre should connect to at startup
-        # Specify a folder that calibre should connect to at startup using
-        # connect_to_folder. This must be a full path to the folder. If the folder does
-        # not exist when calibre starts, it is ignored. If there are '\' characters in
-        # the path (such as in Windows paths), you must double them.
-        # Examples:
-        #     auto_connect_to_folder = 'C:\\Users\\someone\\Desktop\\testlib'
-        #     auto_connect_to_folder = '/home/dropbox/My Dropbox/someone/library'
-        auto_connect_to_folder = ""
-        self.set("calibre_tweaks", "auto_connect_to_folder", auto_connect_to_folder)
-
-        #: Specify renaming rules for SONY collections
-        # Specify renaming rules for sony collections. This tweak is only applicable if
-        # metadata management is set to automatic. Collections on Sonys are named
-        # depending upon whether the field is standard or custom. A collection derived
-        # from a standard field is named for the value in that field. For example, if
-        # the standard 'series' column contains the value 'Darkover', then the
-        # collection name is 'Darkover'. A collection derived from a custom field will
-        # have the name of the field added to the value. For example, if a custom series
-        # column named 'My Series' contains the name 'Darkover', then the collection
-        # will by default be named 'Darkover (My Series)'. For purposes of this
-        # documentation, 'Darkover' is called the value and 'My Series' is called the
-        # category. If two books have fields that generate the same collection name,
-        # then both books will be in that collection.
-        # This set of tweaks lets you specify for a standard or custom field how
-        # the collections are to be named. You can use it to add a description to a
-        # standard field, for example 'Foo (Tag)' instead of the 'Foo'. You can also use
-        # it to force multiple fields to end up in the same collection. For example, you
-        # could force the values in 'series', '#my_series_1', and '#my_series_2' to
-        # appear in collections named 'some_value (Series)', thereby merging all of the
-        # fields into one set of collections.
-        # There are two related tweaks. The first determines the category name to use
-        # for a metadata field.  The second is a template, used to determines how the
-        # value and category are combined to create the collection name.
-        # The syntax of the first tweak, sony_collection_renaming_rules, is:
-        # {'field_lookup_name':'category_name_to_use', 'lookup_name':'name', ...}
-        # The second tweak, sony_collection_name_template, is a template. It uses the
-        # same template language as plugboards and save templates. This tweak controls
-        # how the value and category are combined together to make the collection name.
-        # The only two fields available are {category} and {value}. The {value} field is
-        # never empty. The {category} field can be empty. The default is to put the
-        # value first, then the category enclosed in parentheses, it isn't empty:
-        # '{value} {category:|(|)}'
-        # Examples: The first three examples assume that the second tweak
-        # has not been changed.
-        # 1: I want three series columns to be merged into one set of collections. The
-        # column lookup names are 'series', '#series_1' and '#series_2'. I want nothing
-        # in the parenthesis. The value to use in the tweak value would be:
-        #    sony_collection_renaming_rules={'series':'', '#series_1':'', '#series_2':''}
-        # 2: I want the word '(Series)' to appear on collections made from series, and
-        # the word '(Tag)' to appear on collections made from tags. Use:
-        #    sony_collection_renaming_rules={'series':'Series', 'tags':'Tag'}
-        # 3: I want 'series' and '#myseries' to be merged, and for the collection name
-        # to have '(Series)' appended. The renaming rule is:
-        #    sony_collection_renaming_rules={'series':'Series', '#myseries':'Series'}
-        # 4: Same as example 2, but instead of having the category name in parentheses
-        # and appended to the value, I want it prepended and separated by a colon, such
-        # as in Series: Darkover. I must change the template used to format the category name
-        # The resulting two tweaks are:
-        #    sony_collection_renaming_rules={'series':'Series', 'tags':'Tag'}
-        #    sony_collection_name_template='{category:||: }{value}'
-        sony_collection_renaming_rules = {}
-        self.type_set(
-            "calibre_tweaks",
-            "sony_collection_renaming_rules",
-            sony_collection_renaming_rules,
-            val_type="dict",
-        )
-
-        sony_collection_name_template = "{value}{category:| (|)}"
-        self.set(
-            "calibre_tweaks",
-            "sony_collection_name_template",
-            sony_collection_name_template,
-        )
-
-        #: Specify how SONY collections are sorted
-        # Specify how sony collections are sorted. This tweak is only applicable if
-        # metadata management is set to automatic. You can indicate which metadata is to
-        # be used to sort on a collection-by-collection basis. The format of the tweak
-        # is a list of metadata fields from which collections are made, followed by the
-        # name of the metadata field containing the sort value.
-        # Example: The following indicates that collections built from pubdate and tags
-        # are to be sorted by the value in the custom column '#mydate', that collections
-        # built from 'series' are to be sorted by 'series_index', and that all other
-        # collections are to be sorted by title. If a collection metadata field is not
-        # named, then if it is a series- based collection it is sorted by series order,
-        # otherwise it is sorted by title order.
-        # [(['pubdate', 'tags'],'#mydate'), (['series'],'series_index'), (['*'], 'title')]
-        # Note that the bracketing and parentheses are required. The syntax is
-        # [ ( [list of fields], sort field ) , ( [ list of fields ] , sort field ) ]
-        # Default: empty (no rules), so no collection attributes are named.
-        sony_collection_sorting_rules = []
-        self.type_set(
-            "calibre_tweaks",
-            "sony_collection_sorting_rules",
-            sony_collection_sorting_rules,
-            val_type="list",
-        )
-
-        #: Control how tags are applied when copying books to another library
-        # Set this to True to ensure that tags in 'Tags to add when adding
-        # a book' are added when copying books to another library
-        add_new_book_tags_when_importing_books = True
-        self.type_set(
-            "calibre_tweaks",
-            "add_new_book_tags_when_importing_books",
-            add_new_book_tags_when_importing_books,
-            val_type="bool",
-        )
-
-        #: Set the maximum number of tags to show per book in the content server
-        max_content_server_tags_shown = 5
-        self.type_set(
-            "calibre_tweaks",
-            "max_content_server_tags_shown",
-            max_content_server_tags_shown,
-            val_type="int",
-        )
-
-        #: Set custom metadata fields that the content server will or will not display.
-        # content_server_will_display is a list of custom fields to be displayed.
-        # content_server_wont_display is a list of custom fields not to be displayed.
-        # wont_display has priority over will_display.
-        # The special value '*' means all custom fields. The value [] means no entries.
-        # Defaults:
-        #    content_server_will_display = ['*']
-        #    content_server_wont_display = []
-        # Examples:
-        # To display only the custom fields #mytags and #genre:
-        #   content_server_will_display = ['#mytags', '#genre']
-        #   content_server_wont_display = []
-        # To display all fields except #mycomments:
-        #   content_server_will_display = ['*']
-        #   content_server_wont_display['#mycomments']
-        content_server_will_display = ["*"]
-        self.type_set(
-            "calibre_tweaks",
-            "content_server_will_display",
-            content_server_will_display,
-            val_type="list",
-        )
-
-        content_server_wont_display = []
-        self.type_set(
-            "calibre_tweaks",
-            "content_server_wont_display",
-            content_server_wont_display,
-            val_type="list",
-        )
-
-        #: Set the maximum number of sort 'levels'
-        # Set the maximum number of sort 'levels' that calibre will use to resort the
-        # library after certain operations such as searches or device insertion. Each
-        # sort level adds a performance penalty. If the databases is large (thousands of
-        # books) the penalty might be noticeable. If you are not concerned about multi-
-        # level sorts, and if you are seeing a slowdown, reduce the value of this tweak.
-        maximum_resort_levels = 5
-        self.type_set(
-            "calibre_tweaks",
-            "maximum_resort_levels",
-            maximum_resort_levels,
-            val_type="int",
-        )
-
-        #: Choose whether dates are sorted using visible fields
-        # Date values contain both a date and a time. When sorted, all the fields are
-        # used, regardless of what is displayed. Set this tweak to True to use only
-        # the fields that are being displayed.
-        sort_dates_using_visible_fields = False
-        self.type_set(
-            "calibre_tweaks",
-            "sort_dates_using_visible_fields",
-            sort_dates_using_visible_fields,
-            val_type="bool",
-        )
-
-        #: Fuzz value for trimming covers
-        # The value used for the fuzz distance when trimming a cover.
-        # Colors within this distance are considered equal.
-        # The distance is in absolute intensity units.
-        cover_trim_fuzz_value = 10
-        self.type_set(
-            "calibre_tweaks",
-            "cover_trim_fuzz_value",
-            cover_trim_fuzz_value,
-            val_type="int",
-        )
-
-        #: Control behavior of the book list
-        # You can control the behavior of doubleclicks on the books list.
-        # Choices: open_viewer, do_nothing,
-        # edit_cell, edit_metadata. Selecting anything other than open_viewer has the
-        # side effect of disabling editing a field using a single click.
-        # Default: open_viewer.
-        # Example: doubleclick_on_library_view = 'do_nothing'
-        # You can also control whether the book list scrolls horizontal per column or
-        # per pixel. Default is per column.
-        doubleclick_on_library_view = "open_viewer"
-        self.type_set(
-            "calibre_tweaks",
-            "doubleclick_on_library_view",
-            doubleclick_on_library_view,
-            val_type="str",
-        )
-
-        horizontal_scrolling_per_column = True
-        self.type_set(
-            "calibre_tweaks",
-            "horizontal_scrolling_per_column",
-            horizontal_scrolling_per_column,
-            val_type="bool",
-        )
-
-        #: Language to use when sorting.
-        # Setting this tweak will force sorting to use the
-        # collating order for the specified language. This might be useful if you run
-        # calibre in English but want sorting to work in the language where you live.
-        # Set the tweak to the desired ISO 639-1 language code, in lower case.
-        # You can find the list of supported locales at
-        # http://publib.boulder.ibm.com/infocenter/iseries/v5r3/topic/nls/rbagsicusortsequencetables.htm
-        # Default: locale_for_sorting = '' -- use the language calibre displays in
-        # Example: locale_for_sorting = 'fr' -- sort using French rules.
-        # Example: locale_for_sorting = 'nb' -- sort using Norwegian rules.
-        locale_for_sorting = ""
-        self.type_set("calibre_tweaks", "locale_for_sorting", locale_for_sorting, val_type="str")
-
-        #: Number of columns for custom metadata in the edit metadata dialog
-        # Set whether to use one or two columns for custom metadata when editing
-        # metadata  one book at a time. If True, then the fields are laid out using two
-        # columns. If False, one column is used.
-        metadata_single_use_2_cols_for_custom_fields = True
-        self.type_set(
-            "calibre_tweaks",
-            "metadata_single_use_2_cols_for_custom_fields",
-            metadata_single_use_2_cols_for_custom_fields,
-            val_type="bool",
-        )
-
-        #: Order of custom column(s) in edit metadata
-        # Controls the order that custom columns are listed in edit metadata single
-        # and bulk. The columns listed in the tweak are displayed first and in the
-        # order provided. Any columns not listed are dislayed after the listed ones,
-        # in alphabetical order. Do note that this tweak does not change the size of
-        # the edit widgets. Putting comments widgets in this list may result in some
-        # odd widget spacing when using two-column mode.
-        # Enter a comma-separated list of custom field lookup names, as in
-        # metadata_edit_custom_column_order = ['#genre', '#mytags', '#etc']
-        metadata_edit_custom_column_order = []
-        self.type_set(
-            "calibre_tweaks",
-            "metadata_edit_custom_column_order",
-            metadata_edit_custom_column_order,
-            val_type="list",
-        )
-
-        #: The number of seconds to wait before sending emails
-        # The number of seconds to wait before sending emails when using a
-        # public email server like gmx/hotmail/gmail. Default is: 5 minutes
-        # Setting it to lower may cause the server's SPAM controls to kick in,
-        # making email sending fail. Changes will take effect only after a restart of
-        # calibre. You can also change the list of hosts that calibre considers
-        # to be public relays here. Any relay host ending with one of the suffixes
-        # in the list below will be considered a public email server.
-        public_smtp_relay_delay = 301
-        self.type_set(
-            "calibre_tweaks",
-            "public_smtp_relay_delay",
-            public_smtp_relay_delay,
-            val_type="int",
-        )
-
-        public_smtp_relay_host_suffixes = ["gmail.com", "live.com", "gmx.com"]
-        self.type_set(
-            "calibre_tweaks",
-            "public_smtp_relay_host_suffixes",
-            public_smtp_relay_host_suffixes,
-            val_type="list",
-        )
-
-        #: The maximum width and height for covers saved in the calibre library
-        # All covers in the calibre library will be resized, preserving aspect ratio,
-        # to fit within this size. This is to prevent slowdowns caused by extremely
-        # large covers
-        maximum_cover_size = (1650, 2200)
-        self.type_set("calibre_tweaks", "maximum_cover_size", maximum_cover_size, val_type="tuple")
-
-        #: Where to send downloaded news
-        # When automatically sending downloaded news to a connected device, calibre
-        # will by default send it to the main memory. By changing this tweak, you can
-        # control where it is sent. Valid values are "main", "carda", "cardb". Note
-        # that if there isn't enough free space available on the location you choose,
-        # the files will be sent to the location with the most free space.
-        send_news_to_device_location = "main"
-        self.set(
-            "calibre_tweaks",
-            "send_news_to_device_location",
-            send_news_to_device_location,
-        )
-
-        #: What interfaces should the content server listen on
-        # By default, the calibre content server listens on '0.0.0.0' which means that it
-        # accepts IPv4 connections on all interfaces. You can change this to, for
-        # example, '127.0.0.1' to only listen for connections from the local machine, or
-        # to '::' to listen to all incoming IPv6 and IPv4 connections (this may not
-        # work on all operating systems)
-        server_listen_on = "0.0.0.0"
-        self.set("calibre_tweaks", "server_listen_on", server_listen_on)
-
-        #: Unified toolbar on OS X
-        # If you enable this option and restart calibre, the toolbar will be 'unified'
-        # with the titlebar as is normal for OS X applications. However, doing this has
-        # various bugs, for instance the minimum width of the toolbar becomes twice
-        # what it should be and it causes other random bugs on some systems, so turn it
-        # on at your own risk!
-        unified_title_toolbar_on_osx = False
-        self.type_set(
-            "calibre_tweaks",
-            "unified_title_toolbar_on_osx",
-            unified_title_toolbar_on_osx,
-            val_type="bool",
-        )
-
-        #: Save original file when converting/polishing from same format to same format
-        # When calibre does a conversion from the same format to the same format, for
-        # example, from EPUB to EPUB, the original file is saved, so that in case the
-        # conversion is poor, you can tweak the settings and run it again. By setting
-        # this to False you can prevent calibre from saving the original file.
-        # Similarly, by setting save_original_format_when_polishing to False you can
-        # prevent calibre from saving the original file when polishing.
-        save_original_format = True
-        self.type_set(
-            "calibre_tweaks",
-            "save_original_format",
-            save_original_format,
-            val_type="bool",
-        )
-
-        save_original_format_when_polishing = True
-        self.type_set(
-            "calibre_tweaks",
-            "save_original_format_when_polishing",
-            save_original_format_when_polishing,
-            val_type="bool",
-        )
-
-        #: Number of recently viewed books to show
-        # Right-clicking the View button shows a list of recently viewed books. Control
-        # how many should be shown, here.
-        gui_view_history_size = 15
-        self.type_set(
-            "calibre_tweaks",
-            "gui_view_history_size",
-            gui_view_history_size,
-            val_type="int",
-        )
-
-        #: Change the font size of book details in the interface
-        # Change the font size at which book details are rendered in the side panel and
-        # comments are rendered in the metadata edit dialog. Set it to a positive or
-        # negative number to increase or decrease the font size.
-        change_book_details_font_size_by = 0
-        self.type_set(
-            "calibre_tweaks",
-            "change_book_details_font_size_by",
-            change_book_details_font_size_by,
-            val_type="int",
-        )
-
-        #: Compile General Program Mode templates to Python
-        # Compiled general program mode templates are significantly faster than
-        # interpreted templates. Setting this tweak to True causes calibre to compile
-        # (in most cases) general program mode templates. Setting it to False causes
-        # calibre to use the old behavior -- interpreting the templates. Set the tweak
-        # to False if some compiled templates produce incorrect values.
-        # Default:    compile_gpm_templates = True
-        # No compile: compile_gpm_templates = False
-        compile_gpm_templates = True
-        self.type_set(
-            "calibre_tweaks",
-            "compile_gpm_templates",
-            compile_gpm_templates,
-            val_type="bool",
-        )
-
-        #: What format to default to when using the Tweak feature
-        # The Tweak feature of calibre allows direct editing of a book format.
-        # If multiple formats are available, calibre will offer you a choice
-        # of formats, defaulting to your preferred output format if it is available.
-        # Set this tweak to a specific value of 'EPUB' or 'AZW3' to always default
-        # to that format rather than your output format preference.
-        # Set to a value of 'remember' to use whichever format you chose last time you
-        # used the Tweak feature.
-        # Examples:
-        #   default_tweak_format = None       (Use output format)
-        #   default_tweak_format = 'EPUB'
-        #   default_tweak_format = 'remember'
-        default_tweak_format = None
-        self.set("calibre_tweaks", "default_tweak_format", default_tweak_format)
-
-        #: Do not preselect a completion when editing authors/tags/series/etc.
-        # This means that you can make changes and press Enter and your changes will
-        # not be overwritten by a matching completion. However, if you wish to use the
-        # completions you will now have to press Tab to select one before pressing
-        # Enter. Which technique you prefer will depend on the state of metadata in
-        # your library and your personal editing style.
-        preselect_first_completion = False
-        self.type_set(
-            "calibre_tweaks",
-            "preselect_first_completion",
-            preselect_first_completion,
-            val_type="bool",
-        )
-
-        #: Completion mode when editing authors/tags/series/etc.
-        # By default, when completing items, calibre will show you all the candidates
-        # that start with the text you have already typed. You can instead have it show
-        # all candidates that contain the text you have already typed. To do this, set
-        # completion_mode to 'contains'. For example, if you type asi it will match both
-        # Asimov and Quasimodo, whereas the default behavior would match only Asimov.
-        completion_mode = "prefix"
-        self.set("calibre_tweaks", "completion_mode", completion_mode)
-
-        #: Recognize numbers inside text when sorting
-        # This means that when sorting on text fields like title the text "Book 2"
-        # will sort before the text "Book 100". If you want this behavior, set
-        # numeric_collation = True note that doing so will cause problems with text
-        # that starts with numbers and is a little slower.
-        numeric_collation = False
-        self.type_set("calibre_tweaks", "numeric_collation", numeric_collation, val_type="bool")
-
-        #: Sort the list of libraries alphabetically
-        # The list of libraries in the Copy to Library and Quick Switch menus are
-        # normally sorted by most used. However, if there are more than a certain
-        # number of such libraries, the sorting becomes alphabetic. You can set that
-        # number here. The default is ten libraries.
-        many_libraries = 10
-        self.type_set("calibre_tweaks", "many_libraries", many_libraries, val_type="int")
-
-        #: Highlight the virtual library name when using a Virtual Library
-        # The virtual library name next to the Virtual Library button is highlighted in
-        # yellow when using a Virtual Library. You can choose the color used for the
-        # highlight with this tweak. Set it to 'transparent' to disable highlighting.
-        highlight_virtual_library = "yellow"
-        self.set("calibre_tweaks", "highlight_virtual_library", highlight_virtual_library)
-
-        #: Choose available output formats for conversion
-        # Restrict the list of available output formats in the conversion dialogs.
-        # For example, if you only want to convert to EPUB and AZW3, change this to
-        # restrict_output_formats = ['EPUB', 'AZW3']. The default value of None causes
-        # all available output formats to be present.
-        restrict_output_formats = None
-        self.type_set(
-            "calibre_tweaks",
-            "restrict_output_formats",
-            restrict_output_formats,
-            val_type="list",
-        )
-
-        #: Set the thumbnail image quality used by the content server
-        # The quality of a thumbnail is largely controlled by the compression quality
-        # used when creating it. Set this to a larger number to improve the quality.
-        # Note that the thumbnails get much larger with larger compression quality
-        # numbers.
-        # The value can be between 50 and 99
-        content_server_thumbnail_compression_quality = 75
-        self.type_set(
-            "calibre_tweaks",
-            "content_server_thumbnail_compression_quality",
-            content_server_thumbnail_compression_quality,
-            val_type="int",
-        )
-
-        #: Image file types to treat as ebooks when dropping onto the Book Details panel
-        # Normally, if you drop any image file in a format known to calibre onto the
-        # Book Details panel, it will be used to set the cover. If you want to store
-        # some image types as ebooks instead, you can set this tweak.
-        # Examples:
-        #    cover_drop_exclude = {'tiff', 'webp'}
-        cover_drop_exclude = ()
-        self.type_set("calibre_tweaks", "cover_drop_exclude", cover_drop_exclude, val_type="tuple")
-
-        self.type_set("calibre_tweaks", "user_categories", None, val_type="none")
-        self.type_set("calibre_tweaks", "use_primary_find_in_search", True, val_type="bool")
-        self.set("calibre_tweaks", "saved_searches", "")
-
-        self.type_set("calibre_tweaks", "add_formats_to_existing", True, val_type="bool")
 
     #
     # ----------------------------------------------------------------------------------------------------------------------
@@ -2135,7 +1370,7 @@ def py_set_adapter(py_set):
     py_list = []
     for element in py_set:
         # Coerce to unicode, escape any SQL special characters, then add to the list of elements
-        element = six_unicode(element)
+        element = str(element)
         element = element.replace("'", "''")
         element = element.replace('"', '\\"')
         py_list.append(element)
@@ -2245,7 +1480,8 @@ def string_to_set(set_string):
 # ----------------------------------------------------------------------------------------------------------------------
 
 # Setup the default preferences object
-preferences = Preferences(upgrade_on_load=False)
+# The exported view resolves lazily, so importing metadata/configuration never
+# opens a preference file or executes a user tweak script.
 
 
 def initialize_preferences() -> Preferences:

@@ -18,6 +18,7 @@ import uuid
 
 from typing import Any, Callable, Mapping, Optional, cast
 
+from LiuXin_alpha.configuration import use_preferences
 from LiuXin_alpha.core.api import CoreAPI
 from LiuXin_alpha.core.commands import CoreCommand, CoreCommandResult
 from LiuXin_alpha.core.description import (
@@ -926,7 +927,8 @@ class CoreRuntime(CoreAPI):
 
         with self._command_lock:
             try:
-                result = handler(self, command)
+                with use_preferences(self.services.preferences):
+                    result = handler(self, command)
             except Exception as exc:
                 error_code, error_details = core_error_details(exc)
                 self.emit_event(
@@ -1081,7 +1083,8 @@ class CoreRuntime(CoreAPI):
 
         with self._command_lock:
             try:
-                result = handler(self, query)
+                with use_preferences(self.services.preferences):
+                    result = handler(self, query)
             except Exception as exc:
                 error_code, error_details = core_error_details(exc)
                 raise CoreHandlerError(

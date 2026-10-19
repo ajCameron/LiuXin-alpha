@@ -36,7 +36,7 @@ from LiuXin_alpha.surfaces.cli.postgres import (
     redact_postgres_target,
     write_postgres_env_file,
 )
-from LiuXin_alpha.surfaces.system_profile import (
+from LiuXin_alpha.core.settings import (
     SYSTEM_MANIFEST_FORMAT,
     SYSTEM_MANIFEST_NAME,
     SYSTEM_MANIFEST_VERSION,

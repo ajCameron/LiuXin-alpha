@@ -13,7 +13,6 @@ Example:
 
 from __future__ import annotations
 
-import importlib
 from pathlib import Path
 
 import pytest
@@ -54,14 +53,11 @@ def _reload_alpha_preferences(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
-    import LiuXin_alpha.constants.paths as alpha_paths
-
-    monkeypatch.setattr(alpha_paths, "LiuXin_prefs_folder", str(tmp_path), raising=False)
-
+    from LiuXin_alpha import configuration
     import LiuXin_alpha.preferences as prefs_mod
-
-    # Reload so the module-level `preferences = Preferences()` picks up the patched folder
-    return importlib.reload(prefs_mod)
+    paths = configuration.ConfigurationPaths(tmp_path, tmp_path / "calibre_config")
+    monkeypatch.setattr(configuration, "_default", prefs_mod.Preferences(paths=paths, upgrade_on_load=False))
+    return prefs_mod
 
 
 def _reload_liuxin_preferences(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
@@ -79,13 +75,7 @@ def _reload_liuxin_preferences(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
-    import LiuXin_alpha.constants.paths as paths
-
-    monkeypatch.setattr(paths, "LiuXin_prefs_folder", str(tmp_path), raising=False)
-
-    import LiuXin_alpha.preferences as prefs_mod
-
-    return importlib.reload(prefs_mod)
+    return _reload_alpha_preferences(monkeypatch, tmp_path)
 
 
 @pytest.mark.parametrize("module_kind", ["alpha", "liuxin"])

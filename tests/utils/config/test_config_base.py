@@ -12,7 +12,6 @@ Example:
 from __future__ import annotations
 
 import importlib
-import os
 import sys
 import types
 from pathlib import Path
@@ -138,6 +137,8 @@ def _import_config_base(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """
     _install_clint_stubs()
     _set_isolated_env(tmp_path, monkeypatch)
+    from LiuXin_alpha import configuration
+    monkeypatch.setattr(configuration, "_default", None)
 
     # Ensure env overrides are respected.
     _clear_modules(
@@ -360,7 +361,8 @@ def test_global_prefs_installation_uuid_written_only_when_requested(cb) -> None:
     :return: None; the operation mutates state, writes output or performs cleanup in
         place.
     """
-    global_cfg = Path(cb.config_dir) / "global.py.json"
+    from LiuXin_alpha.configuration import configuration_paths
+    global_cfg = configuration_paths().preferences / "LiuXin_prefs_file.ini"
     assert not global_cfg.exists()
 
     uuid = cb.ensure_installation_uuid()
@@ -379,7 +381,7 @@ def test_import_does_not_create_or_execute_tweaks(cb) -> None:
     assert not config_directory.exists()
 
     assert cb.tweaks["example_tweak"] == 1
-    assert (config_directory / "tweaks.py").is_file()
+    assert not config_directory.exists()
 
 
 def test_tweaks_roundtrip_and_context_manager(cb) -> None:

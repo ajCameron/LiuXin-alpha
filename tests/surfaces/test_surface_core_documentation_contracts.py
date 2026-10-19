@@ -145,6 +145,7 @@ def test_session_open_routes_and_normalizes_only_the_selected_source(
             database_path=expected,
             db_type=driver,
             database_metadata=metadata,
+            configuration_paths=None,
             create=True,
             backup=False,
             cache_type="test-cache",
@@ -727,7 +728,7 @@ def test_connection_argument_registration_leaves_required_selection_to_opening(
     :param monkeypatch: Fixture replacing profile application and session opening without touching environment profiles.
     :return: None after parser defaults/exclusivity and resolved namespace forwarding assertions.
     """
-    from LiuXin_alpha.surfaces import system_profile
+    from LiuXin_alpha.core import settings as system_profile
 
     parser = argparse.ArgumentParser()
     assert (

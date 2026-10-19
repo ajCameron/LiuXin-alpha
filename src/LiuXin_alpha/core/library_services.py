@@ -170,6 +170,7 @@ class LibraryServices:
                     enable_storage_manager=False,
                     enable_maintenance=False,
                     repair_bootstrap_rows=repair_bootstrap_rows,
+                    application_preferences=preferences,
                 )
                 own("database", database.close)
 

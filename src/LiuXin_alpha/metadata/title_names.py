@@ -16,7 +16,7 @@ _BUILTIN_ENGLISH_ARTICLES = frozenset((r"A\s+", r"The\s+", r"An\s+"))
 _IGNORED_OPENING_CHARACTERS = "'\"" + "".join(
     chr(codepoint) for codepoint in (*range(0x2018, 0x201E), 0x2032, 0x2033)
 )
-_title_sort_patterns: dict[str | None, re.Pattern[str]] = {}
+_title_sort_patterns: dict[tuple[str, ...], re.Pattern[str]] = {}
 
 
 def get_title_sort_pattern(lang: str | None = None) -> re.Pattern[str]:
@@ -25,7 +25,8 @@ def get_title_sort_pattern(lang: str | None = None) -> re.Pattern[str]:
     An absent language uses the configured title-sort language and then the
     active locale. Invalid or missing configuration falls back first to the
     configured English articles and finally to ``A``, ``An`` and ``The``.
-    Patterns are cached against the caller's original language argument.
+    Patterns are cached by the resolved article rules, so profile changes and
+    live setting updates cannot reuse a different profile's pattern.
 
     Example:
         >>> get_title_sort_pattern("eng") is get_title_sort_pattern("eng")
@@ -34,10 +35,6 @@ def get_title_sort_pattern(lang: str | None = None) -> re.Pattern[str]:
     :param lang: Optional language code or name used to choose article rules.
     :return: Case-insensitive pattern matching one leading article.
     """
-
-    cached = _title_sort_patterns.get(lang)
-    if cached is not None:
-        return cached
 
     selected_language = lang
     if selected_language is None:
@@ -63,12 +60,16 @@ def get_title_sort_pattern(lang: str | None = None) -> re.Pattern[str]:
     except Exception:
         articles = _BUILTIN_ENGLISH_ARTICLES
 
-    expression = f"^({'|'.join(articles)})"
+    cache_key = tuple(sorted(articles))
+    cached = _title_sort_patterns.get(cache_key)
+    if cached is not None:
+        return cached
+    expression = f"^({'|'.join(cache_key)})"
     try:
         pattern = re.compile(expression, re.IGNORECASE)
     except Exception:
         pattern = re.compile(r"^(A|The|An)\s+", re.IGNORECASE)
-    _title_sort_patterns[lang] = pattern
+    _title_sort_patterns[cache_key] = pattern
     return pattern
 
 

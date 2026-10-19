@@ -28,10 +28,10 @@ Changes vs older LiuXin_alpha code:
 import optparse
 import os
 import logging
-from copy import deepcopy
 from contextlib import suppress
 
-from LiuXin_alpha.constants.paths import CONFIG_DIR_MODE, config_dir
+from LiuXin_alpha.constants.paths import CONFIG_DIR_MODE, config_dir as config_dir
+from LiuXin_alpha.configuration import configuration_paths
 from LiuXin_alpha.utils.localization import trans as _
 
 from LiuXin_alpha.utils.config import CustomHelpFormatter, OptionParser
@@ -96,7 +96,7 @@ def check_config_write_access() -> bool:
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
-    return os.access(config_dir, os.W_OK) and os.access(config_dir, os.X_OK)
+    return os.access(configuration_paths().components, os.W_OK) and os.access(configuration_paths().components, os.X_OK)
 
 
 class DynamicConfig(dict):
@@ -109,7 +109,7 @@ class DynamicConfig(dict):
             python -m pytest -q tests/utils/config/test_config_base.py
     """
 
-    def __init__(self, name: str = "dynamic") -> None:
+    def __init__(self, name: str = "dynamic", *, base_path: str | None = None) -> None:
         """
         Initialize and validate the DynamicConfig state.
 
@@ -124,6 +124,7 @@ class DynamicConfig(dict):
         """
         dict.__init__(self, {})
         self.name = name
+        self.base_path = base_path if base_path is not None else str(configuration_paths().components)
         self.defaults: dict[str, object] = {}
         self.refresh()
 
@@ -141,7 +142,7 @@ class DynamicConfig(dict):
         :return: The normalized value, metadata record, path, stream result or collection
             described above.
         """
-        return os.path.join(config_dir, self.name + ".pickle.json")
+        return os.path.join(self.base_path, self.name + ".pickle.json")
 
     def decouple(self, prefix: str) -> None:
         """
@@ -340,7 +341,7 @@ class DynamicConfig(dict):
         commit_data(self.file_path, json_dumps(self))
 
 
-dynamic = DynamicConfig()
+# Construct DynamicConfig explicitly with the selected component root.
 
 
 class XMLConfig(dict):
@@ -355,7 +356,7 @@ class XMLConfig(dict):
 
     EXTENSION = ".plist"
 
-    def __init__(self, rel_path_to_cf_file: str, base_path: str = config_dir, permissions: int = 0o666):
+    def __init__(self, rel_path_to_cf_file: str, base_path: str | None = None, permissions: int = 0o666):
         """
         Initialize and validate the XMLConfig state.
 
@@ -376,6 +377,7 @@ class XMLConfig(dict):
         self.no_commit = False
         self.defaults: dict[str, object] = {}
 
+        base_path = base_path if base_path is not None else str(configuration_paths().components)
         self.file_path = os.path.join(base_path, *rel_path_to_cf_file.split("/"))
         self.file_path = os.path.abspath(self.file_path)
         if not self.file_path.endswith(self.EXTENSION):

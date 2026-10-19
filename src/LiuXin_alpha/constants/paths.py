@@ -17,6 +17,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from LiuXin_alpha.resources import calibre_resource_directory
+from LiuXin_alpha.configuration import ConfigurationPaths
 
 CONFIG_DIR_MODE = 0o0700
 
@@ -101,18 +102,10 @@ def _resolve_base_dir() -> Path:
 # ---------------------------------------------------------------------------
 
 _BASE_DIR = _resolve_base_dir()
-_PREFS_DIR = _env_path("LIUXIN_PREFS_DIR") or (_BASE_DIR / "LiuXin_prefs")
-_CONFIG_DIR = _env_path("LIUXIN_CONFIG_DIR") or (_PREFS_DIR / "calibre_config")
+_CONFIGURATION_PATHS = ConfigurationPaths.resolve()
+_PREFS_DIR = _CONFIGURATION_PATHS.preferences
+_CONFIG_DIR = _CONFIGURATION_PATHS.components
 
-# Path discovery is pure.  Components that persist configuration create their
-# destination directory at the explicit write boundary.
-
-
-# ---------------------------------------------------------------------------
-# Public constants (strings for compatibility with legacy callers)
-# ---------------------------------------------------------------------------
-
-# The folder LiuXin considers its base.
 LiuXin_base_folder = str(_BASE_DIR)
 
 # Historical name; no longer depends on CWD.

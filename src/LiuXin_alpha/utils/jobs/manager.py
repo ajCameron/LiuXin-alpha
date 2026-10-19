@@ -16,6 +16,7 @@ import threading
 import time
 import uuid
 
+from contextvars import copy_context
 from concurrent.futures import (
     CancelledError as FutureCancelledError,
     Future,
@@ -23,7 +24,7 @@ from concurrent.futures import (
     TimeoutError as FutureTimeoutError,
 )
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable, Literal
+from typing import Callable, Iterable, Literal
 
 from .api import JobBackend, JobExecution, JobRequest, allocate_job_log_path, execute_job
 
@@ -366,7 +367,10 @@ class InMemoryJobManager(JobManagerAPI):
             )
             runtime = _RuntimeJob(info=info)
             self._jobs[job_id] = runtime
+            # Each job captures its submitting Core's selection, including when
+            # it waits in the executor queue behind a different profile.
             runtime.future = self._executor.submit(
+                copy_context().run,
                 self._run_one,
                 job_id,
                 heartbeat=heartbeat,

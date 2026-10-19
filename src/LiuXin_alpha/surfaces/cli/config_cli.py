@@ -1,7 +1,7 @@
 """
 Inspect deployment manifests and manage named/default manifest selectors.
 
-Selection and manifest loading belong to system_profile: explicit selectors take
+Selection and manifest loading belong to core.settings: explicit selectors take
 precedence over environment and persisted defaults. Validation checks syntax and
 local accessibility, not database integrity or server readiness. Named profiles
 and the default connection store pointers rather than copying a deployment.
@@ -27,7 +27,7 @@ from LiuXin_alpha.surfaces.cli.common import (
     json_bytes,
     open_cli_core,
 )
-from LiuXin_alpha.surfaces.system_profile import (
+from LiuXin_alpha.core.settings import (
     PROFILE_POINTER_FORMAT,
     PROFILE_POINTER_VERSION,
     SYSTEM_MANIFEST_NAME,
@@ -128,7 +128,7 @@ def cmd_config_show(args: argparse.Namespace) -> int:
     """
     Publish the loaded manifest, normalized root, and selection provenance.
 
-    Apply system_profile's limited manifest redaction, not the recursive diagnostic
+    Apply core.settings' limited manifest redaction, not the recursive diagnostic
     sanitizer. Unknown nested secrets, path details, or URL components may remain;
     this is not a guarantee that arbitrary manifests are safe to share.
 

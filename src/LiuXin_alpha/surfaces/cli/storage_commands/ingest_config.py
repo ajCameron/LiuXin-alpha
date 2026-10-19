@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import argparse
 
+from LiuXin_alpha.core.settings import load_system_profile
 from LiuXin_alpha.ingest.mixed_application import MixedIngestBudget
 from LiuXin_alpha.surfaces.cli.storage_commands.constants import _GIB, CLIUsageError
-from LiuXin_alpha.surfaces.system_profile import load_system_profile
 
 
 def _apply_system_root_defaults(args: argparse.Namespace) -> None:
