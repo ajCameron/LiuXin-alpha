@@ -10,7 +10,30 @@ names and counts below describe their dated checkpoints. See the current
 
 Date: **2026-10-18**
 
-Status: **Review complete; proposed restructuring has not been implemented.**
+Status: **Historical review with implementation follow-ups; restructuring is partial.**
+
+## Implementation follow-up — 2026-10-19
+
+Checked against `15080c6e`, the PR #126 merge on `configuration-ownership`.
+The original observations and measurements below describe the 2026-10-18 trees;
+they are preserved as the rationale, not presented as current failures.
+
+| Finding | Current status | Remaining work |
+| --- | --- | --- |
+| DS-01: path migration | Completed in PR #124, including incoming links, package signposts, deployment consumers and portable evidence references. | Keep consumers aligned when another path changes. |
+| DS-02: document authority | Developer and subsystem indexes distinguish contracts, decisions and history. The Catalog fitness/migration records label their historical and current parts. The Calibre guides now separate implemented adapters and projections from the unimplemented canonical-import proposal. | Review the remaining older numbered guides and mixed design/status documents. |
+| DS-03: ownership contracts | Core composition, Catalog-owned hydration and configuration were reconciled in the navigation pass. The current ownership/Catalog pass corrects live Row adapters, read-cache composition and outstanding work. | Audit other subsystem contracts; this does not certify every guide or complete the underlying code migrations. |
+| DS-04: navigation | Subsystem indexes and a task-based developer index are implemented; the documentation gate checks guide reachability. | Maintain those routes as content changes. |
+| DS-05/DS-06: numbered guides and policy/work queues | Guides 02/04 and the Catalog work list describe current owners. Guide 03 describes the generated schema, with worked links and current normalization profiles. Guide 05 now maps compatibility owners, source-reading lifetimes and source/ray/Work identities; the import-policy draft has an explicit implementation work list. | Reconcile the detailed field inventory, storage guides, conventions and obsolete work lists. The larger proposed path reshuffle remains a proposal. |
+| DS-08: formats/plugins | PRs #125/#126 unify the plugin package and its docs under `plugins`, with explicit standalone/application composition and import migration. | Domain registries and compatibility providers retain separate contracts. |
+| DS-10/DS-11: evidence/checks | Local evidence paths are labelled; tests reject missing/untracked link targets and unreachable developer guides. | Renderer-specific fragments and external URLs remain outside that gate. |
+
+Current contracts: [ownership](<../04 - Seperation of Concerns.md>),
+[Catalog roadmap](../catalog/catalog-roadmap.md),
+[legacy migration](../catalog/catalog-legacy-mutation-migration.md), and
+[cache composition](../catalog/catalog-cache-boundary.md). The remaining findings,
+including metadata/acquisition navigation and broader history classification,
+remain open unless a specific follow-up above closes them.
 
 Scope: developer documentation, repository organisation, package responsibilities,
 and the relationship between documented and implemented architecture. This is a

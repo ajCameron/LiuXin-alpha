@@ -1,16 +1,15 @@
 # Top-level structure
 
-Reviewed: **2026-10-19**, against merged source at `a5f77cfd` on
-`configuration-ownership`, including documentation PR #124 and plugin PR #125.
-Naming follow-up: **2026-10-19**, on `rename-plugins-package`; the consolidated
-`plugin_system` package, tests and documentation are renamed to `plugins`.
+Reviewed: **2026-10-19**, against merged source at `15080c6e` on
+`configuration-ownership`, including documentation PR #124 and plugin PRs #125/#126.
+The consolidated package, tests and documentation now use `plugins`; both
+`customize` and `plugin_system` are retired namespaces.
 
 Status: **Current architecture overview, with remaining migrations identified.**
 The `main` checkpoint `54789496` includes the writes, category-read and
 configuration ownership changes from PRs #122/#123. The reviewed
 `configuration-ownership` checkpoint additionally includes the documentation
-reorganisation and the complete `customize` merger. This guide uses the final
-`plugins` name from the follow-up above. Those
+reorganisation, the complete `customize` merger and the `plugins` rename. Those
 later changes are not in that `main` checkpoint. Branch history and implementation
 status are distinct; the remaining architectural work is identified below.
 

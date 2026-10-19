@@ -38,16 +38,19 @@ and application operations remain inside the contract only by delegating to
 those routes; their own checks are never the sole guard.
 
 `catalog.add`, `ensure`, `apply`, and `intralink` remain supported Row-oriented
-compatibility routes, but are deprecated for new code and are being moved
-progressively behind canonical mutations. Direct use of `catalog.db`, database
-drivers, raw macros, direct SQL, private helpers, or the private writer-host
-`_apply_*` methods is outside this guarantee. Cache writer methods delegate to
-Catalog and do not define another semantic boundary.
+compatibility routes and are deprecated for new code. For Catalog-owned tables,
+`catalog.row_mutations` adapts them to the same repository preparation and
+relationship owner. Non-Catalog tables retain low-level adapters. Direct use of
+`catalog.db`, drivers, raw macros, direct SQL, private helpers, or the private
+writer-host `_apply_*` methods is outside the semantic guarantee. Cache writers
+delegate to Catalog and own their subsequent reconciliation.
 
-The boundary is adopted but still being enforced repository by repository;
-curated identifier generic CRUD is the first completed slice. See the dated
-[write-validation contract](catalog-write-validation-contract.md) for current
-gaps and migration order.
+As of **2026-10-19**, shared preparation covers repository CRUD, schema writers,
+container writes and the Catalog-owned Row routes. This is broader than the
+initial curated-identifier slice, but it does not invent validators for fields
+without declared rules. See the [write-validation contract](catalog-write-validation-contract.md)
+for current limits and the [migration record](catalog-legacy-mutation-migration.md)
+for the live compatibility boundary.
 
 ## Choosing an API area
 
@@ -382,8 +385,9 @@ highlights = catalog.annotations.list_for_item(
 
 ## Bundles and projections
 
-An Item has an unambiguous path upward, so its bundle normally contains all
-four WEMI rows:
+An Item has one Manifestation foreign key, but that Manifestation can link to
+several Expressions and those Expressions to several Works. Its bundle selects
+one repository-ordered path and can contain all four WEMI rows:
 
 ```python
 bundle = catalog.retrieval.bundles.for_item(item_id)
@@ -393,10 +397,16 @@ assert bundle.manifestation["manifestation_id"] == manifestation_id
 assert bundle.item["item_id"] == item_id
 ```
 
-A broader root chooses one deterministic path: the first priority/ID-ordered
-relationship at each lower level. It is not an exhaustive descendant tree.
+Each root chooses one deterministic path through the available relationships.
+Portable link reads order by descending priority, then destination ID; bundles
+follow that order without a separate primary-marker preference. This differs
+from the SQLite `wemi_primary_rays_v` view, which ranks primary flags first and
+uses ascending priorities within each group. A bundle is not an exhaustive
+ancestor or descendant graph, and incomplete paths can leave levels absent.
 Bundles also collect attached Agents, Identifiers, Titles, Notes, and
-relationship records from the selected path.
+relationship records from the selected path. The
+[worked WEMI examples](../databases/wemi-link-examples.md) show both selection
+contracts and explain why one copy can appear on several paths.
 
 Use hierarchy retrieval for one generic step in either direction:
 

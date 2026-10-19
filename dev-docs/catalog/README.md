@@ -1,7 +1,8 @@
 # Catalog
 
 Catalog owns metadata-aware persistence, identity, matching and retrieval. Start
-with the contracts; roadmap and migration records provide historical context.
+with the contracts and current work list. Dated reviews preserve earlier findings
+and verification; their old test counts are not current checkout results.
 
 ## Current contracts
 
@@ -14,11 +15,15 @@ with the contracts; roadmap and migration records provide historical context.
 - [Cache backends](<../08 - Storage Cache Backends.md>) and
   [read failures](../read-model-failures.md): backend capabilities and failure visibility.
 
-## Reviews and migration history
+## Current work and migration status
 
-- [Legacy mutation migration](catalog-legacy-mutation-migration.md).
-- [Fitness review](catalog-fitness-review.md).
-- [Roadmap](catalog-roadmap.md): dated planning, not proof that every old route is gone.
+- [Roadmap](catalog-roadmap.md): implemented ownership changes and remaining work.
+- [Legacy mutation migration](catalog-legacy-mutation-migration.md): completed caller
+  migration, the live Row adapters and retired Library facades.
+
+## Historical review
+
+- [Fitness review](catalog-fitness-review.md): July findings and remediation evidence.
 
 Metadata values belong to [metadata](../metadata/README.md); hydration boundaries
 are described with the [container guides](../metadata_container/README.md).

@@ -1,6 +1,30 @@
 # Digital assets, replicas and storage policy
 
-## Core graph
+Status: **Design history with a source-checked implementation note, 2026-10-19.**
+
+## Current implementation checkpoint
+
+The [current schema overview](<../03 - Database Schema.md#digital-assets-and-physical-copies>)
+describes the generated SQLite schema at `15080c6e`. Several ideas below were
+implemented differently or have since changed:
+
+| Earlier design below | Current schema |
+| --- | --- |
+| Atomic/composite rows in `digital_assets` | `digital_assets` is atomic; `composite_digital_assets` is a separate table. |
+| `digital_asset_compositions` | Generated `composite_digital_asset_digital_asset_links`, with `sequence_number` and `is_required`. |
+| Replicas guarded by an asset-kind check | Replica foreign keys target only `digital_assets`; composites have no direct replicas. |
+| Proposed JSON list of supported store modes | Concrete `store_supports_active_replica_mode`, `store_supports_backup_replica_mode` and `store_supports_archive_replica_mode` flags. |
+| Default policy foreign keys still proposed | Both `stores` and `folders` contain replication/backup default references. |
+| Copy-minimum constraints require at least one | Current minima permit zero; supplied targets must be at least their minimum. |
+
+The existence of these fields does not establish the complete runtime retention,
+policy-inheritance or reproducible-derivation contract. Check
+[storage design](../storage_and_backup/design-patterns.md) and
+[implementation status](../storage_and_backup/storage_component_status.md) for
+that work. Earlier present-tense statements below describe their design checkpoint,
+not the current DDL or proof that the described storage behaviour is implemented.
+
+## Earlier design: core graph
 
 The storage-facing graph is now:
 

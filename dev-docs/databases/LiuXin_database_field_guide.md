@@ -1,7 +1,16 @@
 
-# Todo: This probably needs updating now the schema is more final
-
 # LiuXin database field guide
+
+Status: **Detailed design-era reference; not fully reconciled with current DDL.**
+
+Checked on **2026-10-19**: use the [current schema overview](<../03 - Database Schema.md>)
+and its source links before relying on an individual field description. In
+particular, composites now have their own `composite_digital_assets` table and
+generated member links; atomic `digital_assets` no longer use the older
+kind/composition-table model. Store mode flags and zero-copy policy constraints
+have also changed. The field inventory below is preserved for the remaining
+field-by-field reconciliation.
+
 This dev doc is a field-by-field guide to the **first-class tables defined in `table_sql/`** for the FRBR generator, plus the current storage-schema pass that introduces digital assets, replicas, and storage policies.
 It is written against the **target schema after the digital-assets/schema patch**, not just the pre-patch base archive.
 ## Scope and reading notes

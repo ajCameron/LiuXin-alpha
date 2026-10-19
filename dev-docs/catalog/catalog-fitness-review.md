@@ -1,6 +1,12 @@
 # Catalog fitness review
 
-Status: implementation complete and verified, 2026-07-22.
+Status: **Historical review and remediation record, 2026-07-22.**
+
+The findings below describe the pre-remediation implementation; the later sections
+record that campaign's fixes and test results. They are not current claims that
+Catalog repositories remain scaffolds. For the 2026-10-19 state, use the
+[current roadmap](catalog-roadmap.md), [write contract](catalog-write-validation-contract.md)
+and [legacy migration boundary](catalog-legacy-mutation-migration.md).
 
 Practical facade/repository examples and matching semantics are documented in
 the [Catalog API usage guide](catalog-api-usage.md).

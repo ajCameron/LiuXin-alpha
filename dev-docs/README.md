@@ -44,6 +44,9 @@ implementation is complete.
   and [operational CLI](surfaces/operational-cli.md).
 - Add or migrate a plugin: [plugin ownership](plugins/README.md) and
   [import migration](plugins/plugin-composition.md#import-migration).
+- Inspect a Calibre library or change a compatibility adapter:
+  [current compatibility boundaries](<05 - Calibre compat.md>) and
+  [identity mappings](<calibre_compat/mapping calibre to LiuXin.md>).
 - Operate acquisition or recovery: [mixed ingest](storage_and_backup/mixed_ingest_operations.md)
   and the [storage API](storage_and_backup/storage_api.md).
 - Select a test lane or investigate resource use: [testing](hacking/testing/README.md)
