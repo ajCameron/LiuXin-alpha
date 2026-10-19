@@ -33,6 +33,24 @@ The ratchet encodes the ownership direction documented in
 - Library cannot depend on Core or surfaces; and
 - Core cannot depend on surfaces.
 
+The plugin/format rules, updated on **2026-10-19**, also apply within the merged
+`plugin_system` package:
+
+- File formats cannot import application plugin modules, caches, Catalog, Core,
+  databases, ingest, jobs, Library, storage or surfaces. Imports of the retired
+  `customize` namespace remain forbidden.
+- Neutral plugin modules cannot import concrete domain implementations or the
+  application subtrees `application`, `contracts`, `archives`, `builtins`,
+  `cache` and `folder_store_driver`. New plugin modules default to the neutral
+  rules unless explicitly reviewed as application modules.
+- The whole plugin package, including application assembly, cannot import Core,
+  ingest, jobs, storage or surfaces.
+
+The authoritative host-prefix list is `PLUGIN_HOST_PREFIXES` in
+[the layer checker](../../scripts/check_layer_direction.py); the cold-import
+checker reuses it. Combining the packages did not relax those boundaries. See
+the [composition contract](../plugin_system/plugin-composition.md).
+
 Cache's long-term rank is intentionally absent until its role is decided.
 
 ## Exact baseline
@@ -62,6 +80,15 @@ baseline itself.
 
 ## Current measurement
 
+At `78a01b61` on **2026-10-19**, the scanner covers 1,792 source modules. The
+reviewed baseline has 15 backward edges and 28 unresolved dynamic imports. The
+largest runtime and combined components each contain 217 modules; the domain
+component remains 9, and the Catalog/cache cross-package components remain zero.
+The package merger relocated three existing dynamic-import entries without
+adding an allowance or increasing a cycle ceiling.
+
+## Measurement history
+
 On **2026-10-12**, moving database/cache metadata hydration from `metadata` to
 Catalog retrieval reduced the largest domain SCC from 48 modules to 17. On
 **2026-10-13**, moving OPF operations out of generic metadata utilities and the
@@ -77,5 +104,6 @@ the dependency back to Catalog.
 
 Later on **2026-10-13**, extracting the generic plugin lifecycle and conversion
 plugin contracts from `customize` reduced both whole-package SCC measurements
-again, from 220 to 218. The domain SCC remains 9; the remaining format-to-UI and
-customization dependencies are still represented honestly in the graph.
+again, from 220 to 218. The domain SCC remained 9; format-to-UI and customization
+dependencies were still represented in that checkpoint's graph. Later containment
+and the unified plugin package supersede those import paths.

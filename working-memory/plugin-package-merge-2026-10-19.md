@@ -72,3 +72,26 @@ outside this merger.
 The isolated review worktree remains `/tmp/liuxin-test-vm-telemetry`. The main
 checkout's staging and unrelated edits are untouched. Keep the intentional
 `LiuXin_alpha_data` symlink out of every commit.
+
+## Documentation follow-up
+
+The user requested updating the docs and pushing to the same PR #125.
+
+- Moved the composition/migration contract to
+  `dev-docs/plugin_system/plugin-composition.md` and added a package index with
+  owner routing, limitations and verification commands. Developer, format,
+  conversion, compatibility and architecture indexes now link to the current home.
+- Updated package-root/provider docstrings and guide 02 signposts. The migration
+  guide explicitly uses the `LiuXin_alpha` prefix and explains that the passive
+  package root does not re-export `Plugin`.
+- Documented current internal layer rules, cold-import prefix restrictions and
+  the measurements at `78a01b61`, preserving earlier measurements as history.
+  Corrected the current cache guide's retired path and added a dated plugin
+  follow-up to the September review without rewriting its original findings.
+- Documented the package merger's actual focused and installed-wheel verification
+  separately from the earlier containment run; neither is a new full-suite result.
+
+Validation: all 26 documentation-link, public-boundary and package-structure
+tests pass. The layer check passes across 1,792 modules with the same 15 reviewed
+edges and 28 dynamic imports; all 25 cold-import budgets pass. No runtime behavior
+changed, so the full application suite was not repeated for this docs follow-up.

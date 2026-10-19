@@ -8,6 +8,10 @@ Internal layer/cold-import rules preserve standalone formats and neutral loading
 repository callers and installed-wheel checks use the new namespace. The 319-test
 regression run, 35 follow-up tests, full quality gates and installed wheel verifier
 pass. External plugins must migrate old imports using the documented table.
+The documentation follow-up moves the canonical composition/migration guide to
+`dev-docs/plugin_system/`, adds a subsystem index, updates incoming links and
+source signposts, and separates current enforcement from historical measurements.
+See the [merger note](plugin-package-merge-2026-10-19.md#documentation-follow-up).
 
 Earlier startup checkpoint (namespace decision superseded above): following documentation commit
 `7d854316`. The [plugin ownership follow-up](plugin-composition-ownership-2026-10-19.md)

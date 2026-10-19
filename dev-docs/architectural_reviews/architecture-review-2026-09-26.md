@@ -67,6 +67,24 @@ unless explicitly remeasured here.
 | Category read semantics | `daa6a0ed`, [#121][pr121]; [read ownership record](../../working-memory/catalogue-read-ownership-2026-10-18.md), [direct/HTTP parity tests](../../tests/surfaces/test_category_read_ownership.py). |
 | Application configuration | `d59407f3`, [#123][pr123]; [configuration contract](../core/configuration-ownership.md), [handoff](../../working-memory/configuration-ownership-2026-10-18.md), [profile/worker regressions](../../tests/preferences/test_configuration_ownership.py). |
 
+### Plugin follow-up — 2026-10-19
+
+Commits `6b97be2f` and `78a01b61` in
+[PR #125](https://github.com/ajCameron/LiuXin-alpha/pull/125) make application startup
+explicit/lazy, share provider membership and loading/priority policy, then
+consolidate `customize` into `plugin_system`. The old namespace and forwarding
+modules are removed. Neutral mechanics and standalone formats retain enforced
+internal dependency boundaries. The
+[plugin system guide](../plugin_system/README.md) and
+[migration table](../plugin_system/plugin-composition.md#import-migration)
+describe the resulting API.
+
+This closes the package split and startup ownership work in UT-3/4/5. It does
+not close unsupported device providers, retained cache/driver interfaces,
+provider availability reporting or separate jobs/ingest registry work. The
+September findings and October 13 compatibility-shim checkpoint below remain
+historical evidence; those shims no longer exist.
+
 ### Remaining work in priority order
 
 1. Close CO-4/SU-6's transport and capability boundaries; implement ST-1/ST-2's

@@ -99,7 +99,7 @@ The shortest useful description is:
 Both plugin hosts use descending priority, stable registration order on ties and
 installed providers first at equal priority. The shared loader implements this
 rule; composition owners choose the providers. See the
-[plugin composition contract](file_formats/plugin-composition.md) for startup,
+[plugin composition contract](plugin_system/plugin-composition.md) for startup,
 refresh and failure semantics, including remaining compatibility debt.
 
 ## Semantic write validity

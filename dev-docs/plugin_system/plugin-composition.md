@@ -1,4 +1,4 @@
-# File-format plugin composition
+# Plugin composition and import migration
 
 Decision dates: **2026-10-13–2026-10-15**
 
@@ -8,8 +8,10 @@ ownership and shared startup policy. Supersedes the earlier package split.
 Status: **standalone containment and application startup boundaries implemented;
 metadata cycles and unsupported application providers remain**
 
+This is the shared contract for application and standalone file-plugin hosts.
 Conversion and metadata I/O can select and execute file plugins without importing
-application composition. The owners are explicit:
+application composition. The [package index](README.md) routes changes to their
+owners:
 
 | Owner | Responsibility |
 |---|---|
@@ -30,6 +32,8 @@ application composition. The owners are explicit:
 | `plugin_system.application` | Application registry lifecycle, lookups and installed-plugin management |
 | `plugin_system.contracts` | Application plugin families formerly defined in the customization root |
 | `plugin_system.builtins` | Application catalogue and bundled application families |
+
+## Startup and provider policy
 
 The runtime loads its fleet on first use. Both hosts use the shared loader's stable
 descending priority order; external ZIP plugins precede bundled providers at equal
@@ -71,6 +75,9 @@ storage and terminal plugin registries remain separate domain owners.
 
 External ZIP plugins must update old imports and be repackaged. There is no
 `customize` compatibility namespace in the source tree or installed wheel.
+Module paths below are relative to `LiuXin_alpha`; import from the full owner,
+for example `from LiuXin_alpha.plugin_system.base import Plugin`. Importing
+`Plugin` from the passive `plugin_system` package root is not supported.
 
 | Former import | Current owner |
 | --- | --- |
@@ -87,6 +94,8 @@ External ZIP plugins must update old imports and be repackaged. There is no
 
 Repository callers, test streams and ZIP-plugin examples use these owners.
 `library.comments` and `surfaces.gui2` retain their separate compatibility exports.
+
+## Related format boundaries
 
 Headless rendering retains the existing Qt availability/bootstrap behavior. Image
 serialization now preserves pixels instead of returning empty bytes; the shared
@@ -108,6 +117,7 @@ Fresh-process budgets cover the passive boundaries:
 
 | Cold import | Project-module ceiling |
 |---|---:|
+| `plugin_system` | 2 |
 | `plugin_system.base`, `plugin_system.file_types`, `plugin_system.loading` | 30 each |
 | `plugin_system.configuration` | 31 |
 | `file_formats.conversion.plugin`, `file_formats.conversion.profiles` | 31 each |
@@ -131,6 +141,15 @@ conversion-loss reporting and concurrent conversion state have not all been
 resolved by this containment work. See the
 [architecture review](../architectural_reviews/architecture-review-2026-09-26.md).
 
-Verified on 2026-10-15: 2,597 regression tests passed, 18 skipped, and the full
+## Verification checkpoints
+
+The 2026-10-19 package merger (`78a01b61`) passed 319 focused regression tests,
+35 overlapping follow-up tests, the full type/quality gate and actual installed-wheel
+verification. These checks cover startup, ordering, failures, namespace retirement,
+internal import direction and the installed conversion path. They are not a new
+full-suite result. Commands and limits are recorded in the
+[merger handoff](../../working-memory/plugin-package-merge-2026-10-19.md).
+
+Earlier containment checkpoint, 2026-10-15: 2,597 regression tests passed, 18 skipped, and the full
 repository type/quality gate passed. Five additional legacy image tests still
 fail on missing PyQt5; those failures also reproduce on the preceding commit.

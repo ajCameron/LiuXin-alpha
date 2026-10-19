@@ -6,5 +6,5 @@
 - [Earlier overview](<../05 - Calibre compat.md>): historical introductory notes.
 
 Use the [format guides](../file_formats/README.md) for current format implementations
-and [plugin composition](../file_formats/plugin-composition.md) for provider ownership.
+and [plugin composition](../plugin_system/plugin-composition.md) for provider ownership.
 Return to the [developer index](../README.md).

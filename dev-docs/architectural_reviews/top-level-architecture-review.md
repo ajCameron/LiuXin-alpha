@@ -5,7 +5,7 @@ and removes the old namespace and forwarding shims. Application assembly now
 lives in `plugin_system.application`, with module-level dependency and cold-import
 checks separating it from neutral mechanics. Earlier package names and counts
 below describe their dated checkpoints. See the current
-[plugin composition contract](../file_formats/plugin-composition.md).
+[plugin composition contract](../plugin_system/plugin-composition.md).
 
 
 Date: 2026-09-17

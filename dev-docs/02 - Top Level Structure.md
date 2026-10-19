@@ -2,7 +2,7 @@
 # Top-level structure
 
 Reviewed: **2026-10-19**, against source at `6508d5e0` on `architecture-review-followup`.
-Plugin ownership updated **2026-10-19** on `plugin-composition-ownership`, following
+Plugin ownership checked at `78a01b61` on **2026-10-19**, on `plugin-composition-ownership`, following
 documentation PR #124. PR #125 consolidates `customize` into `plugin_system`;
 this follow-up is not yet on `main`.
 
@@ -234,8 +234,9 @@ including imports between modules within this package.
 
 The `customize` namespace and its forwarding shims are removed. Both hosts share
 file-provider membership and loading/priority rules. Retained cache/folder-driver
-modules and unsupported device providers still need cleanup. See the
-[plugin composition guide][plugin-guide] for internal boundaries and import migration.
+modules and unsupported device providers still need cleanup. Start with the
+[plugin system index](plugin_system/README.md) and the
+[composition guide][plugin-guide] for internal boundaries and import migration.
 
 ### utils
 
@@ -491,7 +492,7 @@ enforced scopes, not a claim of universal architectural correctness.
 [terminal-composition]: surfaces/terminal-composition.md
 [ingest-guide]: storage_and_backup/mixed_ingest_operations.md
 [format-guide]: file_formats/README.md
-[plugin-guide]: file_formats/plugin-composition.md
+[plugin-guide]: plugin_system/plugin-composition.md
 [packaging]: hacking/packaging.md
 [library-services]: ../src/LiuXin_alpha/core/library_services.py
 [core-factory]: ../src/LiuXin_alpha/core/factory.py

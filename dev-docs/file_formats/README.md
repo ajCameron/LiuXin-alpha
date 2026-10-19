@@ -30,8 +30,8 @@ Current dossiers:
 - [ODT](odt/README.md)
 - [PDB](pdb/README.md)
 
-Cross-format composition policy is recorded in
-[`plugin-composition.md`](plugin-composition.md). In particular, importing the
+Shared composition policy is recorded in the
+[plugin system guide](../plugin_system/plugin-composition.md). In particular, importing the
 `plugin_system.builtins` namespace must not discover the complete converter fleet.
 New conversion providers subclass the canonical contracts in
 `LiuXin_alpha.file_formats.conversion.plugin`. The retired `customize` namespace
