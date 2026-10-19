@@ -24,7 +24,7 @@ class FileTypePlugin(Plugin):  # {{{
     Example:
         Exercise FileTypePlugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     #: Set of file types for which this plugin should be run. For example: ``{'lit', 'mobi', 'prc'}``
@@ -52,7 +52,7 @@ class FileTypePlugin(Plugin):  # {{{
         Example:
             Exercise FileTypePlugin.run through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param path_to_ebook: Value supplied for path to ebook under the utility contract.
@@ -69,7 +69,7 @@ class FileTypePlugin(Plugin):  # {{{
         Example:
             Exercise FileTypePlugin.postimport through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -88,7 +88,7 @@ class _MetadataReaderPlugin:
     Example:
         Exercise  MetadataReaderPlugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     # Set of file types for which this plugin should be run. For example: ``set(['lit', 'mobi', 'prc'])``
@@ -116,7 +116,7 @@ class _MetadataReaderPlugin:
         Example:
             Exercise  MetadataReaderPlugin.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param args: Positional values forwarded to the compatibility implementation.
@@ -135,7 +135,7 @@ class _MetadataReaderPlugin:
         Example:
             Exercise  MetadataReaderPlugin.get metadata through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -153,7 +153,7 @@ class _MetadataReaderPlugin:
         Example:
             Exercise  MetadataReaderPlugin.get metadata inplace through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param file_path: Value supplied for file path under the utility contract.
@@ -173,7 +173,7 @@ class MetadataReaderPlugin(Plugin, _MetadataReaderPlugin):  # {{{
     Example:
         Exercise MetadataReaderPlugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     def __init__(
@@ -185,7 +185,7 @@ class MetadataReaderPlugin(Plugin, _MetadataReaderPlugin):  # {{{
         Example:
             Exercise MetadataReaderPlugin.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param plugin_path: Value supplied for plugin path under the utility contract.
@@ -204,7 +204,7 @@ class MetadataWriterPlugin(Plugin):
     Example:
         Exercise MetadataWriterPlugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     #: Set of file types for which this plugin should be run
@@ -226,7 +226,7 @@ class MetadataWriterPlugin(Plugin):
         Example:
             Exercise MetadataWriterPlugin.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param args: Positional values forwarded to the compatibility implementation.
@@ -244,7 +244,7 @@ class MetadataWriterPlugin(Plugin):
         Example:
             Exercise MetadataWriterPlugin.set metadata through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -265,7 +265,7 @@ class MetadataWriterPlugin(Plugin):
         Example:
             Exercise MetadataWriterPlugin.set metadata inplace through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param file_path: Value supplied for file path under the utility contract.

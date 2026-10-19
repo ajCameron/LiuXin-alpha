@@ -487,7 +487,7 @@ class ContentWorkflowsHandlers(Protocol):
         self, runtime: CoreRuntime, query: CoreQuery
     ) -> Mapping[str, object]:
         """
-        List conversion input/output formats advertised by the current customization registry.
+        List conversion input/output formats advertised by the file-format runtime.
 
         See :func:`LiuXin_alpha.core.program_services.conversion.conversion_formats`
         for the maintained implementation's validation and failure boundaries.
@@ -496,7 +496,7 @@ class ContentWorkflowsHandlers(Protocol):
             >>> result = handler.conversion_formats(runtime, query)  # doctest: +SKIP
 
 
-        :param runtime: Unused runtime; discovery uses the process-wide customization registry.
+        :param runtime: Unused runtime; discovery uses the process-wide file-plugin registry.
         :param query: Unused query envelope; no payload filters are consumed.
         :return: input and output format-name lists; discovery/import failures propagate.
         """

@@ -17,7 +17,7 @@ for callers.
 Example:
     Exercise folder store driver through a consuming regression::
 
-        python -m pytest -q tests/customize/test_customize_base.py
+        python -m pytest -q tests/plugin_system/test_plugin_base.py
 """
 import os
 from copy import deepcopy
@@ -38,7 +38,7 @@ class LocationDriver:
     Example:
         Exercise LocationDriver through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     # Todo: This needs to be renamed, but last time a straight refactor turned out to be a BAD idea
@@ -68,7 +68,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param folder_store_row: Value supplied for folder store row under the utility
@@ -103,7 +103,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.  str   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: The normalized value, metadata record, path, stream result or collection
@@ -118,7 +118,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.  unicode   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: The normalized value, metadata record, path, stream result or collection
@@ -133,7 +133,7 @@ class LocationDriver:
             Example:
                 Exercise LocationDriver.  unicode  .uni format through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
             :param x: Value supplied for x under the utility contract.
@@ -181,7 +181,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.  getitem   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param item: Value supplied for item under the utility contract.
@@ -205,7 +205,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.reload fs row through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param new_row: Value supplied for new row under the utility contract.
@@ -227,7 +227,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct get cf cache through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: The normalized value, metadata record, path, stream result or collection
@@ -244,7 +244,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct get nb cache through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: The normalized value, metadata record, path, stream result or collection
@@ -269,7 +269,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct create store through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: The normalized value, metadata record, path, stream result or collection
@@ -290,7 +290,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct check store through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: The normalized value, metadata record, path, stream result or collection
@@ -311,7 +311,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct check location through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -332,7 +332,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct get file stream through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param target_folder_loc: Value supplied for target folder loc under the utility
@@ -355,7 +355,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct get scratch file copy through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param target_folder_loc: Value supplied for target folder loc under the utility
@@ -376,7 +376,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct get scratch folder copy through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param target_folder_loc: Value supplied for target folder loc under the utility
@@ -397,7 +397,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct get scratch self copy through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param target_folder_loc: Value supplied for target folder loc under the utility
@@ -423,7 +423,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct add local file through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param target_folder_loc: Value supplied for target folder loc under the utility
@@ -442,7 +442,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct add local folder through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param target_folder_loc: Value supplied for target folder loc under the utility
@@ -461,7 +461,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct create new folder through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param target_folder_loc: Value supplied for target folder loc under the utility
@@ -487,7 +487,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct rename file through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param target_folder_loc: Value supplied for target folder loc under the utility
@@ -507,7 +507,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct rename folder through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param target_folder_loc: Value supplied for target folder loc under the utility
@@ -529,7 +529,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct rename self through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param target_folder_loc: Value supplied for target folder loc under the utility
@@ -556,7 +556,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct get true sub folder list through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param target_folder_loc: Value supplied for target folder loc under the utility
@@ -573,7 +573,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct get true object lists through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param target_folder_loc: Value supplied for target folder loc under the utility
@@ -590,7 +590,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct get true sub folders through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param target_folder_loc: Value supplied for target folder loc under the utility
@@ -607,7 +607,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct get true files through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param target_folder_loc: Value supplied for target folder loc under the utility
@@ -626,7 +626,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct get all file properties through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param target_folder_loc: Value supplied for target folder loc under the utility
@@ -645,7 +645,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct get true folder size through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param folder_location: Value supplied for folder location under the utility
@@ -664,7 +664,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct get true file size through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param folder_location: Value supplied for folder location under the utility
@@ -682,7 +682,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct get folder true names index through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param folder_location: Value supplied for folder location under the utility
@@ -699,7 +699,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct exists through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param location: Value supplied for location under the utility contract.
@@ -724,7 +724,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct get folder name through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param location: Value supplied for location under the utility contract.
@@ -740,7 +740,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct get file name through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param location: Value supplied for location under the utility contract.
@@ -757,7 +757,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct make sub object location through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param self_location: Value supplied for self location under the utility contract.
@@ -774,7 +774,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct get parent location through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param location: Value supplied for location under the utility contract.
@@ -795,7 +795,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct get location from rows through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param folder_store_row: Value supplied for folder store row under the utility
@@ -815,7 +815,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct get object name through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param object_loc: Value supplied for object loc under the utility contract.
@@ -833,7 +833,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct seek through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param location: Value supplied for location under the utility contract.
@@ -851,7 +851,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct get ext through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param location: Value supplied for location under the utility contract.
@@ -874,7 +874,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct delete file through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param folder_loc: Value supplied for folder loc under the utility contract.
@@ -891,7 +891,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct delete folder through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param folder_loc: Value supplied for folder loc under the utility contract.
@@ -912,7 +912,7 @@ class LocationDriver:
         Example:
             Exercise LocationDriver.direct move folder through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param current_location: Value supplied for current location under the utility

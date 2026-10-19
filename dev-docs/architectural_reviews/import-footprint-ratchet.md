@@ -1,5 +1,13 @@
 # Import-footprint ratchet
 
+**Follow-up — 2026-10-19:** PR #125 consolidates `customize` into `plugin_system`
+and removes the old namespace and forwarding shims. Application assembly now
+lives in `plugin_system.application`, with module-level dependency and cold-import
+checks separating it from neutral mechanics. Earlier package names and counts
+below describe their dated checkpoints. See the current
+[plugin composition contract](../plugin_system/plugin-composition.md).
+
+
 Decision date: **2026-10-12**
 
 Status: **enforced in tests and the type/quality gate**
@@ -18,14 +26,31 @@ The checker starts a separate interpreter for every boundary. Each probe records
 newly loaded `LiuXin_alpha` modules and enforces two independent rules:
 
 1. a numerical module-count ceiling;
-2. forbidden top-level domains that must remain absent even below that ceiling.
+2. forbidden top-level domains and module prefixes that must remain absent even
+   below that ceiling.
 
 The repository gate covers the project root, passive plugin/metadata/catalog/cache/
-storage roots, reusable plugin contracts, the generic customization namespaces,
+storage roots, reusable plugin contracts, passive application-plugin modules,
 `metadata.identifiers`, the persistence-free `metadata.facade`, and the
 catalog/cache/storage API surfaces. The authoritative budgets live in
 `scripts/check_import_footprint.py`; they are deliberately small ceilings, not
 performance targets to consume.
+
+## Current plugin boundaries — 2026-10-19
+
+At `78a01b61`, 25 cold-import budgets are enforced. `plugin_system` has a two-module
+ceiling; its `builtins` namespace has three. The application API has a 44-module
+ceiling and must not discover or initialize the provider fleet when imported.
+Neutral plugin leaves and standalone format modules also reject the application
+prefixes defined by `PLUGIN_HOST_PREFIXES` in the layer checker, even though they
+now share the `plugin_system` top-level name.
+
+The [composition contract](../plugin_system/plugin-composition.md#enforced-boundaries)
+lists the plugin and format ceilings. `customize` and its forwarding modules have
+been removed; their entries below are historical measurements, not supported
+imports or current budgets. Namespace and installed-wheel tests enforce retirement.
+
+## Measurement history
 
 The 2026-10-12 isolation pass changed the representative cold imports as follows:
 
@@ -69,7 +94,9 @@ generic contract may not import file formats or `customize`; the conversion
 contract may import its own format domain but may not enter `customize`,
 databases, metadata, Catalog, caches, Core, Library, storage, or surfaces.
 
+## Changing a budget
+
 When a legitimate API expansion needs more modules, first confirm that it does not
-cross a forbidden domain. Raise a count only with the code change and record the
-reason here; never weaken a domain prohibition to accommodate an implementation
-import.
+cross a forbidden domain or module prefix. Raise a count only with the code change
+and record the reason here; never weaken an ownership prohibition to accommodate
+an implementation import.

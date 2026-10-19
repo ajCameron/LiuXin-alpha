@@ -7,7 +7,7 @@ for callers.
 Example:
     Exercise base tables through a consuming regression::
 
-        python -m pytest -q tests/customize/test_customize_base.py
+        python -m pytest -q tests/plugin_system/test_plugin_base.py
 """
 
 import re
@@ -54,7 +54,7 @@ class BaseTable(Generic[T]):
     Example:
         Exercise BaseTable through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     def __init__(self, name: str, metadata: MetadataDict, link_table=None, custom: bool = False) -> None:
@@ -64,7 +64,7 @@ class BaseTable(Generic[T]):
         Example:
             Exercise BaseTable.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param name: Field, file, function or resource name addressed by the operation.
@@ -116,7 +116,7 @@ class BaseTable(Generic[T]):
         Example:
             Exercise BaseTable.remove books through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_ids: Book identities included in the batched read operation.
@@ -133,7 +133,7 @@ class BaseTable(Generic[T]):
         Example:
             Exercise BaseTable.fix link table through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param db: Value supplied for db under the utility contract.
@@ -149,7 +149,7 @@ class BaseTable(Generic[T]):
         Example:
             Exercise BaseTable.fix case duplicates through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param db: Value supplied for db under the utility contract.
@@ -165,7 +165,7 @@ class BaseTable(Generic[T]):
         Example:
             Exercise BaseTable.set link tables through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param db: Value supplied for db under the utility contract.
@@ -244,7 +244,7 @@ class BaseTable(Generic[T]):
         Example:
             Exercise BaseTable.update db through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id_to_val_map: Value supplied for book id to val map under the utility
@@ -266,7 +266,7 @@ class BaseVirtualTable(BaseTable[T]):
     Example:
         Exercise BaseVirtualTable through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     def __init__(self, name: str, table_type: TableTypes = ONE_ONE, datatype: DataTypes = "text") -> None:
@@ -276,7 +276,7 @@ class BaseVirtualTable(BaseTable[T]):
         Example:
             Exercise BaseVirtualTable.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param name: Field, file, function or resource name addressed by the operation.
@@ -298,7 +298,7 @@ class BaseOneToOneTable(BaseTable[T]):
     Example:
         Exercise BaseOneToOneTable through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     # Todo: Load the valid main tables in for typing purporses from a json?
@@ -318,7 +318,7 @@ class BaseOneToOneTable(BaseTable[T]):
         Example:
             Exercise BaseOneToOneTable.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param name: Field, file, function or resource name addressed by the operation.
@@ -343,7 +343,7 @@ class BasePathTable(BaseOneToOneTable[T]):
     Example:
         Exercise BasePathTable through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     def set_path(self, book_id: SrcTableID, path: str, db) -> bool:
@@ -353,7 +353,7 @@ class BasePathTable(BaseOneToOneTable[T]):
         Example:
             Exercise BasePathTable.set path through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -373,7 +373,7 @@ class BasePathTable(BaseOneToOneTable[T]):
         Example:
             Exercise BasePathTable.set db path through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -394,7 +394,7 @@ class BaseSizeTable(BaseOneToOneTable[T]):
     Example:
         Exercise BaseSizeTable through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
     def update_sizes(self, size_map: Mapping[SrcTableID, int]) -> bool:
         """
@@ -403,7 +403,7 @@ class BaseSizeTable(BaseOneToOneTable[T]):
         Example:
             Exercise BaseSizeTable.update sizes through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param size_map: Value supplied for size map under the utility contract.
@@ -419,7 +419,7 @@ class BaseSizeTable(BaseOneToOneTable[T]):
         Example:
             Exercise BaseSizeTable. parse size mode through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -443,7 +443,7 @@ class BaseUUIDTable(BaseOneToOneTable[UUIDStr]):
     Example:
         Exercise BaseUUIDTable through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     def update_uuid_cache(self, book_id_val_map: Mapping[SrcTableID, UUIDStr]) -> bool:
@@ -453,7 +453,7 @@ class BaseUUIDTable(BaseOneToOneTable[UUIDStr]):
         Example:
             Exercise BaseUUIDTable.update uuid cache through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id_val_map: Value supplied for book id val map under the utility
@@ -470,7 +470,7 @@ class BaseUUIDTable(BaseOneToOneTable[UUIDStr]):
         Example:
             Exercise BaseUUIDTable.remove books through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_ids: Book identities included in the batched read operation.
@@ -487,7 +487,7 @@ class BaseUUIDTable(BaseOneToOneTable[UUIDStr]):
         Example:
             Exercise BaseUUIDTable.lookup by uuid through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param uuid: Value supplied for uuid under the utility contract.
@@ -504,7 +504,7 @@ class BaseCompositeTable(BaseOneToOneTable[T]):
     Example:
         Exercise BaseCompositeTable through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     def __init__(
@@ -516,7 +516,7 @@ class BaseCompositeTable(BaseOneToOneTable[T]):
         Example:
             Exercise BaseCompositeTable.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param name: Field, file, function or resource name addressed by the operation.
@@ -540,7 +540,7 @@ class BaseCompositeTable(BaseOneToOneTable[T]):
         Example:
             Exercise BaseCompositeTable.read through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param db: Value supplied for db under the utility contract.
@@ -571,7 +571,7 @@ class BaseManyToOneTable(BaseTable[T]):
     Example:
         Exercise BaseManyToOneTable through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
     table_type: TableTypes = MANY_ONE
 
@@ -584,7 +584,7 @@ class BaseManyToOneTable(BaseTable[T]):
         Example:
             Exercise BaseManyToOneTable.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param name: Field, file, function or resource name addressed by the operation.
@@ -602,7 +602,7 @@ class BaseManyToOneTable(BaseTable[T]):
         Example:
             Exercise BaseManyToOneTable.fix link table through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param db: Value supplied for db under the utility contract.
@@ -618,7 +618,7 @@ class BaseManyToOneTable(BaseTable[T]):
         Example:
             Exercise BaseManyToOneTable.fix case duplicates through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param db: Value supplied for db under the utility contract.
@@ -634,7 +634,7 @@ class BaseManyToOneTable(BaseTable[T]):
         Example:
             Exercise BaseManyToOneTable.remove items through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param item_ids: Value supplied for item ids under the utility contract.
@@ -651,7 +651,7 @@ class BaseManyToOneTable(BaseTable[T]):
         Example:
             Exercise BaseManyToOneTable.rename item through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param item_id: Value supplied for item id under the utility contract.
@@ -670,7 +670,7 @@ class BaseRatingTable(BaseManyToOneTable[T]):
     Example:
         Exercise BaseRatingTable through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     def __init__(
@@ -682,7 +682,7 @@ class BaseRatingTable(BaseManyToOneTable[T]):
         Example:
             Exercise BaseRatingTable.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param name: Field, file, function or resource name addressed by the operation.
@@ -713,7 +713,7 @@ class BaseManyToManyTable(BaseManyToOneTable[T]):
     Example:
         Exercise BaseManyToManyTable through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     table_type: TableTypes = MANY_MANY
@@ -728,7 +728,7 @@ class BaseTypedManyToManyTable(BaseManyToManyTable):
     Example:
         Exercise BaseTypedManyToManyTable through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     @property
@@ -739,7 +739,7 @@ class BaseTypedManyToManyTable(BaseManyToManyTable):
         Example:
             Exercise BaseTypedManyToManyTable.seen types through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -755,7 +755,7 @@ class BaseCreatorsTable(BaseTypedManyToManyTable):
     Example:
         Exercise BaseCreatorsTable through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     def set_sort_names(self, aus_map: Mapping[SrcTableID, str], db) -> Mapping[SrcTableID, str]:
@@ -765,7 +765,7 @@ class BaseCreatorsTable(BaseTypedManyToManyTable):
         Example:
             Exercise BaseCreatorsTable.set sort names through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param aus_map: Value supplied for aus map under the utility contract.
@@ -782,7 +782,7 @@ class BaseCreatorsTable(BaseTypedManyToManyTable):
         Example:
             Exercise BaseCreatorsTable.set links through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param link_map: Value supplied for link map under the utility contract.
@@ -799,7 +799,7 @@ class BaseCreatorsTable(BaseTypedManyToManyTable):
         Example:
             Exercise BaseCreatorsTable.remove books through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_ids: Book identities included in the batched read operation.
@@ -817,7 +817,7 @@ class BaseCoversTable(BaseManyToManyTable[T]):
     Example:
         Exercise BaseCoversTable through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     do_clean_on_remove: bool = False
@@ -830,7 +830,7 @@ class BaseFormatsTable(BaseManyToManyTable[T]):
     Example:
         Exercise BaseFormatsTable through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     do_clean_on_remove: bool = False
@@ -842,7 +842,7 @@ class BaseFormatsTable(BaseManyToManyTable[T]):
         Example:
             Exercise BaseFormatsTable.set fname through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -863,7 +863,7 @@ class BaseFormatsTable(BaseManyToManyTable[T]):
         Example:
             Exercise BaseFormatsTable.remove formats through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param formats_map: Value supplied for formats map under the utility contract.
@@ -880,7 +880,7 @@ class BaseFormatsTable(BaseManyToManyTable[T]):
         Example:
             Exercise BaseFormatsTable.reload book from db through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param db: Value supplied for db under the utility contract.
@@ -897,7 +897,7 @@ class BaseFormatsTable(BaseManyToManyTable[T]):
         Example:
             Exercise BaseFormatsTable.update fmt through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -917,7 +917,7 @@ class BaseFormatsTable(BaseManyToManyTable[T]):
         Example:
             Exercise BaseFormatsTable.get last priority fmt through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -934,7 +934,7 @@ class BaseFormatsTable(BaseManyToManyTable[T]):
         Example:
             Exercise BaseFormatsTable.get all priority fmts through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_id: Value supplied for book id under the utility contract.
@@ -952,7 +952,7 @@ class BaseFormatsTable(BaseManyToManyTable[T]):
         Example:
             Exercise BaseFormatsTable.check fmt is priority fmt through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param fmt: Date, number or template format specification.
@@ -973,7 +973,7 @@ class BaseFormatsTable(BaseManyToManyTable[T]):
         Example:
             Exercise BaseFormatsTable.stand fmt through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param fmt: Date, number or template format specification.
@@ -993,7 +993,7 @@ class BaseFormatsTable(BaseManyToManyTable[T]):
         Example:
             Exercise BaseFormatsTable.prep base fmt through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param fmt: Date, number or template format specification.
@@ -1029,7 +1029,7 @@ class BaseIdentifiersTable(BaseManyToManyTable[T]):
     Example:
         Exercise BaseIdentifiersTable through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     pass
@@ -1051,7 +1051,7 @@ class BaseLinkAttributeTable(Generic[T]):
     Example:
         Exercise BaseLinkAttributeTable through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     def __init__(
@@ -1068,7 +1068,7 @@ class BaseLinkAttributeTable(Generic[T]):
         Example:
             Exercise BaseLinkAttributeTable.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param name: Field, file, function or resource name addressed by the operation.
@@ -1105,7 +1105,7 @@ class BaseLinkAttributeTable(Generic[T]):
         Example:
             Exercise BaseLinkAttributeTable.read through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param db: Value supplied for db under the utility contract.
@@ -1121,7 +1121,7 @@ class BaseLinkAttributeTable(Generic[T]):
         Example:
             Exercise BaseLinkAttributeTable.set link properties through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param db: Value supplied for db under the utility contract.
@@ -1160,7 +1160,7 @@ class BaseLinkAttributeTable(Generic[T]):
         Example:
             Exercise BaseLinkAttributeTable. property adapter through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param link_attr: Value supplied for link attr under the utility contract.
@@ -1176,7 +1176,7 @@ class BaseLinkAttributeTable(Generic[T]):
         Example:
             Exercise BaseLinkAttributeTable.get property through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param main_id: Value supplied for main id under the utility contract.
@@ -1193,7 +1193,7 @@ class BaseLinkAttributeTable(Generic[T]):
         Example:
             Exercise BaseLinkAttributeTable.get sorted auxiliary vals through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param main_id: Value supplied for main id under the utility contract.
@@ -1209,7 +1209,7 @@ class BaseLinkAttributeTable(Generic[T]):
         Example:
             Exercise BaseLinkAttributeTable.get sorted main values through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param auxiliary_id: Value supplied for auxiliary id under the utility contract.

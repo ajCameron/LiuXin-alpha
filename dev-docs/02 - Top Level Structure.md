@@ -2,6 +2,9 @@
 # Top-level structure
 
 Reviewed: **2026-10-19**, against source at `6508d5e0` on `architecture-review-followup`.
+Plugin ownership checked at `78a01b61` on **2026-10-19**, on `plugin-composition-ownership`, following
+documentation PR #124. PR #125 consolidates `customize` into `plugin_system`;
+this follow-up is not yet on `main`.
 
 Status: **Current architecture overview, with remaining migrations identified.**
 The reviewed source includes the writes, category-read and configuration ownership
@@ -82,8 +85,7 @@ each package's section explains its role and points to its detailed contracts.
 | [ingest](#ingest) | Discovery, extraction and acquisition pipelines. |
 | [jobs](#jobs) | Durable task records and execution contracts. |
 | [file_formats](#file_formats) | File formats, containers and conversion. |
-| [plugin_system](#plugin_system) | Shared plugin contracts and loading mechanics. |
-| [customize](#customize) | Application plugin selection and composition. |
+| [plugin_system](#plugin_system) | Plugin contracts, loading and application composition. |
 | [utils](#utils) | Shared primitives and vendored helpers. |
 | [constants](#constants) | Application constants and compatibility values. |
 | [resources](#resources) | Installed runtime assets and resource lookup. |
@@ -218,23 +220,23 @@ their separate implementation home in `metadata.file_sources`.
 
 ### plugin_system
 
-Plugin system supplies passive, format-neutral lifecycle, hook and stream
-contracts, shared plugin settings and loading mechanics. These are foundations
-for different plugin families, not an application provider registry.
+Plugin system owns plugin infrastructure and application assembly in one top-level
+package. `base`, `file_types`, `configuration`, `loading` and `zipplugin` provide
+neutral lifecycle, stream, settings and loading mechanics. `application` selects
+and initializes application providers, manages installed plugins and binds the
+resulting instances into the standalone format runtime. Application families live
+in `contracts`, with bundled providers in `builtins`.
 
-Importing its package root does not discover providers or start services. The
-[plugin composition guide][plugin-guide] explains how these contracts relate to
-format implementations and application composition.
+Importing the package or application API is passive. Explicit startup or the first
+application lookup initializes providers. Dependency and cold-import checks keep
+neutral leaves and standalone format code independent of application assembly,
+including imports between modules within this package.
 
-### customize
-
-Customize selects and composes the application provider fleet, retains compatibility
-exports and binds initialized instances into the native format runtime. It is a
-composition owner above the neutral plugin contracts and format implementations.
-
-See the [plugin composition guide][plugin-guide]. Registry initialization and
-provider ordering still need consolidation; contract extraction did not remove
-all application-level plugin ownership debt.
+The `customize` namespace and its forwarding shims are removed. Both hosts share
+file-provider membership and loading/priority rules. Retained cache/folder-driver
+modules and unsupported device providers still need cleanup. Start with the
+[plugin system index](plugin_system/README.md) and the
+[composition guide][plugin-guide] for internal boundaries and import migration.
 
 ### utils
 
@@ -431,18 +433,20 @@ not prove that every low-level deletion route is safe.
 Plugin contracts, plugin implementations and application composition have
 different owners:
 
-- `plugin_system` supplies neutral lifecycle, file-hook and stream contracts. Its
-  package import does not discover a provider fleet or start application services.
+- `plugin_system` contains neutral plugin mechanics and application assembly.
+  Its package import does not discover providers or start application services.
 - `file_formats` owns conversion input/output contracts, implementations and a
   native runtime for standalone format use. `metadata.file_sources` owns file
   metadata readers and writers.
-- `customize` composes the application fleet and binds initialized instances into
-  the format runtime; compatibility exports remain here.
+- `plugin_system.application` explicitly composes application plugins and binds
+  their instances into the format runtime. Neutral plugin modules and standalone
+  format modules cannot import this owner or its application provider families.
 
 Format implementations must not reach back into Core, Library, persistence or
-application registry assembly. The containment work is implemented; application
-registry initialization, provider ordering and some acquisition composition still
-need consolidation. Keep format behaviour in the [format dossiers][format-guide]
+application registry assembly. Shared loading enforces stable descending priority;
+the application extends the standalone file-provider catalogue. Cold-import and
+dependency checks enforce these boundaries. Unsupported providers and some
+acquisition composition still need work. Keep format behaviour in the [format dossiers][format-guide]
 and shared composition rules in the [plugin guide][plugin-guide].
 
 ## Where a new change belongs
@@ -488,7 +492,7 @@ enforced scopes, not a claim of universal architectural correctness.
 [terminal-composition]: surfaces/terminal-composition.md
 [ingest-guide]: storage_and_backup/mixed_ingest_operations.md
 [format-guide]: file_formats/README.md
-[plugin-guide]: file_formats/plugin-composition.md
+[plugin-guide]: plugin_system/plugin-composition.md
 [packaging]: hacking/packaging.md
 [library-services]: ../src/LiuXin_alpha/core/library_services.py
 [core-factory]: ../src/LiuXin_alpha/core/factory.py

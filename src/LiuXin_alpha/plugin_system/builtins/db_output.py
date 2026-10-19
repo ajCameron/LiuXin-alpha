@@ -7,7 +7,7 @@ for callers.
 Example:
     Exercise db output through a consuming regression::
 
-        python -m pytest -q tests/customize/test_customize_base.py
+        python -m pytest -q tests/plugin_system/test_plugin_base.py
 """
 
 
@@ -18,7 +18,7 @@ class DBOutputPlugin:
     Example:
         Exercise DBOutputPlugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     pass

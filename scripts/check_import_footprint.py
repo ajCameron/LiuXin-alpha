@@ -19,6 +19,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+try:
+    from scripts.check_layer_direction import PLUGIN_HOST_PREFIXES
+except ModuleNotFoundError:
+    from check_layer_direction import PLUGIN_HOST_PREFIXES  # type: ignore[no-redef]
+
 PACKAGE_ROOT = "LiuXin_alpha"
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SOURCE_ROOT = REPO_ROOT / "src"
@@ -31,12 +36,13 @@ class ImportBudget:
     module: str
     max_project_modules: int
     forbidden_domains: frozenset[str] = frozenset()
+    forbidden_modules: tuple[str, ...] = ()
 
 
 ISOLATED_DOMAINS = frozenset(
     {"caches", "catalog", "core", "file_formats", "library", "metadata", "storage"}
 )
-CUSTOMIZE_NAMESPACE_FORBIDDEN_DOMAINS = frozenset(
+PLUGIN_NAMESPACE_FORBIDDEN_DOMAINS = frozenset(
     {
         "caches",
         "catalog",
@@ -77,51 +83,74 @@ IMPORT_BUDGETS = (
     # the leaves themselves rather than allowing eager preference/store loading.
     ImportBudget("LiuXin_alpha.configuration", 2, ISOLATED_DOMAINS),
     ImportBudget("LiuXin_alpha.configuration_defaults", 2, ISOLATED_DOMAINS),
-    ImportBudget("LiuXin_alpha.plugin_system", 2),
+    ImportBudget(
+        "LiuXin_alpha.plugin_system",
+        2,
+        PLUGIN_NAMESPACE_FORBIDDEN_DOMAINS,
+        PLUGIN_HOST_PREFIXES,
+    ),
     ImportBudget(
         "LiuXin_alpha.plugin_system.base",
         30,
         PLUGIN_CONTRACT_FORBIDDEN_DOMAINS,
+        PLUGIN_HOST_PREFIXES,
     ),
     ImportBudget(
         "LiuXin_alpha.plugin_system.file_types",
         30,
         PLUGIN_CONTRACT_FORBIDDEN_DOMAINS,
+        PLUGIN_HOST_PREFIXES,
     ),
     ImportBudget(
         "LiuXin_alpha.plugin_system.configuration",
         31,
         PLUGIN_CONTRACT_FORBIDDEN_DOMAINS,
+        PLUGIN_HOST_PREFIXES,
     ),
     ImportBudget(
         "LiuXin_alpha.file_formats.conversion.profiles",
         31,
         CONVERSION_CONTRACT_FORBIDDEN_DOMAINS,
+        PLUGIN_HOST_PREFIXES,
     ),
     ImportBudget(
         "LiuXin_alpha.file_formats.plugin_runtime",
         37,
         CONVERSION_CONTRACT_FORBIDDEN_DOMAINS,
+        PLUGIN_HOST_PREFIXES,
     ),
     ImportBudget(
         "LiuXin_alpha.file_formats.rendering",
         16,
         CONVERSION_CONTRACT_FORBIDDEN_DOMAINS,
+        PLUGIN_HOST_PREFIXES,
     ),
     ImportBudget(
         "LiuXin_alpha.file_formats.conversion.plugin",
         31,
         CONVERSION_CONTRACT_FORBIDDEN_DOMAINS,
+        PLUGIN_HOST_PREFIXES,
     ),
     ImportBudget(
-        "LiuXin_alpha.customize",
+        "LiuXin_alpha.plugin_system.contracts",
         35,
-        CUSTOMIZE_NAMESPACE_FORBIDDEN_DOMAINS,
+        PLUGIN_NAMESPACE_FORBIDDEN_DOMAINS,
     ),
     ImportBudget(
-        "LiuXin_alpha.customize.builtins",
-        35,
-        CUSTOMIZE_NAMESPACE_FORBIDDEN_DOMAINS,
+        "LiuXin_alpha.plugin_system.builtins",
+        3,
+        PLUGIN_NAMESPACE_FORBIDDEN_DOMAINS,
+    ),
+    ImportBudget(
+        "LiuXin_alpha.plugin_system.application",
+        44,
+        PLUGIN_NAMESPACE_FORBIDDEN_DOMAINS - {"file_formats"},
+    ),
+    ImportBudget(
+        "LiuXin_alpha.plugin_system.loading",
+        30,
+        PLUGIN_CONTRACT_FORBIDDEN_DOMAINS,
+        PLUGIN_HOST_PREFIXES,
     ),
     ImportBudget("LiuXin_alpha.metadata", 2),
     ImportBudget(
@@ -221,6 +250,18 @@ def check_report(budget: ImportBudget, report: dict[str, Any]) -> list[str]:
         errors.append(
             f"{budget.module} crossed forbidden domains {domains}: "
             + ", ".join(forbidden)
+        )
+    forbidden_modules = [
+        name
+        for name in loaded
+        if any(
+            name == prefix or name.startswith(prefix + ".")
+            for prefix in budget.forbidden_modules
+        )
+    ]
+    if forbidden_modules:
+        errors.append(
+            f"{budget.module} loaded forbidden modules: " + ", ".join(forbidden_modules)
         )
     return errors
 

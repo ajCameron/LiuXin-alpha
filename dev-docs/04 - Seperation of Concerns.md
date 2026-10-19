@@ -80,15 +80,27 @@ The shortest useful description is:
   contract exposed to surfaces;
 - `surfaces` translate external input and output; they are never a trusted
   substitute for lower-layer validation.
-- `plugin_system` defines format-neutral lifecycle, file-hook and metadata-stream
-  contracts, shared settings, and ZIP loading mechanics; it never selects domain
-  provider fleets or assembles application services;
+- `plugin_system` owns plugin foundations and application composition in one
+  package. Its neutral leaves (`base`, `file_types`, `configuration`, `loading`,
+  `zipplugin`) define lifecycle, stream, settings, loading and priority rules;
+  they must not import application families or concrete domain providers;
 - `file_formats` owns format implementations, conversion contracts and profiles,
-  and standalone file-plugin composition; it must not import `customize`,
-  surfaces, library, Core, Catalog, databases, caches, storage, ingest, or jobs;
+  and standalone file-plugin composition; it must not import plugin application
+  assembly/families (`application`, `contracts`, `builtins`, retained cache/driver
+  modules), surfaces, library, Core, Catalog, databases, caches, storage, ingest or jobs;
 - metadata reader/writer implementations belong to `metadata.file_sources`;
-  `customize` retains compatibility exports and composes the application fleet,
-  binding its initialized instances into `file_formats.plugin_runtime`.
+  `plugin_system.application` owns application startup, management and lookups,
+  extending the standalone file-provider catalogue and binding its initialized
+  instances into `file_formats.plugin_runtime`. Its import is passive. The
+  `customize` namespace and forwarding shims are retired; callers use the owning
+  plugin or format modules directly. Internal module rules enforce this direction
+  even though application assembly and neutral mechanics share a package.
+
+Both plugin hosts use descending priority, stable registration order on ties and
+installed providers first at equal priority. The shared loader implements this
+rule; composition owners choose the providers. See the
+[plugin composition contract](plugin_system/plugin-composition.md) for startup,
+refresh and failure semantics, including remaining compatibility debt.
 
 ## Semantic write validity
 

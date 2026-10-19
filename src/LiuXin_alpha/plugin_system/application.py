@@ -1,29 +1,23 @@
+"""Compose and manage the application's plugins explicitly.
+
+Importing this API does not discover or initialize providers. Call
+``initialize_plugins`` at host startup; application lookups initialize on first
+use for compatibility. File-only operations belong to ``file_formats.plugin_runtime``.
+This is the sole application registry owner; the customize namespace is retired.
 """
-Discover, configure and execute active customization plugins.
 
-The module keeps compatibility policy, normalization and resource ownership explicit
-for callers.
-
-Example:
-    Exercise ui through a consuming regression::
-
-        python -m pytest -q tests/customize/test_customize_base.py
-"""
-# Todo: Make sure this is actually so
-
-from __future__ import print_function, with_statement
+from __future__ import annotations
 
 import os
 import shutil
 import sys
-import time
 import traceback
-from collections import defaultdict
 from collections.abc import Iterable, Iterator
-from typing import Optional, Type, Union
+from typing import TYPE_CHECKING
 
-from LiuXin_alpha.constants import VERBOSE_DEBUG as DEBUG
-from LiuXin_alpha.customize import (
+from LiuXin_alpha.file_formats import plugin_runtime
+from LiuXin_alpha.plugin_system.archives import get_compressor_plugins
+from LiuXin_alpha.plugin_system.contracts import (
     Archive,
     CatalogPlugin,
     EditBookToolPlugin,
@@ -31,72 +25,36 @@ from LiuXin_alpha.customize import (
     LibraryClosedPlugin,
     MDInputTransform,
     Plugin,
-    PluginNotFound,
     PreferencesPlugin,
     ViewerPlugin,
     platform,
 )
-from LiuXin_alpha.customize import (
+from LiuXin_alpha.plugin_system.contracts import (
     InterfaceActionBase as InterfaceAction,
 )
-from LiuXin_alpha.customize import (
+from LiuXin_alpha.plugin_system.contracts import (
     StoreBase as Store,
 )
-from LiuXin_alpha.customize.archives import get_compressor_plugins
-from LiuXin_alpha.customize.builtins.registry import plugins as builtin_plugins
-from LiuXin_alpha.customize.builtins.standardization import (
-    BaseNameGenerator,
-    CreatorStandardize,
-    TitlePhashHandler,
-)
+from LiuXin_alpha.plugin_system.loading import build_plugins
 from LiuXin_alpha.plugin_system.zipplugin import loader
-
-try:
-    from LiuXin_alpha.devices.interface import DevicePlugin
-except ModuleNotFoundError:
-
-    class DevicePlugin(object):
-        """
-        Provide the deviceplugin contract for validated ebook processing.
-
-        Example:
-            Exercise DevicePlugin through a consuming regression::
-
-                python -m pytest -q tests/customize/test_customize_base.py
-        """
-
-        pass
-
-
-try:
-    from LiuXin_alpha.metadata.web_sources.base import Source
-except ModuleNotFoundError:
-
-    class Source(object):
-        """
-        Provide the source contract for validated ebook processing.
-
-        Example:
-            Exercise Source through a consuming regression::
-
-                python -m pytest -q tests/customize/test_customize_base.py
-        """
-
-        pass
-
-
 from LiuXin_alpha.utils.config.config_base import (
     make_config_dir,
     plugin_dir,
 )
 from LiuXin_alpha.utils.config.config_tools import OptionParser
 from LiuXin_alpha.utils.localization import trans as _
-from LiuXin_alpha.utils.logging import default_log
 
 try:
     from past.builtins import basestring
 except ModuleNotFoundError:
     basestring = str
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.plugin_system.builtins.standardization import (
+        BaseNameGenerator,
+        CreatorStandardize,
+        TitlePhashHandler,
+    )
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -169,6 +127,9 @@ from LiuXin_alpha.file_formats.plugin_runtime import (
     reread_metadata_plugins as reread_metadata_plugins,
 )
 from LiuXin_alpha.file_formats.plugin_runtime import (
+    run_import_plugins as run_import_plugins,
+)
+from LiuXin_alpha.file_formats.plugin_runtime import (
     run_plugins_on_import as run_plugins_on_import,
 )
 from LiuXin_alpha.file_formats.plugin_runtime import (
@@ -205,7 +166,12 @@ from LiuXin_alpha.plugin_system.configuration import (
     plugin_customization as plugin_customization,
 )
 
-builtin_names = frozenset([p.name for p in builtin_plugins])
+
+def builtin_plugins() -> list[type[Plugin]]:
+    """Discover the application providers only when composition is requested."""
+    from LiuXin_alpha.plugin_system.builtins.registry import plugins
+
+    return list(plugins)
 
 
 class NameConflict(ValueError):
@@ -215,39 +181,39 @@ class NameConflict(ValueError):
     Example:
         Exercise NameConflict through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     pass
 
 
-def find_plugin(name: str) -> Optional[Plugin]:
+def find_plugin(name: str) -> Plugin | None:
     """
     Searches the initialized plugins for the plugin by name and returns it if it can be found.
 
     Example:
         Exercise find plugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param name: Field, file, function or resource name addressed by the operation.
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
-    for plugin in _initialized_plugins:
+    for plugin in initialized_plugins():
         if plugin.name == name:
             return plugin
 
 
-def load_plugin(path_to_zip_file: Union[str, os.PathLike]) -> Plugin:  # {{{
+def load_plugin(path_to_zip_file: str | os.PathLike) -> Plugin:  # {{{
     """
     Load plugin from zip file or raise InvalidPlugin error
 
     Example:
         Exercise load plugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param path_to_zip_file: Value supplied for path to zip file under the utility
@@ -263,14 +229,14 @@ def load_plugin(path_to_zip_file: Union[str, os.PathLike]) -> Plugin:  # {{{
 # Enable/disable plugins {{{
 
 
-def disable_plugin(plugin_or_name: Union[Plugin, str]) -> None:
+def disable_plugin(plugin_or_name: Plugin | str) -> None:
     """
     Pass in the plugin, or it's name, disable it and note it in preferences.
 
     Example:
         Exercise disable plugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param plugin_or_name: Value supplied for plugin or name under the utility contract.
@@ -280,7 +246,7 @@ def disable_plugin(plugin_or_name: Union[Plugin, str]) -> None:
     x = getattr(plugin_or_name, "name", plugin_or_name)
     plugin = find_plugin(x)
     if not plugin.can_be_disabled:
-        raise ValueError("Plugin %s cannot be disabled" % x)
+        raise ValueError(f"Plugin {x} cannot be disabled")
     dp = config["disabled_plugins"]
     dp.add(x)
     config["disabled_plugins"] = dp
@@ -290,14 +256,14 @@ def disable_plugin(plugin_or_name: Union[Plugin, str]) -> None:
     config["enabled_plugins"] = ep
 
 
-def enable_plugin(plugin_or_name: Union[Plugin, str]) -> None:
+def enable_plugin(plugin_or_name: Plugin | str) -> None:
     """
     Pass in the plugin - or it's name - enable it and note it in preferences.
 
     Example:
         Exercise enable plugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param plugin_or_name: Value supplied for plugin or name under the utility contract.
@@ -314,14 +280,14 @@ def enable_plugin(plugin_or_name: Union[Plugin, str]) -> None:
     config["enabled_plugins"] = ep
 
 
-def restore_plugin_state_to_default(plugin_or_name: Union[Plugin, str]) -> None:
+def restore_plugin_state_to_default(plugin_or_name: Plugin | str) -> None:
     """
     If the plugin defaults enabled - enable it and visa versa.
 
     Example:
         Exercise restore plugin state to default through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param plugin_or_name: Value supplied for plugin or name under the utility contract.
@@ -383,13 +349,13 @@ def interface_actions() -> Iterator[InterfaceAction]:
     Example:
         Exercise interface actions through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
     """
     customization = config["plugin_customization"]
-    for plugin in _initialized_plugins:
+    for plugin in initialized_plugins():
         if isinstance(plugin, InterfaceAction):
             if not is_disabled(plugin):
                 plugin.site_customization = customization.get(plugin.name, "")
@@ -408,13 +374,13 @@ def preferences_plugins() -> Iterator[PreferencesPlugin]:
     Example:
         Exercise preferences plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
     """
     customization = config["plugin_customization"]
-    for plugin in _initialized_plugins:
+    for plugin in initialized_plugins():
         if isinstance(plugin, PreferencesPlugin):
             if not is_disabled(plugin):
                 plugin.site_customization = customization.get(plugin.name, "")
@@ -433,13 +399,13 @@ def store_plugins() -> Iterator[Store]:
     Example:
         Exercise store plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
     """
     customization = config["plugin_customization"]
-    for plugin in _initialized_plugins:
+    for plugin in initialized_plugins():
         if isinstance(plugin, Store):
             plugin.site_customization = customization.get(plugin.name, "")
             yield plugin
@@ -452,7 +418,7 @@ def available_store_plugins() -> Iterator[Store]:
     Example:
         Exercise available store plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
@@ -469,7 +435,7 @@ def stores() -> set[Store]:
     Example:
         Exercise stores through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection
@@ -488,7 +454,7 @@ def available_stores() -> set[Store]:
     Example:
         Exercise available stores through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection
@@ -522,14 +488,14 @@ def available_stores() -> set[Store]:
 # Add/remove plugins {{{
 
 
-def add_plugin(path_to_zip_file: Union[str, os.PathLike]) -> Plugin:
+def add_plugin(path_to_zip_file: str | os.PathLike) -> Plugin:
     """
     Add a plugin from a zip file.
 
     Example:
         Exercise add plugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param path_to_zip_file: Value supplied for path to zip file under the utility
@@ -541,9 +507,9 @@ def add_plugin(path_to_zip_file: Union[str, os.PathLike]) -> Plugin:
 
     plugin = load_plugin(path_to_zip_file)
 
-    if plugin.name in builtin_names:
+    if plugin.name in {provider.name for provider in builtin_plugins()}:
         raise NameConflict(
-            "A builtin plugin with the name %r already exists" % plugin.name
+            f"A builtin plugin with the name {plugin.name!r} already exists"
         )
 
     plugin = initialize_plugin(plugin, path_to_zip_file)
@@ -563,14 +529,14 @@ def add_plugin(path_to_zip_file: Union[str, os.PathLike]) -> Plugin:
     return plugin
 
 
-def remove_plugin(plugin_or_name: Union[Plugin, str]) -> bool:
+def remove_plugin(plugin_or_name: Plugin | str) -> bool:
     """
     Takes a plugin or the name of the plugin - removes it from the active plugins.
 
     Example:
         Exercise remove plugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param plugin_or_name: Value supplied for plugin or name under the utility contract.
@@ -589,7 +555,7 @@ def remove_plugin(plugin_or_name: Union[Plugin, str]) -> bool:
             zfp = plugins[name]
             if os.path.exists(zfp):
                 os.remove(zfp)
-        except:
+        except OSError:
             pass
         plugins.pop(name)
     config["plugins"] = plugins
@@ -614,12 +580,12 @@ def catalog_plugins() -> Iterator[CatalogPlugin]:
     Example:
         Exercise catalog plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
     """
-    for plugin in _initialized_plugins:
+    for plugin in initialized_plugins():
         if isinstance(plugin, CatalogPlugin):
             yield plugin
 
@@ -631,7 +597,7 @@ def available_catalog_formats() -> set[str]:
     Example:
         Exercise available catalog formats through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection
@@ -645,14 +611,14 @@ def available_catalog_formats() -> set[str]:
     return formats
 
 
-def plugin_for_catalog_format(fmt: str) -> Optional[Plugin]:
+def plugin_for_catalog_format(fmt: str) -> Plugin | None:
     """
     Returns the catalog plugin for that format.
 
     Example:
         Exercise plugin for catalog format through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param fmt: Date, number or template format specification.
@@ -668,21 +634,29 @@ def plugin_for_catalog_format(fmt: str) -> Optional[Plugin]:
 
 
 # Device plugins {{{
-def device_plugins(include_disabled: bool = False) -> Iterator[DevicePlugin]:
+def device_plugins(include_disabled: bool = False) -> Iterator[Plugin]:
     """
     Returns an iterator over all the devices that the program can talk to, initializing them if required.
 
     Example:
         Exercise device plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param include_disabled: Value supplied for include disabled under the utility
         contract.
     :return: An iterator yielding the normalized values described above.
     """
-    for plugin in _initialized_plugins:
+
+    try:
+        from LiuXin_alpha.devices.interface import DevicePlugin
+    except ModuleNotFoundError as exc:
+        if exc.name not in {"LiuXin_alpha.devices", "LiuXin_alpha.devices.interface"}:
+            raise
+        return
+
+    for plugin in initialized_plugins():
         if isinstance(plugin, DevicePlugin):
             if include_disabled or not is_disabled(plugin):
                 if platform in plugin.supported_platforms:
@@ -691,19 +665,27 @@ def device_plugins(include_disabled: bool = False) -> Iterator[DevicePlugin]:
                     yield plugin
 
 
-def disabled_device_plugins() -> Iterator[DevicePlugin]:
+def disabled_device_plugins() -> Iterator[Plugin]:
     """
     Device plugins which are currently disabled.
 
     Example:
         Exercise disabled device plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
     """
-    for plugin in _initialized_plugins:
+
+    try:
+        from LiuXin_alpha.devices.interface import DevicePlugin
+    except ModuleNotFoundError as exc:
+        if exc.name not in {"LiuXin_alpha.devices", "LiuXin_alpha.devices.interface"}:
+            raise
+        return
+
+    for plugin in initialized_plugins():
         if isinstance(plugin, DevicePlugin):
             if is_disabled(plugin):
                 if platform in plugin.supported_platforms:
@@ -721,7 +703,7 @@ def metadata_plugins(capabilities: Iterable[str]) -> Iterator[Plugin]:
     Example:
         Exercise metadata plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param capabilities: Value supplied for capabilities under the utility contract.
@@ -733,19 +715,22 @@ def metadata_plugins(capabilities: Iterable[str]) -> Iterator[Plugin]:
             yield plugin
 
 
-def all_metadata_plugins() -> Iterator[Source]:
+def all_metadata_plugins() -> Iterator[Plugin]:
     """
     Yields all metadata source plugins.
 
     Example:
         Exercise all metadata plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
     """
-    for plugin in _initialized_plugins:
+
+    from LiuXin_alpha.metadata.web_sources.base import Source
+
+    for plugin in initialized_plugins():
         if isinstance(plugin, Source):
             yield plugin
 
@@ -762,12 +747,12 @@ def all_viewer_plugins() -> Iterator[ViewerPlugin]:
     Example:
         Exercise all viewer plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
     """
-    for plugin in _initialized_plugins:
+    for plugin in initialized_plugins():
         if isinstance(plugin, ViewerPlugin):
             yield plugin
 
@@ -784,12 +769,12 @@ def all_edit_book_tool_plugins() -> Iterator[EditBookToolPlugin]:
     Example:
         Exercise all edit book tool plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
     """
-    for plugin in _initialized_plugins:
+    for plugin in initialized_plugins():
         if isinstance(plugin, EditBookToolPlugin):
             yield plugin
 
@@ -805,13 +790,13 @@ def available_library_closed_plugins() -> Iterator[LibraryClosedPlugin]:
     Example:
         Exercise available library closed plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
     """
     customization = config["plugin_customization"]
-    for plugin in _initialized_plugins:
+    for plugin in initialized_plugins():
         if isinstance(plugin, LibraryClosedPlugin):
             if not is_disabled(plugin):
                 plugin.site_customization = customization.get(plugin.name, "")
@@ -825,12 +810,12 @@ def has_library_closed_plugins() -> bool:
     Example:
         Exercise has library closed plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: True when the documented condition holds; otherwise False.
     """
-    for plugin in _initialized_plugins:
+    for plugin in initialized_plugins():
         if isinstance(plugin, LibraryClosedPlugin):
             if not is_disabled(plugin):
                 return True
@@ -848,12 +833,12 @@ def all_metadata_synthesis_plugins() -> Iterator[MDInputTransform]:
     Example:
         Exercise all metadata synthesis plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
     """
-    for plugin in _initialized_plugins:
+    for plugin in initialized_plugins():
         if isinstance(plugin, MDInputTransform):
             yield plugin
 
@@ -862,21 +847,20 @@ def all_metadata_synthesis_plugins() -> Iterator[MDInputTransform]:
 
 
 # Initialize plugins {{{
-_initialized_plugins = []
+_initialized_plugins: tuple[Plugin, ...] | None = None
+_initializing = False
 
 
-# Todo: This seems to be a genuine bug
-# Todo: Call it a plugin_class instead of plugin or something?
 def initialize_plugin(
-    plugin: Type[Plugin], path_to_zip_file: Union[str, os.PathLike]
-) -> Optional[Plugin]:
+    plugin: type[Plugin], path_to_zip_file: str | os.PathLike | None
+) -> Plugin:
     """
     Initialize a given plugin.
 
     Example:
         Exercise initialize plugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param plugin: Value supplied for plugin under the utility contract.
@@ -889,12 +873,12 @@ def initialize_plugin(
         p = plugin(path_to_zip_file)
         p.initialize()
         return p
-    except Exception:
+    except Exception as exc:
         print("Failed to initialize plugin:", plugin.name, plugin.version)
         tb = traceback.format_exc()
         raise InvalidPlugin(
             (_("Initialization of plugin %s failed with traceback:") % tb) + "\n" + tb
-        )
+        ) from exc
 
 
 def has_external_plugins() -> bool:
@@ -904,7 +888,7 @@ def has_external_plugins() -> bool:
     Example:
         Exercise has external plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: True when the documented condition holds; otherwise False.
@@ -913,94 +897,36 @@ def has_external_plugins() -> bool:
 
 
 def initialize_plugins(perf: bool = False) -> None:
+    """Refresh the host registry and bind its exact instances into file dispatch.
+
+    Priority is descending, with installed providers first on ties. Conflicting
+    installed names are skipped without deleting archives or changing settings.
+    Reentrant lookups see the prior host snapshot (empty on first startup).
+    An interrupted refresh preserves the previously bound file registry.
     """
-    Initialize all plugins.
-
-    Example:
-        Exercise initialize plugins through a consuming regression::
-
-            python -m pytest -q tests/customize/test_customize_base.py
-
-
-    :param perf: Value supplied for perf under the utility contract.
-    :return: None; the operation mutates state, writes output or performs cleanup in
-        place.
-    """
-    default_log.info("Starting initialize_plugins")
-
-    global _initialized_plugins
-    _initialized_plugins = []
-    # Host startup owns initialization; reentrant format lookups must not build
-    # a second standalone fleet while these instances are being initialized.
-    bind_plugins(_initialized_plugins)
-    conflicts = [name for name in config["plugins"] if name in builtin_names]
-    for p in conflicts:
-        remove_plugin(p)
-    external_plugins = config["plugins"]
-    ostdout, ostderr = sys.stdout, sys.stderr
-
-    if perf:
-        times = defaultdict(lambda: 0)
-
-    for zfp in list(external_plugins) + builtin_plugins:
-        default_log.info("About to initialize plugin: {}".format(repr(zfp)))
-
+    global _initialized_plugins, _initializing
+    with plugin_runtime.initialization_scope():
+        if _initializing:
+            return
+        _initializing = True
         try:
-            if not isinstance(zfp, type):
-                # We have a plugin name
-                pname = zfp
-                zfp = os.path.join(plugin_dir, zfp + ".zip")
-                if not os.path.exists(zfp):
-                    zfp = external_plugins[pname]
-            try:
-                plugin = load_plugin(zfp) if not isinstance(zfp, type) else zfp
-            except PluginNotFound:
-                continue
-            if perf:
-                st = time.time()
-            plugin = initialize_plugin(plugin, None if isinstance(zfp, type) else zfp)
-            if perf:
-                times[plugin.name] = time.time() - st
-            _initialized_plugins.append(plugin)
-        except:
-            print("Failed to initialize plugin: {}".format(repr(zfp)))
-            if DEBUG:
-                traceback.print_exc()
-
-        default_log.info("Plugin has been initialized: {}".format(repr(zfp)))
-
-    default_log.info("Initial initialization finished")
-
-    # Prevent a custom plugin from overriding stdout/stderr as this breaks ipython
-    sys.stdout, sys.stderr = ostdout, ostderr
-    if perf:
-        for x in sorted(times, key=lambda x: times[x]):
-            print("%50s: %.3f" % (x, times[x]))
-    # _initialized_plugins.sort(
-    #     cmp=lambda x, y: cmp(x.priority, y.priority), reverse=True
-    # )
-    sorted(_initialized_plugins, key=lambda x: x.priority, reverse=True)
-
-    bind_plugins(_initialized_plugins)
-
-
-initialize_plugins()
+            plugins = plugin_runtime.replace_plugins(
+                lambda: build_plugins(
+                    builtin_plugins(), config["plugins"], plugin_dir, perf=perf
+                )
+            )
+            _initialized_plugins = tuple(plugins)
+        finally:
+            _initializing = False
 
 
 def initialized_plugins() -> Iterator[Plugin]:
-    """
-    Perform the initialized plugins operation under explicit file-format and conversion rules.
-
-    Example:
-        Exercise initialized plugins through a consuming regression::
-
-            python -m pytest -q tests/customize/test_customize_base.py
-
-
-    :return: An iterator yielding the normalized values described above.
-    """
-    for plugin in _initialized_plugins:
-        yield plugin
+    """Return a stable snapshot, initializing the application on first lookup."""
+    with plugin_runtime.initialization_scope():
+        if _initialized_plugins is None and not _initializing:
+            initialize_plugins()
+        plugins = _initialized_plugins or ()
+    yield from plugins
 
 
 # }}}
@@ -1010,14 +936,14 @@ def initialized_plugins() -> Iterator[Plugin]:
 # - ADDITIONS FOR LIUXIN ONLY PLUGINS START HERE
 
 
-def extract_metadata(file_path: Union[str, os.PathLike]):
+def extract_metadata(file_path: str | os.PathLike):
     """
     Takes a file path or a stream - extract metadata from it using all available plugins.
 
     Example:
         Exercise extract metadata through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param file_path: Value supplied for file path under the utility contract.
@@ -1034,7 +960,7 @@ def synthesize_metadata(metadata):
     Example:
         Exercise synthesize metadata through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param metadata: Value supplied for metadata under the utility contract.
@@ -1044,35 +970,41 @@ def synthesize_metadata(metadata):
     pass
 
 
-def creator_standardization_plugin() -> Type[CreatorStandardize]:
+def creator_standardization_plugin() -> type[CreatorStandardize]:
     """
     Returns the creator standardization plugin for the system.
 
     Example:
         Exercise creator standardization plugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
+
+    from LiuXin_alpha.plugin_system.builtins.standardization import CreatorStandardize
+
     return CreatorStandardize
 
 
-def title_phash_handler() -> Type[TitlePhashHandler]:
+def title_phash_handler() -> type[TitlePhashHandler]:
     """
     Prepares and returns the title_phash_handler plugin for the system,
 
     Example:
         Exercise title phash handler through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
+
+    from LiuXin_alpha.plugin_system.builtins.standardization import TitlePhashHandler
+
     # Overwrite the default creator_standardize method with the actual one
     cs_plugin = creator_standardization_plugin()
     TitlePhashHandler.creator_standardize = cs_plugin.standardize_creator
@@ -1080,30 +1012,33 @@ def title_phash_handler() -> Type[TitlePhashHandler]:
     return TitlePhashHandler
 
 
-def name_generator() -> Type[BaseNameGenerator]:
+def name_generator() -> type[BaseNameGenerator]:
     """
     Returns the name generator plugin - which is used to create file and folder names.
 
     Example:
         Exercise name generator through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
+
+    from LiuXin_alpha.plugin_system.builtins.standardization import BaseNameGenerator
+
     return BaseNameGenerator
 
 
-def get_compressor_plugin(read: bool = True, arc_type: str = "zip") -> Type[Archive]:
+def get_compressor_plugin(read: bool = True, arc_type: str = "zip") -> type[Archive]:
     """
     Returns a compressor plugin suitable for handling an archive of a particular type.
 
     Example:
         Exercise get compressor plugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param read: Value supplied for read under the utility contract.
@@ -1122,8 +1057,8 @@ def get_compressor_plugin(read: bool = True, arc_type: str = "zip") -> Type[Arch
                 return plugin
 
     err_str = "Cannot find a plugin to handle the archive of the required type in the required way\n"
-    err_str += "read: {}\n".format(read)
-    err_str += "arc_type: {}\n".format(arc_type)
+    err_str += f"read: {read}\n"
+    err_str += f"arc_type: {arc_type}\n"
     raise NotImplementedError(err_str)
 
 
@@ -1140,7 +1075,7 @@ def build_plugin(path: str) -> None:
     Example:
         Exercise build plugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param path: Filesystem path read, written, normalized or validated by the
@@ -1152,7 +1087,7 @@ def build_plugin(path: str) -> None:
     from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZIP_STORED, ZipFile
     from LiuXin_alpha.utils.logging import prints
 
-    path = type("")(path)
+    path = str(path)
     names = frozenset(os.listdir(path))
     if "__init__.py" not in names:
         prints(path, " is not a valid plugin")
@@ -1173,7 +1108,7 @@ def option_parser() -> OptionParser:
     Example:
         Exercise option parser through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection
@@ -1240,7 +1175,7 @@ def main(args=sys.argv) -> int:
     Example:
         Exercise main through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param args: Positional values forwarded to the compatibility implementation.
@@ -1266,7 +1201,7 @@ def main(args=sys.argv) -> int:
         name, custom = opts.customize_plugin.split(",")
         plugin = find_plugin(name.strip())
         if plugin is None:
-            print("No plugin with the name %s exists" % name)
+            print(f"No plugin with the name {name} exists")
             return 1
         customize_plugin(plugin, custom)
     if opts.enable_plugin is not None:
@@ -1275,7 +1210,7 @@ def main(args=sys.argv) -> int:
         disable_plugin(opts.disable_plugin.strip())
     if opts.list_plugins:
         fmt = "%-15s%-20s%-15s%-15s%s"
-        print(fmt % tuple(("Type|Name|Version|Disabled|Site Customization".split("|"))))
+        print(fmt % tuple("Type|Name|Version|Disabled|Site Customization".split("|")))
         print()
         for plugin in initialized_plugins():
             print(
@@ -1297,35 +1232,6 @@ def main(args=sys.argv) -> int:
             print()
 
     return 0
-
-
-def run_import_plugins(path_or_stream, fmt):
-    """
-    Run all import plugins on a stream
-
-    Example:
-        Exercise run import plugins through a consuming regression::
-
-            python -m pytest -q tests/customize/test_customize_base.py
-
-
-    :param path_or_stream: Value supplied for path or stream under the utility contract.
-    :param fmt: Date, number or template format specification.
-    :return: The normalized value, metadata record, path, stream result or collection
-        described above.
-    """
-    from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryFile
-
-    fmt = fmt.lower()
-    if hasattr(path_or_stream, "seek"):
-        path_or_stream.seek(0)
-        pt = PersistentTemporaryFile("_import_plugin." + fmt)
-        shutil.copyfileobj(path_or_stream, pt, 1024**2)
-        pt.close()
-        path = pt.name
-    else:
-        path = path_or_stream
-    return run_plugins_on_import(path)
 
 
 if __name__ == "__main__":

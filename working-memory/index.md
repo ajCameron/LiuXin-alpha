@@ -1,6 +1,28 @@
 # Working Memory Index
 
-Current branch: **architecture-review-followup**, based on `ce239fd4` from
+Current branch: **plugin-composition-ownership**, continuing
+[PR #125](https://github.com/ajCameron/LiuXin-alpha/pull/125). The user's follow-up
+[consolidates both plugin packages](plugin-package-merge-2026-10-19.md) under
+`plugin_system` and removes `customize` and its forwarding shims entirely.
+Internal layer/cold-import rules preserve standalone formats and neutral loading;
+repository callers and installed-wheel checks use the new namespace. The 319-test
+regression run, 35 follow-up tests, full quality gates and installed wheel verifier
+pass. External plugins must migrate old imports using the documented table.
+The documentation follow-up moves the canonical composition/migration guide to
+`dev-docs/plugin_system/`, adds a subsystem index, updates incoming links and
+source signposts, and separates current enforcement from historical measurements.
+See the [merger note](plugin-package-merge-2026-10-19.md#documentation-follow-up).
+
+Earlier startup checkpoint (namespace decision superseded above): following documentation commit
+`7d854316`. The [plugin ownership follow-up](plugin-composition-ownership-2026-10-19.md)
+makes application startup explicit, shares file membership/loading/priority policy,
+and leaves `customize.ui` as a passive compatibility export. Production callers
+name the actual owners, and cold-import/dependency gates enforce the split.
+Documentation is published as [PR #124](https://github.com/ajCameron/LiuXin-alpha/pull/124).
+Targeted regression/follow-up tests and all quality gates pass. The main checkout's
+staging and unrelated edits remain untouched.
+
+Previous documentation branch: **architecture-review-followup**, based on `ce239fd4` from
 `configuration-ownership`. The [navigation migration](documentation-navigation-2026-10-19.md)
 now reconciles the working checkout's folder moves with the newer guides on this
 branch. The [developer index](../dev-docs/README.md) reaches all 126 developer

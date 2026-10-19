@@ -1,15 +1,16 @@
 # -*- coding: utf-8 -*-
 
 """
-Expose historical plugin compatibility and application composition surfaces.
+Define application plugin families and their retained resource contracts.
 
-Reusable lifecycle and conversion contracts belong to ``plugin_system`` and
-``file_formats``; their exports here preserve historical imports.
+Generic lifecycle and file contracts live in ``plugin_system.base`` and
+``plugin_system.file_types``. Conversion contracts belong to ``file_formats``.
+This module houses application-specific families formerly defined by customize.
 
 Example:
     Exercise   init   through a consuming regression::
 
-        python -m pytest -q tests/customize/test_customize_base.py
+        python -m pytest -q tests/plugin_system/test_plugin_base.py
 """
 
 from __future__ import with_statement, print_function, annotations
@@ -50,7 +51,7 @@ class ZipInfoLike(Protocol):
     Example:
         Exercise ZipInfoLike through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
     filename: str
     date_time: Tuple[int, int, int, int, int, int]  # (Y, M, D, h, m, s)
@@ -88,7 +89,7 @@ class ZipInfoLike(Protocol):
         Example:
             Exercise ZipInfoLike.is dir through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: True when the documented condition holds; otherwise False.
@@ -101,7 +102,7 @@ class ZipInfoLike(Protocol):
         Example:
             Exercise ZipInfoLike.FileHeader through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param zip64: Value supplied for zip64 under the utility contract.
@@ -118,7 +119,7 @@ class ZipInfoLike(Protocol):
         Example:
             Exercise ZipInfoLike.  repr   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -134,7 +135,7 @@ class Base:
     Example:
         Exercise Base through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
     ...
 
@@ -148,7 +149,7 @@ class CatalogCLIOption(NamedTuple):
     Example:
         Exercise CatalogCLIOption through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
     option: str
     default: str
@@ -192,7 +193,7 @@ class CatalogPlugin(Plugin):  # {{{
     Example:
         Exercise CatalogPlugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     resources_path = None
@@ -223,7 +224,7 @@ class CatalogPlugin(Plugin):  # {{{
         Example:
             Exercise CatalogPlugin. field sorter through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param key: Metadata, identifier or local-variable key.
@@ -242,7 +243,7 @@ class CatalogPlugin(Plugin):  # {{{
         Example:
             Exercise CatalogPlugin.search sort db through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param db: Value supplied for db under the utility contract.
@@ -268,7 +269,7 @@ class CatalogPlugin(Plugin):  # {{{
         Example:
             Exercise CatalogPlugin.get output fields through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param db: Value supplied for db under the utility contract.
@@ -341,14 +342,14 @@ class CatalogPlugin(Plugin):  # {{{
         Example:
             Exercise CatalogPlugin.initialize through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
             place.
         """
-        from LiuXin_alpha.customize.builtins.registry import plugins as builtin_plugins
-        from LiuXin_alpha.customize.ui import config
+        from LiuXin_alpha.plugin_system.builtins.registry import plugins as builtin_plugins
+        from LiuXin_alpha.plugin_system.configuration import config
         from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryDirectory
 
         if not type(self) in builtin_plugins and self.name not in config["disabled_plugins"]:
@@ -376,7 +377,7 @@ class CatalogPlugin(Plugin):  # {{{
         Example:
             Exercise CatalogPlugin.run through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param path_to_output: Value supplied for path to output under the utility contract.
@@ -401,7 +402,7 @@ class InterfaceActionBase(Plugin):  # {{{
     Example:
         Exercise InterfaceActionBase through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     supported_platforms = ["windows", "osx", "linux"]
@@ -421,7 +422,7 @@ class InterfaceActionBase(Plugin):  # {{{
         Example:
             Exercise InterfaceActionBase.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param args: Positional values forwarded to the compatibility implementation.
@@ -438,7 +439,7 @@ class InterfaceActionBase(Plugin):  # {{{
         Example:
             Exercise InterfaceActionBase.load actual plugin through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param gui: Value supplied for gui under the utility contract.
@@ -463,7 +464,7 @@ class PreferencesPlugin(Plugin):  # {{{
     Example:
         Exercise PreferencesPlugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     supported_platforms = ["windows", "osx", "linux"]
@@ -504,7 +505,7 @@ class PreferencesPlugin(Plugin):  # {{{
         Example:
             Exercise PreferencesPlugin.create widget through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param parent: Value supplied for parent under the utility contract.
@@ -526,7 +527,7 @@ class StoreBase(Plugin):  # {{{
     Example:
         Exercise StoreBase through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
     # Plugins this store will run for
     supported_platforms = ["windows", "osx", "linux"]
@@ -567,7 +568,7 @@ class StoreBase(Plugin):  # {{{
         Example:
             Exercise StoreBase.load actual plugin through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param gui: Value supplied for gui under the utility contract.
@@ -585,7 +586,7 @@ class StoreBase(Plugin):  # {{{
         Example:
             Exercise StoreBase.customization help through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param gui: Value supplied for gui under the utility contract.
@@ -603,7 +604,7 @@ class StoreBase(Plugin):  # {{{
         Example:
             Exercise StoreBase.config widget through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: The normalized value, metadata record, path, stream result or collection
@@ -620,7 +621,7 @@ class StoreBase(Plugin):  # {{{
         Example:
             Exercise StoreBase.save settings through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param config_widget: Value supplied for config widget under the utility contract.
@@ -642,7 +643,7 @@ class ViewerPlugin(Plugin):  # {{{
     Example:
         Exercise ViewerPlugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     plugin_type = _("Viewer")
@@ -654,7 +655,7 @@ class ViewerPlugin(Plugin):  # {{{
         Example:
             Exercise ViewerPlugin.load fonts through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -669,7 +670,7 @@ class ViewerPlugin(Plugin):  # {{{
         Example:
             Exercise ViewerPlugin.load javascript through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param evaljs: Value supplied for evaljs under the utility contract.
@@ -685,7 +686,7 @@ class ViewerPlugin(Plugin):  # {{{
         Example:
             Exercise ViewerPlugin.run javascript through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param evaljs: Value supplied for evaljs under the utility contract.
@@ -701,7 +702,7 @@ class ViewerPlugin(Plugin):  # {{{
         Example:
             Exercise ViewerPlugin.customize ui through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param ui: Value supplied for ui under the utility contract.
@@ -717,7 +718,7 @@ class ViewerPlugin(Plugin):  # {{{
         Example:
             Exercise ViewerPlugin.customize context menu through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param menu: Value supplied for menu under the utility contract.
@@ -740,7 +741,7 @@ class LibraryClosedPlugin(Plugin):  # {{{
     Example:
         Exercise LibraryClosedPlugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     plugin_type = _("Library Closed")
@@ -755,7 +756,7 @@ class LibraryClosedPlugin(Plugin):  # {{{
         Example:
             Exercise LibraryClosedPlugin.run through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param db: Value supplied for db under the utility contract.
@@ -775,7 +776,7 @@ class EditBookToolPlugin(Plugin):  # {{{
     Example:
         Exercise EditBookToolPlugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     plugin_type = _("Edit Book Tool")
@@ -796,7 +797,7 @@ class LiuXinPlugin(Plugin):
     Example:
         Exercise LiuXinPlugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     # Will start incrementing... soon
@@ -810,7 +811,7 @@ class MDInputTransform(LiuXinPlugin):  # {{{
     Example:
         Exercise MDInputTransform through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     # There are several different metadata containers floating around
@@ -824,7 +825,7 @@ class MDInputTransform(LiuXinPlugin):  # {{{
         Example:
             Exercise MDInputTransform.transform metadata through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param first: Value supplied for first under the utility contract.
@@ -845,7 +846,7 @@ class MDInputTransform(LiuXinPlugin):  # {{{
         Example:
             Exercise MDInputTransform. true transform metadata through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param first: Value supplied for first under the utility contract.
@@ -863,7 +864,7 @@ class LXMetadataReaderPlugin(LiuXinPlugin, _MetadataReaderPlugin):
     Example:
         Exercise LXMetadataReaderPlugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
     # All file formats this plugin could be used for
     valid_for = None
@@ -881,7 +882,7 @@ class LXMetadataReaderPlugin(LiuXinPlugin, _MetadataReaderPlugin):
         Example:
             Exercise LXMetadataReaderPlugin.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param args: Positional values forwarded to the compatibility implementation.
@@ -899,7 +900,7 @@ class LXMetadataReaderPlugin(LiuXinPlugin, _MetadataReaderPlugin):
         Example:
             Exercise LXMetadataReaderPlugin.standardize type through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param file_type: Value supplied for file type under the utility contract.
@@ -918,7 +919,7 @@ class LXMetadataReaderPlugin(LiuXinPlugin, _MetadataReaderPlugin):
         Example:
             Exercise LXMetadataReaderPlugin.get metadata through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -937,7 +938,7 @@ class Archive(LiuXinPlugin):
     Example:
         Exercise Archive through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
     # This plugin can read from these formats
     read_formats: frozenset[str] = frozenset()
@@ -961,7 +962,7 @@ class Archive(LiuXinPlugin):
         Example:
             Exercise Archive.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param file_path: Value supplied for file path under the utility contract.
@@ -1009,7 +1010,7 @@ class Archive(LiuXinPlugin):
         Example:
             Exercise Archive.  str   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: The normalized value, metadata record, path, stream result or collection
@@ -1026,7 +1027,7 @@ class Archive(LiuXinPlugin):
             Example:
                 Exercise Archive.  str  .format through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
             :param x: Value supplied for x under the utility contract.
@@ -1059,7 +1060,7 @@ class Archive(LiuXinPlugin):
             Example:
                 Exercise Archive.  str  .set format through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
             :param x: Value supplied for x under the utility contract.
@@ -1103,7 +1104,7 @@ class Archive(LiuXinPlugin):
         Example:
             Exercise Archive.printdir through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -1122,7 +1123,7 @@ class Archive(LiuXinPlugin):
         Example:
             Exercise Archive.is valid through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param path: Filesystem path read, written, normalized or validated by the
@@ -1141,7 +1142,7 @@ class Archive(LiuXinPlugin):
         Example:
             Exercise Archive.getinfo through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param name: Field, file, function or resource name addressed by the operation.
@@ -1157,7 +1158,7 @@ class Archive(LiuXinPlugin):
         Example:
             Exercise Archive.infolist through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -1172,7 +1173,7 @@ class Archive(LiuXinPlugin):
         Example:
             Exercise Archive.namelist through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -1188,7 +1189,7 @@ class Archive(LiuXinPlugin):
         Example:
             Exercise Archive.files through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -1204,7 +1205,7 @@ class Archive(LiuXinPlugin):
         Example:
             Exercise Archive.folders through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -1222,7 +1223,7 @@ class Archive(LiuXinPlugin):
         Example:
             Exercise Archive.extract through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param path: Filesystem path read, written, normalized or validated by the
@@ -1241,7 +1242,7 @@ class Archive(LiuXinPlugin):
         Example:
             Exercise Archive.extractall through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param path: Filesystem path read, written, normalized or validated by the
@@ -1260,7 +1261,7 @@ class Archive(LiuXinPlugin):
         Example:
             Exercise Archive.get file through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param path: Filesystem path read, written, normalized or validated by the
@@ -1283,7 +1284,7 @@ class Archive(LiuXinPlugin):
         Example:
             Exercise Archive.write through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param filename: Filename used for type inference or archive output.
@@ -1301,7 +1302,7 @@ class Archive(LiuXinPlugin):
         Example:
             Exercise Archive.writestr through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param arcname: Value supplied for arcname under the utility contract.
@@ -1322,7 +1323,7 @@ class Archive(LiuXinPlugin):
         Example:
             Exercise Archive.testarc through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -1337,7 +1338,7 @@ class Archive(LiuXinPlugin):
         Example:
             Exercise Archive.close through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -1352,7 +1353,7 @@ class Archive(LiuXinPlugin):
         Example:
             Exercise Archive.  enter   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -1367,7 +1368,7 @@ class Archive(LiuXinPlugin):
         Example:
             Exercise Archive.  exit   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param exc_type: Value supplied for exc type under the utility contract.

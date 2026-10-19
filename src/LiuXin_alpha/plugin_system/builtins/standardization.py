@@ -7,7 +7,7 @@ for callers.
 Example:
     Exercise standardization through a consuming regression::
 
-        python -m pytest -q tests/customize/test_customize_base.py
+        python -m pytest -q tests/plugin_system/test_plugin_base.py
 """
 
 from __future__ import unicode_literals
@@ -49,7 +49,7 @@ class TitlePhashHandler:
     Example:
         Exercise TitlePhashHandler through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     # Drop strings are strings which should be ignored - they're simplified and have to be surrounded with spaces to
@@ -73,12 +73,14 @@ class TitlePhashHandler:
     @classmethod
     def creator_standardize(cls, creator_string):
         """
-        Brings a name into standard form. This module relies on other standardization modules - the default is the builtin one in LiuXin.customize.builtins.standardization_plugins - when loaded through the title_phash_handler() method in the UI this should be replaced with the actual standardization plugin. In other words - ALWAYS USE THE UI. DO NOT LOAD THIS CLASS DIRECTLY.
+        Standardize a name with the selected creator-standardization provider.
+        Obtain this handler through plugin_system.application.title_phash_handler()
+        so its creator callback is bound before use.
 
         Example:
             Exercise TitlePhashHandler.creator standardize through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param creator_string: Value supplied for creator string under the utility contract.
@@ -95,7 +97,7 @@ class TitlePhashHandler:
         Example:
             Exercise TitlePhashHandler.make phash through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param title: Value supplied for title under the utility contract.
@@ -125,7 +127,7 @@ class TitlePhashHandler:
         Example:
             Exercise TitlePhashHandler.make cand phashes through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param title: Value supplied for title under the utility contract.
@@ -181,7 +183,7 @@ class TitlePhashHandler:
         Example:
             Exercise TitlePhashHandler.  do title standardization through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param title_string: Value supplied for title string under the utility contract.
@@ -203,7 +205,7 @@ class TitlePhashHandler:
         Example:
             Exercise TitlePhashHandler.  do author list standardization through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param authors_list: Value supplied for authors list under the utility contract.
@@ -226,7 +228,7 @@ class TitlePhashHandler:
         Example:
             Exercise TitlePhashHandler.swap first last through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param author_string: Value supplied for author string under the utility contract.
@@ -247,7 +249,7 @@ class TitlePhashHandler:
         Example:
             Exercise TitlePhashHandler.normalize whitespace through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param author_string: Value supplied for author string under the utility contract.
@@ -264,7 +266,7 @@ class TitlePhashHandler:
         Example:
             Exercise TitlePhashHandler.drop prefixes suffixes through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param author_string: Value supplied for author string under the utility contract.
@@ -290,7 +292,7 @@ class TitlePhashHandler:
         Example:
             Exercise TitlePhashHandler.scrub little words through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param string: Value supplied for string under the utility contract.
@@ -312,7 +314,7 @@ class TitlePhashHandler:
         Example:
             Exercise TitlePhashHandler.scrub forbidden character through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param string: Value supplied for string under the utility contract.
@@ -333,7 +335,7 @@ class TitlePhashHandler:
         Example:
             Exercise TitlePhashHandler.cand author strings through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param author_name_list: Value supplied for author name list under the utility
@@ -354,7 +356,7 @@ class TitlePhashHandler:
         Example:
             Exercise TitlePhashHandler. get all orderings through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param author_surname_list: Value supplied for author surname list under the utility
@@ -375,7 +377,7 @@ class TitlePhashHandler:
         Example:
             Exercise TitlePhashHandler. do one ordering through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param ordered_author_name_list: Value supplied for ordered author name list under
@@ -403,7 +405,7 @@ class CreatorStandardize:
     Example:
         Exercise CreatorStandardize through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     # 0) Replace all white space with single spaces
@@ -421,7 +423,7 @@ class CreatorStandardize:
         Example:
             Exercise CreatorStandardize.standardize creator through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param creator_string: Value supplied for creator string under the utility contract.
@@ -515,7 +517,7 @@ class BaseNameGenerator:
     Example:
         Exercise BaseNameGenerator through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     recognized_restrictions = {
@@ -578,7 +580,7 @@ class BaseNameGenerator:
         Example:
             Exercise BaseNameGenerator.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param restrictions: Value supplied for restrictions under the utility contract.
@@ -596,7 +598,7 @@ class BaseNameGenerator:
         Example:
             Exercise BaseNameGenerator.  sanitize name str through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param name_str: Value supplied for name str under the utility contract.
@@ -617,7 +619,7 @@ class BaseNameGenerator:
         Example:
             Exercise BaseNameGenerator.  sanitize ext str through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param ext_str: Value supplied for ext str under the utility contract.
@@ -653,7 +655,7 @@ class BaseNameGenerator:
         Example:
             Exercise BaseNameGenerator.make file name through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param title: Value supplied for title under the utility contract.
@@ -809,7 +811,7 @@ class BaseNameGenerator:
         Example:
             Exercise BaseNameGenerator.make file name meta through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param meta_row: Value supplied for meta row under the utility contract.
@@ -927,7 +929,7 @@ class BaseNameGenerator:
         Example:
             Exercise BaseNameGenerator.make book folder name from row through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param title_row: Value supplied for title row under the utility contract.
@@ -943,7 +945,7 @@ class BaseNameGenerator:
         Example:
             Exercise BaseNameGenerator.make book folder name through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param meta_row: Value supplied for meta row under the utility contract.
@@ -980,7 +982,7 @@ class BaseNameGenerator:
         Example:
             Exercise BaseNameGenerator.make series folder name through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param series_row: Value supplied for series row under the utility contract.
@@ -998,7 +1000,7 @@ class BaseNameGenerator:
         Example:
             Exercise BaseNameGenerator.make creators folder name through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param creator_list: Value supplied for creator list under the utility contract.
@@ -1034,7 +1036,7 @@ class BaseNameGenerator:
         Example:
             Exercise BaseNameGenerator.check against restrictions through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param candidate_string: Value supplied for candidate string under the utility
@@ -1058,7 +1060,7 @@ class BaseNameGenerator:
         Example:
             Exercise BaseNameGenerator.update file name folder through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param file_name: Value supplied for file name under the utility contract.
@@ -1083,7 +1085,7 @@ class BaseNameGenerator:
         Example:
             Exercise BaseNameGenerator.make book cover name through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_row: Value supplied for book row under the utility contract.
@@ -1102,7 +1104,7 @@ class BaseNameGenerator:
         Example:
             Exercise BaseNameGenerator.make book cover name meta through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param book_meta_row: Value supplied for book meta row under the utility contract.
@@ -1134,7 +1136,7 @@ class BaseNameGenerator:
         Example:
             Exercise BaseNameGenerator.make series image name through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param series_row: Value supplied for series row under the utility contract.
@@ -1165,7 +1167,7 @@ class BaseNameGenerator:
         Example:
             Exercise BaseNameGenerator.make creator image name through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param creator_row: Value supplied for creator row under the utility contract.
@@ -1196,7 +1198,7 @@ class BaseNameGenerator:
         Example:
             Exercise BaseNameGenerator.make generic image name through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param cover_row: Value supplied for cover row under the utility contract.
@@ -1233,7 +1235,7 @@ def sanitize_object_names(target_name):
     Example:
         Exercise sanitize object names through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param target_name: Value supplied for target name under the utility contract.

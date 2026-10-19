@@ -15,7 +15,7 @@ from collections import defaultdict, OrderedDict
 
 from typing import TypeVar, Optional, Union, Iterable, Literal
 
-from LiuXin_alpha.customize.cache.base_tables import (
+from LiuXin_alpha.plugin_system.cache.base_tables import (
     BaseCreatorsTable,
     BaseFormatsTable,
 )

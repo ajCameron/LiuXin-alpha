@@ -7,7 +7,7 @@ for callers.
 Example:
     Exercise device drivers through a consuming regression::
 
-        python -m pytest -q tests/customize/test_customize_base.py
+        python -m pytest -q tests/plugin_system/test_plugin_base.py
 """
 from LiuXin_alpha.utils.logging import default_log
 
@@ -580,7 +580,7 @@ def get_device_driver_plugins():
     Example:
         Exercise get device driver plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection

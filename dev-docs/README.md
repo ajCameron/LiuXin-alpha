@@ -28,7 +28,8 @@ implementation is complete.
 | Schema, database drivers and transaction mechanics | [Databases](databases/README.md) |
 | Files, replicas, stores, backup and recovery | [Storage and backup](storage_and_backup/README.md) |
 | CLI, terminal, GUI and operational entry points | [Surfaces](surfaces/README.md) |
-| Format implementations and plugin composition | [File formats](file_formats/README.md) |
+| Plugin contracts, loading, application composition and import migration | [Plugin system](plugin_system/README.md) |
+| Format implementations and standalone conversion | [File formats](file_formats/README.md) |
 | Shared conversion pipeline and verification records | [Conversion](conversion_pipeline/README.md) |
 | Inherited behaviour and supported compatibility | [Calibre compatibility](calibre_compat/README.md) |
 | Decisions, enforced boundaries and dated findings | [Architecture and reviews](architectural_reviews/README.md) |
@@ -41,6 +42,8 @@ implementation is complete.
   and [write contract](catalog/catalog-write-validation-contract.md).
 - Configure a deployment: [configuration ownership](core/configuration-ownership.md)
   and [operational CLI](surfaces/operational-cli.md).
+- Add or migrate a plugin: [plugin ownership](plugin_system/README.md) and
+  [import migration](plugin_system/plugin-composition.md#import-migration).
 - Operate acquisition or recovery: [mixed ingest](storage_and_backup/mixed_ingest_operations.md)
   and the [storage API](storage_and_backup/storage_api.md).
 - Select a test lane or investigate resource use: [testing](hacking/testing/README.md)

@@ -18,7 +18,7 @@ import os
 import shutil
 from collections.abc import Iterable
 
-from LiuXin_alpha.customize.ui import run_plugins_on_import
+from LiuXin_alpha.file_formats.plugin_runtime import run_plugins_on_import
 from LiuXin_alpha.file_formats.opf import metadata_to_opf
 from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
 from LiuXin_alpha.metadata.file_sources import InvalidMetadataExtractor, get_metadata as get_file_metadata

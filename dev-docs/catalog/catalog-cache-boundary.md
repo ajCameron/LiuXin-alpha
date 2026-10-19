@@ -184,7 +184,7 @@ model:
   database and Calibre-style map updates;
 - Calibre search-result caching currently located under `catalog.search`;
 - the older cache implementations under `library.caches` and
-  `customize.cache`; and
+  `plugin_system.cache` (moved from `customize.cache` on 2026-10-19); and
 - frozen `catalog_macros` reference helpers which still display historical
   cache callback shapes but have no production callers.
 

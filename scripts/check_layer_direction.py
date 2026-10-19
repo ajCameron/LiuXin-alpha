@@ -39,6 +39,35 @@ PACKAGE_ROOT = "LiuXin_alpha"
 DOMAIN_PACKAGES = frozenset({"caches", "catalog", "databases", "metadata", "surfaces"})
 RUNTIME_KINDS = (ImportKind.IMPORT_TIME, ImportKind.DEFERRED)
 
+# Application families may depend on domain providers. Every other plugin module,
+# including future additions, remains a neutral foundation unless reviewed here.
+PLUGIN_HOST_PREFIXES = tuple(
+    f"{PACKAGE_ROOT}.plugin_system.{name}"
+    for name in (
+        "application",
+        "contracts",
+        "archives",
+        "builtins",
+        "cache",
+        "folder_store_driver",
+    )
+)
+PLUGIN_FOUNDATION_FORBIDDEN_DOMAINS = frozenset(
+    {
+        "caches",
+        "catalog",
+        "core",
+        "databases",
+        "file_formats",
+        "ingest",
+        "jobs",
+        "library",
+        "metadata",
+        "storage",
+        "surfaces",
+    }
+)
+
 # Cache direction remains deliberately undecided. Do not add a cache source rule
 # until its architectural role has been agreed explicitly.
 FORBIDDEN_TARGETS: Mapping[str, frozenset[str]] = {
@@ -56,22 +85,7 @@ FORBIDDEN_TARGETS: Mapping[str, frozenset[str]] = {
             "surfaces",
         }
     ),
-    "plugin_system": frozenset(
-        {
-            "caches",
-            "catalog",
-            "core",
-            "customize",
-            "databases",
-            "file_formats",
-            "ingest",
-            "jobs",
-            "library",
-            "metadata",
-            "storage",
-            "surfaces",
-        }
-    ),
+    "plugin_system": frozenset({"core", "ingest", "jobs", "storage", "surfaces"}),
     "metadata": frozenset(
         {"caches", "catalog", "core", "databases", "library", "storage", "surfaces"}
     ),
@@ -112,8 +126,32 @@ def direction_reason(edge: ImportEdge) -> str | None:
     target_package = _package(edge.target)
     if source_package is None or target_package is None:
         return None
+    plugin_reason = plugin_direction_reason(edge)
+    if plugin_reason:
+        return plugin_reason
     if target_package in FORBIDDEN_TARGETS.get(source_package, ()):
         return f"{source_package} must not depend on {target_package}"
+    return None
+
+
+def _plugin_host(module: str) -> bool:
+    """Recognize explicit application/provider subtrees inside the unified package."""
+    return any(
+        module == prefix or module.startswith(prefix + ".")
+        for prefix in PLUGIN_HOST_PREFIXES
+    )
+
+
+def plugin_direction_reason(edge: ImportEdge) -> str | None:
+    """Keep neutral mechanics and standalone formats below plugin composition."""
+    source = _package(edge.source)
+    if source == "file_formats" and _plugin_host(edge.target):
+        return "file_formats must not depend on application plugin modules"
+    if source == "plugin_system" and not _plugin_host(edge.source):
+        if _plugin_host(edge.target):
+            return "plugin foundations must not depend on application plugin modules"
+        if _package(edge.target) in PLUGIN_FOUNDATION_FORBIDDEN_DOMAINS:
+            return f"plugin_system must not depend on {_package(edge.target)}"
     return None
 
 

@@ -494,7 +494,7 @@ def test_metadata_writer_error_can_follow_partial_file_change(
     :param tmp_path: Isolated pytest directory holding the disposable book file.
     :return: None after checking the reported error and retained partial bytes on disk.
     """
-    from LiuXin_alpha.customize import ui
+    from LiuXin_alpha.file_formats import plugin_runtime as ui
 
     def failing_writer(
         stream: BinaryIO,

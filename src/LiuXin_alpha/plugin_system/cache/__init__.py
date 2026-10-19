@@ -7,10 +7,10 @@ for callers.
 Example:
     Exercise   init   through a consuming regression::
 
-        python -m pytest -q tests/customize/test_customize_base.py
+        python -m pytest -q tests/plugin_system/test_plugin_base.py
 """
 
-from LiuXin_alpha.customize.cache.base_cache import BaseCache
-from LiuXin_alpha.customize.cache.read_write_api import api, read_api, write_api
+from LiuXin_alpha.plugin_system.cache.base_cache import BaseCache
+from LiuXin_alpha.plugin_system.cache.read_write_api import api, read_api, write_api
 
 __all__ = ["BaseCache", "api", "read_api", "write_api"]

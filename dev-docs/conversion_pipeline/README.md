@@ -6,6 +6,6 @@
   status rather than inferring completion from a guide's presence.
 
 Individual format behaviour belongs in the [format dossiers](../file_formats/README.md).
-Shared provider ownership belongs in [plugin composition](../file_formats/plugin-composition.md).
+Shared provider ownership belongs in [plugin composition](../plugin_system/plugin-composition.md).
 Use [test streams](../hacking/test-streams.md) for validation commands.
 Return to the [developer index](../README.md).

@@ -1,5 +1,13 @@
 # Top-level architecture review
 
+**Follow-up — 2026-10-19:** PR #125 consolidates `customize` into `plugin_system`
+and removes the old namespace and forwarding shims. Application assembly now
+lives in `plugin_system.application`, with module-level dependency and cold-import
+checks separating it from neutral mechanics. Earlier package names and counts
+below describe their dated checkpoints. See the current
+[plugin composition contract](../plugin_system/plugin-composition.md).
+
+
 Date: 2026-09-17
 
 Status: Review findings and recommendations; no architecture changes implemented.

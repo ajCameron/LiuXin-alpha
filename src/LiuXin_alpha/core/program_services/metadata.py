@@ -50,7 +50,7 @@ def metadata_file_formats(
     :return: Sorted readable types and writer-enabled writable subset.
     """
     del runtime, query
-    from LiuXin_alpha.customize.ui import can_set_metadata
+    from LiuXin_alpha.file_formats.plugin_runtime import can_set_metadata
     from LiuXin_alpha.metadata.file_sources import known_metadata_file_types
 
     readable = sorted(known_metadata_file_types())
@@ -132,7 +132,7 @@ def metadata_online_sources(
     :return: sources list with merged name/version/capabilities/configured descriptions, not availability guarantees.
     """
     del runtime, query
-    from LiuXin_alpha.customize.ui import metadata_plugins
+    from LiuXin_alpha.plugin_system.application import metadata_plugins
 
     plugins: dict[str, Any] = {}
     for capability in ("identify", "cover"):
@@ -273,7 +273,7 @@ def metadata_file_write(
     if not file_type:
         raise CoreDispatchError("`file_type` is required.")
 
-    from LiuXin_alpha.customize.ui import (
+    from LiuXin_alpha.file_formats.plugin_runtime import (
         can_set_metadata,
         set_file_type_metadata,
     )

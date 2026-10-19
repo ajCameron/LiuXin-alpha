@@ -30,21 +30,21 @@ def conversion_formats(
     query: CoreQuery,
 ) -> dict[str, Any]:
     """
-    List conversion input/output formats advertised by the current customization registry.
+    List conversion input/output formats advertised by the file-format runtime.
 
     Results are stringified and sorted independently without adapter deduplication.
-    Discovery imports customization code but does not attempt a sample conversion.
+    Discovery initializes file providers on first use without starting application plugins.
 
     Example:
         >>> formats = conversion_formats(runtime, query)  # doctest: +SKIP
 
 
-    :param runtime: Unused runtime; discovery uses the process-wide customization registry.
+    :param runtime: Unused runtime; discovery uses the process-wide file-plugin registry.
     :param query: Unused query envelope; no payload filters are consumed.
     :return: input and output format-name lists; discovery/import failures propagate.
     """
     del runtime, query
-    from LiuXin_alpha.customize.ui import (
+    from LiuXin_alpha.file_formats.plugin_runtime import (
         available_input_formats,
         available_output_formats,
     )

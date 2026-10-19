@@ -12,11 +12,13 @@ several kinds of material; their authority differs.
 - [Quality gates](maintainability-quality-gates.md): current scopes and commands.
 - [Layer direction](layer-direction-ratchet.md): allowed directions and reviewed debt.
 - [Import footprint](import-footprint-ratchet.md): runtime import boundaries.
+- [Plugin composition](../plugin_system/plugin-composition.md): unified package,
+  passive startup, shared loading policy and retired-namespace migration.
 
 ## Dated findings
 
 - [Whole-repository review, 2026-09-26](architecture-review-2026-09-26.md), with
-  the source-checked 2026-10-18 implementation follow-up.
+  the source-checked 2026-10-18 implementation and 2026-10-19 plugin follow-ups.
 - [Opening-path review, 2026-10-09](lifecycle-opening-path-review-2026-10-09.md).
 - [Documentation and project structure, 2026-10-18](documentation-structural-review-2026-10-18.md).
 - [Earlier top-level review](top-level-architecture-review.md).

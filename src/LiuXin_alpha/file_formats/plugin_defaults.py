@@ -7,10 +7,6 @@ the same persisted customization and enable/disable settings.
 
 from __future__ import annotations
 
-import os
-import sys
-import traceback
-
 from LiuXin_alpha.plugin_system.base import Plugin
 from LiuXin_alpha.plugin_system.configuration import config
 from LiuXin_alpha.utils.config.config_base import plugin_dir
@@ -64,7 +60,8 @@ def builtin_plugins() -> list[type[Plugin]]:
 
 
 def build_plugins() -> list[Plugin]:
-    """Initialize installed file plugins before bundled providers, retaining order."""
+    """Compose file providers using the shared loading and priority rules."""
+    from LiuXin_alpha.plugin_system.loading import build_plugins as load_plugins
     from LiuXin_alpha.file_formats.conversion.plugin import (
         InputFormatPlugin,
         OutputFormatPlugin,
@@ -88,44 +85,6 @@ def build_plugins() -> list[Plugin]:
         InputProfile,
         OutputProfile,
     )
-    stdout, stderr = sys.stdout, sys.stderr
-    plugins: list[Plugin] = []
-    try:
-        bundled = builtin_plugins()
-        bundled_names = {plugin.name for plugin in bundled}
-        candidates: list[tuple[type[Plugin], str | None]] = []
-        for name, stored_path in config["plugins"].items():
-            if name in bundled_names:
-                continue
-            path = os.path.join(plugin_dir, name + ".zip")
-            if not os.path.exists(path):
-                path = stored_path
-            try:
-                from LiuXin_alpha.plugin_system.zipplugin import loader
-
-                plugin_class = loader.load(path)
-                if issubclass(plugin_class, families):
-                    candidates.append((plugin_class, path))
-            except Exception:
-                print(f"Failed to load file plugin: {name}", file=stderr)
-                traceback.print_exc(file=stderr)
-            finally:
-                sys.stdout, sys.stderr = stdout, stderr
-
-        candidates.extend((plugin_class, None) for plugin_class in bundled)
-        for plugin_class, path in candidates:
-            try:
-                plugin = plugin_class(path)
-                plugin.initialize()
-                plugins.append(plugin)
-            except Exception:
-                print(
-                    f"Failed to initialize file plugin: {plugin_class.name}",
-                    file=stderr,
-                )
-                traceback.print_exc(file=stderr)
-            finally:
-                sys.stdout, sys.stderr = stdout, stderr
-    finally:
-        sys.stdout, sys.stderr = stdout, stderr
-    return plugins
+    return load_plugins(
+        builtin_plugins(), config["plugins"], plugin_dir, families=families
+    )

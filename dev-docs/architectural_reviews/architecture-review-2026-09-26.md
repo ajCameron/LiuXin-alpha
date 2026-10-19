@@ -67,6 +67,24 @@ unless explicitly remeasured here.
 | Category read semantics | `daa6a0ed`, [#121][pr121]; [read ownership record](../../working-memory/catalogue-read-ownership-2026-10-18.md), [direct/HTTP parity tests](../../tests/surfaces/test_category_read_ownership.py). |
 | Application configuration | `d59407f3`, [#123][pr123]; [configuration contract](../core/configuration-ownership.md), [handoff](../../working-memory/configuration-ownership-2026-10-18.md), [profile/worker regressions](../../tests/preferences/test_configuration_ownership.py). |
 
+### Plugin follow-up — 2026-10-19
+
+Commits `6b97be2f` and `78a01b61` in
+[PR #125](https://github.com/ajCameron/LiuXin-alpha/pull/125) make application startup
+explicit/lazy, share provider membership and loading/priority policy, then
+consolidate `customize` into `plugin_system`. The old namespace and forwarding
+modules are removed. Neutral mechanics and standalone formats retain enforced
+internal dependency boundaries. The
+[plugin system guide](../plugin_system/README.md) and
+[migration table](../plugin_system/plugin-composition.md#import-migration)
+describe the resulting API.
+
+This closes the package split and startup ownership work in UT-3/4/5. It does
+not close unsupported device providers, retained cache/driver interfaces,
+provider availability reporting or separate jobs/ingest registry work. The
+September findings and October 13 compatibility-shim checkpoint below remain
+historical evidence; those shims no longer exist.
+
 ### Remaining work in priority order
 
 1. Close CO-4/SU-6's transport and capability boundaries; implement ST-1/ST-2's
@@ -77,6 +95,7 @@ unless explicitly remeasured here.
    different contracts. Remove the remaining lower-layer opening wrappers.
 3. Continue the focused ownership sequence with jobs, ingest and plugin
    composition (CO-8, ST-5, UT-3/4/5), including restart, cancellation, remote logs
+   and unsupported providers. The 2026-10-19 plugin follow-up consolidates startup
    and priority order. Configuration propagation through workers is not durable
    job-state ownership.
 4. Address the concrete remaining format failures and conversion reporting
@@ -205,7 +224,7 @@ the tables; they are not fourteen untouched tasks.
 |---|---|
 | 1 | **Open:** HTTP transport still forwards generic commands/queries, including `invoke`; wire encoding is not authorization. |
 | 2 | **Open:** manager deletion lacks the proposed loss-policy guard; four compatibility builders still drop `read_only`. |
-| 3 | **Partial:** LRF registration is fixed. The discarded plugin priority sort, EMF import, exceptional Database exit and staging deletion remain. |
+| 3 | **Partial:** LRF registration and the discarded plugin priority sort are fixed (the latter in the 2026-10-19 plugin follow-up). EMF import, exceptional Database exit and staging deletion remain. |
 | 4 | **Partial:** lifecycle, installed-wheel, focused import and cold-budget checks exist. There is no demonstrated replacement for the proposed comprehensive unresolved-static-import inventory. Do not blindly import modules that execute code on import. |
 | 5 | **Open:** tracked-ignored cleanup is unfinished (fresh count above). Test scratch cleanup and removal of dead source assets solve different problems. |
 | 6 | **Implemented core boundary, partial migration:** `LibraryServices` owns the graph and failure unwind; maintenance job scheduling and removal of lower-layer path wrappers remain. Storage table ownership is separate. |
@@ -214,7 +233,7 @@ the tables; they are not fourteen untouched tasks.
 | 9 | **Partial:** hydrators moved to Catalog and category semantics moved to Core. Work/search/file/acquisition projections, server-side listing costs and some host coupling remain. |
 | 10 | **Implemented application settings boundary in #123:** `ConfigurationPaths` plus one Preferences store fulfill the role without a class named RuntimeSettings. Startup hooks and non-configuration scratch defaults remain. |
 | 11 | **Partial, revised approach:** proven dead code and unusable facades were retired, with wheel guards. Tested compatibility features were retained explicitly; wholesale quarantine/exclusion was not implemented. |
-| 12 | **Partial:** reusable contracts and standalone conversion assembly moved below application composition. The compatibility host is still named `customize`; other registry ownership remains. |
+| 12 | **Implemented package/contract ownership:** conversion contracts remain in `file_formats`; PR #125 consolidates the application host and remaining families under `plugin_system`, removes `customize` and its shims, and enforces internal dependency direction. Other domain registry work remains. |
 | 13 | **Open:** StorageManager service decomposition, DriverWrapper folding, web acquisition relocation and shared web-app composition are not delivered by the owner moves. |
 | 14 | **Superseded as a scheduling proposal:** the broad docstring campaign completed in `8919fd57`; it was not rescoped as proposed. Hash/inventory maintenance remains a tooling decision, not a prerequisite to functional work. |
 
@@ -406,7 +425,7 @@ disguised with dynamic imports.
 | ID | Status | Concrete change and remaining action |
 |---|---|---|
 | FF-1 | Resolved | `f8723b96` moved generic lifecycle to `plugin_system.base` and conversion contracts to `file_formats.conversion.plugin`; `f1bb7622` added standalone native assembly. Internal format callers no longer depend on the application host for these contracts; cold budgets and direction rules enforce it. Wider metadata/format cycles remain separate. |
-| FF-2 | Partial | LRF now registers `LRFInput`, with a regression against duplicate LIT entries, and real native HTML-to-EPUB/plugin runtime tests exercise assembly. Optional-provider failures can still be swallowed/logged and the compatibility host has ordering debt (UT-5). Make availability/failure reporting explicit. |
+| FF-2 | Partial | LRF now registers `LRFInput`, with a regression against duplicate LIT entries, and real native HTML-to-EPUB/plugin runtime tests exercise assembly. The 2026-10-19 follow-up shares file membership and loading/priority rules between hosts. Optional-provider failures can still be logged without structured availability reporting; that remains open. |
 | FF-3 | Open | The missing DOCX EMF import remains outside its `try` in [images.py](../../src/LiuXin_alpha/file_formats/docx/images.py); the reviewed missing module is still absent. Containment and passing selected conversions do not certify the old 60-import list. Refresh that inventory, then fix/retire handlers with real format inputs rather than mocked missing modules. |
 | FF-4 | Partial | Headless rendering replaced format-to-surface shims and PNG serialization is real. [HTML2ZIP.run](../../src/LiuXin_alpha/file_formats/html/to_zip.py) still raises that GUI conversion is unavailable. Implement resource-preserving headless import or explicitly disable/report this provider; Qt bootstrap remains separate. |
 | FF-5 | Open | OPF utilities moved to the format owner, but `opf/__init__.py` and `opf2.py`, plus duplicated top-level helpers, remain. Choose canonical implementations and migrate imports with parser/writer compatibility tests. |
@@ -435,9 +454,9 @@ disguised with dynamic imports.
 |---|---|---|
 | UT-1 | Partial | #123 makes application preferences lazy, path resolution non-writing and tweak inputs literal-only; imports no longer load/execute application settings. `startup_scripts.__init__` still modifies `sys.meta_path`/builtins through `utils.ptempfiles`. Remove that remaining startup dependency rather than claiming all foundation imports are inert. |
 | UT-2 | Resolved | [configuration.py](../../src/LiuXin_alpha/configuration.py), Core settings composition and the shared Preferences view replace conflicting application stores/paths (`d59407f3`). Manifest selection reaches bootstrap, dispatch, workers and sort caches; INI owns ordinary writes. DBPrefs and component namespaces remain distinct by design. Process workers use copy semantics; singleton component lifetimes are still documented limitations. |
-| UT-3 | Partial | Inert package roots, explicit `customize.builtins.registry`, lower-level contracts and native format runtime remove the need for standalone conversion to initialize the application fleet. `customize.ui` still calls `initialize_plugins()` at import and catches provider failures. Finish host lifecycle/registry composition; 803 modules/140 plugins is a historical measurement. |
-| UT-4 | Partial | Generic lifecycle/file hooks/preferences and conversion/metadata providers now have explicit owners below the compatibility host. Database, storage, cache and terminal registries remain separate domains. Map duplicate discovery for the same capability before consolidating; do not merge independent registries merely because there are several. |
-| UT-5 | Open | `customize.ui` still discards `sorted(_initialized_plugins, ...)`; device-driver builtins still reference the removed package and registry assembly catches their failure. Fix observable provider ordering and retire or explicitly report unsupported devices. |
+| UT-3 | Implemented startup boundary | PR #125 makes application startup explicit/lazy in `plugin_system.application`, removes `customize.ui`, and keeps standalone conversion independent. Shared initialization/priority rules, cold-import budgets and module-level dependency tests enforce the new boundary. The old 803-module/140-plugin figure is historical. |
+| UT-4 | Partial | PR #125 consolidates both packages under `plugin_system`, migrates repository callers and removes forwarding shims. Generic mechanics and application assembly retain enforced internal layers. Retained cache/folder-driver modules and unsupported providers still need cleanup; database, storage and terminal registries have distinct domain ownership. |
+| UT-5 | Partial | The 2026-10-19 follow-up applies stable descending priority through one shared loader, preserves installed-first ties and removes import-triggered startup. Conflict handling no longer recursively initializes or deletes installed archives. Tests cover ordering, both startup orders, interruption and concurrent/reentrant lookups. Device-driver builtins still reference the removed package and registry assembly catches their failure; retire or explicitly report unsupported devices. |
 | UT-6 | Partial | Author/title/identifier/language policy moved into metadata, including the broken author-sort utility; file-hook and rendering responsibilities moved to their owners. Other upward utility and calibre_compat dependencies remain. Continue by responsibility, with caller migration and import-budget checks. |
 | UT-7 | Partial | All six numbered copy artifacts were removed and wheel verification rejects them (`06bf503d`). Vendored forks and stale third-party copies remain; assess upstream replacement, local patches and licensing per library instead of treating them as one deletion batch. |
 | UT-8 | Resolved | Unused 7,497,537-byte `images_rc.py` was deleted in `06bf503d`; installed-wheel verification rejects its return. This does not resolve the separate Qt/Pillow compatibility failures. |

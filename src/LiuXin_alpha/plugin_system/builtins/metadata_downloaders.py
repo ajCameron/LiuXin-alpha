@@ -7,7 +7,7 @@ for callers.
 Example:
     Exercise metadata downloaders through a consuming regression::
 
-        python -m pytest -q tests/customize/test_customize_base.py
+        python -m pytest -q tests/plugin_system/test_plugin_base.py
 """
 
 
@@ -139,7 +139,7 @@ def get_web_md_plugins():
     Example:
         Exercise get web md plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection

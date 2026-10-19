@@ -17,7 +17,7 @@ def _config() -> ConfigProxy:
     Example:
         Exercise  config through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection
@@ -55,7 +55,7 @@ def is_disabled(plugin: Plugin) -> bool:
     Example:
         Exercise is disabled through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param plugin: Value supplied for plugin under the utility contract.
@@ -76,7 +76,7 @@ def customize_plugin(plugin: Plugin, custom: str) -> None:
     Example:
         Exercise customize plugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param plugin: Value supplied for plugin under the utility contract.
@@ -96,7 +96,7 @@ def plugin_customization(plugin: Plugin) -> str:
     Example:
         Exercise plugin customization through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :param plugin: Value supplied for plugin under the utility contract.

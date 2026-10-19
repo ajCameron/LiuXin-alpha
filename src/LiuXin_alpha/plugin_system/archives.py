@@ -9,7 +9,7 @@ for callers.
 Example:
     Exercise archives through a consuming regression::
 
-        python -m pytest -q tests/customize/test_customize_base.py
+        python -m pytest -q tests/plugin_system/test_plugin_base.py
 """
 
 from __future__ import print_function, unicode_literals
@@ -19,7 +19,7 @@ from __future__ import print_function, unicode_literals
 import shutil
 import zipfile
 
-from LiuXin_alpha.customize import Archive
+from LiuXin_alpha.plugin_system.contracts import Archive
 
 
 # Todo: Implement password support
@@ -30,7 +30,7 @@ class ZipfileArchive(Archive):
     Example:
         Exercise ZipfileArchive through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
     """
 
     read_formats = {"zip"}
@@ -43,7 +43,7 @@ class ZipfileArchive(Archive):
         Example:
             Exercise ZipfileArchive.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param file_path: Value supplied for file path under the utility contract.
@@ -63,7 +63,7 @@ class ZipfileArchive(Archive):
         Example:
             Exercise ZipfileArchive.printdir through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -82,7 +82,7 @@ class ZipfileArchive(Archive):
         Example:
             Exercise ZipfileArchive.is valid through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param path: Filesystem path read, written, normalized or validated by the
@@ -101,7 +101,7 @@ class ZipfileArchive(Archive):
         Example:
             Exercise ZipfileArchive.getinfo through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param name: Field, file, function or resource name addressed by the operation.
@@ -117,7 +117,7 @@ class ZipfileArchive(Archive):
         Example:
             Exercise ZipfileArchive.infolist through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: The normalized value, metadata record, path, stream result or collection
@@ -132,7 +132,7 @@ class ZipfileArchive(Archive):
         Example:
             Exercise ZipfileArchive.namelist through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: The normalized value, metadata record, path, stream result or collection
@@ -148,7 +148,7 @@ class ZipfileArchive(Archive):
         Example:
             Exercise ZipfileArchive.files through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: The normalized value, metadata record, path, stream result or collection
@@ -169,7 +169,7 @@ class ZipfileArchive(Archive):
         Example:
             Exercise ZipfileArchive.folders through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: The normalized value, metadata record, path, stream result or collection
@@ -189,7 +189,7 @@ class ZipfileArchive(Archive):
         Example:
             Exercise ZipfileArchive.extract through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param path: Filesystem path read, written, normalized or validated by the
@@ -208,7 +208,7 @@ class ZipfileArchive(Archive):
         Example:
             Exercise ZipfileArchive.extractall through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param path: Filesystem path read, written, normalized or validated by the
@@ -227,7 +227,7 @@ class ZipfileArchive(Archive):
         Example:
             Exercise ZipfileArchive.get file through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param path: Filesystem path read, written, normalized or validated by the
@@ -252,7 +252,7 @@ class ZipfileArchive(Archive):
         Example:
             Exercise ZipfileArchive.write through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param filename: Filename used for type inference or archive output.
@@ -274,7 +274,7 @@ class ZipfileArchive(Archive):
         Example:
             Exercise ZipfileArchive.writestr through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :param arcname: Value supplied for arcname under the utility contract.
@@ -295,7 +295,7 @@ class ZipfileArchive(Archive):
         Example:
             Exercise ZipfileArchive.testarc through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: The normalized value, metadata record, path, stream result or collection
@@ -310,7 +310,7 @@ class ZipfileArchive(Archive):
         Example:
             Exercise ZipfileArchive.close through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -326,7 +326,7 @@ def get_compressor_plugins():
     Example:
         Exercise get compressor plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugin_system/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection
