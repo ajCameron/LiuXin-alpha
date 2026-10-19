@@ -64,12 +64,12 @@ fixtures for hostile reader/parser cases.
 
 Added:
 
-- `dev-docs/file-formats/mobi/README.md`
+- `dev-docs/file_formats/mobi/README.md`
 
 Updated:
 
-- `dev-docs/file-formats/README.md`
-- `dev-docs/file-format-unicode-conversion.md`
+- `dev-docs/file_formats/README.md`
+- `dev-docs/file_formats/file-format-unicode-conversion.md`
 
 The MOBI dossier records entry points, current tests, expected binary parser
 contract, KF8/index boundaries, unicode coverage, hostile gaps, salvage/report

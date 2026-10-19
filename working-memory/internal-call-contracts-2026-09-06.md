@@ -28,7 +28,7 @@ checked interfaces. Work is on `codex/package-calibre-resources`.
   source-line diagnostic; valid calls must remain clean. The probe never runs
   application code. Its verifier rejects unrelated or missing errors.
 
-Canonical guidance: [maintainability quality gates](../dev-docs/maintainability-quality-gates.md).
+Canonical guidance: [maintainability quality gates](../dev-docs/architectural_reviews/maintainability-quality-gates.md).
 
 ## Verification at stage-1 completion
 

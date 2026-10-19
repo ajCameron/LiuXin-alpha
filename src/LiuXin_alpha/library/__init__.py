@@ -12,7 +12,7 @@ mutation. Remaining direct compatibility paths are migration debt, not the
 contract for new code.
 
 See ``dev-docs/04 - Seperation of Concerns.md`` and
-``dev-docs/catalog-write-validation-contract.md``.
+``dev-docs/catalog/catalog-write-validation-contract.md``.
 
 Example:
     Exercise   init   through a consuming regression::

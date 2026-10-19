@@ -28,6 +28,11 @@ sys.modules[SPEC.name] = build_deployment_package
 SPEC.loader.exec_module(build_deployment_package)
 
 
+def test_required_deployment_inputs_exist_in_the_real_checkout() -> None:
+    """Catch moved runbooks even when the synthetic bundle fixture was updated."""
+    build_deployment_package.verify_required_paths(SCRIPT_PATH.parents[1])
+
+
 def test_exclusion_rules_keep_deployment_bundle_source_focused() -> None:
     """
     Perform the test exclusion rules keep deployment bundle source focused operation under explicit file-format and conversion rules.
@@ -142,7 +147,7 @@ def test_generated_remote_helpers_cover_install_and_postgres_workflow() -> None:
     assert ".venv/bin/liuxin storage recovery list" in bundle_readme
     assert ".venv/bin/liuxin init /srv/liuxin" in bundle_readme
     assert ".venv/bin/liuxin init --wizard" in bundle_readme
-    assert "dev-docs/operational-cli.md" in bundle_readme
+    assert "dev-docs/surfaces/operational-cli.md" in bundle_readme
     assert "--preflight-only" in bundle_readme
     assert "143 is SIGTERM" in bundle_readme
 
@@ -186,10 +191,10 @@ def test_build_deployment_package_writes_tarball_with_generated_helpers(tmp_path
     assert f"{prefix}/deploy/postgres_remote_setup.sh" in names
     assert f"{prefix}/deployment_manifest.json" in names
     assert f"{prefix}/src/LiuXin_alpha/__init__.py" in names
-    assert f"{prefix}/dev-docs/postgresql-backend.md" in names
-    assert f"{prefix}/dev-docs/metadata-cli.md" in names
-    assert f"{prefix}/dev-docs/operational-cli.md" in names
-    assert f"{prefix}/dev-docs/storage/mixed_ingest_operations.md" in names
+    assert f"{prefix}/dev-docs/databases/postgresql-backend.md" in names
+    assert f"{prefix}/dev-docs/metadata/metadata-cli.md" in names
+    assert f"{prefix}/dev-docs/surfaces/operational-cli.md" in names
+    assert f"{prefix}/dev-docs/storage_and_backup/mixed_ingest_operations.md" in names
     assert f"{prefix}/LiuXin_alpha_data/private.db" not in names
     assert f"{prefix}/tests/test_example.py" not in names
 
@@ -226,31 +231,34 @@ def _write_minimal_repo(repo: Path) -> None:
         "metadata.py",
         "postgres.py",
         "serve.py",
-        "storage.py",
         "workflows.py",
     ):
         (repo / "src" / "LiuXin_alpha" / "surfaces" / "cli" / filename).write_text("", encoding="utf-8")
-    (
-        repo / "src" / "LiuXin_alpha" / "surfaces" / "system_profile.py"
-    ).write_text("", encoding="utf-8")
+    storage_commands = repo / "src" / "LiuXin_alpha" / "surfaces" / "cli" / "storage_commands"
+    storage_commands.mkdir()
+    (storage_commands / "__init__.py").write_text("", encoding="utf-8")
+    core = repo / "src" / "LiuXin_alpha" / "core"
+    core.mkdir()
+    (core / "settings.py").write_text("", encoding="utf-8")
     (repo / "scripts").mkdir()
     (repo / "scripts" / "create_venv.sh").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
     (repo / "scripts" / "run_postgres_live_smoke.py").write_text("", encoding="utf-8")
     (repo / "dev-docs").mkdir()
-    (repo / "dev-docs" / "postgresql-backend.md").write_text(
+    for folder in ("databases", "metadata", "surfaces", "storage_and_backup"):
+        (repo / "dev-docs" / folder).mkdir()
+    (repo / "dev-docs" / "databases" / "postgresql-backend.md").write_text(
         "# PostgreSQL\n",
         encoding="utf-8",
     )
-    (repo / "dev-docs" / "metadata-cli.md").write_text(
+    (repo / "dev-docs" / "metadata" / "metadata-cli.md").write_text(
         "# Metadata CLI\n",
         encoding="utf-8",
     )
-    (repo / "dev-docs" / "operational-cli.md").write_text(
+    (repo / "dev-docs" / "surfaces" / "operational-cli.md").write_text(
         "# Operational CLI\n",
         encoding="utf-8",
     )
-    (repo / "dev-docs" / "storage").mkdir()
-    (repo / "dev-docs" / "storage" / "mixed_ingest_operations.md").write_text(
+    (repo / "dev-docs" / "storage_and_backup" / "mixed_ingest_operations.md").write_text(
         "# Mixed ingest\n",
         encoding="utf-8",
     )

@@ -1,4 +1,7 @@
 
+# Todo: Rewrite to account for the actual current structure
+
+
 As it transpires, as I'm sure will be familiar to anyone who has engaged in any archival work at all, designing a 
 database to comprehensively store metadata is very hard.
 
@@ -488,4 +491,4 @@ This replaces the older temptation to let one `files` table stand in for:
 
 That split is now explicit.
 
-See `dev-docs/database/04 - Digital assets, replicas and storage policy.md` for the detailed rationale and table breakdown.
+See `dev-docs/databases/04 - Digital assets, replicas and storage policy.md` for the detailed rationale and table breakdown.

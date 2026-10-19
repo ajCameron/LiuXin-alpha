@@ -1,3 +1,4 @@
+
 # Read-model failure boundaries
 
 The shared surface read model must distinguish absent catalogue data from a

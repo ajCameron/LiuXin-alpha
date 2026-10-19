@@ -18,8 +18,8 @@ and [example report](test-results/docstrings-d-2026-09-14/D080-D080-examples.jso
 The latest full quality and 2,732-file reconciliation milestone is D075; subsequent
 units retain their own scoped evidence, without claiming a newer broad milestone.
 
-The [plan](../dev-docs/project-docstrings-completion-plan.md),
-[inventory](../dev-docs/project-docstrings-work-units.json),
+The [plan](../dev-docs/hacking/project-docstrings-completion-plan.md),
+[inventory](../dev-docs/hacking/project-docstrings-work-units.json),
 [D handoff](project-docstrings-d-2026-09-14.md) and
 [campaign](test-results/docstrings-d-2026-09-14/campaign.json) retain scope,
 immutable baselines, known implementation limitations and terminal check records.

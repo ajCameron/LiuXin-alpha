@@ -44,4 +44,4 @@ dirty `LiuXin_alpha_data` nested checkout remains separate from this campaign.
 - [Inventory reconciliation](test-results/docstrings-u176-u208-2026-10-05/reconciliation.json)
 - [Documentation diff](test-results/docstrings-u176-u208-2026-10-05/docstrings.diff)
 - [Previous checkpoint](project-docstrings-u143-u175-2026-10-05.md)
-- [Completion plan](../dev-docs/project-docstrings-completion-plan.md)
+- [Completion plan](../dev-docs/hacking/project-docstrings-completion-plan.md)

@@ -9,8 +9,8 @@ coverage.
 
 Durable docs:
 
-- `dev-docs/file-format-unicode-conversion.md`
-- `dev-docs/file-formats/lit/README.md`
+- `dev-docs/file_formats/file-format-unicode-conversion.md`
+- `dev-docs/file_formats/lit/README.md`
 
 ## Plan
 
@@ -81,9 +81,9 @@ that reports the unavailable backend before opening an output path.
 
 Stage 5 added durable docs and recorded the current LIT contract:
 
-- `dev-docs/file-formats/lit/README.md`
-- `dev-docs/file-format-unicode-conversion.md`
-- `dev-docs/file-formats/README.md`
+- `dev-docs/file_formats/lit/README.md`
+- `dev-docs/file_formats/file-format-unicode-conversion.md`
+- `dev-docs/file_formats/README.md`
 
 Stage 5 tail update, 2026-05-27:
 

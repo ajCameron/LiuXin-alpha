@@ -11,7 +11,7 @@ and "try another extractor" behavior.
 
 Durable docs:
 
-- `dev-docs/malformed-input-fuzzing.md`
+- `dev-docs/hacking/testing/malformed-input-fuzzing.md`
 
 ## Registry Slice
 

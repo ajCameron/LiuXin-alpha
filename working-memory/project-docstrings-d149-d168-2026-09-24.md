@@ -94,4 +94,4 @@ Token usage unavailable.
 - [Scope and reviewed-hash discovery](test-results/docstrings-d149-d168-2026-09-24/discovery.json)
 - [Inventory reconciliation](test-results/docstrings-d149-d168-2026-09-24/reconciliation.json)
 - [Documentation diff](test-results/docstrings-d149-d168-2026-09-24/docstrings.diff)
-- [Completion plan](../dev-docs/project-docstrings-completion-plan.md)
+- [Completion plan](../dev-docs/hacking/project-docstrings-completion-plan.md)

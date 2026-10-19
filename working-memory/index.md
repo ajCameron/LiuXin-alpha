@@ -1,6 +1,56 @@
 # Working Memory Index
 
-Current branch: **configuration-ownership**, ready
+Current branch: **architecture-review-followup**, based on `ce239fd4` from
+`configuration-ownership`. The [navigation migration](documentation-navigation-2026-10-19.md)
+now reconciles the working checkout's folder moves with the newer guides on this
+branch. The [developer index](../dev-docs/README.md) reaches all 126 developer
+Markdown documents through task routes and subsystem indexes. Eighty-one moves,
+twelve new indexes, portable evidence references and packaging/test/source path
+consumers are integrated. All 54 focused documentation/deployment/CI-contract tests
+pass, the complete quality runner passes, and an export of staged documentation
+and referenced targets validates without ignored local evidence. The main working
+checkout's staging and unrelated edits remain untouched;
+the integrated result lives in the isolated review worktree.
+
+Earlier documentation checkpoint on this branch: the
+[top-level structure guide](<../dev-docs/02 - Top Level Structure.md>) was rewritten
+on 2026-10-19 as a current overview: package ownership, a relationship diagram,
+owned versus borrowed resources, configuration, writes/reads, ingest/jobs and
+plugin composition. A follow-up replaces the dense package table with a short
+linked summary and a dedicated section for each of the 17 top-level packages,
+including separate utils/constants/resources/startup sections. The obsolete Catalog
+proposal, speculative APIs and starter migration plan were removed. The user's
+surface/lifecycle additions are retained
+with the ownership limits made explicit. Both checkouts have the same guide content;
+reference-link destinations match their different documentation layouts. All 53
+local link occurrences resolve in each tree, including 20 checked heading links;
+all 25 existing documentation checks pass in the isolated checkout.
+Main-checkout changes in this step are limited to
+the requested guide. Evidence is local-only under
+`working-memory/test-results/top-level-structure-20261019/` and the follow-up
+`working-memory/test-results/top-level-modules-20261019/`.
+
+The new
+[documentation and project structural review](../dev-docs/architectural_reviews/documentation-structural-review-2026-10-18.md)
+covers both the pending documentation layout and current package architecture.
+It recommends preserving subsystem grouping, completing the existing path migration,
+and separating current contracts from decisions and history. The dated audit found
+47 missing local links, 86 links to locally available untracked evidence, and old
+path consumers in packaging, tests and source. The full report is also copied into
+the main checkout's requested `dev-docs/architectural_reviews/` folder; no existing
+user files or moves were changed. All 25 documentation tests pass in this isolated
+checkout, and the report's five links resolve in both trees. Next: reconcile newer
+contracts with pending moves, then complete and validate that path migration.
+
+The [September architecture review](../dev-docs/architectural_reviews/architecture-review-2026-09-26.md)
+now has dated status/evidence/remaining-work notes for all 68 findings, a concrete
+commit trail, current priorities and freshly checked graph/artifact/protection
+facts. All 25 existing documentation checks pass; all 53 review links resolve.
+This is a documentation-only branch. #122/#123 remain open; implemented work is
+explicitly distinguished from main. Work uses the isolated checkout so the main
+checkout's pending documentation moves and user edits remain intact.
+
+Previous branch: **configuration-ownership**, ready
 [PR #123](https://github.com/ajCameron/LiuXin-alpha/pull/123), based on #122.
 Core now owns profile selection and composes a single application preference store;
 profile paths and settings reach database bootstrap, dispatch and managed workers.
@@ -63,7 +113,7 @@ The documentation inventory campaign completed on 2026-10-05: 1,372 units,
 Its [final checkpoint](project-docstrings-l001-l037-2026-10-05.md) retains the
 historical verification and review-hash observations.
 
-Updated: 2026-10-18
+Updated: 2026-10-19
 
 Start here for active handoff notes. This index should stay short.
 
@@ -941,24 +991,24 @@ Start here for active handoff notes. This index should stay short.
   layer, strict wrapper validation, PalmDOC/zTXT hostile subreader hardening,
   eReader, Plucker, and Haodoo hostile subreader hardening.
   Durable docs:
-  `dev-docs/file-format-unicode-conversion.md` and
-  `dev-docs/file-formats/pdb/README.md`.
+  `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/pdb/README.md`.
 
 - [file-formats-mobi-hardening-2026-05-23.md](file-formats-mobi-hardening-2026-05-23.md)
   Current branch note for the MOBI/KF8/AZW-style hardening pass: reusable
   PalmDB/MOBI fixtures, hostile PalmDB/MOBI/EXTH parser coverage, deep
   HUFF/CDIC and KF8 index/resource hardening, verification, and remaining
   decompression/resource follow-ups. Durable docs:
-  `dev-docs/file-format-unicode-conversion.md` and
-  `dev-docs/file-formats/mobi/README.md`.
+  `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/mobi/README.md`.
 
 - [file-formats-fbz-hardening-2026-05-22.md](file-formats-fbz-hardening-2026-05-22.md)
   Current branch note for the zipped-FB2 hardening pass: reusable zip fixture
   helpers, first-class `.fbz` conversion/metadata registration, strict
   single-FB2-member archive selection, hostile path/budget coverage, and
   unicode conversion-product checks for UTF-8/UTF-16 zipped FB2. Durable docs:
-  `dev-docs/file-format-unicode-conversion.md` and
-  `dev-docs/file-formats/fb2/README.md`.
+  `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/fb2/README.md`.
 
 - [file-formats-cbr-rar-hardening-2026-05-22.md](file-formats-cbr-rar-hardening-2026-05-22.md)
   Current branch note for the CBR/RAR continuation of the comic hardening pass:
@@ -966,8 +1016,8 @@ Start here for active handoff notes. This index should stay short.
   fake-RAR fixtures, lower-level `unrar` safe extraction-boundary coverage, and
   the tiny `databases.row` import-cycle unblocker needed after the database
   review merge. Durable docs:
-  `dev-docs/file-format-unicode-conversion.md` and
-  `dev-docs/file-formats/comic/README.md`.
+  `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/comic/README.md`.
 
 - [file-formats-lit-hostile-hardening-2026-05-22.md](file-formats-lit-hostile-hardening-2026-05-22.md)
   Current branch note for the LIT legacy binary-container parser pass:
@@ -976,39 +1026,39 @@ Start here for active handoff notes. This index should stay short.
   `LitError` instead of raw parser failures or hangs, plus conversion-facing
   unicode checks for input products, `postprocess_book`, `ReBinary`, and writer
   manifest serialization. Durable docs:
-  `dev-docs/file-format-unicode-conversion.md` and
-  `dev-docs/file-formats/lit/README.md`.
+  `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/lit/README.md`.
 
 - [file-formats-fb2-unicode-hostile-2026-05-21.md](file-formats-fb2-unicode-hostile-2026-05-21.md)
   Current branch note for the FB2 XML/input-output pass: reusable FB2 fixtures,
   UTF-8/UTF-16 valid conversion coverage, recoverable malformed XML cases,
   unsafe embedded-binary ID sanitization, corrupted base64 warnings, output
   unicode serialization coverage, and the zipped-FB2/reporting follow-ups.
-  Durable docs: `dev-docs/file-format-unicode-conversion.md` and
-  `dev-docs/file-formats/fb2/README.md`.
+  Durable docs: `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/fb2/README.md`.
 
 - [file-formats-comic-container-2026-05-21.md](file-formats-comic-container-2026-05-21.md)
   Current branch note for the comic CBZ/CBC archive/container pass: reusable
   comic fixtures, valid multilingual plugin-path coverage, CBC `comics.txt`
   decoding and missing-member warning behavior, nested CBZ preflight, hostile
   archive limits, and the explicit CBR/RAR follow-up boundary. Durable docs:
-  `dev-docs/file-format-unicode-conversion.md` and
-  `dev-docs/file-formats/comic/README.md`.
+  `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/comic/README.md`.
 
 - [file-formats-htmlz-container-2026-05-21.md](file-formats-htmlz-container-2026-05-21.md)
   Current branch note for the HTMLZ archive/container pass: reusable HTMLZ
   fixtures, valid multilingual plugin-path coverage, malformed optional
   OPF/cover warning behavior, required top-level HTML failures, hostile archive
   limits, and the HTMLZ-specific salvage/reporting boundary. Durable docs:
-  `dev-docs/file-format-unicode-conversion.md` and
-  `dev-docs/file-formats/htmlz/README.md`.
+  `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/htmlz/README.md`.
 
 - [file-formats-docx-container-2026-05-21.md](file-formats-docx-container-2026-05-21.md)
   Current branch note for the DOCX archive/XML container pass: reusable DOCX
   fixtures first, then valid conversion coverage, malformed package cases,
   hostile archive limits, nested media paths, and salvage/reporting docs.
-  Durable docs: `dev-docs/file-format-unicode-conversion.md` and
-  `dev-docs/file-formats/docx/README.md`.
+  Durable docs: `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/docx/README.md`.
 
 - [file-formats-epub-container-2026-05-21.md](file-formats-epub-container-2026-05-21.md)
   Current note for the EPUB archive/XML container pass and salvage/reporting
@@ -1016,28 +1066,28 @@ Start here for active handoff notes. This index should stay short.
   OCF/OPF malformed-container cases, hostile archive limits, nested asset paths,
   preflight rejection diagnostics, and the explicit future salvage boundary.
   Durable docs:
-  `dev-docs/file-format-unicode-conversion.md` and
-  `dev-docs/file-formats/epub/README.md`.
+  `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/epub/README.md`.
 
 - [file-formats-odt-container-2026-05-21.md](file-formats-odt-container-2026-05-21.md)
   Current branch note for the ODT archive/XML container pass: reusable ODT
   fixtures, required-member validation, hostile picture-path hardening,
   multilingual Extract/ODTInput coverage, generated OPF/XHTML/CSS/assets,
   bounded archive preflight checks, and the guarded-override docs direction.
-  Durable docs: `dev-docs/file-format-unicode-conversion.md` and
-  `dev-docs/file-formats/odt/README.md`.
+  Durable docs: `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/odt/README.md`.
 
 - [file-formats-markup-hostile-2026-05-21.md](file-formats-markup-hostile-2026-05-21.md)
   Current branch note for the optional lightweight-markup hostile-input pass:
   shared malformed Markdown/Textile fixtures, TXTInput extension-path coverage,
   delimiter stress, and the direct/external converter pipeline follow-up.
-  Durable doc: `dev-docs/file-format-unicode-conversion.md`.
+  Durable doc: `dev-docs/file_formats/file-format-unicode-conversion.md`.
 
 - [file-formats-pml-unicode-2026-05-20.md](file-formats-pml-unicode-2026-05-20.md)
   Current branch note for the PML pass after PR #69: shared OEB fixture
   coverage for `PMLMLizer`/`PMLOutput`, deterministic `.pmlz` output, and the
   explicit supported-versus-lossy PML unicode boundary. Durable doc:
-  `dev-docs/file-format-unicode-conversion.md`.
+  `dev-docs/file_formats/file-format-unicode-conversion.md`.
 
 - [file-formats-text-unicode-2026-05-20.md](file-formats-text-unicode-2026-05-20.md)
   Current branch note for the text/unicode file-format pass: reusable
@@ -1055,14 +1105,14 @@ Start here for active handoff notes. This index should stay short.
   Current web-source hardening and expansion note: provider parser/backoff
   coverage, Google Images rendered-browser fallback, the new Library of
   Congress source slice, live-probe behavior, and next source candidates.
-  Durable doc: `dev-docs/metadata-web-sources.md`.
+  Durable doc: `dev-docs/metadata/metadata-web-sources.md`.
 
 - [metadata-wemi-container-hardening-plan-2026-05-17.md](metadata-wemi-container-hardening-plan-2026-05-17.md)
   Current branch note for the planned WEMI container/conversion hardening pass:
   conversion contracts, identity-spine versus full-graph invariants,
   lazy/eager projection parity, writer safety, and relation-container torture
   coverage. Durable doc:
-  `dev-docs/metadata-wemi-container-hardening.md`.
+  `dev-docs/metadata/metadata-wemi-container-hardening.md`.
 
 - [metadata-utils-coverage-2026-05-17.md](metadata-utils-coverage-2026-05-17.md)
   Current branch note for the metadata helper coverage pass:
@@ -1116,7 +1166,7 @@ Start here for active handoff notes. This index should stay short.
   Next high-value lane after extractor coverage: metadata writer tests as
   corruption-prevention checks, with round-trip readability, container
   validity, payload preservation, hostile unicode/escaping, and clean failure
-  behavior. Durable doc: `dev-docs/metadata-writer-coverage-contract.md`.
+  behavior. Durable doc: `dev-docs/metadata/metadata-writer-coverage-contract.md`.
 
 - [metadata-ingest-source-coverage-plan-2026-05-16.md](metadata-ingest-source-coverage-plan-2026-05-16.md)
   Coverage plan for production-heavy metadata file-source ingest readers, with
@@ -1135,7 +1185,7 @@ Start here for active handoff notes. This index should stay short.
   the new WEMI projection/relation/lazy-value tests, 100% focused coverage
   across the six metadata hydrator modules, and the post-merge bzzdec malformed
   payload fix. Durable malformed-input testing docs:
-  `dev-docs/malformed-input-fuzzing.md`.
+  `dev-docs/hacking/testing/malformed-input-fuzzing.md`.
 
 - [coverage-syntax-warning-cleanup-2026-05-15.md](coverage-syntax-warning-cleanup-2026-05-15.md)
   Coverage-runner and SyntaxWarning cleanup note: adds the dedicated coverage

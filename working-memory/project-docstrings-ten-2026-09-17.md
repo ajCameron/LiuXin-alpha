@@ -57,4 +57,4 @@ No commit or publication requested. Token usage is unavailable in this session.
 - [Quality](test-results/docstrings-ten-2026-09-16/quality.json)
 - [Reconciliation](test-results/docstrings-ten-2026-09-16/reconciliation.json)
 - [Batch diff](test-results/docstrings-ten-2026-09-16/docstrings.diff)
-- [Plan](../dev-docs/project-docstrings-completion-plan.md)
+- [Plan](../dev-docs/hacking/project-docstrings-completion-plan.md)

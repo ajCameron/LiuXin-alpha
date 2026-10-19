@@ -12,7 +12,7 @@ boundary.
 
 The complete review, acceptance audit, durable contracts, caveats, and evidence
 are in
-`dev-docs/catalog-fitness-review.md`.
+`dev-docs/catalog/catalog-fitness-review.md`.
 
 ## Evidence
 

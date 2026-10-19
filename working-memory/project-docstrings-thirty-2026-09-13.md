@@ -17,8 +17,8 @@ by this completed batch. The whole-project programme remains unfinished.
 - All 13 concrete repositories, all 15 repository API modules and all 10
   retrieval/API modules meet their planned milestones.
 
-[Plan](../dev-docs/project-docstrings-completion-plan.md),
-[exact inventory](../dev-docs/project-docstrings-work-units.json),
+[Plan](../dev-docs/hacking/project-docstrings-completion-plan.md),
+[exact inventory](../dev-docs/hacking/project-docstrings-work-units.json),
 [reviewed manifest](project-docstrings-reviewed-files.txt), and
 [campaign snapshots/progress](test-results/docstrings-thirty-2026-09-13/campaign.json)
 retain the fixed scope and per-module evidence. Baseline hashes remain immutable;

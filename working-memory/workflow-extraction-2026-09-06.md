@@ -36,8 +36,8 @@ Stage 2 of the readability/maintainability work extracts real workflows from
   250 per facade; implementation may not import back through a facade. The
   largest current Core owner is 418 lines and function 155; CLI is 339/132.
 
-Canonical guide: [Core workflows](../dev-docs/core-program-workflows.md);
-gate policy: [maintainability quality gates](../dev-docs/maintainability-quality-gates.md).
+Canonical guide: [Core workflows](../dev-docs/core/core-program-workflows.md);
+gate policy: [maintainability quality gates](../dev-docs/architectural_reviews/maintainability-quality-gates.md).
 
 ## Verification at stage-2 completion
 

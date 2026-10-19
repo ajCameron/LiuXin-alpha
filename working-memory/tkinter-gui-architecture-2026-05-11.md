@@ -11,8 +11,8 @@ treated as a prototype until it has been manually validated with a Tk runtime.
 
 Canonical design note:
 
-- `dev-docs/tkinter-gui-architecture.md`
-- `dev-docs/tkinter-gui-implementation-plan.md`
+- `dev-docs/surfaces/tkinter-gui-architecture.md`
+- `dev-docs/surfaces/tkinter-gui-implementation-plan.md`
 
 ## Current Spike State
 

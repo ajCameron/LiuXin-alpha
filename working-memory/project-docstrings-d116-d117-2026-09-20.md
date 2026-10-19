@@ -60,4 +60,4 @@ No commit requested. Token usage is unavailable in this session.
 - [Documentation checks](test-results/docstrings-d116-d117-2026-09-19/documentation-checks.json)
 - [Reconciliation](test-results/docstrings-d116-d117-2026-09-19/reconciliation.json)
 - [Batch diff](test-results/docstrings-d116-d117-2026-09-19/docstrings.diff)
-- [Plan](../dev-docs/project-docstrings-completion-plan.md)
+- [Plan](../dev-docs/hacking/project-docstrings-completion-plan.md)

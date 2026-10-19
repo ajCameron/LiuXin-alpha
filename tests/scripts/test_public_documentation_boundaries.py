@@ -60,8 +60,8 @@ PLACEHOLDER_FRAGMENTS = (
     "todo: document",
 )
 CATALOG_BOUNDARY_DOCS = (
-    REPOSITORY_ROOT / "dev-docs" / "catalog-write-validation-contract.md",
-    REPOSITORY_ROOT / "dev-docs" / "catalog-api-usage.md",
+    REPOSITORY_ROOT / "dev-docs" / "catalog" / "catalog-write-validation-contract.md",
+    REPOSITORY_ROOT / "dev-docs" / "catalog" / "catalog-api-usage.md",
     REPOSITORY_ROOT / "dev-docs" / "04 - Seperation of Concerns.md",
 )
 CATALOG_PUBLIC_WRITER_METHODS = ("create_writer", "write", "write_one")

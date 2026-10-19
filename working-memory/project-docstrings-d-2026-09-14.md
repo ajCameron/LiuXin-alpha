@@ -21,8 +21,8 @@ Verified through **D080: 80/232 units, 1937/5,719 declarations,
 107/388 complete files**. D081 remains queued. Resume only on a new user request.
 See the [pause checkpoint](project-docstrings-d-paused-2026-09-15.md).
 
-[Plan](../dev-docs/project-docstrings-completion-plan.md),
-[inventory](../dev-docs/project-docstrings-work-units.json), and
+[Plan](../dev-docs/hacking/project-docstrings-completion-plan.md),
+[inventory](../dev-docs/hacking/project-docstrings-work-units.json), and
 [immutable baseline snapshots and progress](test-results/docstrings-d-2026-09-14/campaign.json)
 retain exact scope. Current coverage is 829/2,732 fully reviewed files,
 plus 43 verified partial-file declarations recorded in the inventory. Other tracks remain

@@ -45,4 +45,4 @@ dirty `LiuXin_alpha_data` nested checkout remains separate from this batch.
 - [Inventory reconciliation](test-results/docstrings-t001-2026-10-05/reconciliation.json)
 - [Documentation diff](test-results/docstrings-t001-2026-10-05/docstrings.diff)
 - [Previous checkpoint](project-docstrings-c033-c052-2026-10-05.md)
-- [Completion plan](../dev-docs/project-docstrings-completion-plan.md)
+- [Completion plan](../dev-docs/hacking/project-docstrings-completion-plan.md)

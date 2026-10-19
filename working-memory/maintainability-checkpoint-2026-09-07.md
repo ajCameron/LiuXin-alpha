@@ -17,8 +17,8 @@ for subsequent work.
 
 Canonical developer guidance:
 
-- [Maintainability quality gates](../dev-docs/maintainability-quality-gates.md)
-- [Core workflows and storage CLI ownership](../dev-docs/core-program-workflows.md)
+- [Maintainability quality gates](../dev-docs/architectural_reviews/maintainability-quality-gates.md)
+- [Core workflows and storage CLI ownership](../dev-docs/core/core-program-workflows.md)
 - [Read-model failure boundaries](../dev-docs/read-model-failures.md)
 
 ## Verification at stage-4 completion

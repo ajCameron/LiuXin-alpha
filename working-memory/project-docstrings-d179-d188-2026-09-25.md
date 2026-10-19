@@ -91,4 +91,4 @@ was requested; no dependencies were installed. Token usage is unavailable.
 - [Discovery and hash drift](test-results/docstrings-d179-d188-2026-09-24/discovery.json)
 - [Inventory reconciliation](test-results/docstrings-d179-d188-2026-09-24/reconciliation.json)
 - [Documentation diff](test-results/docstrings-d179-d188-2026-09-24/docstrings.diff)
-- [Completion plan](../dev-docs/project-docstrings-completion-plan.md)
+- [Completion plan](../dev-docs/hacking/project-docstrings-completion-plan.md)

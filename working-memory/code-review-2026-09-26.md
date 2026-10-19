@@ -1,6 +1,6 @@
 # Whole-repository architecture review — 2026-09-26
 
-Maintained copy: [dev-docs/architecture-review-2026-09-26.md](../dev-docs/architecture-review-2026-09-26.md).
+Maintained copy: [dev-docs/architectural_reviews/architecture-review-2026-09-26.md](../dev-docs/architectural_reviews/architecture-review-2026-09-26.md).
 This note is the dated handoff record.
 
 **Scope:** architecture and boundaries only: layering, ownership, lifecycle, and
@@ -61,7 +61,7 @@ most of the findings.
    and import failures are swallowed.
 
 The team's own 2026-09-17 review
-([top-level-architecture-review](../dev-docs/top-level-architecture-review.md))
+([top-level-architecture-review](../dev-docs/architectural_reviews/top-level-architecture-review.md))
 already named lifecycle ownership, storage bootstrapping in `Database`,
 metadata/catalog persistence, and configuration. This review confirms all four
 with evidence and shows each is broader than stated.
@@ -215,7 +215,7 @@ with an installed-wheel conversion smoke test.
 |---|---|---|---|
 | RP-1 | H | The layer direction is enforced only for surfaces. The cycle checker keeps an edge only if its target is protected, so it cannot see cycles through unprotected modules. Widened to all modern packages, it finds a 121-module runtime SCC. Commit `3ac8fde5` got past the boundary test with `importlib` | `scripts/check_modern_import_cycles.py:207-216` |
 | RP-2 | H | 48 files that `.gitignore` excludes are tracked, about 129 MB: `.tmp/` benchmark DBs (99 MB) and full-suite JSON reports in `working-memory/test-results` (31 MB). Also tracked: the root scraper SQLite with its `-wal` and `-shm` files, `extensions_source.zip`, `src/wget-log`, and prefs with instance UUIDs | `git ls-files -ci --exclude-standard` |
-| RP-3 | M-H | The docstring campaign dominates churn: a 4.7 MB inventory keyed to per-file hashes that go stale on every functional edit. In the last two commits, 809 files changed only docstrings and 31 changed code. 68% of the queued declarations are in inherited, test or dead code, even though the quality-gates doc calls raw docstring totals "not a sensible pass/fail target" | `dev-docs/project-docstrings-work-units.json` |
+| RP-3 | M-H | The docstring campaign dominates churn: a 4.7 MB inventory keyed to per-file hashes that go stale on every functional edit. In the last two commits, 809 files changed only docstrings and 31 changed code. 68% of the queued declarations are in inherited, test or dead code, even though the quality-gates doc calls raw docstring totals "not a sensible pass/fail target" | `dev-docs/hacking/project-docstrings-work-units.json` |
 | RP-4 | M | Two test trees. `src/LiuXin_tests` (20k lines) is a dead near-duplicate of `tests/support/test_databases` and imports `tests.support` backwards | — |
 | RP-5 | M | Wheel contents: a top-level `past` package (collides with PyPI `future`), `images_rc.py`, the `(N).py` copies, vendored `setup.py`/doc/test files. PyQt5, apsw, wand and others are imported but not declared | `pyproject.toml` |
 | RP-6 | M | Runtime state defaults to the checkout or the current working directory. Directories are created at import. Committed prefs carry per-instance UUIDs | `constants/paths.py:57-94` |

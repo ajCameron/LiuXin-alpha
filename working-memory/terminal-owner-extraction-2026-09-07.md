@@ -49,8 +49,8 @@ policy changes and inherited command-family rewrites are separate work.
   new ownership/scope and headless behavior suites alongside existing terminal
   and scanner contracts.
 
-Canonical guidance: [terminal composition](../dev-docs/terminal-composition.md)
-and [quality gates](../dev-docs/maintainability-quality-gates.md).
+Canonical guidance: [terminal composition](../dev-docs/surfaces/terminal-composition.md)
+and [quality gates](../dev-docs/architectural_reviews/maintainability-quality-gates.md).
 
 ## Verification
 

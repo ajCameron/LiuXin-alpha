@@ -1,7 +1,13 @@
 # Metadata DB source layer
 
-The `metadata.api.metadata_db_source` package is **real infrastructure**.
-It is not abandoned scaffolding.
+Ownership update: **2026-10-19**. The former
+`metadata.api.metadata_db_source` package has been retired. Its read contracts
+now belong to `catalog.api.retrieval.hydration`, with concrete sources/hydrators
+under `catalog.retrieval.hydration`. Callers normally use
+`catalog.retrieval.metadata`; see the [current facade workflows](metadata_facade_workflows.md).
+
+The design rationale below is historical. Its references to an API-only metadata
+source package describe the earlier structure, not the current owning package.
 
 ## What it is for
 

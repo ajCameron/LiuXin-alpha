@@ -23,7 +23,7 @@ The signed-off scope includes:
 
 Durable docs reviewed:
 
-- `dev-docs/file-formats/epub/README.md`
+- `dev-docs/file_formats/epub/README.md`
 - `working-memory/file-formats-epub-container-2026-05-21.md`
 
 Focused validation:

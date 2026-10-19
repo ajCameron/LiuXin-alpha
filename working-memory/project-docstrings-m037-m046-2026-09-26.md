@@ -109,4 +109,4 @@ Token usage is unavailable.
 - [Inventory reconciliation](test-results/docstrings-m037-m046-2026-09-26/reconciliation.json)
 - [Documentation diff](test-results/docstrings-m037-m046-2026-09-26/docstrings.diff)
 - [Previous checkpoint](project-docstrings-m027-m036-2026-09-26.md)
-- [Completion plan](../dev-docs/project-docstrings-completion-plan.md)
+- [Completion plan](../dev-docs/hacking/project-docstrings-completion-plan.md)

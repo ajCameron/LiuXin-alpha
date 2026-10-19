@@ -18,8 +18,8 @@ and all 2,732-file reconciliation passed; behavior, comments and headers remain
 unchanged. The D081 trigger return-doc correction is verified separately.
 
 [Batch checkpoints](project-docstrings-hundred-2026-09-15.md),
-[plan](../dev-docs/project-docstrings-completion-plan.md),
-[inventory](../dev-docs/project-docstrings-work-units.json),
+[plan](../dev-docs/hacking/project-docstrings-completion-plan.md),
+[inventory](../dev-docs/hacking/project-docstrings-work-units.json),
 [facade milestone](test-results/docstrings-d-2026-09-14/database-facade-milestone.json),
 and [mixin/API milestone](test-results/docstrings-d-2026-09-14/database-mixin-api-milestone.json)
 retain exact selections, hashes and terminal check records.

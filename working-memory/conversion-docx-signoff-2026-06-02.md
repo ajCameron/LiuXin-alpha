@@ -23,7 +23,7 @@ The signed-off scope includes:
 
 Durable docs reviewed:
 
-- `dev-docs/file-formats/docx/README.md`
+- `dev-docs/file_formats/docx/README.md`
 - `working-memory/file-formats-docx-container-2026-05-21.md`
 
 Focused validation:

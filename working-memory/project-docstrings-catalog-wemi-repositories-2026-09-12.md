@@ -127,7 +127,7 @@ Static reports: `/tmp/liuxin-catalog-wemi-repositories-ast-lint-2026-09-12.json`
 
 Superseded scheduling: the [exact/note batch](project-docstrings-catalog-exact-repositories-2026-09-12.md)
 is now verified, advancing the manifest to 662 files. Use the
-[bounded plan](../dev-docs/project-docstrings-completion-plan.md) for subsequent
+[bounded plan](../dev-docs/hacking/project-docstrings-completion-plan.md) for subsequent
 work; the following paragraph preserves the earlier checkpoint's backlog.
 
 Continue remaining repositories and their contracts: exact-entity mechanics and
