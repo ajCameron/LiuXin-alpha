@@ -72,15 +72,23 @@ after a CWD change. Giving that subprocess an explicit checkout working director
 and using absolute source paths in the validation environment resolves it.
 The benchmark smoke fixture regenerated successfully without tracked scratch.
 
-A full suite remains pending. Focused tests, whole quality gates, installed-wheel
-checks and full-suite results are separate evidence; publication is not a claim
-that the full suite has passed.
+The permitted local full suite on the initial A15 revision (`21e2604e`) completed:
+**7,389 passed, 248 skipped, 17 expected failures**, with the one terminal no-create
+failure corrected subsequently. The earlier sandboxed run was interrupted after
+confirmed socket permission failures; it is not application-failure evidence.
 
-The first local full run was interrupted after sandbox-denied socket creation
-caused RPC failures; a targeted run confirmed `PermissionError` at `socket()`.
-It is not application-failure evidence. A new serial run with socket access and
-separate telemetry was started on the initial A15 commit. The subsequent
-terminal correction needs its own focused result and the new PR-head CI result.
+The full PR run on `dd44c953` completed with **7,384 passed, 249 skipped,
+17 expected failures and four failures**. All four were nested pytest tripwires:
+CI exported xdist/telemetry options through `PYTEST_ADDOPTS`, but those child
+processes intentionally disable plugin loading. Moving these options to the
+outer pytest command keeps serial execution, telemetry and scratch cleanup while
+allowing isolated child pytest runs. The original environment reproduced all four
+failures locally; the corrected command passed all four plus both terminal
+no-create cases (**six passed**).
+
+The corrected PR head still requires its full CI result. Focused tests, whole
+quality gates, installed-wheel checks and full-suite results are separate
+evidence; publication is not a claim that the latest full suite has passed.
 
 ## Remote settings
 

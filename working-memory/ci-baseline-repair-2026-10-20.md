@@ -84,3 +84,15 @@ regressions reproduced pending-write commits, borrowed/nested transaction
 defects and the connection masquerading as a mutex. Initial fixes pass those
 nine; caller migration, complete documentation, backend parity and quality
 gates remain unfinished. They are not part of PR #131.
+
+## Completed full-run evidence and CI option isolation
+
+The permitted local run finished: 7,389 passed, 248 skipped, 17 xfailed,
+one terminal no-create failure on the older `21e2604e` source. Run #39377685789
+on `dd44c953` passed 7,384, skipped 249, xfailed 17, and failed four nested pytest
+tripwires because CI's PYTEST_ADDOPTS leaked plugin-specific flags into them.
+The workflow now supplies those flags on the outer command line. Reproduction
+failed all four; corrected invocation passed those four and both no-create cases.
+A new current-head CI run is needed before closing A15. Local logs remain under
+`/tmp/liuxin-a15-*`; the completed full-run checkout may now be cleaned after
+retaining needed evidence. A04 remains separate and unfinished.
