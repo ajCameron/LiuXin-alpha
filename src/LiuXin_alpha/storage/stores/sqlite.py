@@ -27,7 +27,8 @@ class SQLiteStore(DriverBackedStoreAPI[SQLiteObjectAddress]):
     """
     Expose one SQLite BLOB container as a configured Store.
 
-    Construction immediately starts the owned driver and may create or open the database. Reads are
+    Construction immediately starts the owned driver; read-only intent requires an existing
+    compatible container and never initializes its schema. Writable intent may create it. Reads are
     advertised as memory-buffered, with authoritative SHA-256 available through the source-ingest
     capability profile.
 
@@ -43,12 +44,15 @@ class SQLiteStore(DriverBackedStoreAPI[SQLiteObjectAddress]):
         url: str | os.PathLike[str],
         name: str | None = None,
         uuid: str | UUID | None = None,
+        *,
+        read_only: bool = False,
     ) -> None:
         """
         Resolve the container path, create configuration, and start the SQLite driver.
 
-        The generated Store has no folder support. Driver startup failures propagate from
-        construction, which can already have opened or created the database.
+        The generated Store has no folder support. Read-only policy reaches both the facade and
+        driver, including connection mode and startup. Driver startup failures propagate from
+        construction; writable startup may already have created the database.
 
         Example:
             >>> store = SQLiteStore("/srv/library/objects.sqlite", name="objects")  # doctest: +SKIP
@@ -57,6 +61,7 @@ class SQLiteStore(DriverBackedStoreAPI[SQLiteObjectAddress]):
         :param url: Local database path or file URI; the helper uses the decoded URI path.
         :param name: Display name; None or empty uses the path stem, then "sqlite" if empty.
         :param uuid: UUID or parseable UUID text to retain, or None to generate one.
+        :param read_only: Open existing storage without schema/journal initialization or mutations.
         :return: None after the raw container driver has started successfully.
         """
         path = _sqlite_path(url)
@@ -68,11 +73,13 @@ class SQLiteStore(DriverBackedStoreAPI[SQLiteObjectAddress]):
             name or path.stem or "sqlite",
             self.store_kind,
             path.resolve(strict=False).as_uri(),
+            read_only=read_only,
             supports_folders=False,
         )
         self.__driver = SQLiteStorageDriver(
             path,
             address_space_uuid=store_uuid,
+            read_only=read_only,
         )
         self.__driver.startup()
 

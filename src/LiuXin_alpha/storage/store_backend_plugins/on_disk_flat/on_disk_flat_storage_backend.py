@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import hashlib
 import os
-
 from pathlib import Path
 from uuid import UUID
 
@@ -41,10 +40,11 @@ class OnDiskFlatStorageBackend(FilesystemStore):
         url: str | os.PathLike[str],
         name: str | None = None,
         uuid: str | UUID | None = None,
+        *,
+        read_only: bool = False,
     ) -> None:
         """
-        Configure a writable, creatable filesystem root with objects as the inherited allocation
-        prefix.
+        Configure filesystem write policy with objects as the inherited allocation prefix.
 
         Digest naming belongs to this class's convenience overrides. Construction does not start the
         driver or create the root.
@@ -56,12 +56,15 @@ class OnDiskFlatStorageBackend(FilesystemStore):
         :param url: Filesystem root path or supported local file URI, normalized by FilesystemStore.
         :param name: Optional display name; None or empty text uses the filesystem Store's root-name fallback.
         :param uuid: UUID or UUID string for Store identity; None generates a fresh UUID.
+        :param read_only: Reject mutations and disable root creation when true.
         :return: None after inherited filesystem Store configuration.
         """
         super().__init__(
             url,
             name=name,
             uuid=uuid,
+            read_only=read_only,
+            create_root=not read_only,
             allocation_prefix="objects",
         )
 

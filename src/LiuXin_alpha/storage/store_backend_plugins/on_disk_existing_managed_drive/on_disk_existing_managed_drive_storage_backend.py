@@ -1,5 +1,5 @@
 """
-Configure a writable local Store with a default managed allocation subtree.
+Configure a local Store with explicit write policy and a managed allocation subtree.
 
 Existing files and explicitly selected keys remain accessible throughout the
 filesystem root. The managed prefix guides allocation and classification rather
@@ -9,7 +9,6 @@ than restricting all writes to that subtree.
 from __future__ import annotations
 
 import os
-
 from uuid import UUID
 
 from LiuXin_alpha.storage.stores import FilesystemStore
@@ -35,9 +34,11 @@ class OnDiskExistingManagedStorageBackend(FilesystemStore):
         url: str | os.PathLike[str],
         name: str | None = None,
         uuid: str | UUID | None = None,
+        *,
+        read_only: bool = False,
     ) -> None:
         """
-        Configure a writable filesystem Store that may create its root when started.
+        Configure a filesystem Store that may create its root only when writable.
 
         Construction retains identity and the managed allocation prefix; it does not itself probe or
         create the root.
@@ -49,14 +50,15 @@ class OnDiskExistingManagedStorageBackend(FilesystemStore):
         :param url: Filesystem root path or supported local file URI, normalized by FilesystemStore.
         :param name: Optional display name; None or empty text uses the filesystem Store's root-name fallback.
         :param uuid: UUID or UUID string for Store identity; None generates a fresh UUID.
+        :param read_only: Reject mutations and disable root creation when true.
         :return: None after configuring the inherited filesystem Store.
         """
         super().__init__(
             url,
             name=name,
             uuid=uuid,
-            read_only=False,
-            create_root=True,
+            read_only=read_only,
+            create_root=not read_only,
             allocation_prefix=".liuxin-managed/objects",
         )
 

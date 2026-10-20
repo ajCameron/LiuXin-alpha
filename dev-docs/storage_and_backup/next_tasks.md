@@ -1,6 +1,6 @@
 # Next storage tasks
 
-Date: **2026-10-20**. STOR01 is implemented for PR review; remaining entries are proposed work.
+Date: **2026-10-20**. STOR01 and STOR02 are implemented for PR review; remaining entries are proposed work.
 
 Keep the existing manager/Store/driver structure. Close mutation and resource ownership gaps before adding more orchestration layers.
 
@@ -18,9 +18,18 @@ ownership tampering and cleanup errors.
 
 ## STOR02. Preserve read-only intent through construction
 
-**First; architecture A02.** Pass and enforce explicit read-only configuration through every backend builder and durable reload. A backend descriptor default is not an override for caller intent.
+**Implemented for PR review, 2026-10-20; architecture A02.** Managed, flat,
+Calibre-like and SQLite builders now preserve explicit read-only configuration
+through their Stores and drivers. Catalogue reopen and Store reload retain it.
+SQLite opens existing storage with `mode=ro`, validates rather than initializes
+the schema, and closes each operation's connection.
 
-Done when write, replace, delete and publication fail before mutation for configured read-only Stores, including writable backend families and reload/restart paths.
+The [construction contract](storage_api.md#read-only-store-construction) records
+the scope and WAL limitation. [Regression tests](../../tests/storage/test_read_only_backend_construction.py)
+cover actual write/replace/delete/copy/move refusals, unchanged stored bytes and
+metadata, missing-target preservation and writable controls. Intrinsic read-only
+restrictions remain intact. The four audited forwarding defects are closed;
+provider-specific initialization is not a universal no-side-effect guarantee.
 
 ## STOR03. Enforce retention at byte deletion
 

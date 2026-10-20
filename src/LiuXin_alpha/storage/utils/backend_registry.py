@@ -527,17 +527,17 @@ def _build_memory(configuration, _context):
 
 def _build_managed(configuration, _context):
     """
-    Construct an existing managed local folder using the root, name, and UUID only. Lazily import
+    Construct an existing managed local folder using its root, identity, and read-only policy. Lazily import
     OnDiskExistingManagedStorageBackend and pass store_root_uri unchanged with _common identity
-    fields. Full configuration and backend_options are not forwarded, so the backend derives
-    remaining policy from its own constructor defaults. Path interpretation and resource effects
+    fields plus the explicit read_only setting. Full configuration and backend_options are not
+    forwarded, so other settings use constructor defaults. Path interpretation and resource effects
     belong to that constructor; this adapter adds no startup or database persistence.
 
     Example:
         >>> store = _build_managed(configuration, context)  # doctest: +SKIP
 
 
-    :param configuration: Intent supplying store_root_uri, store_name, and store_uuid; other fields are unused by this adapter.
+    :param configuration: Intent supplying root URI, name, UUID, and read-only policy.
     :param _context: Unused runtime context accepted for the common builder signature.
     :return: The constructed OnDiskExistingManagedStorageBackend; import, path, and constructor failures propagate.
     """
@@ -547,6 +547,7 @@ def _build_managed(configuration, _context):
 
     return OnDiskExistingManagedStorageBackend(
         configuration.store_root_uri,
+        read_only=configuration.read_only,
         **_common(configuration),
     )
 
@@ -579,9 +580,9 @@ def _build_unmanaged(configuration, _context):
 
 def _build_flat(configuration, _context):
     """
-    Construct a flat content-addressed folder using the root, name, and UUID only. Lazily import
-    OnDiskFlatStorageBackend and pass store_root_uri unchanged with _common identity fields. Full
-    configuration and backend_options are not forwarded, so the backend derives remaining policy
+    Construct a flat content-addressed folder using its root, identity, and read-only policy. Lazily
+    import OnDiskFlatStorageBackend and pass store_root_uri, identity and read_only. Full
+    configuration and backend_options are not forwarded, so the backend derives other settings
     from its own constructor defaults. Path interpretation and resource effects belong to that
     constructor; this adapter adds no startup or database persistence.
 
@@ -589,7 +590,7 @@ def _build_flat(configuration, _context):
         >>> store = _build_flat(configuration, context)  # doctest: +SKIP
 
 
-    :param configuration: Intent supplying store_root_uri, store_name, and store_uuid; other fields are unused by this adapter.
+    :param configuration: Intent supplying root URI, name, UUID, and read-only policy.
     :param _context: Unused runtime context accepted for the common builder signature.
     :return: The constructed OnDiskFlatStorageBackend; import, path, and constructor failures propagate.
     """
@@ -597,22 +598,26 @@ def _build_flat(configuration, _context):
         OnDiskFlatStorageBackend,
     )
 
-    return OnDiskFlatStorageBackend(configuration.store_root_uri, **_common(configuration))
+    return OnDiskFlatStorageBackend(
+        configuration.store_root_uri,
+        read_only=configuration.read_only,
+        **_common(configuration),
+    )
 
 
 def _build_calibre_like(configuration, _context):
     """
-    Construct a Calibre-like rich folder using the root, name, and UUID only. Lazily import
-    OnDiskCalibreLikeStorageBackend and pass store_root_uri unchanged with _common identity fields.
-    Full configuration and backend_options are not forwarded, so the backend derives remaining
-    policy from its own constructor defaults. Path interpretation and resource effects belong to
+    Construct a Calibre-like rich folder using its root, identity, and read-only policy. Lazily import
+    OnDiskCalibreLikeStorageBackend and pass store_root_uri, identity and read_only.
+    Full configuration and backend_options are not forwarded, so other settings use constructor
+    defaults. Path interpretation and resource effects belong to
     that constructor; this adapter adds no startup or database persistence.
 
     Example:
         >>> store = _build_calibre_like(configuration, context)  # doctest: +SKIP
 
 
-    :param configuration: Intent supplying store_root_uri, store_name, and store_uuid; other fields are unused by this adapter.
+    :param configuration: Intent supplying root URI, name, UUID, and read-only policy.
     :param _context: Unused runtime context accepted for the common builder signature.
     :return: The constructed OnDiskCalibreLikeStorageBackend; import, path, and constructor failures propagate.
     """
@@ -622,23 +627,24 @@ def _build_calibre_like(configuration, _context):
 
     return OnDiskCalibreLikeStorageBackend(
         configuration.store_root_uri,
+        read_only=configuration.read_only,
         **_common(configuration),
     )
 
 
 def _build_sqlite(configuration, _context):
     """
-    Construct a single-file SQLite blob Store using the root, name, and UUID only. Lazily import
-    SQLiteStore and pass store_root_uri unchanged with _common identity fields.
-    Full configuration and backend_options are not forwarded, so the backend derives remaining
-    policy from its own constructor defaults. Path interpretation and resource effects belong to
+    Construct a SQLite blob Store using its root, identity, and read-only policy. Lazily import
+    SQLiteStore and pass store_root_uri, identity and read_only.
+    Full configuration and backend_options are not forwarded, so other settings use constructor
+    defaults. Path interpretation and resource effects belong to
     that constructor; this adapter adds no startup or database persistence.
 
     Example:
         >>> store = _build_sqlite(configuration, context)  # doctest: +SKIP
 
 
-    :param configuration: Intent supplying store_root_uri, store_name, and store_uuid; other fields are unused by this adapter.
+    :param configuration: Intent supplying root URI, name, UUID, and read-only policy.
     :param _context: Unused runtime context accepted for the common builder signature.
     :return: The constructed SQLiteStore; import, path, and constructor failures propagate.
     """
@@ -646,6 +652,7 @@ def _build_sqlite(configuration, _context):
 
     return SQLiteStore(
         configuration.store_root_uri,
+        read_only=configuration.read_only,
         **_common(configuration),
     )
 
