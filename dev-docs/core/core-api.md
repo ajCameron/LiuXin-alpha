@@ -119,7 +119,10 @@ resources are inspectable only; use storage-owned ingest, metadata, verification
 and deletion operations for mutations. Explicit Asset policy assignment uses the
 manager and returns its committed revision. Replication/backup policy-definition
 CRUD also delegates to storage, preserving domain defaults, revision checks and
-assigned-policy deletion guards. See
+assigned-policy deletion guards. Composite CRUD also uses storage's complete
+declaration, revision and reference-guard operations; creation requires members.
+Composite member rows are inspectable only, and membership changes replace the
+Composite's `members` array. See
 [record mutation ownership](../storage_and_backup/record-mutations.md) for caller
 migration and partial-effect semantics. Workflow-owned state/output/presence
 resources are also read-only. Policy operations assess

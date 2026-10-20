@@ -47,7 +47,7 @@ before starting an independent one. Dependencies are stated in each task.
 | [A07](#a07-choose-one-default-wemi-selection-policy) | Implemented; PR review | SQL projections and Catalog bundles apply an agreed path-selection policy. | Catalog and schema projections |
 | [A08](#a08-complete-semantic-write-coverage) | First family implemented; PR review | Rating values/scales share preparation, checked reuse and transactional import. Other fields remain on the Catalog work list. | Metadata and Catalog |
 | [A09](#a09-converge-job-state-and-release-long-waits-from-core-dispatch) | Selected workflow implemented; PR review | Storage audit has durable delivery, progress/events, cancellation receipts and explicit interruption/retry. | Jobs and Core |
-| [A10](#a10-give-storage-record-mutations-one-owner) | First family implemented; PR review | Asset/Replica writes use storage ownership; remaining adapters and receipts are open. | Storage, using database transactions |
+| [A10](#a10-give-storage-record-mutations-one-owner) | Selected families implemented; PR review | Asset/Replica, policy and Composite writes use storage ownership; Item/workflow adapters, schema parity and broader receipts remain open. | Storage, using database transactions |
 | [A11](#a11-finish-lifecycle-caller-migration) | Following | Lower-layer path wrappers and obsolete opt-ins retire through caller migration. | Core, ingest and storage |
 | [A12](#a12-finish-operational-path-and-startup-ownership) | Following | Scratch/startup helpers no longer pull process-wide hooks into foundation imports. | Configuration paths and utility owners |
 | [A13](#a13-make-provider-and-conversion-outcomes-explicit) | Following | Unsupported providers and conversion losses become structured results. | Plugins, file formats and jobs |
@@ -320,8 +320,16 @@ This prerequisite lets A09 verification rely on those normal writers' revisions.
 The following policy-definition slice moves generic replication/backup policy
 CRUD through storage as well. Partial updates preserve the current definition,
 check its revision and retain committed receipts on readback/cache failure.
-Assigned-policy deletion uses the owner. Composite/link and legacy file adapters
-remain open.
+Assigned-policy deletion uses the owner. The Composite slice likewise routes
+complete declarations and revision-checked patches through storage and refuses
+raw member-row mutations. Its regression tests cover durable reopening, repeated
+Assets, member-insert rollback, stale patches, reference guards and committed
+receipts. Item-link, workflow-definition/source and legacy file adapters remain open.
+The slice exposed a separate SQLite schema mismatch: its `(Composite, Asset,
+stored role)` uniqueness rejects repeated same-role Assets despite distinct
+sequence positions. Repair the current-schema constraint and its existing-library
+migration before claiming full ordered-membership parity; failures currently
+roll back the whole owned mutation.
 
 Choose the storage-owned boundary for Asset/Replica and retained files/link-table
 writes, building on the durable manager/repository adapters already present.

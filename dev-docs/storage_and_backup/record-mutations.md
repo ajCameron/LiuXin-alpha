@@ -1,7 +1,7 @@
 # Storage record mutation ownership
 
-Implemented for PR review **2026-10-20**, as the Asset/Replica and policy-definition
-families of A10/STOR04.
+Implemented for PR review **2026-10-20**, as the Asset/Replica, policy-definition
+and Composite families of A10/STOR04.
 
 Asset identity and Replica observations belong to the database's composed
 `StorageManager`. Its persistence adapters keep SQL projections, serialized
@@ -69,12 +69,86 @@ and policy before resubmitting a write.
 
 Historical rows that cannot decode into a valid domain policy require explicit
 repair. These routes do not provide a raw-row repair override or silently invent
-missing policy intent. `if_revision` on other retained resource-update families
-is refused until those families have an owned revision contract.
+missing policy intent. `if_revision` on retained resource-update families outside
+policies and Composites is refused until they have an owned revision contract.
 
 Deletion uses the manager's reference guard and never silently reassigns Assets.
 No policy mutation copies, deletes or repairs physical bytes. Updating policy
 intent and executing maintenance remain separate operations.
+
+## Composite records and members
+
+`composite` remains writable through `storage.resource.create/update/delete`.
+Creation requires a complete, nonempty `members` array. Storage validates every
+referenced Asset and commits the Composite record, serialized members, member-row
+projections and revision together. An update preserves omitted fields, retains
+the Composite ID, and replaces the complete declaration under the revision read
+for patch construction. Optional `if_revision` rejects a stale client snapshot.
+
+The writable fields are `name` (text or null), `attributes` (an object of string
+values or an array of string pairs), and `members`. Matching
+`composite_digital_asset_` prefixes are accepted; duplicate aliases are refused.
+Bookkeeping columns and former raw fields such as `media_category` are refused.
+Use attributes for application-specific descriptive data.
+
+Each member requires an integer `digital_asset_id`. `sequence_number` defaults
+to its zero-based array position. Explicit positions must be unique and contiguous
+from zero; the supplied array order is retained. Optional text fields are `role`,
+`logical_name`, `logical_path` and `title`; `required` defaults to true and accepts
+only a boolean. The domain model permits the same Asset at more than one position.
+The current SQLite schema still constrains the `(Composite, Asset, stored role)`
+combination: repeated Assets with distinct stored roles work, but repetitions of
+that entire combination fail and roll back the complete change. Storage projects
+`member`, `chapter`, `track`, `disc_member` and `part` as their own roles; other
+roles are preserved in the record but share the `member` SQL projection. Repairing
+this existing schema mismatch needs a separate migration, including existing
+catalogues. This adapter does not drop constraints or alter schemas.
+
+Logical paths
+are descriptive metadata, not authorization to write to an export filesystem.
+
+For example, after declaring or ingesting the two atomic Assets, create a
+Composite for a novel and its introduction:
+
+```python
+created = core.command("storage.resource.create", {
+    "resource": "composite",
+    "values": {
+        "name": "Novel with introduction",
+        "attributes": {"edition": "annotated"},
+        "members": [
+            {"digital_asset_id": introduction_id, "role": "introduction"},
+            {"digital_asset_id": novel_id, "role": "novel", "title": "The novel"},
+        ],
+    },
+})
+core.command("storage.resource.update", {
+    "resource": "composite",
+    "id": created["id"],
+    "if_revision": created["revision"],
+    "values": {"name": "Annotated edition"},
+})
+```
+
+This is a storage grouping of atomic Assets. The bibliographic Work/Expression/
+Manifestation relationships remain Catalog's responsibility.
+
+`composite-member-link` is inspectable but its generic mutations now return
+`storage_resource_read_only`. Replace `members` on the Composite instead of
+building an empty parent and inserting links, or editing/deleting a link row.
+Storage may regenerate link-row IDs during replacement; those IDs are not
+membership identities. An empty replacement is refused.
+
+Deletion calls `forget_composite_digital_asset(require_unlinked=True)` and
+supports `if_revision`. Item and derivation-source references protect the
+Composite. Removing it also removes its member rows, while retaining the atomic
+Assets and their bytes. Other resource-delete families refuse a non-null revision
+token rather than silently ignoring it.
+
+Creation/update receipts contain the committed revision. As for policies,
+readback/cache failure after commit retains the receipt and reports
+`cache_reconciliation_failed`; inspect that receipt and the record before retrying.
+Historical malformed records require explicit repair; there is no raw override.
 
 ## Existing-drive backup indexing
 
@@ -103,18 +177,22 @@ do not pin a source against external filesystem changes.
 
 ## Scope and remaining work
 
-These slices close generic Asset/Replica writes, policy assignment/definitions
-and the direct FRBR scanner. Existing SquashFS publication already adopts verified
+These slices close generic Asset/Replica and Composite-member writes, move
+policy assignment/definitions and Composite CRUD through storage, and migrate
+the direct FRBR scanner. Existing SquashFS publication already adopts verified
 claims through the manager. Raw database/Store access remains privileged.
 
-Composite and Item-link admin mutations still use retained
-row adapters. Legacy `files` reconciliation, consistent partial-effect receipts
+Item-link and backup-workflow definition/source admin mutations still use retained
+row adapters. SQLite's ordered-membership uniqueness constraint needs repair,
+with existing-catalogue preservation and backend parity tests. Legacy `files`
+reconciliation, consistent partial-effect receipts
 across all writers, publication recovery and derived-state refresh remain A10
 work. The entire storage consolidation is not complete.
 
 Regression evidence lives in
 [Core ownership tests](../../tests/core/test_storage_record_ownership.py),
 [policy mutation tests](../../tests/core/test_storage_policy_ownership.py),
+[Composite mutation tests](../../tests/core/test_storage_composite_ownership.py),
 [scanner ownership tests](../../tests/storage/backup/test_frbr_index_ownership.py)
 and the [backup pipeline tests](../../tests/storage/backup/test_existing_drive_squashfs_prototype.py).
 

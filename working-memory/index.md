@@ -1,5 +1,13 @@
 # Working Memory Index
 
+Active work, **2026-10-20**: [Composite ownership](storage-composite-owner-2026-10-20.md)
+continues A10 on `storage-owned-composite-mutations`, based on policy PR #143
+at `527301bf`. Composite CRUD now delegates to storage and raw member writes are
+refused. All 90 combined regression cases, 38 final creation/documentation/tooling
+checks and all quality gates pass (overlapping selections). The discovered SQLite repeated-member constraint requires
+a separate schema repair. Audit/policy CI corrections are pushed; the full
+programme remains open and unrelated staged storage work is preserved.
+
 Active work, **2026-10-20**: [policy-definition ownership](storage-policy-owner-2026-10-20.md)
 continues A10 on `storage-owned-policy-mutations`, based on published audit PR #142
 (`8e57d575`). Fourteen reproduced failures are corrected; initial regressions
