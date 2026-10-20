@@ -126,7 +126,10 @@ select = ["E4", "E7", "E9", "F", "I", "UP", "B"]
 # Formatting does not implicitly expand the separate lint or typing ratchets.
 paths = [
   "src/LiuXin_alpha/databases/creation.py",
+  "src/LiuXin_alpha/databases/transactions.py",
   "tests/databases/test_database_creation_safety.py",
+  "tests/databases/test_transaction_ownership.py",
+  "tests/databases/test_transaction_ownership_postgres_live.py",
   "tests/databases/test_database_creation_postgres_live.py",
   "src/LiuXin_alpha/plugins/application.py",
   "src/LiuXin_alpha/plugins/loading.py",
@@ -219,6 +222,7 @@ paths = [
 typeCheckingMode = "standard"
 include = [
   "src/LiuXin_alpha/databases/creation.py",
+  "src/LiuXin_alpha/databases/transactions.py",
   "src/LiuXin_alpha/configuration.py",
   "src/LiuXin_alpha/configuration_defaults.py",
   "src/LiuXin_alpha/core/settings.py",
@@ -266,6 +270,7 @@ include = [
 ]
 strict = [
   "src/LiuXin_alpha/databases/creation.py",
+  "src/LiuXin_alpha/databases/transactions.py",
   "src/LiuXin_alpha/surfaces/terminal/browser_components/models.py",
   "src/LiuXin_alpha/surfaces/terminal/windowed_components/models.py",
   "src/LiuXin_alpha/surfaces/terminal/presentation.py",
@@ -299,6 +304,7 @@ pythonVersion = "3.12"
 python_version = "3.12"
 files = [
   "src/LiuXin_alpha/databases/creation.py",
+  "src/LiuXin_alpha/databases/transactions.py",
   "src/LiuXin_alpha/configuration.py",
   "src/LiuXin_alpha/configuration_defaults.py",
   "src/LiuXin_alpha/core/settings.py",

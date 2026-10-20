@@ -5,7 +5,7 @@ Reviewed **2026-10-20**. Source: [custom-column connection resolution](../../src
 SQLite connections are *stateful* objects. In this codebase they can be rotated or replaced during:
 - driver refresh / metadata refresh,
 - fixture provisioning,
-- wrapper-level “lock” connection creation/teardown,
+- explicit auxiliary connection creation/teardown,
 - test harnesses that patch or alias `db.conn`.
 
 If helper objects (e.g. `CustomColumns`) store a connection reference (`self.conn = ...`) and that connection later gets closed,
@@ -22,7 +22,14 @@ Helper objects should *not* cache a connection long-term unless they have a very
 Prefer:
 
 - `db.driver.conn` for normal execution
-- `db.driver_wrapper.lock` only when the operation explicitly owns that separate connection. Despite its name, this attribute is a connection, not a mutex. Do not assume `db.conn` or a fixture alias identifies the same connection.
+- `db.get_connection()` for explicitly caller-owned SQL, with explicit transaction
+  and cleanup responsibility.
+- The active macro connection for composed semantic writes. `db.lock` and
+  `db.driver_wrapper.lock` are the same reentrant mutex and never execute SQL.
+
+See [transaction ownership](transactions.md) for resource cleanup, borrowed
+transactions and nested savepoints. A raw connection context can commit; a
+Database resource context discards pending work when it closes.
 
 ## Implementation pattern: `@property conn`
 

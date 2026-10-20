@@ -62,7 +62,7 @@ class DatabaseAPI(
         """
         Replace the driver and rebuild wrapper, macros and metadata SQL bindings.
 
-        Abstract declaration; subclasses supply the operation. In the concrete Database implementation: Close the old wrapper first. For a different driver, try committing its primary connection, roll back only if commit fails, then close it and call the driver's close method to release its other connections. Auxiliary transactions are not committed. Cleanup errors are suppressed. Install the new wrapper and convenience aliases, including storage aliases, which may become None. This does not rerun schema discovery, queue wiring or all runtime back-references; failures during new setup leave partial state.
+        Close the old wrapper first. For a different driver, discard pending primary work with rollback, then close it and call the driver's close method to release its other connections. Auxiliary transactions are not committed. Cleanup errors are suppressed. Install the new wrapper and convenience aliases, including storage aliases, which may become None. This does not rerun schema discovery, queue wiring or all runtime back-references; failures during new setup leave partial state.
 
         Example:
             For a compatible open replacement driver, db.set_driver(replacement) releases the previous database connections before constructing its new wrapper.
@@ -139,12 +139,10 @@ class DatabaseAPI(
     @abc.abstractmethod
     def driver_wrapper(self) -> "DatabaseDriverWrapperAPI":
         """
-        Return the wrapper that provides facade operations and the lock connection.
-
-        Abstract declaration; subclasses supply the operation. In the concrete Database implementation: Return the wrapper that provides facade operations and the lock connection.
+        Return the wrapper that provides facade operations and the reentrant mutex.
 
         Example:
-            For an open SQL db, db.driver_wrapper.lock is the wrapper connection rather than the primary driver connection.
+            For an open db, db.driver_wrapper.lock is shared with db.lock; use get_connection() for caller-owned SQL.
 
 
         :return: Current wrapper, or None after cleanup.
@@ -194,10 +192,14 @@ class DatabaseAPI(
         """
         Stop maintenance and release database connections with best-effort cleanup.
 
-        Abstract declaration; subclasses supply the operation. In the concrete Database implementation: Request maintenance stop and wait at most one second for its thread. Close the wrapper or fallback lock, then attempt to commit and close the primary connection; roll back only if that commit fails. Call the driver's close method to release its other connections without committing auxiliary transactions. Suppress ordinary cleanup errors. Repeated calls tolerate cleared state. This does not call StorageManager.close and cannot guarantee every reference cycle is removed.
+        Stop maintenance, release the wrapper, and roll back pending primary work
+        before closing connections. Cleanup never requests a commit. Auxiliary
+        connections belong to the driver and are closed through it. Ordinary cleanup
+        errors are suppressed so later resources still receive cleanup attempts.
+        Callers must finish active operations before closing the facade.
 
         Example:
-            Use db.close() in a finally block to release an open facade; pending primary-connection changes may be committed.
+            Use db.close() in a finally block; commit intended writes explicitly first.
 
 
         :return: None; connection aliases and selected collaborator references are cleared.
@@ -305,10 +307,12 @@ class DatabaseAPI(
         """
         Close the facade and allow a context-body exception to propagate.
 
-        Abstract declaration; subclasses supply the operation. In the concrete Database implementation: Exception details are ignored by close; pending work may be committed even on an exceptional exit.
+        Both normal and exceptional exits discard pending work. Already committed
+        operations remain durable; this resource context does not group writes.
 
         Example:
-            An exception raised inside with db: propagates after cleanup; use an explicit transaction API when rollback is required.
+            An exception inside with db: propagates after rollback and cleanup;
+            use macros.transaction() to group supported semantic writes.
 
 
         :param exc_type: Exception class passed by the context protocol, or None.

@@ -214,7 +214,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         this declaration supplies no implementation.
 
         Attribute-assignment errors are suppressed independently. The db and macro
-        references remain; close() is responsible for first attempting lock cleanup.
+        references remain; the database/driver owner closes SQL connections separately.
 
         Example:
             >>> wrapper.break_cycles()  # doctest: +SKIP
@@ -268,14 +268,10 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
     @abc.abstractmethod
     def close(self) -> None:
         """
-        Commit and close the wrapper's lock connection, then clear references.
+        Clear wrapper references without committing or closing driver connections.
 
-        Abstract wrapper hook. The behavior below describes DriverWrapper and its mixins;
-        this declaration supplies no implementation.
-
-        Commit and close failures are suppressed independently. break_cycles() clears lock
-        and driver; the primary driver connection is not explicitly closed here. Repeated
-        calls tolerate the cleared references.
+        The lock is a mutex, not a SQL connection. The Database/driver owner
+        releases database handles separately. Repeated calls tolerate cleared state.
 
         Example:
             >>> wrapper.close()  # doctest: +SKIP
@@ -924,11 +920,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         """
         Request a connection from the driver for caller-managed use.
 
-        Abstract wrapper hook. The behavior below describes DriverWrapper and its mixins;
-        this declaration supplies no implementation.
-
-        The wrapper uses one such connection as its lock context during initialization.
-        SQLite drivers return a new connection distinct from driver.conn; callers own
+        Supported drivers return a new connection distinct from driver.conn; callers own
         cleanup of additional connections. Backend configuration and connection errors
         propagate.
 
@@ -1814,14 +1806,11 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         """
         Read a row, replace one cell and write it back under the lock context.
 
-        Abstract wrapper hook. The behavior below describes DriverWrapper and its mixins;
-        this declaration supplies no implementation.
-
         First resolves column ownership; mismatching table names raise InputIntegrityError.
         Within self.lock, fetches the row, mutates its mapping and calls update_row(),
-        ignoring that result. Missing-row or backend write errors propagate. The lock
-        connection context does not guarantee atomicity for driver writes made on other
-        connections.
+        ignoring that result. Missing-row or backend write errors propagate. The reentrant mutex serializes cooperating callers on this wrapper; the row
+        writer owns its SQL transaction. The mutex alone does not group multiple writes
+        into one transaction or coordinate separate database facades.
 
         Example:
             >>> wrapper.update_column("works", 1, "work_title", "Revised")  # doctest: +SKIP

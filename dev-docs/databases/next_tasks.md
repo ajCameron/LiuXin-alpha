@@ -15,12 +15,12 @@ populated namespaces. See the [contract and regressions](creation-and-replacemen
 
 ## DB02. Specify transactions independently of connection lifetime
 
-**First; architecture A04.** Document and implement one contract for outer
-transactions, nested savepoints, rollback and connection closure across drivers.
-Audit helper commits and the separate `driver_wrapper.lock` connection.
-Done when nested failures, exceptions on context exit and caller-owned connections
-behave predictably in SQLite/APSW and PostgreSQL contract tests. A mocked server
-test alone does not establish live PostgreSQL parity.
+**Architecture A04; implementation under verification, 2026-10-20.** The
+[transaction contract](transactions.md) now defines owned units, nested/borrowed
+savepoints, resource rollback and the reentrant facade mutex. It inventories
+remaining direct commit points and explains the compatibility transition.
+Live PostgreSQL checks pass; final SQLite/APSW, Catalog/Row/Agent, storage and
+lifecycle checks must finish before this slice is ready for review.
 
 ## DB03. Align default WEMI selection
 

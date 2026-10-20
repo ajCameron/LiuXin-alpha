@@ -1,6 +1,14 @@
 # Working Memory Index
 
 Latest implementation checkpoint, **2026-10-20**:
+[transaction ownership](transaction-ownership-2026-10-20.md) records A04's
+implementation, 426 passing caller checks, 40 passing live PostgreSQL checks,
+52 documentation/API checks, complete quality gates and remaining UTF-8 Catalog
+verification on `database-transaction-ownership`.
+A15 PR #131 has green quality/packaging/format checks on `a0e4d2ed`; current-head
+full CI is still running. The full A01–A16 programme remains open.
+
+Earlier implementation checkpoint, **2026-10-20**:
 [CI baseline repair](ci-baseline-repair-2026-10-20.md) continues the full A01–A16
 programme under A15 on `ci-baseline-repair`. It repairs the shared forty-failure
 groups, removes about 98 MiB of generated benchmark scratch, adds CI telemetry

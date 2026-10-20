@@ -62,9 +62,9 @@ class DriverWrapperUpdateMixin:
 
         First resolves column ownership; mismatching table names raise InputIntegrityError.
         Within self.lock, fetches the row, mutates its mapping and calls update_row(),
-        ignoring that result. Missing-row or backend write errors propagate. The lock
-        connection context does not guarantee atomicity for driver writes made on other
-        connections.
+        ignoring that result. Missing-row or backend write errors propagate. The reentrant mutex serializes cooperating callers on this wrapper; the row
+        writer owns its SQL transaction. The mutex alone does not group multiple writes
+        into one transaction or coordinate separate database facades.
 
         Example:
             >>> wrapper.update_column("works", 1, "work_title", "Revised")  # doctest: +SKIP

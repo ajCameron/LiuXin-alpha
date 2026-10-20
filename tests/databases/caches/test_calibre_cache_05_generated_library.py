@@ -184,7 +184,7 @@ class DummyFSM:
 
 def _backend_from_library(tmp_path: Path, metadata_db_path: Path) -> Database:
     """
-    Open the generated metadata database and attach legacy tables, lock, filesystem, preference, and metadata shims.
+    Open the generated metadata database and attach legacy tables, SQL connection, filesystem, preference, and metadata shims.
 
     Example:
         Run the owning tests with pytest::
@@ -199,7 +199,7 @@ def _backend_from_library(tmp_path: Path, metadata_db_path: Path) -> Database:
     """
     db = Database(metadata={"database_path": str(metadata_db_path)})
     db.tables = {}
-    db.conn = db.driver_wrapper.lock
+    db.conn = db.get_connection()
     db.fsm = DummyFSM(tmp_path / "fsm_root")
 
     db.prefs = TestPrefs(
@@ -270,8 +270,8 @@ def test_cache_init_on_generated_calibre_library(tmp_path, provision_populated_c
         tags=["smoke"],
     )
 
-    backend = _backend_from_library(tmp_path, Path(lib.root) / "metadata.db")
-    cache = CalibreCache(backend=backend)
-    cache.init()
+    with _backend_from_library(tmp_path, Path(lib.root) / "metadata.db") as backend:
+        cache = CalibreCache(backend=backend)
+        cache.init()
 
-    assert "title" in cache.fields
+        assert "title" in cache.fields

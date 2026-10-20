@@ -58,27 +58,31 @@ def test_close_releases_deleted_database_without_gc(open_db, db_path):
         driver.close()
 
 
-@pytest.mark.parametrize("writer", ["primary", "auxiliary", "failed_primary_commit"])
+@pytest.mark.parametrize("writer", ["primary", "auxiliary", "commit_guard"])
 def test_close_preserves_transaction_ownership(open_db, db_path, writer, monkeypatch):
-    """Commit primary writes, but roll back failed or auxiliary transactions."""
+    """Closing resources discards pending writes and never requests a commit."""
     driver = open_db.driver
     primary = driver.conn
     primary.execute("CREATE TABLE close_transaction_probe (value INTEGER)")
     primary.commit()
     connection = driver.get_connection() if writer == "auxiliary" else primary
     connection.execute("INSERT INTO close_transaction_probe VALUES (42)")
-    if writer == "failed_primary_commit":
+    commits = []
+    if writer == "commit_guard":
 
         def fail_commit():
+            """Record accidental commit attempts even if close suppresses errors."""
+            commits.append(True)
             raise sqlite3.OperationalError("injected commit failure")
 
         monkeypatch.setattr(primary, "commit", fail_commit)
     try:
         open_db.close()
+        assert commits == []
         probe = sqlite3.connect(str(db_path))
         try:
             rows = probe.execute("SELECT value FROM close_transaction_probe").fetchall()
-            assert rows == ([(42,)] if writer == "primary" else [])
+            assert rows == []
         finally:
             probe.close()
     finally:

@@ -3,7 +3,7 @@
 Adapt low-level database drivers to dictionary rows and schema specifications.
 
 DriverWrapper combines CRUD, naming, tree, policy and custom-column mixins. It
-caches derived schema objects, owns a separate connection used as a lock context,
+caches derived schema objects, owns a reentrant mutex for shared facade access,
 and relies on its parent database to populate table groups and the dirty-record
 queue.
 """
@@ -13,6 +13,7 @@ from __future__ import unicode_literals, annotations
 from typing import Optional, TYPE_CHECKING, Union, Literal, Any, Iterable, Iterator
 
 from copy import deepcopy
+from threading import RLock
 
 from LiuXin_alpha.databases.driver_wrapper.driver_wrapper_custom_columns_mixin import CustomColumnsDriverWrapperMixin
 from LiuXin_alpha.databases.row import Row
@@ -60,7 +61,7 @@ class DriverWrapper(
 
     The parent database supplies table groups and dirty tracking after construction.
     Most operations delegate to the driver; custom columns also require the owning
-    database. close() releases the lock connection and driver reference, while the owner
+    database. close() releases the mutex and driver references, while the owner
     remains responsible for the primary driver connection.
 
     Example:
@@ -76,11 +77,11 @@ class DriverWrapper(
             driver: "DatabaseDriverAPI",
             db: Optional["DatabaseAPI"] = None) -> None:
         """
-        Bind the driver, acquire a lock connection and initialize wrapper caches.
+        Bind the driver, create a reentrant mutex and initialize wrapper caches.
 
         Copies the driver macro reference, clears table groups, and leaves the dirty queue
-        unset for the parent database to wire. A separate get_connection() result becomes
-        lock. Custom-column initialization records db and an empty custom-table set; db may
+        unset for the parent database to wire. lock serializes cooperating threads without
+        opening a SQL connection. Custom-column initialization records db and an empty custom-table set; db may
         initially be None.
 
         Example:
@@ -106,8 +107,9 @@ class DriverWrapper(
         self._link_table_name_cache = {}
         self._link_table_name_cache_schema_version = None
 
-        # Acquires a lock for the database that can be used in a with statement.
-        self.lock = self.get_connection()
+        # Serialize users of this facade without opening or committing SQL.
+        # Nested row/macro operations re-enter this same mutex on their thread.
+        self.lock = RLock()
         self._clear_derived_schema_caches()
 
         super(DriverWrapper, self).__init__(db=db, macros=None)
@@ -1090,11 +1092,10 @@ class DriverWrapper(
 
     def close(self) -> None:
         """
-        Commit and close the wrapper's lock connection, then clear references.
+        Clear wrapper references without committing or closing driver connections.
 
-        Commit and close failures are suppressed independently. break_cycles() clears lock
-        and driver; the primary driver connection is not explicitly closed here. Repeated
-        calls tolerate the cleared references.
+        The lock is a mutex, not a SQL connection. The Database/driver owner
+        releases database handles separately. Repeated calls tolerate cleared state.
 
         Example:
             >>> wrapper.close()  # doctest: +SKIP
@@ -1102,16 +1103,6 @@ class DriverWrapper(
 
         :return: None.
         """
-        lock = getattr(self, "lock", None)
-        if lock is not None:
-            try:
-                lock.commit()
-            except Exception:
-                pass
-            try:
-                lock.close()
-            except Exception:
-                pass
         self.break_cycles()
 
     def break_cycles(self) -> None:
@@ -1119,7 +1110,7 @@ class DriverWrapper(
         Clear the lock and driver references without closing either resource.
 
         Attribute-assignment errors are suppressed independently. The db and macro
-        references remain; close() is responsible for first attempting lock cleanup.
+        references remain; the database/driver owner closes SQL connections separately.
 
         Example:
             >>> from types import SimpleNamespace
@@ -1468,8 +1459,7 @@ class DriverWrapper(
         """
         Request a connection from the driver for caller-managed use.
 
-        The wrapper uses one such connection as its lock context during initialization.
-        SQLite drivers return a new connection distinct from driver.conn; callers own
+        Supported drivers return a new connection distinct from driver.conn; callers own
         cleanup of additional connections. Backend configuration and connection errors
         propagate.
 

@@ -194,12 +194,12 @@ class DummyFSM:
 
 
 @pytest.fixture()
-def calibre_backend_db(tmp_path, provision_named_test_database):
+def calibre_backend_db(tmp_path, provision_named_test_database, request):
     # provision a real sqlite db copy
     """
-    Provision test_db_0 and attach the legacy cache tables, lock, filesystem, preferences, and metadata shims.
+    Provision test_db_0 and attach the legacy cache tables, SQL connection, filesystem, preferences, and metadata shims.
 
-    Return an open Database without a local cleanup finalizer.
+    Return an open Database with explicit resource cleanup after the test.
 
     Example:
         Run the owning tests with pytest::
@@ -216,10 +216,11 @@ def calibre_backend_db(tmp_path, provision_named_test_database):
     prov = provision_named_test_database(name="test_db_0", dst_dir=tmp_path)
 
     db = Database(metadata={"database_path": str(prov.db_path)})
+    request.addfinalizer(db.close)
 
     # Patch in what CalibreCache expects on the backend
     db.tables = {}  # BaseCache expects it to exist; CalibreCache will replace it
-    db.conn = db.driver_wrapper.lock  # used as `with backend.conn:`
+    db.conn = db.get_connection()  # explicit SQL context; the driver closes it
     db.fsm = DummyFSM(tmp_path / "fsm_root")
 
     # preferences CalibreCache reads immediately
@@ -279,7 +280,7 @@ def calibre_backend_db(tmp_path, provision_named_test_database):
 @pytest.fixture()
 def live_calibre_cache(calibre_backend_db):
     """
-    Construct the legacy cache, call init, and return it without a local close finalizer.
+    Construct and initialize the cache; the backend fixture owns connection cleanup.
 
     Example:
         Run the owning tests with pytest::
@@ -288,7 +289,7 @@ def live_calibre_cache(calibre_backend_db):
 
 
     :param calibre_backend_db: Provisioned Database carrying the legacy cache backend
-        shims; the local fixture has no close finalizer.
+        shims; the backend fixture closes all driver connections after the test.
     :return: Initialized CalibreCache; setup errors propagate.
     """
     cache = CalibreCache(backend=calibre_backend_db)

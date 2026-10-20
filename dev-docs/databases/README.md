@@ -16,6 +16,8 @@ meaning belongs to metadata/Catalog; physical storage policy belongs to storage.
 - [Link capabilities](link-capabilities.md).
 - [Creation and replacement](creation-and-replacement.md): create-only publication,
   explicit offline replacement, recovery backups and server-schema refusal.
+- [Transaction ownership](transactions.md): resource cleanup, owned transactions,
+  nested savepoints, borrowed connections and the remaining direct commit points.
 - [Backend strategy](liuxin_database_backend_strategy.md) and
   [PostgreSQL runbook](postgresql-backend.md).
 - [Connection ownership](<02 - Connection ownership and stale connections.md>) and

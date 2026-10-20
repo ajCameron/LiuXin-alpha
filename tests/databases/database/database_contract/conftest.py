@@ -127,7 +127,7 @@ def open_db(driver_spec, db_metadata: dict):
     try:
         yield db
     finally:
-        # Ensure full cleanup (wrapper lock connection + driver connection + thread stop).
+        # Ensure full cleanup (wrapper references + driver connections + thread stop).
         try:
             db.close()
         except Exception:
