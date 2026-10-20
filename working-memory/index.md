@@ -5,7 +5,7 @@ Latest implementation checkpoint, **2026-10-20**:
 `storage-deletion-policy`, based on `e9efedc4`. Both manager deletion routes share
 policy, durable reservations and recovery evidence. The final isolated selection
 passed 110 tests with live PostgreSQL, SQLite, Core and CLI; full quality gates
-passed. Publication and its separate full PR CI are next. A06 transport authority
+passed. Published as PR #133 (`938f9a22`); its full PR CI is pending. A06 transport authority
 is the next runtime task. The full A01–A16 programme remains open.
 
 [A04 transaction ownership](transaction-ownership-2026-10-20.md), PR #132, is green

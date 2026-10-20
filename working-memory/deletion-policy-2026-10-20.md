@@ -1,7 +1,8 @@
 # Managed deletion checkpoint, 2026-10-20
 
 The full A01–A16 programme remains open. A05 is implemented on
-`storage-deletion-policy`, based on A04's `e9efedc4`. Publication is the next step.
+`storage-deletion-policy`, based on A04's `e9efedc4`. Implementation commit `938f9a22` is published as
+[PR #133](https://github.com/ajCameron/LiuXin-alpha/pull/133).
 Preserve the six unrelated staged storage files and dirty data submodule exactly;
 the hash/index snapshot is `/tmp/liuxin-docs-pr-preserved-storage.json`.
 
@@ -66,12 +67,11 @@ passes 19 tests with APSW, or 15 with four explicit skips when absent.
 [A15 PR #131](https://github.com/ajCameron/LiuXin-alpha/pull/131) is green on
 `a0e4d2ed`, full CI: 7,388 passed, 249 skipped and 17 xfailed. No PR was merged.
 
-Commit only A05 paths, push and open a focused
-PR based on `database-transaction-ownership`. Check remote CI. Next runtime work
+PR #133 is based on `database-transaction-ownership`; check its separate remote CI. Next runtime work
 is A06 server-enforced transport capabilities, followed by the remaining tasks
 in the canonical architecture plan. Do not mark the whole programme complete.
 
 The isolated candidate is `/tmp/liuxin-a05-review`; its HEAD predates the overlay.
 The disposable PostgreSQL cluster uses `/tmp/liuxin-a05-postgres/data`, socket
-`/tmp/liuxin-a05-postgres/socket`, port 55435. Stop it after local validation.
+`/tmp/liuxin-a05-postgres/socket`, port 55435. It was stopped after local validation; no local tests remain running.
 The sync script `/tmp/liuxin-sync-a05.py` excludes and verifies the preserved files.
