@@ -65,7 +65,13 @@ class DatabaseStorageUnitOfWork(persistence_api.StorageUnitOfWorkAPI):
         ...     unit.commit()
     """
 
-    def __init__(self, factory: DatabaseStorageUnitOfWorkFactory) -> None:
+    def __init__(
+        self,
+        factory: DatabaseStorageUnitOfWorkFactory,
+        *,
+        serialized: bool = True,
+        require_outermost: bool = False,
+    ) -> None:
         """
         Retain the factory and initialize inactive transaction/intent state without opening a
         transaction or validating the factory.
@@ -75,10 +81,14 @@ class DatabaseStorageUnitOfWork(persistence_api.StorageUnitOfWorkAPI):
 
 
         :param factory: Owner of the metadata repository and stable domain repository ports.
+        :param serialized: Require a cooperating writer reservation on transaction entry.
+        :param require_outermost: Refuse nested units that cannot independently commit.
         :return: None after initializing transaction and request flags.
         """
 
         self._factory = factory
+        self._serialized = serialized
+        self._require_outermost = require_outermost
         self._transaction: AbstractContextManager[Any] | None = None
         self._entered = False
         self._commit_requested = False
@@ -200,7 +210,9 @@ class DatabaseStorageUnitOfWork(persistence_api.StorageUnitOfWorkAPI):
 
         if self._entered:
             raise RuntimeError("unit of work cannot be entered twice.")
-        transaction = self._factory.repository.transaction()
+        transaction = self._factory.repository.transaction(
+            serialized=self._serialized, require_outermost=self._require_outermost
+        )
         transaction.__enter__()
         self._transaction = transaction
         self._entered = True
@@ -279,7 +291,9 @@ class DatabaseStorageUnitOfWorkFactory(persistence_api.StorageUnitOfWorkFactoryA
         self.composites = DatabaseCompositeRepository(repository)
         self.derivations = DatabaseDerivationRepository(repository)
 
-    def begin(self) -> DatabaseStorageUnitOfWork:
+    def begin(
+        self, *, serialized: bool = True, require_outermost: bool = False
+    ) -> DatabaseStorageUnitOfWork:
         """
         Return a new inactive unit bound to this factory. No portable transaction is obtained or
         entered until the unit's context entry, and its repository properties resolve to the
@@ -289,10 +303,14 @@ class DatabaseStorageUnitOfWorkFactory(persistence_api.StorageUnitOfWorkFactoryA
             >>> unit = factory.begin()  # doctest: +SKIP
 
 
+        :param serialized: Reserve the database writer before reading shared state.
+        :param require_outermost: Require an independently committed metadata phase.
         :return: A fresh DatabaseStorageUnitOfWork with no active transaction or outcome request.
         """
 
-        return DatabaseStorageUnitOfWork(self)
+        return DatabaseStorageUnitOfWork(
+            self, serialized=serialized, require_outermost=require_outermost
+        )
 
     def asset_mapping(
         self,

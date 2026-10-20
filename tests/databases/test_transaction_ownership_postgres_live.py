@@ -134,3 +134,33 @@ def test_postgres_resource_exit_discards_only_pending_work(pg_database, exceptio
     except RuntimeError as error:
         assert exceptional and str(error) == "resource failed"
     assert _committed_rows(pg_database) == ["committed"]
+
+
+def test_postgres_serialized_units_coordinate_independent_macro_owners(pg_database):
+    """The database reservation works without a shared facade/thread mutex."""
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+
+    db, _, _ = pg_database
+    first, second = SQLPortableMacrosMixin(), SQLPortableMacrosMixin()
+    first.db = SimpleNamespace(driver=db.driver)
+    second.db = SimpleNamespace(driver=db.driver)
+    started, entered = Event(), Event()
+
+    def competing_writer():
+        """Observe committed state only after the first owner's reservation ends."""
+        started.set()
+        with second.transaction(serialized=True) as conn:
+            entered.set()
+            seen = [row[0] for row in conn.execute("SELECT value FROM probe")]
+            conn.execute("INSERT INTO probe VALUES ('second')")
+            return seen
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        with first.transaction(serialized=True) as conn:
+            future = executor.submit(competing_writer)
+            assert started.wait(5)
+            assert not entered.wait(0.2)
+            conn.execute("INSERT INTO probe VALUES ('first')")
+        assert future.result(timeout=5) == ["first"]
+    assert _committed_rows(pg_database) == ["first", "second"]

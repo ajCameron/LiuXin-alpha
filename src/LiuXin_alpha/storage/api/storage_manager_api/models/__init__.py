@@ -29,6 +29,7 @@ from LiuXin_alpha.storage.api.storage_manager_api.models.replicas import (
     ReplicaObservation,
     ReplicaRecord,
     ReplicaRemovalReport,
+    ReplicaDeletionRecovery,
     ReplicaState,
     ReplicaVerificationReport,
 )
@@ -148,6 +149,7 @@ __all__ = [
     "ReplicaObservation",
     "ReplicaRecord",
     "ReplicaRemovalReport",
+    "ReplicaDeletionRecovery",
     "ReplicaState",
     "ReplicaVerificationReport",
     "DigitalAssetReplicationPlan",

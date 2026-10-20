@@ -384,6 +384,8 @@ class _StorageManagerMechanics(Protocol):
         self,
         replica_id: manager_api.ReplicaID,
         observation: manager_api.ReplicaObservation,
+        *,
+        if_revision: str | None = None,
     ) -> manager_api.ReplicaRecord:
         """
         Replace one existing observation, allocate its revision, and advance Replica generation.
@@ -397,6 +399,7 @@ class _StorageManagerMechanics(Protocol):
 
         :param replica_id: Existing claim identity to look up under the lock.
         :param observation: New evidence replacing the previous observation wholesale.
+        :param if_revision: Expected claim revision at inspection; None omits comparison.
         :return: New stored Replica record; missing IDs and revision/repository failures propagate.
         """
         ...

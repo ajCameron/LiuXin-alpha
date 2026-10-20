@@ -131,38 +131,6 @@ class StorageRouterMixin(_StorageManagerState):
         )
 
     @override
-    def delete(
-        self,
-        location: storage_models.Location,
-        *,
-        missing_ok: bool = False,
-        if_version: str | None = None,
-    ) -> None:
-        """
-        Delegate physical deletion without removing or updating Replica claims.
-
-        Always forward both missing_ok and if_version, including their default values. Unlike get,
-        this path does not omit a None version keyword. Store lookup, unsupported operations, and
-        failed preconditions propagate. Manager loss-policy checks are not performed by this
-        low-level route.
-
-        Example:
-            >>> manager.delete(location, missing_ok=True)  # doctest: +SKIP
-
-
-        :param location: Location of the physical object to delete through its attached Store.
-        :param missing_ok: Whether the Store should accept an already absent object; it does not suppress manager lookup errors.
-        :param if_version: Optional opaque object version forwarded as the deletion precondition, including None.
-        :return: None after the Store deletion call returns successfully.
-        """
-
-        self.get_store(location.store_ref).delete(
-            location,
-            missing_ok=missing_ok,
-            if_version=if_version,
-        )
-
-    @override
     def iter_locations(
         self,
         *,

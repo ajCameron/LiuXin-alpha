@@ -86,9 +86,12 @@ allowing isolated child pytest runs. The original environment reproduced all fou
 failures locally; the corrected command passed all four plus both terminal
 no-create cases (**six passed**).
 
-The corrected PR head still requires its full CI result. Focused tests, whole
-quality gates, installed-wheel checks and full-suite results are separate
-evidence; publication is not a claim that the latest full suite has passed.
+The corrected head `a0e4d2ed` passed [full CI run #39441669661](https://github.com/ajCameron/LiuXin-alpha/actions/runs/39441669661):
+**7,388 passed, 249 skipped, 17 expected failures**, in 30 minutes 47 seconds.
+The same run passed quality, installed-wheel verification, both format lanes and
+the aggregate gate. The workflow/child-process follow-up passed 32 focused checks.
+Focused, optional integration and full-run evidence remain distinct; native GUI
+rendering and skipped integrations are not inferred from this green result.
 
 ## Remote settings
 

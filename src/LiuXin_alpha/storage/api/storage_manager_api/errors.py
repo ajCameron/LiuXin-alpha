@@ -2,10 +2,18 @@
 Distinguish managed storage catalogue, selection, policy, and stale-plan failures.
 
 All categories derive from the shared storage API StorageError hierarchy and use
-ordinary Exception arguments. They do not add persistence or recovery behavior.
+ordinary Exception arguments; StorageDeletionError also carries explicit recovery evidence.
+The exceptions do not perform persistence or recovery themselves.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from LiuXin_alpha.storage.api.errors import StorageError
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.storage.api.storage_manager_api.models.replicas import ReplicaDeletionRecovery
 
 
 class StorageManagementError(StorageError):
@@ -18,6 +26,29 @@ class StorageManagementError(StorageError):
         >>> isinstance(StorageManagementError("operation rejected"), StorageError)
         True
     """
+
+
+class StorageDeletionError(StorageManagementError):
+    """Report incomplete deletion with concrete recovery evidence and the original cause.
+
+    Example:
+        >>> failure = StorageDeletionError("inspect pending deletion", recovery)  # doctest: +SKIP
+        >>> failure.recovery.phase  # doctest: +SKIP
+        'bytes'
+    """
+
+    def __init__(self, message: str, recovery: ReplicaDeletionRecovery) -> None:
+        """Retain the failed phase and reservation revisions without attempting compensation.
+
+        Example:
+            >>> error = StorageDeletionError("metadata unavailable", recovery)  # doctest: +SKIP
+
+        :param message: Human-readable failure explanation.
+        :param recovery: Captured phase, reservation revisions and byte outcome.
+        :return: None; the exception retains the supplied evidence.
+        """
+        super().__init__(message)
+        self.recovery = recovery
 
 
 class StoreConfigurationNotFound(StorageManagementError):
@@ -133,4 +164,5 @@ __all__ = [
     "ReplicaNotFound",
     "StoreConfigurationNotFound",
     "StorageManagementError",
+    "StorageDeletionError",
 ]

@@ -130,6 +130,8 @@ paths = [
   "tests/databases/test_database_creation_safety.py",
   "tests/databases/test_transaction_ownership.py",
   "tests/databases/test_transaction_ownership_postgres_live.py",
+  "tests/storage/test_deletion_policy.py",
+  "tests/storage/test_deletion_policy_durable.py",
   "tests/databases/test_database_creation_postgres_live.py",
   "src/LiuXin_alpha/plugins/application.py",
   "src/LiuXin_alpha/plugins/loading.py",

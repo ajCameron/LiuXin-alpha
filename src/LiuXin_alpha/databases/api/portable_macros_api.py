@@ -32,7 +32,7 @@ class PortableMacrosAPI(abc.ABC):
     """
 
     @abc.abstractmethod
-    def transaction(self) -> AbstractContextManager[Any]:
+    def transaction(self, *, serialized: bool = False, require_outermost: bool = False) -> AbstractContextManager[Any]:
         """
         Open or join the transaction shared by nested portable macro calls.
 
@@ -42,6 +42,13 @@ class PortableMacrosAPI(abc.ABC):
             With concrete macros, place insert_row("tags", {"tag": "Travel"}) and a following update_row call inside one with macros.transaction(): block to commit them together.
 
 
+        :param serialized: Reserve SQLite's writer boundary or a shared PostgreSQL
+            advisory transaction lock before reading. Requires an owned outer unit,
+            or nesting inside an already serialized unit. Ordinary and borrowed
+            transactions cannot be upgraded. External bytes and privileged direct
+            SQL writers are outside the advisory locking contract.
+        :param require_outermost: Refuse nesting/borrowing so successful exit commits
+            before a caller performs irreversible external effects.
         :return: Context manager yielding the connection used by portable reads and writes in this thread.
         :raises DatabaseIntegrityError: The driver cannot provide a transaction connection.
         """

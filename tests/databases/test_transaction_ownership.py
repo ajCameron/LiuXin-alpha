@@ -292,3 +292,60 @@ def test_facade_lock_is_a_reentrant_mutex(tmp_path: Path) -> None:
                 with db.lock:
                     assert executor.submit(try_lock).result(timeout=5) is False
             assert executor.submit(try_lock).result(timeout=5) is True
+
+
+def test_serialized_units_reserve_writer_before_reading(sql_path: Path) -> None:
+    """Different macro hosts cannot both read pre-decision state as serialized owners."""
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+
+    first = _macros(SimpleNamespace(get_connection=lambda: sqlite3.connect(sql_path)))
+    second = _macros(SimpleNamespace(get_connection=lambda: sqlite3.connect(sql_path)))
+    started, entered = Event(), Event()
+
+    def competing_writer() -> list[str]:
+        """Read only after the first unit has released the database writer reservation."""
+        started.set()
+        with second.transaction(serialized=True) as conn:
+            entered.set()
+            seen = [row[0] for row in conn.execute("SELECT value FROM probe")]
+            conn.execute("INSERT INTO probe VALUES ('second')")
+            return seen
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        with first.transaction(serialized=True) as conn:
+            future = executor.submit(competing_writer)
+            assert started.wait(5)
+            assert not entered.wait(0.2)
+            conn.execute("INSERT INTO probe VALUES ('first')")
+        assert future.result(timeout=5) == ["first"]
+    assert _rows(sql_path) == ["first", "second"]
+
+
+def test_serialized_unit_refuses_borrowed_pending_work(sql_path: Path) -> None:
+    """A caller's already active transaction cannot be silently promoted or committed."""
+    with closing(sqlite3.connect(sql_path)) as conn:
+        conn.execute("INSERT INTO probe VALUES ('caller')")
+        macros = _macros(SimpleNamespace(conn=conn))
+        with pytest.raises(RuntimeError, match="ownership of the outer transaction"):
+            with macros.transaction(serialized=True):
+                pytest.fail("Borrowed work was promoted")
+        assert conn.in_transaction
+        assert _rows(sql_path) == []
+        conn.commit()
+    assert _rows(sql_path) == ["caller"]
+
+
+def test_serialized_nesting_requires_serialized_outer_owner(sql_path: Path) -> None:
+    """Savepoints preserve an existing reservation but cannot upgrade an ordinary unit."""
+    macros = _macros(SimpleNamespace(get_connection=lambda: sqlite3.connect(sql_path)))
+    with macros.transaction():
+        with pytest.raises(RuntimeError, match="ordinary transaction"):
+            with macros.transaction(serialized=True):
+                pytest.fail("Ordinary outer unit was upgraded")
+    with macros.transaction(serialized=True) as outer:
+        with macros.transaction(serialized=True) as inner:
+            assert inner is outer
+            inner.execute("INSERT INTO probe VALUES ('nested')")
+        assert _rows(sql_path) == []
+    assert _rows(sql_path) == ["nested"]

@@ -96,3 +96,12 @@ failed all four; corrected invocation passed those four and both no-create cases
 A new current-head CI run is needed before closing A15. Local logs remain under
 `/tmp/liuxin-a15-*`; the completed full-run checkout may now be cleaned after
 retaining needed evidence. A04 remains separate and unfinished.
+
+## Verified current-head full CI
+
+[A15 run #39441669661](https://github.com/ajCameron/LiuXin-alpha/actions/runs/39441669661)
+completed successfully on `a0e4d2ed`: 7,388 passed, 249 skipped, 17 xfailed,
+1,125 warnings in 1,847.27 seconds. Quality, wheel, both format lanes and the
+aggregate gate also passed. A15 is verified for PR review; earlier pending notes
+above are historical. The full A01–A16 programme remains open. A04 is PR #132;
+A05 has begun on storage-deletion-policy. No PR or branch-rule changes were merged.

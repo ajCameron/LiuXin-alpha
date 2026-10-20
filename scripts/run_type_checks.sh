@@ -132,6 +132,8 @@ RUFF_CMD=(
     "src/LiuXin_alpha/databases/transactions.py"
     "tests/databases/test_transaction_ownership.py"
     "tests/databases/test_transaction_ownership_postgres_live.py"
+    "tests/storage/test_deletion_policy.py"
+    "tests/storage/test_deletion_policy_durable.py"
     "src/LiuXin_alpha/plugins/application.py"
     "src/LiuXin_alpha/plugins/loading.py"
     "tests/plugins/test_application_plugins.py"

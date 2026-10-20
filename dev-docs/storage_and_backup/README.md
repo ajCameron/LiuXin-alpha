@@ -49,6 +49,7 @@ Composite export.
 | --- | --- | --- |
 | Application storage workflows | [Storage API: starting a manager](storage_api.md#starting-a-manager) | `storage.api.storage_manager_api`; `storage.durable_manager` |
 | Common ingest/read/composite calls | [Everyday convenience surface](storage_api.md#everyday-manager-convenience-surface) | focused `*_convenience.py` modules composed by `storage_manager_api/convenience_api.py` |
+| Managed deletion and incomplete byte/metadata outcomes | [Deletion policy and recovery](deletion_policy.md) | `storage_manager.mixins.deletion` |
 | Asset, Replica, Composite, or policy persistence | [Persistence SPI](storage_api.md#persistence-spi) | `storage.api.persistence_api` |
 | A configured Store facade | [Store/manager responsibilities](storage_api.md#store-and-manager-responsibilities) | `storage.api.store_api`; `storage.store_container` |
 | A raw physical backend | [Reusable driver core](storage_api.md#the-reusable-driver-core) | `storage.api.store_driver_api`; backend plugin module |

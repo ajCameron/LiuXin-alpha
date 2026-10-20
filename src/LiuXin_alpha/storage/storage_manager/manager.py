@@ -20,6 +20,7 @@ from LiuXin_alpha.storage.storage_manager.mixins import (
     DigitalAssetRetrievalMixin,
     ItemDigitalAssetLinkMixin,
     ReplicaLifecycleMixin,
+    StorageDeletionMixin,
     StorageOperationalStatusMixin,
     StoragePolicyMixin,
     StorageReconciliationMixin,
@@ -37,6 +38,7 @@ from LiuXin_alpha.storage.storage_manager.mixins._support import (
 class _StorageManagerOrchestrator(
     StoreAdministrationMixin,
     StorageRouterMixin,
+    StorageDeletionMixin,
     DigitalAssetRegistryMixin,
     DigitalAssetIngestMixin,
     DigitalAssetRetrievalMixin,

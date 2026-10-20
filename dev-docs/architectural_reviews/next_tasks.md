@@ -3,8 +3,8 @@
 Date: **2026-10-20**. Basis: documentation review at `a5406cf8`, A01 at `75b266ed`,
 A02 at `d5956d6e`, and A03's implementation on `database-create-safety`.
 
-Status: **A01–A04 are implemented for PR review; remaining runtime fixes are open.
-Documentation progress is recorded in A14; A15's CI repair is under verification.** Recheck the named behaviour before starting each task, especially
+Status: **A01–A05 are implemented for PR review; remaining runtime fixes are open.
+Documentation progress is recorded in A14; A15's repaired full CI baseline is verified.** Recheck the named behaviour before starting each task, especially
 where evidence comes from an older review. The first safety slices were checked
 against their current source; A15 records fresh CI and branch-rule observations.
 
@@ -24,10 +24,9 @@ Finding IDs below refer to the
 
 ## Recommended order
 
-First repair the shared full-suite failures recorded under **A15** so subsequent
-runtime slices have a useful CI baseline. With A01–A04 implemented for review,
-enforce **A05's deletion policy next**. A06's transport contract is independent of
-job consolidation and can proceed in the same safety group. A07 is the next bounded read-model
+With **A15's repaired CI baseline verified** and A01–A05 implemented for review,
+enforce **A06's transport contract next**. It is independent of
+job consolidation. A07 is the next bounded read-model
 change; A08 continues the existing write-consolidation programme.
 
 The order is a recommendation, not a requirement to finish every earlier item
@@ -39,7 +38,7 @@ before starting an independent one. Dependencies are stated in each task.
 | [A02](#a02-enforce-store-read-only-intent) | Implemented; PR review | Four affected builders preserve and enforce read-only intent through durable reload. | Storage registry and Stores |
 | [A03](#a03-make-database-creation-nondestructive-by-default) | Implemented; PR review | Creation refuses collisions; explicit offline replacement retains a verified backup. | Databases and Core bootstrap |
 | [A04](#a04-separate-resource-lifetime-from-transaction-lifetime) | Implemented; PR review | Exceptions and nested mutations have one explicit transaction contract. | Databases, with Catalog/storage callers |
-| [A05](#a05-enforce-deletion-policy-at-the-mutation-boundary) | First | Removing bytes cannot bypass retention/last-copy policy. | Storage manager |
+| [A05](#a05-enforce-deletion-policy-at-the-mutation-boundary) | Implemented; PR review | Removing bytes cannot bypass retention/last-copy policy. | Storage manager |
 | [A06](#a06-enforce-transport-capabilities-on-the-server) | First | Remote/read-only clients cannot invoke privileged operations by name. | Core transport and surfaces |
 | [A07](#a07-choose-one-default-wemi-selection-policy) | Next | SQL projections and Catalog bundles apply an agreed path-selection policy. | Catalog and schema projections |
 | [A08](#a08-complete-semantic-write-coverage) | Next | Missing validators enter the existing shared write boundary. | Metadata and Catalog |
@@ -49,7 +48,7 @@ before starting an independent one. Dependencies are stated in each task.
 | [A12](#a12-finish-operational-path-and-startup-ownership) | Following | Scratch/startup helpers no longer pull process-wide hooks into foundation imports. | Configuration paths and utility owners |
 | [A13](#a13-make-provider-and-conversion-outcomes-explicit) | Following | Unsupported providers and conversion losses become structured results. | Plugins, file formats and jobs |
 | [A14](#a14-continue-documentation-with-concrete-source-backed-examples) | Documentation pass complete; PR review | Schema inventory, conventions, subsystem ownership and next-task routing reviewed. | Developer documentation |
-| [A15](#a15-refresh-repository-hygiene-and-ci-evidence) | Verification in progress | Repair shared failures, remove generated scratch and validate a clean baseline. | Packaging and test tooling |
+| [A15](#a15-refresh-repository-hygiene-and-ci-evidence) | Verified; PR review | Repair shared failures, remove generated scratch and validate a clean baseline. | Packaging and test tooling |
 | [A16](#a16-reduce-compatibility-debt-one-live-boundary-at-a-time) | Following | A measured dependency or duplicate implementation is removed with caller evidence. | Relevant subsystem owner |
 
 ## A01. Preserve caller-owned backup staging
@@ -89,7 +88,7 @@ catalogue reopen/reload on both database drivers. Refusals preserve stored bytes
 and metadata. SQLite cases also cover missing storage/schema, engine-level write
 refusal and live WAL commits. See the
 [construction contract](../storage_and_backup/storage_api.md#read-only-store-construction)
-for WAL sidecar behaviour and scope. A05's retention/last-copy policy remains open.
+for WAL sidecar behaviour and scope. A05 adds retention/last-copy enforcement.
 
 ## A03. Make database creation nondestructive by default
 
@@ -107,7 +106,7 @@ The [creation contract](../databases/creation-and-replacement.md) states backup,
 failure, recovery and offline-exclusion requirements. Real file regressions cover
 collisions, partial failure and writable reopen; live PostgreSQL regressions cover
 refusal, concurrent creation and rollback. No user database or old schema was
-migrated. A04's general transaction/close semantics remain open.
+migrated. A04 defines the general transaction/close semantics.
 
 ## A04. Separate resource lifetime from transaction lifetime
 
@@ -130,28 +129,32 @@ nested units cannot commit their caller's pending changes; resource cleanup does
 not accidentally commit failed work. The main SQLite/APSW-named caller/resource selection passed 426 checks;
 62 PostgreSQL checks and 52 documentation/API/workflow follow-ups passed. Quality
 gates passed. Windows-only checks and disabled legacy Calibre-cache features
-remain explicitly outside that evidence; the [handoff](../../working-memory/transaction-ownership-2026-10-20.md) records their limits. Full PR CI remains separate.
+remain explicitly outside that evidence; the [handoff](../../working-memory/transaction-ownership-2026-10-20.md) records their limits.
+Full PR CI passed on `e9efedc4`, including the corrected optional APSW test setup.
 
 ## A05. Enforce deletion policy at the mutation boundary
 
-**Findings:** ST-1/3. **First PR:** one policy boundary around replica byte removal.
-**Dependencies:** A02; use A04's transaction contract for related metadata changes.
-A10 can migrate additional storage writers afterward.
+**Findings:** ST-1/3. **Implemented for PR review, 2026-10-20.**
+**Dependencies:** A02 and A04; A10 still owns additional storage writer migration.
 
-[`remove_replica`](../../src/LiuXin_alpha/storage/storage_manager/mixins/replicas.py)
-and [`router.delete`](../../src/LiuXin_alpha/storage/storage_manager/mixins/router.py)
-currently reach byte removal without one enforced retention/last-copy decision.
-Define the permitted destructive operations and put policy immediately before
-effects in the manager, where Asset/Replica knowledge exists. Keep raw drivers
-as byte mechanisms. A direct driver escape must be clearly scoped as privileged
-low-level access, never advertised as a policy-enforcing deletion API.
+[`StorageDeletionMixin`](../../src/LiuXin_alpha/storage/storage_manager/mixins/deletion.py)
+owns `remove_replica` and routed deletion. It checks read-only/retention/last-copy
+policy before reserving, uses fresh surviving-byte evidence and configured joint
+separation, then commits DELETING claims before external I/O. SQLite/PostgreSQL
+metadata owners serialize decisions using A04's transaction owner and read past
+stale local caches. A caller-owned transaction cannot hide deletion reservations.
 
-**Done when:** direct manager, Core and CLI paths agree on refusals; read-only,
-retention and last-copy cases fail before mutation. Concurrent deletion requests
-cannot both rely on the same remaining copy. Authorized deletion and backend
-failure produce honest results, including recovery information when byte and
-metadata effects cannot be atomic. Do not pretend a database rollback restores
-already-deleted external bytes.
+[The contract](../storage_and_backup/deletion_policy.md) defines permitted modes,
+raw privileged escapes, recovery evidence and manual reconciliation. Core
+removal receipts preserve structured errors for CLI output. The final focused
+selection passed 110 tests, including SQLite/PostgreSQL fault/concurrency and real
+Core/CLI cases; complete quality gates passed. A late verification cannot revive
+a deleted claim. The linked contract records the inherited PostgreSQL full-schema
+cache-discovery limitation; these checks do not claim general cache compatibility.
+
+Automated pending-deletion recovery, zero-copy eviction and destructive overrides
+remain absent. Recipe/loss policies alone do not authorize deleting a last copy.
+A SQL rollback never promises restoration of erased external bytes.
 
 ## A06. Enforce transport capabilities on the server
 
@@ -349,15 +352,18 @@ surface-import and headless-image repairs on `ci-baseline-repair`. A clean
 environment passes the complete quality gates and installed-wheel checks.
 Thirty generated benchmark scratch files (about 98 MiB) are removed and guarded;
 historical reports, source fixtures and compatibility configuration are classified.
-Full-suite acceptance remains pending; focused results do not close this task.
+The full run on `a0e4d2ed` now passes: **7,388 passed, 249 skipped and
+17 expected failures**. [Run #39441669661](https://github.com/ajCameron/LiuXin-alpha/actions/runs/39441669661)
+also passed the wheel, quality, both format lanes and aggregate gate. Optional
+integration/GUI skips remain separate evidence.
 
 **Fresh evidence, 2026-10-20:** [PR #128's full run](https://github.com/ajCameron/LiuXin-alpha/actions/runs/39366322310)
 and [PR #129's full run](https://github.com/ajCameron/LiuXin-alpha/actions/runs/39368762975)
 have the same 40 failing test IDs. The latter passed 7,308 tests, with 242 skips
 and 17 expected failures. Failure groups include missing Ruff/encryption test
 dependencies, surface package state and image fallback behaviour. The repair
-addresses those groups; the green focused, architecture and wheel checks do not
-establish a green full-suite baseline.
+addresses those groups; the subsequent current-head full run establishes the
+green baseline separately from focused, architecture and wheel checks.
 
 Classify tracked generated outputs, real fixtures and instance configuration from
 a fresh inventory. Remove only confirmed generated material from future commits,

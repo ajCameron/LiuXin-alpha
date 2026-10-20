@@ -11,8 +11,11 @@ caller-owned parents through cleanup and recovery; it is implemented for PR revi
 A02/STOR02 also preserves read-only policy through the four affected local
 builders, drivers and durable reload; see the
 [construction contract](storage_api.md#read-only-store-construction).
-Bypassable last-copy/retention checks remain the first storage
-[next task](next_tasks.md#stor03-enforce-retention-at-byte-deletion). `LibraryServices` now composes
+A05/STOR03 now places both manager byte-deletion entry points behind a shared
+[policy and reservation owner](deletion_policy.md); 110 focused checks passed,
+including live PostgreSQL, alongside the complete quality gates.
+Raw Store/driver/persistence access remains privileged, and automated deletion
+recovery or zero-copy eviction is not provided. `LibraryServices` now composes
 the owned application graph, including `CoreServices`; direct Database construction
 remains available and has a separate lifecycle contract.
 

@@ -148,7 +148,8 @@ class StorageReconciliationMixin(_StorageManagerState):
         """
         Check the global Replica generation and replace the plan's adverse observations in order.
 
-        Under the lock and metadata transaction, process missing IDs, then corrupt IDs, then
+        Under the lock and metadata transaction, refuse pending deletion reservations before any
+        observation updates, then process missing IDs, corrupt IDs, and
         unavailable IDs. Each record must exist and belong to plan.store_ref. Replacements receive a
         fresh revision/timestamp and a generic failure reason, discarding prior observation
         evidence. Duplicate or overlapping IDs are processed repeatedly, with later classifications
@@ -178,6 +179,16 @@ class StorageReconciliationMixin(_StorageManagerState):
                 (plan.corrupt_replica_ids, manager_api.ReplicaState.CORRUPT),
                 (plan.unavailable_replica_ids, manager_api.ReplicaState.UNAVAILABLE),
             )
+            # Validate reservations before any transient or durable metadata writes.
+            for replica_ids, _state in classifications:
+                for replica_id in replica_ids:
+                    if (
+                        self._require_replica_locked(replica_id).state
+                        is manager_api.ReplicaState.DELETING
+                    ):
+                        raise manager_api.StoreReconciliationPlanStale(
+                            "Replica has a pending deletion reservation."
+                        )
             updated: list[manager_api.ReplicaID] = []
             for replica_ids, state in classifications:
                 for replica_id in replica_ids:

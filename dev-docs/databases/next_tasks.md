@@ -1,6 +1,6 @@
 # Next database tasks
 
-Date: **2026-10-20**. DB01 is implemented for PR review; the remaining entries are
+Date: **2026-10-20**. DB01 and DB02 are implemented for PR review; the remaining entries are
 proposed work grounded in the driver/schema review. Cross-project order belongs
 to the [architecture tasks](../architectural_reviews/next_tasks.md).
 
@@ -48,6 +48,20 @@ changing them. Recreate connection-local cleanup after connection replacement
 and metadata changes, and verify unrelated permanent integrity triggers survive.
 Done when supported callers have an owner and tests cover two independent
 connections; remove only compatibility code whose callers have migrated.
+
+## DB06. Make generated PostgreSQL identifiers discoverable
+
+**Confirmed follow-up, 2026-10-20.** Full-schema cache discovery expects
+`composite_digital_asset_digital_asset_link_composite_digital_asset_id`, but
+PostgreSQL stores its truncated identifier. A05's live testing exposed this
+before deletion; the same discovery error reproduces on unchanged A04 parent
+`e9efedc4`. The focused Asset/Replica cache test does not resolve this wider issue.
+
+Choose one deterministic identifier mapping shared by schema creation and
+discovery, preserving existing databases through an explicit compatibility or
+migration path. Cover collisions, existing schemas and full cache loading on
+PostgreSQL alongside SQLite. Do not claim backend parity from the narrower
+storage cache regression.
 
 ## Review evidence and checks
 

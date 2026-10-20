@@ -406,7 +406,7 @@ class SQLPortableMacrosMixin:
             invalidate()
 
     @contextmanager
-    def _macro_transaction(self) -> Iterator[Any]:
+    def _macro_transaction(self, *, serialized: bool = False, require_outermost: bool = False) -> Iterator[Any]:
         """Own one write unit while preserving nested and caller-owned transactions.
 
         A fresh driver connection belongs to this operation and is closed afterward.
@@ -420,6 +420,10 @@ class SQLPortableMacrosMixin:
             state = vars(self).setdefault("_macro_transaction_state", threading.local())
         depth = getattr(state, "depth", 0)
         if depth:
+            if require_outermost:
+                raise RuntimeError("This operation must own an outermost transaction")
+            if serialized and not getattr(state, "serialized", False):
+                raise RuntimeError("Cannot serialize a unit inside an ordinary transaction")
             state.depth = depth + 1
             try:
                 with transaction_scope(state.connection, owns_transaction=False) as conn:
@@ -441,18 +445,32 @@ class SQLPortableMacrosMixin:
                 raise DatabaseIntegrityError("Database driver has no connection for portable macros.")
             state.depth = 1
             state.connection = conn
+            state.serialized = serialized
             try:
                 owns_transaction = owns_connection or not transaction_active(conn)
-                with transaction_scope(conn, owns_transaction=owns_transaction):
+                if (serialized or require_outermost) and not owns_transaction:
+                    raise RuntimeError("Serialized units require ownership of the outer transaction")
+                postgres = hasattr(driver, "schema")
+                with transaction_scope(
+                    conn,
+                    owns_transaction=owns_transaction,
+                    immediate=serialized and not postgres,
+                ):
+                    if serialized and postgres:
+                        conn.execute(
+                            "SELECT pg_advisory_xact_lock(hashtext(current_database()), hashtext(?))",
+                            (f"liuxin.serialized:{driver.schema}",),
+                        )
                     yield conn
             finally:
                 state.depth = 0
                 state.connection = None
+                state.serialized = False
                 if owns_connection:
                     conn.close()
         self._macro_invalidate()
 
-    def transaction(self) -> AbstractContextManager[Any]:
+    def transaction(self, *, serialized: bool = False, require_outermost: bool = False) -> AbstractContextManager[Any]:
         """
         Return the context manager that groups portable operations in one outer write
         boundary.
@@ -462,6 +480,13 @@ class SQLPortableMacrosMixin:
         locking, nested savepoints and owned commit/rollback. A caught inner failure
         rolls back that inner unit only. Borrowed transactions remain pending for
         their caller; connections are closed only when acquired for this operation.
+
+        A serialized outer unit takes SQLite's writer reservation at BEGIN or a
+        PostgreSQL advisory transaction lock shared by cooperating serialized
+        callers in this schema. It cannot upgrade an ordinary or borrowed unit.
+        require_outermost refuses nested or borrowed units before effects so a
+        successful exit guarantees an actual commit, not merely a savepoint release.
+        This does not lock external Store bytes or privileged raw SQL writers.
 
         Example:
             >>> import sqlite3
@@ -487,11 +512,13 @@ class SQLPortableMacrosMixin:
             >>> conn.close()
 
 
+        :param serialized: Reserve the cooperating writer boundary before reading state.
+        :param require_outermost: Refuse nesting or borrowing so exit commits this operation.
         :return: A context manager yielding the shared connection for composed macro
             operations.
         """
 
-        return self._macro_transaction()
+        return self._macro_transaction(serialized=serialized, require_outermost=require_outermost)
 
     def _row_id_column(self, table: str, id_column: str | None) -> str:
         """

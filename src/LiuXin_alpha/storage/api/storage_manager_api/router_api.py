@@ -107,10 +107,14 @@ class StorageRouterAPI(abc.ABC):
         if_version: str | None = None,
     ) -> None:
         """
-        Delete a routed object with optional idempotence and version protection. Unsupported
-        conditional deletion raises StoreUnsupportedOperation and a stale version raises
-        StorePreconditionFailed under the Store contract. The implementation owns routing and any
-        side effects.
+        Delete registered bytes under the manager's retention and last-copy policy.
+
+        The concrete manager shares this boundary with remove_replica: it refuses protected modes,
+        read-only Stores, unknown claims, pending deletions and insufficient freshly verified
+        survivors before mutation. Successful deletion finalizes every live claim at the Location.
+        Partial outcomes raise StorageDeletionError with reservation/recovery evidence. Unsupported
+        conditional deletion and stale versions retain their Store error categories before effects.
+        Raw Store/driver deletion is privileged access outside manager loss policy.
 
         Example:
             >>> manager.delete(location, if_version="v3")  # doctest: +SKIP

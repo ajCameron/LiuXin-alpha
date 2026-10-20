@@ -1,6 +1,6 @@
 # Next storage tasks
 
-Date: **2026-10-20**. STOR01 and STOR02 are implemented for PR review; remaining entries are proposed work.
+Date: **2026-10-20**. STOR01–STOR03 are implemented for PR review. Other entries remain proposed work.
 
 Keep the existing manager/Store/driver structure. Close mutation and resource ownership gaps before adding more orchestration layers.
 
@@ -33,9 +33,16 @@ provider-specific initialization is not a universal no-side-effect guarantee.
 
 ## STOR03. Enforce retention at byte deletion
 
-**First; architecture A05.** Give deletion, Replica removal and capacity cleanup one policy decision at the mutation boundary. Distinguish a raw physical primitive from an authorized domain operation and retain auditable override intent where supported.
+**Implemented for PR review, 2026-10-20; architecture A05.**
+Both manager entry points use the [deletion policy and recovery contract](deletion_policy.md).
+Protected modes and last-copy/minimum/separation refusals precede committed
+DELETING reservations. Database owners serialize their decisions and bypass
+stale per-facade caches. Core/CLI retain partial-outcome recovery evidence.
 
-Done when last-copy, retention-locked and exact-recreation cases agree across all public routes, stale versions are rejected, and failures after byte deletion have recovery evidence.
+Raw Store/driver access remains privileged. There is no force override, automatic
+pending-deletion recovery, or permission to erase a last copy merely because its
+policy permits recreation/loss. Capacity-cleanup callers must use this owner when
+introduced; leases and storage writer consolidation remain STOR04/STOR05 work.
 
 ## STOR04. Converge storage-record mutations and receipts
 
