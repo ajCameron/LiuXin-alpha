@@ -15,10 +15,13 @@ from contextlib import contextmanager
 from pathlib import Path
 from uuid import UUID, uuid4
 
+import pytest
+
 from LiuXin_alpha.core.library_services import LibraryServices
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.library import Library
+from LiuXin_alpha.storage.api import ReplicaState, StoragePolicyUnsatisfied
 from LiuXin_alpha.storage.stores import FilesystemStore
 from tests.support._surface_storage_tables import ensure_surface_asset_tables
 
@@ -232,7 +235,7 @@ def test_library_replica_deletion_is_explicit_and_tombstoned(
     tmp_path: Path,
 ) -> None:
     """
-    Perform the test library replica deletion is explicit and tombstoned operation under explicit file-format and conversion rules.
+    Refuse last-copy deletion, then tombstone a redundant copy through the Library facade.
 
     Example:
         Exercise test library replica deletion is explicit and tombstoned through a consuming regression::
@@ -267,11 +270,33 @@ def test_library_replica_deletion_is_explicit_and_tombstoned(
             )
         )
 
+        before = library.storage.get_replica_record(replica.replica_id)
+        with pytest.raises(StoragePolicyUnsatisfied, match="freshly verified copy"):
+            library.delete_file(replica)
+        assert library.storage.get_replica_record(replica.replica_id) == before
+        assert library.read_location(replica.location) == b"remove"
+
+        survivor_root = tmp_path / "survivor-store"
+        survivor_root.mkdir()
+        survivor_store = _insert_store_row(
+            library.db,
+            name="survivor-store",
+            kind="on_disk_existing_managed_drive",
+            root_uri=str(survivor_root),
+        )
+        library.refresh_storage(clear_existing=True, startup_on_add=True)
+        library.storage.replicate_digital_asset(
+            asset.digital_asset_id,
+            destination_store_ref=survivor_store,
+            verify=True,
+        )
         report = library.delete_file(replica)
 
         assert report.bytes_deleted
         assert report.tombstone_retained
         assert not library.storage.exists(replica.location)
+        assert library.storage.get_replica_record(replica.replica_id).state is ReplicaState.DELETED
+        assert library.read_file(asset) == b"remove"
 
 
 def test_library_facade_can_wrap_existing_database_without_owning_close(

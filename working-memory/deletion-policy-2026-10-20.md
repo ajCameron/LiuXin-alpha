@@ -75,3 +75,13 @@ The isolated candidate is `/tmp/liuxin-a05-review`; its HEAD predates the overla
 The disposable PostgreSQL cluster uses `/tmp/liuxin-a05-postgres/data`, socket
 `/tmp/liuxin-a05-postgres/socket`, port 55435. It was stopped after local validation; no local tests remain running.
 The sync script `/tmp/liuxin-sync-a05.py` excludes and verifies the preserved files.
+
+## Confidence-suite caller migration
+
+PR #133's confidence run exposed one remaining old Library-facade test that
+expected deletion of its only copy. It now asserts unchanged bytes/metadata on
+refusal, creates a verified survivor, and then verifies deletion, tombstone and
+surviving content through the Library facade. All **10 Library facade checks**
+passed on the isolated A05 follow-up. No runtime policy was weakened. The updated
+parent requires its own remote confidence/full CI result. A06 transport work is
+on a separate branch and is not part of this follow-up.
