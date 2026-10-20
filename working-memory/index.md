@@ -6,10 +6,12 @@ Active implementation checkpoint, **2026-10-20**:
 Its shared value rules and metadata-import transaction pass 29 pure cases, all
 26 supported integration cases and the two existing aggregate cases. Broader
 caller checks passed 175 tests; final import/docs/boundary checks passed 47 tests;
-all quality gates passed. Counts overlap. The focused A08 PR is ready to publish.
+all quality gates passed. Counts overlap. Published as PR #137; its CI exposed
+existing-driver bootstrap ordering, now fixed with all 56 lifecycle tests passing.
+The confidence rerun passed 304 tests with three skips. A09 job dispatch follows.
 The prerequisite's [handoff](postgres-discovery-2026-10-20.md) records native
 identifier discovery and cache index ownership: 81 checks, 21 final controls/docs
-checks, and full quality passed. Initial PR #136 CI lanes are green; full CI is pending.
+checks, and full quality passed. PR #136 full CI is green.
 The six unrelated staged storage files remain preserved. The full A01–A16
 programme is open; no PR has been merged.
 

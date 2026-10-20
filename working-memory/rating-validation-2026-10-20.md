@@ -94,16 +94,26 @@ is `/tmp/liuxin-a08-parent-language-conflict.log`. No broad baseline waiver was
 introduced. The Rating score/scale validation and bootstrap/import transaction
 changes are the A08 slice; further semantic field coverage remains open.
 
-The isolated test checkout remains `/tmp/liuxin-a07-review`, detached at `ce43fccd`
-plus A08. `/tmp/liuxin-sync-a08.py` copies the explicit changed scopes, records
-`/tmp/liuxin-a08-files.json`, and verifies protected files. Publish the focused
-`catalog-rating-validation` PR based on `postgres-link-discovery`, then continue
-A09 durable job-state/dispatch. Full suites belong in CI.
+Published as [PR #137](https://github.com/ajCameron/LiuXin-alpha/pull/137), based
+on `postgres-link-discovery`. Continue A09 durable job-state/dispatch after its
+CI follow-up. Full suites belong in CI.
+
+## CI follow-up
+
+The confidence lane exposed a bootstrap ordering regression when wrapping a
+standalone driver: its macros still had `db=None` when transactional rating repair
+ran. The existing-driver constructor now binds the driver and macros before
+schema discovery/repair; maintenance still starts afterward. All **56 existing
+database lifecycle contracts pass** in `/tmp/liuxin-a08-ci-fix.log`.
+The isolated follow-up checkout is `/tmp/liuxin-a09-review`, based on `5b07d182`.
+The confidence rerun passed **304 tests, three skipped in 311.60s**:
+`/tmp/liuxin-a08-confidence-fixed.log`.
+New job-dispatch tests in that checkout belong to A09, not this follow-up commit.
 
 The disposable PostgreSQL cluster `/tmp/liuxin-a05-postgres/data` is **stopped**;
 all client connections were confirmed closed first. Tests used serial execution,
 telemetry and immediate scratch cleanup. C: free space held near 12 GiB.
 
 Parent full CI is green: #133 has 7,438 passed, #134 has 7,476 passed, #135 has
-7,487 passed; each has 269 skipped and 17 xfailed. PR #136 quick CI lanes are
-green; its full CI remains pending. No PR was merged.
+7,487 passed; each has 269 skipped and 17 xfailed. PR #136 full CI is also green.
+No PR was merged.

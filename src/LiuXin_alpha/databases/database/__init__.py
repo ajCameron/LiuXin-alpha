@@ -400,7 +400,10 @@ class Database(
         """
         Bind an existing driver, classify its schema and initialize runtime helpers.
 
-        This internal constructor path assumes existence, refreshes metadata and shares table categories before optional repairs. It does not copy the driver metadata or backend type to the facade. Constructor telemetry and queue setup must already exist.
+        This internal constructor path assumes existence and binds the driver/macros
+        before schema discovery and transactional bootstrap repairs. It does not
+        copy the driver metadata or backend type to the facade. Constructor
+        telemetry and queue setup must already exist.
 
         Example:
             Database(existing_driver=driver, enable_storage_manager=False) invokes this path after setting up the facade state.
@@ -414,6 +417,10 @@ class Database(
         # Load the driver constructor - use this to make the driver instance for this database
         self.set_driver(existing_driver)
         self.set_macros(existing_driver.macros)
+        # A standalone driver's macros have no facade yet. Bootstrap repair uses
+        # the facade's transaction owner, so bind it before any repair can run.
+        self.driver.db = self
+        self.macros.db = self
 
         # Load the backend with the driver.
         self.lock = self.driver_wrapper.lock
