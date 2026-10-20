@@ -49,6 +49,7 @@ def install_queries(
             field("include_composites", field_type="boolean"),
         ),
         tags=("catalog", "fields", "read"),
+        remote_capabilities=("read",),
     )
 
     query(
@@ -57,6 +58,7 @@ def install_queries(
         summary="Return metadata for one display/search field.",
         payload_fields=(field("key", required=True, field_type="string"),),
         tags=("catalog", "fields", "read"),
+        remote_capabilities=("read",),
     )
 
     query(
@@ -69,6 +71,7 @@ def install_queries(
             field("direction", field_type="string"),
         ),
         tags=("catalog", "wemi", "read"),
+        remote_capabilities=("read",),
     )
 
     query(
@@ -80,6 +83,7 @@ def install_queries(
             field("entity_id", required=True, field_type="integer"),
         ),
         tags=("catalog", "identifiers", "read"),
+        remote_capabilities=("read",),
     )
 
     query(
@@ -91,6 +95,7 @@ def install_queries(
             field("entity_id", required=True, field_type="integer"),
         ),
         tags=("catalog", "identifiers", "read"),
+        remote_capabilities=("read",),
     )
 
     query(
@@ -103,6 +108,7 @@ def install_queries(
             field("role", field_type="string|null"),
         ),
         tags=("catalog", "agents", "read"),
+        remote_capabilities=("read",),
     )
 
     query(
@@ -116,6 +122,7 @@ def install_queries(
             field("offset", field_type="integer"),
         ),
         tags=("search", "rows", "read"),
+        remote_capabilities=("read",),
     )
 
 
@@ -154,6 +161,7 @@ def install_commands(
             field("identifiers", required=True, field_type="array|object"),
         ),
         tags=("catalog", "identifiers", "write"),
+        remote_capabilities=("write",),
     )
 
     command(
@@ -168,4 +176,5 @@ def install_commands(
             field("priority", field_type="integer|null"),
         ),
         tags=("catalog", "agents", "write"),
+        remote_capabilities=("write",),
     )

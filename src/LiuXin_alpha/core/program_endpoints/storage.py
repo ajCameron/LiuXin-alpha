@@ -45,6 +45,7 @@ def install_queries(api: StorageHandlers, runtime: ProgramEndpointRegistrar) -> 
         summary="Return persisted and live details for one store.",
         payload_fields=(field("store", required=True, field_type="string|integer"),),
         tags=("storage", "stores", "read"),
+        remote_capabilities=("admin",),
     )
 
     query(
@@ -52,6 +53,7 @@ def install_queries(api: StorageHandlers, runtime: ProgramEndpointRegistrar) -> 
         api.storage_default_get,
         summary="Return the selected default store.",
         tags=("storage", "stores", "read"),
+        remote_capabilities=("admin",),
     )
 
     query(
@@ -63,6 +65,7 @@ def install_queries(api: StorageHandlers, runtime: ProgramEndpointRegistrar) -> 
             field("key", required=True, field_type="string"),
         ),
         tags=("storage", "files", "read"),
+        remote_capabilities=("admin",),
     )
 
     query(
@@ -70,6 +73,7 @@ def install_queries(api: StorageHandlers, runtime: ProgramEndpointRegistrar) -> 
         api.storage_sources_supported,
         summary="List source/store registration kinds supported by Core.",
         tags=("storage", "ingest", "capabilities"),
+        remote_capabilities=("admin",),
     )
 
     query(
@@ -81,6 +85,7 @@ def install_queries(api: StorageHandlers, runtime: ProgramEndpointRegistrar) -> 
         ),
         payload_fields=(field("include_internal", field_type="boolean"),),
         tags=("storage", "stores", "capabilities", "read"),
+        remote_capabilities=("admin",),
     )
 
     query(
@@ -92,6 +97,7 @@ def install_queries(api: StorageHandlers, runtime: ProgramEndpointRegistrar) -> 
         ),
         payload_fields=(field("refresh_stores", field_type="boolean"),),
         tags=("storage", "health", "read"),
+        remote_capabilities=("admin",),
     )
 
     query(
@@ -100,6 +106,7 @@ def install_queries(api: StorageHandlers, runtime: ProgramEndpointRegistrar) -> 
         summary="Plan non-destructive storage recovery from current health.",
         payload_fields=(field("refresh_stores", field_type="boolean"),),
         tags=("storage", "reconcile", "read"),
+        remote_capabilities=("admin",),
     )
 
     query(
@@ -111,6 +118,7 @@ def install_queries(api: StorageHandlers, runtime: ProgramEndpointRegistrar) -> 
             field("max_assets", field_type="integer"),
         ),
         tags=("storage", "repair", "planning", "read"),
+        remote_capabilities=("admin",),
     )
 
     query(
@@ -123,6 +131,7 @@ def install_queries(api: StorageHandlers, runtime: ProgramEndpointRegistrar) -> 
             field("max_assets", field_type="integer"),
         ),
         tags=("storage", "stores", "evacuation", "planning", "read"),
+        remote_capabilities=("admin",),
     )
 
     query(
@@ -135,6 +144,7 @@ def install_queries(api: StorageHandlers, runtime: ProgramEndpointRegistrar) -> 
             field("offset", field_type="integer"),
         ),
         tags=("storage", "ingest", "recovery", "read"),
+        remote_capabilities=("admin",),
     )
 
 
@@ -169,6 +179,7 @@ def install_commands(api: StorageHandlers, runtime: ProgramEndpointRegistrar) ->
         summary="Probe one configured store and return its live status.",
         payload_fields=(field("store", required=True, field_type="string|integer"),),
         tags=("storage", "stores", "write"),
+        remote_capabilities=("admin",),
     )
 
     command(
@@ -180,6 +191,7 @@ def install_commands(api: StorageHandlers, runtime: ProgramEndpointRegistrar) ->
             field("changes", required=True, field_type="object"),
         ),
         tags=("storage", "stores", "write"),
+        remote_capabilities=("admin",),
     )
 
     command(
@@ -191,6 +203,7 @@ def install_commands(api: StorageHandlers, runtime: ProgramEndpointRegistrar) ->
             field("delete_from_database", field_type="boolean"),
         ),
         tags=("storage", "stores", "write"),
+        remote_capabilities=("admin",),
     )
 
     command(
@@ -199,6 +212,7 @@ def install_commands(api: StorageHandlers, runtime: ProgramEndpointRegistrar) ->
         summary="Select the default store.",
         payload_fields=(field("store", required=True, field_type="string|integer"),),
         tags=("storage", "stores", "write"),
+        remote_capabilities=("admin",),
     )
 
     command(
@@ -211,6 +225,7 @@ def install_commands(api: StorageHandlers, runtime: ProgramEndpointRegistrar) ->
             field("metadata", field_type="object|null"),
         ),
         tags=("storage", "files", "write"),
+        remote_capabilities=("admin",),
     )
 
     command(
@@ -222,6 +237,7 @@ def install_commands(api: StorageHandlers, runtime: ProgramEndpointRegistrar) ->
             field("options", required=True, field_type="object"),
         ),
         tags=("storage", "ingest", "write"),
+        remote_capabilities=("admin",),
     )
 
     command(
@@ -233,6 +249,7 @@ def install_commands(api: StorageHandlers, runtime: ProgramEndpointRegistrar) ->
             field("calculate_digests", field_type="boolean"),
         ),
         tags=("storage", "integrity", "write"),
+        remote_capabilities=("admin",),
     )
 
     command(
@@ -245,6 +262,7 @@ def install_commands(api: StorageHandlers, runtime: ProgramEndpointRegistrar) ->
             field("all_replicas", field_type="boolean"),
         ),
         tags=("storage", "integrity", "write"),
+        remote_capabilities=("admin",),
     )
 
     command(
@@ -257,6 +275,7 @@ def install_commands(api: StorageHandlers, runtime: ProgramEndpointRegistrar) ->
             field("calculate_digests", field_type="boolean"),
         ),
         tags=("storage", "integrity", "maintenance", "write"),
+        remote_capabilities=("admin",),
     )
 
     command(
@@ -268,6 +287,7 @@ def install_commands(api: StorageHandlers, runtime: ProgramEndpointRegistrar) ->
             field("include_offline", field_type="boolean"),
         ),
         tags=("storage", "reconcile", "maintenance", "write"),
+        remote_capabilities=("admin",),
     )
 
     command(
@@ -281,6 +301,7 @@ def install_commands(api: StorageHandlers, runtime: ProgramEndpointRegistrar) ->
             field("max_transfer_bytes", field_type="integer"),
         ),
         tags=("storage", "repair", "maintenance", "write"),
+        remote_capabilities=("admin",),
     )
 
     command(
@@ -296,6 +317,7 @@ def install_commands(api: StorageHandlers, runtime: ProgramEndpointRegistrar) ->
             field("keep_source_bytes", field_type="boolean"),
         ),
         tags=("storage", "stores", "evacuation", "maintenance", "write"),
+        remote_capabilities=("admin",),
     )
 
     command(
@@ -304,6 +326,7 @@ def install_commands(api: StorageHandlers, runtime: ProgramEndpointRegistrar) ->
         summary="Recover all or one interrupted Store publication.",
         payload_fields=(field("operation_id", field_type="string|null"),),
         tags=("storage", "ingest", "recovery", "write"),
+        remote_capabilities=("admin",),
     )
 
     command(
@@ -312,4 +335,5 @@ def install_commands(api: StorageHandlers, runtime: ProgramEndpointRegistrar) ->
         summary="Retry one durable ingest when its source remains replayable.",
         payload_fields=(field("operation_id", required=True, field_type="string"),),
         tags=("storage", "ingest", "recovery", "write"),
+        remote_capabilities=("admin",),
     )

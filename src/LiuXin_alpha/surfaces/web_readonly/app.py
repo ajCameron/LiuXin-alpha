@@ -23,6 +23,7 @@ import re
 import sys
 import unicodedata
 
+from copy import copy
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -32,6 +33,7 @@ from wsgiref.simple_server import make_server
 from wsgiref.util import FileWrapper
 
 from LiuXin_alpha.core import CoreClientAPI
+from LiuXin_alpha.core.readonly import ReadOnlyCoreClient
 
 # Preserve historical helper/type imports while their implementations live in
 # independent shared modules. Reusable backends import those owners directly.
@@ -269,6 +271,8 @@ class ReadOnlyWebApplication:
         >>> app.close()  # doctest: +SKIP
     """
 
+    _READ_ONLY_CORE = True
+
     _RELATED_TABLE_ORDER = (
         "tags",
         "labels",
@@ -301,8 +305,9 @@ class ReadOnlyWebApplication:
         """
         Adapt the supplied Core or database and bind shared surface backends.
 
-        An injected model is accepted without checking that it uses the same
-        Core client. Only exact ``metadata_read_source == "cache"`` selects a
+        An injected model must use the same Core client. Read-only composition
+        copies that model and binds a restricted client without changing its caller.
+        Only exact ``metadata_read_source == "cache"`` selects a
         cache type during coercion. Construction failures propagate; this method
         does not provide a rollback wrapper around partially built collaborators.
 
@@ -330,6 +335,15 @@ class ReadOnlyWebApplication:
             ),
         )
         self._compatibility_core_session = compatibility_session
+        if model is not None and model.core is not core:
+            if compatibility_session is not None:
+                compatibility_session.close()
+            raise ValueError("Injected surface model must use the same Core client.")
+        if self._READ_ONLY_CORE:
+            core = core if isinstance(core, ReadOnlyCoreClient) else ReadOnlyCoreClient(core)
+            if model is not None:
+                model = copy(model)
+                model.client = core
         self.core = core
         self.model = model or CoreSurfaceModel(core)
         self.db = CoreDatabaseView(core, model=self.model)
@@ -3639,29 +3653,6 @@ class ReadOnlyWebApplication:
         metadata: dict[str, object] = dict(row)
         metadata["file_row"] = dict(row)
         return metadata
-
-    def _refresh_storage_manager(self) -> bool:
-        """
-        Request storage refresh with replacement enabled and startup-on-add disabled.
-
-        Command exceptions become False; this does not prove no partial mutation
-        occurred. Truth conversion of a returned receipt happens outside the
-        exception handler and may itself raise for an unusual object.
-
-        Example:
-            >>> refreshed = app._refresh_storage_manager()  # doctest: +SKIP
-
-
-        :return: Truth value of the Core command result, or False for a command failure.
-        """
-        try:
-            result = self.core.command(
-                "storage.refresh",
-                {"startup_on_add": False, "clear_existing": True},
-            )
-        except Exception:
-            return False
-        return bool(result)
 
     def _resolve_storage_file(self, file_row):
         """

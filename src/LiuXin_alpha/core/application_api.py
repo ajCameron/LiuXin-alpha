@@ -340,6 +340,7 @@ class CoreApplicationAPI:
             self.schema_tables,
             summary="List readable tables and their transport-safe schema.",
             tags=("schema", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "schema.table",
@@ -347,6 +348,7 @@ class CoreApplicationAPI:
             summary="Describe one readable table.",
             payload_fields=(_field("table", required=True, field_type="string"),),
             tags=("schema", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "rows.get",
@@ -357,6 +359,7 @@ class CoreApplicationAPI:
                 _field("row_id", required=True, field_type="integer"),
             ),
             tags=("rows", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "rows.query",
@@ -374,6 +377,7 @@ class CoreApplicationAPI:
                 _field("limit", field_type="integer|null"),
             ),
             tags=("rows", "read", "cache"),
+            remote_capabilities=("read",),
         )
         query(
             "relations.list",
@@ -387,6 +391,7 @@ class CoreApplicationAPI:
                 _field("include_link_rows", field_type="boolean"),
             ),
             tags=("relations", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "admin.row.delete-impact",
@@ -398,6 +403,7 @@ class CoreApplicationAPI:
                 _field("sample_limit", field_type="integer"),
             ),
             tags=("admin", "rows", "read"),
+            remote_capabilities=("admin",),
         )
         query(
             "catalog.entity.get",
@@ -408,6 +414,7 @@ class CoreApplicationAPI:
                 _field("entity_id", required=True, field_type="integer"),
             ),
             tags=("catalog", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "catalog.entity.list",
@@ -419,6 +426,7 @@ class CoreApplicationAPI:
                 _field("offset", field_type="integer"),
             ),
             tags=("catalog", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "catalog.bundle.get",
@@ -429,6 +437,7 @@ class CoreApplicationAPI:
                 _field("entity_id", required=True, field_type="integer"),
             ),
             tags=("catalog", "metadata", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "catalog.graph.get",
@@ -441,6 +450,7 @@ class CoreApplicationAPI:
                 _field("max_items", field_type="integer"),
             ),
             tags=("catalog", "wemi", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "catalog.item.summary",
@@ -448,6 +458,7 @@ class CoreApplicationAPI:
             summary="Read a compact display-neutral Catalog Item summary.",
             payload_fields=(_field("item_id", required=True, field_type="integer"),),
             tags=("catalog", "metadata", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "catalog.match",
@@ -461,6 +472,7 @@ class CoreApplicationAPI:
                 _field("parent_id", field_type="integer"),
             ),
             tags=("catalog", "matching", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "catalog.agent.resolve",
@@ -471,6 +483,7 @@ class CoreApplicationAPI:
                 _field("role", field_type="string|null"),
             ),
             tags=("catalog", "agents", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "catalog.annotations.list",
@@ -482,6 +495,7 @@ class CoreApplicationAPI:
                 _field("kind", field_type="string|null"),
             ),
             tags=("catalog", "annotations", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "metadata.get",
@@ -493,6 +507,7 @@ class CoreApplicationAPI:
                 _field("include_legacy", field_type="boolean"),
             ),
             tags=("metadata", "read", "cache"),
+            remote_capabilities=("read",),
         )
         query(
             "metadata.opf.export",
@@ -503,12 +518,14 @@ class CoreApplicationAPI:
                 _field("default_lang", field_type="string|null"),
             ),
             tags=("metadata", "opf", "read", "cache"),
+            remote_capabilities=("read",),
         )
         query(
             "cache.status",
             self.cache_status,
             summary="Describe Core's optional modern cache.",
             tags=("cache", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "storage.stores.list",
@@ -516,6 +533,7 @@ class CoreApplicationAPI:
             summary="List Core-managed stores and their current status.",
             payload_fields=(_field("refresh", field_type="boolean"),),
             tags=("storage", "read"),
+            remote_capabilities=("admin",),
         )
         query(
             "storage.files.list",
@@ -526,6 +544,7 @@ class CoreApplicationAPI:
                 _field("offset", field_type="integer"),
             ),
             tags=("storage", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "storage.file.locate",
@@ -536,6 +555,7 @@ class CoreApplicationAPI:
                 _field("store_uuid", field_type="string|null"),
             ),
             tags=("storage", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "storage.file.read",
@@ -546,6 +566,7 @@ class CoreApplicationAPI:
                 _field("store_uuid", field_type="string|null"),
             ),
             tags=("storage", "read"),
+            remote_capabilities=("read",),
         )
 
         command(
@@ -557,6 +578,7 @@ class CoreApplicationAPI:
                 _field("data", required=True, field_type="object"),
             ),
             tags=("catalog", "write"),
+            remote_capabilities=("write",),
         )
         command(
             "catalog.entity.match-or-create",
@@ -570,6 +592,7 @@ class CoreApplicationAPI:
                 _field("parent_id", field_type="integer"),
             ),
             tags=("catalog", "matching", "write"),
+            remote_capabilities=("write",),
         )
         command(
             "catalog.agent.create-person",
@@ -583,6 +606,7 @@ class CoreApplicationAPI:
                 _field("notes", field_type="array"),
             ),
             tags=("catalog", "agents", "write"),
+            remote_capabilities=("write",),
         )
         command(
             "catalog.agent.create-organisation",
@@ -600,6 +624,7 @@ class CoreApplicationAPI:
                 _field("synopses", field_type="array"),
             ),
             tags=("catalog", "agents", "write"),
+            remote_capabilities=("write",),
         )
         command(
             "catalog.entity.update",
@@ -611,6 +636,7 @@ class CoreApplicationAPI:
                 _field("data", required=True, field_type="object"),
             ),
             tags=("catalog", "write"),
+            remote_capabilities=("write",),
         )
         command(
             "catalog.entity.delete",
@@ -621,6 +647,7 @@ class CoreApplicationAPI:
                 _field("entity_id", required=True, field_type="integer"),
             ),
             tags=("catalog", "write"),
+            remote_capabilities=("write",),
         )
         command(
             "catalog.wemi.create",
@@ -635,6 +662,7 @@ class CoreApplicationAPI:
                 _field("work_id", field_type="integer|null"),
             ),
             tags=("catalog", "wemi", "write"),
+            remote_capabilities=("write",),
         )
         command(
             "catalog.wemi.link",
@@ -650,6 +678,7 @@ class CoreApplicationAPI:
                 _field("origin", field_type="string|null"),
             ),
             tags=("catalog", "wemi", "write"),
+            remote_capabilities=("write",),
         )
         command(
             "catalog.wemi.unlink",
@@ -662,6 +691,7 @@ class CoreApplicationAPI:
                 _field("child_id", required=True, field_type="integer"),
             ),
             tags=("catalog", "wemi", "write"),
+            remote_capabilities=("write",),
         )
         command(
             "catalog.metadata.attach",
@@ -673,6 +703,7 @@ class CoreApplicationAPI:
                 _field("data", required=True, field_type="object"),
             ),
             tags=("catalog", "metadata", "write"),
+            remote_capabilities=("write",),
         )
         command(
             "catalog.metadata.replace",
@@ -684,6 +715,7 @@ class CoreApplicationAPI:
                 _field("data", required=True, field_type="object"),
             ),
             tags=("catalog", "metadata", "write"),
+            remote_capabilities=("write",),
         )
         command(
             "catalog.metadata.merge",
@@ -695,6 +727,7 @@ class CoreApplicationAPI:
                 _field("target_id", required=True, field_type="integer"),
             ),
             tags=("catalog", "metadata", "write"),
+            remote_capabilities=("write",),
         )
         command(
             "catalog.field.write",
@@ -709,6 +742,7 @@ class CoreApplicationAPI:
                 _field("destination_owned", field_type="boolean|null"),
             ),
             tags=("catalog", "cache", "write"),
+            remote_capabilities=("write",),
         )
         command(
             "catalog.field.write-one",
@@ -724,6 +758,7 @@ class CoreApplicationAPI:
                 _field("destination_owned", field_type="boolean|null"),
             ),
             tags=("catalog", "cache", "write"),
+            remote_capabilities=("write",),
         )
         command(
             "admin.row.create",
@@ -734,6 +769,7 @@ class CoreApplicationAPI:
                 _field("values", required=True, field_type="object"),
             ),
             tags=("admin", "rows", "write"),
+            remote_capabilities=("admin",),
         )
         command(
             "admin.row.update",
@@ -745,6 +781,7 @@ class CoreApplicationAPI:
                 _field("updates", required=True, field_type="object"),
             ),
             tags=("admin", "rows", "write"),
+            remote_capabilities=("admin",),
         )
         command(
             "admin.row.delete",
@@ -755,6 +792,7 @@ class CoreApplicationAPI:
                 _field("row_id", required=True, field_type="integer"),
             ),
             tags=("admin", "rows", "write"),
+            remote_capabilities=("admin",),
         )
         command(
             "admin.relation.link",
@@ -770,6 +808,7 @@ class CoreApplicationAPI:
                 _field("extra", field_type="object"),
             ),
             tags=("admin", "relations", "write"),
+            remote_capabilities=("admin",),
         )
         command(
             "admin.relation.unlink",
@@ -782,6 +821,7 @@ class CoreApplicationAPI:
                 _field("related_row_id", required=True, field_type="integer"),
             ),
             tags=("admin", "relations", "write"),
+            remote_capabilities=("admin",),
         )
         command(
             "storage.store.save",
@@ -789,6 +829,7 @@ class CoreApplicationAPI:
             summary="Create or update a storage configuration row.",
             payload_fields=(_field("store", required=True, field_type="object"),),
             tags=("storage", "write"),
+            remote_capabilities=("admin",),
         )
         command(
             "storage.refresh",
@@ -801,6 +842,7 @@ class CoreApplicationAPI:
                 _field("strict", field_type="boolean"),
             ),
             tags=("storage", "lifecycle", "write"),
+            remote_capabilities=("admin",),
         )
         command(
             "storage.file.put",
@@ -815,6 +857,7 @@ class CoreApplicationAPI:
                 _field("media_type", field_type="string|null"),
             ),
             tags=("storage", "files", "write"),
+            remote_capabilities=("admin",),
         )
         command(
             "storage.file.delete",
@@ -822,18 +865,21 @@ class CoreApplicationAPI:
             summary="Delete one exact Replica and retain its tombstone.",
             payload_fields=(_field("replica_id", required=True, field_type="integer"),),
             tags=("storage", "files", "write"),
+            remote_capabilities=("admin",),
         )
         command(
             "cache.reload",
             self.cache_reload,
             summary="Reload Core's configured modern cache.",
             tags=("cache", "lifecycle", "write"),
+            remote_capabilities=("admin",),
         )
         command(
             "read-source.refresh",
             self.read_source_refresh,
             summary="Refresh Core's selected application read source.",
             tags=("read", "cache", "lifecycle"),
+            remote_capabilities=("admin",),
         )
 
     @staticmethod

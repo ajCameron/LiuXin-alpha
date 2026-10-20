@@ -108,7 +108,10 @@ There are two intentionally different path contracts:
   graceful cancellation. `ingest disk ...` remains the distinct managed-job
   form for a source path visible to Core.
 - `core health|capabilities|api` inspects one Core. `core serve` owns a local
-  database and publishes the Core RPC transport.
+  database and publishes the Core RPC transport with read-only authority by
+  default. Writable/trusted roles need `--auth-token-file`; remote clients use
+  `--core-token-file`. See [transport permissions](../core/transport_permissions.md)
+  for the server-enforced role, Host/origin checks and protected deployment modes.
 - `jobs list|show|wait|watch|result|logs|cancel|retry` owns the complete
   managed-job operator lifecycle. `jobs retry JOB_ID` creates a new run linked
   to the unchanged terminal job; successful jobs require

@@ -164,6 +164,8 @@ class CoreEndpointDescription:
 
     ``kind`` identifies the advertised route family. ``transport_stable`` is a
     declaration supplied by registration, not a check performed by this record.
+    ``remote_capabilities=None`` leaves a route private to trusted local callers;
+    the runtime enforces explicit declarations when a transport supplies authority.
     Neither names, duplicate fields, nor tags are validated on construction.
 
     Example:
@@ -179,6 +181,7 @@ class CoreEndpointDescription:
     payload_fields: tuple[CorePayloadFieldDescription, ...] = ()
     tags: tuple[str, ...] = ()
     transport_stable: bool = True
+    remote_capabilities: tuple[str, ...] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -200,6 +203,9 @@ class CoreEndpointDescription:
             "payload_fields": [field.to_dict() for field in self.payload_fields],
             "tags": [str(tag) for tag in self.tags],
             "transport_stable": bool(self.transport_stable),
+            "remote_capabilities": (
+                None if self.remote_capabilities is None else list(self.remote_capabilities)
+            ),
         }
 
 

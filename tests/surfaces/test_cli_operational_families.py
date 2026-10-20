@@ -662,7 +662,7 @@ def test_core_health_uses_named_operation_and_core_serve_refuses_remote_bind(
         ]
     )
     assert rc == 2
-    assert "no TLS or authentication" in capsys.readouterr().err
+    assert "requires --auth-token-file" in capsys.readouterr().err
 
 
 def test_serve_refuses_unauthenticated_remote_bind_before_import(

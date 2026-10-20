@@ -12,6 +12,8 @@ Example:
 
 from __future__ import annotations
 
+from LiuXin_alpha.core.authorization import CoreTransportPolicy
+
 import base64
 import uuid
 import zipfile
@@ -184,9 +186,12 @@ def test_managed_storage_graph_local_and_rpc_round_trip(db) -> None:
         daemon = CoreHttpDaemon(
             runtime,
             endpoint_namespace="core-program-storage",
+            policy=CoreTransportPolicy.trusted("test-core-parity"),
         )
         daemon.start()
-        remote = RemoteCoreClient(endpoint=daemon.base_url)
+        remote = RemoteCoreClient(
+            endpoint=daemon.base_url, bearer_token="test-core-parity"
+        )
         assert remote.query(
             "storage.asset.get",
             {"asset_id": asset_id},
@@ -942,9 +947,12 @@ def test_backup_workflow_persistence_is_available_directly_and_over_rpc(
         daemon = CoreHttpDaemon(
             runtime,
             endpoint_namespace="core-program-backup",
+            policy=CoreTransportPolicy.trusted("test-core-parity"),
         )
         daemon.start()
-        remote = RemoteCoreClient(endpoint=daemon.base_url)
+        remote = RemoteCoreClient(
+            endpoint=daemon.base_url, bearer_token="test-core-parity"
+        )
         assert (
             remote.query(
                 "backup.workflow.get",
@@ -1061,9 +1069,12 @@ def test_program_discovery_and_local_support_cover_every_capability_family(
         daemon = CoreHttpDaemon(
             runtime,
             endpoint_namespace="core-program-capabilities",
+            policy=CoreTransportPolicy.trusted("test-core-parity"),
         )
         daemon.start()
-        remote = RemoteCoreClient(endpoint=daemon.base_url)
+        remote = RemoteCoreClient(
+            endpoint=daemon.base_url, bearer_token="test-core-parity"
+        )
         assert remote.query("capabilities.list") == capabilities
     finally:
         try:

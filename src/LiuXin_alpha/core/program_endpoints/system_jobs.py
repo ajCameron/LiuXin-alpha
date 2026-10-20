@@ -43,6 +43,7 @@ def install_queries(api: SystemJobsHandlers, runtime: ProgramEndpointRegistrar) 
         api.capabilities_list,
         summary="Describe whole-program Core capability families.",
         tags=("api", "capabilities"),
+        remote_capabilities=("read",),
     )
 
     query(
@@ -54,6 +55,7 @@ def install_queries(api: SystemJobsHandlers, runtime: ProgramEndpointRegistrar) 
             field("timeout_s", field_type="number|null"),
         ),
         tags=("jobs", "read"),
+        remote_capabilities=("admin",),
     )
 
     query(
@@ -66,6 +68,7 @@ def install_queries(api: SystemJobsHandlers, runtime: ProgramEndpointRegistrar) 
             field("max_bytes", field_type="integer"),
         ),
         tags=("jobs", "logs", "read"),
+        remote_capabilities=("admin",),
     )
 
 

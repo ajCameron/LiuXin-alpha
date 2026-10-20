@@ -1,23 +1,23 @@
 # Core next tasks
 
-Reviewed **2026-10-20**, working tree based on `fc5de7af`.
-Status: **proposed work**, following the [architecture sequence](../architectural_reviews/next_tasks.md).
+Updated **2026-10-20** with the implemented A06 transport contract.
+Status: **CORE-01 implemented for PR review; remaining work proposed**, following the [architecture sequence](../architectural_reviews/next_tasks.md).
 The named API, LibraryServices lifecycle, category policy and application
 configuration store already exist. Preserve them while closing these gaps.
 
 ## CORE-01 — Enforce endpoint permissions
 
-**First; architecture A06.** Add explicit server-side exposure/capability policy
-for named operations. `transport_stable` controls serialization; it is not an
-access check. Keep generic invocation, admin writes and executable-path selection
-behind an explicit trusted policy. Read-only clients need server enforcement as
-well as a narrow Python protocol.
+**Implemented for PR review, 2026-10-20; architecture A06.** The
+[transport contract](transport_permissions.md) separates exposure from
+serialization, gives HTTP a server-owned authenticated role, and binds read-only
+surfaces to a restricted client. Generic invocation, admin writes, external
+execution and refresh/maintenance require explicit authority. Host/origin/media
+checks and credential redirect refusal happen before effects.
 
-Owner: Core registration/HTTP dispatch, with surfaces consuming the contract.
-Done when direct HTTP requests cannot bypass restrictions by choosing names or
-payload fields, allowed operations retain direct/RPC parity, and rejected calls
-cause no side effects. Define deployment identity/authentication and request-origin
-handling before claiming a trusted remote boundary.
+The final focused selection passed 67 checks; complete quality gates and both
+38-example negative type contracts passed. Earlier full-API parity fixtures now
+choose their trusted role explicitly. Per-user authorization, TLS termination
+and plugin sandboxing remain separate deployment/design work.
 
 ## CORE-02 — Separate waiting from database dispatch
 

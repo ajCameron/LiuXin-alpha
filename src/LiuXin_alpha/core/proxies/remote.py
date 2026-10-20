@@ -15,6 +15,8 @@ import urllib.parse
 import urllib.error
 import urllib.request
 
+from LiuXin_alpha.core.authorization import CoreTransportPolicy
+
 from typing import Any, Callable, Mapping
 
 from LiuXin_alpha.core.api import CoreAPI
@@ -71,6 +73,27 @@ class RemoteProxyError(RuntimeError):
         self.details = dict(details or {})
 
 
+class _NoCredentialRedirect(urllib.request.HTTPRedirectHandler):
+    """Refuse authenticated redirects so bearer credentials stay at their configured origin.
+
+    Example:
+        >>> isinstance(_NoCredentialRedirect(), urllib.request.HTTPRedirectHandler)
+        True
+    """
+
+    def redirect_request(
+        self, req: urllib.request.Request, fp: Any, code: int,
+        msg: str, headers: Any, newurl: str,
+    ) -> None:
+        """Return no redirected request; urllib reports the original HTTP response.
+
+        Example:
+            >>> _NoCredentialRedirect().redirect_request(None, None, 302, "", {}, "https://other.invalid") is None
+            True
+        """
+        return None
+
+
 class _RemoteProxyBase:
     """
     Configure an HTTP endpoint and supply JSON RPC helpers plus dynamic target invocation.
@@ -85,7 +108,7 @@ class _RemoteProxyBase:
     """
 
     def __init__(
-        self, *, endpoint: str, target: str, timeout_seconds: float = 10.0
+        self, *, endpoint: str, target: str, timeout_seconds: float = 10.0, bearer_token: str | None = None
     ) -> None:
         """
         Normalize endpoint text, require an HTTP(S) prefix, and store target and timeout without connecting.
@@ -102,6 +125,7 @@ class _RemoteProxyBase:
 
         :param endpoint: Base URL text normalized before its HTTP(S) prefix is checked.
         :param target: Logical target label stringified without registry validation.
+        :param bearer_token: Optional server-role credential for authenticated HTTP requests.
         :param timeout_seconds: urllib request timeout converted to float.
         :return: ``None`` after storing client configuration.
         :raises ValueError: If the normalized endpoint lacks a lowercase HTTP(S) prefix or timeout conversion fails.
@@ -114,6 +138,9 @@ class _RemoteProxyBase:
         self.endpoint = base
         self.target = str(target)
         self.timeout_seconds = float(timeout_seconds)
+        if bearer_token is not None:
+            CoreTransportPolicy(bearer_token=bearer_token)
+        self._bearer_token = bearer_token
 
     def _url(self, suffix: str) -> str:
         """
@@ -138,7 +165,8 @@ class _RemoteProxyBase:
         Payload encoding uses standard json defaults, not Core's strict wire
         converter. Encoding/request-construction errors precede the HTTP exception
         wrapper and propagate directly. urllib supplies its normal connection,
-        redirect, proxy, and TLS policies; this method adds no response-size limit.
+        proxy and TLS policies; authenticated requests refuse redirects and stay
+        at the configured origin. This method adds no response-size limit.
 
         HTTP errors preserve parsed error/code/mapping details when available;
         other request/read errors become RemoteProxyError without a status code.
@@ -150,13 +178,17 @@ class _RemoteProxyBase:
 
 
         :param method: HTTP method string passed to urllib Request.
-        :param url: Complete request URL; this helper does not confine it to the configured endpoint.
+        :param url: Complete request URL; authenticated requests must use the configured origin.
         :param payload: Optional JSON-encodable body; ``None`` sends no body or JSON Content-Type header.
         :return: Parsed dictionary response without validating endpoint-specific fields.
         :raises RemoteProxyError: For request/read failure, HTTP error status, invalid UTF-8/JSON, or nonobject JSON.
         """
         body: bytes | None = None
         headers = {"Accept": "application/json"}
+        if self._bearer_token is not None:
+            if urllib.parse.urlsplit(url)[:2] != urllib.parse.urlsplit(self.endpoint)[:2]:
+                raise ValueError("Authenticated requests must use the configured endpoint origin.")
+            headers["Authorization"] = "Bearer " + self._bearer_token
         if payload is not None:
             body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
             headers["Content-Type"] = "application/json; charset=utf-8"
@@ -164,9 +196,11 @@ class _RemoteProxyBase:
             url=url, data=body, headers=headers, method=method
         )
         try:
-            with urllib.request.urlopen(
-                request, timeout=self.timeout_seconds
-            ) as response:
+            open_request = (
+                urllib.request.build_opener(_NoCredentialRedirect()).open
+                if self._bearer_token is not None else urllib.request.urlopen
+            )
+            with open_request(request, timeout=self.timeout_seconds) as response:
                 raw = response.read()
         except urllib.error.HTTPError as exc:
             try:
@@ -407,6 +441,7 @@ class RemoteCoreClient(_RemoteProxyBase, CoreAPI):
         *,
         endpoint: str,
         timeout_seconds: float = 10.0,
+        bearer_token: str | None = None,
     ) -> None:
         """
         Configure the Core endpoint and an empty identity cache without contacting the daemon.
@@ -417,13 +452,14 @@ class RemoteCoreClient(_RemoteProxyBase, CoreAPI):
 
 
         :param endpoint: HTTP(S) base URL normalized and prefix-checked by the remote base class.
+        :param bearer_token: Optional server-role credential for authenticated HTTP requests.
         :param timeout_seconds: Request timeout converted to float without a range check.
         :return: ``None`` after configuration and identity-cache initialization.
         """
         super().__init__(
             endpoint=endpoint,
             target="core",
-            timeout_seconds=timeout_seconds,
+            timeout_seconds=timeout_seconds, bearer_token=bearer_token,
         )
         self._identity: dict[str, str] = {}
 
@@ -645,7 +681,7 @@ class RemoteCoreClient(_RemoteProxyBase, CoreAPI):
     def describe_api(
         self,
         *,
-        include_targets: bool = True,
+        include_targets: bool = False,
         target: str | None = None,
     ) -> dict[str, Any]:
         """
@@ -814,7 +850,7 @@ class RemoteDatabaseProxy(_RemoteProxyBase):
         'database'
     """
 
-    def __init__(self, *, endpoint: str, timeout_seconds: float = 10.0) -> None:
+    def __init__(self, *, endpoint: str, timeout_seconds: float = 10.0, bearer_token: str | None = None) -> None:
         """
         Configure the database-target proxy without opening a connection or probing methods.
 
@@ -824,11 +860,12 @@ class RemoteDatabaseProxy(_RemoteProxyBase):
 
 
         :param endpoint: HTTP(S) daemon base URL normalized by the base constructor.
+        :param bearer_token: Optional server-role credential for authenticated HTTP requests.
         :param timeout_seconds: Request timeout in seconds, converted to float.
         :return: ``None`` after storing database-target configuration.
         """
         super().__init__(
-            endpoint=endpoint, target="database", timeout_seconds=timeout_seconds
+            endpoint=endpoint, target="database", timeout_seconds=timeout_seconds, bearer_token=bearer_token
         )
 
 
@@ -841,7 +878,7 @@ class RemoteStorageProxy(_RemoteProxyBase):
         'storage'
     """
 
-    def __init__(self, *, endpoint: str, timeout_seconds: float = 10.0) -> None:
+    def __init__(self, *, endpoint: str, timeout_seconds: float = 10.0, bearer_token: str | None = None) -> None:
         """
         Configure storage-target HTTP invocation without starting a remote storage manager.
 
@@ -851,11 +888,12 @@ class RemoteStorageProxy(_RemoteProxyBase):
 
 
         :param endpoint: HTTP(S) daemon base URL normalized without a reachability check.
+        :param bearer_token: Optional server-role credential for authenticated HTTP requests.
         :param timeout_seconds: Float-coerced request timeout in seconds.
         :return: ``None`` after binding storage-target configuration.
         """
         super().__init__(
-            endpoint=endpoint, target="storage", timeout_seconds=timeout_seconds
+            endpoint=endpoint, target="storage", timeout_seconds=timeout_seconds, bearer_token=bearer_token
         )
 
 
@@ -872,7 +910,7 @@ class RemoteJobsProxy(_RemoteProxyBase, JobsProxyABC):
         True
     """
 
-    def __init__(self, *, endpoint: str, timeout_seconds: float = 10.0) -> None:
+    def __init__(self, *, endpoint: str, timeout_seconds: float = 10.0, bearer_token: str | None = None) -> None:
         """
         Configure named-job requests while retaining library as the unused generic-target label.
 
@@ -882,12 +920,13 @@ class RemoteJobsProxy(_RemoteProxyBase, JobsProxyABC):
 
 
         :param endpoint: HTTP(S) daemon base URL normalized without connecting.
+        :param bearer_token: Optional server-role credential for authenticated HTTP requests.
         :param timeout_seconds: HTTP request timeout, independent of a later job-wait timeout.
         :return: ``None`` after remote-base initialization.
         """
         # `target` is unused for named jobs.* RPC calls but retained for consistency.
         super().__init__(
-            endpoint=endpoint, target="library", timeout_seconds=timeout_seconds
+            endpoint=endpoint, target="library", timeout_seconds=timeout_seconds, bearer_token=bearer_token
         )
 
     def list(
@@ -993,7 +1032,7 @@ class RemoteLibraryProxy(_RemoteProxyBase):
         ('library', 'database', 'storage')
     """
 
-    def __init__(self, *, endpoint: str, timeout_seconds: float = 10.0) -> None:
+    def __init__(self, *, endpoint: str, timeout_seconds: float = 10.0, bearer_token: str | None = None) -> None:
         """
         Configure library invocation and construct Core, database, storage, and jobs wrappers for the same endpoint.
 
@@ -1004,23 +1043,24 @@ class RemoteLibraryProxy(_RemoteProxyBase):
 
 
         :param endpoint: Initial HTTP(S) URL supplied to this proxy and every child constructor.
+        :param bearer_token: Optional server-role credential for authenticated HTTP requests.
         :param timeout_seconds: Initial float-coerced request timeout for each independent wrapper.
         :return: ``None`` after constructing child proxy objects without network requests.
         """
         super().__init__(
-            endpoint=endpoint, target="library", timeout_seconds=timeout_seconds
+            endpoint=endpoint, target="library", timeout_seconds=timeout_seconds, bearer_token=bearer_token
         )
         self.core = RemoteCoreClient(
             endpoint=endpoint,
-            timeout_seconds=timeout_seconds,
+            timeout_seconds=timeout_seconds, bearer_token=bearer_token,
         )
         self.database = RemoteDatabaseProxy(
-            endpoint=endpoint, timeout_seconds=timeout_seconds
+            endpoint=endpoint, timeout_seconds=timeout_seconds, bearer_token=bearer_token
         )
         self.storage = RemoteStorageProxy(
-            endpoint=endpoint, timeout_seconds=timeout_seconds
+            endpoint=endpoint, timeout_seconds=timeout_seconds, bearer_token=bearer_token
         )
-        self.jobs = RemoteJobsProxy(endpoint=endpoint, timeout_seconds=timeout_seconds)
+        self.jobs = RemoteJobsProxy(endpoint=endpoint, timeout_seconds=timeout_seconds, bearer_token=bearer_token)
 
     def health(self) -> Mapping[str, Any]:
         """
@@ -1045,7 +1085,7 @@ class RemoteLibraryProxy(_RemoteProxyBase):
         return dict(response.get("result", {}))
 
     def describe_api(
-        self, *, include_targets: bool = True, target: str | None = None
+        self, *, include_targets: bool = False, target: str | None = None
     ) -> Mapping[str, Any]:
         """
         Query api.describe, copying a dictionary result or returning empty for any other successful result shape.

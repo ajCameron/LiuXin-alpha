@@ -46,6 +46,7 @@ def install_queries(
         api.database_info,
         summary="Return transport-safe database identity and configuration.",
         tags=("database", "read"),
+        remote_capabilities=("read",),
     )
 
     query(
@@ -53,6 +54,7 @@ def install_queries(
         api.database_summary,
         summary="Return table categories and row counts.",
         tags=("database", "schema", "read"),
+        remote_capabilities=("read",),
     )
 
     query(
@@ -60,6 +62,7 @@ def install_queries(
         api.database_telemetry,
         summary="Return database write and dirty-record telemetry.",
         tags=("database", "telemetry", "read"),
+        remote_capabilities=("admin",),
     )
 
     query(
@@ -67,6 +70,7 @@ def install_queries(
         api.database_migrations_status,
         summary="Report additive storage and normalized-identity migration state.",
         tags=("database", "migrations", "read"),
+        remote_capabilities=("admin",),
     )
 
     query(
@@ -74,6 +78,7 @@ def install_queries(
         api.database_migrations_plan,
         summary="Plan idempotent database migrations without applying them.",
         tags=("database", "migrations", "read"),
+        remote_capabilities=("admin",),
     )
 
     query(
@@ -85,6 +90,7 @@ def install_queries(
             field("column", required=True, field_type="string"),
         ),
         tags=("schema", "policy", "read"),
+        remote_capabilities=("read",),
     )
 
     query(
@@ -96,6 +102,7 @@ def install_queries(
             field("related_table", required=True, field_type="string"),
         ),
         tags=("schema", "relations", "read"),
+        remote_capabilities=("read",),
     )
 
     query(
@@ -104,6 +111,7 @@ def install_queries(
         summary="List application or library preferences.",
         payload_fields=(field("scope", field_type="string"),),
         tags=("preferences", "read"),
+        remote_capabilities=("admin",),
     )
 
     query(
@@ -116,6 +124,7 @@ def install_queries(
             field("default"),
         ),
         tags=("preferences", "read"),
+        remote_capabilities=("admin",),
     )
 
     query(
@@ -123,6 +132,7 @@ def install_queries(
         api.custom_fields_list,
         summary="List custom-column definitions.",
         tags=("schema", "custom-fields", "read"),
+        remote_capabilities=("read",),
     )
 
 
@@ -161,6 +171,7 @@ def install_commands(
             field("verify", field_type="boolean"),
         ),
         tags=("database", "backup", "write"),
+        remote_capabilities=("admin",),
     )
 
     command(
@@ -168,6 +179,7 @@ def install_commands(
         api.database_vacuum,
         summary="Vacuum or compact the configured database.",
         tags=("database", "maintenance", "write"),
+        remote_capabilities=("admin",),
     )
 
     command(
@@ -175,6 +187,7 @@ def install_commands(
         api.database_migrations_apply,
         summary="Apply known additive migrations and normalized identities.",
         tags=("database", "migrations", "maintenance", "write"),
+        remote_capabilities=("admin",),
     )
 
     command(
@@ -187,6 +200,7 @@ def install_commands(
             field("policy", required=True, field_type="object"),
         ),
         tags=("schema", "policy", "write"),
+        remote_capabilities=("admin",),
     )
 
     command(
@@ -199,6 +213,7 @@ def install_commands(
             field("scope", field_type="string"),
         ),
         tags=("preferences", "write"),
+        remote_capabilities=("execute",),
     )
 
     command(
@@ -210,6 +225,7 @@ def install_commands(
             field("scope", field_type="string"),
         ),
         tags=("preferences", "write"),
+        remote_capabilities=("execute",),
     )
 
     command(
@@ -227,6 +243,7 @@ def install_commands(
             field("make_category", field_type="boolean|null"),
         ),
         tags=("schema", "custom-fields", "write"),
+        remote_capabilities=("admin",),
     )
 
     command(
@@ -238,6 +255,7 @@ def install_commands(
             field("changes", required=True, field_type="object"),
         ),
         tags=("schema", "custom-fields", "write"),
+        remote_capabilities=("admin",),
     )
 
     command(
@@ -249,4 +267,5 @@ def install_commands(
             field("label", field_type="string"),
         ),
         tags=("schema", "custom-fields", "write"),
+        remote_capabilities=("admin",),
     )
