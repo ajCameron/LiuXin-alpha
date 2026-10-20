@@ -382,21 +382,15 @@ class DatabaseDriverAPI(
 
     @abc.abstractmethod
     def direct_create_new_database(self) -> None:
+        """Create without replacing an existing file or populated server schema.
+
+        File drivers must be constructed without opening the target. Preparation
+        owns and releases its connections, and publication must detect collisions.
         """
-        Create parent directories and build the schema at the configured path.
 
-        Abstract backend hook. The behavior below describes the shared SQL/SQLite
-        implementation; this declaration itself has no operational body.
-
-        The backend builder supplies the schema. Language seeding/locking is best effort;
-        the connection commits and closes on success, with no finally cleanup on failure.
-
-        Example:
-            >>> driver.direct_create_new_database()  # doctest: +SKIP
-
-
-        :return: ``None``.
-        """
+    def direct_replace_database(self, *, backup_path):
+        """Replace offline storage with a required backup, if the backend supports it."""
+        raise NotImplementedError("This driver does not support database replacement.")
 
     @abc.abstractmethod
     def direct_execute(self, sql: str, values: Optional[tuple[Any, ...]] = None) -> None:

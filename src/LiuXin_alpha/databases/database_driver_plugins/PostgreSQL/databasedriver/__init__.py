@@ -333,14 +333,13 @@ class DatabaseDriver(
 
     def direct_create_new_database(self) -> None:
         """
-        Initialize managed schema objects in the already configured database.
+        Create a new managed schema in the already configured server database.
 
         Use the primary connection, then refresh shared property caches. This does not
-        create the server database or migrate incompatible existing tables.
+        create the server database or modify a populated schema.
 
         Example:
-            For an existing library database, this creates missing managed tables in
-            driver.schema.
+            Select an absent or empty dedicated schema before calling this operation.
 
 
         :return: None; initializes schema objects and refreshes caches.
@@ -348,6 +347,12 @@ class DatabaseDriver(
         conn = self._primary_connection()
         create_postgres_schema(conn, schema=self.schema)
         self._zero_prop_cache()
+
+    def direct_replace_database(self, *, backup_path):
+        """Refuse file-style replacement without changing any server objects."""
+        raise DatabaseDriverError(
+            "PostgreSQL replacement requires an operator-managed backup and schema migration."
+        )
 
     def _table_sql(self, table: str) -> str:
         """

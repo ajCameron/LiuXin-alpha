@@ -259,8 +259,9 @@ def test_direct_self_delete_works_even_if_conn_open_on_windows(driver_spec, tmp_
     db_path = tmp_path / f"contract_delete_open_{driver_spec.id}.db"
     Driver = load_database_driver(driver_spec.db_type)
 
-    drv = Driver({"database_path": str(db_path)}, db=None, set_conn=True)
+    drv = Driver({"database_path": str(db_path)}, db=None, set_conn=False)
     drv.direct_create_new_database()
+    drv.reopen()
 
     # If the driver doesn't close its handle internally, this should fail on Windows.
     drv.direct_self_delete()

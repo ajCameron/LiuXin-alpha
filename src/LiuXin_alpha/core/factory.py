@@ -76,8 +76,8 @@ def create_core(
     :param database_path: Database file path or server connection/service selector used when opening a database.
     :param db_type: Driver selector for a database opened by the library.
     :param database_metadata: Optional connection metadata forwarded to Library; its server-database path consumes it.
-    :param create: Whether library database opening should create a database, potentially creating local parent directories.
-    :param backup: Whether database opening should request the driver's backup behavior.
+    :param create: Request new database creation; existing files or populated server schemas are rejected.
+    :param backup: Compatibility argument; ordinary opening never implicitly replaces a database.
     :param enable_storage_manager: Storage-manager setup flag for a newly opened database.
     :param strict_storage_manager_bootstrap: Whether new-database storage bootstrap should use strict failure handling.
     :param storage_startup_on_add: Whether newly bootstrapped stores should start as they are added.

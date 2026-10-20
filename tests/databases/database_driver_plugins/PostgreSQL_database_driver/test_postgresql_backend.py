@@ -609,6 +609,8 @@ class _RecordingSchemaConnection:
         :return: New _ResultCursor with one fixed row.
         """
         self.statements.append(sql)
+        if sql.startswith("select exists ("):
+            return _ResultCursor([(False,)])
         return _ResultCursor([(1,)])
 
     def __enter__(self):
@@ -669,21 +671,21 @@ def test_postgresql_schema_builder_executes_core_and_storage_tables() -> None:
     ddl_lower = ddl.lower()
 
     assert 'create schema if not exists "liuxin_test"' in ddl
-    assert 'create table if not exists "works"' in ddl
-    assert 'create table if not exists "stores"' in ddl
-    assert 'create table if not exists "digital_assets"' in ddl
+    assert 'create table "works"' in ddl
+    assert 'create table "stores"' in ddl
+    assert 'create table "digital_assets"' in ddl
     assert '"digital_asset_size_bytes" bigint null' in ddl
-    assert 'create table if not exists "asset_replicas"' in ddl
+    assert 'create table "asset_replicas"' in ddl
     assert ddl_lower.index(
-        'create table if not exists "transform_runs"'
+        'create table "transform_runs"'
     ) < ddl_lower.index(
-        'create table if not exists "digital_asset_derivations"'
+        'create table "digital_asset_derivations"'
     )
     assert (
         'references "stores" ("store_id") on delete restrict on update cascade'
         in ddl_lower
     )
-    assert 'create table if not exists "column_metadata"' in ddl_lower
+    assert 'create table "column_metadata"' in ddl_lower
     assert (
         "values ('works', 'work_title', 0, 'title', "
         "'unicode_nfc_trim_casefold', null, 'null_or_blank_is_missing', "

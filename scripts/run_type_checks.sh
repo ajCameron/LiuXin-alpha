@@ -128,6 +128,7 @@ MYPY_CMD=("${VENV_DIR}/bin/mypy")
 RUFF_CMD=(
     "${VENV_DIR}/bin/ruff"
     "check"
+    "src/LiuXin_alpha/databases/creation.py"
     "src/LiuXin_alpha/plugins/application.py"
     "src/LiuXin_alpha/plugins/loading.py"
     "tests/plugins/test_application_plugins.py"

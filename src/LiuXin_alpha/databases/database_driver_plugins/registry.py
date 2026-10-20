@@ -215,9 +215,11 @@ def get_database_builder_module(db_type: str):
 
 def create_new_database(db_type: str, target_location: Union[str, pathlib.Path]):
     """
-    Invoke a backend builder when it exposes a callable create_new_database.
+    Create a new database through the file driver or registered server builder.
 
-    The target is passed through unchanged. If no callable entry point exists, return
+    SQLite/APSW use their create-only FRBR driver path; the Calibre connection-level
+    builder remains available separately. Other targets pass through unchanged.
+    If no callable entry point exists, return
     the builder module itself; connection and creation errors otherwise propagate.
 
     Example:
@@ -229,6 +231,14 @@ def create_new_database(db_type: str, target_location: Union[str, pathlib.Path])
     :param target_location: Target passed unchanged to the backend builder.
     :return: The builder result, or the builder module when no callable entry point exists.
     """
+    if _get_registration(db_type).canonical_name in {"SQLite", "SQLite_apsw"}:
+        driver = load_database_driver(db_type)(
+            {"database_path": str(target_location)}, set_conn=False
+        )
+        try:
+            return driver.direct_create_new_database()
+        finally:
+            driver.close()
     module = get_database_builder_module(db_type)
     create_fn = getattr(module, "create_new_database", None)
     if callable(create_fn):

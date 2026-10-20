@@ -2,8 +2,8 @@
 Build PostgreSQL core/storage DDL and translate bundled helper-table definitions.
 
 Explicit tables are created first, followed by dependency-ordered helpers, inferred
-column metadata and supported normalized-identity seeds. Creation uses IF NOT EXISTS
-and conflict-tolerant inserts; it does not migrate incompatible existing tables.
+column metadata and supported normalized-identity seeds. Creation requires an absent
+or empty namespace, with serialized initialization and strict object creation.
 """
 
 from __future__ import annotations
@@ -77,10 +77,10 @@ class TableDefinition:
 
 def create_new_database(target_location: str | Mapping[str, object]) -> None:
     """
-    Connect to an existing PostgreSQL database and initialize its LiuXin schema.
+    Connect to an existing PostgreSQL database and create a fresh LiuXin schema.
 
     A metadata mapping resolves its schema through configuration; a string URL uses
-    public. The raw connection is always closed after creation. This entry point does
+    public, which must be empty. The raw connection is always closed after creation. This entry point does
     not issue CREATE DATABASE or create server roles.
 
     Example:
@@ -112,15 +112,15 @@ def create_new_database(target_location: str | Mapping[str, object]) -> None:
 
 def create_postgres_schema(conn: Any, *, schema: str = "public") -> None:
     """
-    Create schema objects and seed records in the supplied connection transaction.
+    Initialize an absent or empty schema and seed its objects in one transaction.
 
     The connection must provide execute() and transactional context management. It stays
     open after return. Execution/context failures become DatabaseDriverError; statement
     building occurs before that exception wrapper.
 
     Example:
-        ``create_postgres_schema(adapter, schema="library")`` creates missing
-        managed objects while retaining ownership of adapter with the caller.
+        ``create_postgres_schema(adapter, schema="new_library")`` creates a fresh
+        catalogue while retaining ownership of adapter with the caller.
 
 
     :param conn: Open connection adapter or compatible transactional connection.
@@ -132,10 +132,30 @@ def create_postgres_schema(conn: Any, *, schema: str = "public") -> None:
     statements = build_schema_statements(schema=schema)
     try:
         with conn:
+            # Cooperating initializers serialize even when the namespace is absent.
+            # Strict table DDL also rejects collisions with non-cooperating creators.
+            conn.execute(
+                "select pg_advisory_xact_lock(hashtext(current_database()), hashtext(%s))",
+                (schema,),
+            )
             conn.execute(f"create schema if not exists {schema_name}")
+            occupied = conn.execute(
+                "select exists ("
+                "select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace "
+                "where n.nspname=%s union all "
+                "select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace "
+                "where n.nspname=%s union all "
+                "select 1 from pg_type t join pg_namespace n on n.oid=t.typnamespace "
+                "where n.nspname=%s)",
+                (schema, schema, schema),
+            ).fetchone()
+            if occupied is None or occupied[0]:
+                raise DatabaseDriverError(
+                    f"PostgreSQL creation requires an empty schema: {schema}"
+                )
             conn.execute(f"set search_path to {schema_name}")
             for statement in statements:
-                conn.execute(statement)
+                conn.execute(statement.replace("IF NOT EXISTS ", "").replace("if not exists ", ""))
     except Exception as exc:
         raise DatabaseDriverError(f"Unable to create PostgreSQL schema: {exc}") from exc
 

@@ -173,7 +173,7 @@ def _check_passed(result: dict[str, object], name: str) -> bool:
 
 def cmd_postgres_init(args: argparse.Namespace) -> int:
     """
-    Create/update the selected schema, close its connection, and optionally check readiness.
+    Initialize an absent or empty schema, close its connection, and optionally check readiness.
 
     Resolve schema and credentials, adapt the raw connection, and always attempt
     close after schema creation begins. Connection-construction failure precedes

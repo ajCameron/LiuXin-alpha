@@ -1,16 +1,17 @@
 # Next database tasks
 
-Date: **2026-10-20**. Proposed work, grounded in the current driver/schema review.
-This list does not claim the changes are implemented. Cross-project order belongs
+Date: **2026-10-20**. DB01 is implemented for PR review; the remaining entries are
+proposed work grounded in the driver/schema review. Cross-project order belongs
 to the [architecture tasks](../architectural_reviews/next_tasks.md).
 
 ## DB01. Make creation safe for an existing destination
 
-**First; architecture A03.** Trace both SQLite/APSW creation and the Core bootstrap.
-An ordinary create request must reject an existing database before changing bytes.
-Keep replacement a separately named, explicit operation with a recoverable plan.
-Done when an existing populated database survives rejected creation unchanged,
-including failures between destination validation and schema initialization.
+**Implemented for PR review, 2026-10-20; architecture A03.** Ordinary SQLite/APSW
+creation builds privately and publishes create-only, including the registry,
+Database, Core and terminal paths. Explicit offline replacement requires a new
+verified recovery backup; preparation failures preserve the original. PostgreSQL
+initialization accepts absent/empty schemas, serializes creators and rejects
+populated namespaces. See the [contract and regressions](creation-and-replacement.md).
 
 ## DB02. Specify transactions independently of connection lifetime
 

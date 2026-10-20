@@ -1,7 +1,7 @@
 # Target architecture and decision status
 
 Decision history begins **2026-09-26**. Implementation reviewed **2026-10-20**
-against the documentation pass and A01/A02 follow-ups based on `75b266ed`.
+against the documentation pass and A01–A03 follow-ups based on `d5956d6e`.
 
 Status: **Accepted ownership decisions with explicit implementation limits.**
 This is the decision record and rationale. The [ownership guide](<../04 - Seperation of Concerns.md>)
@@ -14,7 +14,7 @@ proposal in the same section implemented.
 
 | Area | Current implementation | Remaining decision or migration |
 | --- | --- | --- |
-| Lifecycle | `core.library_services.LibraryServices` owns the graph it opens; Library borrows collaborators; Database defaults to persistence-only startup. | Lower-layer path wrappers, maintenance scheduling, and transaction/create safety. |
+| Lifecycle | `core.library_services.LibraryServices` owns the graph it opens; Library borrows collaborators; Database defaults to persistence-only startup. A03's create-only publication and explicit backed-up replacement are implemented for PR review. | Lower-layer path wrappers, maintenance scheduling, and transaction/close safety. |
 | Bibliographic writes and identity | Metadata supplies pure rules; Catalog repositories/mutations and compatibility adapters share preparation and relationships. | Validators for uncovered fields, explicit repair contracts and residual raw-write contracts. |
 | Persistent reads and caches | Catalog owns hydration; `ReadCache` is independent of Catalog, while writable `Cache` delegates to it. Core owns application category policy. | Default-path selection, other projection/search adapters, query cost and capability boundaries. |
 | Configuration | Core resolves deployment settings and supplies one application preference store. | Legacy scratch/startup consumers and component-specific lifetimes; database preferences remain a separate scope. |
