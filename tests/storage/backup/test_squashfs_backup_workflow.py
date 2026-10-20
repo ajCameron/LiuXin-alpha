@@ -121,7 +121,9 @@ def test_local_sources_checkpoint_resume_and_complete(monkeypatch, tmp_path: Pat
     checkpoint = workflow.run_next()
     assert checkpoint.status is api.WorkflowStatus.RUNNING
     assert checkpoint.next_source_index == 1
-    assert (staging / "docs/first.txt").read_bytes() == b"alpha"
+    staged_members = Path(checkpoint.declaration.staging_target)
+    assert staged_members.is_relative_to(staging)
+    assert (staged_members / "docs/first.txt").read_bytes() == b"alpha"
 
     resumed = SquashfsBackupWorkflow.from_checkpoint(checkpoint)
     result = resumed.run_to_completion()
@@ -169,7 +171,8 @@ def test_store_location_source_streams_through_manager(monkeypatch, tmp_path: Pa
 
     assert declaration.source_identifier == source.location
     assert result.successful
-    assert (tmp_path / "managed-staging/books/source.epub").read_bytes() == b"managed-source"
+    staged_members = Path(result.declaration.staging_target)
+    assert (staged_members / "books/source.epub").read_bytes() == b"managed-source"
 
 
 def test_source_snapshot_change_fails_without_publishing_archive(tmp_path: Path) -> None:
@@ -203,7 +206,7 @@ def test_source_snapshot_change_fails_without_publishing_archive(tmp_path: Path)
     assert checkpoint.status is api.WorkflowStatus.FAILED
     assert "expected" in (checkpoint.last_error or "")
     assert not output.exists()
-    assert not (tmp_path / "failed-staging/changing.bin").exists()
+    assert not (Path(checkpoint.declaration.staging_target) / "changing.bin").exists()
 
 
 def test_location_output_is_committed_through_manager(monkeypatch, tmp_path: Path) -> None:

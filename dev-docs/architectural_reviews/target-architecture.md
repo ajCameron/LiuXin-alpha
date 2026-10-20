@@ -20,7 +20,7 @@ proposal in the same section implemented.
 | Configuration | Core resolves deployment settings and supplies one application preference store. | Legacy scratch/startup consumers and component-specific lifetimes; database preferences remain a separate scope. |
 | Formats and plugin composition | `plugins` unifies shared mechanics and application assembly, with internal dependency rules; formats retain standalone composition. | Unsupported providers, availability reporting and separate domain registries. |
 | Dependency enforcement | Protected acyclic scope, exact whole-package debt and cold-import budgets are enforced. | Existing exceptions and unmodelled/dynamic behaviour; no universal package ranking for cache sources. |
-| Storage | Manager → configured Store → raw driver; passive Locations, durable metadata adapters and ingest recovery exist. | Destructive-operation policy, staging ownership, legacy registrations and cross-workflow resource budgets. |
+| Storage | Manager → configured Store → raw driver; passive Locations, durable metadata adapters and ingest recovery exist. Backup runs own private staging workspaces with recovery/cleanup checks (A01, PR review). | Destructive-operation policy, legacy registrations and cross-workflow resource budgets. |
 | Jobs and ingest | Durable jobs, Core execution and utility workers coexist; mixed ingest consumes an injected Library. | One coherent restart/cancellation/progress contract and durable maintenance signals. |
 | Transport and permissions | Named Core operations and shared read behaviour exist. | Server-enforced capabilities/authorization; a “read-only” surface name is not an access-control boundary. |
 
