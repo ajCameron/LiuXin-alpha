@@ -217,6 +217,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         if database_path is not None:
             db_path = Path(database_path).expanduser()
+            if args.no_create_if_missing and not db_path.exists():
+                raise FileNotFoundError(
+                    f"Database does not exist and creation is disabled: {db_path}"
+                )
             create_if_missing = bool(
                 not args.no_create_if_missing and not db_path.exists()
             )

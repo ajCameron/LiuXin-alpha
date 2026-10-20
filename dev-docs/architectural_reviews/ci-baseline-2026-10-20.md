@@ -10,6 +10,13 @@ PRs #128 and #129 had the same forty failing test IDs. PR #129's full run
 passed 7,308 tests, with 242 skips and 17 expected failures. The unchanged
 surface/image subset reproduces ten failures in an isolated checkout.
 
+PR #130's completed run subsequently reported **41 failures, 7,332 passes, 249
+skips and 17 expected failures**: the same forty plus terminal
+`--no-create-if-missing`. The terminal now refuses an absent explicit path before
+opening Core, including when its parent already exists. The regression checks
+that refusal creates neither the target nor a missing parent directory.
+All five selected terminal creation/existing-path cases passed after the fix.
+
 | Group | Cause | Repair |
 | --- | --- | --- |
 | Eight formatter tests | CI had neither the required executable nor the developer's `.venv` layout. | Pin Ruff in `test`; fixture uses the running environment's Ruff binary while retaining the runner's local-executable contract. |
@@ -68,6 +75,12 @@ The benchmark smoke fixture regenerated successfully without tracked scratch.
 A full suite remains pending. Focused tests, whole quality gates, installed-wheel
 checks and full-suite results are separate evidence; publication is not a claim
 that the full suite has passed.
+
+The first local full run was interrupted after sandbox-denied socket creation
+caused RPC failures; a targeted run confirmed `PermissionError` at `socket()`.
+It is not application-failure evidence. A new serial run with socket access and
+separate telemetry was started on the initial A15 commit. The subsequent
+terminal correction needs its own focused result and the new PR-head CI result.
 
 ## Remote settings
 

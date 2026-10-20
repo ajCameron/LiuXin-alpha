@@ -9,6 +9,9 @@ Branch `ci-baseline-repair` starts at `4483c2ad`, targeting
 `database-create-safety` while PR #130 is open. Earlier slices are #128 (A01),
 #129 (A02), #130 (A03), and #127 (A14 documentation).
 
+Published as [PR #131](https://github.com/ajCameron/LiuXin-alpha/pull/131).
+The initial implementation is `21e2604e`.
+
 ## Implementation
 
 - Repair the forty shared #128/#129 failures: test Ruff dependency and fixture
@@ -59,3 +62,25 @@ fresh environment. Preserve the six unrelated staged storage files and dirty
 data submodule in the main checkout; saved file hashes and index entries match.
 Ignored telemetry/logs and the portable handoff should be retained while the full
 suite runs; do not remove an active test checkout or environment.
+
+## Follow-up while full runs execute
+
+The completed #130 run has the original forty failures plus one terminal
+no-create regression (41 failed, 7,332 passed). Refuse an absent explicit path
+before Core startup when `--no-create-if-missing` is set; cover both existing and
+missing parent directories. This correction is on the same A15 PR.
+All five selected terminal creation/existing-path cases passed in the clean
+environment. The final helper/documentation follow-up before publication also
+passed all thirty checks.
+
+The first local full run was interrupted because its sandbox prohibited
+`socket()` and thus RPC tests. A separate permitted run is active on `21e2604e`
+with durable telemetry and immediate scratch cleanup. Do not count the
+interrupted run as a full application failure or silently treat that older
+commit's eventual result as validation of this follow-up.
+
+A04 has begun separately on `database-transaction-ownership`: nine new
+regressions reproduced pending-write commits, borrowed/nested transaction
+defects and the connection masquerading as a mutex. Initial fixes pass those
+nine; caller migration, complete documentation, backend parity and quality
+gates remain unfinished. They are not part of PR #131.
