@@ -273,6 +273,12 @@ explicit interrupted-run recovery. It remains separate from Core's default
 manager; A09 is still open until a production workflow, submission identity and
 retry/recovery contract use it.
 
+A further [submission prerequisite](../jobs/submission-identity.md) now provides
+ledger identity, atomic delivery deduplication and explicit retry ancestry.
+Started attempts require acknowledgement of possible effects; this does not
+replace domain recovery or wire Core to the durable ledger. The next step remains
+one production workflow and its direct/remote status mapping.
+
 Map the live Core utility manager, durable `jobs` repository/worker/scheduler and
 ingest journals by responsibility. Recommend durable jobs as the owner of
 restartable run state, with utility workers as execution mechanisms where useful.

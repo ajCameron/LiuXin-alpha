@@ -1,6 +1,14 @@
 # Working Memory Index
 
 Active implementation checkpoint, **2026-10-20**:
+[durable submissions](durable-job-submissions-2026-10-20.md) continues A09 on
+`durable-job-submissions`, based on lease PR #139 at `ac3a6728`.
+Atomic delivery identity and explicit retry ancestry are implemented for review.
+Production Core workflow integration and the full A01–A16 programme remain open.
+The six unrelated staged storage files and dirty data submodule are preserved.
+No PR has been merged.
+
+Active implementation checkpoint, **2026-10-20**:
 [durable job leases](durable-job-leases-2026-10-20.md) continues A09 on
 `durable-job-leases`, based on JOB01 PR #138 at `1e98ecf5`. Claim fencing,
 atomic transitions/events and explicit interruption pass all 32 durable-job
@@ -20,8 +28,8 @@ durable workflow integration and the full A01–A16 programme remain open.
 No PR has been merged; the six unrelated staged storage edits are preserved.
 
 Parent PR #137 full CI is green at `875065b7`: 7,525 passed, 289 skipped,
-17 xfailed. JOB01 is published as PR #138; its quick CI lanes are green and
-the full suite is pending.
+17 xfailed. JOB01 PR #138 is also fully green: 7,540 passed, 290 skipped,
+17 xfailed (run `39486510953`).
 
 Active implementation checkpoint, **2026-10-20**:
 [rating validation](rating-validation-2026-10-20.md) continues A08 on

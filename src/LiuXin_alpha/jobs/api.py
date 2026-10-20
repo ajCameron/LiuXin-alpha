@@ -30,7 +30,7 @@ from LiuXin_alpha.jobs.models import (
     JobTriggerKind,
     now_ep_k,
 )
-from LiuXin_alpha.jobs.repository import JobLeaseLost, JobRepository
+from LiuXin_alpha.jobs.repository import JobLeaseLost, JobRepository, JobRequestConflict
 from LiuXin_alpha.jobs.scheduler import JobScheduler
 from LiuXin_alpha.jobs.worker import JobWorker
 
@@ -38,6 +38,7 @@ __all__ = [
     "JobHandlerAPI",
     "JobCancelled",
     "JobLeaseLost",
+    "JobRequestConflict",
     "JobHandlerRegistry",
     "JobRunContext",
     "JobConcurrencyPolicy",

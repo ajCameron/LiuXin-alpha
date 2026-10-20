@@ -145,6 +145,7 @@ paths = [
   "src/LiuXin_alpha/jobs/handler_api.py",
   "src/LiuXin_alpha/jobs/worker.py",
   "tests/jobs/test_durable_job_claims.py",
+  "tests/jobs/test_job_submissions.py",
   "tests/jobs/test_jobs_repository.py",
   "tests/jobs/test_existing_drive_backup_job_handler.py",
   "tests/storage/test_deletion_policy.py",

@@ -2,8 +2,9 @@
 
 Implemented **2026-10-20** as the next A09 prerequisite, after
 [responsive Core waiting](core-wait-dispatch.md). The durable repository is still
-separate from Core's default utility manager. A real workflow's Core integration,
-submission identity and retry ancestry remain JOB02 work.
+separate from Core's default utility manager. The following prerequisite adds
+[submission identity and retry ancestry](submission-identity.md); a real workflow's
+Core integration remains JOB02 work.
 
 ## One owner for each transition
 
@@ -43,7 +44,7 @@ serialization failures become durable failures while the worker still owns
 the claim. Results must be JSON-compatible; unsupported objects are not silently
 converted to strings.
 
-Runs capture their kind and JSON payload when enqueued. Editing a definition
+Runs capture their kind, label and JSON payload when enqueued. Editing a definition
 affects later submissions, not the handler/input selected for an already queued
 run. The worker does not currently enforce the definition's execution timeout,
 heartbeat-timeout or retry declarations; its configured lease duration governs
@@ -83,4 +84,5 @@ The [durable claim tests](../../tests/jobs/test_durable_job_claims.py) cover
 concurrent claims/enqueue, reused worker names, stale callbacks, process restart,
 atomic event failure, long-handler renewal, cancellation receipts, retention,
 captured inputs and a fixed legacy schema fixture. This prerequisite does not
-yet give Core a durable submission or retry API.
+yet give Core a durable submission or retry API. Repository-level delivery keys
+and explicit successors are described in the [submission contract](submission-identity.md).

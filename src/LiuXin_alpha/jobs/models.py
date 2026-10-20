@@ -164,7 +164,9 @@ class JobRun:
     """
     Durable state for one leased or completed execution attempt.
 
-    Kind and payload are captured at enqueue. A lease token belongs to one claim,
+    Kind, label and payload are captured at enqueue. Explicit retries retain those
+    inputs and record their immediate parent and incremented attempt number.
+    A lease token belongs to one claim,
     including before execution, and is cleared at terminal completion. Reclaiming
     unstarted work creates a new token even when the worker name is unchanged.
 
@@ -180,6 +182,8 @@ class JobRun:
     state: JobRunState = JobRunState.QUEUED
     attempt_number: int = 1
     job_run_id: int | None = None
+    job_name: str | None = None
+    retry_of_job_run_id: int | None = None
     worker_id: str | None = None
     lease_token: str | None = None
     payload_json: str | None = None

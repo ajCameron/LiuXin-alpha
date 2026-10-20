@@ -22,7 +22,11 @@ This closes the wait-lock defect, not A09's durable workflow requirement.
 now enforce exclusive claiming, atomic state/events, stale-owner refusal and
 explicit recovery after lease expiry. Workers renew long-running claims and
 preserve completed-effect receipts when cancellation is acknowledged.
-Submission idempotency, retry ancestry and the production workflow remain open.
+The following [submission prerequisite](submission-identity.md) adds atomic
+delivery deduplication, stable ledger identity and explicit retry ancestry.
+Started attempts require possible-effect acknowledgement before retry.
+These repository contracts are implemented for review; the production workflow
+and its Core identity/recovery mapping remain open.
 
 **Next; architecture A09.** Select a real storage or conversion workflow. Connect definition, run, lease, heartbeat, attempts and receipt to Core operations, preserving existing client IDs through an explicit mapping where needed.
 
