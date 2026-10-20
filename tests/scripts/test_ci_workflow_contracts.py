@@ -75,7 +75,8 @@ def test_full_suite_has_one_workflow_owner() -> None:
                     command = shlex.split(line)
                     if "pytest" in command and "tests" in command:
                         owners.append((path.name, job_id, command))
-    assert owners == [(PRIMARY, "full", ["pytest", "-q", "tests"])]
+    assert [(path, job) for path, job, _ in owners] == [(PRIMARY, "full")]
+    assert owners[0][2][:3] == ["pytest", "-q", "tests"]
     assert not (WORKFLOW_ROOT / "review.yml").exists()
 
 
@@ -143,14 +144,18 @@ def test_summary_requires_all_merge_jobs_even_after_failure() -> None:
 def test_full_suite_preserves_telemetry_and_releases_scratch() -> None:
     """Failing CI runs retain diagnostics while each completed test frees scratch."""
     steps = _workflow()["jobs"]["full"]["steps"]
-    run = next(step for step in steps if step.get("run") == "pytest -q tests")
-    options = shlex.split(run["env"]["PYTEST_ADDOPTS"])
-    assert options[:2] == ["-n", "0"]
+    run = next(step for step in steps if step.get("name") == "Run full test suite")
+    options = shlex.split(run["run"])
+    assert options[:5] == ["pytest", "-q", "tests", "-n", "0"]
+    # Child pytest probes disable plugins. Flags for this run must not leak into
+    # their environment, even though xdist and telemetry are available here.
+    for owner in (_workflow(), _workflow()["jobs"]["full"], run):
+        assert "PYTEST_ADDOPTS" not in owner.get("env", {})
     assert "tmp_path_retention_policy=none" in options
     assert "tmp_path_retention_count=0" in options
     assert (
         "--telemetry-dir=${{ runner.temp }}/liuxin-test-telemetry"
-        in run["env"]["PYTEST_ADDOPTS"]
+        in run["run"]
     )
     upload = next(
         step for step in steps if step.get("uses") == "actions/upload-artifact@v4"
