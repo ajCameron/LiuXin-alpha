@@ -4,10 +4,9 @@ Date: **2026-10-20**. Basis: documentation review at `a5406cf8`, A01 at `75b266e
 A02 at `d5956d6e`, and A03's implementation on `database-create-safety`.
 
 Status: **A01–A03 are implemented for PR review; remaining runtime fixes are open.
-Documentation progress is recorded in A14.** Recheck the named behaviour before starting each task, especially
+Documentation progress is recorded in A14; A15's CI repair is under verification.** Recheck the named behaviour before starting each task, especially
 where evidence comes from an older review. The first safety slices were checked
-against their current source while writing this list; external CI and GitHub
-settings were not refreshed.
+against their current source; A15 records fresh CI and branch-rule observations.
 
 Keep the current high-level package structure. The useful next changes enforce
 ownership at the places where data, resources or authority cross a boundary.
@@ -51,7 +50,7 @@ before starting an independent one. Dependencies are stated in each task.
 | [A12](#a12-finish-operational-path-and-startup-ownership) | Following | Scratch/startup helpers no longer pull process-wide hooks into foundation imports. | Configuration paths and utility owners |
 | [A13](#a13-make-provider-and-conversion-outcomes-explicit) | Following | Unsupported providers and conversion losses become structured results. | Plugins, file formats and jobs |
 | [A14](#a14-continue-documentation-with-concrete-source-backed-examples) | Documentation pass complete; PR review | Schema inventory, conventions, subsystem ownership and next-task routing reviewed. | Developer documentation |
-| [A15](#a15-refresh-repository-hygiene-and-ci-evidence) | Independent | Generated artifacts and required checks have current, reproducible ownership. | Packaging and test tooling |
+| [A15](#a15-refresh-repository-hygiene-and-ci-evidence) | Verification in progress | Repair shared failures, remove generated scratch and validate a clean baseline. | Packaging and test tooling |
 | [A16](#a16-reduce-compatibility-debt-one-live-boundary-at-a-time) | Following | A measured dependency or duplicate implementation is removed with caller evidence. | Relevant subsystem owner |
 
 ## A01. Preserve caller-owned backup staging
@@ -340,16 +339,22 @@ benchmark/test counts as fresh results.
 
 ## A15. Refresh repository hygiene and CI evidence
 
-**Findings:** RP-2/4/5/7/8. **First PR:** fresh artifact/dependency inventory and one
-bounded correction. **Dependencies:** none; check current remote state before
-proposing branch-rule changes.
+**Findings:** RP-2/4/5/7/8. **Implementation under verification, 2026-10-20.**
+**Dependencies:** none.
+
+The [dated CI baseline review](ci-baseline-2026-10-20.md) records the dependency,
+surface-import and headless-image repairs on `ci-baseline-repair`. A clean
+environment passes the complete quality gates and installed-wheel checks.
+Thirty generated benchmark scratch files (about 98 MiB) are removed and guarded;
+historical reports, source fixtures and compatibility configuration are classified.
+Full-suite acceptance remains pending; focused results do not close this task.
 
 **Fresh evidence, 2026-10-20:** [PR #128's full run](https://github.com/ajCameron/LiuXin-alpha/actions/runs/39366322310)
 and [PR #129's full run](https://github.com/ajCameron/LiuXin-alpha/actions/runs/39368762975)
 have the same 40 failing test IDs. The latter passed 7,308 tests, with 242 skips
 and 17 expected failures. Failure groups include missing Ruff/encryption test
-dependencies, surface package state and image fallback behaviour. Reproduce and
-repair those groups; the green focused, architecture and wheel checks do not
+dependencies, surface package state and image fallback behaviour. The repair
+addresses those groups; the green focused, architecture and wheel checks do not
 establish a green full-suite baseline.
 
 Classify tracked generated outputs, real fixtures and instance configuration from

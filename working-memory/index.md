@@ -1,6 +1,14 @@
 # Working Memory Index
 
 Latest implementation checkpoint, **2026-10-20**:
+[CI baseline repair](ci-baseline-repair-2026-10-20.md) continues the full A01–A16
+programme under A15 on `ci-baseline-repair`. It repairs the shared forty-failure
+groups, removes about 98 MiB of generated benchmark scratch, adds CI telemetry
+and validates the clean quality/installed-wheel gates. Focused evidence and its
+limits are recorded in the handoff; the full suite is pending. Next runtime work
+is A04. Unrelated staged storage edits and the data submodule remain preserved.
+
+Earlier implementation checkpoint, **2026-10-20**:
 [database creation safety](database-create-safety-2026-10-20.md) continues the
 user-authorized full A01–A16 programme on `database-create-safety`. A03 adds
 create-only file publication, explicit backed-up offline replacement and

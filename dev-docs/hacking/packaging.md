@@ -52,7 +52,9 @@ The verifier checks wheel contents, installs the artifact plus the
 direct dependency resolve from that target. It creates a real SQLite system
 with `liuxin init`, reopens it with a second idempotent init, resolves resource
 path and byte APIs from the installed package, and converts a Unicode HTML
-document into a structurally valid EPUB. This is deliberately stronger than
+document into a structurally valid EPUB. It also checks the installed `past`
+shim's origin and scales an encoded image through the public headless image API.
+This is deliberately stronger than
 importing from `PYTHONPATH=src` or running `--help`. The `Installed Wheel` CI
 job owns this gate.
 
@@ -83,10 +85,16 @@ cover paths, and `regex` for format-aware text operations. Development, full
 test, artifact, and source-deployment helpers include this extra by default;
 minimal installations do not acquire conversion dependencies implicitly.
 This gate certifies its named catalogue/HTML-to-EPUB path, not every optional
-backend or format. The current full-suite environment uses `test,conversion`;
-`typing` and `encryption` remain separate extras, so tests requiring them need an
-explicit environment contract. Audit that gap in [next tasks](next_tasks.md)
-rather than inferring whole-suite readiness from one successful wheel smoke.
+backend or format. The full-suite environment uses `test,conversion,encryption`;
+`test` supplies the exact Ruff version needed by executable formatter tests.
+The `typing` extra supplies the broader type-checking toolchain. Runtime
+encryption remains optional; the full-suite job explicitly installs it to
+exercise real encryption rather than skip those tests.
+
+The public `utils.image_tools.img` API selects the retained Qt implementation
+when PyQt5 is available and the existing Pillow implementation otherwise.
+Missing unrelated Qt-backend imports are reported, not silently converted into
+fallback selection. Image objects in the headless route are Pillow objects.
 
 ImageMagick/Wand, GUI toolkits, external archive programs, and individual
 backend clients remain capability-specific rather than requirements of the

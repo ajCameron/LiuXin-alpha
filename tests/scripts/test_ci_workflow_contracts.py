@@ -103,9 +103,8 @@ def test_workflow_preserves_event_selection_and_dependency_extras() -> None:
     assert jobs["smoke"]["if"] == "github.event_name == 'push'"
     for name in ("full", "smoke", "file-formats-fast", "file-formats-heavy"):
         commands = [step.get("run", "") for step in jobs[name]["steps"]]
-        assert any(
-            'python -m pip install ".[test,conversion]"' in cmd for cmd in commands
-        )
+        extras = "test,conversion,encryption" if name == "full" else "test,conversion"
+        assert any(f'python -m pip install ".[{extras}]"' in cmd for cmd in commands)
     quality_commands = [step.get("run", "") for step in jobs["quality-modern"]["steps"]]
     assert any(
         'python -m pip install ".[test,typing]"' in cmd for cmd in quality_commands
@@ -139,6 +138,25 @@ def test_summary_requires_all_merge_jobs_even_after_failure() -> None:
     for job in jobs.values():
         assert "continue-on-error" not in job
         assert all("continue-on-error" not in item for item in job["steps"])
+
+
+def test_full_suite_preserves_telemetry_and_releases_scratch() -> None:
+    """Failing CI runs retain diagnostics while each completed test frees scratch."""
+    steps = _workflow()["jobs"]["full"]["steps"]
+    run = next(step for step in steps if step.get("run") == "pytest -q tests")
+    options = shlex.split(run["env"]["PYTEST_ADDOPTS"])
+    assert options[:2] == ["-n", "0"]
+    assert "tmp_path_retention_policy=none" in options
+    assert "tmp_path_retention_count=0" in options
+    assert (
+        "--telemetry-dir=${{ runner.temp }}/liuxin-test-telemetry"
+        in run["env"]["PYTEST_ADDOPTS"]
+    )
+    upload = next(
+        step for step in steps if step.get("uses") == "actions/upload-artifact@v4"
+    )
+    assert upload["if"] == "always()"
+    assert upload["with"]["path"] == "${{ runner.temp }}/liuxin-test-telemetry"
 
 
 def _run_summary(results: list[str]) -> subprocess.CompletedProcess[str]:

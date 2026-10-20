@@ -1,5 +1,5 @@
 """
-Verify surface-package lazy API exposure, the explicit protocol export list, and shared re-export identities.
+Verify explicit surface API imports, protocol exports, and shared re-export identities.
 
 These contracts inspect imported modules and public names without constructing
 application instances, opening databases, or asserting runtime protocol validation.
@@ -8,6 +8,9 @@ application instances, opening databases, or asserting runtime protocol validati
 from __future__ import annotations
 
 import importlib
+import subprocess
+import sys
+from pathlib import Path
 
 
 SURFACE_API_EXPORTS = [
@@ -27,23 +30,31 @@ SURFACE_API_EXPORTS = [
 ]
 
 
-def test_surfaces_root_exposes_lazy_api_module() -> None:
-    """
-    Keep api advertised at the surface root and bound to the same importable API submodule.
+def test_surfaces_api_uses_ordinary_submodule_imports() -> None:
+    """The namespace exposes explicitly imported submodules without lazy hooks."""
+    from LiuXin_alpha.surfaces import api
 
-    This checks public availability and identity, not whether another test already
-    loaded the module before this access.
-
-    Example:
-        >>> test_surfaces_root_exposes_lazy_api_module()
-
-
-    :return: None after export membership and package/submodule identity assertions.
-    """
     surfaces = importlib.import_module("LiuXin_alpha.surfaces")
+    assert surfaces.api is api is importlib.import_module("LiuXin_alpha.surfaces.api")
+    assert "__getattr__" not in vars(surfaces)
 
-    assert "api" in surfaces.__all__
-    assert surfaces.api is importlib.import_module("LiuXin_alpha.surfaces.api")
+
+def test_surface_namespaces_do_not_load_implementations() -> None:
+    """Test a fresh interpreter so earlier imports cannot mask eager loading."""
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys; import LiuXin_alpha.surfaces; "
+            "import LiuXin_alpha.surfaces.renderers; "
+            "assert {n for n in sys.modules if n.startswith('LiuXin_alpha.surfaces.')} "
+            "== {'LiuXin_alpha.surfaces.renderers'}",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=Path(__file__).resolve().parents[2],
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def test_surface_api_root_exports_current_contract_names() -> None:
@@ -60,7 +71,9 @@ def test_surface_api_root_exports_current_contract_names() -> None:
 
     assert surface_api.__all__ == SURFACE_API_EXPORTS
     for exported_name in SURFACE_API_EXPORTS:
-        assert hasattr(surface_api, exported_name), f"surfaces.api is missing {exported_name}"
+        assert hasattr(surface_api, exported_name), (
+            f"surfaces.api is missing {exported_name}"
+        )
 
 
 def test_existing_surface_modules_reexport_shared_host_protocols() -> None:

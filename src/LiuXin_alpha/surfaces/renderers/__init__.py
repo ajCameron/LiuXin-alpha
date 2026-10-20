@@ -1,8 +1,7 @@
 """
-Expose the supported renderers compatibility surface.
+Presentation renderers imported explicitly from their individual modules.
 
-The module keeps compatibility policy, normalization and resource ownership explicit
-for callers.
+Importing this namespace loads no renderer implementations or lazy export hooks.
 
 Example:
     Exercise   init   through a consuming regression::

@@ -235,23 +235,15 @@ def test_metadata_renderer_accepts_to_mapping_and_rejects_bad_sources() -> None:
         metadata_to_html(BadData())
 
 
-def test_renderers_package_lazy_loader() -> None:
-    """
-    Perform the test renderers package lazy loader operation under explicit file-format and conversion rules.
+def test_renderers_package_explicit_import() -> None:
+    """Ordinary submodule imports retain identity without package-level loaders."""
+    from LiuXin_alpha.surfaces.renderers import metadata
 
-    Example:
-        Exercise test renderers package lazy loader through a consuming regression::
-
-            python -m pytest -q tests/surfaces/test_renderers_metadata.py
-
-
-    :return: None; the operation mutates state, writes output or performs cleanup in
-        place.
-    """
     assert "metadata" in dir(renderers)
-    assert renderers.__getattr__("metadata") is metadata_renderer
+    assert renderers.metadata is metadata is metadata_renderer
+    assert "__getattr__" not in vars(renderers)
     with pytest.raises(AttributeError):
-        renderers.__getattr__("missing")
+        getattr(renderers, "missing")
 
 
 def test_metadata_api_does_not_import_surface_renderers() -> None:
