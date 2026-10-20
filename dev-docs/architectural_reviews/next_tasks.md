@@ -46,7 +46,7 @@ before starting an independent one. Dependencies are stated in each task.
 | [A07](#a07-choose-one-default-wemi-selection-policy) | Implemented; PR review | SQL projections and Catalog bundles apply an agreed path-selection policy. | Catalog and schema projections |
 | [A08](#a08-complete-semantic-write-coverage) | First family implemented; PR review | Rating values/scales share preparation, checked reuse and transactional import. Other fields remain on the Catalog work list. | Metadata and Catalog |
 | [A09](#a09-converge-job-state-and-release-long-waits-from-core-dispatch) | Partial; durable workflow next | Job waits release dispatch; one real workflow still needs durable, observable execution. | Jobs and Core |
-| [A10](#a10-give-storage-record-mutations-one-owner) | Next | Reconcile and admin adapters share storage record invariants and receipts. | Storage, using database transactions |
+| [A10](#a10-give-storage-record-mutations-one-owner) | First family implemented; PR review | Asset/Replica writes use storage ownership; remaining adapters and receipts are open. | Storage, using database transactions |
 | [A11](#a11-finish-lifecycle-caller-migration) | Following | Lower-layer path wrappers and obsolete opt-ins retire through caller migration. | Core, ingest and storage |
 | [A12](#a12-finish-operational-path-and-startup-ownership) | Following | Scratch/startup helpers no longer pull process-wide hooks into foundation imports. | Configuration paths and utility owners |
 | [A13](#a13-make-provider-and-conversion-outcomes-explicit) | Following | Unsupported providers and conversion losses become structured results. | Plugins, file formats and jobs |
@@ -303,6 +303,14 @@ the same status, progress and terminal receipt.
 **Findings:** ST-3/5 and parts of CO-8. **First PR:** one reconcile/admin mutation
 family through a storage-owned service. **Dependencies:** A04/A05 contracts;
 coordinate interfaces with A09.
+
+**First family implemented for PR review, 2026-10-20.** Generic Asset/Replica
+CRUD is refused. Explicit Asset policy assignment uses the manager's serialized
+record/revision mutation, and FRBR backup indexing adopts/verifies through that
+owner instead of changing identities and scalar rows directly. The
+[mutation contract](../storage_and_backup/record-mutations.md) records the
+compatibility change, historical fingerprint limitation and remaining families.
+This prerequisite lets A09 verification rely on those normal writers' revisions.
 
 Choose the storage-owned boundary for Asset/Replica and retained files/link-table
 writes, building on the durable manager/repository adapters already present.

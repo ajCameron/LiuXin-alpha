@@ -114,8 +114,13 @@ arbitrary-table API. It covers digital assets, composite assets, replicas,
 item links, composite members, replication policies, backup policies, workflow
 records, workflow state, workflow output, and workflow presence.
 
-Writable resources support semantic create/update/delete operations. Workflow
-owned state/output/presence resources are read-only. Policy operations assess
+Writable resources retain create/update/delete adapters. Asset and Replica
+resources are inspectable only; use storage-owned ingest, metadata, verification
+and deletion operations for mutations. Explicit Asset policy assignment uses the
+manager and returns its committed revision. See
+[record mutation ownership](../storage_and_backup/record-mutations.md) for caller
+migration and partial-effect semantics. Workflow-owned state/output/presence
+resources are also read-only. Policy operations assess
 current replicas, expose violations, and propose placements. Acquisition
 resolution traverses legacy files and managed item-to-asset or
 item-to-composite-to-member-to-replica paths.

@@ -46,7 +46,14 @@ introduced; leases and storage writer consolidation remain STOR04/STOR05 work.
 
 ## STOR04. Converge storage-record mutations and receipts
 
-**Next; architecture A10.** Move reconcile/admin compatibility mutations behind one storage-owned service. Keep schema mechanics below it and preserve source observations, revision preconditions and cache invalidation.
+**First family implemented for PR review; architecture A10.** Generic Asset/Replica
+admin writes are refused; Asset policy assignment and FRBR backup indexing use
+the storage owner. The [mutation contract](record-mutations.md) records caller
+migration, revisions, historical fingerprints and partial effects.
+
+Continue with Composite/Item-link/policy-definition adapters and retained `files`
+reconciliation. Keep schema mechanics below the owner and preserve source
+observations, revision preconditions and cache invalidation.
 
 Done when the selected live callers share validation and receipts, failure injection covers publication versus commit, and out-of-band inventory is not treated as metadata authority.
 
