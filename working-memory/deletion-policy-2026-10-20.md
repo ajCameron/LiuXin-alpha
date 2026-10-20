@@ -85,3 +85,11 @@ surviving content through the Library facade. All **10 Library facade checks**
 passed on the isolated A05 follow-up. No runtime policy was weakened. The updated
 parent requires its own remote confidence/full CI result. A06 transport work is
 on a separate branch and is not part of this follow-up.
+
+The first full A05 run finished with 7,433 passed, 269 skipped, 17 xfailed and
+five failures. Besides the Library expectation, four SquashFS failures shared
+one real transaction-nesting defect: publication opened an ordinary macro unit
+before calling serialized StorageManager units. The publication owner now
+reserves the serialized writer at its outer boundary. All **18 SquashFS publish,
+rollback and CLI checks** passed on the isolated follow-up, with four existing
+multiprocessing fork warnings. The broader storage-writer inventory remains A10.

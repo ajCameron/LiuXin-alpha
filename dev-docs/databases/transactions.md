@@ -107,6 +107,12 @@ writer consolidation; A05 tracks metadata/byte-deletion policy and recovery.
 Transaction rollback does not promise undo of an already completed external
 effect or a commit whose outcome is unknown after connection loss.
 
+Storage callers composing manager units must reserve serialization at their
+outer boundary; an ordinary transaction cannot be upgraded after reads.
+[SquashFS publication](../../src/LiuXin_alpha/storage/reconcile/squashfs_db_sync.py)
+uses a serialized macro unit around source/archive registration so its nested
+manager writes retain the same transaction and writer reservation.
+
 ## Evidence
 
 [Ownership regressions](../../tests/databases/test_transaction_ownership.py)
