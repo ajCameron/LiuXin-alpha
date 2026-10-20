@@ -153,10 +153,7 @@ def test_full_suite_preserves_telemetry_and_releases_scratch() -> None:
         assert "PYTEST_ADDOPTS" not in owner.get("env", {})
     assert "tmp_path_retention_policy=none" in options
     assert "tmp_path_retention_count=0" in options
-    assert (
-        "--telemetry-dir=${{ runner.temp }}/liuxin-test-telemetry"
-        in run["run"]
-    )
+    assert "--telemetry-dir=${{ runner.temp }}/liuxin-test-telemetry" in run["run"]
     upload = next(
         step for step in steps if step.get("uses") == "actions/upload-artifact@v4"
     )
