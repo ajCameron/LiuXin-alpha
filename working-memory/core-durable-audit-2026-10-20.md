@@ -62,3 +62,16 @@ Their file hashes and exact index entries are in
 manifest paths. Main's audit changes are partly staged after three-way application.
 Publish the focused PR on storage-owned-record-mutations, inspect CI, and continue
 remaining A10 and A11/A12/A13/A16 work. No local full-suite rerun is needed.
+# CI correction, 2026-10-20
+
+The initial full PR #142 suite reported 3 failures with 7,627 passes: optional
+APSW was not installed on CI, the new audit/event endpoint protocol docstrings
+missed the maintained service links, and the surface factory expectation omitted
+`durable_job_path=None`. Added the optional-backend guard, completed both endpoint
+and service parameter/result docs, updated the endpoint count to 82 and retained
+the surface's exact forwarding assertion with the new argument.
+
+The complete affected audit/service/surface selection now passes 63 tests.
+The parent PR #141 full suite is green: 7,615 passed, 290 skipped, 17 xfailed.
+Composite work remains isolated on `storage-owned-composite-mutations`; propagate
+this correction through policy PR #143 before publishing the next slice.

@@ -384,7 +384,13 @@ def jobs_log_read(runtime: CoreRuntime, query: CoreQuery) -> dict[str, Any]:
 
 
 def jobs_events(runtime: CoreRuntime, query: CoreQuery) -> dict[str, Any]:
-    """Read durable progress/log events with a stable, bounded event-ID cursor."""
+    """Read durable progress/log events with a stable, bounded event-ID cursor.
+
+    :param runtime: Runtime supplying the library-bound durable job service.
+    :param query: Query with job_id, optional after_event_id and a limit capped at 1,000.
+    :return: Ordered events, next cursor and whether more events are available.
+    :raises CoreDispatchError: If the cursor/bounds are invalid or the job is unknown.
+    """
     payload = _payload(query)
     job_id = _required_text(payload, "job_id")
     cursor = _optional_int(payload, "after_event_id", default=0, minimum=0)
