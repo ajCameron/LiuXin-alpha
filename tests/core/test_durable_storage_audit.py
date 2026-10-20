@@ -220,6 +220,8 @@ finally:
 def test_factory_uses_independent_library_and_reopens_audit_receipt(tmp_path, db_type):
     from LiuXin_alpha.core.factory import create_core
 
+    if db_type == "SQLite_apsw":
+        pytest.importorskip("apsw")
     path = tmp_path / "library.sqlite"
     root = tmp_path / "store"
     root.mkdir()

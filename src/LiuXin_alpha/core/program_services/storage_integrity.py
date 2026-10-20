@@ -198,6 +198,11 @@ def storage_audit_start(runtime: CoreRuntime, command: CoreCommand) -> dict[str,
     A repeated request_key returns the original run. Selection is evaluated by
     the worker when it starts; it uses its own library graph and storage owner.
     Without an explicit key the command envelope ID is the delivery identity.
+
+    :param runtime: Runtime supplying the library-bound durable job service.
+    :param command: Command with optional limit, offset, calculate_digests and request_key.
+    :return: Durable job identity and its current state after accepting the audit.
+    :raises CoreDispatchError: If pagination, delivery identity or submission validation fails.
     """
     payload = _payload(command)
     limit = _optional_int(payload, "limit", default=100, minimum=1)
