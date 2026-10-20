@@ -117,7 +117,9 @@ records, workflow state, workflow output, and workflow presence.
 Writable resources retain create/update/delete adapters. Asset and Replica
 resources are inspectable only; use storage-owned ingest, metadata, verification
 and deletion operations for mutations. Explicit Asset policy assignment uses the
-manager and returns its committed revision. See
+manager and returns its committed revision. Replication/backup policy-definition
+CRUD also delegates to storage, preserving domain defaults, revision checks and
+assigned-policy deletion guards. See
 [record mutation ownership](../storage_and_backup/record-mutations.md) for caller
 migration and partial-effect semantics. Workflow-owned state/output/presence
 resources are also read-only. Policy operations assess

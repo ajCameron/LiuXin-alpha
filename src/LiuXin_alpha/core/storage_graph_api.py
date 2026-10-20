@@ -5,8 +5,8 @@ A closed resource registry selects tables and public field prefixes instead of
 accepting arbitrary table names. These are portable macro-backed row operations,
 not the storage manager's byte-transfer or placement workflows. Asset/Replica
 resources are inspectable only; mutations must use storage's owned operations.
-Explicit Asset policy assignment delegates to that owner, preserving its record,
-revision and transaction rules. Other writable resource families still use the
+Policy definitions and explicit Asset policy assignment delegate to that owner,
+preserving record, revision and transaction rules. Other writable families use the
 retained row adapters. Outer Core dispatch owns authorization and wire encoding
 for result values that remain backend-native at this boundary.
 """
@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from LiuXin_alpha.core.description import CorePayloadFieldDescription
 from LiuXin_alpha.core.errors import CoreDispatchError
+from LiuXin_alpha.core.services import CoreServiceReconciliationError
 
 if TYPE_CHECKING:
     from LiuXin_alpha.core.commands import CoreCommand
@@ -507,6 +508,29 @@ def _healthy_replica(row: Mapping[str, Any]) -> bool:
     }
 
 
+def _reconcile_resource_write(
+    runtime: CoreRuntime,
+    spec: _ResourceSpec,
+    receipt: dict[str, Any],
+    *,
+    owned_commit: bool,
+) -> dict[str, Any]:
+    """Read back a write and retain owned-commit evidence if projection fails."""
+    try:
+        row = _macros(runtime).get_row(
+            spec.table, receipt["id"], id_column=spec.id_column
+        )
+        receipt["record"] = None if row is None else _record(spec, row)
+    except Exception as error:
+        if not owned_commit:
+            raise
+        raise CoreServiceReconciliationError(
+            "Policy write committed but Core resource readback failed.",
+            receipt=receipt,
+        ) from error
+    return runtime.services.reconcile(receipt)
+
+
 class CoreStorageGraphAPI:
     """
     Register closed resource CRUD and row-based Asset/policy handlers without owning storage resources.
@@ -625,6 +649,7 @@ class CoreStorageGraphAPI:
                 _field("resource", required=True, field_type="string"),
                 _field("id", required=True, field_type="integer"),
                 _field("values", required=True, field_type="object"),
+                _field("if_revision", field_type="string|null"),
             ),
             tags=("storage", "assets", "write"),
             remote_capabilities=("admin",),
@@ -1091,10 +1116,10 @@ class CoreStorageGraphAPI:
         """
         Insert a writable resource row, read it back, and reconcile the service cache.
 
-        Core-managed ID/timestamp fields are rejected, but values and relationships
-        otherwise rely on database validation. created=True means insertion returned;
-        a missing readback becomes record=None. Readback/projection/reconciliation
-        can fail after insertion without compensating deletion.
+        Policy definitions use storage's domain defaults, validation and committed
+        record/revision mutation. Readback/cache failure retains that commit receipt.
+        Other writable families retain macro insertion and schema validation.
+        A missing readback becomes record=None; no compensating deletion occurs.
 
         Example:
             >>> receipt = CoreStorageGraphAPI.resource_create(runtime, command)  # doctest: +SKIP
@@ -1112,24 +1137,23 @@ class CoreStorageGraphAPI:
                 f"`{spec.name}` is workflow-owned and read-only.",
                 code="storage_resource_read_only",
             )
-        values = _normalise_values(runtime, spec, _mapping(payload, "values"))
-        resource_id = _macros(runtime).insert_row(
-            spec.table,
-            values,
-            id_column=spec.id_column,
-        )
-        row = _macros(runtime).get_row(
-            spec.table,
-            resource_id,
-            id_column=spec.id_column,
-        )
-        return runtime.services.reconcile(
-            {
-                "resource": spec.name,
-                "id": resource_id,
-                "record": None if row is None else _record(spec, row),
-                "created": True,
-            }
+        receipt: dict[str, Any] = {"resource": spec.name, "created": True}
+        if spec.kind == "policy":
+            from LiuXin_alpha.core.storage_policy_mutations import create_policy
+
+            record = create_policy(
+                runtime.library.storage, spec.name, _mapping(payload, "values")
+            )
+            receipt.update(
+                id=int(getattr(record, spec.id_column)), revision=record.revision
+            )
+        else:
+            values = _normalise_values(runtime, spec, _mapping(payload, "values"))
+            receipt["id"] = _macros(runtime).insert_row(
+                spec.table, values, id_column=spec.id_column
+            )
+        return _reconcile_resource_write(
+            runtime, spec, receipt, owned_commit=spec.kind == "policy"
         )
 
     @staticmethod
@@ -1140,16 +1164,17 @@ class CoreStorageGraphAPI:
         """
         Require an existing writable resource row, normalize edits, update it, read it back, and reconcile.
 
-        Update return values are ignored; updated does not establish a changed row
-        count. Empty edits are forwarded. No atomicity is added around the existence
-        check/write/readback, and later failures do not roll back earlier effects.
+        Policy patches use storage's current record and a revision precondition,
+        optionally supplied by the client. Readback/cache failures retain the
+        committed receipt. Other families retain raw updates without revision
+        support. No transaction spans a committed write and subsequent readback.
 
         Example:
             >>> receipt = CoreStorageGraphAPI.resource_update(runtime, command)  # doctest: +SKIP
 
 
         :param runtime: Runtime providing portable macro persistence and post-write service reconciliation.
-        :param command: Command with writable resource, required integer-convertible id, and Mapping values.
+        :param command: Writable resource, integer-convertible id, Mapping values and optional policy-only if_revision.
         :return: Reconciled updated=True receipt with the readback record, possibly None after concurrent removal.
         :raises CoreDispatchError: For read-only/unknown resources, missing rows, or invalid payload/field names.
         """
@@ -1161,6 +1186,8 @@ class CoreStorageGraphAPI:
                 code="storage_resource_read_only",
             )
         resource_id = _required_int(payload, "id")
+        if spec.kind != "policy" and payload.get("if_revision") is not None:
+            raise CoreDispatchError("if_revision is supported only for policy updates.")
         macros = _macros(runtime)
         if (
             macros.get_row(
@@ -1174,25 +1201,27 @@ class CoreStorageGraphAPI:
                 f"Unknown {spec.name} {resource_id}.",
                 code="storage_resource_not_found",
             )
-        values = _normalise_values(runtime, spec, _mapping(payload, "values"))
-        macros.update_row(
-            spec.table,
-            resource_id,
-            values,
-            id_column=spec.id_column,
-        )
-        row = macros.get_row(
-            spec.table,
-            resource_id,
-            id_column=spec.id_column,
-        )
-        return runtime.services.reconcile(
-            {
-                "resource": spec.name,
-                "id": resource_id,
-                "record": None if row is None else _record(spec, row),
-                "updated": True,
-            }
+        receipt: dict[str, Any] = {
+            "resource": spec.name,
+            "id": resource_id,
+            "updated": True,
+        }
+        if spec.kind == "policy":
+            from LiuXin_alpha.core.storage_policy_mutations import update_policy
+
+            record = update_policy(
+                runtime.library.storage,
+                spec.name,
+                resource_id,
+                _mapping(payload, "values"),
+                if_revision=payload.get("if_revision"),
+            )
+            receipt["revision"] = record.revision
+        else:
+            values = _normalise_values(runtime, spec, _mapping(payload, "values"))
+            macros.update_row(spec.table, resource_id, values, id_column=spec.id_column)
+        return _reconcile_resource_write(
+            runtime, spec, receipt, owned_commit=spec.kind == "policy"
         )
 
     @staticmethod
@@ -1203,10 +1232,10 @@ class CoreStorageGraphAPI:
         """
         Delete a writable resource row if present, reconciling only when deletion was attempted.
 
-        Missing rows return deleted=False immediately without reconciliation.
-        delete_row's return value is ignored, and the returned record describes
-        pre-delete state. No extra confirmation, byte deletion, or rollback is
-        implemented here; database constraints/cascades determine row effects.
+        Policies use storage's assigned-reference guard and report its deletion
+        outcome. Other families retain macro deletion and schema constraints.
+        Missing rows return deleted=False. The returned record describes pre-delete
+        state; no bytes are deleted and post-commit cache errors retain the receipt.
 
         Example:
             >>> receipt = CoreStorageGraphAPI.resource_delete(runtime, command)  # doctest: +SKIP
@@ -1237,16 +1266,22 @@ class CoreStorageGraphAPI:
                 "id": resource_id,
                 "deleted": False,
             }
-        macros.delete_row(
-            spec.table,
-            resource_id,
-            id_column=spec.id_column,
-        )
+        deleted = True
+        if spec.kind == "policy":
+            from LiuXin_alpha.core.storage_policy_mutations import delete_policy
+
+            deleted = delete_policy(runtime.library.storage, spec.name, resource_id)
+        else:
+            macros.delete_row(
+                spec.table,
+                resource_id,
+                id_column=spec.id_column,
+            )
         return runtime.services.reconcile(
             {
                 "resource": spec.name,
                 "id": resource_id,
-                "deleted": True,
+                "deleted": deleted,
                 "record": _record(spec, row),
             }
         )
