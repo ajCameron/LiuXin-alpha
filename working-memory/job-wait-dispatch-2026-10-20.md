@@ -1,6 +1,8 @@
 # Job wait dispatch checkpoint, 2026-10-20
 
 Branch: `core-job-wait-dispatch`, based on rating PR #137 at `875065b7`.
+Published as [PR #138](https://github.com/ajCameron/LiuXin-alpha/pull/138) at
+`1e98ecf5`; quick CI lanes are green and the full suite is pending.
 This is JOB01, the first part of A09. **The full A01–A16 programme remains open,
 and A09 still requires durable workflow integration. No PR has been merged.**
 
@@ -15,7 +17,8 @@ because standalone drivers had no macro facade binding before transactional
 rating bootstrap. Commit `875065b7` binds them before discovery/repair.
 All 56 lifecycle contracts and the local confidence stream (304 passed, three
 skipped) passed. Updated push confidence, quality and packaging CI lanes are
-green; full PR CI is pending. See the [rating handoff](rating-validation-2026-10-20.md).
+green. Full PR #137 CI subsequently passed **7,525 tests, 289 skipped,
+17 xfailed**. See the [rating handoff](rating-validation-2026-10-20.md).
 
 ## Implementation and limits
 

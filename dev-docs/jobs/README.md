@@ -7,9 +7,9 @@ consolidation work. See [next tasks](next_tasks.md) for the proposed sequence.
 
 | Owner | Current responsibility | Limit |
 | --- | --- | --- |
-| [jobs.repository](../../src/LiuXin_alpha/jobs/repository.py) | SQLite-backed definitions, runs, events and persisted state. | Separate job database/schema; not the default Core job manager. |
+| [jobs.repository](../../src/LiuXin_alpha/jobs/repository.py) | SQLite-backed definitions, captured inputs, atomic claims/events, fenced worker updates and interrupted-run recovery. | Separate job database/schema; not the default Core job manager. |
 | [jobs.scheduler](../../src/LiuXin_alpha/jobs/scheduler.py) | Queue due definitions. | Scheduling does not make a domain workflow idempotent. |
-| [jobs.worker](../../src/LiuXin_alpha/jobs/worker.py) and handler registry | Lease runs, invoke handlers, persist progress/results. | Each handler must cooperate with its lifecycle and recovery contract. |
+| [jobs.worker](../../src/LiuXin_alpha/jobs/worker.py) and handler registry | Lease and renew runs, invoke captured handlers/inputs, persist owned progress/results. | Each handler must cooperate with its effect/recovery contract; definition timeouts and retries are not enforced. |
 | [utils.jobs.manager](../../src/LiuXin_alpha/utils/jobs/manager.py) | In-memory supervision of thread/process execution, cancellation, timeout and retry. | Process-local job state does not survive restart as a durable ledger. |
 | [CoreRuntime](../../src/LiuXin_alpha/core/runtime.py) | Named submit/list/get/wait/result/cancel/retry operations and application receipts. | Defaults to the process-shared utility manager; it is not automatically wired to JobRepository. |
 | [workflow jobs](../../src/LiuXin_alpha/core/workflow_jobs.py) | Adapters that invoke owning conversion, ingest and storage workflows. | The job wrapper does not add all-run rollback or missing result fields. |
@@ -18,6 +18,11 @@ Domain-specific journals still exist. Storage ingest records publication and
 catalogue finalization; backup workflows retain their own sources/checkpoints;
 mixed ingest keeps run/resume state. These are recovery evidence for their
 operations, not interchangeable universal job records.
+
+The [durable claim contract](durable-claims.md) describes the A09 prerequisite:
+atomic transitions, claim tokens, lease renewal, explicit interruption,
+cancellation receipts and migration. It does not yet wire a production Core
+workflow into this ledger.
 
 ## Lifetime, waiting and outcomes
 

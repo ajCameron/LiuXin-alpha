@@ -13,11 +13,17 @@ Example:
 from __future__ import annotations
 
 import dataclasses
-
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from LiuXin_alpha.jobs.models import JobProgressUpdate
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.jobs.repository import JobRepository
+
+
+class JobCancelled(RuntimeError):
+    """A handler acknowledged cancellation at a cooperative checkpoint."""
 
 
 class JobHandlerAPI(ABC):
@@ -50,7 +56,7 @@ class JobHandlerAPI(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def run(self, *, payload_json: str, run_context: "JobRunContext") -> dict[str, Any]:
+    def run(self, *, payload_json: str, run_context: JobRunContext) -> dict[str, Any]:
         """
         Execute the configured conversion stage and return its primary result.
 
@@ -73,17 +79,23 @@ class JobRunContext:
     """
     Mutable execution context exposed to a running job handler.
 
+    Progress, logs, heartbeat and cancellation checkpoints validate the captured
+    lease token. JobLeaseLost forbids further reporting; it does not undo external
+    effects. Handlers can acknowledge cancellation with raise_if_cancel_requested.
+
     Example:
         Exercise JobRunContext through a consuming regression::
 
             python -m pytest -q tests/jobs/test_jobs_repository.py
     """
 
-    repository: Any
+    repository: JobRepository
     job_definition_id: int
     job_run_id: int
     worker_id: str
     started_timestamp_ep_k: int
+    lease_token: str
+    lease_for_s: float = 60.0
 
     def heartbeat(self, message: str | None = None) -> None:
         """
@@ -99,7 +111,13 @@ class JobRunContext:
         :return: None; the operation mutates state, writes output or performs cleanup in
             place.
         """
-        self.repository.heartbeat(self.job_run_id, worker_id=self.worker_id, message=message)
+        self.repository.heartbeat(
+            self.job_run_id,
+            worker_id=self.worker_id,
+            lease_token=self.lease_token,
+            message=message,
+            lease_for_s=self.lease_for_s,
+        )
 
     def update_progress(self, update: JobProgressUpdate) -> None:
         """
@@ -115,7 +133,12 @@ class JobRunContext:
         :return: None; the operation mutates state, writes output or performs cleanup in
             place.
         """
-        self.repository.update_progress(self.job_run_id, update)
+        self.repository.update_progress(
+            self.job_run_id,
+            update,
+            worker_id=self.worker_id,
+            lease_token=self.lease_token,
+        )
 
     def is_cancel_requested(self) -> bool:
         """
@@ -129,7 +152,15 @@ class JobRunContext:
 
         :return: True when the documented condition holds; otherwise False.
         """
-        return bool(self.repository.get_run(self.job_run_id).cancel_requested)
+        run = self.repository.check_claim(
+            self.job_run_id, worker_id=self.worker_id, lease_token=self.lease_token
+        )
+        return bool(run.cancel_requested)
+
+    def raise_if_cancel_requested(self) -> None:
+        """Acknowledge cancellation before the next domain effect or checkpoint."""
+        if self.is_cancel_requested():
+            raise JobCancelled("Cancelled at a handler checkpoint")
 
     def log(self, message: str, *, event_json: str | None = None) -> None:
         """
@@ -146,7 +177,13 @@ class JobRunContext:
         :return: None; the operation mutates state, writes output or performs cleanup in
             place.
         """
-        self.repository.append_log(self.job_run_id, message=message, event_json=event_json)
+        self.repository.append_log(
+            self.job_run_id,
+            worker_id=self.worker_id,
+            lease_token=self.lease_token,
+            message=message,
+            event_json=event_json,
+        )
 
 
 class JobHandlerRegistry:
@@ -243,4 +280,4 @@ class JobHandlerRegistry:
         return tuple(sorted(self._handlers))
 
 
-__all__ = ["JobHandlerAPI", "JobRunContext", "JobHandlerRegistry"]
+__all__ = ["JobHandlerAPI", "JobRunContext", "JobHandlerRegistry", "JobCancelled"]

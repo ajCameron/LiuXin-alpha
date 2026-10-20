@@ -214,6 +214,9 @@ policy. Consolidating Core execution, durable jobs and utility workers requires
 an agreed run identity, restart/cancellation behaviour and result/log contract.
 The first A09 slice implements [responsive job waiting](../jobs/core-wait-dispatch.md)
 without changing the default state owner; the durable workflow migration remains open.
+The following [ledger prerequisite](../jobs/durable-claims.md) enforces atomic
+claim transitions, stale-owner refusal and explicit interrupted-run recovery.
+Core workflow submission/idempotency and retry ancestry still need integration.
 Mixed ingest already consumes a Library, but this does not settle every acquisition
 coordinator or make cross-domain effects atomic.
 

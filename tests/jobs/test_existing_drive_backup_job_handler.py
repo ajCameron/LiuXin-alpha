@@ -9,22 +9,24 @@ Example:
 
         python -m pytest -q tests/jobs/test_existing_drive_backup_job_handler.py
 """
+
 from __future__ import annotations
-
-from LiuXin_alpha.jobs.api import JobDefinition
-
-import json
 
 from pathlib import Path
 
+from LiuXin_alpha.jobs.api import JobDefinition
+from LiuXin_alpha.jobs.handler_api import JobRunContext
 from LiuXin_alpha.jobs.handlers.existing_drive_squashfs_backup import (
     ExistingDriveSquashfsBackupJobHandler,
     ExistingDriveSquashfsBackupJobPayload,
 )
-from LiuXin_alpha.jobs.handler_api import JobRunContext
-from LiuXin_alpha.jobs.repository import JobRepository
 from LiuXin_alpha.jobs.models import now_ep_k
-from LiuXin_alpha.storage.backup.prototype_pipeline import PrototypeRunResult, IndexedStoreRun, PackExecutionRun
+from LiuXin_alpha.jobs.repository import JobRepository
+from LiuXin_alpha.storage.backup.prototype_pipeline import (
+    IndexedStoreRun,
+    PackExecutionRun,
+    PrototypeRunResult,
+)
 
 
 class _FakePrototype:
@@ -36,6 +38,7 @@ class _FakePrototype:
 
             python -m pytest -q tests/jobs/test_existing_drive_backup_job_handler.py
     """
+
     last_init_kwargs = None
     last_run_args = None
 
@@ -72,12 +75,20 @@ class _FakePrototype:
         type(self).last_run_args = tuple(str(x) for x in input_paths)
         return PrototypeRunResult(
             database_path=str(_FakePrototype.last_init_kwargs["database_path"]),
-            indexed_stores=(IndexedStoreRun("/tmp/source", 1, "store", "/tmp/source", 10, 8, 8, 0, 0),),
-            executed_packs=(PackExecutionRun(1, "pack-0001", "/tmp/out.sqsh", 8, 1024, 2, 8),),
+            indexed_stores=(
+                IndexedStoreRun(
+                    "/tmp/source", 1, "store", "/tmp/source", 10, 8, 8, 0, 0
+                ),
+            ),
+            executed_packs=(
+                PackExecutionRun(1, "pack-0001", "/tmp/out.sqsh", 8, 1024, 2, 8),
+            ),
         )
 
 
-def test_existing_drive_backup_handler_round_trip_payload_and_run(monkeypatch, tmp_path) -> None:
+def test_existing_drive_backup_handler_round_trip_payload_and_run(
+    monkeypatch, tmp_path
+) -> None:
     """
     Perform the test existing drive backup handler round trip payload and run operation under explicit file-format and conversion rules.
 
@@ -112,15 +123,23 @@ def test_existing_drive_backup_handler_round_trip_payload_and_run(monkeypatch, t
         )
     )
     queued = repo.enqueue_run(job_definition_id=int(definition.job_definition_id))
+    leased = repo.lease_next_run(worker_id="worker-test", lease_for_s=60)
+    repo.mark_running(
+        queued.job_run_id, worker_id="worker-test", lease_token=leased.lease_token
+    )
     context = JobRunContext(
         repository=repo,
         job_definition_id=int(definition.job_definition_id),
         job_run_id=int(queued.job_run_id),
         worker_id="worker-test",
+        lease_token=leased.lease_token,
         started_timestamp_ep_k=now_ep_k(),
     )
 
-    monkeypatch.setattr("LiuXin_alpha.jobs.handlers.existing_drive_squashfs_backup.ExistingDriveSquashfsPrototype", _FakePrototype)
+    monkeypatch.setattr(
+        "LiuXin_alpha.jobs.handlers.existing_drive_squashfs_backup.ExistingDriveSquashfsPrototype",
+        _FakePrototype,
+    )
     result = handler.run(payload_json=payload.to_json(), run_context=context)
 
     assert result["total_indexed_stores"] == 1

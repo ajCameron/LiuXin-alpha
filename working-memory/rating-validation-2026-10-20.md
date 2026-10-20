@@ -110,6 +110,9 @@ The confidence rerun passed **304 tests, three skipped in 311.60s**:
 `/tmp/liuxin-a08-confidence-fixed.log`.
 New job-dispatch tests in that checkout belong to A09, not this follow-up commit.
 
+Full CI at `875065b7` is now green: **7,525 passed, 289 skipped, 17 xfailed** in
+1,786.86s ([run](https://github.com/ajCameron/LiuXin-alpha/actions/runs/39484843469)).
+
 The disposable PostgreSQL cluster `/tmp/liuxin-a05-postgres/data` is **stopped**;
 all client connections were confirmed closed first. Tests used serial execution,
 telemetry and immediate scratch cleanup. C: free space held near 12 GiB.
