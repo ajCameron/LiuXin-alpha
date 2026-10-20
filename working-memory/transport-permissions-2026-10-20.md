@@ -1,7 +1,7 @@
 # Transport permissions checkpoint, 2026-10-20
 
 A06 is implemented on `core-transport-permissions`, based on A05's `47c5c0d3`.
-Final checks passed; publication is next. The full A01–A16 programme
+Published as [PR #134](https://github.com/ajCameron/LiuXin-alpha/pull/134). The full A01–A16 programme
 remains open; continue to A07's WEMI default-selection contract afterward.
 No PR has been merged. Preserve the six unrelated staged storage files and dirty
 data submodule; `/tmp/liuxin-docs-pr-preserved-storage.json` records their hashes
@@ -79,8 +79,13 @@ The isolated parent corrections passed all 10 Library facade tests and 18
 SquashFS publication/rollback/CLI tests. They are pushed; inspect the new full CI.
 A05's PostgreSQL test cluster is stopped. The six protected files remain unchanged.
 
-Publish A06 as a focused PR based on storage-deletion-policy and inspect its
-separate CI result. Do not merge PRs. Continue to A07 when this slice is published.
+A06 is published against storage-deletion-policy. CI's additional architecture
+pytest selection passed 696 cases but flagged the CLI's duplicated capability
+mapping. Core now owns named deployment-role lookup through for_access; the CLI
+selects a role without defining grants. The architecture check remains unchanged.
+The correction passed **41 boundary/HTTP tests in 16.34s** and the complete quality
+runner, including both 38-example negative contracts. The current finding table
+now records CO-4, SU-6 and parent ST-1 accurately. Inspect the new CI result. Do not merge PRs. Continue to A07 when this slice is published.
 The isolated candidate /tmp/liuxin-a06-review is detached at 47c5c0d3 with the
 current overlay; /tmp/liuxin-sync-a06.py copies only this branch's work and verifies
 protected hashes. The clean /tmp/liuxin-a05-followup owns the A05 parent branch.

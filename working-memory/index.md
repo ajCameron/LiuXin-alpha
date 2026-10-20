@@ -4,8 +4,10 @@ Latest implementation checkpoint, **2026-10-20**:
 [transport permissions](transport-permissions-2026-10-20.md) implements A06 on
 `core-transport-permissions`, based on A05 `47c5c0d3`. Server-owned authority,
 authentication and restricted read-only clients pass 67 final checks and all
-quality gates, including both 38-example negative type contracts. Publication and
-its separate full CI are next. A07 default WEMI selection follows. The full
+quality gates, including both 38-example negative type contracts. Published as
+[PR #134](https://github.com/ajCameron/LiuXin-alpha/pull/134); a CI boundary correction
+centralizes deployment roles in Core (41 checks and the quality runner passed).
+Its separate full CI is pending. A07 default WEMI selection follows. The full
 A01–A16 programme remains open; no PR has been merged.
 
 Latest implementation checkpoint, **2026-10-20**:

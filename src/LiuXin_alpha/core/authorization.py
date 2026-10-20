@@ -74,6 +74,31 @@ class CoreTransportPolicy:
         )
 
     @classmethod
+    def for_access(
+        cls,
+        access: str,
+        bearer_token: str | None = None,
+        *,
+        allowed_hosts: tuple[str, ...] = (),
+    ) -> CoreTransportPolicy:
+        """Resolve a deployment role in Core without duplicating grants in callers.
+
+        Example:
+            >>> CoreTransportPolicy.for_access("read-only").capabilities
+            frozenset({'read'})
+        """
+        roles = {
+            "read-only": frozenset({"read"}),
+            "read-write": frozenset({"read", "write"}),
+            "trusted": KNOWN_CAPABILITIES,
+        }
+        try:
+            capabilities = roles[access]
+        except KeyError:
+            raise ValueError("Unknown Core deployment role.") from None
+        return cls(capabilities, bearer_token, allowed_hosts)
+
+    @classmethod
     def read_write(cls, bearer_token: str) -> CoreTransportPolicy:
         """Grant declared catalogue reads and writes to one authenticated role.
 
@@ -81,7 +106,7 @@ class CoreTransportPolicy:
             >>> "admin" in CoreTransportPolicy.read_write("example-token").capabilities
             False
         """
-        return cls(frozenset({"read", "write"}), bearer_token)
+        return cls.for_access("read-write", bearer_token)
 
     @classmethod
     def trusted(cls, bearer_token: str) -> CoreTransportPolicy:
@@ -91,7 +116,7 @@ class CoreTransportPolicy:
             >>> "invoke" in CoreTransportPolicy.trusted("example-token").capabilities
             True
         """
-        return cls(KNOWN_CAPABILITIES, bearer_token)
+        return cls.for_access("trusted", bearer_token)
 
 
 def authorize_endpoint(

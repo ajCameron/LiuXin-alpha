@@ -168,13 +168,8 @@ def cmd_core_serve(args: argparse.Namespace) -> int:
     """
     token = read_bearer_token_file(getattr(args, "auth_token_file", None))
     access = getattr(args, "access", "read-only")
-    grants = {
-        "read-only": frozenset({"read"}),
-        "read-write": frozenset({"read", "write"}),
-        "trusted": frozenset({"read", "write", "admin", "execute", "invoke"}),
-    }
-    policy = CoreTransportPolicy(
-        capabilities=grants[access],
+    policy = CoreTransportPolicy.for_access(
+        access,
         bearer_token=token,
         allowed_hosts=tuple(getattr(args, "allowed_host", None) or ()),
     )

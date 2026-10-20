@@ -25,6 +25,21 @@ from LiuXin_alpha.core.readonly import ReadOnlyCoreClient
 TOKEN = "test-transport-token"
 
 
+def test_deployment_role_lookup_keeps_policy_in_core():
+    """The CLI selects a role; Core alone defines and validates its authority."""
+    assert CoreTransportPolicy.for_access("read-only") == CoreTransportPolicy()
+    assert CoreTransportPolicy.for_access(
+        "read-write", TOKEN
+    ) == CoreTransportPolicy.read_write(TOKEN)
+    assert CoreTransportPolicy.for_access(
+        "trusted", TOKEN, allowed_hosts=("Example:8765",)
+    ).allowed_hosts == ("example:8765",)
+    with pytest.raises(ValueError, match="bearer token"):
+        CoreTransportPolicy.for_access("trusted")
+    with pytest.raises(ValueError, match="Unknown Core deployment role"):
+        CoreTransportPolicy.for_access("other", TOKEN)
+
+
 @pytest.mark.parametrize("token", [TOKEN + "\n", TOKEN + "\x7f", TOKEN + "雪"])
 def test_invalid_credentials_fail_without_echoing_the_secret(token):
     with pytest.raises(ValueError) as failure:
