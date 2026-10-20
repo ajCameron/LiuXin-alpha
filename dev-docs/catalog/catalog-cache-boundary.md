@@ -1,7 +1,9 @@
 # Modern Catalog and cache boundary
 
-Decision date: **2026-07-24**. Implementation checked: **2026-10-19**, against
-`15080c6e`.
+Reviewed **2026-10-20**. Current repositories, relationship ownership and retrieval boundaries were checked. See [next tasks](next_tasks.md) for remaining work; older run counts retain their original dates.
+
+Decision date: **2026-07-24**. Implementation checked: **2026-10-20**, against
+`fc5de7af`.
 
 Status: **Current contract, including the read-only / writable facade split.**
 

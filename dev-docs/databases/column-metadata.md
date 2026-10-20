@@ -1,5 +1,7 @@
 # Column metadata policy
 
+Reviewed **2026-10-20**. Declarations, canonical identity derivation and migration APIs were checked against current source. Data validation coverage remains a separate [Catalog contract](../catalog/catalog-write-validation-contract.md).
+
 Identity profiles checked: **2026-10-19**, against the current declarations and a
 fresh FRBR SQLite build. See the [schema overview](<../03 - Database Schema.md>)
 for table families and the distinction between physical schema and semantic writes.

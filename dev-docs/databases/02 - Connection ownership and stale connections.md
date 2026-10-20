@@ -1,5 +1,7 @@
 # Connection ownership and stale connections
 
+Reviewed **2026-10-20**. Source: [custom-column connection resolution](../../src/LiuXin_alpha/databases/driver_wrapper/driver_wrapper_custom_columns_mixin.py).
+
 SQLite connections are *stateful* objects. In this codebase they can be rotated or replaced during:
 - driver refresh / metadata refresh,
 - fixture provisioning,
@@ -20,7 +22,7 @@ Helper objects should *not* cache a connection long-term unless they have a very
 Prefer:
 
 - `db.driver.conn` for normal execution
-- `db.driver_wrapper.lock` (or `db.conn`) only when you explicitly want “run under the wrapper lock connection”
+- `db.driver_wrapper.lock` only when the operation explicitly owns that separate connection. Despite its name, this attribute is a connection, not a mutex. Do not assume `db.conn` or a fixture alias identifies the same connection.
 
 ## Implementation pattern: `@property conn`
 
@@ -52,8 +54,7 @@ When we use TEMP triggers (for example, the custom-column delete trigger used to
 
 That has two important consequences:
 
-1. **Never make these triggers permanent** (do not create them in `sqlite_master`). Permanent triggers are hard to
-   reason about, are easy to forget to update during migrations, and can surprise external tools that open the DB.
+1. **Keep these custom-column cleanup triggers temporary.** This rule does not apply to the permanent integrity and timestamp triggers installed by the schema generator.
 2. **Make TEMP trigger creation idempotent by drop/recreate**, not `IF NOT EXISTS`.
 
 Why not `CREATE TRIGGER IF NOT EXISTS`?

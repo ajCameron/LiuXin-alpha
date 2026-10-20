@@ -1,6 +1,6 @@
 # Mapping Calibre records to LiuXin
 
-Checked: **2026-10-19**. The SQL and web mappings below describe implemented
+Source checked: **2026-10-20**, working tree based on `fc5de7af`. The SQL and web mappings below describe implemented
 behaviour; the source-import mapping remains a proposal.
 
 ## Three different meanings of “book ID”

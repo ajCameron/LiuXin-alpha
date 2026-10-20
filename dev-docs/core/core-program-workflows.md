@@ -1,5 +1,7 @@
 # Core workflows and storage CLI ownership
 
+Reviewed **2026-10-20** against the working tree based on `fc5de7af`.
+
 The program API and storage CLI retain their public entry points, but their
 compatibility files no longer implement workflows.
 
@@ -37,7 +39,9 @@ verified capacity before removing source replicas. A failed replacement or
 insufficient verified capacity retains source claims and bytes. Operator
 retention, read-only sources, and unmanaged replicas retain source bytes even
 when their claims can be removed. Receipts and completion fields preserve the
-existing Core response shape.
+existing Core response shape. These are evacuation-workflow guarantees, not
+universal protection of every raw manager deletion path; the storage mutation
+boundary still needs the policy enforcement described in the architecture tasks.
 
 The evacuation implementation depends on `StorageManagerAPI`, not a database,
 CLI, or Core runtime. The adapter resolves user-facing references and handles

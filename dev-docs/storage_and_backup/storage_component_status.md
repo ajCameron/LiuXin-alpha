@@ -1,6 +1,12 @@
 # Storage component status and runtime composition
 
+Reviewed **2026-10-20**. Current owners and operational limitations were checked. See [next tasks](next_tasks.md). Dated benchmarks and suite counts below remain historical evidence.
+
 Updated: 2026-10-08
+
+## Current contract gaps
+
+The completed checkpoints below do not close caller-owned backup staging cleanup, inconsistent read-only configuration propagation, or bypassable last-copy/retention checks. Those are the first [next tasks](next_tasks.md). `LibraryServices` now composes the owned application graph, including `CoreServices`; direct Database construction remains available and has a separate lifecycle contract.
 
 ## Current decision
 

@@ -1,5 +1,7 @@
 # HTMLZ File Format Notes
 
+Reviewed **2026-10-20**. Entry points, provider boundaries and the scope of the recorded hardening work were reviewed. See [next tasks](../next_tasks.md). Sign-off sections describe their dated fixture scope; they do not certify every input, optional dependency or installed provider today.
+
 ## Status
 
 HTMLZ conversion enters through `HTMLZInput` in
@@ -18,6 +20,8 @@ The focused test fixtures live in:
 The reusable fixture builds multilingual `.htmlz` archives with top-level
 `index.html`, optional `metadata.opf`, CSS, cover image assets, non-ASCII nested
 asset paths, and rewrite helpers for malformed archive cases.
+
+HTMLZ archive conversion and `file_formats.html.to_zip.HTML2ZIP` are different providers. The latter still raises that GUI conversion is unavailable; this dossier's HTMLZ sign-off does not establish standalone HTML-to-ZIP support.
 
 ## Container Contract
 

@@ -1,7 +1,9 @@
 # Catalog legacy mutation migration
 
+Reviewed **2026-10-20**. Current repositories, relationship ownership and retrieval boundaries were checked. See [next tasks](next_tasks.md) for remaining work; older run counts retain their original dates.
+
 Caller migration completed: **2026-07-23**. Current boundary reviewed:
-**2026-10-19**, against `15080c6e`.
+**2026-10-20**, against `fc5de7af`.
 
 Status: **Production caller migration complete; Row compatibility remains live.**
 

@@ -1,5 +1,7 @@
 # Metadata Container System Guide
 
+Reviewed **2026-10-20**. Value containers remain passive. Hydration belongs to Catalog; current API roots and the follow-up work are linked in [next tasks](next_tasks.md). Stage numbers and historical test totals below describe their original campaign.
+
 Date: 2026-04-26
 Status: working guide / current intended system shape
 
@@ -174,7 +176,7 @@ The current canonical homes are:
 
 ### API side
 
-`LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api`
+`LiuXin_alpha.metadata.api.containers_api.wemi_containers_api`
 
 ### Implementation side
 
@@ -229,7 +231,7 @@ Examples:
 - `ManifestationMetadataHydrator`
 - `ItemMetadataHydrator`
 
-Hydrators are part of the construction path for the editable metadata bundles.
+Hydrators live in `catalog.retrieval.hydration`; their source contracts live in `catalog.api.retrieval.hydration`. Metadata containers do not own database handles. Use [facade workflows](metadata_facade_workflows.md) for the supported entry points.
 
 ### 5.2 Metadata DB-source getters
 

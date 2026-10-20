@@ -2,12 +2,15 @@
 
 Decision dates: **2026-10-13–2026-10-15**
 
+Source reviewed: **2026-10-20**, working tree based on `fc5de7af`.
 Updated: **2026-10-19**, unified `plugins` package, explicit application
 ownership and shared startup policy. The package was consolidated under
 `plugin_system` in PR #125 and is now named `plugins`.
 
 Status: **standalone containment and application startup boundaries implemented;
-metadata cycles and unsupported application providers remain**
+metadata cycles and unsupported application providers remain**.
+[Next tasks](next_tasks.md) owns the provider/lifetime follow-up. Historical test
+counts below retain their original dates; this review does not rerun that campaign.
 
 This is the shared contract for application and standalone file-plugin hosts.
 Conversion and metadata I/O can select and execute file plugins without importing
@@ -96,9 +99,9 @@ for example `from LiuXin_alpha.plugins.base import Plugin`. Importing
 | `customize.builtins.metadata_readers`, `customize.builtins.metadata_writers` | `metadata.file_sources.builtin_readers`, `metadata.file_sources.builtin_writers` |
 | Other retained `customize` modules (`api`, `archives`, `builtins`, `cache`, driver/trigger modules) | Same relative modules under `plugins` |
 
-Repository callers, test streams and ZIP-plugin examples use these owners.
+Repository callers, test-area selectors and ZIP-plugin examples use these owners.
 `library.comments` and `surfaces.gui2` retain their separate compatibility exports.
-The `plugins` test stream and documentation folder use the new name. Persisted
+The `plugins` test area and documentation folder use the new name. Persisted
 plugin configuration, including the existing `customize` settings filename,
 retains its meaning and requires no data migration.
 

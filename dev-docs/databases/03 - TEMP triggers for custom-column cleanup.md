@@ -1,5 +1,7 @@
 # TEMP triggers for custom-column cleanup
 
+Reviewed **2026-10-20**. Scope: the [custom-column initializer](../../src/LiuXin_alpha/databases/custom_columns/custom_columns.py). Permanent generated integrity triggers have a different lifecycle.
+
 When a normalized custom column exists, its values are typically stored in a link table, for example:
 
 - `<in_table>_custom_column_<num>` (items)
@@ -25,7 +27,7 @@ A permanent trigger in `sqlite_master` is a long-lived schema object with a migr
 
 By making the trigger TEMP:
 
-- It is scoped to the application connection (and disappears when the process exits).
+- It is scoped to the application connection (and disappears when that connection closes or is replaced).
 - The trigger body can be regenerated freely based on the current metadata.
 - It avoids schema drift.
 

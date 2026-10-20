@@ -1,68 +1,34 @@
+# Assets, files and replicas
 
-This document serves as an explanation of terms.
+Reviewed **2026-10-20**. Use the
+[conceptual model](liuxin_terminology_and_conceptual_model.md) for detailed terminology
+and the [schema overview](<../03 - Database Schema.md>) for physical tables.
 
-# Top level
+| Term | Meaning | Example |
+| --- | --- | --- |
+| Item | A bibliographic exemplar, linked to its Manifestation. | The acquired ebook copy. |
+| Digital Asset | One expected atomic byte sequence, independent of where copies reside. | The exact bytes of an EPUB. |
+| Composite Digital Asset | A logical ordered assembly of atomic members. | An audiobook's MP3 chapters. |
+| Replica | A claim/observation of one Asset at a Store Location. | The EPUB at a NAS key. |
+| Store | A configured endpoint with identity, capabilities and runtime state. | A filesystem root or S3 bucket. |
+| Location | A Store UUID and a Store-relative key. | A key within the configured NAS Store. |
 
-LiuXin is, at core, a file manager.
-It's fundamentally a means of storing, retrieving, transforming and transmitting files.
-However, then things get complicated.
+An Item may link to several Assets with different roles. One Digital Asset may
+have several Replicas, or none: retaining its metadata does not assert that its
+bytes are currently available. A Composite has ordered member links; it does not
+have its own directly replicated byte sequence.
 
-# WEMI
+For a three-chapter audiobook, model three atomic Assets and one Composite whose
+links record chapter order. A NAS copy and a backup copy of chapter one are two
+Replicas of the same Asset. A generated single-file audiobook is another atomic
+Asset with derivation/provenance back to its inputs, not a Replica of the Composite.
 
-The Works, Expressions, Manifestation, Item stack is the core of the metadata representation of the stack.
+“File” is context-dependent. A filesystem file is a concrete byte object. The
+`files` database table is a live compatibility representation; it is not another
+required layer between every Asset and Replica. A ZIP/EPUB archive can itself be
+one atomic Asset even though its format contains multiple members.
 
-At the bottom of the stack is the Item.
-This represents physical things which may exist on the system.
-
-Items are linked to assets. 
-It's at this point that we link over to actual objects.
-
-# Assets
-
-The top level of the physical things stack. An asset can be a number of things.
-It can be
- - an epub file
- - an audiobook
- - a text file
- - a cbr comic
-
-e.t.c.
-
-HOWEVER. This leads to another problem.
-Some of these assets are composed of multiple files.
-
-So we have
-
-# Digital Assets
-
-These are a SINGLE files.
-E.g.
- - epub
- - txt
-
- e.t.c.
-In any case, these are the smallest physical assets.
-This container contains a SINGLE file.
-
-# Composite Digital Assets
-
-These are digital assets made of MANY files
-E.g.
- - audiobooks (often composed of many chapter mp3s)
-
-# Files
-
-Both composite digital assets and digital assets are composed of files.
-Either one, or many.
-Files have replicas. Which is the bottom of the files metadata treee.
-These are actual files which exist on disc.
-
-
-
-
-
-
-
-
-
-
+Storage managers own placement, records and cross-Store workflows. Stores enforce
+their configured endpoint operations; drivers operate on scoped raw addresses.
+Metadata/Catalog own bibliographic meaning. See the [storage API](storage_api.md)
+for those boundaries and [next tasks](next_tasks.md) for remaining enforcement.

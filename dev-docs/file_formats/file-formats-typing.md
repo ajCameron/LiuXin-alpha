@@ -1,5 +1,7 @@
 # File-format typing
 
+Reviewed **2026-10-20**. Entry points, provider boundaries and the scope of the recorded hardening work were reviewed. See [next tasks](next_tasks.md). Sign-off sections describe their dated fixture scope; they do not certify every input, optional dependency or installed provider today.
+
 `LiuXin_alpha.file_formats` contains both application code and substantial
 legacy/vendor-derived format implementations. Its typing migration therefore
 uses two explicit gates.
@@ -47,11 +49,10 @@ sequence or protocol merely because that is what one test exercised.
 
 ## Validation
 
-The annotation gate proves coverage, not behavioural correctness. Changes to
-these annotations must also run:
+The annotation gate checks syntactic coverage, not semantic type precision or behaviour. For broad annotation changes, use the checks below; for a narrow format change, run its focused regressions first. Redirect bytecode to a disposable cache if using `compileall` in a space-constrained checkout:
 
 ```bash
-.venv/bin/python -m compileall -q src/LiuXin_alpha/file_formats
+PYTHONPYCACHEPREFIX=/tmp/liuxin-format-bytecode .venv/bin/python -m compileall -q src/LiuXin_alpha/file_formats
 .venv/bin/python -m pytest -q tests/file_formats
 ```
 

@@ -1,8 +1,10 @@
 # Catalog write-validation contract
 
+Reviewed **2026-10-20**. Current repositories, relationship ownership and retrieval boundaries were checked. See [next tasks](next_tasks.md) for remaining work; older run counts retain their original dates.
+
 Decision date: **2026-10-11**
 
-Implementation checked: **2026-10-19**, against `15080c6e`.
+Implementation checked: **2026-10-20**, against `fc5de7af`.
 
 Status: **Shared write ownership implemented; field-level rule coverage remains incomplete.**
 

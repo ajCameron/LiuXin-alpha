@@ -1,5 +1,7 @@
 # Catalog fitness review
 
+Reviewed **2026-10-20**. Historical July findings and results are retained; current work is in [next tasks](next_tasks.md).
+
 Status: **Historical review and remediation record, 2026-07-22.**
 
 The findings below describe the pre-remediation implementation; the later sections

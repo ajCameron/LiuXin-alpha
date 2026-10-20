@@ -1,6 +1,8 @@
 # Catalog roadmap
 
-Reviewed: **2026-10-19**, against `15080c6e` after PR #126.
+Reviewed **2026-10-20**. Current repositories, relationship ownership and retrieval boundaries were checked. See [next tasks](next_tasks.md) for remaining work; older run counts retain their original dates.
+
+Reviewed: **2026-10-20**, against `fc5de7af` plus the current documentation changes.
 
 Status: **Current work list; completed migrations are recorded separately.**
 

@@ -1,5 +1,7 @@
 # LiuXin operational CLI
 
+Reviewed **2026-10-20**. Entry-point composition and named Core operations were checked. See [next tasks](next_tasks.md); older stage counts remain dated evidence.
+
 The installed `liuxin` command exposes named, stable Core operations as
 task-oriented command families. It deliberately does not expose a generic
 operation dispatcher.

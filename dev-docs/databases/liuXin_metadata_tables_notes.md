@@ -1,5 +1,14 @@
 # LiuXin metadata tables (satellites) — notes
 
+Status: **historical design note**; reviewed **2026-10-20** against the working
+tree based on `fc5de7af`.
+
+The polymorphic satellite shapes below describe the SQL sketches, not a field
+inventory of the installed schema. Generated pairwise links and current metadata
+tables must be checked in the packaged generator.
+See the [current schema overview](<../03 - Database Schema.md>) and
+[worked WEMI links](wemi-link-examples.md). Original design text follows.
+
 This adds the “metadata satellites” that sit around the core FRBR WEMI + storage model.
 
 **Goal:** keep core entities clean and stable, while still supporting rich, searchable metadata and future Calibre compatibility.

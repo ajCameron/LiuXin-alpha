@@ -1,5 +1,6 @@
-
 # Read-model failure boundaries
+
+Reviewed **2026-10-20**. Entry-point composition and named Core operations were checked. See [next tasks](next_tasks.md); older stage counts remain dated evidence.
 
 The shared surface read model must distinguish absent catalogue data from a
 failed read. An empty list, `None`, or zero is a valid result only when the
@@ -27,7 +28,7 @@ the Core read-source configuration remains authoritative.
 
 ## Ownership
 
-`surfaces/read_model/api.py` owns catalogue projections and query selection.
+`surfaces/read_model/api.py` owns surface projections and their Core query selection. Core's browse/category owner supplies shared application category semantics; the surface adapter must not recreate those counts.
 It does not catch broad exceptions. Numeric metadata conversions handle only
 `TypeError`, `ValueError`, and `OverflowError` around the conversion itself;
 backend calls must remain outside those handlers.

@@ -1,5 +1,7 @@
 # Mixed-format ingest operations
 
+Reviewed **2026-10-20**. Current owners and operational limitations were checked. See [next tasks](next_tasks.md). Dated benchmarks and suite counts below remain historical evidence.
+
 Updated: 2026-08-25
 
 ## Purpose and data model
@@ -311,6 +313,8 @@ container. Defaults are:
 | One spooled/materialized object | 4 GiB |
 | Wall time | 24 hours |
 | Recorded issues | 10,000 |
+| Member path depth | 256 components |
+| Member path bytes | 65,535 bytes |
 
 The coordinator passes compatible per-container ceilings into every new Store,
 so hostile metadata and expansion are bounded while a backend indexes. The

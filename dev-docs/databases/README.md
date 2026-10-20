@@ -1,5 +1,7 @@
 # Databases
 
+Reviewed **2026-10-20**. Current schema, connections, backend status and historical notes have distinct authority. See [next tasks](next_tasks.md) for the proposed implementation order.
+
 Databases owns persistence mechanics and structural integrity. Bibliographic
 meaning belongs to metadata/Catalog; physical storage policy belongs to storage.
 
@@ -19,8 +21,8 @@ meaning belongs to metadata/Catalog; physical storage policy belongs to storage.
 
 ## Schema design and historical notes
 
-- [Database field guide](LiuXin_database_field_guide.md): detailed field reference
-  with older design material; check the overview and SQL for current storage shape.
+- [Database field guide](LiuXin_database_field_guide.md): current inventory of all 67
+  explicit tables, checked against generated SQLite columns and linked to their DDL.
 - [Schema draft](<00 - Schema Draft.md>): earlier design material.
 - [Asset/replica policy](<04 - Digital assets, replicas and storage policy.md>):
   design history with a current implementation checkpoint.

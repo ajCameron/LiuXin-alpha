@@ -1,5 +1,7 @@
 # Storage catalogue cache benchmark
 
+Reviewed **2026-10-20**. Current owners and operational limitations were checked. See [next tasks](next_tasks.md). Dated benchmarks and suite counts below remain historical evidence.
+
 Updated: 2026-08-21
 
 ## Purpose
@@ -15,6 +17,8 @@ reloads only those rows. It updates row/value indexes and scalar and relation
 field projections from the refreshed table state. Whole-table invalidation
 remains available for bulk writes and migrations, and is the conservative
 fallback for plugins without efficient row replacement.
+
+This is a benchmark, not a routine documentation check. It constructs a large synthetic graph and retains substantial memory; use a deliberate resource budget and the existing test telemetry. Smaller correctness tests establish the refresh contract without repeating the 50,000-record timing run.
 
 ## Reproduction
 

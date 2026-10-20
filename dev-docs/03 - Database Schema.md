@@ -1,7 +1,8 @@
 # Database schema
 
-Reviewed: **2026-10-19**, against `15080c6e` and a fresh build from the packaged
-FRBR SQLite generator.
+Source review: **2026-10-20**, against the working tree based on `fc5de7af`.
+The fresh-build inventory below was recorded on **2026-10-19** from the packaged
+FRBR SQLite generator; it is a dated snapshot, not a migration/version identifier.
 
 Status: **Current schema overview; backend and migration limits are explicit.**
 
@@ -148,9 +149,11 @@ table; those belong to an earlier design.
 Composition says which assets form an assembly. Derivation says that one asset
 was produced from another. `digital_asset_derivations`, `transform_runs`,
 `transform_run_inputs` and `transform_run_outputs` retain execution/lineage data.
-Their presence does not establish a complete reproducible-build record; the
-[storage design](storage_and_backup/design-patterns.md) describes the broader
-contract and remaining adapter/migration work.
+Their presence alone does not establish a complete reproducible-build record.
+The durable storage repository also persists typed recipes/provenance in versioned
+envelopes; not every field is projected into a dedicated SQL column. The
+[storage API](storage_and_backup/storage_api.md#derivation-and-exact-recreation)
+defines recipe completeness, recoverable inputs and the remaining execution limits.
 
 ### Replicas, stores and folders
 

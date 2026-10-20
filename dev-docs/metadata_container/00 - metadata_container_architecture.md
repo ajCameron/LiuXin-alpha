@@ -1,27 +1,15 @@
+# Metadata container architecture
 
-# Intro
+Reviewed **2026-10-20**. Value containers remain passive. Hydration belongs to Catalog; current API roots and the follow-up work are linked in [next tasks](next_tasks.md). Stage numbers and historical test totals below describe their original campaign.
 
-Metadata is complex.
-Especially as we're implementing the full WEMI stack (described elsewhere).
-This has made everything a _touch_ more complex, but the complexity is repaid in richness of the available metadata.
+The model has identities for core WEMI entities, editable metadata bundles,
+attached value families and read-side projections. `LiuXinWEMIMetadata` already
+provides the combined item-centred representation; a new generic Book container
+is not an outstanding prerequisite.
 
-Probably.
-
-As such, we needed some thought on how to express elements of that stack.
-
-At the highest level, we have
- - containers for every element of the WEMI stack
- - containers for attaching metadata bundles to each element.
- - Todo: A single "Book" container - with the entire WEMI stack for an ITEM and associated metadata
-
-
-
-# Metadata Container Architecture
-
-Date: 2026-04-23
-Status: draft / target architecture
-
-This note freezes the intended shape of the metadata container system before the larger cleanup pass.
+Original design date: **2026-04-23**. The semantic distinctions below remain
+useful. The physical package proposals are superseded by the canonical homes in
+the placement section and the [system guide](metadata_container_system_guide.md).
 
 See also: `metadata_container_boundaries.md` for the stage-9 semantic boundary pass.
 See also: `metadata_container_dynamic_convenience_policy.md` for the stage-11 runtime-sugar policy.
@@ -33,12 +21,12 @@ The metadata layer is split into three distinct families:
 1. **Core WEMI containers**
    - These represent the primary bibliographic entities and their database-backed metadata bundles.
    - This is the load-bearing part of the metadata model.
-   - These should live in their own clearly named package area and should not be mixed together with secondary attachment families.
+   - Keep their identity and metadata contracts distinct from attachment families, even within a shared package root.
 
 2. **Additional metadata containers**
    - These are attached metadata families such as titles, identifiers, notes, genres, subjects, labels, and similar record content.
    - They are metadata *about* a WEMI entity, not independent first-class entities by default.
-   - They should live in a separate package area from core WEMI.
+   - Their value contracts differ from core entity identity; a separate top-level package is not required.
 
 3. **Read-side views / snapshots / slices**
    - These are query-result containers used to present joined or layered metadata.
@@ -203,9 +191,11 @@ the existing provenance-ish fields. `origin` can describe the internal creation
 path; `source` should describe the external assertion source such as user input,
 importer, OPF, web source, or reconciliation pass.
 
-## Package structure target
+## Earlier package structure options
 
-The package surface should make the above split obvious.
+The April proposal considered the names below. They are not current import paths
+or a pending renaming instruction. The canonical placement later in this guide
+keeps these semantic categories within the established roots.
 
 ### Core WEMI
 
@@ -214,7 +204,7 @@ Core WEMI identity + metadata APIs and implementations should live together in c
 - `metadata/api/.../core_wemi_api/...`
 - `metadata/containers/.../core_wemi/...`
 
-The exact names can still be chosen, but the important part is that **core WEMI has its own home**.
+These example names were not adopted.
 
 ### Additional metadata
 
@@ -223,7 +213,7 @@ Additional metadata families should live in their own package areas, separate fr
 - `metadata/api/.../additional_metadata_api/...`
 - `metadata/containers/.../additional_metadata/...`
 
-Again, exact names can be chosen later, but the split must be explicit.
+The current contract distinguishes these families without adopting these paths.
 
 ### Read-side models
 
@@ -267,7 +257,7 @@ but they should be visibly marked as read-side objects.
 ## Placement and package boundaries
 
 All WEMI-attached metadata APIs currently live under:
-`LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api`
+`LiuXin_alpha.metadata.api.containers_api.wemi_containers_api`
 
 All WEMI-attached implementation containers currently live under:
 `LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers`
@@ -293,15 +283,13 @@ rather than kept as compatibility layers.
 
 ## 5A. Legacy zones
 
-Legacy metadata-container helper packages outside the canonical WEMI container
-packages should be treated as dead code and deleted rather than kept as
-compatibility shims.
+Location alone does not establish that a helper is dead. Inspect production imports, plugin discovery and supported callers before retiring a legacy container. Migrate those callers through the canonical value contract and remove the old path in the same change; do not create another permanent WEMI owner.
 
 The canonical implementation home is:
 - `LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers`
 
 The canonical API home is:
-- `LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api`
+- `LiuXin_alpha.metadata.api.containers_api.wemi_containers_api`
 
 Historical helper/mixin/generic container packages should not receive new work.
 
@@ -329,6 +317,5 @@ for all four levels:
 - `ManifestationMetadataHydrator`
 - `ItemMetadataHydrator`
 
-These are implementation helpers for constructing editable metadata bundles from
-database rows/views. They are not identity objects, metadata APIs, or read-side
+These helpers live in `catalog.retrieval.hydration`, with read contracts under `catalog.api.retrieval.hydration`. They construct editable metadata bundles from database rows/views. They are not identity objects, metadata APIs, or read-side
 snapshots.

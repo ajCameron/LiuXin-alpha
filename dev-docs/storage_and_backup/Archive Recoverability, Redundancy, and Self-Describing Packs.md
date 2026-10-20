@@ -1,5 +1,7 @@
 # Archive Recoverability, Redundancy, and Self-Describing Packs
 
+Reviewed **2026-10-20**. **Recovery design proposal.** Self-describing packs and recovery grades below are not a shipped pack-format or disaster-recovery guarantee.
+
 ## Context
 
 A replicated corpus is not necessarily a recoverable library. Copying the payload data across several locations provides useful bit-level redundancy, but does not guarantee that future operators can identify, interpret, search, or export those files. The metadata, schema, reconstruction software, and operational documentation may be much smaller than the payload while remaining critical dependencies.

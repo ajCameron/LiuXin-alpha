@@ -1,5 +1,7 @@
 # Catalog matching policy
 
+Reviewed **2026-10-20**. Current repositories, relationship ownership and retrieval boundaries were checked. See [next tasks](next_tasks.md) for remaining work; older run counts retain their original dates.
+
 Status: implemented, 2026-07-22.
 
 ## Purpose

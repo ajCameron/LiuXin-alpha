@@ -1,5 +1,7 @@
 # Core
 
+Reviewed **2026-10-20** against the working tree based on `fc5de7af`.
+
 Core owns application composition, configuration, lifecycle and the command/query
 boundary. LibraryServices supplies collaborators; domain rules stay with their
 Catalog, metadata and storage owners.
@@ -14,5 +16,8 @@ Catalog, metadata and storage owners.
 For presentation and startup procedures, use the [surface guides](../surfaces/README.md).
 For lifecycle regression tests, start in `tests/core/test_library_services_lifecycle.py`;
 choose other checks through [test streams](../hacking/test-streams.md).
+
+[Next tasks](next_tasks.md) records proposed changes, dependencies and completion
+checks. No runtime change is implied by this documentation review.
 
 Return to the [developer index](../README.md).

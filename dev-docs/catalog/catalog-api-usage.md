@@ -1,5 +1,7 @@
 # Catalog API Usage Guide
 
+Reviewed **2026-10-20**. Current repositories, relationship ownership and retrieval boundaries were checked. See [next tasks](next_tasks.md) for remaining work; older run counts retain their original dates.
+
 This guide is the practical entry point for LiuXin's in-process Catalog API.
 It complements the structural protocols in `LiuXin_alpha.catalog.api`.
 
@@ -473,9 +475,7 @@ catalog.mutations.writer.attach_metadata(
 )
 ```
 
-The operation preflights every attachment and runs transactionally. Agent
-entries require a `role`; identifier entries require either `identifier_id` or
-scheme/type plus value.
+The operation checks attachment shape and selected IDs before writing, but deeper normalization can still fail during persistence. It uses the portable macro transaction when the supplied database exposes one; legacy handles without that capability can leave partial effects. Agent entries require a `role`; identifier entries require either `identifier_id` or scheme/type plus value.
 
 Use `replace_metadata` when the supplied groups are authoritative snapshots:
 
@@ -525,8 +525,9 @@ validation token that allows the writer to skip its own checks.
 ## Core direct and RPC operations
 
 Core exposes the same conveniences as named transport-stable operations. The
-same payload works through `CoreRuntime`, `LocalCoreClient`, and
-`RemoteCoreClient`:
+same payload works through the local `CoreRuntime` and `RemoteCoreClient`.
+`core_client(runtime=...)` returns that runtime; there is no separate
+`LocalCoreClient` wrapper. Transport-stable describes encoding, not authorization:
 
 ```python
 runtime.command(

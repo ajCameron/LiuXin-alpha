@@ -73,7 +73,7 @@ def test_backend_reference_lists_every_registered_canonical_kind() -> None:
     guide = (
         Path(__file__).parents[2]
         / "dev-docs"
-        / "storage"
+        / "storage_and_backup"
         / "backend-behavior.md"
     ).read_text(encoding="utf-8")
     reference = guide.split("## Registered backend reference", 1)[1].split(

@@ -1,7 +1,7 @@
 # Separation of concerns
 
-Decision date: **2026-10-11**. Implementation checked: **2026-10-19**, against
-`15080c6e` on `configuration-ownership`, after PR #126.
+Decision date: **2026-10-11**. Implementation checked: **2026-10-20**, against
+the working tree based on `fc5de7af`.
 
 Status: **Current ownership policy; remaining migrations are listed below.**
 
@@ -20,7 +20,7 @@ new code to do so.
 | Bibliographic values, normalization and pure validation | Metadata | Catalog invokes those rules before persistence. |
 | Record identity, matching, relationships and semantic mutations | Catalog | Databases enforce structural integrity and transactions. |
 | Connections, SQL, schema, rows and constraints | Databases | Raw persistence is outside the Catalog semantic-validity guarantee. |
-| Bytes, stores, replicas, placement and recovery | Storage | Store plugins perform backend operations; managers coordinate durable state. |
+| Bytes, stores, replicas, placement and recovery | Storage | Configured Stores expose driver capabilities; managers coordinate durable state. |
 | Derived reads, invalidation and reconciliation | Caches | Writable conveniences delegate to Catalog; the read facade is Catalog-independent. |
 | Application category selection and counts | Core browse queries | Surface read models adapt their results for presentation and transport. |
 | Discovery, extraction and acquisition | Ingest and its domain coordinators | Candidates still need Catalog acceptance and storage handling. |
@@ -178,10 +178,14 @@ use databases for those records without taking ownership of bibliographic policy
 
 Its internal split is concrete:
 
-- `StorageManager` chooses among configured stores and coordinates durable state.
-- `StoreContainer` holds one configured store and optional database-facing state.
-- `StorePlugin` performs physical-media operations through backend capabilities.
-- `Location` represents a concrete path/key and its file operations within a store.
+- `StorageManagerAPI` coordinates Asset/Replica identities, policy and routing;
+  `storage.durable_manager.StorageManager` binds it to supported durable metadata.
+- `StoreAPI` exposes one configured endpoint through Location-based operations.
+- `StorageDriverAPI` performs raw physical operations through backend capabilities.
+- `Location` is an immutable Store UUID and opaque key, without file operations or
+  cached state. `BoundLocation` delegates convenience calls to a live router.
+- `StoreContainer` pairs a borrowed Store with configuration, optional database-row
+  state and status observations; it is not the driver or the Store API itself.
 
 Keep backend operations as independent of databases as their contract allows.
 The manager handles persistence and orchestration; databases do not implement
@@ -206,7 +210,10 @@ to place files; a Library/application workflow can supply the needed values.
 
 Database configuration can persist policy inputs; it does not own that policy.
 These ownership rules do not assert that every proposed backup medium or retention
-feature is implemented. Consult the [storage status](storage_and_backup/storage_component_status.md)
+feature is implemented. Policy assessment is not a universal deletion guard:
+`remove_replica()` still lacks its own last-copy/retention check and may delete
+bytes before a later metadata failure. See the [storage overview](<06 - Storage.md>)
+for these boundaries. Consult the [storage status](storage_and_backup/storage_component_status.md)
 for capabilities and the [recovery design](<storage_and_backup/Archive Recoverability, Redundancy, and Self-Describing Packs.md>)
 for design intent.
 

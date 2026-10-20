@@ -1,5 +1,7 @@
 # File Format Unicode Conversion Hardening
 
+Reviewed **2026-10-20**. Entry points, provider boundaries and the scope of the recorded hardening work were reviewed. See [next tasks](next_tasks.md). Sign-off sections describe their dated fixture scope; they do not certify every input, optional dependency or installed provider today.
+
 This note records the current direction for the file-format unicode and
 malformed-input hardening work. The tests should keep using reusable fixtures
 and helpers so the same corpus can later drive conversion-matrix coverage.
@@ -46,11 +48,11 @@ some of those paths may be better than forcing every conversion through OEB.
 Those adapters should be tested as pipeline edges with the same unicode,
 malformed-input, and loss-reporting corpus used by the in-tree converters.
 
-The durable project TODO and sign-off checklist for this work lives in
-`dev-docs/conversion_pipeline_todo.md`, with the current status matrix in
-`dev-docs/conversion_pipeline_signoff.md`. Keep this development note focused
-on file-format hardening policy, and use the `dev-docs` checklist and matrix to
-decide when a format or pipeline edge is done enough to sign off.
+The [current conversion tasks](../conversion_pipeline/next_tasks.md) own the next
+implementation slices. The [earlier plan](../conversion_pipeline/conversion_pipeline_todo.md)
+and [sign-off matrix](../conversion_pipeline/conversion_pipeline_signoff.md)
+retain dated evidence. Keep this note focused on format hardening; a historical
+sign-off applies to its named fixture scope.
 
 ## Container Direction
 

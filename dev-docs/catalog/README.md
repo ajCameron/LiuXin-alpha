@@ -1,5 +1,7 @@
 # Catalog
 
+Reviewed **2026-10-20**. Current repositories, relationship ownership and retrieval boundaries were checked. See [next tasks](next_tasks.md) for remaining work; older run counts retain their original dates.
+
 Catalog owns metadata-aware persistence, identity, matching and retrieval. Start
 with the contracts and current work list. Dated reviews preserve earlier findings
 and verification; their old test counts are not current checkout results.
@@ -13,7 +15,7 @@ and verification; their old test counts are not current checkout results.
 - [Cache boundary](catalog-cache-boundary.md): derived reads and reconciliation.
 - [Link writers](catalog-link-writer-architecture.md): schema-driven relationships.
 - [Cache backends](<../08 - Storage Cache Backends.md>) and
-  [read failures](../read-model-failures.md): backend capabilities and failure visibility.
+  [read failures](../surfaces/read-model-failures.md): backend capabilities and failure visibility.
 
 ## Current work and migration status
 

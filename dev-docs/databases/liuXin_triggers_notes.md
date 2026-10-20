@@ -1,5 +1,14 @@
 # LiuXin triggers — notes
 
+Status: **historical design note**; reviewed **2026-10-20** against the working
+tree based on `fc5de7af`.
+
+These notes describe historical SQL sketches. They do not prove that current
+database triggers or Store byte operations enforce each listed rule, particularly
+read-only and destructive-operation policy.
+See the [current schema overview](<../03 - Database Schema.md>) and
+[worked WEMI links](wemi-link-examples.md). Original design text follows.
+
 This file adds SQLite triggers that enforce invariants at the database layer. All triggers use `RAISE(ABORT, ...)` with explicit messages so violations are immediately diagnosable.
 
 ---

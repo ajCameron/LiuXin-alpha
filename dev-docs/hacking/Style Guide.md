@@ -1,14 +1,20 @@
 
 # LiuXin style guide
 
-Every API class from an API module should end with ``API``. Explicit is better
-than implicit.
+Reviewed **2026-10-20**, working tree based on `fc5de7af`. This is the
+maintained naming/documentation convention; [coding principles](<Coding Guide.md>)
+and [quality gates](../architectural_reviews/maintainability-quality-gates.md)
+own implementation guidance and exact enforcement scopes respectively.
+
+Use the ``API`` suffix for API-facing contract classes. Existing naming
+exceptions require caller-aware migration; this convention does not claim that
+every inherited class already follows it.
 
 ## Naming public values
 
 A conceptual thing and a passive Python value describing that thing are not
 interchangeable. Reserve an unqualified domain name for the concept itself or
-for an object that genuinely represents its behaviour. A frozen collection of
+for an object that represents its behaviour. A frozen collection of
 manager-maintained facts about a Digital Asset is therefore
 ``DigitalAssetRecord``, not ``DigitalAsset``; it is neither the byte sequence
 nor a persistence adapter's database row.
@@ -52,30 +58,24 @@ functions should use it. Existing packages should adopt it as they are audited;
 do not manufacture empty prose or misleading examples merely to make a bulk
 check pass.
 
-- Put the opening and closing triple quotes on their own lines.
-- Begin with a concise summary, followed by any contract detail needed by a
-  caller.
-- This summary should be one line, and seperated by a blank line from the main body.
-- Give every class and function a small, useful ``Example:`` section. Examples
-  should be executable doctests when practical; use ``# doctest: +SKIP`` when
-  the example intentionally describes integration with an external object.
-- Separate prose and the field list with two blank lines.
-- List every function parameter in declaration order as ``:param name:``;
-  omit implicit ``self`` and ``cls`` parameters.
-- End every function field list with ``:return:``, including functions that
-  return ``None``. Type annotations remain the authoritative type declaration.
-- Describe what each parameter and return value means, including units,
-  sentinel values, or side effects where relevant. Empty field placeholders
-  are unfinished documentation, not a completed migration.
-- Preserve typed exceptions and other meaningful Sphinx fields after the
-  parameter and return fields.
-- Do not leave trailing whitespace in empty field placeholders.
-- Optionally add, with ``:raises:`` the exceptions this might raise.
-- one blank line between the end of the summary and the params
-- one blank line between the params and the return line
-- keep to the line length limits - breaking lines sensibly if needed
-- if the params have had to be plit over multiple lines, do one line per parameter, as below
-- if there is a * in the parameters, it gets it's own line
+- For multiline docstrings, put opening and closing triple quotes on their own lines.
+- Begin with a concise summary, then a blank line before further prose. Explain
+  ownership, side effects, validation and error limits when they matter.
+- Give classes and functions a useful ``Example:`` section. Prefer runnable
+  doctests where practical; mark illustrative external-object examples with
+  ``# doctest: +SKIP`` rather than pretending they run standalone.
+- Separate prose/examples from the reST field list with two blank lines.
+- List explicit parameters in declaration order as ``:param name:``; omit the
+  implicit ``self``/``cls`` receiver. ``*args`` and ``**kwargs`` use their names
+  without stars. A bare ``*`` is a signature separator, not a parameter field.
+- Follow the parameter fields directly with ``:return:``, including functions
+  returning ``None``; keep additional meaningful fields such as ``:raises:``
+  afterward. Type annotations remain the authoritative type declarations.
+- Describe parameters and results meaningfully, including units, sentinels and
+  effects. Empty fields are unfinished prose even when the normalizer can emit them.
+- Wrap prose and field continuations readably and leave no trailing whitespace.
+  For multiline Python signatures, put parameters and a bare ``*`` on separate
+  lines as in the example; this is separate from docstring-field spacing.
 
 For example:
 
@@ -111,8 +111,14 @@ migration without changing prose. Use ``--audit-json`` to measure a package,
 migration to verify that no further structural rewrite is needed. The tool
 reports missing docstrings and examples but deliberately does not invent them.
 
-## Docs
+## Markdown documentation
 
- - Sufficient whitespace for clarity
- - A space between headings and their paragraphs
- - Summary at the top of the document
+Start with purpose, implementation status and a review date/checkpoint where
+behaviour can become stale. Separate headings and paragraphs/lists with blank
+lines. Keep tables brief and explain substantial contracts in prose sections.
+Use relative links, placing angle brackets around destinations containing spaces.
+Link new guides from their subsystem index and check heading fragments.
+
+Current contracts, proposed work and dated evidence have different authority.
+A task list should state its owner and completion checks, not duplicate a second
+independent roadmap. See the [developer navigation rules](../README.md#maintaining-navigation).

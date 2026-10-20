@@ -12,6 +12,99 @@ Date: **2026-10-18**
 
 Status: **Historical review with implementation follow-ups; restructuring is partial.**
 
+## Architecture-folder follow-up — 2026-10-20
+
+Reviewed all **ten Markdown files** now in `architectural_reviews`, against the
+working tree based on `fc5de7af`. The [folder index](README.md) identifies current
+ownership authority, accepted decisions, enforcement and dated evidence. The
+[target record](target-architecture.md) now maps implemented lifecycle, writes,
+reads, configuration and plugins to their remaining migrations; it no longer
+presents the old lifecycle sketch as wholly unimplemented work.
+
+The quality/layer/import guides describe actual commands and configured scopes,
+including 243 protected modules, a 1,792-module whole-package graph with reviewed
+debt, and 25 passing cold-import budgets. The lifecycle review states borrowed
+resource and failed-constructor limits, notes the removed legacy cache factory,
+and keeps transaction and maintenance work open. Earlier reviews and the shim
+campaign retain their evidence while gaining current dispositions; obsolete
+merge instructions, the D095 pause and old package names are labelled historical.
+
+This addresses the architecture-folder part of DS-02/DS-09. It does not complete
+all mixed-status guides elsewhere or the runtime findings. The existing folder
+is retained: the proposed `architecture/decisions/` split below has not been
+adopted. The numbered orientation route is also retained with reviewed content,
+and guide 06 is now a current storage overview. Those decisions supersede the
+corresponding proposed destinations below. The detailed field inventory,
+convention overlap and deeper metadata/acquisition navigation remain to review.
+
+### Architecture-folder validation — 2026-10-20
+
+**228 tests passed**, serially, across developer links, public documentation,
+LibraryServices lifecycle, quality-runner contracts, layer-direction rules,
+protected import scanning and import-budget diagnostics. One duplicate full-budget
+test was deselected because the real 25-budget command had already passed.
+Telemetry was enabled; completed scratch was removed during the run. The normal
+protected-graph, whole-package layer and cold-import commands all passed. The
+quality runner was inspected with `--dry-run`; this is not a full typing/lint or
+application-suite result.
+
+A separate audit resolved **171 local links and seven heading fragments** in the
+reviewed documents, checked incoming developer-guide fragments, and found no
+unreachable guides. All **68 original finding IDs** retain one finding row and
+one dated status row. Existing source edits were preserved. Local-only commands,
+logs, telemetry, scope measurements and the task-only documentation diff are in
+`working-memory/test-results/documentation-architecture-20261020/`.
+
+The focused test selection is reproducible from the repository root:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:. .venv/bin/python -m pytest -q -n 0 \
+  tests/scripts/test_developer_documentation_links.py \
+  tests/scripts/test_public_documentation_boundaries.py \
+  tests/core/test_library_services_lifecycle.py \
+  tests/scripts/test_run_type_checks.py \
+  tests/scripts/test_check_layer_direction.py \
+  tests/scripts/test_check_modern_import_cycles.py \
+  tests/scripts/test_check_import_footprint.py \
+  -k 'not test_repository_cold_import_budgets_pass' \
+  -o tmp_path_retention_policy=none -o tmp_path_retention_count=0 \
+  --telemetry-dir=/tmp/liuxin-architecture-review-telemetry
+```
+
+The recorded run additionally isolated its pytest cache and base scratch paths
+under `/tmp`; the retained local command records their exact names.
+
+## Top-level documentation follow-up — 2026-10-20
+
+Reviewed all fifteen Markdown files directly under `dev-docs` against the working
+tree based on `fc5de7af`. Guides 00/01 now distinguish developer-documentation
+practice, project ambition and current capability. Guide 06 now describes the
+actual manager/Store/driver contracts, passive Locations, durable binding,
+publication recovery and deletion-policy gaps. Guide 07 documents existing
+fixture families, provider precedence, isolated provisioning, telemetry and
+scratch cleanup. Guide 08 clarifies read/writable cache composition and lifecycle.
+
+The numbered files are retained as an orientation route in the developer index,
+with detailed contracts delegated to subsystem owners. This addresses DS-05's
+misleading sequence through reviewed content rather than a further path migration.
+The two older separation/cache essays are explicitly historical. The cross-project
+work list now removes completed CI/indexing/extraction tasks from active work,
+addressing the stale queue in DS-06. Project goals separate preservation,
+compatibility and scale objectives from implementation guarantees.
+
+The deeper field inventory, mixed design/status guides, coding-convention overlap
+and remaining runtime ownership work still need their own reviews. This follow-up
+does not mark the wider documentation or architecture findings complete.
+
+Validation on 2026-10-20: **74 focused tests passed, six expected backend-specific
+skips** across documentation, Location/manager contracts, cache behaviour, fixture
+discovery/provisioning, schema smoke and database unit-of-work checks. The final
+22 documentation checks also pass after the edits. All five Python examples in
+guides 06–08 ran successfully. A separate audit resolved 342 local links and 45
+heading fragments across the reviewed files and supporting guides. No full suite
+or live-backend campaign was run. Evidence is local-only under
+`working-memory/test-results/documentation-top-level-20261020/`.
+
 ## Implementation follow-up — 2026-10-19
 
 Checked against `15080c6e`, the PR #126 merge on `configuration-ownership`.
@@ -40,6 +133,11 @@ and the relationship between documented and implemented architecture. This is a
 structural review, not a new certification of every subsystem's behaviour.
 
 ## Assessment
+
+**Original October 18 baseline begins here.** Findings, inventories, branch
+comparisons and proposals below describe that date. Follow-ups above record
+implemented changes and superseding decisions; the folder migration failures
+and proposed action order must not be read as a fresh diagnosis.
 
 The move towards subsystem folders is sound. Keep it. The next change should make
 authority and navigation explicit: readers need to distinguish a current contract,
@@ -427,6 +525,10 @@ diagram. The detailed finding IDs and source evidence remain in the September
 review's 2026-10-18 follow-up at `8c20f7d2`.
 
 ## Recommended documentation structure
+
+**October 18 proposal, not a mandated current layout.** Later follow-ups retain
+the numbered overviews and the existing architecture folder with clearer authority.
+Evaluate any further move against actual reader routes and all path consumers.
 
 Keep Markdown and the existing repository workflow. The evidence does not require
 a new documentation platform. The following is a destination model, not a request

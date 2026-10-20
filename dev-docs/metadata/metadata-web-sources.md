@@ -1,5 +1,7 @@
 # Metadata Web Sources
 
+Reviewed **2026-10-20**. Current source and ownership were checked. [Next tasks](next_tasks.md) distinguishes implemented behaviour from the remaining contracts.
+
 This document captures the local development contract for metadata web-source
 plugins under `src/LiuXin_alpha/metadata/web_sources`.
 
@@ -15,6 +17,8 @@ The source layer is intentionally dependency-light. Provider modules should use
 the shared `Source` base class and `http_client` retry/backoff helpers where
 possible, and they should fail as source misses instead of taking down the whole
 identify/cover pipeline.
+
+Provider presence in this tree does not establish current upstream availability. This review checked local adapters and fixtures, without making live provider calls. A blocked endpoint, parse failure and an ordinary no-match should remain distinguishable in diagnostics even where compatibility APIs return a miss.
 
 ## Current Sources
 

@@ -1,5 +1,14 @@
 # LiuXin schema notes (FRBR + Storage)
 
+Status: **historical design note**; reviewed **2026-10-20** against the working
+tree based on `fc5de7af`.
+
+The Stores/Folders/Files-only model and proposed next steps below are historical.
+The current schema also separates atomic Assets, Replicas and Composite Assets,
+and generates bibliographic links; use the current overview for their contracts.
+See the [current schema overview](<../03 - Database Schema.md>) and
+[worked WEMI links](wemi-link-examples.md). Original design text follows.
+
 This document summarises the “main tables” agreed in this chat: the FRBR WEMI backbone plus a storage model (stores/folders/files), plus a hybrid identifiers strategy.
 
 This intentionally excludes:

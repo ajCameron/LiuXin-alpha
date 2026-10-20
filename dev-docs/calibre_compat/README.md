@@ -1,5 +1,7 @@
 # Calibre compatibility
 
+Reviewed **2026-10-20** against the working tree based on `fc5de7af`.
+
 Compatibility includes source-library inspection, metadata adapters, generated
 SQL views and selected web routes. Each boundary has its own owner and IDs.
 
@@ -19,5 +21,8 @@ SQL views and selected web routes. Each boundary has its own owner and IDs.
 
 Use the [format guides](../file_formats/README.md) for format implementations,
 [plugin composition](../plugins/plugin-composition.md) for provider ownership,
-and [surface startup](../read-only-surface-appliance-startup.md) for serving commands.
+and [surface startup](../surfaces/read-only-surface-appliance-startup.md) for serving commands.
+[Next tasks](next_tasks.md) records proposed changes, dependencies and completion
+checks. No runtime change is implied by this documentation review.
+
 Return to the [developer index](../README.md).

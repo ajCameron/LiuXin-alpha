@@ -1,5 +1,7 @@
 # Test streams
 
+Source reviewed **2026-10-20**, working tree based on `fc5de7af`.
+
 For event selection and the single full-suite CI owner, see
 [continuous integration](testing/continuous-integration.md).
 
@@ -52,5 +54,19 @@ ensure configured paths exist, the confidence stream remains an exact union,
 and every active non-database top-level test area remains represented. New
 properly named smoke modules are discovered automatically.
 
-These streams are development feedback, not merge proof. Run the complete
-suite externally before merging.
+These streams give scoped development feedback. The CI full-suite lane owns
+broad merge evidence; select local checks according to the change and report what
+actually ran. Do not treat a smoke pass as a full-suite result.
+
+For a storage-conscious serial run with durable diagnostics, pass pytest options
+through the separator:
+
+```bash
+.venv/bin/python scripts/run_test_stream.py --stream confidence -- \
+  -n 0 -o tmp_path_retention_policy=none -o tmp_path_retention_count=0 \
+  --telemetry-dir=/tmp/liuxin-confidence-telemetry
+```
+
+Telemetry must live outside disposable test scratch. The `plugins` directory is
+a test area covered by the smoke sentinel; it is not a separate named stream in
+this runner. See [fixture/cleanup policy](<../07 - Test Databases.md#scratch-cleanup-and-telemetry>).

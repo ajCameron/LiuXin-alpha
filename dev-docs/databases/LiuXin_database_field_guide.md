@@ -1,32 +1,36 @@
-
 # LiuXin database field guide
 
-Status: **Detailed design-era reference; not fully reconciled with current DDL.**
+Reviewed **2026-10-20** against a fresh SQLite database produced by the packaged
+FRBR generator. The inventory covers all **67 explicit tables** in `table_sql`,
+with column names and declared SQLite types checked against `PRAGMA table_info`.
+Generated relations are described separately below. This is not a PostgreSQL
+physical-type inventory.
 
-Checked on **2026-10-19**: use the [current schema overview](<../03 - Database Schema.md>)
-and its source links before relying on an individual field description. In
-particular, composites now have their own `composite_digital_assets` table and
-generated member links; atomic `digital_assets` no longer use the older
-kind/composition-table model. Store mode flags and zero-copy policy constraints
-have also changed. The field inventory below is preserved for the remaining
-field-by-field reconciliation.
+Use the [schema overview](<../03 - Database Schema.md>) for relationships and
+[column metadata](column-metadata.md) for normalization declarations. Each
+explicit table below links to its DDL for nullability, defaults, foreign keys and
+checks. A stored policy describes intent; it does not establish that every
+runtime mutation enforces it. See [next tasks](next_tasks.md).
 
-This dev doc is a field-by-field guide to the **first-class tables defined in `table_sql/`** for the FRBR generator, plus the current storage-schema pass that introduces digital assets, replicas, and storage policies.
-It is written against the **target schema after the digital-assets/schema patch**, not just the pre-patch base archive.
 ## Scope and reading notes
-- This guide covers every field on every explicit table created from `table_sql/*.sql`.
-- Auto-generated interlink/intralink tables are covered separately in a standard-pattern section, because the exact set depends on the TOML generator specs.
-- `*_created_timestamp_ep_k` and `*_modified_timestamp_ep_k` are row timestamps in **epoch milliseconds**.
-- `*_source_created_datestamp_ep_k` and `*_source_modified_datestamp_ep_k` hold the best-known upstream/source timestamps, also in epoch milliseconds, when available.
-- `*_scratch` fields are intentionally disposable workspaces for import/debug/transition state. They are not meant to carry durable business meaning.
-- Fields marked **(new)** were added or introduced by the digital-assets/schema pass.
+
+- Row/source timestamp columns ending in `_ep_k` use epoch milliseconds.
+- A `*_scratch` name is not permission to delete its contents. Some owners store
+  recovery state there, notably `storage_ingest_operation_scratch`.
+- `files` and `file_derivations` remain compatibility records; new storage design
+  distinguishes atomic assets, logical composites and observed replicas.
+- Normalized keys are derived through the declared column identity policy,
+  rather than by choosing a local lowercase rule.
 
 ## Constant and database-metadata tables
 
 ### `languages`
 Locked constant language catalogue used for canonical language lookup and display.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/constants_tables/languages.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `language_id` | `INTEGER` | Primary key for the table. |
 | `language` | `TEXT` | English display name used for legacy/UI compatibility. |
 | `language_code` | `TEXT` | Canonical language code field kept for legacy compatibility; intended to hold the stable ISO-639-2/B-style code. |
@@ -39,24 +43,30 @@ Locked constant language catalogue used for canonical language lookup and displa
 | `language_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `language_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `language_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `language_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `language_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `library_id`
 Per-library stable identifier table.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/db_metadata_tables/library_id.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `library_id` | `INTEGER` | Identifier/reference field for library. |
 | `library_id_uuid` | `TEXT` | Stable UUID for the library instance. |
 | `library_id_created_timestamp_ep_k` | `INTEGER` | Row creation timestamp in epoch milliseconds. |
 | `library_id_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `library_id_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `library_id_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `library_id_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `library_id_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `database_version`
 Tracks the schema/application version written into the database.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/db_metadata_tables/database_version.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `database_version_id` | `TEXT` | Primary key for the table. |
 | `database_version_version` | `TEXT` | Stored schema/application version string. |
 | `database_version_created_timestamp_ep_k` | `INTEGER` | Row creation timestamp in epoch milliseconds. |
@@ -66,8 +76,11 @@ Tracks the schema/application version written into the database.
 
 ### `database_metadata`
 Small bag of database-instance metadata.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/db_metadata_tables/database_metadata.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `database_metadata_id` | `INTEGER` | Primary key for the table. |
 | `database_metadata_unique_id` | `TEXT` | Stable unique identifier for this database instance. |
 | `database_metadata_parent_LiuXin_instance` | `TEXT` | Identifier for the parent/syncing LiuXin instance when relevant. |
@@ -76,12 +89,15 @@ Small bag of database-instance metadata.
 | `database_metadata_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `database_metadata_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `database_metadata_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `database_metadata_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `database_metadata_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `preferences`
 Key/value preferences stored inside the database.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/db_metadata_tables/preferences.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `preference_id` | `INTEGER` | Primary key for the table. |
 | `preference_key` | `TEXT` | Preference name/key. |
 | `preference_value` | `TEXT` | Serialised preference value. |
@@ -91,17 +107,22 @@ Key/value preferences stored inside the database.
 | `preference_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `preference_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `preference_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `preference_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `preference_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `custom_columns`
 Custom-column registry describing user-defined metadata fields.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/db_metadata_tables/custom_columns.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `custom_column_id` | `INTEGER` | Primary key for the table. |
 | `custom_column_mark_for_delete` | `INTEGER` | Soft-delete marker for a custom column definition. |
 | `custom_column_in_table` | `TEXT` | Main table this custom column attaches to. |
 | `custom_column_label` | `TEXT` | Short stable label/key used in UI/API references. |
+| `custom_column_label_norm` | `TEXT` | Derived identity key governed by the column normalization declaration. |
 | `custom_column_name` | `TEXT` | Human-readable custom-column name. |
+| `custom_column_name_norm` | `TEXT` | Derived identity key governed by the column normalization declaration. |
 | `custom_column_datatype` | `TEXT` | Logical LiuXin datatype for the custom column. |
 | `custom_column_db_datatype` | `TEXT` | Concrete database datatype used for storage. |
 | `custom_column_is_multiple` | `INTEGER` | Boolean flag: the custom column can hold multiple values. |
@@ -114,24 +135,30 @@ Custom-column registry describing user-defined metadata fields.
 | `custom_column_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `custom_column_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `custom_column_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `custom_column_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `custom_column_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `hashes`
 Generic hash-value table used where a separate hash object is still desired.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/db_metadata_tables/hashes.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `hash_id` | `TEXT` | Identifier/reference field for hash. |
 | `hash` | `TEXT` | Hash value text. |
 | `hash_created_timestamp_ep_k` | `INTEGER` | Row creation timestamp in epoch milliseconds. |
 | `hash_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `hash_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `hash_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `hash_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `hash_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `feeds`
 Saved feed/update sources.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/db_metadata_tables/feeds.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `feed_id` | `INTEGER` | Primary key for the table. |
 | `feed_title` | `TEXT` | Display title for the feed definition. |
 | `feed_script` | `TEXT` | Fetcher/update script or stored logic for the feed. |
@@ -139,12 +166,15 @@ Saved feed/update sources.
 | `feed_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `feed_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `feed_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `feed_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `feed_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `last_read_positions`
 Per-user/per-device reading position checkpoints.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/db_metadata_tables/last_read_position.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `last_read_position_id` | `INTEGER` | Primary key for the table. |
 | `last_read_position_book` | `INTEGER` | Legacy target record identifier for the thing being read. |
 | `last_read_position_format` | `TEXT` | Format code associated with the reading position. |
@@ -157,12 +187,15 @@ Per-user/per-device reading position checkpoints.
 | `last_read_position_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `last_read_position_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `last_read_position_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `last_read_positions_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `last_read_positions_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `compressed_files`
 Legacy queue/cache table for compressed files discovered during ingest.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/db_metadata_tables/compressed_files.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `compressed_file_id` | `INTEGER` | Primary key for the table. |
 | `compressed_file_name` | `TEXT` | Legacy discovered filename. |
 | `compressed_file_extension` | `INTEGER` | Legacy extension/format marker for the discovered compressed file. |
@@ -178,12 +211,15 @@ Legacy queue/cache table for compressed files discovered during ingest.
 | `compressed_file_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `compressed_file_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `compressed_file_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `compressed_file_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `compressed_file_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `new_books`
 Legacy queue/cache table for newly discovered books pending ingest.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/db_metadata_tables/new_books.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `new_book_id` | `INTEGER` | Primary key for the table. |
 | `new_book_name` | `TEXT` | Legacy discovered book filename/title token. |
 | `new_book_extension` | `INTEGER` | Legacy extension/format marker for the discovered book. |
@@ -198,12 +234,15 @@ Legacy queue/cache table for newly discovered books pending ingest.
 | `new_book_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `new_book_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `new_book_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `new_book_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `new_book_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `conversion_options`
 Per-format or per-book conversion setting blobs.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/db_metadata_tables/conversion_options.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `conversion_option_id` | `INTEGER` | Primary key for the table. |
 | `conversion_option_format` | `TEXT` | Target/output format the conversion options apply to. |
 | `conversion_option_book` | `INTEGER` | Legacy book identifier the options are scoped to, or NULL for format-wide defaults. |
@@ -215,8 +254,11 @@ Per-format or per-book conversion setting blobs.
 
 ### `metadata_dirtied_books`
 Queue of records whose metadata needs recalculation or export.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/db_metadata_tables/metadata_dirtied.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `metadata_dirtied_id` | `TEXT` | Identifier/reference field for metadata dirtied. |
 | `metadata_dirtied_table_id` | `INTEGER` | Primary key of the row marked dirty. |
 | `metadata_dirtied_table` | `TEXT` | Table name containing the row marked dirty. |
@@ -225,13 +267,16 @@ Queue of records whose metadata needs recalculation or export.
 | `metadata_dirtied_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `metadata_dirtied_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `metadata_dirtied_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `metadata_dirtied_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `metadata_dirtied_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ## FRBR core tables
 ### `works`
 FRBR Work rows: the conceptual work level.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/frbr_metadata_core_tables/1-works.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `work_id` | `INTEGER` | Primary key for the table. |
 | `work_type` | `TEXT` | High-level work kind such as novel, collection, film, or series. |
 | `work_medium` | `TEXT` | Primary medium of the work such as text, audio, moving_image, or mixed. |
@@ -253,12 +298,15 @@ FRBR Work rows: the conceptual work level.
 | `work_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `work_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `work_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `work_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `work_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `expressions`
 FRBR Expression rows: a language/version/realisation of a work.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/frbr_metadata_core_tables/2-expressions.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `expression_id` | `INTEGER` | Primary key for the table. |
 | `expression_type` | `TEXT` | Expression kind such as text, translation, revision, or dub. |
 | `expression_label` | `TEXT` | Human label distinguishing the expression from siblings. |
@@ -281,12 +329,15 @@ FRBR Expression rows: a language/version/realisation of a work.
 | `expression_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `expression_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `expression_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `expression_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `expression_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `manifestations`
 FRBR Manifestation rows: edition/product-level embodiment.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/frbr_metadata_core_tables/3-manifestations.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `manifestation_id` | `INTEGER` | Primary key for the table. |
 | `manifestation_subtitle` | `TEXT` | Subtitle as issued on this manifestation. |
 | `manifestation_carrier_type` | `TEXT` | Carrier/product type such as print_book, ebook, audiobook, or disc. |
@@ -304,12 +355,15 @@ FRBR Manifestation rows: edition/product-level embodiment.
 | `manifestation_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `manifestation_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `manifestation_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `manifestation_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `manifestation_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `items`
 FRBR Item rows: one specific acquired/held exemplar or digital copy-context.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/frbr_metadata_core_tables/4-items.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `item_id` | `INTEGER` | Primary key for the table. |
 | `item_manifestation_id` | `INTEGER` | Manifestation this item exemplifies. |
 | `item_flags` | `TEXT` | Free-form/internal item flags. |
@@ -330,12 +384,15 @@ FRBR Item rows: one specific acquired/held exemplar or digital copy-context.
 | `item_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `item_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `item_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `item_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `item_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `agents`
 Agent supertype table for people, organisations, groups, and pseudonyms.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/frbr_metadata_core_tables/5-agents.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `agent_id` | `INTEGER` | Primary key for the table. |
 | `agent_type` | `TEXT` | Agent supertype discriminator: person, organisation, group, or pseudonym. |
 | `agent_canonical_name` | `TEXT` | Canonical display name for the agent. |
@@ -346,12 +403,15 @@ Agent supertype table for people, organisations, groups, and pseudonyms.
 | `agent_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `agent_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `agent_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `agent_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `agent_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `human_agents`
 1:1 subtype table for person-specific agent data.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/frbr_metadata_core_tables/5-agents.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `human_agent_id` | `INTEGER` | Primary key for the table. |
 | `human_agent_agent_id` | `INTEGER` | Owning `agents` row for this human-agent subtype row. |
 | `human_agent_given_name` | `TEXT` | Given/first name component. |
@@ -366,12 +426,15 @@ Agent supertype table for people, organisations, groups, and pseudonyms.
 | `human_agent_biography` | `TEXT` | Biography/biographical note. |
 | `human_agent_created_timestamp_ep_k` | `INTEGER` | Row creation timestamp in epoch milliseconds. |
 | `human_agent_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
-| `human_agent_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `human_agent_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `org_agents`
 1:1 subtype table for organisation-specific agent data.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/frbr_metadata_core_tables/5-agents.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `org_agent_id` | `INTEGER` | Primary key for the table. |
 | `org_agent_agent_id` | `INTEGER` | Owning `agents` row for this organisation subtype row. |
 | `org_agent_legal_name` | `TEXT` | Legal name of the organisation. |
@@ -385,12 +448,15 @@ Agent supertype table for people, organisations, groups, and pseudonyms.
 | `org_agent_description` | `TEXT` | Free-form description of the organisation. |
 | `org_agent_created_timestamp_ep_k` | `INTEGER` | Row creation timestamp in epoch milliseconds. |
 | `org_agent_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
-| `org_agent_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `org_agent_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `org_agent_relations`
 Parent/child or related-organisation graph edges.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/frbr_metadata_core_attributes/agents_graph_table.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `org_agent_relation_id` | `INTEGER` | Primary key for the table. |
 | `org_agent_relation_child_agent_id` | `INTEGER` | Child/subordinate organisation agent. |
 | `org_agent_relation_parent_agent_id` | `INTEGER` | Parent/umbrella organisation agent. |
@@ -402,12 +468,15 @@ Parent/child or related-organisation graph edges.
 | `org_agent_relation_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `org_agent_relation_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `org_agent_relation_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `org_agent_relation_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `org_agent_relation_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `entity_identifiers`
 Identifier table for WEMI entities and related top-level entities.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/frbr_metadata_core_attributes/entity_identifiers.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `entity_identifier_id` | `INTEGER` | Primary key for the table. |
 | `entity_identifier_entity_type` | `TEXT` | Type of entity the identifier belongs to. |
 | `entity_identifier_entity_id` | `INTEGER` | Primary key of the identified entity. |
@@ -419,12 +488,15 @@ Identifier table for WEMI entities and related top-level entities.
 | `entity_identifier_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `entity_identifier_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `entity_identifier_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `entity_identifier_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `entity_identifier_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `item_identifiers`
 Identifier table specifically for items/copies.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/frbr_metadata_core_attributes/item_identifiers.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `item_identifier_id` | `INTEGER` | Primary key for the table. |
 | `item_identifier_item_id` | `INTEGER` | Item the identifier belongs to. |
 | `item_identifier_scheme` | `TEXT` | Item-identifier scheme such as barcode, accession, vendor order, etc. |
@@ -434,13 +506,16 @@ Identifier table specifically for items/copies.
 | `item_identifier_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `item_identifier_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `item_identifier_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `item_identifier_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `item_identifier_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ## Additional metadata tables
 ### `annotations`
 User/device annotations anchored to items.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/metadata_additional/annotations.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `annotation_id` | `INTEGER` | Primary key for the table. |
 | `annotation_user_id` | `INTEGER` | User who owns/authored the annotation. |
 | `annotation_item_id` | `INTEGER` | Item the annotation is anchored to. |
@@ -458,48 +533,60 @@ User/device annotations anchored to items.
 | `annotation_extra_json` | `TEXT` | Extra annotation payload not yet normalised. |
 | `annotation_created_timestamp_ep_k` | `INTEGER` | Row creation timestamp in epoch milliseconds. |
 | `annotation_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
-| `annotation_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `annotation_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `comments`
 Free-form comment blob table.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/metadata_additional/comments.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `comment_id` | `INTEGER` | Primary key for the table. |
 | `comment` | `TEXT` | Free-form comment text. |
 | `comment_created_timestamp_ep_k` | `INTEGER` | Row creation timestamp in epoch milliseconds. |
 | `comment_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `comment_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `comment_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `comment_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `comment_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `notes`
 Free-form note blob table.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/metadata_additional/notes.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `note_id` | `INTEGER` | Primary key for the table. |
 | `note` | `TEXT` | Free-form note text. |
 | `note_created_timestamp_ep_k` | `INTEGER` | Row creation timestamp in epoch milliseconds. |
 | `note_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `note_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `note_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `note_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `note_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `synopses`
 Synopsis/summary text blobs.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/metadata_additional/synopses.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `synopsis_id` | `INTEGER` | Identifier/reference field for synopsis. |
 | `synopsis` | `TEXT` | Free-form synopsis/summary text. |
 | `synopsis_created_timestamp_ep_k` | `INTEGER` | Row creation timestamp in epoch milliseconds. |
 | `synopsis_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `synopsis_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `synopsis_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `synopsis_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `synopsis_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `ratings`
 Normalised rating values and provenance.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/metadata_additional/ratings.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `rating_id` | `INTEGER` | Primary key for the table. |
 | `rating` | `FLOAT` | Rating value. |
 | `rating_out_of` | `INT` | Scale maximum the rating is out of. |
@@ -509,17 +596,20 @@ Normalised rating values and provenance.
 | `rating_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `rating_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `rating_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `rating_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `rating_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `labels`
 Short reusable labels/tags used across the schema.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/metadata_additional/labels.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `label_id` | `INTEGER` | Primary key for the table. |
 | `label_text` | `TEXT` | Raw label text. |
 | `label_text_norm` | `TEXT` | Normalised label text for case-insensitive matching. |
 | `label_description` | `TEXT` | Longer explanation of what the label means. |
-| `label_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `label_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 | `label_created_timestamp_ep_k` | `INTEGER` | Row creation timestamp in epoch milliseconds. |
 | `label_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `label_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
@@ -527,8 +617,11 @@ Short reusable labels/tags used across the schema.
 
 ### `genres`
 Genre tree table.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/metadata_additional/genres.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `genre_id` | `INTEGER` | Primary key for the table. |
 | `genre` | `TEXT` | Display name of the genre. |
 | `genre_sort` | `TEXT` | Sort form of the genre name. |
@@ -541,12 +634,15 @@ Genre tree table.
 | `genre_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `genre_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `genre_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `genre_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `genre_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `subjects`
 Subject tree table.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/metadata_additional/subjects.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `subject_id` | `INTEGER` | Primary key for the table. |
 | `subject` | `TEXT` | Display name of the subject. |
 | `subject_phash` | `TEXT` | Phonetic/hash helper for fuzzy subject matching. |
@@ -559,12 +655,15 @@ Subject tree table.
 | `subject_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `subject_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `subject_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `subject_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `subject_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `series`
 Series tree table, including nested/parent series.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/metadata_additional/series.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `series_id` | `INTEGER` | Primary key for the table. |
 | `series` | `TEXT` | Series name. |
 | `series_name_norm` | `TEXT` | Normalised series name for dedupe/matching. |
@@ -579,7 +678,7 @@ Series tree table, including nested/parent series.
 | `series_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `series_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `series_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `series_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `series_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ## Storage tables
 ### `stores`
@@ -587,14 +686,19 @@ Series tree table, including nested/parent series.
 - `store_failure_domain`: groups stores that fail together; replication should spread copies across different failure domains when required.
 - `store_region`: broad geographic or logical region used for placement policy.
 - `store_tags_json`: free-form tags used by policy resolution to prefer or exclude stores.
-- `store_supported_replica_modes_json`: which replica modes this store can satisfy, e.g. `active`, `backup`, `archive`, `cache`. This stops tape or cache stores being counted for the wrong policy purpose.
 - `store_default_replication_policy_id`: default live-copy policy for assets placed here when no more specific override exists.
 - `store_default_backup_policy_id`: default backup/archive policy for assets placed here when no more specific override exists.
 
 Logical storage backends such as filesystems, NAS, tape, HTTP, or rclone targets.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/storage_tables/1-storages.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `store_id` | `INTEGER` | Primary key for the table. |
+| `store_uuid` | `TEXT` | Stable runtime Store identity used across registration and recovery. |
+| `store_host_uuid` | `TEXT` | Optional host identity associated with the Store. |
+| `store_device_uuid` | `TEXT` | Optional device identity associated with the Store. |
 | `store_name` | `TEXT` | Human-facing store name. |
 | `store_kind` | `TEXT` | Backend/store implementation kind. |
 | `store_access_protocol` | `TEXT` | Protocol used to access the store. |
@@ -603,9 +707,15 @@ Logical storage backends such as filesystems, NAS, tape, HTTP, or rclone targets
 | `store_credentials` | `TEXT` | Credential reference/blob; should not be raw plaintext credentials. |
 | `store_storage_mask` | `INTEGER` | Broad classification bitmask used in policy or placement filtering. |
 | `store_policy_json` | `TEXT` | Fine-grained placement/behaviour policy blob for the store. |
-| `store_failure_domain` | `TEXT` | **(new)** Fault-isolation bucket used when spreading replicas across independent failure domains. |
-| `store_region` | `TEXT` | **(new)** Geographic or administrative placement bucket used by policy resolution. |
-| `store_tags_json` | `TEXT` | **(new)** Lightweight store tag set used for policy matching. |
+| `store_failure_domain` | `TEXT` | Fault-isolation bucket used when spreading replicas across independent failure domains. |
+| `store_region` | `TEXT` | Geographic or administrative placement bucket used by policy resolution. |
+| `store_tags_json` | `TEXT` | Lightweight store tag set used for policy matching. |
+| `store_default_replication_policy_id` | `INTEGER` | Optional default replication policy reference for placement. |
+| `store_default_backup_policy_id` | `INTEGER` | Optional default backup policy reference for placement. |
+| `store_supports_active_replica_mode` | `INTEGER` | Boolean declaration that the Store supports active replicas. |
+| `store_supports_backup_replica_mode` | `INTEGER` | Boolean declaration that the Store supports backup replicas. |
+| `store_supports_archive_replica_mode` | `INTEGER` | Boolean declaration that the Store supports archive replicas. |
+| `store_operational_role` | `TEXT` | Declared operational role; see the DDL for accepted values. |
 | `store_online_status` | `TEXT` | Observed administrative/online state of the store. |
 | `store_location_note` | `TEXT` | Human note about the store’s physical/logical location. |
 | `store_last_seen_online_timestamp_ep_k` | `INTEGER` | Last time the store was observed online. |
@@ -632,20 +742,25 @@ Logical storage backends such as filesystems, NAS, tape, HTTP, or rclone targets
 | `store_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `store_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `store_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `store_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `store_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `folders`
 Folder hierarchy inside a store, when the store supports folders.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/storage_tables/2-folders.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `folder_id` | `INTEGER` | Primary key for the table. |
 | `folder_store_id` | `INTEGER` | Store this folder belongs to. |
 | `folder_parent_id` | `INTEGER` | Parent folder in the same store. |
 | `folder_name` | `TEXT` | Single path segment for the folder. |
 | `folder_relpath` | `TEXT` | Cached full relative path from the store root. |
 | `folder_policy_json` | `TEXT` | Folder-level policy overrides or hints. |
+| `folder_default_replication_policy_id` | `INTEGER` | Optional default replication policy reference for placement. |
+| `folder_default_backup_policy_id` | `INTEGER` | Optional default backup policy reference for placement. |
 | `folder_last_seen_timestamp_ep_k` | `INTEGER` | Last time this folder was observed during reconciliation. |
-| `folder_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `folder_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 | `folder_created_timestamp_ep_k` | `INTEGER` | Row creation timestamp in epoch milliseconds. |
 | `folder_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `folder_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
@@ -653,52 +768,62 @@ Folder hierarchy inside a store, when the store supports folders.
 
 ### `replication_policies`
 Named declarative policies for live replica placement and healing.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/storage_tables/1a-storage-policies.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
-| `replication_policy_id` | `INTEGER` | **(new)** Identifier/reference field for replication policy. |
-| `replication_policy_name` | `TEXT` | **(new)** Stable human-facing name for the replication policy. |
-| `replication_policy_min_copies` | `INTEGER` | **(new)** Hard minimum replica count below which the asset is under-replicated. |
-| `replication_policy_target_copies` | `INTEGER` | **(new)** Ideal steady-state replica count; NULL means use the minimum. |
-| `replication_policy_distinct_by_json` | `TEXT` | **(new)** Serialised list of distinctness dimensions such as store, failure_domain, or region. |
-| `replication_policy_max_copies_per_bucket` | `INTEGER` | **(new)** Maximum copies allowed within one distinctness bucket. |
-| `replication_policy_required_store_tags_json` | `TEXT` | **(new)** Store tags that must be present for a store to qualify. |
-| `replication_policy_preferred_store_tags_json` | `TEXT` | **(new)** Store tags that are preferred but not mandatory. |
-| `replication_policy_forbidden_store_tags_json` | `TEXT` | **(new)** Store tags that disqualify a store. |
-| `replication_policy_required_capabilities_json` | `TEXT` | **(new)** Capabilities a store must have to satisfy the policy. |
-| `replication_policy_forbidden_capabilities_json` | `TEXT` | **(new)** Capabilities/state markers that disqualify a store. |
-| `replication_policy_synchronous_write_copies` | `INTEGER` | **(new)** How many copies must be written before the write is considered complete. |
-| `replication_policy_auto_heal` | `INTEGER` | **(new)** Boolean flag: storage may auto-heal when under target/minimum. |
-| `replication_policy_mode` | `TEXT` | **(new)** Replication mode such as active, backup, or archive. |
-| `replication_policy_created_timestamp_ep_k` | `INTEGER` | **(new)** Row creation timestamp in epoch milliseconds. |
-| `replication_policy_modified_timestamp_ep_k` | `INTEGER` | **(new)** Row last-modified timestamp in epoch milliseconds. |
-| `replication_policy_scratch` | `TEXT` | **(new)** Scratch/debug/import-workspace field; not intended for stable semantics. |
+| --- | --- | --- |
+| `replication_policy_id` | `INTEGER` | Identifier/reference field for replication policy. |
+| `replication_policy_name` | `TEXT` | Stable human-facing name for the replication policy. |
+| `replication_policy_name_norm` | `TEXT` | Derived identity key governed by the column normalization declaration. |
+| `replication_policy_min_copies` | `INTEGER` | Hard minimum replica count below which the asset is under-replicated. |
+| `replication_policy_target_copies` | `INTEGER` | Ideal steady-state replica count; NULL means use the minimum. |
+| `replication_policy_distinct_by_json` | `TEXT` | Serialised list of distinctness dimensions such as store, failure_domain, or region. |
+| `replication_policy_max_copies_per_bucket` | `INTEGER` | Maximum copies allowed within one distinctness bucket. |
+| `replication_policy_required_store_tags_json` | `TEXT` | Store tags that must be present for a store to qualify. |
+| `replication_policy_preferred_store_tags_json` | `TEXT` | Store tags that are preferred but not mandatory. |
+| `replication_policy_forbidden_store_tags_json` | `TEXT` | Store tags that disqualify a store. |
+| `replication_policy_required_capabilities_json` | `TEXT` | Capabilities a store must have to satisfy the policy. |
+| `replication_policy_forbidden_capabilities_json` | `TEXT` | Capabilities/state markers that disqualify a store. |
+| `replication_policy_synchronous_write_copies` | `INTEGER` | How many copies must be written before the write is considered complete. |
+| `replication_policy_auto_heal` | `INTEGER` | Boolean flag: storage may auto-heal when under target/minimum. |
+| `replication_policy_mode` | `TEXT` | Replication mode such as active, backup, or archive. |
+| `replication_policy_created_timestamp_ep_k` | `INTEGER` | Row creation timestamp in epoch milliseconds. |
+| `replication_policy_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
+| `replication_policy_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `backup_policies`
 Named declarative policies for backup/archive copy placement and behaviour.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/storage_tables/1a-storage-policies.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
-| `backup_policy_id` | `INTEGER` | **(new)** Identifier/reference field for backup policy. |
-| `backup_policy_name` | `TEXT` | **(new)** Stable human-facing name for the backup policy. |
-| `backup_policy_min_backup_copies` | `INTEGER` | **(new)** Hard minimum backup copy count. |
-| `backup_policy_target_backup_copies` | `INTEGER` | **(new)** Ideal steady-state backup copy count. |
-| `backup_policy_distinct_by_json` | `TEXT` | **(new)** Serialised distinctness dimensions for backup placement. |
-| `backup_policy_max_copies_per_bucket` | `INTEGER` | **(new)** Maximum copies allowed within one backup placement bucket. |
-| `backup_policy_required_store_tags_json` | `TEXT` | **(new)** Store tags required for backup placement. |
-| `backup_policy_preferred_store_tags_json` | `TEXT` | **(new)** Store tags preferred for backup placement. |
-| `backup_policy_forbidden_store_tags_json` | `TEXT` | **(new)** Store tags that disqualify a backup target. |
-| `backup_policy_periodic_verification` | `INTEGER` | **(new)** Boolean flag: backup copies should be re-verified periodically. |
-| `backup_policy_retention_locked` | `INTEGER` | **(new)** Boolean flag: backup copies are intended to be retention-protected/WORM-like. |
-| `backup_policy_mode` | `TEXT` | **(new)** Backup mode such as backup or archive. |
-| `backup_policy_created_timestamp_ep_k` | `INTEGER` | **(new)** Row creation timestamp in epoch milliseconds. |
-| `backup_policy_modified_timestamp_ep_k` | `INTEGER` | **(new)** Row last-modified timestamp in epoch milliseconds. |
-| `backup_policy_scratch` | `TEXT` | **(new)** Scratch/debug/import-workspace field; not intended for stable semantics. |
+| --- | --- | --- |
+| `backup_policy_id` | `INTEGER` | Identifier/reference field for backup policy. |
+| `backup_policy_name` | `TEXT` | Stable human-facing name for the backup policy. |
+| `backup_policy_name_norm` | `TEXT` | Derived identity key governed by the column normalization declaration. |
+| `backup_policy_min_backup_copies` | `INTEGER` | Hard minimum backup copy count. |
+| `backup_policy_target_backup_copies` | `INTEGER` | Ideal steady-state backup copy count. |
+| `backup_policy_distinct_by_json` | `TEXT` | Serialised distinctness dimensions for backup placement. |
+| `backup_policy_max_copies_per_bucket` | `INTEGER` | Maximum copies allowed within one backup placement bucket. |
+| `backup_policy_required_store_tags_json` | `TEXT` | Store tags required for backup placement. |
+| `backup_policy_preferred_store_tags_json` | `TEXT` | Store tags preferred for backup placement. |
+| `backup_policy_forbidden_store_tags_json` | `TEXT` | Store tags that disqualify a backup target. |
+| `backup_policy_periodic_verification` | `INTEGER` | Boolean flag: backup copies should be re-verified periodically. |
+| `backup_policy_retention_locked` | `INTEGER` | Boolean flag: backup copies are intended to be retention-protected/WORM-like. |
+| `backup_policy_mode` | `TEXT` | Backup mode such as backup or archive. |
+| `backup_policy_created_timestamp_ep_k` | `INTEGER` | Row creation timestamp in epoch milliseconds. |
+| `backup_policy_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
+| `backup_policy_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `digital_assets`
-Storage-managed digital payloads; atomic assets hold bytes, composite assets hold ordered membership.
+Atomic byte identities. Logical multipart membership belongs to `composite_digital_assets` and its generated member links.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/storage_tables/3-digital-assets.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `digital_asset_id` | `INTEGER` | Primary key for the table. |
-| `digital_asset_kind` | `TEXT` | Asset shape: `atomic` for one byte-bearing payload, `composite` for an ordered assembly. |
 | `digital_asset_name` | `TEXT` | Human-facing name for the digital asset. |
 | `digital_asset_base_name` | `TEXT` | Filename stem without extension. |
 | `digital_asset_extension` | `TEXT` | Filename extension/format suffix. |
@@ -710,7 +835,7 @@ Storage-managed digital payloads; atomic assets hold bytes, composite assets hol
 | `digital_asset_class_mask` | `INTEGER` | Bitmask for class/policy grouping. |
 | `digital_asset_visibility_mask` | `INTEGER` | Bitmask controlling visibility/export/display decisions. |
 | `digital_asset_critical` | `INTEGER` | Boolean/priority-like flag: asset is operationally important to preserve. |
-| `digital_asset_size_bytes` | `INTEGER` | Declared/canonical byte size for the asset, typically for atomic assets. |
+| `digital_asset_size_bytes` | `INTEGER` | Declared/canonical byte size for the asset, for this atomic asset. |
 | `digital_asset_hash_sha256` | `TEXT` | Canonical SHA-256 hash of the asset bytes. |
 | `digital_asset_hash_blake3` | `TEXT` | Canonical BLAKE3 hash of the asset bytes. |
 | `digital_asset_phash` | `TEXT` | Perceptual hash where one is meaningful. |
@@ -722,27 +847,31 @@ Storage-managed digital payloads; atomic assets hold bytes, composite assets hol
 | `digital_asset_source` | `TEXT` | Source channel/system for the asset. |
 | `digital_asset_original_name` | `TEXT` | Original source filename/name. |
 | `digital_asset_original_path` | `TEXT` | Original source path/URI. |
-| `digital_asset_replication_policy_id` | `INTEGER` | **(new)** Assigned replication policy overriding broader defaults. |
-| `digital_asset_backup_policy_id` | `INTEGER` | **(new)** Assigned backup policy overriding broader defaults. |
+| `digital_asset_replication_policy_id` | `INTEGER` | Assigned replication policy overriding broader defaults. |
+| `digital_asset_backup_policy_id` | `INTEGER` | Assigned backup policy overriding broader defaults. |
 | `digital_asset_conversion_settings` | `TEXT` | Serialised conversion/processing settings associated with the asset. |
 | `digital_asset_processed` | `INTEGER` | Boolean flag: downstream processing has completed or been attempted. |
 | `digital_asset_created_timestamp_ep_k` | `INTEGER` | Row creation timestamp in epoch milliseconds. |
 | `digital_asset_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `digital_asset_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `digital_asset_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `digital_asset_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `digital_asset_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `asset_replicas`
 
 - `asset_replica_mode`: what kind of copy this is. Expected values include `active`, `backup`, `archive`, `cache`, `transient`, and `unmanaged`.
 Observed physical copies of digital assets on particular stores.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/storage_tables/3-digital-assets.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `asset_replica_id` | `INTEGER` | Primary key for the table. |
 | `asset_replica_digital_asset_id` | `INTEGER` | Digital asset this replica realises physically. |
 | `asset_replica_store_id` | `INTEGER` | Store containing the replica. |
 | `asset_replica_folder_id` | `INTEGER` | Folder containing the replica when folder tracking is used. |
 | `asset_replica_storage_key` | `TEXT` | Store-relative canonical locator/key for the replica. |
+| `asset_replica_mode` | `TEXT` | Copy mode: active, backup, archive, cache, transient or unmanaged. |
 | `asset_replica_name` | `TEXT` | Replica filename/display name. |
 | `asset_replica_base_name` | `TEXT` | Replica filename stem. |
 | `asset_replica_extension` | `TEXT` | Replica filename extension. |
@@ -753,36 +882,20 @@ Observed physical copies of digital assets on particular stores.
 | `asset_replica_observed_size_bytes` | `INTEGER` | Observed on-store size for the replica. |
 | `asset_replica_observed_hash_sha256` | `TEXT` | Observed SHA-256 for the specific replica copy. |
 | `asset_replica_observed_hash_blake3` | `TEXT` | Observed BLAKE3 for the specific replica copy. |
-| `asset_replica_failure_reason` | `TEXT` | **(new)** Last known failure or mismatch reason for the replica. |
+| `asset_replica_failure_reason` | `TEXT` | Last known failure or mismatch reason for the replica. |
 | `asset_replica_created_timestamp_ep_k` | `INTEGER` | Row creation timestamp in epoch milliseconds. |
 | `asset_replica_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `asset_replica_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `asset_replica_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `asset_replica_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
-
-### `digital_asset_compositions`
-
-This table should also be indexed for reverse lookup by member asset so the system can answer “what composites include this member?”.
-Ordered membership links for composite digital assets.
-| Field | Type | Purpose |
-|---|---|---|
-| `digital_asset_composition_id` | `INTEGER` | Primary key for the table. |
-| `digital_asset_composition_parent_asset_id` | `INTEGER` | Composite asset that owns/includes the member. |
-| `digital_asset_composition_member_asset_id` | `INTEGER` | Member asset included in the composite. |
-| `digital_asset_composition_sequence_number` | `INTEGER` | Explicit order of the member inside the composite. |
-| `digital_asset_composition_role` | `TEXT` | Role of the member inside the composite (chapter, booklet, disc_1, etc.). |
-| `digital_asset_composition_label` | `TEXT` | Human label for the membership edge. |
-| `digital_asset_composition_is_required` | `INTEGER` | Boolean flag: the member is required for the composite to be considered complete. |
-| `digital_asset_composition_created_timestamp_ep_k` | `INTEGER` | Row creation timestamp in epoch milliseconds. |
-| `digital_asset_composition_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
-| `digital_asset_composition_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `digital_asset_composition_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `digital_asset_composition_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `asset_replica_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `images`
 Image storage table retained separately from digital_assets for now.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/storage_tables/5-images.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `image_id` | `INTEGER` | Primary key for the table. |
 | `image_item_id` | `INTEGER` | Item the image is primarily attached to. |
 | `image_store_id` | `INTEGER` | Store containing the image. |
@@ -820,25 +933,31 @@ Image storage table retained separately from digital_assets for now.
 | `image_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `image_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `image_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `image_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `image_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `devices`
 Device registry for reading/import/export contexts.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/storage_tables/4-devices.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `device_id` | `INTEGER` | Primary key for the table. |
 | `device_type` | `TEXT` | Device kind/model/category. |
 | `device_created_timestamp_ep_k` | `INTEGER` | Row creation timestamp in epoch milliseconds. |
 | `device_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `device_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `device_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `device_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `device_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ## Workflow and transform tables
 ### `workflow_states`
 Reusable workflow-state vocabulary.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/workflow_tables/workflow_state.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `workflow_state_id` | `INTEGER` | Primary key for the table. |
 | `workflow_state_code` | `TEXT` | Stable code used by software to refer to the workflow state. |
 | `workflow_state_label` | `TEXT` | Human-facing label for the workflow state. |
@@ -851,8 +970,11 @@ Reusable workflow-state vocabulary.
 
 ### `workflow_steps`
 Reusable workflow-step definitions.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/workflow_tables/workflow_steps.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `workflow_step_id` | `INTEGER` | Primary key for the table. |
 | `workflow_step_code` | `TEXT` | Stable code used by software to refer to the workflow step. |
 | `workflow_step_label` | `TEXT` | Human-facing label for the workflow step. |
@@ -868,8 +990,11 @@ Reusable workflow-step definitions.
 
 ### `item_workflow`
 Current per-item workflow/materialised state rows.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/workflow_tables/item_workflow.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `item_workflow_id` | `INTEGER` | Primary key for the table. |
 | `item_workflow_item_id` | `INTEGER` | Item whose current workflow state is being tracked. |
 | `item_workflow_step_id` | `INTEGER` | Workflow step this current-state row refers to. |
@@ -884,12 +1009,15 @@ Current per-item workflow/materialised state rows.
 | `item_workflow_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `item_workflow_started_timestamp_ep_k` | `INTEGER` | Start timestamp in epoch milliseconds. |
 | `item_workflow_finished_timestamp_ep_k` | `INTEGER` | Finish/completion timestamp in epoch milliseconds. |
-| `item_workflow_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `item_workflow_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `item_workflow_events`
 Audit/event log for item workflow changes.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/workflow_tables/item_workflow_events.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `item_workflow_event_id` | `INTEGER` | Primary key for the table. |
 | `item_workflow_event_item_id` | `INTEGER` | Item whose workflow event is being logged. |
 | `item_workflow_event_step_id` | `INTEGER` | Workflow step the event relates to. |
@@ -903,14 +1031,17 @@ Audit/event log for item workflow changes.
 | `item_workflow_event_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `item_workflow_event_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `item_workflow_event_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `item_workflow_event_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `item_workflow_event_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `digital_asset_workflow`
 Current per-digital-asset workflow/materialised state rows.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/workflow_tables/file_workflow.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `digital_asset_workflow_id` | `INTEGER` | Primary key for the table. |
-| `digital_asset_workflow_digital_asset_id` | `INTEGER` | **(new)** Digital asset whose current workflow state is being tracked. |
+| `digital_asset_workflow_digital_asset_id` | `INTEGER` | Digital asset whose current workflow state is being tracked. |
 | `digital_asset_workflow_step_id` | `INTEGER` | Workflow step this current-state row refers to. |
 | `digital_asset_workflow_status` | `TEXT` | Current status for the digital-asset/step pair. |
 | `digital_asset_workflow_priority` | `INTEGER` | Priority used when scheduling or surfacing work. |
@@ -923,14 +1054,17 @@ Current per-digital-asset workflow/materialised state rows.
 | `digital_asset_workflow_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `digital_asset_workflow_started_timestamp_ep_k` | `INTEGER` | Start timestamp in epoch milliseconds. |
 | `digital_asset_workflow_finished_timestamp_ep_k` | `INTEGER` | Finish/completion timestamp in epoch milliseconds. |
-| `digital_asset_workflow_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `digital_asset_workflow_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `digital_asset_workflow_events`
 Audit/event log for digital-asset workflow changes.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/workflow_tables/file_workflow_events.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `digital_asset_workflow_event_id` | `INTEGER` | Primary key for the table. |
-| `digital_asset_workflow_event_digital_asset_id` | `INTEGER` | **(new)** Digital asset whose workflow event is being logged. |
+| `digital_asset_workflow_event_digital_asset_id` | `INTEGER` | Digital asset whose workflow event is being logged. |
 | `digital_asset_workflow_event_step_id` | `INTEGER` | Workflow step the event relates to. |
 | `digital_asset_workflow_event_from_status` | `TEXT` | Previous status before the event. |
 | `digital_asset_workflow_event_to_status` | `TEXT` | New status after the event. |
@@ -942,12 +1076,15 @@ Audit/event log for digital-asset workflow changes.
 | `digital_asset_workflow_event_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `digital_asset_workflow_event_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `digital_asset_workflow_event_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `digital_asset_workflow_event_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `digital_asset_workflow_event_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `transform_runs`
 Execution records for transforms such as OCR, convert, hash, dedupe, or repair.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/workflow_tables/transform_run.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `transform_run_id` | `INTEGER` | Primary key for the table. |
 | `transform_run_type` | `TEXT` | Transform kind such as OCR, convert, thumbnail, hash, dedupe, repair, or extract. |
 | `transform_run_tool` | `TEXT` | Tool/executable and usually version used for the run. |
@@ -963,12 +1100,15 @@ Execution records for transforms such as OCR, convert, hash, dedupe, or repair.
 | `transform_run_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `transform_run_started_timestamp_ep_k` | `INTEGER` | Start timestamp in epoch milliseconds. |
 | `transform_run_finished_timestamp_ep_k` | `INTEGER` | Finish/completion timestamp in epoch milliseconds. |
-| `transform_run_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `transform_run_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `transform_run_inputs`
 Links transform runs to their input digital assets.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/workflow_tables/transform_run_inputs.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `transform_run_input_id` | `INTEGER` | Primary key for the table. |
 | `transform_run_input_run_id` | `INTEGER` | Transform run this input belongs to. |
 | `transform_run_input_digital_asset_id` | `INTEGER` | Digital asset used as an input. |
@@ -983,8 +1123,11 @@ Links transform runs to their input digital assets.
 
 ### `transform_run_outputs`
 Links transform runs to their output digital assets.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/workflow_tables/transform_run_outputs.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `transform_run_output_id` | `INTEGER` | Primary key for the table. |
 | `transform_run_output_run_id` | `INTEGER` | Transform run this output belongs to. |
 | `transform_run_output_digital_asset_id` | `INTEGER` | Digital asset produced as an output. |
@@ -999,8 +1142,11 @@ Links transform runs to their output digital assets.
 
 ### `digital_asset_derivations`
 Explicit parent/child derivation edges between digital assets.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/workflow_tables/file_lineage.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `digital_asset_derivation_id` | `INTEGER` | Primary key for the table. |
 | `digital_asset_derivation_parent_digital_asset_id` | `INTEGER` | Source/parent digital asset in the derivation edge. |
 | `digital_asset_derivation_child_digital_asset_id` | `INTEGER` | Derived/child digital asset in the derivation edge. |
@@ -1013,13 +1159,16 @@ Explicit parent/child derivation edges between digital assets.
 | `digital_asset_derivation_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `digital_asset_derivation_started_timestamp_ep_k` | `INTEGER` | Start timestamp in epoch milliseconds. |
 | `digital_asset_derivation_finished_timestamp_ep_k` | `INTEGER` | Finish/completion timestamp in epoch milliseconds. |
-| `digital_asset_derivation_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `digital_asset_derivation_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ## Plugin data tables
 ### `works_plugin_data`
 Arbitrary plugin key/value storage attached to works.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/db_metadata_tables/frbr_plugin_data.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `works_plugin_data_id` | `INTEGER` | Primary key for the table. |
 | `works_plugin_data_work` | `INTEGER` | Work this plugin-data row attaches to. |
 | `works_plugin_data_name` | `TEXT` | Plugin-defined key/name. |
@@ -1028,46 +1177,344 @@ Arbitrary plugin key/value storage attached to works.
 | `works_plugin_data_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
 | `works_plugin_data_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
 | `works_plugin_data_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
-| `works_plugin_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `works_plugin_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `expressions_plugin_data`
 Arbitrary plugin key/value storage attached to expressions.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/db_metadata_tables/frbr_plugin_data.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `expressions_plugin_data_id` | `INTEGER` | Primary key for the table. |
 | `expressions_plugin_data_expressions` | `INTEGER` | Expression this plugin-data row attaches to. |
 | `expressions_plugin_data_name` | `TEXT` | Plugin-defined key/name. |
 | `expressions_plugin_data_val` | `TEXT` | Plugin-defined value. |
 | `expressions_plugin_data_created_timestamp_ep_k` | `INTEGER` | Row creation timestamp in epoch milliseconds. |
 | `expressions_plugin_data_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
-| `expressions_plugin_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `expressions_plugin_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `manifestations_plugin_data`
 Arbitrary plugin key/value storage attached to manifestations.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/db_metadata_tables/frbr_plugin_data.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `manifestations_plugin_data_id` | `INTEGER` | Primary key for the table. |
 | `manifestations_plugin_data_manifestations` | `INTEGER` | Manifestation this plugin-data row attaches to. |
 | `manifestations_plugin_data_name` | `TEXT` | Plugin-defined key/name. |
 | `manifestations_plugin_data_val` | `TEXT` | Plugin-defined value. |
 | `manifestations_plugin_data_created_timestamp_ep_k` | `INTEGER` | Row creation timestamp in epoch milliseconds. |
 | `manifestations_plugin_data_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
-| `manifestations_plugin_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `manifestations_plugin_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
 
 ### `items_plugin_data`
 Arbitrary plugin key/value storage attached to items.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/db_metadata_tables/frbr_plugin_data.sql).
+
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `items_plugin_data_id` | `INTEGER` | Primary key for the table. |
 | `items_plugin_data_items` | `INTEGER` | Item this plugin-data row attaches to. |
 | `items_plugin_data_name` | `TEXT` | Plugin-defined key/name. |
 | `items_plugin_data_val` | `TEXT` | Plugin-defined value. |
 | `items_plugin_data_created_timestamp_ep_k` | `INTEGER` | Row creation timestamp in epoch milliseconds. |
 | `items_plugin_data_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
-| `items_plugin_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
+| `items_plugin_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
+
+## Additional current explicit tables
+
+### `backup_presence_links`
+Recorded relationship between a packed backup and its source. Protection fields record intent; they do not guard every byte deletion.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/storage_tables/1c-backup-presence-links.sql).
+
+| Field | Type | Purpose |
+| --- | --- | --- |
+| `backup_presence_link_id` | `INTEGER` | Primary key. |
+| `backup_presence_link_backup_store_id` | `INTEGER` | Backup store id. |
+| `backup_presence_link_workflow_id` | `INTEGER` | Workflow id. |
+| `backup_presence_link_source_identifier` | `TEXT` | Source identifier. |
+| `backup_presence_link_source_kind` | `TEXT` | Source kind. |
+| `backup_presence_link_source_file_id` | `INTEGER` | Source file id. |
+| `backup_presence_link_source_asset_replica_id` | `INTEGER` | Source asset replica id. |
+| `backup_presence_link_source_store_id` | `INTEGER` | Source store id. |
+| `backup_presence_link_archive_path` | `TEXT` | Archive path. |
+| `backup_presence_link_type` | `TEXT` | Presence relationship label; defaults to packed_presence. |
+| `backup_presence_link_source` | `TEXT` | Source. |
+| `backup_presence_link_output_url` | `TEXT` | Output url. |
+| `backup_presence_link_is_protected` | `INTEGER` | Recorded protection intent; not proof of universal deletion enforcement. |
+| `backup_presence_link_is_immutable` | `INTEGER` | Recorded immutability intent; not proof of backend enforcement. |
+| `backup_presence_link_created_timestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for backup presence link created. |
+| `backup_presence_link_modified_timestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for backup presence link modified. |
+| `backup_presence_link_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
+
+### `backup_workflow_outputs`
+References to backup outputs and their recorded verification results.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/storage_tables/1b-backup-workflows.sql).
+
+| Field | Type | Purpose |
+| --- | --- | --- |
+| `backup_workflow_output_id` | `INTEGER` | Primary key. |
+| `backup_workflow_output_workflow_id` | `INTEGER` | Workflow id. |
+| `backup_workflow_output_url` | `TEXT` | Url. |
+| `backup_workflow_output_digital_asset_id` | `INTEGER` | Digital asset id. |
+| `backup_workflow_output_asset_replica_id` | `INTEGER` | Asset replica id. |
+| `backup_workflow_output_store_id` | `INTEGER` | Store id. |
+| `backup_workflow_output_verified_ok` | `INTEGER` | Optional boolean recording output verification outcome. |
+| `backup_workflow_output_created_timestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for backup workflow output created. |
+| `backup_workflow_output_modified_timestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for backup workflow output modified. |
+| `backup_workflow_output_source_created_datestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for backup workflow output source created. |
+| `backup_workflow_output_source_modified_datestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for backup workflow output source modified. |
+| `backup_workflow_output_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
+
+### `backup_workflow_sources`
+Ordered backup input descriptors, expected integrity observations and archive-relative destinations.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/storage_tables/1b-backup-workflows.sql).
+
+| Field | Type | Purpose |
+| --- | --- | --- |
+| `backup_workflow_source_id` | `INTEGER` | Primary key. |
+| `backup_workflow_source_workflow_id` | `INTEGER` | Workflow id. |
+| `backup_workflow_source_ordinal` | `INTEGER` | Ordinal. |
+| `backup_workflow_source_kind` | `TEXT` | Kind. |
+| `backup_workflow_source_identifier` | `TEXT` | Identifier. |
+| `backup_workflow_source_archive_path` | `TEXT` | Archive path. |
+| `backup_workflow_source_expected_size` | `INTEGER` | Expected size. |
+| `backup_workflow_source_expected_hash` | `TEXT` | Expected hash. |
+| `backup_workflow_source_file_id` | `INTEGER` | File id. |
+| `backup_workflow_source_asset_replica_id` | `INTEGER` | Asset replica id. |
+| `backup_workflow_source_store_id` | `INTEGER` | Store id. |
+| `backup_workflow_source_created_timestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for backup workflow source created. |
+| `backup_workflow_source_modified_timestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for backup workflow source modified. |
+| `backup_workflow_source_source_created_datestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for backup workflow source source created. |
+| `backup_workflow_source_source_modified_datestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for backup workflow source source modified. |
+| `backup_workflow_source_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
+
+### `backup_workflow_state`
+Per-workflow checkpoint used to resume staging/build work. This is not the universal job ledger.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/storage_tables/1b-backup-workflows.sql).
+
+| Field | Type | Purpose |
+| --- | --- | --- |
+| `backup_workflow_state_id` | `INTEGER` | Primary key. |
+| `backup_workflow_state_workflow_id` | `INTEGER` | Workflow id. |
+| `backup_workflow_state_status` | `TEXT` | Status. Default: `'draft'`. |
+| `backup_workflow_state_next_source_index` | `INTEGER` | Next source index. Default: `0`. |
+| `backup_workflow_state_staged_source_count` | `INTEGER` | Staged source count. Default: `0`. |
+| `backup_workflow_state_completed_steps_json` | `TEXT` | Serialized completed workflow step identifiers. |
+| `backup_workflow_state_source_results_json` | `TEXT` | Serialized per-source results used during resume. |
+| `backup_workflow_state_output_artifact_url` | `TEXT` | Output artifact url. |
+| `backup_workflow_state_last_error` | `TEXT` | Last error. |
+| `backup_workflow_state_created_timestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for backup workflow state created. |
+| `backup_workflow_state_modified_timestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for backup workflow state modified. |
+| `backup_workflow_state_source_created_datestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for backup workflow state source created. |
+| `backup_workflow_state_source_modified_datestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for backup workflow state source modified. |
+| `backup_workflow_state_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
+
+### `backup_workflows`
+Persisted backup definition and top-level status. Execution and recovery are owned by storage backup workflows.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/storage_tables/1b-backup-workflows.sql).
+
+| Field | Type | Purpose |
+| --- | --- | --- |
+| `backup_workflow_id` | `INTEGER` | Primary key. |
+| `backup_workflow_name` | `TEXT` | Name. |
+| `backup_workflow_kind` | `TEXT` | Kind. |
+| `backup_workflow_destination_store_id` | `INTEGER` | Destination store id. |
+| `backup_workflow_staging_store_id` | `INTEGER` | Staging store id. |
+| `backup_workflow_output_url` | `TEXT` | Url. |
+| `backup_workflow_verify_after_build` | `INTEGER` | Verify after build. Default: `1`. |
+| `backup_workflow_cleanup_staging_after_success` | `INTEGER` | Cleanup staging after success. Default: `0`. |
+| `backup_workflow_staging_root` | `TEXT` | Staging root. |
+| `backup_workflow_options_json` | `TEXT` | Options json. |
+| `backup_workflow_status` | `TEXT` | Status. Default: `'draft'`. |
+| `backup_workflow_last_error` | `TEXT` | Last error. |
+| `backup_workflow_created_timestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for backup workflow created. |
+| `backup_workflow_modified_timestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for backup workflow modified. |
+| `backup_workflow_source_created_datestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for backup workflow source created. |
+| `backup_workflow_source_modified_datestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for backup workflow source modified. |
+| `backup_workflow_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
+
+### `column_metadata`
+Per-column policy declarations. See [column metadata](column-metadata.md); declaring a validation profile does not validate existing data.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/db_metadata_tables/column_metadata.sql).
+
+| Field | Type | Purpose |
+| --- | --- | --- |
+| `column_metadata_id` | `INTEGER` | Primary key. |
+| `column_metadata_table_name` | `TEXT` | Table name. |
+| `column_metadata_column_name` | `TEXT` | Column name. |
+| `column_metadata_case_sensitive` | `INTEGER` | Case sensitive. Default: `1`. |
+| `column_metadata_semantic_role` | `TEXT` | Semantic role. Default: `'machine_value'`. |
+| `column_metadata_normalization_profile` | `TEXT` | Normalization profile. Default: `'none'`. |
+| `column_metadata_comparison_column` | `TEXT` | Comparison column. |
+| `column_metadata_empty_value_policy` | `TEXT` | Empty value policy. Default: `'null_is_missing'`. |
+| `column_metadata_merge_policy` | `TEXT` | Merge policy. Default: `'replace'`. |
+| `column_metadata_validation_profile` | `TEXT` | Validation profile. Default: `'none'`. |
+| `column_metadata_formatting_options_json` | `TEXT` | Formatting options json. Default: `'{}'`. |
+| `column_metadata_display_options_json` | `TEXT` | Display options json. Default: `'{}'`. |
+| `column_metadata_created_timestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for column metadata created. |
+| `column_metadata_modified_timestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for column metadata modified. |
+| `column_metadata_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
+
+### `composite_digital_assets`
+Logical multipart payloads. Generated member links carry sequence, role and required-member data; replicas belong to the atomic members.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/storage_tables/3-digital-assets.sql).
+
+| Field | Type | Purpose |
+| --- | --- | --- |
+| `composite_digital_asset_id` | `INTEGER` | Primary key. |
+| `composite_digital_asset_name` | `TEXT` | Name. |
+| `composite_digital_asset_media_type` | `TEXT` | Media type. |
+| `composite_digital_asset_media_category` | `TEXT` | Media category. |
+| `composite_digital_asset_source` | `TEXT` | Source. |
+| `composite_digital_asset_replication_policy_id` | `INTEGER` | Replication policy id. |
+| `composite_digital_asset_backup_policy_id` | `INTEGER` | Backup policy id. |
+| `composite_digital_asset_created_timestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for composite digital asset created. |
+| `composite_digital_asset_modified_timestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for composite digital asset modified. |
+| `composite_digital_asset_source_created_datestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for composite digital asset source created. |
+| `composite_digital_asset_source_modified_datestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for composite digital asset source modified. |
+| `composite_digital_asset_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
+
+### `file_derivations`
+Compatibility parent/child relationships between legacy file rows; not a complete reproducible transformation receipt.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/workflow_tables/5a-legacy-file-derivations.sql).
+
+| Field | Type | Purpose |
+| --- | --- | --- |
+| `file_derivation_id` | `INTEGER` | Primary key for the table. |
+| `file_derivation_parent_file_id` | `INTEGER` | Parent file id. |
+| `file_derivation_child_file_id` | `INTEGER` | Child file id. |
+| `file_derivation_kind` | `TEXT` | Derivation kind such as converted, OCR text, thumbnail, repacked, repaired, etc. |
+| `file_derivation_note` | `TEXT` | Free-form note about the derivation edge. |
+| `file_derivation_created_timestamp_ep_k` | `INTEGER` | Row creation timestamp in epoch milliseconds. |
+| `file_derivation_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
+| `file_derivation_started_timestamp_ep_k` | `INTEGER` | Start timestamp in epoch milliseconds. |
+| `file_derivation_finished_timestamp_ep_k` | `INTEGER` | Finish/completion timestamp in epoch milliseconds. |
+| `file_derivation_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
+
+### `files`
+Compatibility file records still used by live adapters. They combine locators and payload hints; atomic assets and replicas are the current storage model.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/storage_tables/3a-legacy-files.sql).
+
+| Field | Type | Purpose |
+| --- | --- | --- |
+| `file_id` | `INTEGER` | Primary key for the table. |
+| `file_item_id` | `INTEGER` | Item id. |
+| `file_store_id` | `INTEGER` | Store id. |
+| `file_folder_id` | `INTEGER` | Folder id. |
+| `file_storage_key` | `TEXT` | Storage key. |
+| `file_name` | `TEXT` | Human-facing name for the digital legacy file. |
+| `file_base_name` | `TEXT` | Filename stem without extension. |
+| `file_extension` | `TEXT` | Filename extension/format suffix. |
+| `file_tag` | `TEXT` | Short extra tag used in naming/export patterns. |
+| `file_auto_name` | `TEXT` | Auto-generated name candidate. |
+| `file_use_auto_name` | `INTEGER` | Boolean flag: prefer the auto-generated name. |
+| `file_mime_type` | `TEXT` | MIME/content type for the legacy file. |
+| `file_role` | `TEXT` | Role. |
+| `file_media_category` | `TEXT` | Coarse media category for filtering/routing. |
+| `file_class_mask` | `INTEGER` | Bitmask for class/policy grouping. |
+| `file_visibility_mask` | `INTEGER` | Bitmask controlling visibility/export/display decisions. |
+| `file_critical` | `INTEGER` | Boolean/priority-like flag: legacy file is operationally important to preserve. |
+| `file_size_bytes` | `INTEGER` | Declared/canonical byte size for the legacy file, for this atomic legacy file. |
+| `file_hash_sha256` | `TEXT` | Canonical SHA-256 hash of the legacy file bytes. |
+| `file_hash_blake3` | `TEXT` | Canonical BLAKE3 hash of the legacy file bytes. |
+| `file_phash` | `TEXT` | Perceptual hash where one is meaningful. |
+| `file_corrupt` | `INTEGER` | Boolean flag: the legacy file is known or suspected corrupt. |
+| `file_integrity_status` | `TEXT` | Overall integrity assessment for the managed legacy file. |
+| `file_last_seen_timestamp_ep_k` | `INTEGER` | Last time any replica/scan confirmed the legacy file exists. |
+| `file_last_integrity_check_timestamp_ep_k` | `INTEGER` | Last integrity verification time for the legacy file. |
+| `file_acquired_timestamp_ep_k` | `INTEGER` | When the legacy file was acquired/ingested into management. |
+| `file_source` | `TEXT` | Source channel/system for the legacy file. |
+| `file_original_name` | `TEXT` | Original source filename/name. |
+| `file_original_path` | `TEXT` | Original source path/URI. |
+| `file_anthology` | `INTEGER` | Anthology. |
+| `file_parent` | `TEXT` | Parent. |
+| `file_conversion_settings` | `TEXT` | Serialised conversion/processing settings associated with the legacy file. |
+| `file_processed` | `INTEGER` | Boolean flag: downstream processing has completed or been attempted. |
+| `file_created_timestamp_ep_k` | `INTEGER` | Row creation timestamp in epoch milliseconds. |
+| `file_modified_timestamp_ep_k` | `INTEGER` | Row last-modified timestamp in epoch milliseconds. |
+| `file_source_created_datestamp_ep_k` | `INTEGER` | Best-known creation timestamp from the upstream source system/artifact, in epoch milliseconds. |
+| `file_source_modified_datestamp_ep_k` | `INTEGER` | Best-known modification timestamp from the upstream source system/artifact, in epoch milliseconds. |
+| `file_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
+
+### `normalized_identities`
+Declarations connecting display values to normalized keys and uniqueness scopes.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/db_metadata_tables/normalized_identities.sql).
+
+| Field | Type | Purpose |
+| --- | --- | --- |
+| `normalized_identity_table_name` | `TEXT` | Table containing the value and key columns. |
+| `normalized_identity_value_column` | `TEXT` | Physical column retaining the canonical display value. |
+| `normalized_identity_key_column` | `TEXT` | Physical column storing the derived comparison key. |
+| `normalized_identity_normalization_profile` | `TEXT` | Canonical normalizer used to derive the identity key. |
+| `normalized_identity_scope_columns_json` | `TEXT` | JSON list of columns that scope the identity's uniqueness. |
+| `normalized_identity_unique` | `INTEGER` | Whether this declaration requires uniqueness. |
+
+### `storage_ingest_operations`
+Durable ingest journal for publication and database-finalization recovery. Its required scratch column contains recovery data.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/workflow_tables/storage_ingest_operations.sql).
+
+| Field | Type | Purpose |
+| --- | --- | --- |
+| `storage_ingest_operation_id` | `INTEGER` | Primary key. |
+| `storage_ingest_operation_uuid` | `TEXT` | Uuid. |
+| `storage_ingest_operation_state` | `TEXT` | State. Default: `'started'`. |
+| `storage_ingest_operation_store_uuid` | `TEXT` | Store uuid. |
+| `storage_ingest_operation_storage_key` | `TEXT` | Storage key. |
+| `storage_ingest_operation_digital_asset_id` | `INTEGER` | Digital asset id. |
+| `storage_ingest_operation_asset_replica_id` | `INTEGER` | Asset replica id. |
+| `storage_ingest_operation_last_error` | `TEXT` | Last error. |
+| `storage_ingest_operation_created_timestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for storage ingest operation created. |
+| `storage_ingest_operation_modified_timestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for storage ingest operation modified. |
+| `storage_ingest_operation_scratch` | `TEXT` | Required serialized journal payload used for ingest recovery; not disposable scratch. |
+
+### `storage_schema_migrations`
+Applied storage migration IDs, versions and optional details.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/workflow_tables/storage_schema_migrations.sql).
+
+| Field | Type | Purpose |
+| --- | --- | --- |
+| `storage_schema_migration_id` | `TEXT` | Primary key. |
+| `storage_schema_migration_version` | `INTEGER` | Version. |
+| `storage_schema_migration_applied_timestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for storage schema migration applied. |
+| `storage_schema_migration_details_json` | `TEXT` | Details json. |
+
+### `tags`
+Canonical tag values and comparison keys, related to bibliographic entities through generated links.
+
+[DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/metadata_additional/tags.sql).
+
+| Field | Type | Purpose |
+| --- | --- | --- |
+| `tag_id` | `INTEGER` | Primary key. |
+| `tag` | `TEXT` | Canonical display spelling of the tag. |
+| `tag_phash` | `TEXT` | Normalized tag comparison key; historical name, not a perceptual image hash. |
+| `tag_description` | `TEXT` | Optional descriptive text. |
+| `tag_scratch` | `TEXT` | Owner-defined auxiliary state; check the consuming workflow before clearing it. |
+| `tag_created_timestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for tag created. |
+| `tag_modified_timestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for tag modified. |
+| `tag_source_created_datestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for tag source created. |
+| `tag_source_modified_datestamp_ep_k` | `INTEGER` | Epoch-millisecond timestamp for tag source modified. |
 
 ## Auto-generated interlink and intralink tables
 The FRBR generator also creates many relationship tables from `interlink_table_requests.toml` and `intralink_table_requests.toml`. Rather than list every generated instance here, this section documents the **standard columns and what they mean**.
+Physical relation columns carry the link prefix: for example, `expression_work_link_work_id`, `expression_work_link_expression_id` and `expression_work_link_primary`. The short suffixes below explain roles, not literal unprefixed SQL column names. Optional columns differ by the TOML request; query [link capabilities](link-capabilities.md) or inspect the generated table.
+
 ### Standard interlink table fields
 | Field pattern | Purpose |
 |---|---|
@@ -1096,4 +1543,4 @@ The FRBR generator also creates many relationship tables from `interlink_table_r
 - `digital_assets` ↔ `items`: currently requested with `priority`, `type`, `origin`, and `primary`. This is where item-level bibliographic identity meets storage-managed payloads.
 - `digital_assets` ↔ `images`: currently requested with `priority` and `type`; useful for cover/contained/author-image assignment.
 - `digital_assets` intralinks: currently requested with `type`, `data`, and `origin`; these are for **derivation-style** relationships, not multipart composition.
-- Multipart/composite membership lives in `digital_asset_compositions`, not in an intralink type.
+- Multipart membership lives in `composite_digital_asset_digital_asset_links`, with `sequence_number` and `is_required`; it is distinct from derivation.

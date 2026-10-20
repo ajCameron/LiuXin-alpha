@@ -1,8 +1,7 @@
 # Core Application API
 
-Status: complete whole-program boundary and consolidated application interfaces
-API version: `2.0`
-Updated: 2026-07-28
+Status: **implemented named application API, with explicit ownership and access-control limits**.
+API version: `2.0`. Source reviewed **2026-10-20**, working tree based on `fc5de7af`.
 
 ## Boundary
 
@@ -13,14 +12,17 @@ StorageManager, metadata plugin, conversion plugin, or job manager.
 The supported call paths are:
 
 ```text
-surface ──> LocalCoreClient ─────────────> CoreRuntime
+surface ──> CoreRuntime (implements CoreClientAPI directly)
    │
    └──────> RemoteCoreClient ──HTTP RPC──> CoreRuntime
 ```
 
-Both clients execute the same named command/query handlers and return the same
-wire-shaped values. Direct callers do not receive privileged Python objects.
-Presentation, HTTP response construction, and GUI state remain outside Core.
+Named stable operations use the same handlers and wire conversion in both modes.
+`core_client(runtime=...)` returns that runtime unchanged; it does not wrap it in a
+restricted local client. Python callers can still access runtime attributes, and
+the generic `invoke` escape hatch is not wire-stable. Treat `CoreClientAPI` as the
+interface dependency contract, not an authorization mechanism. Presentation,
+HTTP response construction and GUI state remain outside Core.
 
 Use `create_core(...)` to compose the basic local implementation. Use
 `core_client(runtime=...)` or `core_client(endpoint=...)` when code should be
@@ -33,12 +35,11 @@ runtime = create_core(
     database_path="/path/to/library.db",
     cache_type="schema_backed",
 )
-client = core_client(runtime=runtime)
-
-result = client.query(
-    "search.global",
-    {"text": "earth", "limit": 50},
-)
+try:
+    client = core_client(runtime=runtime)
+    result = client.query("search.global", {"text": "earth", "limit": 50})
+finally:
+    runtime.shutdown()
 ```
 
 The equivalent RPC client is:
@@ -67,7 +68,9 @@ environment-dependent action without probing internal subsystem objects.
 
 The command and query named `invoke` remain compatibility/diagnostic escape
 hatches and are marked `transport_stable=false`. New interface code must use a
-stable named operation.
+stable named operation. The flag does not hide or authorize an endpoint; current
+HTTP dispatch still accepts registered names. Server-enforced capabilities and
+read-only clients are outstanding work in [next tasks](next_tasks.md).
 
 ## Whole-program capability surface
 
@@ -95,7 +98,9 @@ The tables below summarize the required v2 program boundary.
 | Backup | `backup.plan`, workflow list/get/save/start, `backup.squashfs.start`, `backup.squashfs.publish-store.start`, and `backup.squashfs.publish-files.start` |
 | Maintenance | `maintenance.status`, `maintenance.duplicates.find`, `maintenance.run`, `maintenance.clean`, `maintenance.merge` |
 
-Explicit raw row and relation mutations remain available under `admin.*`.
+Administrative row and relation mutations remain available under `admin.*`.
+Known bibliographic tables now route through Catalog validation; other tables
+retain their own lower-level contracts. This does not implement admin authorization.
 Cache/read-source lifecycle operations remain available under `cache.*` and
 `read-source.*`. They support administration and compatibility; ordinary
 interfaces should prefer semantic operations.
@@ -126,8 +131,10 @@ and GUI surfaces are responsible only for presentation and delivery framing.
 Long-running ingest, remote discovery, online metadata, conversion,
 synchronization, and backup actions are named commands that submit serializable
 `JobRequest` values. Clients use the common jobs surface to wait, cancel, read
-results, and read logs. No application interface needs arbitrary callable
-submission or direct access to a job backend.
+results, and read logs. This surface currently uses the utility job manager; it
+is not one unified durable repository for every run. Other audit/reconcile/
+evacuation/backup entry points can still execute synchronously, and `jobs.wait`
+shares the handler lock. Remote timeouts do not cancel server work.
 
 Persisted backup workflows retain their specification and resumable step
 state, checkpoint after each step, and register outputs. SquashFS remains an
@@ -164,7 +171,7 @@ and unexpected failures retain the normal error path. Presentation code may
 show an explicit unavailable marker for optional counts, but must not turn a
 failed required read into an empty result. Count-only database queries
 (`rows.query` with `limit=0`) filter and count without ordering or projecting
-row identities. See [read-model-failures.md](../read-model-failures.md).
+row identities. See [read-model-failures.md](../surfaces/read-model-failures.md).
 
 Semantic catalog writes go through Catalog. Normalized field writes go through
 the Cache facade when configured. Custom-field/schema mutations identify
@@ -202,8 +209,11 @@ daemon and return the same unsubscribe-shaped callback as local subscriptions.
 
 ## Ownership and interface consolidation
 
-Caller-supplied resources remain caller-owned by default. Resources constructed
-by `create_core(...)` are Core-owned and close during shutdown. A supplied
+Caller-supplied resources remain caller-owned by default. The database-backed graph opened
+by `create_core(...)` is owned through `LibraryServices` and closes during
+shutdown. The default utility job manager is process-shared and is not shut down
+by default. Failed constructors must clean up resources not yet registered with
+the owner; repeated shutdown does not retry failed closers. A supplied
 Cache must use Core's Database; a cache created through `cache_type=...` is
 owned by Core.
 
@@ -211,24 +221,29 @@ owned by Core.
 composition, testing, and compatibility. They are not members of
 `CoreClientAPI` and must not become interface dependencies.
 
-The application-interface consolidation is complete. Native and Calibre-shaped
+The maintained surfaces use the common named API, while compatibility and
+bootstrap exceptions remain. Native and Calibre-shaped
 web, JSON API, OPDS, acquisition/image delivery, read-write web, terminal, Tk,
 SquashFS CLI, and maintained surface runner scripts all receive one
 `CoreClientAPI`. Each accepts either local composition through `--database` or
 an existing daemon through `--core-endpoint` where it has a command-line entry
 point. The same interface model and wire records are used in both modes.
 
-`surfaces.core.SurfaceCoreSession` is the only application composition seam.
-It owns locally created runtimes, borrows remote clients, and encloses
-caller-supplied legacy Database objects for compatibility tests and older
-embedding code. Those compatibility constructors do not make the Database
-available to surface behavior.
+`surfaces.core.SurfaceCoreSession` is the normal surface-session owner. It owns
+locally created runtimes, borrows remote clients, and adapts supplied legacy
+Database objects for embedding/testing. CLI one-shot operations also compose
+`LibraryServices` explicitly, and lower-layer path wrappers remain. New surface
+behaviour should depend on the client contract; existing adapters are not proof
+that all privileged Python objects are inaccessible.
 
-Production surface modules are checked by an AST boundary test which rejects
+Production surface modules are checked by the
+[AST boundary test](../../tests/surfaces/test_core_boundary_enforcement.py), which rejects
 owned-subsystem imports and generic `invoke` calls. The narrow exceptions are:
 
 - the PostgreSQL CLI, which provisions or diagnoses the database service before
   an application Core can exist;
+- terminal `new_store` and read-write web Store-creation views, which enumerate
+  backend choices before submitting Core operations;
 - pure Calibre metadata rendering helpers and thumbnail value/error types,
   which perform presentation-only work and do not retain subsystem services.
 

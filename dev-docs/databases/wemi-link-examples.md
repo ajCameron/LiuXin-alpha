@@ -1,5 +1,7 @@
 # Worked examples: WEMI and other links
 
+Reviewed **2026-10-20**. Current generated link columns and ray-view ranking were rechecked. The SQL/Catalog default-selection difference remains open; see [DB03](next_tasks.md#db03-align-default-wemi-selection).
+
 Checked: **2026-10-19**, against the current FRBR SQLite schema and view definitions.
 
 These examples start with a fictional novel, *The Glass Harbour*, then add volumes

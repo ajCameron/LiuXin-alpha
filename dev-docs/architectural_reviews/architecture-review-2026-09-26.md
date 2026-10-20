@@ -2,8 +2,8 @@
 
 Date: 2026-09-26
 
-Status: Historical review with a source-checked implementation follow-up dated
-2026-10-18. The original findings and line references are retained below; the
+Status: Historical review with source-checked implementation follow-ups dated
+2026-10-18 through 2026-10-20. The original findings and line references are retained below; the
 dated status tables describe what is implemented and what remains.
 
 This review assesses the whole repository against the architecture described in
@@ -28,20 +28,71 @@ listed.
   were also compared with the unpushed working copy of 2026-09-26 (see
   *Evidence and limits*). Line numbers refer to `01674d15`.
 
+## Documentation and source follow-up — 2026-10-20
+
+Reviewed this record and the architecture folder against the working tree based
+on `fc5de7af`. This is a documentation/ownership review, not a repeat of the
+original eight-subsystem defect audit. The 68 finding IDs and original evidence
+remain intact; the October 18 status tables and October 19 amendments retain
+their checkpoints. No current GitHub protection, PR or merge status was queried.
+
+Concrete changes now reflected in the guides:
+
+- Lifecycle ownership is implemented in `core.library_services.LibraryServices`.
+  Startup unwind covers registered owned resources; constructor-internal cleanup
+  and exception-sensitive transaction rollback are separate contracts. The old
+  memory-SQLite Library cache factory is gone, while lower-layer path wrappers
+  and Database opt-ins remain. See the updated [opening-path review](lifecycle-opening-path-review-2026-10-09.md).
+- The supported write/normalization boundary, Catalog hydration, Core category
+  policy and application settings consolidation remain implemented. This does
+  not close every validator or read projection: the default SQL ray and Catalog
+  bundles still select WEMI paths differently, as the
+  [worked example](../databases/wemi-link-examples.md#default-sql-view-versus-catalog-bundles)
+  shows. Raw writes and historical-data repair retain separate contracts.
+- Plugin composition now lives in `plugins`, after the merger and rename.
+  `customize` and `plugin_system` are absent. Shared loading and priority policy
+  do not unify the durable jobs, utility workers, ingest coordinators or every
+  domain registry. UT-3/4/5's remaining provider/interface work stays visible.
+- The [quality guide](maintainability-quality-gates.md) now describes current
+  scopes and runner order. The broad docstring campaign completed on October 5;
+  the September pause is historical. Top-level developer guides and this folder
+  distinguish current contracts, decisions, proposals and dated findings.
+
+Fresh checks pass: **243 protected modules**; whole-package **1,792 modules,
+15 reviewed backward edges and 28 unresolved dynamic imports**; all **25
+cold-import budgets**. The largest domain/runtime/combined components remain
+**9/217/217**, with Catalog/cache cross-package components **0/0**. This supersedes
+October 18's module inventory, not its dated external observations. The quality
+runner was inspected with `--dry-run`; no complete typing/lint or application
+suite pass is claimed. See the [layer](layer-direction-ratchet.md) and
+[import](import-footprint-ratchet.md) guides for measurement limits.
+
+Remaining priorities still include CO-4/SU-6 transport capabilities, ST-1/2/6
+storage safety, DB-1/2 transaction/creation semantics, CO-8 job/ingest ownership,
+and the retained format/compatibility defects. Implementation work belongs in the
+[cross-project queue](../global_todo.md) and linked subsystem plans. RP-2/RP-7's
+artifact and remote protection/CI observations need a fresh dedicated check before
+acting on their dated counts or publication instructions.
+
 ## Current assessment — 2026-10-18
+
+This section is the **October 18 checkpoint**, followed by explicitly dated
+amendments. It is not a current publication instruction.
+
 
 Reviewed source: `ce239fd4` on `configuration-ownership`, including implementation
 commit `d59407f3`. This documentation branch, `architecture-review-followup`, starts
-there. **Implemented does not mean merged into main:** [#122][pr122] and
-[#123][pr123] are still open at this review. #119–#121 were merged into intermediate
-branches after #118 reached main; #122 carries those changes into main. #123 adds
-configuration ownership. Merge #122 first, then retarget #123 to main.
+there. **Implemented did not mean merged into main:** [#122][pr122] and
+[#123][pr123] were still open at this checkpoint. #119–#121 had merged into
+intermediate branches after #118 reached main; #122 carried those changes and
+#123 added configuration ownership. The recommendation then was to merge #122
+first and retarget #123. Check current branch/PR state before any publication action.
 
 The original diagnosis was useful, but its present-tense headline is now too broad:
 
 | September theme | Position at the reviewed checkpoint |
 |---|---|
-| Nobody owns lifecycle | `core.LibraryServices` now owns startup, rollback and teardown; `Library` borrows its collaborators and Database defaults to persistence-only construction. Legacy opt-ins, path wrappers and transaction-on-close behavior remain. |
+| Nobody owns lifecycle | `core.library_services.LibraryServices` now owns startup, rollback and teardown; `Library` borrows its collaborators and Database defaults to persistence-only construction. Legacy opt-ins, path wrappers and transaction-on-close behavior remain. |
 | Layer direction is aspirational | Whole-package checks now include deferred and literal dynamic imports, alongside cold-import budgets. Policy, hydration and conversion contracts have moved to their owners. Fifteen reviewed backward edges and a 217-module runtime component remain; passing a ratchet does not mean acyclic architecture. |
 | Several owners for one concept | Supported bibliographic writes and stored identities now converge on Catalog/schema-owned boundaries. Core owns category semantics, and #123 supplies one application settings store. Jobs, ingest coordination and overlapping registries remain open; unrelated component settings and per-library DBPrefs are intentionally distinct. |
 | Safety by convention | **Still a priority.** HTTP dispatch, physical deletion policy, compatibility-backend `read_only` forwarding and caller-owned backup staging cleanup retain the concrete gaps described below. Lifecycle and write consolidation did not fix these. |
@@ -238,14 +289,17 @@ the tables; they are not fourteen untouched tasks.
 | 9 | **Partial:** hydrators moved to Catalog and category semantics moved to Core. Work/search/file/acquisition projections, server-side listing costs and some host coupling remain. |
 | 10 | **Implemented application settings boundary in #123:** `ConfigurationPaths` plus one Preferences store fulfill the role without a class named RuntimeSettings. Startup hooks and non-configuration scratch defaults remain. |
 | 11 | **Partial, revised approach:** proven dead code and unusable facades were retired, with wheel guards. Tested compatibility features were retained explicitly; wholesale quarantine/exclusion was not implemented. |
-| 12 | **Implemented package/contract ownership:** conversion contracts remain in `file_formats`; PR #125 consolidates the application host and remaining families under `plugin_system`, removes `customize` and its shims, and enforces internal dependency direction. Other domain registry work remains. |
+| 12 | **Implemented package/contract ownership:** conversion contracts remain in `file_formats`; PR #125 consolidates the application host and remaining families under `plugin_system` (renamed `plugins` on October 19), removes `customize` and its shims, and enforces internal dependency direction. Other domain registry work remains. |
 | 13 | **Open:** StorageManager service decomposition, DriverWrapper folding, web acquisition relocation and shared web-app composition are not delivered by the owner moves. |
 | 14 | **Superseded as a scheduling proposal:** the broad docstring campaign completed in `8919fd57`; it was not rescoped as proposed. Hash/inventory maintenance remains a tooling decision, not a prerequisite to functional work. |
 
 ## Findings by subsystem
 
 The finding tables retain the September evidence and earlier dated amendments.
-Each following October status table is the current assessment at `ce239fd4`.
+The following status tables were assessed at `ce239fd4` on October 18, with
+explicit October 19 plugin amendments. Those amendments do not describe code
+already present in `ce239fd4`. Read the latest follow-up above before treating a
+status, line reference, PR observation or recommendation as current.
 
 Severity: **H** (undermines the stated architecture or makes cross-subsystem
 change unsafe), **M**, **L**.
@@ -459,8 +513,8 @@ disguised with dynamic imports.
 |---|---|---|
 | UT-1 | Partial | #123 makes application preferences lazy, path resolution non-writing and tweak inputs literal-only; imports no longer load/execute application settings. `startup_scripts.__init__` still modifies `sys.meta_path`/builtins through `utils.ptempfiles`. Remove that remaining startup dependency rather than claiming all foundation imports are inert. |
 | UT-2 | Resolved | [configuration.py](../../src/LiuXin_alpha/configuration.py), Core settings composition and the shared Preferences view replace conflicting application stores/paths (`d59407f3`). Manifest selection reaches bootstrap, dispatch, workers and sort caches; INI owns ordinary writes. DBPrefs and component namespaces remain distinct by design. Process workers use copy semantics; singleton component lifetimes are still documented limitations. |
-| UT-3 | Implemented startup boundary | PR #125 makes application startup explicit/lazy in `plugin_system.application`, removes `customize.ui`, and keeps standalone conversion independent. Shared initialization/priority rules, cold-import budgets and module-level dependency tests enforce the new boundary. The old 803-module/140-plugin figure is historical. |
-| UT-4 | Partial | PR #125 consolidates both packages under `plugin_system`, migrates repository callers and removes forwarding shims. Generic mechanics and application assembly retain enforced internal layers. Retained cache/folder-driver modules and unsupported providers still need cleanup; database, storage and terminal registries have distinct domain ownership. |
+| UT-3 | Implemented startup boundary | PR #125 makes application startup explicit/lazy in `plugins.application` (originally `plugin_system.application`), removes `customize.ui`, and keeps standalone conversion independent. Shared initialization/priority rules, cold-import budgets and module-level dependency tests enforce the new boundary. The old 803-module/140-plugin figure is historical. |
+| UT-4 | Partial | PR #125 consolidates both packages under what is now `plugins`, migrates repository callers and removes forwarding shims. Generic mechanics and application assembly retain enforced internal layers. Retained cache/folder-driver modules and unsupported providers still need cleanup; database, storage and terminal registries have distinct domain ownership. |
 | UT-5 | Partial | The 2026-10-19 follow-up applies stable descending priority through one shared loader, preserves installed-first ties and removes import-triggered startup. Conflict handling no longer recursively initializes or deletes installed archives. Tests cover ordering, both startup orders, interruption and concurrent/reentrant lookups. Device-driver builtins still reference the removed package and registry assembly catches their failure; retire or explicitly report unsupported devices. |
 | UT-6 | Partial | Author/title/identifier/language policy moved into metadata, including the broken author-sort utility; file-hook and rendering responsibilities moved to their owners. Other upward utility and calibre_compat dependencies remain. Continue by responsibility, with caller migration and import-budget checks. |
 | UT-7 | Partial | All six numbered copy artifacts were removed and wheel verification rejects them (`06bf503d`). Vendored forks and stale third-party copies remain; assess upstream replacement, local patches and licensing per library instead of treating them as one deletion batch. |
@@ -496,7 +550,7 @@ repo-root hygiene guard in `tests/conftest.py`.
 | RP-4 | Partial | The authoritative `test_db_6` fixture migrated off broken Library APIs, and its `src/LiuXin_tests` duplicate was deleted (`af2cebd0`). The rest of the legacy test tree still exists and remains wheel-excluded. Retire duplicates through the existing test-source-of-truth policy. |
 | RP-5 | Partial | Wheel guards now reject numbered copies, the Qt blob and retired Library paths; fresh installed-wheel checks previously passed. `past*` is still packaged, optional dependency expectations remain uneven, and current CI lacks encryption/Ruff in the full-suite environment. Audit packaging/dependency contracts independently of successful smoke conversion. |
 | RP-6 | Partial | Application settings now default to XDG/home locations with no import-time mkdir (#123). `constants.paths` still derives other scratch/debug folders from the base directory, which can fall back to CWD, and committed instance preferences remain. Finish operational-directory ownership without conflating it with application configuration. |
-| RP-7 | Open | Fresh GitHub checks confirm no classic main protection and no effective branch rules. CI includes architecture, wheel, format and full-suite lanes, but #122's full run is not green. Correct dependency setup and known failures, reconcile gate documentation, then require appropriate checks; duplicate lane coverage is still a scheduling decision. |
+| RP-7 | Open at October 18 checkpoint | GitHub checks on October 18 confirmed no classic main protection and no effective branch rules. CI includes architecture, wheel, format and full-suite lanes, but #122's full run is not green. Correct dependency setup and known failures, reconcile gate documentation, then require appropriate checks; duplicate lane coverage is still a scheduling decision. |
 | RP-8 | Open | Focused behavior coverage improved for lifecycle, caches, Catalog, read models and profiles. No tree-wide mirroring/private-access migration was done, and retired Library code makes the old coverage ratio obsolete. Prioritize public-boundary tests for live behavior rather than a cosmetic test-tree reshuffle. |
 
 ## Reference tables (September snapshot)

@@ -1,5 +1,7 @@
 # DOCX File Format Notes
 
+Reviewed **2026-10-20**. Entry points, provider boundaries and the scope of the recorded hardening work were reviewed. See [next tasks](../next_tasks.md). Sign-off sections describe their dated fixture scope; they do not certify every input, optional dependency or installed provider today.
+
 ## Status
 
 DOCX conversion runs through `Convert` in
@@ -15,6 +17,10 @@ The focused test fixtures live in:
 - `tests/support/file_format_docx.py`
 - `tests/file_formats/docx/test_docx_container_framework.py`
 - `tests/file_formats/docx/test_docx_malformed_hostile.py`
+
+## Current limitation: EMF images
+
+The [image handler](../../../src/LiuXin_alpha/file_formats/docx/images.py) still imports `LiuXin_alpha.utils.wmf.emf` before its recovery `try`; that module is absent. The historical DOCX sign-off below therefore does not cover successful EMF processing. Use an actual EMF-bearing document in the follow-up regression and report unsupported image handling explicitly.
 
 ## Container Contract
 

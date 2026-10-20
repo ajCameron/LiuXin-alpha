@@ -1,5 +1,7 @@
 # Metadata container boundaries
 
+Reviewed **2026-10-20**. Value containers remain passive. Hydration belongs to Catalog; current API roots and the follow-up work are linked in [next tasks](next_tasks.md). Stage numbers and historical test totals below describe their original campaign.
+
 Date: 2026-04-25
 Status: stage-9 boundary pass
 
@@ -93,7 +95,7 @@ Family in this category:
 - `InlineSelfRelation` / `GenreTreeRelation` / `SubjectTreeRelation` /
   `SeriesTreeRelation`
 
-The pure API mirrors live under the `metadata.api.metadata_container_api`
+The pure API mirrors live under the `metadata.api.containers_api`
 non-WEMI API package as `...API` protocols. Concrete row containers still live
 under `metadata.containers`; the API package exports contracts only.
 
@@ -148,6 +150,4 @@ moment, as long as the semantic categories stay explicit.
 
 ## Immediate follow-up
 
-- Stage 10 should continue the naming-normalisation pass.
-- Future refactors can physically separate core WEMI from additional metadata
-  once the semantic boundaries are fully stable.
+The later naming stages are historical completion work. Use [next tasks](next_tasks.md) for current contract gaps. The existing package roots can accommodate the semantic families; a further physical split needs concrete caller evidence.

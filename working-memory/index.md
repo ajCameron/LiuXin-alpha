@@ -1,5 +1,19 @@
 # Working Memory Index
 
+Latest checkpoint, **2026-10-20**: the
+[subsystem documentation review](documentation-subsystems-2026-10-20.md) continues
+the top-level and architecture passes on `docs-ownership-contracts` at `fc5de7af`.
+All seventeen developer-documentation folders now have indexes and `next_tasks.md`;
+jobs, ingest and caches have dedicated documentation homes. The field guide matches
+all 67 explicit generated SQLite tables. Thirty focused checks passed, including
+the tracked-content link check after staging. The review belongs to
+[PR #127](https://github.com/ajCameron/LiuXin-alpha/pull/127); runtime safety findings
+remain implementation work. Unrelated staged source edits and the dirty data
+submodule remain separate. The previous PR head had CI failures; the new head
+needs its own CI result.
+
+Earlier checkpoint on the same branch:
+
 Current branch: **docs-ownership-contracts**, based on `15080c6e` after PR #126
 merged into `configuration-ownership`. The
 [ownership documentation pass](documentation-ownership-contracts-2026-10-19.md)

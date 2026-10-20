@@ -1,331 +1,246 @@
-# Target architecture
+# Target architecture and decision status
 
-Date: 2026-09-26
+Decision history begins **2026-09-26**. Implementation reviewed **2026-10-20**
+against the working tree based on `fc5de7af`.
 
-Status: Lifecycle ownership was implemented on 2026-10-09. The Catalog
-write-validation boundary was adopted on 2026-10-11, with curated identifiers
-as its first enforced repository slice; broader enforcement remains incomplete.
-Two lower-layer database-path compatibility adapter families remain scheduled
-for removal; see `lifecycle-opening-path-review-2026-10-09.md`. Other areas are
-still to be decided.
+Status: **Accepted ownership decisions with explicit implementation limits.**
+This is the decision record and rationale. The [ownership guide](<../04 - Seperation of Concerns.md>)
+is the current rule for new code; the [package overview](<../02 - Top Level Structure.md>)
+and subsystem contracts describe the supported implementation. Accepted direction
+can precede complete migration. A completed migration does not make every broader
+proposal in the same section implemented.
 
-This guide records the architecture that code changes should move towards, one
-decision area at a time. [Top-level structure](<../02 - Top Level Structure.md>)
-describes the intended layering. The
-[2026-09-26 architecture review](architecture-review-2026-09-26.md) describes
-where the code currently departs from it. Where this guide and older design
-notes disagree, this guide is the newer intent. It is still a proposal until an
-area's migration is complete.
+## Decision map
 
-Each decision area records the problem, the decision, the rules that follow,
-the alternatives rejected, the migration order and the open questions. Line
-references are to `01674d15` and are evidence for the current state only.
+| Area | Current implementation | Remaining decision or migration |
+| --- | --- | --- |
+| Lifecycle | `core.library_services.LibraryServices` owns the graph it opens; Library borrows collaborators; Database defaults to persistence-only startup. | Lower-layer path wrappers, maintenance scheduling, and transaction/create safety. |
+| Bibliographic writes and identity | Metadata supplies pure rules; Catalog repositories/mutations and compatibility adapters share preparation and relationships. | Validators for uncovered fields, explicit repair contracts and residual raw-write contracts. |
+| Persistent reads and caches | Catalog owns hydration; `ReadCache` is independent of Catalog, while writable `Cache` delegates to it. Core owns application category policy. | Default-path selection, other projection/search adapters, query cost and capability boundaries. |
+| Configuration | Core resolves deployment settings and supplies one application preference store. | Legacy scratch/startup consumers and component-specific lifetimes; database preferences remain a separate scope. |
+| Formats and plugin composition | `plugins` unifies shared mechanics and application assembly, with internal dependency rules; formats retain standalone composition. | Unsupported providers, availability reporting and separate domain registries. |
+| Dependency enforcement | Protected acyclic scope, exact whole-package debt and cold-import budgets are enforced. | Existing exceptions and unmodelled/dynamic behaviour; no universal package ranking for cache sources. |
+| Storage | Manager → configured Store → raw driver; passive Locations, durable metadata adapters and ingest recovery exist. | Destructive-operation policy, staging ownership, legacy registrations and cross-workflow resource budgets. |
+| Jobs and ingest | Durable jobs, Core execution and utility workers coexist; mixed ingest consumes an injected Library. | One coherent restart/cancellation/progress contract and durable maintenance signals. |
+| Transport and permissions | Named Core operations and shared read behaviour exist. | Server-enforced capabilities/authorization; a “read-only” surface name is not an access-control boundary. |
 
 ## 1. Lifecycle ownership
 
-### Problem
+### Problem and accepted decision
 
-No single component owns starting and stopping a library's services:
+The September review found application composition spread across Database,
+Library, Core and path-opening helpers. Storage teardown and failed-startup
+cleanup had no consistent owner. Those findings describe the September source,
+not the current defaults.
 
-- **Local startup chain.** Local startup runs `SurfaceCoreSession.open` →
-  `create_core` → `Library(...)` → `Database(...)`.
-- **`Database` starts services as a side effect of construction.**
-  - It starts the maintenance thread (`databases/database/__init__.py:571-574`).
-  - It builds the StorageManager (`:296-297`, via `databases/runtime.py:93`).
-  - Both flags default to on (`:229,233`).
-  - `databases/runtime.py:65` already notes that this belongs in `library`.
-- **Nothing on the way back closes storage.**
-  - `Database.close` does not call `StorageManager.close` (`:755`).
-  - `Library.close` only closes the database (`library/library.py:889-894`).
-  - `StorageManager.close` exists and closes every Store
-    (`storage/storage_manager/mixins/stores.py:662`), but nothing calls it.
-  - So S3, FTP, rclone, archive and SQLite store handles are never released.
-- **A failed startup undoes nothing.**
-  - `core/factory.py:62` and `core/runtime.py:93` both say construction failure
-    has no compensating teardown.
-  - A `create_core` that fails after the library is built leaves the database
-    open and the maintenance thread running.
-- **Shutdown can skip steps.**
-  - `CoreServices.close` runs its steps in sequence without `try/finally`
-    (`core/services.py:617-652`), so one failure skips the rest.
-  - `CoreRuntime.shutdown` does not take the handler lock
-    (`core/runtime.py:571-599`).
-- **Resources are split between two owners.**
-  - `CoreServices` creates the cache and binds it to storage.
-  - It also creates Catalog and, sometimes, a second maintenance service.
-  - `Library` and `Database` own everything else.
-- **Other code paths open libraries their own way:**
-  - `core/workflow_jobs.py` (six `with Library(...)` sites);
-  - `ingest/mixed_application.py:351`;
-  - `storage/reconcile/store_db_sync.py:1234,1308`;
-  - `ingest/remote_html.py:692,783`;
-  - `storage/backup/prototype_pipeline.py:801`;
-  - `surfaces/cli/storage_audit.py:92`.
-- **Defaults drift between entry points.** Maintenance defaults to on in
-  `Library` and `create_core`, but to off in `SurfaceCoreSession.open`
-  (`surfaces/core.py:203`).
+**Core owns application composition and resource lifetime.** `LibraryServices`
+separates ownership of one open library graph from the Library facade that uses
+it. A worker or one-shot command can open that graph without constructing a full
+Core runtime. Lower-level workflows should receive their database, Library or
+storage handles rather than select a deployment and open another graph.
 
-### Decision
+This choice keeps configuration and lifecycle together without making a borrowed
+Library responsible for shutting down collaborators. It also avoids introducing
+a new top-level application package. Surfaces still own their presentation,
+transport and session resources; the decision does not mean that a surface may
+never construct an object.
 
-**Core owns lifecycle.** Two objects divide the work that `Library` and
-`Database` currently mix:
+### Implemented contract
 
-- **`LibraryServices`, in `core`: the lifecycle owner for one open library.**
-  - It opens and closes that library's database connection, StorageManager
-    (and through it the Stores), cache and Catalog.
-  - It builds the `Library` object and hands it out.
-  - It works without a `CoreRuntime`. It lives in a core module that imports
-    only downward (`library`, `catalog`, `storage`, `caches`, `databases`),
-    never the runtime, transports or endpoint registries. Job subprocesses and
-    one-shot commands therefore open a library exactly as the daemon does.
-- **`Library`, in `library`: the object callers use.**
-  - It is a facade over one open library's database, storage, Catalog and
-    cache.
-  - Its collaborators are passed in. It neither opens nor closes them, and it
-    never imports `core`.
-- **Core at process level (`CoreRuntime` and the core bootstrap):**
-  - resolves configuration for the whole program;
-  - creates and owns `LibraryServices` instances, keyed by library identity;
-  - owns the job manager, event subscribers, endpoint registries and
-    transports;
-  - schedules maintenance as jobs.
-- **Surfaces create nothing.** They parse their own arguments into selectors,
-  pass those to core, and hold a session handle.
-- **Lower layers own only their own handles.** Helpers in `storage` and
-  `ingest` that currently open a database by path receive handles from their
-  caller instead.
+[`LibraryServices.open`](../../src/LiuXin_alpha/core/library_services.py) has
+explicit keyword arguments, including `database_path` or a supplied `database`,
+backend selection, optional collaborators and lifecycle policy. It is not a
+positional `open(settings)` API. Core resolves application settings before
+composition; lower-level standalone consumers must supply the needed values.
 
-| Owner | Creates and closes | Shutdown order |
-|---|---|---|
-| Core process (`CoreRuntime`, bootstrap) | Resolved settings, job manager, events, endpoint registries, transport, and the `LibraryServices` it owns | Stop accepting requests (under the handler lock), cancel or drain jobs (including maintenance), close core services, then close owned `LibraryServices` |
-| `LibraryServices` (core, one per library) | Database connection, StorageManager and Stores, cache, Catalog; builds the `Library` | Reverse of creation. Errors are collected so that one failure does not skip the rest |
-| `Library` (library) | Nothing; it is handed its collaborators | — |
-| `surfaces` | Nothing; they turn arguments into selectors and hold a session | — |
-| `databases`, `storage`, `caches`, `ingest` | Their own handles only. `Database` opens a connection and schema; `StorageManager` receives a database handle and never closes it | — |
+| Resource | Ownership now |
+| --- | --- |
+| Database created from a path/connection selection | Owned by LibraryServices; implicit storage and maintenance construction are disabled on that Database call. |
+| Supplied database or existing storage | Borrowed. New resources created around them have separate ownership. |
+| Storage created for the graph | Owned; teardown closes its Store facades and removes the owned back-reference. |
+| Supplied cache versus constructed cache | CoreServices borrows the former and closes the latter. |
+| Catalog | Composed by CoreServices; it currently has no independent close handle. |
+| Library | A facade over supplied collaborators, not another lifecycle root. |
+| Default job manager | Process-shared; CoreRuntime does not shut it down by default. Explicit ownership can request shutdown. |
 
-Supporting decisions (2026-09-28):
+ExitStack callbacks attempt every registered owned closer. Startup failure
+unwinds those registrations; a failure inside a collaborator's own constructor
+still needs that constructor's cleanup contract. Cleanup errors remain visible.
+`closed` means teardown has been attempted: the owner marks itself closed before
+running callbacks, so a repeated close does not retry failed closers.
 
-- **Maintenance becomes a Core job.** Constructing a `Database` no longer
-  starts a background thread. Core schedules maintenance against a library when
-  it is running as a long-lived service. One-shot commands do not schedule it
-  unless asked to.
-- **Core resolves configuration.** Core is what bootstraps and configures the
-  program. It builds one resolved settings object from selectors (flags,
-  environment, manifest or profile) and defaults. It then passes that object to
-  `LibraryServices.open` and down to lower layers. How precedence works, and
-  what happens to the legacy preference and tweak stores, is left to the
-  [configuration ownership contract](../core/configuration-ownership.md).
-- **Multiple libraries stay possible.** Core keeps `LibraryServices` instances
-  in a registry keyed by library identity, with a single default library today.
-  New APIs should take or resolve a library rather than assume one global
-  library. Choosing a library per request is not yet designed.
+CoreRuntime currently hosts one Library facade and, when applicable, one owned
+LibraryServices graph. A registry of independently selected libraries remains a
+future design. Shutdown synchronization is not a distributed transaction and
+cannot undo every earlier file operation or database mutation.
 
-### Rules
+### Remaining work and completion evidence
 
-1. **One way to open a library.**
-   - `LibraryServices.open(settings)` in `core`, built on a
-     `contextlib.ExitStack`.
-   - If any step fails, every earlier step is undone in reverse order before
-     the error propagates.
-   - A successful open yields the `Library` together with its services.
-2. **Every live code path uses it:** Core, job subprocesses and one-shot CLI
-   commands. Lower-layer helpers (reconcile, ingest, backup) receive an open
-   library or database from their caller instead of opening their own.
-3. **`Library` does not manage lifecycle.** It never opens or closes its
-   collaborators, and never imports `core`.
-4. **Background work is Core-scheduled.** No constructor starts a thread.
-   Maintenance and similar periodic work run as Core jobs.
-5. **Closing is complete and idempotent.** `LibraryServices.close` releases
-   everything it opened, including every Store. Closing twice is harmless.
-6. **Import rules.** Enforce these in the dependency ratchet described in
-   [maintainability quality gates](maintainability-quality-gates.md):
-   - only the `LibraryServices` module (and tests) may construct `Database`,
-     `StorageManager`, a cache or `Catalog` for a library;
-   - that module must not import the core runtime, transport or endpoint
-     modules;
-   - `library`, `storage`, `ingest`, `databases` and `caches` must not import
-     `core`.
-7. **Core shutdown is ordered and locked.** Shutdown takes the handler lock,
-   stops accepting requests, cancels or drains jobs, and only then closes
-   libraries.
-8. **Configuration is resolved once, in core, and passed down.** Lower layers
-   do not read global configuration to decide what starts or stops.
+- Remove/migrate the `*_with_database_path` wrappers in ingest and storage after
+  moving their callers to the appropriate Core/surface boundary. They delegate
+  cleanup correctly but still import upward into Core.
+- Decide how maintenance becomes durable scheduled work. LibraryServices can
+  still attach the existing Database maintenance service; Core job scheduling
+  has not replaced its thread/queues.
+- Specify transaction rollback and existing-database creation safety separately.
+  `Database.__exit__` closes the facade; it is not an exception-sensitive
+  transaction context.
+- Retire legacy opt-ins/back-references only after their supported consumers have
+  migrated. `db.storage` is still used by current integration paths.
+- Design multi-library selection if a concrete caller needs it; do not describe
+  an unimplemented runtime registry as today's lifecycle.
 
-### Rationale
+Use the [opening-path review](lifecycle-opening-path-review-2026-10-09.md) and
+[lifecycle regressions](../../tests/core/test_library_services_lifecycle.py).
+Completion requires normal shutdown, failed startup, failing closers and borrowed
+resources to behave correctly, plus caller and dependency checks for removed
+opening paths. A passing close test alone does not establish safe rollback.
 
-**Core is the natural owner.** It is already described as the part that
-"orchestrates and exposes all the relevant things", and it is what bootstraps
-the program. Putting lifecycle, configuration resolution and background
-scheduling in one component means one place decides what runs, with which
-settings, and in what order it stops.
+### Alternatives and historical migration plan
 
-**Splitting `LibraryServices` from `Library` separates owning resources from
-using them.**
+The initial proposal put lifecycle in `Library.open`; the September 28 decision
+moved it into Core. Putting everything into CoreRuntime was also rejected because
+one-shot workflows should not need a transport/runtime host. Leaving composition
+in Database would keep application policy below its owner.
 
-- Callers hold a `Library` and cannot accidentally tear it down.
-- Tests can build a `Library` from fakes.
-- About two dozen call sites already reach storage through `library.storage`.
-  That interface survives; only who fills it in changes.
+The former seven-step plan at this path was a September migration sketch.
+LibraryServices, Core delegation, settings composition and several caller moves
+are implemented. Durable maintenance jobs, universal wrapper removal and a
+multi-library registry are not. The remaining items above replace that sketch
+as the actionable lifecycle list; original defect evidence remains in the
+[September review](architecture-review-2026-09-26.md).
 
-**The earlier objection to core-only ownership is answered.** That objection
-was that job subprocesses and commands would need a full `CoreRuntime`.
-`LibraryServices` avoids it because it depends on none of the runtime
-machinery.
+## 2. Bibliographic writes and normalized identity
 
-The dependency direction stays consistent: `core` → `library` → lower layers,
-with nothing below `core` importing it.
+Metadata owns value meaning, pure normalization and validation. Catalog owns
+persistent identity, matching, relationships and semantic mutations. Databases
+owns SQL, transactions and structural/concurrency constraints. Neither a prepared
+update object nor an earlier surface validation is sufficient evidence that the
+Catalog boundary established its own preconditions.
 
-### Alternatives considered
+Supported repository/mutation APIs and the advanced schema-writer trio now share
+preparation and relationship routes. Row-oriented compatibility helpers adapt
+Catalog-owned tables to those owners; non-Catalog tables retain lower-level
+contracts. Caches delegate semantic writes and reconcile derived state afterward.
+Stored identity profiles are declared by the schema and evaluated through pure
+metadata rules, rather than several unrelated cleaners writing the same key.
 
-- **Leave it in `databases` (the current state).** Rejected. The lowest layer
-  would keep owning threads, storage and deletion decisions, which contradicts
-  its stated job of "raw persistence machinery".
-- **Let `Library` own its own lifecycle (`Library.open`).** This was the first
-  draft of this decision (2026-09-26), and it has been superseded. It would have
-  put configuration and background-service policy in the library layer, or
-  split them from lifecycle. It would also have made the object callers hold
-  responsible for teardown.
-- **Put everything inside `CoreRuntime`, with `create_core` building it all.**
-  Rejected. Job subprocesses and one-shot commands would need a runtime just to
-  open a database with storage, and hosting the API would be mixed up with
-  owning resources. `LibraryServices` is the part of core that avoids this.
-- **Add a new top-level `application` or `runtime` package.** Rejected as
-  unnecessary. `core` already names the right owner, and the
-  [2026-09-17 review](top-level-architecture-review.md) found no need for new
-  top-level packages.
+This does not implement every field validator or retrospectively repair old
+records. An old-schema migration/backfill project was explicitly excluded from
+this consolidation; no user database migration is implied. Direct SQL/driver/
+private writer-host operations remain outside the
+public semantic guarantee. Approximate matching, display sorting and search
+normalization have different purposes from stored identity.
 
-### Consequences
+The [write contract](../catalog/catalog-write-validation-contract.md) specifies
+actual coverage; the [Catalog work list](../catalog/catalog-roadmap.md) owns its
+remaining tasks. Extend public-boundary and real-backend rollback checks when
+adding a validator or moving a caller. Historical reads must remain inspectable;
+repair/merge decisions belong to explicit operations.
 
-- **`CoreServices` shrinks or retires.** Its per-library responsibilities move
-  to `LibraryServices`: cache, Catalog, read source, library preferences, field
-  metadata and maintenance. What remains is process-level, or `CoreServices`
-  is retired entirely.
-- **`library` holds only the facade.** Of its 51 modules, 46 are unreachable
-  from Core or surfaces: the legacy Calibre cache, `legacy`, `backend`,
-  `restore` and so on. They should move to a quarantined legacy package.
-- **Core owns settings resolution.** `core/settings.py` selects manifests and
-  profiles. Surfaces retain argument parsing; `create_core` composes the selected
-  preference store before opening resources. See the
-  [configuration ownership contract](../core/configuration-ownership.md) for precedence,
-  path isolation, literal tweak inputs and worker propagation.
-- **Lower-layer helpers that open a database by path change signature.** They
-  take handles instead. This covers:
-  - `storage/reconcile/store_db_sync.py`;
-  - the `*_with_database_path` helpers in `ingest/remote_html.py`;
-  - `ingest/mixed_application.py`;
-  - `storage/backup/prototype_pipeline.py`.
+## 3. Read ownership and cache composition
 
-  Their callers open the library through `LibraryServices`.
-- **Maintenance needs a durable signal.** Today `MaintenanceEngine` is a
-  `threading.Thread` fed by in-process queues
-  (`databases/maintenance/engine.py:90,124-125`), which receive driver
-  callbacks. A Core job may run in another process, so dirty-record
-  notifications must become durable or queryable. The jobs system must also
-  support recurring or long-running Core-scheduled work. This connects to the
-  split between the in-memory `utils/jobs` manager and the unused durable
-  `jobs/` package.
-- **`db.storage` stays temporarily.** During migration, `Database` may keep a
-  `storage` back-reference set by `LibraryServices`. Remove it once callers use
-  `library.storage`.
-- **Workflows are a separate decision.** Evacuation, placement and other
-  workflows can stay in `core/program_services` for now. This decision covers
-  who owns resources, not where workflows live.
+Catalog owns database/cache-backed hydration and persistent bibliographic
+retrieval. Metadata containers stay passive. `caches.read_cache.ReadCache` supplies
+structured reads without importing Catalog; writable `caches.cache.Cache` adds
+the mutation bridge. Direct Catalog mutations do not refresh every independent
+snapshot cache.
 
-### Migration order
+Core owns application read-source selection and tag/label category counts,
+ordering and membership. Surface adapters preserve those results and failures.
+That consolidation does not unify Work/search/acquisition projections or provide
+atomic snapshots across successive reads.
 
-Each step should leave the full test suite green.
+The SQL default-ray view and Catalog bundles still choose preferred WEMI paths
+differently; see the [worked discrepancy](../databases/wemi-link-examples.md#default-sql-view-versus-catalog-bundles).
+Define that selection policy before making all callers share an explanation or
+implementation. Query bounds, fallback/completeness and transport capabilities
+also need explicit contracts. See the [cache boundary](../catalog/catalog-cache-boundary.md)
+and [read-failure rules](../surfaces/read-model-failures.md).
 
-1. **Pin the current contract with tests.**
-   - A normal shutdown calls `StorageManager.close`.
-   - A startup that fails after the database opens closes the database.
-   - No LiuXin threads remain after shutdown.
-   - Constructing a `Database` starts no thread.
-   - Repeated `close` calls are harmless.
+## 4. Configuration ownership
 
-   Some of these tests will be expected failures until later steps.
-2. **Introduce `LibraryServices` in core.**
-   - Add `open` / `close` built on an `ExitStack`.
-   - Have it build the `Library`, and let `Library` accept its collaborators.
-   - Move `bootstrap_storage_manager` out of `databases/runtime.py` into it.
-3. **Point Core at it.**
-   - `create_core` and `CoreRuntime` hold a registry of `LibraryServices` with
-     a default library.
-   - The per-library parts of `CoreServices` move across.
-   - Shutdown becomes ordered and locked, with collected errors.
-4. **Move settings resolution into core (implemented).** `core/settings.py` is now
-   core's resolver, and surfaces pass selectors to it.
-5. **Migrate the other code paths.**
-   - `core/workflow_jobs.py` uses `LibraryServices`.
-   - Lower-layer helpers accept handles.
-   - `ingest/mixed_application.py` and `surfaces/cli/storage_audit.py` go
-     through core.
+Core selects deployment/profile settings and binds the application preference
+store before bootstrap and dispatch. `ConfigurationPaths` supplies explicit paths;
+ordinary application writes go to the Preferences INI. Compatibility preference
+and tweak views resolve the same application store. Database-local preferences,
+plugin component namespaces and conversion options keep their separate purposes.
 
-   Then add the import rules from rule 6.
-6. **Make maintenance a Core job.**
-   - Replace the in-process queues with a durable dirty-record signal.
-   - Schedule maintenance from Core.
-   - Stop `Database` from starting a `Maintainer`.
-7. **Retire the old defaults.** Remove `enable_storage_manager`,
-   `enable_maintenance` and the `db.storage` back-reference. Update
-   [top-level structure](<../02 - Top Level Structure.md>),
-   [core API](../core/core-api.md) and
-   [core workflow ownership](../core/core-program-workflows.md) to describe the result.
+Workers receive the chosen configuration, but that propagation does not give all
+job systems one durable lifecycle. Legacy startup hooks, scratch defaults and
+component singleton lifetimes remain separate work. The
+[configuration contract](../core/configuration-ownership.md) owns precedence,
+reload, old-file inputs and worker semantics; this record should not duplicate
+its option matrix.
 
-### Open questions
+## 5. Formats, plugins and dependencies
 
-- **Location in core.** A single `core/library_services.py`, or a
-  `core/lifecycle/` package that also holds settings resolution?
-- **Maintenance jobs.** Run on a recurring schedule or triggered by events?
-  Which durable signal replaces the in-process queues? Should one-shot
-  commands ever run maintenance?
-- **Settings.** What shape does the settings object take, and which legacy
-  stores does it absorb? This belongs to the configuration decision area.
-- **Library selection.** How does a request choose a library once more than
-  one is hosted?
-- **`Library.close()` during migration.** Keep it as a no-op or delegating
-  method for compatibility?
+`plugins` is the single shared package for generic mechanics and application
+composition. `customize` and `plugin_system` are retired without forwarding
+namespaces. Neutral plugin leaves cannot import the application host or concrete
+domain providers. Formats own conversion contracts and standalone assembly;
+application startup binds its initialized providers into that runtime.
 
-### Decision log
+The merger established common loading/priority policy, not a universal registry
+for storage, database, cache and job capabilities. Unsupported providers and
+availability/error reporting still need domain-specific decisions. See
+[plugin composition](../plugins/plugin-composition.md).
 
-- **2026-09-26:** Proposed that `Library` own the lifecycle of each open
-  library, with Core owning the process.
-- **2026-09-28:** Revised by maintainer decision:
-  - Core owns lifecycle.
-  - `LibraryServices` (the core lifecycle object) is separate from `Library`
-    (the facade callers use).
-  - Maintenance becomes a Core job.
-  - Core resolves configuration.
-  - Hosting multiple libraries stays possible.
-- **2026-10-11:** Adopted the Catalog write-validation boundary:
-  - metadata owns persistence-free value rules;
-  - every public Catalog mutation establishes semantic validity;
-  - the public boundary is repository and mutation APIs plus the advanced
-    schema-writer trio, while prepared-update applicators are private;
-  - Row-oriented metadata tools remain supported compatibility but are
-    deprecated for new code;
-  - databases retain structural and concurrency-safe constraints; and
-  - historical reads remain tolerant while audits/migrations remediate data.
+Dependency direction is an accepted, partly migrated contract. The
+[layer ratchet](layer-direction-ratchet.md) checks an exact whole-package debt
+baseline, while the protected scope must remain acyclic. The
+[cold-import ratchet](import-footprint-ratchet.md) observes initializer effects in
+fresh interpreters. Passing these gates does not prove absence of all runtime
+cycles, side effects or hidden service construction.
 
-## Future decision areas
+## 6. Storage, execution and trust boundaries
 
-These areas come from the architecture review's structural priorities. They
-are not yet decided and should be added here as sections when they are:
+Storage's manager/Store/driver split is implemented; Location values remain
+passive. Asset/Replica identity and recovery are separate from bibliographic
+matching. Database commits, backend publication and cleanup have distinct failure
+boundaries. Retention assessment must not be mistaken for universal enforcement
+at every delete path. See the [storage overview](<../06 - Storage.md>).
 
-- whole-package layer rules and cycle enforcement;
-- completion of the adopted single Catalog write path across every semantic
-  repository and compatibility writer;
-- a single catalogue read model;
-- remaining component-specific configuration integrations beyond the composed
-  application store (see [configuration ownership](../core/configuration-ownership.md));
-- containment of legacy Calibre code.
+Jobs invoke domain workflows rather than acquire their validation or placement
+policy. Consolidating Core execution, durable jobs and utility workers requires
+an agreed run identity, restart/cancellation behaviour and result/log contract.
+Mixed ingest already consumes a Library, but this does not settle every acquisition
+coordinator or make cross-domain effects atomic.
 
-## Related documentation
+Transport access control is another independent boundary. Generic invocation,
+admin writes and destructive operations need server-side authorization/capability
+rules; loopback defaults, a `read_only` name or a presentation-only restriction
+cannot establish those rules. The [annotated review](architecture-review-2026-09-26.md)
+retains the concrete CO-4/SU-6/ST findings. This documentation review does not
+implement those protections.
 
-- [Top-level structure](<../02 - Top Level Structure.md>)
-- [Responsibility boundaries](<../04 - Seperation of Concerns.md>)
-- [Catalog write-validation contract](../catalog/catalog-write-validation-contract.md)
-- [Whole-repository architecture review, 2026-09-26](architecture-review-2026-09-26.md)
-- [Top-level architecture review, 2026-09-17](top-level-architecture-review.md)
-- [Configuration ownership](../core/configuration-ownership.md)
-- [Core API](../core/core-api.md) and [core workflow ownership](../core/core-program-workflows.md)
-- [Maintainability quality gates](maintainability-quality-gates.md)
+## Decision log
+
+- **2026-09-26:** Initial lifecycle proposal placed ownership in Library.
+- **2026-09-28:** Core ownership adopted, separating LibraryServices from Library;
+  durable maintenance and future multi-library support were directions to design.
+- **2026-10-09:** LibraryServices and principal startup/teardown migrations landed.
+- **2026-10-11:** Catalog semantic-write boundary adopted; pure value rules remain
+  in metadata and raw persistence keeps its structural responsibilities.
+- **2026-10-12–13:** Whole-package dependency/cold-import enforcement and hydration,
+  value-policy and standalone-conversion containment progressed.
+- **2026-10-18:** Write/identity follow-ups, category-read policy and application
+  configuration consolidation are recorded in their implementation handoffs.
+- **2026-10-19:** Plugin composition merged and renamed to `plugins`, preserving
+  internal boundaries and retiring both former namespaces.
+- **2026-10-20:** This record reconciled with current source; implemented decisions,
+  remaining migrations and future proposals are separated. No runtime change.
+
+## Promoting the next decision
+
+Record the concrete caller/problem, owner, current alternatives and chosen
+boundary. State which behaviour changes, which callers migrate, and how existing
+data/wire contracts survive. Define normal and partial-failure evidence, resource
+limits and rollback/recovery before calling a migration complete.
+
+Detailed tasks belong in subsystem plans, linked from [cross-project work](../global_todo.md).
+[Next architecture tasks](next_tasks.md) supplies the proposed sequence and
+acceptance criteria for this review; update the owning plan when a task lands.
+Unselected ideas belong in [experiments](../ideas.md). Keep this decision record
+focused on rationale/status, and do not treat a historical recommendation as an
+instruction to restart completed work.

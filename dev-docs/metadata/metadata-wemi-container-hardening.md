@@ -1,8 +1,10 @@
 # Metadata WEMI Container Hardening Plan
 
+Reviewed **2026-10-20**. Historical May hardening campaign; PR number and landing notes below retain their original meaning. Current work is in [next tasks](next_tasks.md).
+
 Date: 2026-05-17
 
-Current PR: `#56` (`metadata-wemi-multiparent-contracts`) against `main`.
+Campaign PR: `#56` (`metadata-wemi-multiparent-contracts`) against `main`.
 This PR packages the first hardening batch after the conversion-contract PR:
 multi-parent identity-spine selection, hydrated lazy/eager projection parity,
 and WEMI metadata writer edge contracts.
@@ -208,9 +210,9 @@ seeded or avoided.
 - The identity-spine versus full-graph distinction is visible in both test names
   and docs.
 
-## Current Landing State
+## Historical landing state
 
-The current hardening branch includes these slices:
+The May hardening campaign recorded these slices:
 
 - Multi-parent WEMI spine selection. Eager and lazy hydrators select the identity
   spine from primary/priority structural relation links while preserving the full

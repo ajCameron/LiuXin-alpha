@@ -1,5 +1,7 @@
 # Storage developer guide
 
+Reviewed **2026-10-20**. Current owners and operational limitations were checked. See [next tasks](next_tasks.md). Dated benchmarks and suite counts below remain historical evidence.
+
 Use this page to enter the storage subsystem by task. The durable application
 manager is the normal starting point; Stores and drivers are extension
 boundaries, not alternate application facades.
@@ -105,6 +107,6 @@ tests are listed in [test streams](../hacking/test-streams.md) and
 - [Cache benchmark](storage_cache_benchmark.md): measured scenarios and their limits.
 - [Archive recoverability](<Archive Recoverability, Redundancy, and Self-Describing Packs.md>):
   redundancy and self-describing pack design.
-- [Deprecated storage overview](<../06 - Storage.md>): retained historical material.
+- [Storage overview](<../06 - Storage.md>): current identities, runtime owners, lifecycle and policy limits.
 
 Return to the [developer index](../README.md).

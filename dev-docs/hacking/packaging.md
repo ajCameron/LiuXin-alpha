@@ -1,6 +1,9 @@
 # Python packaging contract
 
-Status: installed catalogue and conversion wheel gate enforced, 2026-09-04.
+Source reviewed **2026-10-20**, working tree based on `fc5de7af`.
+
+Status: installed catalogue and conversion wheel gate configured. The original
+acceptance checkpoint was 2026-09-04; this source review is not a fresh wheel build.
 
 ## Supported wheel boundary
 
@@ -79,6 +82,11 @@ Core/storage startup. Conversion-specific libraries are declared in the
 cover paths, and `regex` for format-aware text operations. Development, full
 test, artifact, and source-deployment helpers include this extra by default;
 minimal installations do not acquire conversion dependencies implicitly.
+This gate certifies its named catalogue/HTML-to-EPUB path, not every optional
+backend or format. The current full-suite environment uses `test,conversion`;
+`typing` and `encryption` remain separate extras, so tests requiring them need an
+explicit environment contract. Audit that gap in [next tasks](next_tasks.md)
+rather than inferring whole-suite readiness from one successful wheel smoke.
 
 ImageMagick/Wand, GUI toolkits, external archive programs, and individual
 backend clients remain capability-specific rather than requirements of the

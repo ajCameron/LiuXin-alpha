@@ -1,5 +1,7 @@
 # Tkinter GUI Architecture
 
+Reviewed **2026-10-20**. Entry-point composition and named Core operations were checked. See [next tasks](../next_tasks.md); older stage counts remain dated evidence.
+
 This note describes the implemented architecture for LiuXin's desktop GUI,
 built with Python's standard-library `tkinter` toolkit. The non-visual backend
 uses the same transport-neutral Core boundary as the web, terminal, API, and
@@ -47,9 +49,9 @@ Use `ttk` widgets by default for native-looking controls:
 - `ttk.Combobox` for table/search column selection
 - `ttk.Button`, `ttk.Entry`, `ttk.Label` for toolbar/status controls
 
-## Proposed Package Shape
+## Current package shape
 
-The GUI should live under:
+The GUI lives under:
 
 ```text
 src/LiuXin_alpha/surfaces/tkinter_gui/
@@ -201,11 +203,12 @@ The current slice provides:
 - search within a selected column
 - show raw row details
 - hydrate and pretty-print metadata for `items` rows
+- edit the supported metadata fields through `metadata.write`, displaying the write report
+- use the shared local or remote Core session and select/refresh its read source
 - start without storage manager, maintenance, or bootstrap repairs unless
   explicitly requested
 
-This keeps behavior aligned with the read-only web and terminal surfaces while
-providing enough UI to be useful for metadata testing.
+The GUI now includes a bounded metadata-editing slice; describing the whole application as read-only would be inaccurate. The serial task runner keeps widget updates on the Tk thread and does not supply durable job execution.
 
 ## Later Slices
 
@@ -213,8 +216,7 @@ After the read-only slice is stable:
 
 - lighter cache/read snapshot backend for faster startup
 - richer metadata inspector with structured W/E/M/I sections
-- metadata edit forms for tags, labels, genres, series, identifiers, notes, and
-  comments
+- richer metadata forms beyond the current supported field replacement controls
 - richer semantic write-back operations and conflict presentation
 - explicit daemon-side cache/read-source administration
 - OPF import/export tools
@@ -230,4 +232,4 @@ After the read-only slice is stable:
 - Make expensive work explicit and cancellable where possible.
 - Do not hide write paths behind generic row editing until metadata-specific
   write reports are integrated.
-- Keep startup read-only and fast by default.
+- Keep startup lightweight; enable storage, maintenance and bootstrap repair only through explicit configuration. This is distinct from authorization to invoke metadata writes.

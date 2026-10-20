@@ -1,11 +1,11 @@
 # Digital assets, replicas and storage policy
 
-Status: **Design history with a source-checked implementation note, 2026-10-19.**
+Status: **Design history with a source-checked implementation note, 2026-10-20.**
 
 ## Current implementation checkpoint
 
 The [current schema overview](<../03 - Database Schema.md#digital-assets-and-physical-copies>)
-describes the generated SQLite schema at `15080c6e`. Several ideas below were
+describes the generated SQLite schema checked from the working tree based on `fc5de7af`. Several ideas below were
 implemented differently or have since changed:
 
 | Earlier design below | Current schema |

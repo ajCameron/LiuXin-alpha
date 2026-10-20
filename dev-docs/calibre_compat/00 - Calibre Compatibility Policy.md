@@ -1,7 +1,9 @@
 # Calibre canonical-import policy
 
 Status: **Decision draft; canonical import is not implemented.**
-Implementation checkpoint: **2026-10-19**.
+Source reviewed **2026-10-20** against the working tree based on `fc5de7af`.
+The proposal remains unimplemented; [next tasks](next_tasks.md) separates reader
+hardening from a future canonical-import design.
 
 This document retains the proposed default interpretation of an imported Calibre
 record: preserve its source identity in a separate compatibility record, initially

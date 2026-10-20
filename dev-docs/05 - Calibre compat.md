@@ -1,6 +1,7 @@
 # Calibre compatibility: current boundaries
 
-Checked: **2026-10-19**, against the current LiuXin-alpha source tree.
+Source review: **2026-10-20**, against the working tree based on `fc5de7af`.
+The reader/import examples were exercised in the 2026-10-19 compatibility review.
 
 Calibre compatibility spans source-library readers, metadata adapters, generated
 SQL projections and web responses. Each has its own contract and identity space.
@@ -113,7 +114,7 @@ byte placement.
 
 The Calibre-style web application uses the shared Core read model. Its book tokens
 refer to Works, while a SQL `books_v.book_id` identifies a ray. Use the
-[startup guide](read-only-surface-appliance-startup.md) for operational commands
+[startup guide](surfaces/read-only-surface-appliance-startup.md) for operational commands
 and the [surface index](surfaces/README.md) for the serving owners. The application
 implements a subset of the upstream interface.
 
