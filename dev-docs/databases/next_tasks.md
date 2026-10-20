@@ -50,17 +50,20 @@ connections; remove only compatibility code whose callers have migrated.
 
 ## DB06. Make generated PostgreSQL identifiers discoverable
 
-**Confirmed follow-up, 2026-10-20.** Full-schema cache discovery expects
+**Implemented for PR review, 2026-10-20.** Full-schema cache discovery expected
 `composite_digital_asset_digital_asset_link_composite_digital_asset_id`, but
 PostgreSQL stores its truncated identifier. A05's live testing exposed this
 before deletion; the same discovery error reproduces on unchanged A04 parent
-`e9efedc4`. The focused Asset/Replica cache test does not resolve this wider issue.
+`e9efedc4`. A08 subsequently exposed the same defect in schema-based writers.
+The [discovery fix](postgres-identifier-discovery.md) resolves generated names
+through PostgreSQL's own identifier representation, then requires membership in
+the discovered headings. Existing physical names stay unchanged; there is no
+schema migration. Live regressions cover full schema/cache discovery and public
+schema writes, missing columns, multibyte clipping and DDL collisions.
+Both snapshot cache backends also use native driver index metadata, replacing
+SQLite-only probes that silently aborted PostgreSQL's shared transaction.
 
-Choose one deterministic identifier mapping shared by schema creation and
-discovery, preserving existing databases through an explicit compatibility or
-migration path. Cover collisions, existing schemas and full cache loading on
-PostgreSQL alongside SQLite. Do not claim backend parity from the narrower
-storage cache regression.
+This does not provide SQLite's compatibility views or full legacy Library parity.
 
 ## Review evidence and checks
 
