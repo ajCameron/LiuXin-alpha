@@ -25,7 +25,9 @@ Finding IDs below refer to the
 ## Recommended order
 
 With **A15's repaired CI baseline verified** and A01–A08 implemented for review,
-take **A09's durable job-state and responsive dispatch contract** next.
+continue **A09's durable job-state contract** next. The
+[responsive wait-dispatch slice](../jobs/core-wait-dispatch.md) is implemented
+for review; durable workflow integration remains open.
 A08's [route matrix](../catalog/catalog-rating-validation.md)
 records the selected field family and remaining exclusions. A09/A10 continue
 execution and storage ownership.
@@ -43,7 +45,7 @@ before starting an independent one. Dependencies are stated in each task.
 | [A06](#a06-enforce-transport-capabilities-on-the-server) | Implemented; PR review | Remote/read-only clients cannot invoke privileged operations by name. | Core transport and surfaces |
 | [A07](#a07-choose-one-default-wemi-selection-policy) | Implemented; PR review | SQL projections and Catalog bundles apply an agreed path-selection policy. | Catalog and schema projections |
 | [A08](#a08-complete-semantic-write-coverage) | First family implemented; PR review | Rating values/scales share preparation, checked reuse and transactional import. Other fields remain on the Catalog work list. | Metadata and Catalog |
-| [A09](#a09-converge-job-state-and-release-long-waits-from-core-dispatch) | Next | One real workflow has durable, observable execution without monopolizing dispatch. | Jobs and Core |
+| [A09](#a09-converge-job-state-and-release-long-waits-from-core-dispatch) | Partial; durable workflow next | Job waits release dispatch; one real workflow still needs durable, observable execution. | Jobs and Core |
 | [A10](#a10-give-storage-record-mutations-one-owner) | Next | Reconcile and admin adapters share storage record invariants and receipts. | Storage, using database transactions |
 | [A11](#a11-finish-lifecycle-caller-migration) | Following | Lower-layer path wrappers and obsolete opt-ins retire through caller migration. | Core, ingest and storage |
 | [A12](#a12-finish-operational-path-and-startup-ownership) | Following | Scratch/startup helpers no longer pull process-wide hooks into foundation imports. | Configuration paths and utility owners |
@@ -257,8 +259,11 @@ old-schema import/backfill project stays outside this programme.
 
 ## A09. Converge job state and release long waits from Core dispatch
 
-**Findings:** CO-5/8; related ST-5 and CM-5. **First PR:** one workflow through a
-specified run-state contract. **Dependencies:** A06 for remote permissions;
+**Findings:** CO-5/8; related ST-5 and CM-5. **First slice implemented for review:**
+JOB01 releases `jobs.wait`/`jobs.result` from the shared handler lock while
+preserving database serialization and shutdown checks. See the
+[waiting contract](../jobs/core-wait-dispatch.md). **Next PR:** one workflow through a
+specified durable run-state contract. **Dependencies:** A06 for remote permissions;
 A10 for workflows that mutate storage records. Pure execution contracts can start
 independently.
 

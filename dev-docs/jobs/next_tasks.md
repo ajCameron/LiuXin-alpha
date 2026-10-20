@@ -1,14 +1,20 @@
 # Next job tasks
 
-Date: **2026-10-20**. Proposed work; this list does not implement the changes.
+Date: **2026-10-20**. JOB01 is implemented for PR review; later work remains open.
 
 The package has durable machinery, but default Core execution still uses the utility manager. Architecture A09 is convergence work, not a package rename.
 
 ## JOB01. Release long waits from Core dispatch
 
-**First.** Separate handler registration/state access from the lock held for database-bound mutations. Establish a safe waiting path without sharing an unsafe database connection.
+**Implemented for PR review.** `jobs.wait` and `jobs.result` explicitly bypass
+the shared handler lock using only the thread-safe utility manager. Other queries
+and all commands remain serialized by default. Registration replacement captures
+authority and execution/result policy together; queued handlers recheck shutdown.
+See the [waiting contract](core-wait-dispatch.md).
 
-Done when one client can wait while another reads health/progress and requests cancellation; shutdown and concurrent database mutations retain a documented serialization contract.
+Concurrent local/HTTP clients exercise health/status/cancellation before the
+blocked job finishes. SQLite/APSW controls retain serialized transactions.
+This closes the wait-lock defect, not A09's durable workflow requirement.
 
 ## JOB02. Move one production workflow onto durable job state
 

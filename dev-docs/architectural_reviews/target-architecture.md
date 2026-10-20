@@ -21,7 +21,7 @@ proposal in the same section implemented.
 | Formats and plugin composition | `plugins` unifies shared mechanics and application assembly, with internal dependency rules; formats retain standalone composition. | Unsupported providers, availability reporting and separate domain registries. |
 | Dependency enforcement | Protected acyclic scope, exact whole-package debt and cold-import budgets are enforced. | Existing exceptions and unmodelled/dynamic behaviour; no universal package ranking for cache sources. |
 | Storage | Manager → configured Store → raw driver; passive Locations, durable metadata adapters and ingest recovery exist. Backup runs own private staging workspaces with recovery/cleanup checks (A01). The four affected local builders preserve read-only intent through drivers and durable reload (A02). A05 adds enforced deletion policy and durable recovery receipts. These are implemented for PR review. | Other storage writer migration, legacy registrations and cross-workflow resource budgets. |
-| Jobs and ingest | Durable jobs, Core execution and utility workers coexist; mixed ingest consumes an injected Library. | One coherent restart/cancellation/progress contract and durable maintenance signals. |
+| Jobs and ingest | Durable jobs, Core execution and utility workers coexist; mixed ingest consumes an injected Library. A09's first slice releases managed job waits/results from Core's shared handler lock, for PR review. | One real workflow with a coherent restart/cancellation/progress contract and durable maintenance signals. |
 | Transport and permissions | A06 enforces server-owned capabilities, authenticated writable roles and restricted read-only composition. | Fixed deployment roles are not per-user accounts; remote operators provide TLS or tunnels. |
 
 ## 1. Lifecycle ownership
@@ -212,6 +212,8 @@ entries; A10 still owns other storage mutation callers and recovery coordination
 Jobs invoke domain workflows rather than acquire their validation or placement
 policy. Consolidating Core execution, durable jobs and utility workers requires
 an agreed run identity, restart/cancellation behaviour and result/log contract.
+The first A09 slice implements [responsive job waiting](../jobs/core-wait-dispatch.md)
+without changing the default state owner; the durable workflow migration remains open.
 Mixed ingest already consumes a Library, but this does not settle every acquisition
 coordinator or make cross-domain effects atomic.
 

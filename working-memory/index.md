@@ -1,6 +1,16 @@
 # Working Memory Index
 
 Active implementation checkpoint, **2026-10-20**:
+[job wait dispatch](job-wait-dispatch-2026-10-20.md) continues JOB01/A09 on
+`core-job-wait-dispatch`, based on rating PR #137 at `875065b7`. All 16 new
+dispatch cases pass after nine reproduced failures on the parent. Broader
+regressions passed 234 tests; final checks passed 86 tests; full quality gates
+passed (overlapping selections). The focused PR targets `catalog-rating-validation`;
+`gh pr view core-job-wait-dispatch` reports its current review/CI status. A09's
+durable workflow integration and the full A01–A16 programme remain open.
+No PR has been merged; the six unrelated staged storage edits are preserved.
+
+Active implementation checkpoint, **2026-10-20**:
 [rating validation](rating-validation-2026-10-20.md) continues A08 on
 `catalog-rating-validation`, based on PostgreSQL prerequisite PR #136 (`ce43fccd`).
 Its shared value rules and metadata-import transaction pass 29 pure cases, all

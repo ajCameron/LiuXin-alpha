@@ -135,8 +135,10 @@ synchronization, and backup actions are named commands that submit serializable
 `JobRequest` values. Clients use the common jobs surface to wait, cancel, read
 results, and read logs. This surface currently uses the utility job manager; it
 is not one unified durable repository for every run. Other audit/reconcile/
-evacuation/backup entry points can still execute synchronously, and `jobs.wait`
-shares the handler lock. Remote timeouts do not cancel server work.
+evacuation/backup entry points can still execute synchronously. Built-in
+`jobs.wait` and `jobs.result` wait outside the shared database handler lock;
+remote timeouts do not cancel server work. See the
+[job waiting contract](../jobs/core-wait-dispatch.md).
 
 Persisted backup workflows retain their specification and resumable step
 state, checkpoint after each step, and register outputs. SquashFS remains an
@@ -184,9 +186,11 @@ If a canonical write commits but cache reconciliation fails, Core raises
 and set `canonical_write_committed=true`; clients must not retry such a write
 blindly.
 
-Local query and command execution is serialized by the runtime because the
-composed database graph is shared by direct and RPC threads. This preserves
-the same operation semantics in both call modes.
+Local query and command execution is serialized by default because the composed
+database graph is shared by direct and RPC threads. Only explicitly independent
+queries opt out; the built-in exceptions are managed job waits/results. Query
+registration captures authority, execution policy and wire policy together.
+Queued handlers recheck shutdown before accessing services.
 
 ## Transport values, errors, and events
 

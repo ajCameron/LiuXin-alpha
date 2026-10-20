@@ -1,7 +1,7 @@
 # Core next tasks
 
-Updated **2026-10-20** with the implemented A06 transport contract.
-Status: **CORE-01 implemented for PR review; remaining work proposed**, following the [architecture sequence](../architectural_reviews/next_tasks.md).
+Updated **2026-10-20** with the A06 transport and A09 wait-dispatch contracts.
+Status: **CORE-01 and the CORE-02 wait slice implemented for PR review; remaining work proposed**, following the [architecture sequence](../architectural_reviews/next_tasks.md).
 The named API, LibraryServices lifecycle, category policy and application
 configuration store already exist. Preserve them while closing these gaps.
 
@@ -21,15 +21,16 @@ and plugin sandboxing remain separate deployment/design work.
 
 ## CORE-02 — Separate waiting from database dispatch
 
-**Next; architecture A09.** Map handlers that perform long synchronous work or
-wait while holding `_command_lock`. Start with one long operation and the job
-status/wait contract. Submit work briefly, then wait outside the database handler
-lock while retaining safe connection ownership.
+**Wait slice implemented; architecture A09 remains open.** The built-in
+`jobs.wait` and `jobs.result` queries use concurrent dispatch while ordinary
+handlers retain serialization. Registration replacement and queued shutdown
+have explicit contracts; see [job waiting](../jobs/core-wait-dispatch.md).
+Other synchronous long operations still need migration.
 
-Done when unrelated reads and cancellation remain responsive while a client waits
-or disconnects; a timeout does not masquerade as cancellation. Coordinate durable
+Concurrent local/HTTP tests cover responsive reads/cancellation, wait timeouts and
+shutdown while work remains active. Next coordinate durable
 run identity and receipts with jobs rather than implementing a second repository
-inside Core. Cover concurrent clients and shutdown during active work.
+inside Core; migrate one real workflow under JOB02.
 
 ## CORE-03 — Complete lifecycle caller migration
 

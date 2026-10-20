@@ -26,9 +26,10 @@ class ProgramEndpointRegistrar(Protocol):
     """
     Describe the registration methods endpoint providers require from a Core runtime.
 
-    This structural typing contract does not prescribe registry storage, locking,
-    duplicate-name handling, or error wrapping. CoreRuntime supplies the maintained
-    implementation; the protocol is not decorated for runtime isinstance checks.
+    This structural typing contract does not prescribe registry storage,
+    duplicate-name handling, or error wrapping. The serialized option selects
+    execution policy; CoreRuntime supplies its maintained enforcement. The
+    protocol is not decorated for runtime isinstance checks.
 
     Example:
         >>> from LiuXin_alpha.core.program_endpoints import install_program_endpoints
@@ -48,6 +49,7 @@ class ProgramEndpointRegistrar(Protocol):
         tags: tuple[str, ...] | list[str] | None = None,
         transport_stable: bool = True,
         remote_capabilities: tuple[str, ...] | None = None,
+        serialized: bool = True,
     ) -> None:
         """
         Register a runtime-and-query callable with the metadata advertised to API clients.
@@ -67,6 +69,7 @@ class ProgramEndpointRegistrar(Protocol):
         :param tags: Optional operation grouping labels for introspection.
         :param remote_capabilities: Required remote authority, or None for local-only registration.
         :param transport_stable: Whether to advertise a stable transport-facing result contract.
+        :param serialized: Hold the shared handler lock; opt out only for independently thread-safe work.
         :return: None after the implementation has registered the query or raised an error.
         """
         ...
