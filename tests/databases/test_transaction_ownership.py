@@ -17,6 +17,17 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.portable_macros_m
 from LiuXin_alpha.databases.transactions import transaction_scope
 
 
+@pytest.fixture(params=["SQLite", "SQLite_apsw"])
+def db_type(request: pytest.FixtureRequest) -> str:
+    """Exercise each driver only when its optional import dependency is installed."""
+    name = str(request.param)
+    if name == "SQLite_apsw":
+        pytest.importorskip(
+            "apsw", reason="SQLite_apsw requires the optional APSW package"
+        )
+    return name
+
+
 @pytest.fixture
 def sql_path(tmp_path: Path) -> Path:
     """Use an independent reader to distinguish local state from committed rows."""
@@ -182,7 +193,6 @@ def test_temporary_table_cannot_commit_surrounding_macro(sql_path: Path) -> None
     assert _rows(sql_path) == []
 
 
-@pytest.mark.parametrize("db_type", ["SQLite", "SQLite_apsw"])
 @pytest.mark.parametrize("exceptional", [False, True])
 def test_resource_exit_discards_uncommitted_writes(
     tmp_path: Path, db_type: str, exceptional: bool
@@ -211,7 +221,6 @@ def test_resource_exit_discards_uncommitted_writes(
     assert _rows(path) == []
 
 
-@pytest.mark.parametrize("db_type", ["SQLite", "SQLite_apsw"])
 def test_driver_replacement_discards_uncommitted_writes(
     tmp_path: Path, db_type: str
 ) -> None:
@@ -238,7 +247,6 @@ def test_driver_replacement_discards_uncommitted_writes(
         assert _rows(path) == []
 
 
-@pytest.mark.parametrize("db_type", ["SQLite", "SQLite_apsw"])
 def test_resource_cleanup_preserves_explicitly_committed_work(
     tmp_path: Path, db_type: str
 ) -> None:

@@ -80,3 +80,12 @@ honestly. Raw Store/driver deletion remains privileged low-level access.
 `70f5e1b5`; this follow-up records the completed 22-case UTF-8 PostgreSQL run.
 The local checks establish the focused contract, not a completed full PR suite.
 `storage-deletion-policy` is the next branch for A05. No PR has been merged.
+
+## Optional-driver CI correction
+
+The first full PR run (#39445250081) completed with 7,403 passed, 255 skipped,
+17 xfailed and four failures: the new SQLite_apsw lifecycle cases imported APSW
+without requiring its optional package. The parametrized driver fixture now
+skips only that driver when APSW is absent. The same file passes 19 tests with
+APSW installed and 15 with four explicit skips in the clean CI-like environment.
+Other full-run lanes passed. The follow-up full CI is pending.
