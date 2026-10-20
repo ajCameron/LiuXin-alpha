@@ -45,3 +45,13 @@ focused PR on `core-durable-storage-audit`. Remaining A10 families include
 Composite/Item links, retained files reconciliation and broader recovery receipts.
 A11 lifecycle migration, A12 scratch/startup ownership, A13 provider/conversion
 outcomes and A16 compatibility retirement also remain.
+# Published PR and CI follow-up
+
+Published as PR #143, based on audit PR #142. The audit's CI correction
+`63c75729` is merged forward without rewriting either branch. The policy fixture
+now skips only its optional APSW parameter when `apsw` is unavailable, matching
+the supported-driver convention. Both drivers remain exercised locally.
+
+All 32 policy contract cases and the two affected documentation/forwarding
+checks pass together (34 passed). Audit correction verification passed 63 tests
+and complete quality gates. Full-suite CI is rerunning on the updated stack.

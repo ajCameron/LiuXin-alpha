@@ -13,6 +13,8 @@ from LiuXin_alpha.storage import api
 
 @pytest.fixture(params=["SQLite", "SQLite_apsw"])
 def policy_core(tmp_path, request):
+    if request.param == "SQLite_apsw":
+        pytest.importorskip("apsw")
     with create_core(
         database_path=tmp_path / "library.sqlite",
         db_type=request.param,
