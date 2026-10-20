@@ -15,12 +15,13 @@ populated namespaces. See the [contract and regressions](creation-and-replacemen
 
 ## DB02. Specify transactions independently of connection lifetime
 
-**Architecture A04; implementation under verification, 2026-10-20.** The
+**Architecture A04; implemented for PR review, 2026-10-20.** The
 [transaction contract](transactions.md) now defines owned units, nested/borrowed
 savepoints, resource rollback and the reentrant facade mutex. It inventories
 remaining direct commit points and explains the compatibility transition.
-Live PostgreSQL checks pass; final SQLite/APSW, Catalog/Row/Agent, storage and
-lifecycle checks must finish before this slice is ready for review.
+SQLite/APSW-named, live PostgreSQL, Catalog/Row/Agent, storage and lifecycle
+checks pass. The [handoff](../../working-memory/transaction-ownership-2026-10-20.md)
+records counts, optional legacy limitations and separate full-CI status.
 
 ## DB03. Align default WEMI selection
 

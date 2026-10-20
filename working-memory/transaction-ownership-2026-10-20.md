@@ -38,7 +38,7 @@ use explicit-path commits. Their hashes and index entries remain unchanged.
   completed with 426 passes and 25 skips. Its sole failure was the tracked-link
   guard because new candidate files had not been staged in the review checkout.
   After staging the complete tree, documentation/workflow/API checks passed all
-  52 cases. A separate UTF-8 PostgreSQL Catalog parity run is still active.
+  52 cases. A separate UTF-8 PostgreSQL Catalog parity run passed all 22 cases.
   The first attempt used a SQL_ASCII fixture and failed Unicode cases; the
   alias case passes in UTF-8. Do not treat the misconfigured run as a new
   application baseline. Windows-specific handle checks remain skipped on WSL.
@@ -54,8 +54,8 @@ use explicit-path commits. Their hashes and index entries remain unchanged.
 Local evidence: `/tmp/liuxin-a04-final.log`, `-postgres.log`, `-catalog-utf8.log`,
 `-docs-final.log`, `-quality-final.log`,
 `-cache-migration.log`, `-legacy-probe.log`, `-legacy-baseline.log`, and telemetry
-under `/tmp/liuxin-a04-telemetry`. The final isolated checkout is
-`/tmp/liuxin-a04-quality`; do not remove it while its test process is active.
+under `/tmp/liuxin-a04-telemetry`. The final isolated checkout is `/tmp/liuxin-a04-quality`; these verification
+processes have finished. The PostgreSQL cluster can be stopped and cleaned.
 
 ## A15 follow-up
 
@@ -72,3 +72,11 @@ Next implementation after A04 is A05 deletion policy. Guard both remove_replica
 and router.delete before byte effects, serialize concurrent decisions, preserve
 retention/last-copy/read-only rules, and report partial byte/metadata outcomes
 honestly. Raw Store/driver deletion remains privileged low-level access.
+
+## Publication
+
+[A04 PR #132](https://github.com/ajCameron/LiuXin-alpha/pull/132) is open on
+`database-transaction-ownership`, stacked on A15 #131. The implementation is
+`70f5e1b5`; this follow-up records the completed 22-case UTF-8 PostgreSQL run.
+The local checks establish the focused contract, not a completed full PR suite.
+`storage-deletion-policy` is the next branch for A05. No PR has been merged.

@@ -3,7 +3,7 @@
 Date: **2026-10-20**. Basis: documentation review at `a5406cf8`, A01 at `75b266ed`,
 A02 at `d5956d6e`, and A03's implementation on `database-create-safety`.
 
-Status: **A01–A03 are implemented for PR review; remaining runtime fixes are open.
+Status: **A01–A04 are implemented for PR review; remaining runtime fixes are open.
 Documentation progress is recorded in A14; A15's CI repair is under verification.** Recheck the named behaviour before starting each task, especially
 where evidence comes from an older review. The first safety slices were checked
 against their current source; A15 records fresh CI and branch-rule observations.
@@ -25,9 +25,8 @@ Finding IDs below refer to the
 ## Recommended order
 
 First repair the shared full-suite failures recorded under **A15** so subsequent
-runtime slices have a useful CI baseline. With A01–A03 implemented for review,
-finish **A04's transaction verification**,
-then enforce A05's deletion policy. A06's transport contract is independent of
+runtime slices have a useful CI baseline. With A01–A04 implemented for review,
+enforce **A05's deletion policy next**. A06's transport contract is independent of
 job consolidation and can proceed in the same safety group. A07 is the next bounded read-model
 change; A08 continues the existing write-consolidation programme.
 
@@ -39,7 +38,7 @@ before starting an independent one. Dependencies are stated in each task.
 | [A01](#a01-preserve-caller-owned-backup-staging) | Implemented; PR review | Cleanup removes only scratch owned by the backup run. | Storage backup |
 | [A02](#a02-enforce-store-read-only-intent) | Implemented; PR review | Four affected builders preserve and enforce read-only intent through durable reload. | Storage registry and Stores |
 | [A03](#a03-make-database-creation-nondestructive-by-default) | Implemented; PR review | Creation refuses collisions; explicit offline replacement retains a verified backup. | Databases and Core bootstrap |
-| [A04](#a04-separate-resource-lifetime-from-transaction-lifetime) | Verification in progress | Exceptions and nested mutations have one explicit transaction contract. | Databases, with Catalog/storage callers |
+| [A04](#a04-separate-resource-lifetime-from-transaction-lifetime) | Implemented; PR review | Exceptions and nested mutations have one explicit transaction contract. | Databases, with Catalog/storage callers |
 | [A05](#a05-enforce-deletion-policy-at-the-mutation-boundary) | First | Removing bytes cannot bypass retention/last-copy policy. | Storage manager |
 | [A06](#a06-enforce-transport-capabilities-on-the-server) | First | Remote/read-only clients cannot invoke privileged operations by name. | Core transport and surfaces |
 | [A07](#a07-choose-one-default-wemi-selection-policy) | Next | SQL projections and Catalog bundles apply an agreed path-selection policy. | Catalog and schema projections |
@@ -112,7 +111,7 @@ migrated. A04's general transaction/close semantics remain open.
 
 ## A04. Separate resource lifetime from transaction lifetime
 
-**Findings:** DB-1/2. **Implementation under verification, 2026-10-20.**
+**Findings:** DB-1/2. **Implemented for PR review, 2026-10-20.**
 **Dependencies:** shares Catalog's existing transaction owner.
 
 Database close, resource exit and driver replacement now discard pending work.
@@ -128,9 +127,10 @@ legacy direct APIs are not advertised as universally atomic writes.
 
 **Acceptance:** injected late failures roll back the complete semantic operation;
 nested units cannot commit their caller's pending changes; resource cleanup does
-not accidentally commit failed work. Live PostgreSQL checks pass; final SQLite/
-APSW caller and resource checks are running. Preserve the already-tested
-Catalog/Row/Agent rollback guarantees before publishing this slice.
+not accidentally commit failed work. The main SQLite/APSW-named caller/resource selection passed 426 checks;
+62 PostgreSQL checks and 52 documentation/API/workflow follow-ups passed. Quality
+gates passed. Windows-only checks and disabled legacy Calibre-cache features
+remain explicitly outside that evidence; the [handoff](../../working-memory/transaction-ownership-2026-10-20.md) records their limits. Full PR CI remains separate.
 
 ## A05. Enforce deletion policy at the mutation boundary
 
@@ -341,7 +341,7 @@ benchmark/test counts as fresh results.
 
 ## A15. Refresh repository hygiene and CI evidence
 
-**Findings:** RP-2/4/5/7/8. **Implementation under verification, 2026-10-20.**
+**Findings:** RP-2/4/5/7/8. **Implemented for PR review, 2026-10-20.**
 **Dependencies:** none.
 
 The [dated CI baseline review](ci-baseline-2026-10-20.md) records the dependency,

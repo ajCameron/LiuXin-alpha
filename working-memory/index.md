@@ -2,9 +2,9 @@
 
 Latest implementation checkpoint, **2026-10-20**:
 [transaction ownership](transaction-ownership-2026-10-20.md) records A04's
-implementation, 426 passing caller checks, 40 passing live PostgreSQL checks,
-52 documentation/API checks, complete quality gates and remaining UTF-8 Catalog
-verification on `database-transaction-ownership`.
+implementation, 426 passing caller checks, 62 passing PostgreSQL checks,
+52 documentation/API checks and complete quality gates on
+`database-transaction-ownership`, published as PR #132. A05 deletion policy is next.
 A15 PR #131 has green quality/packaging/format checks on `a0e4d2ed`; current-head
 full CI is still running. The full A01–A16 programme remains open.
 
