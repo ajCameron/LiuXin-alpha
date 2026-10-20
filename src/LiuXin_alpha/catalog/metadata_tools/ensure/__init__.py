@@ -12,7 +12,8 @@ from typing import Optional, Union, TYPE_CHECKING
 from copy import deepcopy
 
 from LiuXin_alpha.catalog.metadata_tools.add import Add
-from LiuXin_alpha.catalog.row_mutations import atomic_write, ensure_value, persist_row
+from LiuXin_alpha.catalog.api.common import MetadataCandidate
+from LiuXin_alpha.catalog.row_mutations import atomic_write, ensure_value, persist_row, repository_for
 from LiuXin_alpha.databases.row import Row
 
 from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
@@ -557,20 +558,24 @@ class Ensure:
     @atomic_write
     def rating(self, rating: Union[int, float]) -> "RowAPI":
         """
-        Look up the prepopulated Rating Row at int(value)+1.
+        Resolve a validated Rating by value through the semantic repository.
 
-        No range validation or repair of missing Rating rows occurs.
+        Preserve fractional values and create a row when no match exists. IDs are
+        opaque; they are never calculated from a score. Existing scale metadata
+        participates in validation before reuse.
 
         Example:
-            A rating of 3.9 looks up row ID 4.
+            A rating of 3.9 resolves or creates a row whose rating remains 3.9.
 
 
-        :param rating: Numeric/coercible value; int() truncation and conversion errors apply.
-        :return: Database lookup result, possibly None; no row is inserted.
+        :param rating: Required finite, nonnegative score; booleans are rejected.
+        :return: Existing or newly created Rating Row in one macro transaction.
         """
-        rating = int(rating)
-        rating_id = rating + 1
-        return self.db.get_row_from_id("ratings", rating_id)
+        if rating is None:
+            raise ValueError("A rating value is required.")
+        repository = repository_for(self, "ratings")
+        rating_id = repository.match_or_create(MetadataCandidate({"value": rating}))
+        return Row(self.db, dict(repository.require(rating_id)))
 
     # Todo: Gotta work on the qeue situation here
     # Todo: Rethink how series and creators are managed

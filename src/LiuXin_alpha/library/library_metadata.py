@@ -873,7 +873,13 @@ class MeatdataToBookRow(object):
 
     def run(self, force_book_id=None, preserve_uuid=None):
         """
-        Add the metadata object to the database.
+        Import the bibliographic metadata in one transaction, then publish attachments.
+
+        A late rating or other metadata failure rolls back the entire metadata
+        unit, including a newly created WEMI stack. Optional cover/file operations
+        run after that unit succeeds: filesystem effects are not rolled back by
+        a database transaction, and their failure may leave committed metadata.
+        A caller-owned outer transaction retains its own commit responsibility.
 
         Example:
             Exercise MeatdataToBookRow.run through a consuming regression::
@@ -883,29 +889,34 @@ class MeatdataToBookRow(object):
 
         :param force_book_id: Value supplied for force book id under the utility contract.
         :param preserve_uuid: Value supplied for preserve uuid under the utility contract.
-        :return: The normalized value, metadata record, path, stream result or collection
-            described above.
+        :return: Projected title/book Rows after metadata and attachment operations.
         """
+        with self.db.macros.transaction():
+            title_row, book_row = self._run_metadata(
+                force_book_id=force_book_id, preserve_uuid=preserve_uuid
+            )
+        self.add_covers(book_row)
+        self.add_files(book_row)
+        return title_row, book_row
+
+    def _run_metadata(self, force_book_id=None, preserve_uuid=None):
+        """Write rows and relationships inside the caller's metadata transaction."""
         # Add the title - this needs to be done first as the majority of things will link to it
         title_row = self.make_title_row(self.md, force_book_id=force_book_id)
         if force_book_id is not None:
             self.__break_connections(title_row)
 
-        # Check to see if the book row already exists - if it doesn't then create it
-        cand_book_row = self.db.get_row_from_id("books", title_row["title_id"])
-        if cand_book_row is None:
-            projected = self.db.search(
-                table="books",
-                column="book_work_id",
-                search_term=title_row["title_id"],
+        # Read the projection on the writing connection, including uncommitted WEMI.
+        projected = self.db.macros.get_rows(
+            "books",
+            where={"book_work_id": title_row["title_id"]},
+            order_by=("book_id",),
+        )
+        if not projected:
+            raise DatabaseIntegrityError(
+                "Unable to project a book row from the created WEMI stack"
             )
-            if not projected:
-                raise DatabaseIntegrityError(
-                    "Unable to project a book row from the created WEMI stack"
-                )
-            book_row = projected[0]
-        else:
-            book_row = cand_book_row
+        book_row = Row(database=self.db, row_dict=dict(projected[0]))
         if preserve_uuid:
             identifier_id = self.catalog.identifiers.match_or_create(
                 IdentifierCandidate("calibre_uuid", str(preserve_uuid))
@@ -921,8 +932,6 @@ class MeatdataToBookRow(object):
         self.add_identifiers(title_row)
         self.add_comments(title_row)
         self.add_notes(title_row)
-        self.add_covers(book_row)
-        self.add_files(book_row)
         self.add_genres(title_row)
         self.add_language(title_row)
         self.add_languages(title_row)
@@ -1115,10 +1124,10 @@ class MeatdataToBookRow(object):
             origin=title_source,
             work_id=force_book_id,
         )
-        title_row = self.db.get_row_from_id("titles", created.work_id)
-        if title_row is None:
+        projected = self.db.macros.get_row("titles", created.work_id, id_column="title_id")
+        if projected is None:
             raise DatabaseIntegrityError("Created Work has no title projection")
-        return title_row
+        return Row(database=self.db, row_dict=dict(projected))
 
     def add_creators(self, title_row):
         """
@@ -1507,6 +1516,11 @@ class MeatdataToBookRow(object):
         # Do the actual linking
         self.__interlink_subject_rows(title_row=title_row, subject_rows=subject_rows)
 
+    def _stored_row(self, table, row_id):
+        """Read a compatibility Row on the active metadata transaction connection."""
+        stored = self.db.macros.get_row(table, row_id)
+        return None if stored is None else Row(database=self.db, row_dict=dict(stored))
+
     def get_row_from_value(self, row_id, table):
         """
         A number of variables in metadata are stored in the form of OrderedDicts - keyed with the name of the object and (optionally) valued with either the id or the row of that object in the database. This processes that value and returns the row correspond to it. If the class variable app_id_match is not set to True then this method will always return None.
@@ -1540,7 +1554,7 @@ class MeatdataToBookRow(object):
                 err_str = "Cannot process creator dict - unrecognized value type"
                 default_log.log_exception(err_str, e, "ERROR", ("row_id", row_id))
                 raise
-            return self.db.get_row_from_id(table=table, row_id=int_id)
+            return self._stored_row(table=table, row_id=int_id)
 
     @staticmethod
     def _work_id(title_row):
@@ -1659,7 +1673,7 @@ class MeatdataToBookRow(object):
                         }
                     )
                 )
-                creator_row = self.db.get_row_from_id("agents", agent_id)
+                creator_row = self._stored_row("agents", agent_id)
 
             unique_creator_ids.add(self._agent_id(creator_row))
             creator_rows_dict[creator_role].append(creator_row)
@@ -1929,7 +1943,7 @@ class MeatdataToBookRow(object):
                 genre_id = self.catalog.genres.match_or_create(
                     MetadataCandidate({"name": genre_name})
                 )
-                genre_row = self.db.get_row_from_id("genres", genre_id)
+                genre_row = self._stored_row("genres", genre_id)
 
             genre_rows.append(genre_row)
             genre_ids.add(six_unicode(genre_row["genre_id"]))
@@ -2080,7 +2094,7 @@ class MeatdataToBookRow(object):
                 series_id = self.catalog.series.match_or_create(
                     MetadataCandidate({"name": series_name})
                 )
-                series_row = self.db.get_row_from_id("series", series_id)
+                series_row = self._stored_row("series", series_id)
 
             series_rows.append(series_row)
             series_ids.add(six_unicode(series_row["series_id"]))
@@ -2149,7 +2163,7 @@ class MeatdataToBookRow(object):
                 publisher_id = self.catalog.agents.match_or_create_organisation(
                     MetadataCandidate({"name": pub_name, "type": "organisation"})
                 )
-                pub_row = self.db.get_row_from_id("agents", publisher_id)
+                pub_row = self._stored_row("agents", publisher_id)
 
             self.catalog.agents.link_to_wemi(
                 agent_id=self._agent_id(pub_row),
@@ -2188,7 +2202,7 @@ class MeatdataToBookRow(object):
                 subject_id = self.catalog.subjects.match_or_create(
                     MetadataCandidate({"name": subject_name})
                 )
-                subject_row = self.db.get_row_from_id("subjects", subject_id)
+                subject_row = self._stored_row("subjects", subject_id)
 
             unique_subject_ids.add(subject_row["subject_id"])
             subject_rows.append(subject_row)

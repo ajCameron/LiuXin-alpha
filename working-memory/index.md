@@ -1,12 +1,26 @@
 # Working Memory Index
 
+Active implementation checkpoint, **2026-10-20**:
+[rating validation](rating-validation-2026-10-20.md) continues A08 on
+`catalog-rating-validation`, based on PostgreSQL prerequisite PR #136 (`ce43fccd`).
+Its shared value rules and metadata-import transaction pass 29 pure cases, all
+26 supported integration cases and the two existing aggregate cases. Broader
+caller checks passed 175 tests; final import/docs/boundary checks passed 47 tests;
+all quality gates passed. Counts overlap. The focused A08 PR is ready to publish.
+The prerequisite's [handoff](postgres-discovery-2026-10-20.md) records native
+identifier discovery and cache index ownership: 81 checks, 21 final controls/docs
+checks, and full quality passed. Initial PR #136 CI lanes are green; full CI is pending.
+The six unrelated staged storage files remain preserved. The full A01–A16
+programme is open; no PR has been merged.
+
 Latest implementation checkpoint, **2026-10-20**:
 [WEMI selection](wemi-selection-2026-10-20.md) implements A07 on
 `catalog-wemi-selection`, based on A06 PR #134 (`13d6e5aa`). Catalog bundles now
 match SQL complete-ray ranking and retain partial paths explicitly. Exact worked
 examples and the separate hydration relation contract pass 22 final parity tests;
 55 documentation checks and the complete quality runner also pass. Publication
-is next. A08 semantic write coverage follows.
+is complete as [PR #135](https://github.com/ajCameron/LiuXin-alpha/pull/135).
+Its full CI is green: 7,487 passed, 269 skipped, 17 xfailed. A08 follows.
 The full A01–A16 programme remains open; unrelated staged storage edits are preserved.
 
 Latest implementation checkpoint, **2026-10-20**:
@@ -16,7 +30,7 @@ authentication and restricted read-only clients pass 67 final checks and all
 quality gates, including both 38-example negative type contracts. Published as
 [PR #134](https://github.com/ajCameron/LiuXin-alpha/pull/134); a CI boundary correction
 centralizes deployment roles in Core (41 checks and the quality runner passed).
-Its separate full CI is pending. A07 default WEMI selection follows. The full
+Its full CI is green: 7,476 passed, 269 skipped, 17 xfailed. A07 follows. The full
 A01–A16 programme remains open; no PR has been merged.
 
 Latest implementation checkpoint, **2026-10-20**:
@@ -25,7 +39,7 @@ Latest implementation checkpoint, **2026-10-20**:
 policy, durable reservations and recovery evidence. The final isolated selection
 passed 110 tests with live PostgreSQL, SQLite, Core and CLI; full quality gates
 passed. Published as PR #133, now `47c5c0d3` after Library/SquashFS CI corrections
-(10 and 18 passing targeted checks). Its new full PR CI is pending. The full A01–A16 programme remains open.
+(10 and 18 passing targeted checks). Its full PR CI is green: 7,438 passed, 269 skipped, 17 xfailed. The full A01–A16 programme remains open.
 
 [A04 transaction ownership](transaction-ownership-2026-10-20.md), PR #132, is green
 on `e9efedc4`: full CI passed 7,403 tests, 259 skipped, 17 xfailed. A15 PR #131 is

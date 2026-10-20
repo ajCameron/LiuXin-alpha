@@ -125,6 +125,9 @@ select = ["E4", "E7", "E9", "F", "I", "UP", "B"]
 # Positive scope: directory entries also protect newly added Python modules.
 # Formatting does not implicitly expand the separate lint or typing ratchets.
 paths = [
+  "tests/metadata/test_rating_values.py",
+  "tests/catalog/test_rating_validation.py",
+  "src/LiuXin_alpha/metadata/ratings.py",
   "src/LiuXin_alpha/catalog/retrieval/selection.py",
   "src/LiuXin_alpha/catalog/retrieval/bundles.py",
   "src/LiuXin_alpha/catalog/api/retrieval/bundles.py",
@@ -230,6 +233,7 @@ paths = [
 [tool.basedpyright]
 typeCheckingMode = "standard"
 include = [
+  "src/LiuXin_alpha/metadata/ratings.py",
   "src/LiuXin_alpha/catalog/retrieval/selection.py",
   "src/LiuXin_alpha/databases/creation.py",
   "src/LiuXin_alpha/databases/transactions.py",
@@ -315,6 +319,7 @@ pythonVersion = "3.12"
 [tool.mypy]
 python_version = "3.12"
 files = [
+  "src/LiuXin_alpha/metadata/ratings.py",
   "src/LiuXin_alpha/catalog/retrieval/selection.py",
   "src/LiuXin_alpha/databases/creation.py",
   "src/LiuXin_alpha/databases/transactions.py",
