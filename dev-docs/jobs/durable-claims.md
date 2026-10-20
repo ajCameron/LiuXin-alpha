@@ -3,8 +3,9 @@
 Implemented **2026-10-20** as the next A09 prerequisite, after
 [responsive Core waiting](core-wait-dispatch.md). The durable repository is still
 separate from Core's default utility manager. The following prerequisite adds
-[submission identity and retry ancestry](submission-identity.md); a real workflow's
-Core integration remains JOB02 work.
+[submission identity and retry ancestry](submission-identity.md), used by the
+[Core storage audit](core-storage-audit.md). Other workflows retain their current
+execution and recovery owners.
 
 ## One owner for each transition
 
@@ -83,6 +84,7 @@ The retained backup handler test follows this path.
 The [durable claim tests](../../tests/jobs/test_durable_job_claims.py) cover
 concurrent claims/enqueue, reused worker names, stale callbacks, process restart,
 atomic event failure, long-handler renewal, cancellation receipts, retention,
-captured inputs and a fixed legacy schema fixture. This prerequisite does not
-yet give Core a durable submission or retry API. Repository-level delivery keys
+captured inputs and a fixed legacy schema fixture. The subsequent
+[Core audit integration](core-storage-audit.md) adds durable submission and retry
+for the selected workflow. Repository-level delivery keys
 and explicit successors are described in the [submission contract](submission-identity.md).

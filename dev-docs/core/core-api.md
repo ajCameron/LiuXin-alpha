@@ -82,7 +82,7 @@ The tables below summarize the required v2 program boundary.
 | Family | Stable named operations |
 | --- | --- |
 | Lifecycle | `health`, `api.describe`, `capabilities.list`, `shutdown` |
-| Jobs | `jobs.list`, `jobs.get`, `jobs.wait`, `jobs.result`, `jobs.log.read`, `jobs.cancel` |
+| Jobs | `jobs.list`, `jobs.get`, `jobs.wait`, `jobs.result`, `jobs.log.read`, durable `jobs.events`, `jobs.cancel`, `jobs.retry` |
 | Database | `database.info`, `database.summary`, `database.telemetry`, `database.backup`, `database.vacuum` |
 | Schema and identity | `schema.tables`, `schema.table`, `schema.column`, `schema.link`, `schema.column.update`, `schema.identities.list`, `schema.identity.get`, `schema.identity.derive`, `schema.identity.resolve`, `schema.identities.audit`, `schema.identities.migrate` |
 | Trees | `tree.root`, `tree.children`, `tree.lineage`, `tree.walk`, `tree.search`, `tree.nest`, `tree.delete` |
@@ -138,8 +138,12 @@ and GUI surfaces are responsible only for presentation and delivery framing.
 Long-running ingest, remote discovery, online metadata, conversion,
 synchronization, and backup actions are named commands that submit serializable
 `JobRequest` values. Clients use the common jobs surface to wait, cancel, read
-results, and read logs. This surface currently uses the utility job manager; it
-is not one unified durable repository for every run. Other audit/reconcile/
+results, and read logs. Those workflows retain the utility job manager. The
+selected `storage.audit.start` route now uses a library-bound durable ledger,
+independently owned worker services and namespaced job IDs; its status, partial
+receipts and events remain available after reopening. See the
+[durable audit contract](../jobs/core-storage-audit.md) for composition, delivery
+identity, cancellation and explicit retry. Other audit/reconcile/
 evacuation/backup entry points can still execute synchronously. Built-in
 `jobs.wait` and `jobs.result` wait outside the shared database handler lock;
 remote timeouts do not cancel server work. See the

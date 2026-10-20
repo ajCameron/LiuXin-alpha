@@ -20,7 +20,7 @@ import uuid
 
 from contextlib import ExitStack
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping, Optional, cast
+from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, cast
 
 from LiuXin_alpha.configuration import use_preferences
 from LiuXin_alpha.core.api import CoreAPI
@@ -46,6 +46,10 @@ from LiuXin_alpha.core.services import CoreServices
 from LiuXin_alpha.core.wire import to_wire
 from LiuXin_alpha.utils.jobs import JobRequest, default_job_manager
 from LiuXin_alpha.utils.jobs.manager import JobManagerAPI, JobState
+
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.core.durable_jobs import DurableJobService
 
 
 CommandHandler = Callable[["CoreRuntime", CoreCommand], Any]
@@ -84,6 +88,7 @@ class CoreRuntime(CoreAPI):
         core_version: str = "2.0.0",
         api_version: str = "2.0",
         job_manager: JobManagerAPI | None = None,
+        durable_jobs: DurableJobService | None = None,
         catalog: Any | None = None,
         cache: Any | None = None,
         cache_type: str | None = None,
@@ -118,6 +123,7 @@ class CoreRuntime(CoreAPI):
         :param core_version: Runtime version label converted to text.
         :param api_version: Named-API contract version label converted to text.
         :param job_manager: Optional borrowed manager supporting concurrent wait/result/state calls; omission selects the process-global default.
+        :param durable_jobs: Optional owned library ledger/worker adapter; shutdown stops its polling without cancelling accepted work.
         :param catalog: Optional semantic Catalog facade injected into CoreServices.
         :param cache: Optional cache facade/backend injected instead of selecting a cache type.
         :param cache_type: Optional selector for a cache constructed by CoreServices.
@@ -169,6 +175,11 @@ class CoreRuntime(CoreAPI):
         self._job_manager: JobManagerAPI = (
             job_manager if job_manager is not None else default_job_manager()
         )
+        self._durable_jobs = durable_jobs
+        if durable_jobs is not None:
+            from LiuXin_alpha.core.durable_jobs import RoutedJobManager
+
+            self._job_manager = RoutedJobManager(self._job_manager, durable_jobs)
         if close_job_manager_on_shutdown is None:
             close_job_manager_on_shutdown = owns_job_manager
         self._close_job_manager_on_shutdown = bool(close_job_manager_on_shutdown)
@@ -262,6 +273,10 @@ class CoreRuntime(CoreAPI):
                 CorePayloadFieldDescription(name="label", field_type="string|null"),
                 CorePayloadFieldDescription(
                     name="allow_succeeded", field_type="boolean"
+                ),
+                CorePayloadFieldDescription(name="request_key", field_type="string"),
+                CorePayloadFieldDescription(
+                    name="acknowledge_possible_effects", field_type="boolean"
                 ),
             ),
             tags=("jobs", "write"),
@@ -613,6 +628,16 @@ class CoreRuntime(CoreAPI):
         """
         return bool(self._shutdown)
 
+    @property
+    def durable_jobs(self) -> DurableJobService:
+        """Return the configured library job owner or explain missing composition."""
+        if self._durable_jobs is None:
+            raise CoreDispatchError(
+                "Durable jobs require a path-backed Core library and a configured ledger.",
+                code="capability_unavailable",
+            )
+        return self._durable_jobs
+
     def shutdown(self) -> int:
         """
         Mark shutdown, close configured services, optionally stop the job manager, and emit core.shutdown on success.
@@ -636,6 +661,8 @@ class CoreRuntime(CoreAPI):
         self._shutdown = True
         with self._command_lock:
             try:
+                if self._durable_jobs is not None:
+                    self._durable_jobs.stop(wait=False)
                 if self._library_services is not None:
                     self._library_services.close()
                 else:
@@ -769,9 +796,7 @@ class CoreRuntime(CoreAPI):
         metadata = CoreEndpointDescription(
             name=token,
             kind="command",
-            summary=str(
-                summary if summary is not None else self._doc_summary(handler)
-            ),
+            summary=str(summary if summary is not None else self._doc_summary(handler)),
             description=str(description or ""),
             payload_fields=self._normalize_payload_fields(payload_fields),
             tags=tuple(str(tag) for tag in (tags or ())),
@@ -839,9 +864,7 @@ class CoreRuntime(CoreAPI):
         metadata = CoreEndpointDescription(
             name=token,
             kind="query",
-            summary=str(
-                summary if summary is not None else self._doc_summary(handler)
-            ),
+            summary=str(summary if summary is not None else self._doc_summary(handler)),
             description=str(description or ""),
             payload_fields=self._normalize_payload_fields(payload_fields),
             tags=tuple(str(tag) for tag in (tags or ())),
@@ -980,7 +1003,9 @@ class CoreRuntime(CoreAPI):
         with self._state_lock:
             handler = self._command_handlers.get(token)
             if capabilities is not None:
-                authorize_endpoint(self._command_descriptions.get(token), capabilities, command.payload)
+                authorize_endpoint(
+                    self._command_descriptions.get(token), capabilities, command.payload
+                )
         if handler is None:
             raise CoreDispatchError(
                 "Unknown command handler: {!r}".format(command.name)
@@ -1906,7 +1931,9 @@ class CoreRuntime(CoreAPI):
         """
         del runtime
         payload = dict(query.payload or {})
-        include_targets = bool(payload.get("include_targets", bool(payload.get("target"))))
+        include_targets = bool(
+            payload.get("include_targets", bool(payload.get("target")))
+        )
         target = payload.get("target", None)
         return self.describe_api(
             include_targets=include_targets,
@@ -2027,7 +2054,7 @@ class CoreRuntime(CoreAPI):
                 "cwd": str(getattr(request, "cwd", "") or ""),
                 "has_env": bool(getattr(request, "env", None)),
             }
-        return {
+        result = {
             "job_id": str(getattr(info, "job_id", "") or ""),
             "label": str(getattr(info, "label", "") or ""),
             "retry_of_job_id": (
@@ -2047,6 +2074,10 @@ class CoreRuntime(CoreAPI):
             "request": request_payload,
             "execution": cls._serialize_job_execution(getattr(info, "execution", None)),
         }
+        durable = getattr(info, "durable", None)
+        if durable is not None:
+            result["durable"] = durable
+        return result
 
     @staticmethod
     def _normalize_job_id(payload: Mapping[str, Any], *, field: str = "job_id") -> str:
@@ -2566,11 +2597,24 @@ class CoreRuntime(CoreAPI):
         label_raw = payload.get("label")
         label = None if label_raw in (None, "") else str(label_raw)
         try:
-            retried_job_id = self.job_manager.retry(
-                job_id,
-                label=label,
-                allow_succeeded=bool(payload.get("allow_succeeded", False)),
-            )
+            if self._durable_jobs is not None and self._durable_jobs.handles(job_id):
+                if label is not None or bool(payload.get("allow_succeeded", False)):
+                    raise ValueError(
+                        "Durable retries preserve their label and refuse successful runs"
+                    )
+                retried_job_id = self._durable_jobs.retry(
+                    job_id,
+                    request_key=payload.get("request_key", command.command_id),
+                    acknowledge_possible_effects=payload.get(
+                        "acknowledge_possible_effects", False
+                    ),
+                )
+            else:
+                retried_job_id = self.job_manager.retry(
+                    job_id,
+                    label=label,
+                    allow_succeeded=bool(payload.get("allow_succeeded", False)),
+                )
             info = self.job_manager.get(retried_job_id)
         except KeyError as exc:
             raise CoreDispatchError("Unknown job id: {!r}".format(job_id)) from exc

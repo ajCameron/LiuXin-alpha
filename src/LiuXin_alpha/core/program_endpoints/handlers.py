@@ -1130,6 +1130,12 @@ class StorageHandlers(Protocol):
         """
         ...
 
+    def storage_audit_start(
+        self, runtime: CoreRuntime, command: CoreCommand
+    ) -> Mapping[str, object]:
+        """Submit the durable audit described by storage_integrity.storage_audit_start."""
+        ...
+
     def storage_audit(
         self, runtime: CoreRuntime, command: CoreCommand
     ) -> Mapping[str, object]:
@@ -1626,6 +1632,12 @@ class SystemJobsHandlers(Protocol):
         :return: Decoded text, requested/current next byte offsets, read-time eof, and path-availability flag.
         :raises CoreDispatchError: For invalid request bounds/ID or KeyError from job lookup.
         """
+        ...
+
+    def jobs_events(
+        self, runtime: CoreRuntime, query: CoreQuery
+    ) -> Mapping[str, object]:
+        """Read a bounded durable event cursor through discovery.jobs_events."""
         ...
 
     def jobs_result(

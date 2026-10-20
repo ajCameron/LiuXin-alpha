@@ -45,6 +45,7 @@ def create_core(
     core_version: str = "2.0.0",
     api_version: str = "2.0",
     job_manager: Any | None = None,
+    durable_job_path: str | pathlib.Path | None = None,
     close_job_manager_on_shutdown: bool | None = None,
     preferences: Any | None = None,
     configuration_paths: ConfigurationPaths | None = None,
@@ -93,6 +94,7 @@ def create_core(
     :param core_version: Advertised runtime implementation version, converted to text without version validation.
     :param api_version: Advertised command/query contract version, converted to text.
     :param job_manager: Optional job manager; omission uses the shared process-default manager.
+    :param durable_job_path: Optional local ledger path; path-opened SQLite libraries default to a .jobs.sqlite sidecar, while server databases need an explicit ledger.
     :param close_job_manager_on_shutdown: Explicit manager-close policy; ``None`` currently defaults to false.
     :param preferences: Optional application store passed to database construction and CoreServices.
     :param configuration_paths: Fixed application/component paths; exclusive with an injected store. Settings are loaded before opening database/storage resources.
@@ -115,6 +117,12 @@ def create_core(
     supplied_library = library is not None
     if supplied_library and (database is not None or database_path is not None):
         raise ValueError("Provide `library`, or a database/database_path, not both.")
+    if durable_job_path is not None and (
+        database_path is None or not enable_storage_manager
+    ):
+        raise ValueError(
+            "durable_job_path requires a database_path and storage services"
+        )
     library_services = None
     if library is None:
         from LiuXin_alpha.core.library_services import LibraryServices
@@ -145,12 +153,60 @@ def create_core(
             )
         library = library_services.library
     try:
+        durable_jobs = None
+        if database_path is not None and enable_storage_manager:
+            if durable_job_path is None and str(db_type).lower().startswith("sqlite"):
+                source_path = pathlib.Path(database_path).expanduser().resolve()
+                durable_job_path = source_path.with_name(
+                    source_path.name + ".jobs.sqlite"
+                )
+            if durable_job_path is not None:
+                from LiuXin_alpha.core.durable_jobs import DurableJobService
+                from LiuXin_alpha.core.library_services import LibraryServices
+
+                worker_path = database_path
+                ledger_path = pathlib.Path(durable_job_path).expanduser().resolve()
+                if str(db_type).lower().startswith("sqlite"):
+                    worker_path = pathlib.Path(database_path).expanduser().resolve()
+                    if ledger_path == worker_path or (
+                        ledger_path.exists()
+                        and worker_path.exists()
+                        and ledger_path.samefile(worker_path)
+                    ):
+                        raise ValueError(
+                            "The job ledger must be separate from the library database"
+                        )
+                worker_metadata = dict(database_metadata or {})
+
+                def open_worker_library():
+                    # Each worker owns this graph; no main connection crosses threads.
+                    with use_preferences(preferences):
+                        return LibraryServices.open(
+                            database_path=worker_path,
+                            db_type=db_type,
+                            database_metadata=worker_metadata,
+                            create=False,
+                            backup=False,
+                            enable_storage_manager=True,
+                            enable_maintenance=False,
+                            storage_startup_on_add=True,
+                            strict_storage_manager_bootstrap=True,
+                            repair_bootstrap_rows=False,
+                            preferences=preferences,
+                        )
+
+                durable_jobs = DurableJobService(
+                    path=ledger_path,
+                    library_uuid=str(library.db.uuid),
+                    open_library=open_worker_library,
+                )
         return CoreRuntime(
             library=library,
             core_uuid=core_uuid,
             core_version=core_version,
             api_version=api_version,
             job_manager=job_manager,
+            durable_jobs=durable_jobs,
             close_job_manager_on_shutdown=close_job_manager_on_shutdown,
             catalog=catalog,
             cache=cache,

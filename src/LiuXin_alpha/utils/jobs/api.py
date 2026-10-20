@@ -24,7 +24,10 @@ from dataclasses import dataclass, field
 from multiprocessing import Pipe, Process
 
 from LiuXin_alpha.configuration import bound_preferences, use_preferences
-from typing import Any, Callable, Iterator, Mapping
+from typing import TYPE_CHECKING, Any, Callable, Iterator, Mapping
+
+if TYPE_CHECKING:
+    from multiprocessing.connection import Connection
 
 
 @dataclass
@@ -260,7 +263,7 @@ def _execute_with_optional_logging(request: JobRequest, log_path: str | None) ->
             return _execute_request_payload(request)
 
 
-def _process_entry(conn, request: JobRequest, log_path: str | None, preferences: Any | None = None) -> None:
+def _process_entry(conn: Connection, request: JobRequest, log_path: str | None, preferences: Any | None = None) -> None:
     """
     Perform the process entry utility operation under explicit compatibility rules.
 
@@ -270,7 +273,7 @@ def _process_entry(conn, request: JobRequest, log_path: str | None, preferences:
             python -m pytest -q tests/utils/jobs/test_jobs_manager.py
 
 
-    :param conn: SQLite connection used for schema or metadata queries.
+    :param conn: Worker-owned multiprocessing pipe endpoint used to send the execution receipt; closed on exit.
     :param request: Value supplied for request under the utility contract.
     :param log_path: Value supplied for log path under the utility contract.
     :return: None; the operation mutates state, writes output or performs cleanup in

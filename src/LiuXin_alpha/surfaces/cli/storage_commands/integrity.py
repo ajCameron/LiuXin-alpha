@@ -39,10 +39,11 @@ def cmd_storage_status(args: argparse.Namespace) -> int:
 
 def cmd_storage_audit(args: argparse.Namespace) -> int:
     """
-    Run Core's paged storage audit with optional digest calculation.
+    Submit Core's durable paged audit, then wait in bounded calls for its receipt.
 
-    Audit is a command, not a guaranteed read-only query. Pagination is converted
-    to integers without local range checks, and no --yes gate is imposed here.
+    Verification persists observations. The worker owns a separate library graph;
+    client timeouts or disconnects do not cancel accepted work. request_key can be
+    reused after a lost response. No --yes gate is imposed here.
 
     Example:
         >>> cmd_storage_audit(parsed_storage_audit_args)  # doctest: +SKIP
@@ -51,17 +52,30 @@ def cmd_storage_audit(args: argparse.Namespace) -> int:
     :param args: limit/offset, no_digests, and connection/JSON output controls.
     :return: Zero for truthy receipt.ok, otherwise one, after publishing the audit receipt.
     """
+    payload = {
+        "limit": int(args.limit),
+        "offset": int(args.offset),
+        "calculate_digests": not bool(args.no_digests),
+    }
+    if getattr(args, "request_key", None) is not None:
+        payload["request_key"] = args.request_key
     with open_cli_core(args, enable_storage_manager=True) as core:
-        result = core.command(
-            "storage.audit",
-            {
-                "limit": int(args.limit),
-                "offset": int(args.offset),
-                "calculate_digests": not bool(args.no_digests),
-            },
-        )
+        accepted = core.command("storage.audit.start", payload)
+        job_id = accepted["job_id"]
+        while True:
+            job = core.query("jobs.wait", {"job_id": job_id, "timeout_s": 1.0})["job"]
+            if job["state"] not in {"pending", "running"}:
+                break
+        execution = core.query("jobs.result", {"job_id": job_id, "timeout_s": 0})[
+            "execution"
+        ]
+    result = execution.get("result") or {
+        "ok": False,
+        "error": execution.get("traceback"),
+    }
+    result = {**result, "job_id": job_id, "job_state": job["state"]}
     emit_json(result, args)
-    return 0 if bool(result.get("ok", False)) else 1
+    return 0 if execution.get("ok") and result.get("ok") else 1
 
 
 def cmd_storage_reconcile(args: argparse.Namespace) -> int:

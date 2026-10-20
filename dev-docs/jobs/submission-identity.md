@@ -1,8 +1,9 @@
 # Durable submission identity and explicit retries
 
 Implemented for review **2026-10-20**, after [claim ownership](durable-claims.md).
-This is an A09 prerequisite. Core's production workflow adapter is still open;
-the default utility manager does not acquire these guarantees automatically.
+This is an A09 prerequisite, now used by the
+[Core storage audit](core-storage-audit.md). Other utility jobs do not acquire
+these guarantees automatically.
 
 ## Delivery identity
 

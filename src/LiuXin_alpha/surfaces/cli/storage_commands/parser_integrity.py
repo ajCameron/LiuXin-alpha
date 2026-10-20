@@ -151,6 +151,10 @@ def _add_audit_parser(
     audit.add_argument("--limit", type=int, default=100)
     audit.add_argument("--offset", type=int, default=0)
     audit.add_argument("--no-digests", action="store_true")
+    audit.add_argument(
+        "--request-key",
+        help="Reuse this delivery key after a lost submission response.",
+    )
     audit.set_defaults(handler=cmd_storage_audit)
 
 
