@@ -1,6 +1,6 @@
 # Cross-project work
 
-Reviewed: **2026-10-20**, against the working tree based on `fc5de7af`.
+Reviewed: **2026-10-20**, including A01–A07 implementation slices for PR review.
 
 This is a routing list for work that crosses owners. Detailed implementation
 steps belong in subsystem plans; speculative additions belong in [ideas](ideas.md).
@@ -13,9 +13,9 @@ work; this index keeps the routes to the owning plans.
 
 | Work | Next useful boundary | Owner and detail |
 | --- | --- | --- |
-| Enforce remote capabilities | Define server-side endpoint permissions and a read-only client contract; keep privileged invocation behind explicit policy. | Core transport/surfaces: [A06](architectural_reviews/next_tasks.md#a06-enforce-transport-capabilities-on-the-server). |
+| Enforce remote capabilities | A06 is implemented for review: server-owned grants, authenticated roles and restricted readers. Inspect PR evidence before further account/deployment work. | Core transport/surfaces: [A06](architectural_reviews/next_tasks.md#a06-enforce-transport-capabilities-on-the-server). |
 | Complete semantic write coverage | Add missing field/relationship rules and explicit historical-data repair without another write path. | Catalog and metadata: [work list](catalog/catalog-roadmap.md), [write contract](catalog/catalog-write-validation-contract.md). |
-| Align remaining read behaviour | Resolve SQL default-ray versus Catalog bundle selection, then address remaining projection/search and bounded-query gaps. | Catalog/Core: [worked discrepancy](databases/wemi-link-examples.md#default-sql-view-versus-catalog-bundles), [Core API](core/core-api.md). |
+| Align remaining read behaviour | A07 aligns SQL complete rays and Catalog bundles. Address remaining projection/search and bounded-query gaps. | Catalog/Core: [selection contract](catalog/catalog-wemi-selection.md), [Core API](core/core-api.md). |
 | Harden destructive storage operations | Enforce retention/last-copy decisions at mutation boundaries and make partial effects recoverable. | Storage and application workflows: [storage overview](<06 - Storage.md>), [annotated findings](architectural_reviews/architecture-review-2026-09-26.md). |
 | Finish lifecycle and transaction ownership | Review remaining path-opening wrappers, database creation and failure semantics using the actual owner of each resource. | Core/databases: [lifecycle review](architectural_reviews/lifecycle-opening-path-review-2026-10-09.md), [configuration](core/configuration-ownership.md). |
 | Consolidate execution and acquisition | Define durable jobs versus Core execution, restart/cancellation and ingest receipts; retain domain policy with its owner. | Jobs/ingest/Core/storage: [ownership rules](<04 - Seperation of Concerns.md#ingest-jobs-and-execution-helpers>), [mixed ingest](storage_and_backup/mixed_ingest_operations.md). |

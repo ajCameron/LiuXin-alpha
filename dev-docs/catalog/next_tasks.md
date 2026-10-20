@@ -1,6 +1,6 @@
 # Next Catalog tasks
 
-Date: **2026-10-20**. Proposed work; this list does not implement the changes.
+Date: **2026-10-20**. CAT02 is implemented for PR review; other entries remain proposed work.
 
 Keep the shared repository/relationship owner. The [roadmap](catalog-roadmap.md) records implemented consolidation; this list makes the next slices reviewable.
 
@@ -12,9 +12,15 @@ Done when invalid input is rejected consistently, valid historical reads remain 
 
 ## CAT02. Unify default WEMI path selection
 
-**Next; architecture A07.** Choose a policy for primary flags, priorities, ties and no-Item paths with the database projection owner. Preserve graph reachability separately from default selection.
+**Implemented for PR review, 2026-10-20; architecture A07.** Catalog owns the
+[preferred-path contract](catalog-wemi-selection.md). Bundles match SQL's complete
+ray ranking and retain the fullest partial path when no complete one exists.
+Item availability does not rank editions; full relationship lists retain their order.
 
-Done when SQL primary rays, bundles and hydration defaults have explicit parity tests using bilingual editions, introductions and omnibuses; pagination/truncation remain visible.
+Regression fixtures cover bilingual editions, introductions, omnibuses, ties and
+unlinking. Hydration retains all related Works; its relation-local primary accessor
+has an explicit distinct contract and a contrasting-output test. It is not a
+complete-ray selector. Pagination/truncation contracts are unchanged.
 
 ## CAT03. Make transaction capability explicit
 

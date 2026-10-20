@@ -1,7 +1,7 @@
 # Target architecture and decision status
 
 Decision history begins **2026-09-26**. Implementation reviewed **2026-10-20**
-against the documentation pass and A01–A03 follow-ups based on `d5956d6e`.
+against the documentation pass and A01–A07 implementation slices (PR review).
 
 Status: **Accepted ownership decisions with explicit implementation limits.**
 This is the decision record and rationale. The [ownership guide](<../04 - Seperation of Concerns.md>)
@@ -14,15 +14,15 @@ proposal in the same section implemented.
 
 | Area | Current implementation | Remaining decision or migration |
 | --- | --- | --- |
-| Lifecycle | `core.library_services.LibraryServices` owns the graph it opens; Library borrows collaborators; Database defaults to persistence-only startup. A03's create-only publication and explicit backed-up replacement are implemented for PR review. | Lower-layer path wrappers, maintenance scheduling, and transaction/close safety. |
+| Lifecycle | `core.library_services.LibraryServices` owns the graph it opens; Library borrows collaborators; Database defaults to persistence-only startup. A03's create-only publication and explicit backed-up replacement are implemented for PR review. | Lower-layer path wrappers, maintenance scheduling and residual direct commit points; A04 defines transaction/close semantics. |
 | Bibliographic writes and identity | Metadata supplies pure rules; Catalog repositories/mutations and compatibility adapters share preparation and relationships. | Validators for uncovered fields, explicit repair contracts and residual raw-write contracts. |
-| Persistent reads and caches | Catalog owns hydration; `ReadCache` is independent of Catalog, while writable `Cache` delegates to it. Core owns application category policy. | Default-path selection, other projection/search adapters, query cost and capability boundaries. |
+| Persistent reads and caches | Catalog owns hydration; `ReadCache` is independent of Catalog, while writable `Cache` delegates to it. Core owns application category policy. | Other projection/search adapters, query cost and snapshot consistency; A07 now defines preferred-path selection. |
 | Configuration | Core resolves deployment settings and supplies one application preference store. | Legacy scratch/startup consumers and component-specific lifetimes; database preferences remain a separate scope. |
 | Formats and plugin composition | `plugins` unifies shared mechanics and application assembly, with internal dependency rules; formats retain standalone composition. | Unsupported providers, availability reporting and separate domain registries. |
 | Dependency enforcement | Protected acyclic scope, exact whole-package debt and cold-import budgets are enforced. | Existing exceptions and unmodelled/dynamic behaviour; no universal package ranking for cache sources. |
-| Storage | Manager → configured Store → raw driver; passive Locations, durable metadata adapters and ingest recovery exist. Backup runs own private staging workspaces with recovery/cleanup checks (A01). The four affected local builders preserve read-only intent through drivers and durable reload (A02). Both are implemented for PR review. | Retention/last-copy deletion policy, legacy registrations and cross-workflow resource budgets. |
+| Storage | Manager → configured Store → raw driver; passive Locations, durable metadata adapters and ingest recovery exist. Backup runs own private staging workspaces with recovery/cleanup checks (A01). The four affected local builders preserve read-only intent through drivers and durable reload (A02). A05 adds enforced deletion policy and durable recovery receipts. These are implemented for PR review. | Other storage writer migration, legacy registrations and cross-workflow resource budgets. |
 | Jobs and ingest | Durable jobs, Core execution and utility workers coexist; mixed ingest consumes an injected Library. | One coherent restart/cancellation/progress contract and durable maintenance signals. |
-| Transport and permissions | Named Core operations and shared read behaviour exist. | Server-enforced capabilities/authorization; a “read-only” surface name is not an access-control boundary. |
+| Transport and permissions | A06 enforces server-owned capabilities, authenticated writable roles and restricted read-only composition. | Fixed deployment roles are not per-user accounts; remote operators provide TLS or tunnels. |
 
 ## 1. Lifecycle ownership
 
@@ -153,11 +153,10 @@ ordering and membership. Surface adapters preserve those results and failures.
 That consolidation does not unify Work/search/acquisition projections or provide
 atomic snapshots across successive reads.
 
-The SQL default-ray view and Catalog bundles still choose preferred WEMI paths
-differently; see the [worked discrepancy](../databases/wemi-link-examples.md#default-sql-view-versus-catalog-bundles).
-Define that selection policy before making all callers share an explanation or
-implementation. Query bounds, fallback/completeness and transport capabilities
-also need explicit contracts. See the [cache boundary](../catalog/catalog-cache-boundary.md)
+A07 aligns SQL complete rays and Catalog bundles under the
+[Catalog preferred-path policy](../catalog/catalog-wemi-selection.md), with partial
+bundle and relation-local hydration contracts explicitly distinct. Full membership
+remains separate from selection. Query bounds and snapshot consistency remain open. See the [cache boundary](../catalog/catalog-cache-boundary.md)
 and [read-failure rules](../surfaces/read-model-failures.md).
 
 ## 4. Configuration ownership
@@ -200,8 +199,8 @@ cycles, side effects or hidden service construction.
 Storage's manager/Store/driver split is implemented; Location values remain
 passive. Asset/Replica identity and recovery are separate from bibliographic
 matching. Database commits, backend publication and cleanup have distinct failure
-boundaries. Retention assessment must not be mistaken for universal enforcement
-at every delete path. See the [storage overview](<../06 - Storage.md>).
+boundaries. A05 now enforces retention/last-copy policy at both manager deletion
+entries; A10 still owns other storage mutation callers and recovery coordination. See the [storage overview](<../06 - Storage.md>).
 
 Jobs invoke domain workflows rather than acquire their validation or placement
 policy. Consolidating Core execution, durable jobs and utility workers requires
@@ -209,12 +208,13 @@ an agreed run identity, restart/cancellation behaviour and result/log contract.
 Mixed ingest already consumes a Library, but this does not settle every acquisition
 coordinator or make cross-domain effects atomic.
 
-Transport access control is another independent boundary. Generic invocation,
-admin writes and destructive operations need server-side authorization/capability
-rules; loopback defaults, a `read_only` name or a presentation-only restriction
-cannot establish those rules. The [annotated review](architecture-review-2026-09-26.md)
-retains the concrete CO-4/SU-6/ST findings. This documentation review does not
-implement those protections.
+A06 implements the independent [transport authority boundary](../core/transport_permissions.md):
+server-owned capabilities authorize invocation, administration and ordinary writes
+before dispatch. Read-only composition uses a restricted reader. A permitted
+endpoint still obeys its domain policy, including A05
+[last-copy deletion rules](../storage_and_backup/deletion_policy.md). The
+[annotated review](architecture-review-2026-09-26.md) records the concrete CO-4/SU-6/ST
+implementation evidence and remaining limits.
 
 ## Decision log
 

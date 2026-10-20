@@ -389,7 +389,7 @@ highlights = catalog.annotations.list_for_item(
 
 An Item has one Manifestation foreign key, but that Manifestation can link to
 several Expressions and those Expressions to several Works. Its bundle selects
-one repository-ordered path and can contain all four WEMI rows:
+one preferred path and can contain all four WEMI rows:
 
 ```python
 bundle = catalog.retrieval.bundles.for_item(item_id)
@@ -399,16 +399,19 @@ assert bundle.manifestation["manifestation_id"] == manifestation_id
 assert bundle.item["item_id"] == item_id
 ```
 
-Each root chooses one deterministic path through the available relationships.
-Portable link reads order by descending priority, then destination ID; bundles
-follow that order without a separate primary-marker preference. This differs
-from the SQLite `wemi_primary_rays_v` view, which ranks primary flags first and
-uses ascending priorities within each group. A bundle is not an exhaustive
-ancestor or descendant graph, and incomplete paths can leave levels absent.
+Each root chooses one deterministic path using the
+[Catalog selection policy](catalog-wemi-selection.md). Complete WEM paths precede
+partial paths; primary flags, ascending priorities and IDs rank candidates, matching
+SQL `wemi_primary_rays_v` for a Work with complete rays. The lowest Item ID wins on
+the chosen edition; Item availability does not rank editions. Repository lists
+retain their descending-priority order. A bundle is not an exhaustive ancestor or
+descendant graph, and incomplete paths can leave levels absent.
 Bundles also collect attached Agents, Identifiers, Titles, Notes, and
 relationship records from the selected path. The
-[worked WEMI examples](../databases/wemi-link-examples.md) show both selection
-contracts and explain why one copy can appear on several paths.
+[worked WEMI examples](../databases/wemi-link-examples.md) show matching SQL/bundle
+outputs and explain why one copy can appear on several paths. Metadata containers'
+primary-relation accessors answer a separate, relation-local question; see the
+selection contract before using them as a preferred-path projection.
 
 Use hierarchy retrieval for one generic step in either direction:
 

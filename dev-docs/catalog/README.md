@@ -12,6 +12,8 @@ and verification; their old test counts are not current checkout results.
 - [Write validation](catalog-write-validation-contract.md): semantic boundary,
   stored identities and explicit exclusions.
 - [Matching policy](catalog-matching-policy.md): identity decisions.
+- [Preferred WEMI paths](catalog-wemi-selection.md): SQL/bundle ranking, partial
+  paths and the distinct metadata relation-selection contract.
 - [Cache boundary](catalog-cache-boundary.md): derived reads and reconciliation.
 - [Link writers](catalog-link-writer-architecture.md): schema-driven relationships.
 - [Cache backends](<../08 - Storage Cache Backends.md>) and

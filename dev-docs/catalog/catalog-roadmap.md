@@ -49,10 +49,10 @@ retained adapters from frozen reference code. The
    policy there. Preserve the read/write cache split and the unified plugin host.
 4. **Finish read-model policy deliberately.** Core category semantics are shared;
    broader Work/search/file/acquisition adapters and server-side listing costs
-   remain. Default path selection also differs between the SQLite primary-ray
-   view and Catalog bundles: the [worked examples](../databases/wemi-link-examples.md#default-sql-view-versus-catalog-bundles)
-   demonstrate their primary/priority rules. Decide the intended selection contract
-   before consolidating it, with parity and failure tests for the chosen behaviour.
+   remain. A07 now aligns SQLite primary rays and Catalog bundles under the
+   [preferred-path contract](catalog-wemi-selection.md), with real-backend parity
+   and incomplete/shared-path cases. Metadata relation-local selection is explicitly
+   separate; graph membership and existing list order are preserved.
 5. **Measure startup and retrieval costs.** Profile FRBR generation, aggregate
    views, schema introspection and category listing on representative catalogues.
    Preserve correctness and explicit completeness/truncation contracts when adding
