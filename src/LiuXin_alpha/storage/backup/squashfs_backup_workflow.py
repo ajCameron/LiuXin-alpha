@@ -11,8 +11,6 @@ from __future__ import annotations
 
 import hashlib
 import pathlib
-import shutil
-
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
@@ -26,11 +24,11 @@ from LiuXin_alpha.storage.api import (
     BackupWorkflowKind,
     BackupWorkflowResult,
     BackupWorkflowStepKind,
+    Digest,
     DigitalAssetID,
     DigitalAssetIngestResult,
     DigitalAssetRecord,
     DigitalAssetResolution,
-    Digest,
     Location,
     ReplicaState,
     StoreAlreadyExists,
@@ -39,6 +37,7 @@ from LiuXin_alpha.storage.api import (
     StoreUnsupportedOperation,
     WorkflowStatus,
 )
+from LiuXin_alpha.storage.backup._staging import BackupStagingWorkspace
 from LiuXin_alpha.storage.store_backend_plugins.squashfs_build import (
     SquashfsBuildStorageBackend,
 )
@@ -86,18 +85,22 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
         deterministic: bool = False,
         storage_manager: StorageManagerAPI | None = None,
         _builder_store_uuid: UUID | None = None,
+        _resume_staging: bool = False,
+        _staging_workspace: str | None = None,
     ) -> None:
         """
         Initialize a fresh DRAFT workflow and its local build Store.
 
-        Retain the output target and borrowed manager, choose a display name and builder UUID, and
-        delegate output-parent/staging-directory creation to the builder. Flags are converted to
-        bool. A Location output requires explicit persistent local staging, with a UUID-specific
-        build image beside that directory. Local outputs can use builder-owned temporary staging.
+        Allocate a private workspace beneath the supplied staging parent (or system scratch).
+        Only its members directory is archived. Ownership evidence and a routed output's local
+        image live beside the members. A Location output requires an explicit staging parent.
+        Failed builder setup releases a newly allocated workspace.
 
-        Builder creation can leave directories before a later constructor error; no enclosing
-        cleanup guard is added here. This does not check source availability, execute mksquashfs,
-        persist intent, or assign a repository workflow ID.
+        Reconstruction validates saved ownership before builder setup. Legacy staging without
+        ownership evidence is borrowed and never automatically cleaned. Failure, cancellation
+        and cleanup_staging_after_success=False retain scratch for recovery or inspection.
+        This does not check source availability, execute mksquashfs, persist intent, or assign
+        a repository workflow ID.
 
         Example:
             >>> workflow = SquashfsBackupWorkflow(  # doctest: +SKIP
@@ -109,13 +112,15 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
         :param output_target: Local image path or managed destination Location; the original value is retained in intent.
         :param workflow_name: Truthy display name, otherwise derived from the local output basename or a fixed Location-output label.
         :param verify_after_build: Whether finalization additionally checks the sealed reader self-test availability.
-        :param cleanup_staging_after_success: Whether to request best-effort staging removal after publication.
-        :param staging_target: Optional local staging directory; required for a Location output and created when necessary.
+        :param cleanup_staging_after_success: Remove verified run-owned scratch after publication; legacy borrowed staging is retained.
+        :param staging_target: Optional local staging parent for a new run; a captured declaration contains the actual members directory.
         :param mksquashfs_exe: Builder executable name or path forwarded to the build Store.
         :param compression: Compression argument forwarded to the builder.
         :param deterministic: Request builder flags fixing ownership/timestamps and excluding xattrs.
         :param storage_manager: Optional borrowed manager required by routed sources, catalogue identity, and Location output.
         :param _builder_store_uuid: Optional retained builder UUID for reconstruction; a falsey value allocates a fresh UUID.
+        :param _resume_staging: Internal flag to reopen captured staging rather than allocate a new workspace.
+        :param _staging_workspace: Internal saved workspace path; absent on legacy borrowed staging.
         :return: None after builder setup and initialization of empty source/report/milestone lists and DRAFT state.
         """
         self._output_target = output_target
@@ -124,20 +129,55 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
         self._verify_after_build = bool(verify_after_build)
         self._cleanup_staging_after_success = bool(cleanup_staging_after_success)
         builder_store_uuid = _builder_store_uuid or uuid4()
-        build_output = _local_build_output(
-            output_target,
-            staging_target,
-            builder_store_uuid=builder_store_uuid,
-        )
-        self._builder = SquashfsBuildStorageBackend(
-            url=str(build_output),
-            name=self._workflow_name,
-            uuid=builder_store_uuid,
-            staging_root=staging_target,
-            mksquashfs_exe=mksquashfs_exe,
-            compression=compression,
-            deterministic=deterministic,
-        )
+        if isinstance(output_target, Location) and staging_target is None:
+            raise StorePreconditionFailed(
+                "Location output targets require a persistent local staging_target."
+            )
+        self._workspace: BackupStagingWorkspace | None
+        if _resume_staging:
+            if staging_target is None:
+                raise StorePreconditionFailed("resuming a backup requires retained staging.")
+            staging_root = pathlib.Path(staging_target).expanduser().absolute()
+            self._workspace = (
+                None if _staging_workspace is None else BackupStagingWorkspace(
+                    pathlib.Path(_staging_workspace).expanduser().absolute(),
+                    builder_store_uuid,
+                )
+            )
+            if self._workspace is not None:
+                self._workspace.validate(staging_root)
+            elif not staging_root.is_dir():
+                raise StorePreconditionFailed("legacy backup staging is missing.")
+        else:
+            self._workspace = BackupStagingWorkspace.create(staging_target, builder_store_uuid)
+            staging_root = self._workspace.members
+        try:
+            build_output = (
+                self._workspace.path / "artifact.squashfs"
+                if isinstance(output_target, Location) and self._workspace is not None
+                else _local_build_output(
+                    output_target, str(staging_root), builder_store_uuid=builder_store_uuid,
+                )
+            )
+            if (
+                isinstance(output_target, str)
+                and self._workspace is not None
+                and build_output.is_relative_to(self._workspace.path)
+            ):
+                raise StorePreconditionFailed("local backup output must be outside its workspace.")
+            self._builder = SquashfsBuildStorageBackend(
+                url=str(build_output),
+                name=self._workflow_name,
+                uuid=builder_store_uuid,
+                staging_root=str(staging_root),
+                mksquashfs_exe=mksquashfs_exe,
+                compression=compression,
+                deterministic=deterministic,
+            )
+        except BaseException:
+            if not _resume_staging and self._workspace is not None:
+                self._workspace.cleanup(staging_root)
+            raise
         self._sources: list[BackupSourceDeclaration] = []
         self._source_reports: list[BackupSourceStagingReport] = []
         self._status = WorkflowStatus.DRAFT
@@ -180,8 +220,9 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
 
         Sources become a tuple, flags and the original output target are retained, and staging is
         represented by its resolved local path. Options capture executable, compression,
-        deterministic spelling, and builder UUID; declaration construction canonicalizes their
-        order. No repository write or source-byte inspection occurs.
+        deterministic spelling, builder UUID and owned workspace path; declaration construction
+        canonicalizes their order. The workspace option is omitted for borrowed legacy staging.
+        No repository write or source-byte inspection occurs.
 
         Example:
             >>> declaration = workflow.build_declaration()  # doctest: +SKIP
@@ -204,6 +245,9 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
                 ("compression", self._builder._compression),
                 ("deterministic", "1" if self._builder._deterministic else "0"),
                 ("builder_store_uuid", str(self._builder.store_ref)),
+            ) + (
+                () if self._workspace is None
+                else (("staging_workspace", str(self._workspace.path)),)
             ),
         )
 
@@ -464,6 +508,8 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
         try:
             self._status = WorkflowStatus.RUNNING
             self._last_error = None
+            if self._workspace is not None:
+                self._workspace.validate(self._builder.staging_root)
             if self._next_source_index < len(self._sources):
                 report = self._stage_one(
                     self._sources[self._next_source_index],
@@ -542,15 +588,18 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
         declaration: BackupWorkflowDeclaration,
         *,
         storage_manager: StorageManagerAPI | None = None,
+        _resume_staging: bool = False,
     ) -> SquashfsBackupWorkflow:
         """
         Construct DRAFT execution from SquashFS intent and its supported options.
 
         Require the SQUASHFS_PACK enum member and reject a Location staging target. Restore
-        executable, compression, builder UUID, and the exact deterministic="1" spelling, defaulting
-        missing options; unrecognized options are ignored. Constructor setup can create directories,
-        and the declaration's sources are list-copied without re-designating or restatting them. No
-        progress, workflow ID, or repository association is restored.
+        executable, compression, builder UUID, owned workspace and the exact deterministic="1"
+        spelling. Captured declarations reopen verified staging; older captured declarations
+        without workspace evidence borrow their staging and cannot clean it. New intent without
+        a builder identity allocates a private workspace beneath staging_target. Unrecognized
+        options are ignored. Sources are list-copied without re-designating or restatting them.
+        No progress, workflow ID, or repository association is restored.
 
         Example:
             >>> workflow = SquashfsBackupWorkflow.from_declaration(  # doctest: +SKIP
@@ -560,6 +609,7 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
 
         :param declaration: SquashFS backup intent with local staging and optional captured builder options.
         :param storage_manager: Optional borrowed manager for subsequent routed operations and Asset lookups.
+        :param _resume_staging: Internal flag for a checkpoint that has already started staging.
         :return: Fresh DRAFT instance of cls with the declared ordered sources.
         """
         if declaration.workflow_kind is not BackupWorkflowKind.SQUASHFS_PACK:
@@ -569,6 +619,8 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
                 "SquashFS build staging currently requires a local path."
             )
         options = declaration.option_map()
+        if "staging_workspace" in options and "builder_store_uuid" not in options:
+            raise StorePreconditionFailed("owned backup staging requires a saved builder identity.")
         workflow = cls(
             declaration.output_target,
             workflow_name=declaration.workflow_name,
@@ -584,6 +636,8 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
                 if "builder_store_uuid" not in options
                 else UUID(options["builder_store_uuid"])
             ),
+            _resume_staging=_resume_staging or "builder_store_uuid" in options,
+            _staging_workspace=options.get("staging_workspace"),
         )
         workflow._sources = list(declaration.sources)
         return workflow
@@ -619,6 +673,7 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
         workflow = cls.from_declaration(
             checkpoint.declaration,
             storage_manager=storage_manager,
+            _resume_staging=checkpoint.status is not WorkflowStatus.DRAFT,
         )
         workflow._workflow_id = checkpoint.workflow_id
         workflow._status = checkpoint.status
@@ -774,8 +829,10 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
         Location output is SHA-256 hashed and streamed through manager.put. On StoreAlreadyExists
         only, accept the destination if a separately computed digest matches. Hash/stat/read and
         destination checks are not version-pinned. Local output records the resolved image pathname.
-        The output reference is assigned before optional best-effort staging removal; CLEANUP
-        records the attempt even if rmtree ignores filesystem errors.
+        The output reference is assigned before optional removal of the verified owned workspace,
+        including the local intermediate image for routed output. CLEANUP records successful
+        removal only; cleanup errors leave a FAILED checkpoint with the publication evidence.
+        Legacy borrowed staging is retained even if cleanup was requested.
 
         No aggregate transaction rolls back an image, routed copy, or milestone after a later error.
         This helper does not set COMPLETE or save the checkpoint, and leaves artifact
@@ -837,10 +894,9 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
         else:
             self._output_artifact_reference = str(local_archive)
 
-        if self._cleanup_staging_after_success:
-            # A local output is deliberately outside staging. A Location output
-            # has already been committed before cleanup begins.
-            shutil.rmtree(self._builder.staging_root, ignore_errors=True)
+        if self._cleanup_staging_after_success and self._workspace is not None:
+            # Validate again at the destructive boundary, after building and publication.
+            self._workspace.cleanup(self._builder.staging_root)
             self._mark_complete(BackupWorkflowStepKind.CLEANUP)
 
     def _mark_complete(self, step: BackupWorkflowStepKind) -> None:
@@ -910,9 +966,9 @@ def _local_build_output(
     Choose the absolute local image path used before any routed publication.
 
     String outputs are expanded and resolved directly. A routed output requires non-None local
-    staging; the intermediate image is named with the builder UUID and placed in the staging
-    directory's parent. This avoids sharing a fixed intermediate name across builders, but does not
-    reserve a path or create directories.
+    legacy borrowed staging; its intermediate image is named with the builder UUID and placed in
+    the staging directory's parent. New owned workspaces keep their intermediate inside the
+    workspace instead. This helper does not reserve a path or create directories.
 
     Example:
         >>> _local_build_output(

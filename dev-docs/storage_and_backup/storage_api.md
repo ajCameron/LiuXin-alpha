@@ -22,13 +22,48 @@ these boundaries do not yet enforce every safety rule:
 - `manager.delete(location)` delegates physical deletion without updating Replica
   claims or checking loss policy. `remove_replica(...)` can delete bytes before
   metadata mutation; a later metadata failure cannot restore those bytes.
-- Backup cleanup can remove a caller-supplied staging root. Until STOR01 is fixed,
-  cleanup-enabled runs must receive a directory owned exclusively by that run.
 - Byte publication and catalogue transactions remain separate effects. Journals
   and verification support recovery; they are not a distributed atomic transaction.
 
 See [next tasks](next_tasks.md) for the concrete fixes and acceptance criteria.
 These limitations also apply when a higher-level caller reaches the same paths.
+
+## Backup staging ownership
+
+`SquashfsBackupWorkflow(staging_target=...)` treats the supplied path as a
+**parent** for a new run. It creates an exclusive `liuxin-backup-*` workspace
+inside it. Only the workspace's `members/` directory is passed to the build Store;
+ownership evidence and any routed output's intermediate image stay outside the
+archive members. Separate runs can share the parent without sharing staged files.
+
+Persist `workflow.progress().declaration` and its checkpoints, rather than the
+original planning declaration. The effective declaration contains the actual
+members path, workspace path and builder identity needed for recovery. Recovery
+validates that evidence before reopening staging, and execution checks it again
+before work and cleanup. Missing or redirected workspaces are rejected; they are
+not silently recreated or adopted.
+
+With `cleanup_staging_after_success=True`, successful publication removes only
+the verified private workspace, including a routed output's intermediate image.
+The caller's parent and local final output survive. `CLEANUP` is recorded only
+after removal succeeds. A cleanup error produces a failed checkpoint that retains
+the publication evidence; it does not undo the published artifact.
+
+Failure and cancellation retain scratch. Set `cleanup_staging_after_success=False`
+to retain successful runs for diagnosis too. This also applies to default scratch
+allocated when a local-output workflow has no explicit staging parent: it is
+retained until successful requested cleanup or deliberate operator removal.
+If cleanup fails partway through or ownership evidence is missing, inspect the
+remaining workspace before manual removal; do not invent a new ownership record
+to force recovery.
+
+Legacy captured declarations without workspace evidence remain resumable from
+their existing flat staging directories. Those directories are borrowed and are
+never automatically removed, even if an old declaration requested cleanup.
+The [ownership regressions](../../tests/storage/backup/test_backup_staging_ownership.py)
+cover caller-file preservation, failure/cancellation, persisted retry and legacy
+recovery. This contract does not synchronize concurrent executions of the same
+checkpoint or provide a transaction across filesystem and catalogue effects.
 
 ## How to use this guide
 

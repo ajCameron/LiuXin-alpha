@@ -1,14 +1,20 @@
 # Next storage tasks
 
-Date: **2026-10-20**. Proposed work; this list does not implement the changes.
+Date: **2026-10-20**. STOR01 is implemented for PR review; remaining entries are proposed work.
 
 Keep the existing manager/Store/driver structure. Close mutation and resource ownership gaps before adding more orchestration layers.
 
 ## STOR01. Preserve caller-owned staging
 
-**First; architecture A01.** Track a backup run's scratch ownership, preferably by allocating a unique child under a caller-supplied parent. Carry that identity through resume and cleanup.
+**Implemented for PR review, 2026-10-20; architecture A01.** New backup runs allocate
+a private workspace beneath the supplied staging parent. Persisted ownership is
+checked on recovery and before cleanup. Legacy staging remains borrowed and retained.
+Requested cleanup also releases a routed output's local intermediate image.
 
-Done when sentinel files in the parent survive success, verification failure, cancellation and restart; cleanup removes only entries owned by the run.
+The [staging contract](storage_api.md#backup-staging-ownership) describes retention
+and recovery. [Regression tests](../../tests/storage/backup/test_backup_staging_ownership.py)
+cover sentinel preservation, separate runs, failure/cancellation, persisted retries,
+ownership tampering and cleanup errors.
 
 ## STOR02. Preserve read-only intent through construction
 

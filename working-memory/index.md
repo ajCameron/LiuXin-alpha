@@ -1,5 +1,15 @@
 # Working Memory Index
 
+Latest implementation checkpoint, **2026-10-20**:
+[backup staging ownership](backup-staging-ownership-2026-10-20.md) implements
+A01/STOR01 on `backup-staging-ownership`, based on `a5406cf8`. Backup runs now own
+private workspaces, preserve their ownership through checkpoints, and retain
+borrowed legacy staging. All 60 backup/builder/workflow checks passed, including
+real SquashFS readback. The focused PR depends on documentation PR #127 while it
+remains open. Unrelated staged storage edits and the data submodule are preserved.
+
+Earlier documentation checkpoint:
+
 Latest checkpoint, **2026-10-20**: the
 [subsystem documentation review](documentation-subsystems-2026-10-20.md) continues
 the top-level and architecture passes on `docs-ownership-contracts` at `fc5de7af`.

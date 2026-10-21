@@ -1,10 +1,10 @@
 # Next architecture tasks
 
-Date: **2026-10-20**. Basis: the working tree at `fc5de7af` plus the current
-uncommitted documentation review.
+Date: **2026-10-20**. Basis: documentation review at `a5406cf8`, followed by A01's
+implementation on `backup-staging-ownership`.
 
-Status: **Proposed runtime implementation sequence. Documentation progress is
-recorded in A14; runtime fixes remain open.** Recheck the named behaviour before starting each task, especially
+Status: **A01 is implemented for PR review; remaining runtime fixes are open.
+Documentation progress is recorded in A14.** Recheck the named behaviour before starting each task, especially
 where evidence comes from an older review. The first safety slices were checked
 against their current source while writing this list; external CI and GitHub
 settings were not refreshed.
@@ -25,7 +25,7 @@ Finding IDs below refer to the
 
 ## Recommended order
 
-Start with **A01, A02 and A03 as separate small PRs**. Develop A06's transport
+With A01 implemented for review, take **A02 and A03 as separate small PRs**. Develop A06's transport
 contract in the same first group; it does not need to wait for job consolidation.
 Then close A04/A05's broader safety contracts. A07 is the next bounded read-model
 change; A08 continues the existing write-consolidation programme.
@@ -35,7 +35,7 @@ before starting an independent one. Dependencies are stated in each task.
 
 | Task | Priority | Concrete result | Main owner |
 | --- | --- | --- | --- |
-| [A01](#a01-preserve-caller-owned-backup-staging) | First | Cleanup removes only scratch owned by the backup run. | Storage backup |
+| [A01](#a01-preserve-caller-owned-backup-staging) | Implemented; PR review | Cleanup removes only scratch owned by the backup run. | Storage backup |
 | [A02](#a02-enforce-store-read-only-intent) | First | Backend construction preserves and enforces read-only intent. | Storage registry and Stores |
 | [A03](#a03-make-database-creation-nondestructive-by-default) | First | Creating over an existing database requires an explicit replacement operation. | Databases and Core bootstrap |
 | [A04](#a04-separate-resource-lifetime-from-transaction-lifetime) | First | Exceptions and nested mutations have one explicit transaction contract. | Databases, with Catalog/storage callers |
@@ -54,18 +54,21 @@ before starting an independent one. Dependencies are stated in each task.
 
 ## A01. Preserve caller-owned backup staging
 
-**Findings:** ST-6. **First PR:** bounded cleanup fix. **Dependencies:** none.
+**Findings:** ST-6. **Implemented for PR review, 2026-10-20.** **Dependencies:** none.
 
 [`SquashfsBackupWorkflow`](../../src/LiuXin_alpha/storage/backup/squashfs_backup_workflow.py)
-can clean the builder's staging root even when supplied by a caller. Record which
-scratch directory the run owns. Prefer a uniquely owned child within a supplied
-staging parent, or track run-owned entries explicitly; never infer ownership from
-having received a path. Carry that distinction through recovery and cleanup.
+now allocates an exclusive workspace beneath the supplied staging parent. It
+persists ownership outside archive members, validates that identity during
+reconstruction/execution/cleanup, and removes only its workspace after successful
+publication when requested. Routed intermediate images are included in cleanup.
+Legacy checkpoint staging remains borrowed; missing ownership is not recreated.
 
-**Done when:** sentinel files in a caller's parent survive success, failure and
-cancellation; cleanup removes the run's own scratch; a retry/recovered run cannot
-claim unrelated contents. Exercise the real cleanup path, including a failure
-before publication. Document how diagnostic scratch can be retained deliberately.
+[Regression tests](../../tests/storage/backup/test_backup_staging_ownership.py)
+exercise caller sentinels through success, build/verification/publication failure,
+cancellation, persisted recovery, shared parents and cleanup errors. See the
+[staging contract](../storage_and_backup/storage_api.md#backup-staging-ownership)
+for diagnostic retention and legacy behaviour. Concurrent use of one checkpoint
+remains outside this workflow's synchronization contract.
 
 ## A02. Enforce Store read-only intent
 
