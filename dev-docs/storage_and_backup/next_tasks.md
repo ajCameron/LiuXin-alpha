@@ -47,13 +47,19 @@ introduced; leases and storage writer consolidation remain STOR04/STOR05 work.
 ## STOR04. Converge storage-record mutations and receipts
 
 **First family implemented for PR review; architecture A10.** Generic Asset/Replica
-admin writes are refused; policy definitions, Asset policy assignment and FRBR backup indexing use
-the storage owner. The [mutation contract](record-mutations.md) records caller
+admin writes are refused; policy definitions, Asset policy assignment, Composite
+CRUD and FRBR backup indexing use the storage owner. Composite member rows are
+inspectable only; full membership replacements retain the owner revision.
+The [mutation contract](record-mutations.md) records caller
 migration, revisions, historical fingerprints and partial effects.
 
-Continue with Composite/Item-link adapters and retained `files`
+Continue with Item-link and workflow-definition/source adapters and retained `files`
 reconciliation. Keep schema mechanics below the owner and preserve source
 observations, revision preconditions and cache invalidation.
+Also repair SQLite's Composite membership uniqueness: valid repeated same-role
+Assets currently conflict despite distinct positions. Preserve existing libraries
+and verify parity with the domain model and PostgreSQL. The Core owner adapter
+currently retains the transaction's complete rollback on this constraint failure.
 
 Done when the selected live callers share validation and receipts, failure injection covers publication versus commit, and out-of-band inventory is not treated as metadata authority.
 

@@ -740,7 +740,8 @@ def test_browse_projection_covers_work_list_detail_and_acquisition(
                 "resource": "composite",
                 "values": {
                     "name": "Core multipart edition",
-                    "media_category": "ebook",
+                    "attributes": {"media_category": "ebook"},
+                    "members": [{"digital_asset_id": managed_asset_id}],
                 },
             },
         )
@@ -756,19 +757,6 @@ def test_browse_projection_covers_work_list_detail_and_acquisition(
                 },
             },
         )
-        runtime.command(
-            "storage.resource.create",
-            {
-                "resource": "composite-member-link",
-                "values": {
-                    "composite_digital_asset_id": composite_id,
-                    "digital_asset_id": managed_asset_id,
-                    "type": "member",
-                    "sequence_number": 1,
-                },
-            },
-        )
-
         categories = runtime.query("browse.categories")
         assert {category["category"] for category in categories["categories"]} == {
             "all",
