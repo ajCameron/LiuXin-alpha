@@ -46,8 +46,10 @@ def _mount_context(
     device = getattr(args, "source_device", None)
     backing = image or device
     if backing:
-        source = Path(backing).expanduser().resolve(strict=True)
-        # Saved-run replay must not depend on the launcher's working directory.
+        source = Path(backing).expanduser().absolute()
+        # Retain stable aliases such as /dev/disk/by-id for replay after reboot,
+        # while removing dependence on the launcher's working directory. The
+        # mount owner separately resolves and pins the current backing object.
         setattr(args, "source_device" if device else "source_image", str(source))
         return read_only_filesystem_mount(
             source,

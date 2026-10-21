@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import signal
+from contextlib import nullcontext
 from pathlib import Path
 from uuid import uuid4
 
@@ -188,3 +189,30 @@ def test_launcher_retains_host_privileges_when_required(
     assert ("--user" in commands[0]) is user_namespace
     assert "--mount" in commands[0]
     assert commands[0][commands[0].index("--propagation") + 1] == "private"
+
+
+@pytest.mark.parametrize("option", ["source_image", "source_device"])
+def test_mount_worker_preserves_stable_source_alias_for_resume(
+    monkeypatch, tmp_path: Path, option
+) -> None:
+    """Do not replace a persistent by-id selector with a volatile device-node pathname."""
+    from LiuXin_alpha.surfaces.cli.storage_commands import ingest_mount_worker as worker
+
+    backing = tmp_path / "volatile-target"
+    backing.touch()
+    alias = tmp_path / "stable-source"
+    alias.symlink_to(backing)
+    monkeypatch.chdir(tmp_path)
+    args = argparse.Namespace(
+        source_root="mount", source_filesystem="ext4", **{option: alias.name}
+    )
+    selected = []
+
+    def mount(source, target, **kwargs):
+        selected.append(source)
+        return nullcontext({"verified": True})
+
+    monkeypatch.setattr(worker, "read_only_filesystem_mount", mount)
+    with worker._mount_context(args, 17):
+        assert getattr(args, option) == str(alias)
+    assert selected == [alias]

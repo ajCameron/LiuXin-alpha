@@ -222,8 +222,9 @@ def private_mount_state(parent_namespace: int) -> tuple[int, dict[int, _Mount]]:
 def read_only_source_mount(
     source: Path, *, parent_namespace: int, allow_file: bool = False
 ) -> Iterator[dict[str, object]]:
-    """Protect a directory recursively, retaining its path and detaching only our bind.
+    """Protect a directory recursively, or a backing file when explicitly allowed.
 
+    Retain the source pathname and detach only the bind created by this scope.
     Reopen cwd after mounting to avoid an inherited writable directory view.
     Namespace teardown is the cleanup backstop after process death.
     """

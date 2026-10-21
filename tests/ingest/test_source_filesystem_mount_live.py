@@ -108,6 +108,10 @@ def test_real_filesystem_mount_and_cli_repeat_preserve_source(
     )
     with outer_loop as backing:
         source = Path(os.readlink(backing)) if block_device else backing
+        if block_device:
+            alias = tmp_path / "stable-device"
+            alias.symlink_to(source)
+            source = alias
         code = """import errno, pathlib, sys
 from LiuXin_alpha.ingest.source_filesystem_mount import read_only_filesystem_mount
 source, target = map(pathlib.Path, sys.argv[1:3])
@@ -187,6 +191,17 @@ assert list(target.iterdir()) == []
             assert payload["source_mount"]["read_only_loop"]
             assert payload["report"]["source_root"] == str(target)
             assert payload["report"]["files_adopted"] == 1
+            if block_device:
+                events = [
+                    json.loads(line)
+                    for line in Path(payload["event_log"]).read_text().splitlines()
+                ]
+                started = next(
+                    event["context"]["details"]
+                    for event in events
+                    if event.get("context", {}).get("event") == "cli_started"
+                )
+                assert started["arguments"]["source_device"] == str(source)
             if attempt:
                 assert payload["report"]["assets_created"] == 0
                 assert payload["report"]["replicas_created"] == 0

@@ -327,8 +327,9 @@ Ingest starts only after verification succeeds. The source path recorded in Stor
 and Replica declarations stays stable across attempts.
 
 This requires Linux 5.12 or later, a libc exposing `mount_setattr`, util-linux
-`unshare`, and permission to create user and mount namespaces. No automatic sudo
-or writable fallback is used. Unsupported systems and denied namespace/mount
+`unshare`, and permission to create mount namespaces (plus user namespaces for
+unprivileged directory binds). No automatic sudo or writable fallback is used.
+Unsupported systems and denied namespace/mount
 operations fail before catalogue startup. The flag also applies to discovery and
 preflight, so preflight can exercise the actual mount setup. Run reports include
 `source_mount` verification evidence, and `ingest runs resume` retains the option
@@ -407,7 +408,9 @@ replay. [Kernel ext4 documentation](https://cdn.kernel.org/doc/html/latest/admin
 
 Reports include the backing source, kind, filesystem and verified loop/mount
 evidence. Saved-run resume retains the attachment options and establishes fresh
-protection. Namespace teardown releases private mounts after process death;
+protection, preserving stable device selectors such as `/dev/disk/by-id` rather
+than saving the current `/dev/sdX` resolution. Namespace teardown releases private
+mounts after process death;
 autoclear releases the owned loop when its last reference closes. The mount target
 is left as the original empty directory. Catalogue paths remain rooted at that
 target, so later file access requires the same content mounted at that path;
