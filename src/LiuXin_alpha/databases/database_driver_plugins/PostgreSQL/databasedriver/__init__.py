@@ -1063,6 +1063,23 @@ class DatabaseDriver(
         except KeyError as exc:
             raise InputIntegrityError(f"table {table} not found") from exc
 
+    def _physical_identifier(self, identifier: str) -> str:
+        """Resolve a generated name using PostgreSQL's own identifier representation.
+
+        The server applies the same byte limit and multibyte clipping during DDL.
+        Asking it avoids duplicating that rule or assuming a particular compiled
+        name length. Existing automatically truncated schemas need no renaming.
+        The caller must still check the result against discovered columns.
+        """
+        conn = self._short_connection()
+        try:
+            row = conn.execute(
+                "SELECT CAST(%s AS pg_catalog.name) AS identifier", (identifier,)
+            ).fetchone()
+            return str(_row_value(row, 0, "identifier"))
+        finally:
+            conn.close()
+
     def direct_get_declared_types_for_table(self, table: str) -> dict[str, str]:
         """
         Cache information_schema data_type labels by canonical table name.

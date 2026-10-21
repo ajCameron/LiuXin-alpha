@@ -6,6 +6,10 @@ LiuXin's PostgreSQL backend is intended for large libraries where SQLite is not
 the right persistence layer. The backend is registered as `PostgreSQL` with
 aliases `postgres`, `postgresql`, and `pg`.
 
+The [generated identifier contract](postgres-identifier-discovery.md) describes
+how link discovery preserves the physical names already chosen by PostgreSQL.
+That compatibility fix does not add SQLite's legacy title/book projections.
+
 ## Install
 
 Use the repo-local environment and include the PostgreSQL extra:
