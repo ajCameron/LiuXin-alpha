@@ -13,6 +13,7 @@ Example:
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import json
 import math
 import pathlib
@@ -65,6 +66,8 @@ CREATE TABLE IF NOT EXISTS job_runs (
     worker_id TEXT,
     lease_token TEXT,
     payload_json TEXT,
+    job_name TEXT,
+    retry_of_job_run_id INTEGER,
     lease_expires_timestamp_ep_k INTEGER,
     cancel_requested INTEGER NOT NULL DEFAULT 0,
     not_before_timestamp_ep_k INTEGER,
@@ -93,11 +96,24 @@ CREATE TABLE IF NOT EXISTS job_run_events (
     FOREIGN KEY(job_run_id) REFERENCES job_runs(job_run_id)
 );
 CREATE INDEX IF NOT EXISTS idx_job_run_events_run ON job_run_events(job_run_id, created_timestamp_ep_k);
+CREATE TABLE IF NOT EXISTS job_ledger_identity (
+    singleton INTEGER PRIMARY KEY CHECK(singleton=1),
+    ledger_uuid TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS job_requests (
+    request_key TEXT PRIMARY KEY,
+    request_json TEXT NOT NULL,
+    job_run_id INTEGER NOT NULL REFERENCES job_runs(job_run_id)
+);
 """
 
 
 class JobLeaseLost(RuntimeError):
     """The caller no longer owns an unexpired claim and must stop reporting effects."""
+
+
+class JobRequestConflict(ValueError):
+    """A delivery key already names different work; no new work was accepted."""
 
 
 class JobRepository:
@@ -150,10 +166,10 @@ class JobRepository:
         return conn
 
     def ensure_schema(self) -> None:
-        """Create the ledger and add claim/payload columns to existing ledgers.
+        """Create or upgrade the ledger, preserving its stable identity and runs.
 
-        Legacy runs capture their current definition payload once on upgrade;
-        an earlier historical payload cannot be reconstructed.
+        Legacy runs capture their current definition payload/name once on upgrade;
+        historical inputs and retry ancestry cannot be reconstructed.
         """
         with self._connection() as conn:
             conn.executescript(_SCHEMA)
@@ -161,64 +177,84 @@ class JobRepository:
             columns = {
                 row["name"] for row in conn.execute("PRAGMA table_info(job_runs)")
             }
-            for name in ("lease_token", "payload_json"):
+            additions = {
+                "lease_token": "TEXT",
+                "payload_json": "TEXT",
+                "job_name": "TEXT",
+                "retry_of_job_run_id": "INTEGER",
+            }
+            for name, sql_type in additions.items():
                 if name not in columns:
-                    conn.execute(f"ALTER TABLE job_runs ADD COLUMN {name} TEXT")
+                    conn.execute(f"ALTER TABLE job_runs ADD COLUMN {name} {sql_type}")
             conn.execute("""
                 UPDATE job_runs SET payload_json=(
                     SELECT payload_json FROM job_definitions
                     WHERE job_definitions.job_definition_id=job_runs.job_definition_id
                 ) WHERE payload_json IS NULL
             """)
+            conn.execute("""
+                UPDATE job_runs SET job_name=(
+                    SELECT job_name FROM job_definitions
+                    WHERE job_definitions.job_definition_id=job_runs.job_definition_id
+                ) WHERE job_name IS NULL
+            """)
+            conn.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_job_runs_retry_parent
+                ON job_runs(retry_of_job_run_id)
+                WHERE retry_of_job_run_id IS NOT NULL
+            """)
+            conn.execute(
+                "INSERT OR IGNORE INTO job_ledger_identity(singleton, ledger_uuid) VALUES (1, ?)",
+                (uuid.uuid4().hex,),
+            )
+
+    @property
+    def ledger_uuid(self) -> str:
+        """Return this ledger's persistent identity; a copied ledger retains it."""
+        with self._connection() as conn:
+            return str(
+                conn.execute(
+                    "SELECT ledger_uuid FROM job_ledger_identity WHERE singleton=1"
+                ).fetchone()[0]
+            )
 
     def create_definition(self, definition: JobDefinition) -> JobDefinition:
-        """
-        Create definition under the format's safety and compatibility rules.
+        """Persist a reusable definition without scheduling an execution."""
+        with self._connection(write=True) as conn:
+            definition_id = self._insert_definition(conn, definition)
+            return self._definition_from_row(self._definition_row(conn, definition_id))
 
-        Example:
-            Exercise JobRepository.create definition through a consuming regression::
-
-                python -m pytest -q tests/jobs/test_jobs_repository.py
-
-
-        :param definition: Value supplied for definition under the utility contract.
-        :return: The normalized value, metadata record, path, stream result or collection
-            described above.
-        """
+    @staticmethod
+    def _insert_definition(conn: sqlite3.Connection, definition: JobDefinition) -> int:
+        """Insert inside the caller's transaction, including atomic first submission."""
         now = now_ep_k()
-        with self._connection() as conn:
-            cur = conn.execute(
-                """
-                INSERT INTO job_definitions(
-                    job_kind, job_name, state, payload_json, schedule_json, priority,
-                    concurrency_policy, result_policy, timeout_s, max_retries,
-                    retry_backoff_s, heartbeat_timeout_s,
-                    created_timestamp_ep_k, modified_timestamp_ep_k
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    definition.job_kind,
-                    definition.job_name,
-                    definition.state.value,
-                    definition.payload_json,
-                    definition.schedule_json,
-                    int(definition.priority),
-                    definition.concurrency_policy.value,
-                    definition.result_policy.value,
-                    definition.timeout_s,
-                    int(definition.max_retries),
-                    float(definition.retry_backoff_s),
-                    definition.heartbeat_timeout_s,
-                    now,
-                    now,
-                ),
-            )
-            conn.commit()
-            job_definition_id = int(cur.lastrowid)
-        self.append_definition_event(
-            job_definition_id, "created", f"Created definition {definition.job_name}"
+        cur = conn.execute(
+            """
+            INSERT INTO job_definitions(
+                job_kind, job_name, state, payload_json, schedule_json, priority,
+                concurrency_policy, result_policy, timeout_s, max_retries,
+                retry_backoff_s, heartbeat_timeout_s,
+                created_timestamp_ep_k, modified_timestamp_ep_k
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                definition.job_kind,
+                definition.job_name,
+                definition.state.value,
+                definition.payload_json,
+                definition.schedule_json,
+                int(definition.priority),
+                definition.concurrency_policy.value,
+                definition.result_policy.value,
+                definition.timeout_s,
+                int(definition.max_retries),
+                float(definition.retry_backoff_s),
+                definition.heartbeat_timeout_s,
+                now,
+                now,
+            ),
         )
-        return self.get_definition(job_definition_id)
+        return int(cur.lastrowid)
 
     def update_definition(self, definition: JobDefinition) -> JobDefinition:
         """
@@ -321,45 +357,254 @@ class JobRepository:
             rows = conn.execute(sql, tuple(params)).fetchall()
         return [self._definition_from_row(row) for row in rows]
 
+    def submit_job(self, definition: JobDefinition, *, request_key: str) -> JobRun:
+        """Atomically create a definition and its first run, deduplicating delivery.
+
+        Keys are exact, ledger-wide identifiers shared with enqueue/retry. Repeating
+        the same request returns its current run, even after completion. Reusing a
+        key with changed configuration raises JobRequestConflict. Canonical JSON
+        ignores object ordering/whitespace but preserves array and numeric forms.
+        This prevents duplicate queue entry, not arbitrary handler side effects.
+        """
+        self._validate_request_key(request_key)
+        if definition.job_definition_id is not None:
+            raise ValueError("submit_job requires a new definition without an ID")
+        request = self._request_json(
+            {"operation": "submit", "definition": self._definition_request(definition)}
+        )
+        with self._connection(write=True) as conn:
+            previous = self._repeated_request(conn, request_key, request)
+            if previous is not None:
+                return previous
+            definition_id = self._insert_definition(conn, definition)
+            saved = self._definition_from_row(self._definition_row(conn, definition_id))
+            run = self._enqueue(conn, saved, trigger_kind=JobTriggerKind.MANUAL)
+            self._remember_request(conn, request_key, request, run)
+            return run
+
     def enqueue_run(
         self,
         *,
         job_definition_id: int,
         trigger_kind: JobTriggerKind = JobTriggerKind.MANUAL,
         not_before_timestamp_ep_k: int | None = None,
+        request_key: str | None = None,
     ) -> JobRun:
-        """Atomically enforce concurrency, snapshot inputs, enqueue and record the event."""
-        now = now_ep_k()
+        """Atomically check policy, capture inputs and enqueue, optionally deduplicating.
+
+        Without a key each call requests new work. A keyed repeat compares the
+        current definition and scheduling inputs; editing them requires a new key.
+        Deduplication precedes concurrency policy and does not cancel or requeue
+        the previously accepted run.
+        """
+        if request_key is not None:
+            self._validate_request_key(request_key)
         with self._connection(write=True) as conn:
             definition = self._definition_from_row(
                 self._definition_row(conn, job_definition_id)
             )
-            self._apply_concurrency_policy_on_enqueue(definition, connection=conn)
-            cur = conn.execute(
-                """
-                INSERT INTO job_runs(job_definition_id, job_kind, payload_json,
-                    trigger_kind, state, attempt_number, not_before_timestamp_ep_k,
-                    queued_timestamp_ep_k) VALUES (?, ?, ?, ?, ?, 1, ?, ?)
-                """,
-                (
-                    job_definition_id,
-                    definition.job_kind,
-                    definition.payload_json,
-                    trigger_kind.value,
-                    JobRunState.QUEUED.value,
-                    not_before_timestamp_ep_k,
-                    now,
-                ),
+            request = None
+            if request_key is not None:
+                request = self._request_json(
+                    {
+                        "operation": "enqueue",
+                        "definition_id": job_definition_id,
+                        "definition": self._definition_request(definition),
+                        "trigger_kind": trigger_kind.value,
+                        "not_before": not_before_timestamp_ep_k,
+                    }
+                )
+                previous = self._repeated_request(conn, request_key, request)
+                if previous is not None:
+                    return previous
+            run = self._enqueue(
+                conn,
+                definition,
+                trigger_kind=trigger_kind,
+                not_before=not_before_timestamp_ep_k,
             )
-            run_id = int(cur.lastrowid)
-            conn.execute(
-                "UPDATE job_definitions SET last_queued_timestamp_ep_k=?, modified_timestamp_ep_k=? WHERE job_definition_id=?",
-                (now, now, job_definition_id),
+            if request_key is not None and request is not None:
+                self._remember_request(conn, request_key, request, run)
+            return run
+
+    def retry_run(
+        self,
+        job_run_id: int,
+        *,
+        request_key: str,
+        acknowledge_possible_effects: bool = False,
+    ) -> JobRun:
+        """Create one explicit successor of a failed/cancelled/interrupted attempt.
+
+        Retry preserves the parent's captured kind, label and payload, increments
+        its attempt number and records the immediate parent. Started work requires
+        explicit acknowledgement that effects may already have occurred; callers
+        must inspect domain evidence and stop stale workers before requesting it.
+        That acknowledgement is not a claim of rollback or exactly-once effects.
+        A parent has at most one successor; retry that successor for a later attempt.
+        Current definition concurrency and result-retention policies still apply.
+        """
+        self._validate_request_key(request_key)
+        if type(acknowledge_possible_effects) is not bool:
+            raise ValueError("acknowledge_possible_effects must be a bool")
+        request = self._request_json(
+            {
+                "operation": "retry",
+                "parent_run_id": job_run_id,
+                "acknowledge_possible_effects": acknowledge_possible_effects,
+            }
+        )
+        with self._connection(write=True) as conn:
+            previous = self._repeated_request(conn, request_key, request)
+            if previous is not None:
+                return previous
+            parent = self._run_from_row(self._run_row(conn, job_run_id))
+            if parent.state not in (
+                JobRunState.FAILED,
+                JobRunState.TIMED_OUT,
+                JobRunState.CANCELLED,
+                JobRunState.ABORTED,
+            ):
+                raise ValueError(
+                    "Only failed, timed-out, cancelled or aborted runs can be retried"
+                )
+            if (
+                parent.started_timestamp_ep_k is not None
+                and not acknowledge_possible_effects
+            ):
+                raise ValueError(
+                    "Retry requires acknowledgement of possible effects from the started run"
+                )
+            if conn.execute(
+                "SELECT 1 FROM job_runs WHERE retry_of_job_run_id=?", (job_run_id,)
+            ).fetchone():
+                raise ValueError("Run already has a retry; retry its successor instead")
+            if parent.payload_json is None or parent.job_name is None:
+                raise ValueError("Run has no captured inputs for retry")
+            definition = self._definition_from_row(
+                self._definition_row(conn, parent.job_definition_id)
             )
-            self._append_event(
-                conn, run_id, JobEventKind.QUEUED, f"Queued via {trigger_kind.value}"
+            captured = dataclasses.replace(
+                definition,
+                job_kind=parent.job_kind,
+                job_name=parent.job_name,
+                payload_json=parent.payload_json,
             )
-            return self._run_from_row(self._run_row(conn, run_id))
+            run = self._enqueue(
+                conn, captured, trigger_kind=JobTriggerKind.REPAIR, parent=parent
+            )
+            self._remember_request(conn, request_key, request, run)
+            return run
+
+    def _enqueue(
+        self,
+        conn: sqlite3.Connection,
+        definition: JobDefinition,
+        *,
+        trigger_kind: JobTriggerKind,
+        not_before: int | None = None,
+        parent: JobRun | None = None,
+    ) -> JobRun:
+        """Insert a captured attempt and event in the caller's write unit."""
+        self._apply_concurrency_policy_on_enqueue(definition, connection=conn)
+        now = now_ep_k()
+        parent_id = None if parent is None else parent.job_run_id
+        attempt = 1 if parent is None else parent.attempt_number + 1
+        cur = conn.execute(
+            """
+            INSERT INTO job_runs(job_definition_id, job_kind, job_name, payload_json,
+                trigger_kind, state, attempt_number, not_before_timestamp_ep_k,
+                queued_timestamp_ep_k, retry_of_job_run_id)
+            VALUES (?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?)
+            """,
+            (
+                definition.job_definition_id,
+                definition.job_kind,
+                definition.job_name,
+                definition.payload_json,
+                trigger_kind.value,
+                attempt,
+                not_before,
+                now,
+                parent_id,
+            ),
+        )
+        run_id = int(cur.lastrowid)
+        conn.execute(
+            "UPDATE job_definitions SET last_queued_timestamp_ep_k=?, modified_timestamp_ep_k=? WHERE job_definition_id=?",
+            (now, now, definition.job_definition_id),
+        )
+        self._append_event(
+            conn,
+            run_id,
+            JobEventKind.QUEUED,
+            f"Queued via {trigger_kind.value}",
+            event_json=None
+            if parent is None
+            else self._request_json(
+                {
+                    "retry_of_job_run_id": parent_id,
+                    "attempt_number": attempt,
+                    "possible_effects_acknowledged": parent.started_timestamp_ep_k
+                    is not None,
+                }
+            ),
+        )
+        return self._run_from_row(self._run_row(conn, run_id))
+
+    @staticmethod
+    def _validate_request_key(key: str) -> None:
+        if not isinstance(key, str) or not key.strip() or len(key) > 200:
+            raise ValueError(
+                "request key must be nonblank text of at most 200 characters"
+            )
+
+    @staticmethod
+    def _request_json(value: object) -> str:
+        return json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False)
+
+    @staticmethod
+    def _definition_request(definition: JobDefinition) -> dict[str, object]:
+        fields = dataclasses.asdict(definition)
+        # Bookkeeping changes after enqueue/finish do not change submission intent.
+        fields.pop("job_definition_id")
+        for name in list(fields):
+            if name.endswith("_timestamp_ep_k"):
+                fields.pop(name)
+        fields["payload_json"] = json.loads(definition.payload_json)
+        fields["schedule_json"] = (
+            None
+            if definition.schedule_json is None
+            else json.loads(definition.schedule_json)
+        )
+        return fields
+
+    def _repeated_request(
+        self,
+        conn: sqlite3.Connection,
+        key: str,
+        request: str,
+    ) -> JobRun | None:
+        row = conn.execute(
+            "SELECT * FROM job_requests WHERE request_key=?", (key,)
+        ).fetchone()
+        if row is None:
+            return None
+        if row["request_json"] != request:
+            raise JobRequestConflict("request key already identifies different work")
+        return self._run_from_row(self._run_row(conn, int(row["job_run_id"])))
+
+    @staticmethod
+    def _remember_request(
+        conn: sqlite3.Connection,
+        key: str,
+        request: str,
+        run: JobRun,
+    ) -> None:
+        conn.execute(
+            "INSERT INTO job_requests(request_key, request_json, job_run_id) VALUES (?, ?, ?)",
+            (key, request, run.job_run_id),
+        )
 
     def lease_next_run(self, *, worker_id: str, lease_for_s: float) -> JobRun | None:
         """Claim once under a write transaction; replace expired unstarted claims.
@@ -1033,6 +1278,8 @@ class JobRepository:
         return JobRun(
             job_run_id=int(row["job_run_id"]),
             job_definition_id=int(row["job_definition_id"]),
+            job_name=row["job_name"],
+            retry_of_job_run_id=row["retry_of_job_run_id"],
             job_kind=str(row["job_kind"]),
             trigger_kind=JobTriggerKind(str(row["trigger_kind"])),
             state=JobRunState(str(row["state"])),
@@ -1117,4 +1364,4 @@ class JobRepository:
         )
 
 
-__all__ = ["JobRepository", "JobLeaseLost"]
+__all__ = ["JobRepository", "JobLeaseLost", "JobRequestConflict"]

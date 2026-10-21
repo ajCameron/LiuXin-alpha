@@ -7,7 +7,7 @@ consolidation work. See [next tasks](next_tasks.md) for the proposed sequence.
 
 | Owner | Current responsibility | Limit |
 | --- | --- | --- |
-| [jobs.repository](../../src/LiuXin_alpha/jobs/repository.py) | SQLite-backed definitions, captured inputs, atomic claims/events, fenced worker updates and interrupted-run recovery. | Separate job database/schema; not the default Core job manager. |
+| [jobs.repository](../../src/LiuXin_alpha/jobs/repository.py) | SQLite definitions, captured inputs, delivery deduplication, retry ancestry, atomic claims/events and interrupted-run recovery. | Separate job database/schema; not the default Core job manager. |
 | [jobs.scheduler](../../src/LiuXin_alpha/jobs/scheduler.py) | Queue due definitions. | Scheduling does not make a domain workflow idempotent. |
 | [jobs.worker](../../src/LiuXin_alpha/jobs/worker.py) and handler registry | Lease and renew runs, invoke captured handlers/inputs, persist owned progress/results. | Each handler must cooperate with its effect/recovery contract; definition timeouts and retries are not enforced. |
 | [utils.jobs.manager](../../src/LiuXin_alpha/utils/jobs/manager.py) | In-memory supervision of thread/process execution, cancellation, timeout and retry. | Process-local job state does not survive restart as a durable ledger. |
@@ -23,6 +23,9 @@ The [durable claim contract](durable-claims.md) describes the A09 prerequisite:
 atomic transitions, claim tokens, lease renewal, explicit interruption,
 cancellation receipts and migration. It does not yet wire a production Core
 workflow into this ledger.
+The [submission contract](submission-identity.md) adds persistent delivery keys,
+atomic first submission, stable ledger identity and explicit retry successors.
+Domain publication/recovery guarantees still belong to the selected workflow.
 
 ## Lifetime, waiting and outcomes
 

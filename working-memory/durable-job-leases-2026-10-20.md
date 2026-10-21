@@ -56,16 +56,17 @@ Selections overlap. Logs are archived under ignored
 `working-memory/test-results/durable-job-leases-20261020/`.
 Only prose/handoff evidence changes follow the final validation.
 
-Parent rating PR #137 is now fully green at `875065b7`: **7,525 passed,
-289 skipped, 17 xfailed**. JOB01 PR #138's confidence, quality, packaging and
-format lanes are green; full CI remains pending.
+Parent rating PR #137 is fully green at `875065b7`: **7,525 passed,
+289 skipped, 17 xfailed**. JOB01 PR #138 is also fully green at `1e98ecf5`:
+**7,540 passed, 290 skipped, 17 xfailed** (run `39486510953`).
 
 The isolated checkout `/tmp/liuxin-a09-review` is detached at `1e98ecf5` with this
 overlay. `/tmp/liuxin-sync-durable.py` copies scoped changes and verifies
 protected files; `/tmp/liuxin-durable-files.json` is the commit manifest.
 Tests are serial with telemetry and immediate scratch cleanup.
 
-Publication target: a focused PR based on `core-job-wait-dispatch`;
-`gh pr view durable-job-leases` reports its current review/CI status.
-Then continue JOB02/A09's production workflow, durable submission identity,
-retry ancestry and recovery contract; do not mark A09 complete on this prerequisite.
+Published as [PR #139](https://github.com/ajCameron/LiuXin-alpha/pull/139)
+at `ac3a6728`, based on `core-job-wait-dispatch`; its quick CI lanes are green.
+Continue with the [submission checkpoint](durable-job-submissions-2026-10-20.md)
+and then JOB02/A09's production workflow and recovery contract.
+Do not mark A09 complete on these prerequisites.
