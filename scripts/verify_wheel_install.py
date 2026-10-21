@@ -114,7 +114,8 @@ def _origin_check_program(install_root: Path) -> str:
             (
                 "names = ('LiuXin_alpha', 'LiuXin_alpha.plugins.application', "
                 "'LiuXin_alpha.plugins.contracts', 'chardet', 'cssselect', 'cssutils', "
-                "'lxml', 'numpy', 'PIL', 'regex')"
+                "'lxml', 'numpy', 'PIL', 'regex', 'past', 'past.builtins', "
+                "'LiuXin_alpha.utils.image_tools.img')"
             ),
             "origins = {}",
             "for name in names:",
@@ -125,6 +126,14 @@ def _origin_check_program(install_root: Path) -> str:
             "assert importlib.util.find_spec('LiuXin_alpha.plugin_system') is None",
             "host = importlib.import_module('LiuXin_alpha.plugins.application')",
             "assert host._initialized_plugins is None",
+            "from LiuXin_alpha.utils.image_tools import img",
+            "from PIL import Image",
+            "from io import BytesIO",
+            "image = BytesIO()",
+            "Image.new('RGBA', (20, 10), (255, 0, 0, 128)).save(image, format='PNG')",
+            "width, height, data = img.scale_image(image.getvalue(), width=10, height=10, as_png=True)",
+            "assert (width, height) == (10, 5)",
+            "assert Image.open(BytesIO(data)).size == (10, 5)",
             "print(json.dumps(origins, sort_keys=True))",
         )
     )

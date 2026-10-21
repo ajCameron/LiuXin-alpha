@@ -20,8 +20,8 @@
     "catalog_cache_combined_component": 0,
     "catalog_cache_runtime_component": 0,
     "domain_component": 9,
-    "whole_combined_component": 217,
-    "whole_runtime_component": 217
+    "whole_combined_component": 214,
+    "whole_runtime_component": 214
   },
   "unresolved_dynamic": [
     {"expression": "registration.cache_module", "kind": "deferred", "line": 142, "source": "LiuXin_alpha.caches.cache_plugins.registry"},
@@ -49,7 +49,7 @@
     {"expression": "f'{qt_pkg}.QtCore'", "kind": "deferred", "line": 120, "source": "LiuXin_alpha.utils.plugins.fallbacks.imageops"},
     {"expression": "f'{qt_pkg}.QtGui'", "kind": "deferred", "line": 121, "source": "LiuXin_alpha.utils.plugins.fallbacks.imageops"},
     {"expression": "f'{qt_pkg}.QtGui'", "kind": "deferred", "line": 154, "source": "LiuXin_alpha.utils.plugins.fallbacks.imageops"},
-    {"expression": "f'{qt_pkg}.QtGui'", "kind": "deferred", "line": 759, "source": "LiuXin_alpha.utils.plugins.fallbacks.imageops"},
+    {"expression": "f'{qt_pkg}.QtGui'", "kind": "deferred", "line": 794, "source": "LiuXin_alpha.utils.plugins.fallbacks.imageops"},
     {"expression": "f'{qt_pkg}.QtCore'", "kind": "deferred", "line": 79, "source": "LiuXin_alpha.utils.plugins.fallbacks.imageops_pillow"},
     {"expression": "f'{qt_pkg}.QtGui'", "kind": "deferred", "line": 112, "source": "LiuXin_alpha.utils.plugins.fallbacks.imageops_pillow"}
   ],

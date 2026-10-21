@@ -9847,7 +9847,8 @@ def test_text_browser_main_creates_database_if_missing(driver_spec, tmp_path: Pa
     assert "stores" in out
 
 
-def test_text_browser_main_no_create_if_missing_fails(driver_spec, tmp_path: Path, capsys) -> None:
+@pytest.mark.parametrize("existing_parent", [False, True])
+def test_text_browser_main_no_create_if_missing_fails(driver_spec, tmp_path: Path, capsys, existing_parent: bool) -> None:
     """
     Perform the test text browser main no create if missing fails operation under explicit file-format and conversion rules.
 
@@ -9864,6 +9865,8 @@ def test_text_browser_main_no_create_if_missing_fails(driver_spec, tmp_path: Pat
         place.
     """
     db_path = tmp_path / "missing_library" / "missing.sqlite"
+    if existing_parent:
+        db_path.parent.mkdir()
     assert not db_path.exists()
 
     rc = browser_main(
@@ -9879,6 +9882,7 @@ def test_text_browser_main_no_create_if_missing_fails(driver_spec, tmp_path: Pat
     )
     assert rc == 2
     assert not db_path.exists()
+    assert db_path.parent.exists() is existing_parent
     assert "ERROR:" in capsys.readouterr().err
 
 

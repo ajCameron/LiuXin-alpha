@@ -1,6 +1,6 @@
 # Continuous integration ownership
 
-Source reviewed **2026-10-20**, working tree based on `fc5de7af`.
+Source reviewed **2026-10-20**, A15 repair on `ci-baseline-repair`.
 
 The [Tests workflow](../../../.github/workflows/tests-on-push.yml) is the single owner
 of general Python validation. Its full-suite job runs once per PR workflow run;
@@ -20,9 +20,17 @@ Push and PR events can still create separate runs for the same commit.
 The quality job runs the same [maintainability helper](../../architectural_reviews/maintainability-quality-gates.md)
 used locally, a separately named whole-tree Python syntax check, and the listed
 architecture/tooling contracts. Compilation is a syntax smoke check, not lint.
-The full suite and format lanes retain their `test,conversion` dependency set;
-the quality job uses `test,typing`. YAML and Markdown parsers in the `test` extra
-support executable workflow and documentation contracts.
+The full suite installs `test,conversion,encryption`; format lanes use
+`test,conversion`, and the quality job uses `test,typing`. The `test` extra
+includes the pinned Ruff executable used by formatter regressions, plus YAML
+and Markdown parsers. Formatter fixtures resolve Ruff from the running Python
+environment rather than assuming the developer's checkout has a `.venv`.
+
+The full suite runs serially with immediate per-test scratch cleanup. Its durable
+event/resource telemetry lives beneath the runner's temporary directory and is
+uploaded even after failures, with seven-day retention. A runner/VM crash can
+still prevent the upload step from running; telemetry is evidence, not crash
+prevention.
 
 ## Summary and status-name migration
 
@@ -39,9 +47,12 @@ are replaced by `Modern Architecture and Typing` and `Full Test Suite (PR)`.
 If configuring required checks or external automation, use those current names
 or the `Tests Passed` summary; do not require the retired matrix names.
 
-The close-out's read-only GitHub inspection found neither `main` nor the work
-branch protected, and no repository rulesets, on 2026-09-07. No branch settings
-were changed. That observation is not a guarantee about later configuration.
+Read-only GitHub inspection on **2026-10-20** found no classic branch protection
+for `main` or `configuration-ownership`, and no effective rules for either
+branch from the branch-rules API. No settings were changed. A15's
+[baseline review](../../architectural_reviews/ci-baseline-2026-10-20.md)
+records validation separately; establish a green full-suite baseline before
+making checks required.
 
 ## Separate workflows
 

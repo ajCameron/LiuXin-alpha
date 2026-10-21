@@ -65,6 +65,7 @@ jobs:
             tests/scripts/test_docstring_migration.py \
             tests/scripts/test_developer_documentation_links.py \
             tests/scripts/test_ci_workflow_contracts.py \
+            tests/scripts/test_repository_hygiene.py \
             tests/scripts/test_run_type_checks.py \
             tests/scripts/test_run_format_checks.py \
             tests/scripts/test_internal_type_contracts.py \
@@ -180,12 +181,28 @@ jobs:
       - name: Install from pyproject.toml
         run: |
           python -m pip install --upgrade pip
-          python -m pip install ".[test,conversion]"
+          python -m pip install ".[test,conversion,encryption]"
 
       - name: Run full test suite
         env:
           PYTHONPATH: src
-        run: pytest -q tests
+        # CLI options belong to this pytest process. Nested pytest probes may
+        # deliberately disable plugins and cannot inherit xdist/telemetry flags.
+        run: >-
+            pytest -q tests
+            -n 0
+            --telemetry-dir=${{ runner.temp }}/liuxin-test-telemetry
+            -o tmp_path_retention_policy=none
+            -o tmp_path_retention_count=0
+
+      - name: Preserve full-suite telemetry
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-suite-telemetry
+          path: ${{ runner.temp }}/liuxin-test-telemetry
+          retention-days: 7
+          if-no-files-found: warn
 
   tests-passed:
     name: Tests Passed

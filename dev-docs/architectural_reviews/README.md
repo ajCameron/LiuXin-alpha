@@ -31,6 +31,7 @@ historical, not compatibility APIs.
 
 | Document | Latest interpretation |
 | --- | --- |
+| [CI and repository baseline, 2026-10-20](ci-baseline-2026-10-20.md) | A15 dependency/image repairs, generated scratch inventory, clean-environment verification and fresh branch-rule observations. |
 | [Whole-repository review, 2026-09-26](architecture-review-2026-09-26.md) | Original 68 findings preserved, with October 18 status tables and October 19–20 follow-ups. Read the latest note before using the original action list. |
 | [Opening-path review, 2026-10-09](lifecycle-opening-path-review-2026-10-09.md) | Source-checked October 20: graph ownership implemented; borrowed resources, partial construction, transaction semantics and remaining wrappers are explicit. |
 | [Documentation and project structure, 2026-10-18](documentation-structural-review-2026-10-18.md) | Dated baseline plus implementation follow-ups. Numbered guides and this folder have been reviewed; the larger proposed directory reshuffle is not an adopted migration. |
@@ -42,8 +43,6 @@ historical, not compatibility APIs.
 | --- | --- |
 | [Import shim removal](shim-removal-plan.md) | Completed September campaign with an October 20 interpretation. Later intentional lazy loading and retained adapters mean this is not a claim that every shim in the repository is gone. |
 
-The index, next-task list and nine decision/review guides make eleven Markdown
-files in this folder.
 Clear authority and links are sufficient for this review; no further path move is
 needed to distinguish current contracts from history.
 

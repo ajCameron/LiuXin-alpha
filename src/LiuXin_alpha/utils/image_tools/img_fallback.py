@@ -1350,12 +1350,9 @@ def get_exe_path(name: str) -> str:
     import shutil
 
     exe = str(name)
-    try:
-        from LiuXin_alpha.file_formats.pdf.pdftohtml import PDFTOHTML  # type: ignore
+    from LiuXin_alpha.utils.image_tools.executable_paths import bundled_executable_directory
 
-        base = os.path.dirname(str(PDFTOHTML))
-    except Exception:
-        base = ""
+    base = bundled_executable_directory()
 
     # Windows bundles sometimes used a suffixed name.
     if os.name == "nt":
