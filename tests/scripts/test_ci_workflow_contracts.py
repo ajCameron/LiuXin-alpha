@@ -264,12 +264,32 @@ def test_quality_job_owns_syntax_lint_and_closeout_contracts() -> None:
     assert syntax[0]["run"] == ".venv/bin/python -m compileall -q src tests scripts"
     assert "syntax" in syntax[0]["name"].lower()
     assert "lint" not in syntax[0]["name"].lower()
-    contracts = next(step["run"] for step in steps if "pytest" in step.get("run", ""))
+    contracts = next(
+        step["run"]
+        for step in steps
+        if step.get("name") == "Enforce application-surface ownership"
+    )
     for path in (
         "test_ci_workflow_contracts.py",
         "test_developer_documentation_links.py",
     ):
         assert f"tests/scripts/{path}" in contracts
+
+
+def test_quality_requires_live_readonly_mount_coverage() -> None:
+    """Require privileged disposable-fixture coverage instead of accepting mount skips."""
+    steps = _workflow()["jobs"]["quality-modern"]["steps"]
+    mount_step = next(
+        step
+        for step in steps
+        if step.get("name") == "Verify Linux read-only source mounts"
+    )
+    assert "continue-on-error" not in mount_step
+    assert "LIUXIN_REQUIRE_MOUNT_TESTS=1" in mount_step["run"]
+    assert "LIUXIN_REQUIRE_IMAGE_MOUNT_TESTS=1" in mount_step["run"]
+    assert "tests/ingest/test_source_mount_live.py" in mount_step["run"]
+    assert "tests/ingest/test_source_filesystem_mount_live.py" in mount_step["run"]
+    assert "-n 0" in mount_step["run"]
 
 
 def test_workflow_shell_bodies_are_valid_bash() -> None:

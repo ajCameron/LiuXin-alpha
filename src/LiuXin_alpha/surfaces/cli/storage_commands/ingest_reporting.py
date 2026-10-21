@@ -165,6 +165,9 @@ def _enrich_terminal_payload(
             "stdout_report": not bool(args.no_stdout_report),
         }
     )
+    evidence = getattr(args, "_source_mount_evidence", None)
+    if evidence is not None:
+        payload["source_mount"] = evidence
 
 
 def _handle_failure(

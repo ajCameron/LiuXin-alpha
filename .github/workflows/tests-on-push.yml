@@ -55,6 +55,24 @@ jobs:
       - name: Check Python syntax across source, tests, and scripts
         run: .venv/bin/python -m compileall -q src tests scripts
 
+      - name: Install Linux source mount test tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y squashfs-tools e2fsprogs
+          sudo modprobe loop
+
+      - name: Verify Linux read-only source mounts
+        # These tests mount disposable fixtures only inside private namespaces.
+        # Require live coverage; Ubuntu's unprivileged-userns restrictions must
+        # not silently turn this safety check into a skip.
+        run: >-
+          sudo env PYTHONPATH=src LIUXIN_REQUIRE_MOUNT_TESTS=1 LIUXIN_REQUIRE_IMAGE_MOUNT_TESTS=1
+          .venv/bin/python -m pytest -q -p no:cacheprovider
+          tests/ingest/test_source_mount_live.py tests/ingest/test_source_filesystem_mount_live.py
+          -n 0 --basetemp=/tmp/liuxin-readonly-mount-tests
+          --telemetry-dir=/tmp/liuxin-readonly-mount-telemetry
+          -o tmp_path_retention_policy=none
+
       - name: Enforce application-surface ownership
         env:
           PYTHONPATH: src

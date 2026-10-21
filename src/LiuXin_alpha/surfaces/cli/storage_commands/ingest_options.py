@@ -32,6 +32,7 @@ def add_storage_ingest_arguments(parser: argparse.ArgumentParser) -> None:
     :return: None; register options without assigning a handler or running ingest.
     """
     _add_source_options(parser)
+    parser.set_defaults(source_mount_managed=False)
     _add_limits_options(parser)
     _add_backends_options(parser)
     _add_logging_group_options(parser)
@@ -61,10 +62,10 @@ def _uuid_argument(value: str) -> UUID:
 
 def _add_source_options(parser: argparse.ArgumentParser) -> None:
     """
-    Declare required source, optional catalogue/profile/cache, and traversal controls.
+    Declare source selectors, optional catalogue/profile/cache, and traversal controls.
 
     Discovery/preflight are parser-mutually-exclusive. Database requirements,
-    profile compatibility, and path exclusion are later checks. Traversal defaults
+    source selection, profile compatibility, and path exclusion are later checks. Traversal defaults
     to recursive filesystem/nested containers and continuation after errors.
 
     Example:
@@ -79,13 +80,44 @@ def _add_source_options(parser: argparse.ArgumentParser) -> None:
     :return: None; paths remain unexpanded and unvalidated argument strings.
     """
     parser.add_argument(
+        "source",
+        nargs="?",
+        metavar="SOURCE",
+        help="Linux: auto-detect a directory, SquashFS/ext4 image or block device and ingest through a verified read-only mount.",
+    )
+    parser.add_argument(
         "--source-root",
-        required=True,
-        help="Existing local tree to inspect without following symlinks.",
+        help="Explicit directory (mounting remains opt-in), or legacy mount target with source-image/source-device.",
+    )
+    parser.add_argument(
+        "--mount-point",
+        help="Existing empty mount target for an image/device; otherwise LiuXin manages a stable private target.",
     )
     parser.add_argument(
         "--database",
         help="SQLite LiuXin catalogue path (required for a real or preflight run).",
+    )
+    parser.add_argument(
+        "--mount-source-read-only",
+        action="store_true",
+        help=(
+            "Linux: run in a private namespace with a verified recursive read-only "
+            "bind mount of source-root; fail if protection cannot be established."
+        ),
+    )
+    backing = parser.add_mutually_exclusive_group()
+    backing.add_argument(
+        "--source-image",
+        help="Linux: mount this filesystem image read-only; target is automatic or set with --mount-point (requires mount privileges).",
+    )
+    backing.add_argument(
+        "--source-device",
+        help="Linux: mount this block device/partition read-only; target is automatic or set with --mount-point (requires mount privileges).",
+    )
+    parser.add_argument(
+        "--source-filesystem",
+        choices=("squashfs", "ext4"),
+        help="Explicit filesystem type; otherwise detect image/device contents using blkid. Ext4 recovery is disabled.",
     )
     parser.add_argument(
         "--system-root",

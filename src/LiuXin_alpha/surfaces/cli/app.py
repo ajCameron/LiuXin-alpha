@@ -43,7 +43,7 @@ def _normalise_shortcuts(argv: list[str]) -> list[str]:
 
     Example:
         >>> _normalise_shortcuts(['ingest', '/media/books', '--detach'])
-        ['storage', 'ingest', '--source-root', '/media/books', '--detach']
+        ['storage', 'ingest', '/media/books', '--detach']
         >>> _normalise_shortcuts(['ingest', 'formats'])
         ['ingest', 'formats']
 
@@ -65,7 +65,6 @@ def _normalise_shortcuts(argv: list[str]) -> list[str]:
         return [
             "storage",
             "ingest",
-            "--source-root",
             source,
             *remainder,
         ]
@@ -73,7 +72,6 @@ def _normalise_shortcuts(argv: list[str]) -> list[str]:
         return [
             "storage",
             "ingest",
-            "--source-root",
             argv[1],
             *argv[2:],
         ]

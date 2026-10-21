@@ -975,13 +975,16 @@ def build_ingest_parser(
         help="Point LiuXin at local material or submit a managed Core-host ingest.",
         description=(
             "Point LiuXin at a local mess with `liuxin ingest SOURCE "
-            "--system-root ROOT`. The explicit subcommands below submit "
-            "managed workflows whose paths are interpreted on the Core host."
+            "--system-root ROOT`. On Linux, this detects directories, SquashFS/ext4 "
+            "images and block devices and requires a verified read-only mount. "
+            "Use `liuxin storage ingest --help` for local options. The disk and "
+            "remote-html subcommands submit workflows on the Core host."
         ),
         epilog=(
             "Simple local form: liuxin ingest /media/books --system-root "
             "/srv/liuxin\nOptions-first form: liuxin ingest --system-root "
-            "/srv/liuxin --source /media/books\nManaged Core-host form: liuxin ingest disk "
+            "/srv/liuxin --source /media/books\nImage/device form: sudo liuxin storage ingest "
+            "/archives/books.squashfs --system-root /srv/liuxin\nManaged Core-host form: liuxin ingest disk "
             "/srv/incoming --core-endpoint http://127.0.0.1:8765"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
