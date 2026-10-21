@@ -81,11 +81,33 @@ def _add_source_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--source-root",
         required=True,
-        help="Existing local tree to inspect without following symlinks.",
+        help="Existing local tree, or empty mount target when using --source-image/--source-device.",
     )
     parser.add_argument(
         "--database",
         help="SQLite LiuXin catalogue path (required for a real or preflight run).",
+    )
+    parser.add_argument(
+        "--mount-source-read-only",
+        action="store_true",
+        help=(
+            "Linux: run in a private namespace with a verified recursive read-only "
+            "bind mount of source-root; fail if protection cannot be established."
+        ),
+    )
+    backing = parser.add_mutually_exclusive_group()
+    backing.add_argument(
+        "--source-image",
+        help="Linux: mount this filesystem image read-only at source-root (requires mount privileges).",
+    )
+    backing.add_argument(
+        "--source-device",
+        help="Linux: mount this block device/partition read-only at source-root (requires mount privileges).",
+    )
+    parser.add_argument(
+        "--source-filesystem",
+        choices=("squashfs", "ext4"),
+        help="Required with source-image/source-device; ext4 journal recovery is disabled.",
     )
     parser.add_argument(
         "--system-root",

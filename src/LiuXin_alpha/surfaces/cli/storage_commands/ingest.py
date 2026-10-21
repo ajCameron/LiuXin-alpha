@@ -36,6 +36,7 @@ from LiuXin_alpha.surfaces.cli.storage_commands.ingest_paths import (
     _lock_path,
     _log_directory,
     _report_path,
+    _validate_backing_destinations,
     _validate_paths,
 )
 from LiuXin_alpha.surfaces.cli.storage_commands.ingest_reporting import (
@@ -81,6 +82,25 @@ def ingest_main(argv: list[str] | None = None) -> int:
 
 
 def cmd_storage_ingest(args: argparse.Namespace) -> int:
+    """Dispatch ordinary ingest or opt into a verified private read-only source mount."""
+    if any(
+        getattr(args, name, None)
+        for name in (
+            "mount_source_read_only",
+            "source_image",
+            "source_device",
+            "source_filesystem",
+        )
+    ):
+        from LiuXin_alpha.surfaces.cli.storage_commands.ingest_mount import (
+            launch_mounted_ingest,
+        )
+
+        return launch_mounted_ingest(args)
+    return _cmd_storage_ingest(args)
+
+
+def _cmd_storage_ingest(args: argparse.Namespace) -> int:
     """
     Resolve ingest configuration, open correlated logs, and dispatch one reported run.
 
@@ -96,7 +116,7 @@ def cmd_storage_ingest(args: argparse.Namespace) -> int:
     catalogue, cache, log, or report effects are rolled back here.
 
     Example:
-        >>> cmd_storage_ingest(parsed_ingest_args)  # doctest: +SKIP
+        >>> _cmd_storage_ingest(parsed_ingest_args)  # doctest: +SKIP
 
 
     :param args: Complete mutable ingest namespace; profile defaults may update its paths.
@@ -109,6 +129,7 @@ def cmd_storage_ingest(args: argparse.Namespace) -> int:
         source_root = Path(args.source_root).expanduser().resolve(strict=False)
         run_id = args.run_id if args.run_id is not None else uuid4()
         log_directory = _log_directory(args, source_root)
+        _validate_backing_destinations(args, log_directory)
     except (CLIUsageError, ValueError) as error:
         print(f"ERROR: {error}", file=sys.stderr, flush=True)
         return EXIT_USAGE

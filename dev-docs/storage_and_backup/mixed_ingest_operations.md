@@ -301,6 +301,119 @@ possible. Give the catalogue, cache, report, log and lock directories stable
 storage and ensure the service account can traverse the source and write only
 those destinations.
 
+## Linux read-only source mounts
+
+Use `--mount-source-read-only` to have LiuXin establish and verify a read-only
+view of an existing source directory before opening the catalogue:
+
+```bash
+liuxin storage ingest \
+  --source-root /media/archive-drives/disk-01 \
+  --database /srv/liuxin/catalogue.sqlite \
+  --materialization-root /srv/liuxin/ingest-materialized \
+  --log-directory /srv/liuxin/ingest-logs \
+  --mount-source-read-only
+```
+
+For directory protection the launcher starts a worker in new Linux user and mount namespaces, makes mount
+propagation private, and recursively bind-mounts the source over its own pathname.
+It applies `MOUNT_ATTR_RDONLY` through
+[`mount_setattr(2)`](https://man7.org/linux/man-pages/man2/mount_setattr.2.html),
+then checks the visible mount and every cloned submount in `/proc/self/mountinfo`.
+Ingest starts only after verification succeeds. The source path recorded in Store
+and Replica declarations stays stable across attempts.
+
+This requires Linux 5.12 or later, a libc exposing `mount_setattr`, util-linux
+`unshare`, and permission to create user and mount namespaces. No automatic sudo
+or writable fallback is used. Unsupported systems and denied namespace/mount
+operations fail before catalogue startup. The flag also applies to discovery and
+preflight, so preflight can exercise the actual mount setup. Run reports include
+`source_mount` verification evidence, and `ingest runs resume` retains the option
+and creates a fresh protected view.
+
+Normal completion and exception cleanup detach only the bind mount created for
+that attempt. The kernel releases remaining private mounts when the last process
+in their namespace exits. SIGINT/SIGTERM are forwarded to the worker for normal
+ingest cancellation. A cleanup failure produces a nonzero process exit even if an
+ingest report was already published; inspect stderr as well as the report.
+
+The protection applies to access through this worker's source pathname and its
+descendants. Host mounts remain unchanged, other processes can still change the
+original files, and pre-existing descriptors or other writable aliases are not
+revoked. This is not a security sandbox or a consistent snapshot. Keep catalogue,
+cache, logs, reports, locks and temporary storage outside the source. A separate
+host-level read-only mount remains useful when the source must also be protected
+from other processes. See
+[`mount_namespaces(7)`](https://man7.org/linux/man-pages/man7/mount_namespaces.7.html).
+
+### Mount a filesystem image or block device
+
+Use `--source-image` or `--source-device` with an explicit `--source-filesystem`.
+These options imply read-only mounting; `--mount-source-read-only` is optional
+with them. `--source-root` becomes the stable mount target: create an empty
+directory outside the backing image location, and reuse it for repeat runs.
+Existing mounts and nonempty targets are refused.
+
+```bash
+mkdir -p /mnt/liuxin-books
+
+# A standalone SquashFS filesystem image, mounted only for this ingest worker.
+sudo liuxin storage ingest \
+  --source-image /archives/books.squashfs \
+  --source-filesystem squashfs \
+  --source-root /mnt/liuxin-books \
+  --database /srv/liuxin/catalogue.sqlite \
+  --materialization-root /srv/liuxin/ingest-materialized \
+  --log-directory /srv/liuxin/ingest-logs
+
+# An ext4 filesystem on an explicit partition; no partition auto-selection.
+sudo liuxin storage ingest \
+  --source-device /dev/disk/by-id/your-source-disk-part1 \
+  --source-filesystem ext4 \
+  --source-root /mnt/liuxin-books \
+  --database /srv/liuxin/catalogue.sqlite \
+  --materialization-root /srv/liuxin/ingest-materialized \
+  --log-directory /srv/liuxin/ingest-logs
+```
+
+Direct mounts require existing Linux mount privileges (normally root), loop
+device support and `/dev/loop-control`. LiuXin creates a private mount namespace
+without changing user namespace in this mode; it never invokes sudo itself.
+Run with an account allowed to read the source and write the chosen catalogue
+and cache. Files created by an elevated invocation belong to that account.
+
+Both images and block devices are opened read-only and attached to a **new** loop
+device with read-only and autoclear flags set atomically by `LOOP_CONFIGURE`.
+LiuXin checks those flags and the backing identity before mounting, and keeps the
+loop descriptor open until its own filesystem mount is detached. It never changes
+the caller's device flags or reconfigures an existing loop. Images also receive a
+read-only bind over their original pathname. Explicit output collisions with the
+backing source, including existing hard links and SQLite sidecars, are rejected
+before logging starts. Other writable aliases and concurrent external writers
+remain outside this protection.
+[`loop(4)`](https://man7.org/linux/man-pages/man4/loop.4.html)
+
+The initial filesystem allowlist is **SquashFS and ext4**. Mounts use
+`ro,nosuid,nodev,noexec` from the first syscall; ext4 additionally uses `noload`
+to prevent journal replay. There is no filesystem autodetection, repair, writable
+retry, arbitrary mount-option passthrough, partition-table traversal, or support
+for multi-device filesystems. A dirty ext4 filesystem may present inconsistent
+or inaccessible content when recovery is suppressed; inspect/repair a separate
+copy if needed. A plain `ro` filesystem mount alone does not prevent ext4 journal
+replay. [Kernel ext4 documentation](https://cdn.kernel.org/doc/html/latest/admin-guide/ext4.html)
+
+Reports include the backing source, kind, filesystem and verified loop/mount
+evidence. Saved-run resume retains the attachment options and establishes fresh
+protection. Namespace teardown releases private mounts after process death;
+autoclear releases the owned loop when its last reference closes. The mount target
+is left as the original empty directory. Catalogue paths remain rooted at that
+target, so later file access requires the same content mounted at that path;
+this option does not install a persistent host mount or automatic retrieval mount.
+
+For a collection of SquashFS archives already held in a directory, use the first
+directory-bind example. Archive members continue to use `unsquashfs`; LiuXin does
+not allocate a mount and loop for each member archive.
+
 ## Safety budgets
 
 `MixedIngestBudget` owns ceilings across the entire traversal as well as per
