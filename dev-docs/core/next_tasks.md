@@ -21,16 +21,16 @@ and plugin sandboxing remain separate deployment/design work.
 
 ## CORE-02 — Separate waiting from database dispatch
 
-**Wait slice implemented; architecture A09 remains open.** The built-in
+**Wait and durable audit slices implemented for review.** The built-in
 `jobs.wait` and `jobs.result` queries use concurrent dispatch while ordinary
 handlers retain serialization. Registration replacement and queued shutdown
 have explicit contracts; see [job waiting](../jobs/core-wait-dispatch.md).
 Other synchronous long operations still need migration.
 
 Concurrent local/HTTP tests cover responsive reads/cancellation, wait timeouts and
-shutdown while work remains active. Next coordinate durable
-run identity and receipts with jobs rather than implementing a second repository
-inside Core; migrate one real workflow under JOB02.
+shutdown while work remains active. The [durable audit](../jobs/core-storage-audit.md)
+uses jobs' repository for run identity and receipts, with independently owned
+worker services. Other workflow migrations remain open under the jobs plan.
 
 ## CORE-03 — Complete lifecycle caller migration
 

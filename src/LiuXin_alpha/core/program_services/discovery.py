@@ -31,6 +31,7 @@ _PROGRAM_AREAS: dict[str, tuple[str, ...]] = {
         "jobs.get",
         "jobs.wait",
         "jobs.result",
+        "jobs.events",
         "jobs.log.read",
         "jobs.cancel",
         "jobs.retry",
@@ -156,6 +157,7 @@ _PROGRAM_AREAS: dict[str, tuple[str, ...]] = {
         "storage.replica.verify",
         "storage.asset.verify",
         "storage.audit",
+        "storage.audit.start",
         "storage.reconcile.plan",
         "storage.reconcile.apply",
         "storage.repair.plan",
@@ -379,3 +381,25 @@ def jobs_log_read(runtime: CoreRuntime, query: CoreQuery) -> dict[str, Any]:
         "eof": not bool(extra),
         "available": True,
     }
+
+
+def jobs_events(runtime: CoreRuntime, query: CoreQuery) -> dict[str, Any]:
+    """Read durable progress/log events with a stable, bounded event-ID cursor.
+
+    :param runtime: Runtime supplying the library-bound durable job service.
+    :param query: Query with job_id, optional after_event_id and a limit capped at 1,000.
+    :return: Ordered events, next cursor and whether more events are available.
+    :raises CoreDispatchError: If the cursor/bounds are invalid or the job is unknown.
+    """
+    payload = _payload(query)
+    job_id = _required_text(payload, "job_id")
+    cursor = _optional_int(payload, "after_event_id", default=0, minimum=0)
+    limit = _optional_int(payload, "limit", default=100, minimum=1)
+    if cursor is None or limit is None:
+        raise CoreDispatchError("Event cursor and limit cannot be null")
+    try:
+        return runtime.durable_jobs.events(
+            job_id, after_event_id=cursor, limit=min(limit, 1000)
+        )
+    except KeyError as error:
+        raise CoreDispatchError(f"Unknown durable job id: {job_id!r}") from error

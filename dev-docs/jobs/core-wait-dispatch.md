@@ -1,8 +1,10 @@
 # Core job waiting and dispatch
 
 Implemented **2026-10-20** for JOB01, the first part of architecture A09.
-The default Core manager remains `utils.jobs.manager.InMemoryJobManager`.
-This change does not make its job records persistent; JOB02–JOB04 remain open.
+Utility work retains `utils.jobs.manager.InMemoryJobManager`. This dispatch
+change does not make those records persistent. The subsequent
+[durable audit](core-storage-audit.md) integrates JOB02's selected workflow;
+broader migration remains open.
 
 ## Registration and resource ownership
 
@@ -68,7 +70,7 @@ exercise zero-timeout outcomes, permission refusal, manager survival after
 shutdown, queued-handler refusal, registration replacement and serialized
 transactions on SQLite and APSW.
 
-Next, route one real workflow through the durable job repository with a stable
-identity, progress/log cursor, terminal receipt and recovery contract. See
-[job tasks](next_tasks.md) and the [owner map](README.md). This dispatch change
-alone does not satisfy A09's restart/retry/idempotency criteria.
+The subsequent [durable Core audit](core-storage-audit.md) now uses a stable
+identity, progress/event cursor, terminal receipt and recovery contract. See
+[job tasks](next_tasks.md) and the [owner map](README.md) for remaining migration.
+This dispatch change alone does not provide durable execution.

@@ -1130,6 +1130,21 @@ class StorageHandlers(Protocol):
         """
         ...
 
+    def storage_audit_start(
+        self, runtime: CoreRuntime, command: CoreCommand
+    ) -> Mapping[str, object]:
+        """Persist a bounded audit intent and return its job identity before verification.
+
+        See :func:`LiuXin_alpha.core.program_services.storage_integrity.storage_audit_start`
+        for the maintained implementation's validation and failure boundaries.
+
+        :param runtime: Runtime supplying the library-bound durable job service.
+        :param command: Command with optional limit, offset, calculate_digests and request_key.
+        :return: Durable job identity and its current state after accepting the audit.
+        :raises CoreDispatchError: If pagination, delivery identity or submission validation fails.
+        """
+        ...
+
     def storage_audit(
         self, runtime: CoreRuntime, command: CoreCommand
     ) -> Mapping[str, object]:
@@ -1625,6 +1640,21 @@ class SystemJobsHandlers(Protocol):
         :param query: Query with job_id, optional offset=0, and max_bytes=65536.
         :return: Decoded text, requested/current next byte offsets, read-time eof, and path-availability flag.
         :raises CoreDispatchError: For invalid request bounds/ID or KeyError from job lookup.
+        """
+        ...
+
+    def jobs_events(
+        self, runtime: CoreRuntime, query: CoreQuery
+    ) -> Mapping[str, object]:
+        """Read durable progress/log events with a stable, bounded event-ID cursor.
+
+        See :func:`LiuXin_alpha.core.program_services.discovery.jobs_events`
+        for the maintained implementation's validation and failure boundaries.
+
+        :param runtime: Runtime supplying the library-bound durable job service.
+        :param query: Query with job_id, optional after_event_id and a limit capped at 1,000.
+        :return: Ordered events, next cursor and whether more events are available.
+        :raises CoreDispatchError: If the cursor/bounds are invalid or the job is unknown.
         """
         ...
 

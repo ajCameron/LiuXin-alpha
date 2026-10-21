@@ -150,6 +150,7 @@ def test_session_open_routes_and_normalizes_only_the_selected_source(
             db_type=driver,
             database_metadata=metadata,
             configuration_paths=None,
+            durable_job_path=None,
             create=True,
             backup=False,
             cache_type="test-cache",

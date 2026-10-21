@@ -2,7 +2,7 @@
 Declare capability discovery, completed-job result access, and byte-oriented job-log queries for Core.
 
 Base lifecycle/job-management routes belong to other Core owners. This provider
-adds three queries and no commands; installation does not wait for a job, read
+adds four queries and no commands; installation does not wait for a job, read
 a log, or probe whether advertised capability dependencies are operational.
 """
 
@@ -30,11 +30,11 @@ def install_queries(api: SystemJobsHandlers, runtime: ProgramEndpointRegistrar) 
         >>> registrar = Mock()
         >>> install_queries(Mock(), registrar)
         >>> [call.args[0] for call in registrar.register_query_handler.call_args_list]
-        ['capabilities.list', 'jobs.result', 'jobs.log.read']
+        ['capabilities.list', 'jobs.result', 'jobs.events', 'jobs.log.read']
 
 
     :param api: Provider of capability listing, job result, and log-read handlers.
-    :param runtime: Registrar receiving the three bindings in discovery/result/log order.
+    :param runtime: Registrar receiving the four bindings in discovery/result/log order.
     :return: None after installation; errors propagate without undoing earlier bindings.
     """
 
@@ -59,6 +59,19 @@ def install_queries(api: SystemJobsHandlers, runtime: ProgramEndpointRegistrar) 
         tags=("jobs", "read"),
         remote_capabilities=("admin",),
         serialized=False,
+    )
+
+    query(
+        "jobs.events",
+        api.jobs_events,
+        summary="Read bounded durable progress/log events after a stable cursor.",
+        payload_fields=(
+            field("job_id", required=True, field_type="string"),
+            field("after_event_id", field_type="integer"),
+            field("limit", field_type="integer"),
+        ),
+        tags=("jobs", "logs", "read"),
+        remote_capabilities=("admin",),
     )
 
     query(

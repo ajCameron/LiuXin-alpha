@@ -266,6 +266,20 @@ def install_commands(api: StorageHandlers, runtime: ProgramEndpointRegistrar) ->
     )
 
     command(
+        "storage.audit.start",
+        api.storage_audit_start,
+        summary="Submit a durable, bounded storage audit and return its job ID.",
+        payload_fields=(
+            field("limit", field_type="integer"),
+            field("offset", field_type="integer"),
+            field("calculate_digests", field_type="boolean"),
+            field("request_key", field_type="string"),
+        ),
+        tags=("storage", "integrity", "maintenance", "jobs", "write"),
+        remote_capabilities=("admin",),
+    )
+
+    command(
         "storage.audit",
         api.storage_audit,
         summary="Verify a bounded page of non-deleted Replicas.",

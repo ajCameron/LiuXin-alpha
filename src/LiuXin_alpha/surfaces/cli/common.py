@@ -70,6 +70,10 @@ def add_connection_arguments(
 
     add_core_client_arguments(parser, database_help=database_help)
     parser.add_argument(
+        "--job-ledger",
+        help="Local durable job database; defaults to a SQLite catalogue sidecar. Required for server database audits.",
+    )
+    parser.add_argument(
         "--db-type",
         default="SQLite",
         help="Database backend type for --database. Default: SQLite",
@@ -235,8 +239,9 @@ def atomic_binary_output(
         )
     if os.path.lexists(os.fspath(target)) and not replace:
         raise FileExistsError(
-            "Refusing to replace existing output {!s}; pass --replace-output."
-            .format(target)
+            "Refusing to replace existing output {!s}; pass --replace-output.".format(
+                target
+            )
         )
     descriptor, staged_name = tempfile.mkstemp(
         prefix=".{}.".format(target.name),
@@ -395,7 +400,9 @@ def load_json_file(path: str | Path, *, max_bytes: int = MAX_CONTROL_FILE_BYTES)
     try:
         return json.loads(content.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
-        raise ValueError("Invalid UTF-8 JSON in {!s}: {}".format(source, error)) from error
+        raise ValueError(
+            "Invalid UTF-8 JSON in {!s}: {}".format(source, error)
+        ) from error
 
 
 def load_json_object(path: str | Path) -> dict[str, Any]:

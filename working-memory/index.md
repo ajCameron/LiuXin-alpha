@@ -1,5 +1,7 @@
 # Working Memory Index
 
+Active work, **2026-10-20**: [durable Core audit](core-durable-audit-2026-10-20.md) passed 91 final regression checks, 70 compatibility checks and full quality gates on `core-durable-storage-audit`, based on published storage-ownership PR #141 (`7f67a4d1`). PRs #139 and #140 have green full suites. The full A01–A16 programme remains open; preserve the six unrelated staged storage edits.
+
 Active implementation checkpoint, **2026-10-20**:
 [storage record ownership](storage-record-owner-2026-10-20.md) implements A10's
 first admin/scanner family as a prerequisite for the durable Core audit.

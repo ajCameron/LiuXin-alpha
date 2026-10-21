@@ -7,11 +7,11 @@ consolidation work. See [next tasks](next_tasks.md) for the proposed sequence.
 
 | Owner | Current responsibility | Limit |
 | --- | --- | --- |
-| [jobs.repository](../../src/LiuXin_alpha/jobs/repository.py) | SQLite definitions, captured inputs, delivery deduplication, retry ancestry, atomic claims/events and interrupted-run recovery. | Separate job database/schema; not the default Core job manager. |
+| [jobs.repository](../../src/LiuXin_alpha/jobs/repository.py) | SQLite definitions, captured inputs, delivery deduplication, retry ancestry, atomic claims/events and interrupted-run recovery. | Separate job database/schema; used by the selected durable Core audit. |
 | [jobs.scheduler](../../src/LiuXin_alpha/jobs/scheduler.py) | Queue due definitions. | Scheduling does not make a domain workflow idempotent. |
 | [jobs.worker](../../src/LiuXin_alpha/jobs/worker.py) and handler registry | Lease and renew runs, invoke captured handlers/inputs, persist owned progress/results. | Each handler must cooperate with its effect/recovery contract; definition timeouts and retries are not enforced. |
 | [utils.jobs.manager](../../src/LiuXin_alpha/utils/jobs/manager.py) | In-memory supervision of thread/process execution, cancellation, timeout and retry. | Process-local job state does not survive restart as a durable ledger. |
-| [CoreRuntime](../../src/LiuXin_alpha/core/runtime.py) | Named submit/list/get/wait/result/cancel/retry operations and application receipts. | Defaults to the process-shared utility manager; it is not automatically wired to JobRepository. |
+| [CoreRuntime](../../src/LiuXin_alpha/core/runtime.py) | Named job operations; routes durable audit IDs to the ledger and other jobs to utility execution. | Durable composition needs a reopenable library and local ledger; other workflows retain utility state. |
 | [workflow jobs](../../src/LiuXin_alpha/core/workflow_jobs.py) | Adapters that invoke owning conversion, ingest and storage workflows. | The job wrapper does not add all-run rollback or missing result fields. |
 
 Domain-specific journals still exist. Storage ingest records publication and
@@ -21,11 +21,13 @@ operations, not interchangeable universal job records.
 
 The [durable claim contract](durable-claims.md) describes the A09 prerequisite:
 atomic transitions, claim tokens, lease renewal, explicit interruption,
-cancellation receipts and migration. It does not yet wire a production Core
-workflow into this ledger.
+cancellation receipts and migration.
 The [submission contract](submission-identity.md) adds persistent delivery keys,
 atomic first submission, stable ledger identity and explicit retry successors.
 Domain publication/recovery guarantees still belong to the selected workflow.
+The [Core audit contract](core-storage-audit.md) applies these foundations to
+storage verification, including composition, progress/events, cancellation,
+restart inspection and explicit retry.
 
 ## Lifetime, waiting and outcomes
 

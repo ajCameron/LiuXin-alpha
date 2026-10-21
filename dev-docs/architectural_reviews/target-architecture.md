@@ -213,13 +213,15 @@ indexing through storage. Other mutation callers and recovery coordination remai
 open. See the [storage overview](<../06 - Storage.md>).
 
 Jobs invoke domain workflows rather than acquire their validation or placement
-policy. Consolidating Core execution, durable jobs and utility workers requires
-an agreed run identity, restart/cancellation behaviour and result/log contract.
-The first A09 slice implements [responsive job waiting](../jobs/core-wait-dispatch.md)
-without changing the default state owner; the durable workflow migration remains open.
-The following [ledger prerequisite](../jobs/durable-claims.md) enforces atomic
+policy. The [Core storage audit](../jobs/core-storage-audit.md) now uses durable
+run identity, restart/cancellation behaviour and result/event contracts while
+other Core work retains utility execution. Further migration must preserve each
+domain's recovery evidence.
+The first A09 slice implements [responsive job waiting](../jobs/core-wait-dispatch.md).
+The [ledger prerequisite](../jobs/durable-claims.md) enforces atomic
 claim transitions, stale-owner refusal and explicit interrupted-run recovery.
-Core workflow submission/idempotency and retry ancestry still need integration.
+The audit uses [submission identity and retry ancestry](../jobs/submission-identity.md);
+other workflow integrations remain open.
 Mixed ingest already consumes a Library, but this does not settle every acquisition
 coordinator or make cross-domain effects atomic.
 

@@ -98,7 +98,8 @@ CREATE TABLE IF NOT EXISTS job_run_events (
 CREATE INDEX IF NOT EXISTS idx_job_run_events_run ON job_run_events(job_run_id, created_timestamp_ep_k);
 CREATE TABLE IF NOT EXISTS job_ledger_identity (
     singleton INTEGER PRIMARY KEY CHECK(singleton=1),
-    ledger_uuid TEXT NOT NULL
+    ledger_uuid TEXT NOT NULL,
+    owner_key TEXT
 );
 CREATE TABLE IF NOT EXISTS job_requests (
     request_key TEXT PRIMARY KEY,
@@ -207,6 +208,14 @@ class JobRepository:
                 "INSERT OR IGNORE INTO job_ledger_identity(singleton, ledger_uuid) VALUES (1, ?)",
                 (uuid.uuid4().hex,),
             )
+            identity_columns = {
+                row["name"]
+                for row in conn.execute("PRAGMA table_info(job_ledger_identity)")
+            }
+            if "owner_key" not in identity_columns:
+                conn.execute(
+                    "ALTER TABLE job_ledger_identity ADD COLUMN owner_key TEXT"
+                )
 
     @property
     def ledger_uuid(self) -> str:
@@ -216,6 +225,28 @@ class JobRepository:
                 conn.execute(
                     "SELECT ledger_uuid FROM job_ledger_identity WHERE singleton=1"
                 ).fetchone()[0]
+            )
+
+    def bind_owner(self, owner_key: str) -> None:
+        """Bind a dedicated ledger once; refuse reuse for another application/library."""
+        self._validate_request_key(owner_key)
+        with self._connection(write=True) as conn:
+            current = conn.execute(
+                "SELECT owner_key FROM job_ledger_identity WHERE singleton=1"
+            ).fetchone()[0]
+            if current is not None and current != owner_key:
+                raise ValueError("Job ledger belongs to a different owner")
+            if (
+                current is None
+                and conn.execute("SELECT 1 FROM job_definitions LIMIT 1").fetchone()
+                is not None
+            ):
+                raise ValueError(
+                    "Nonempty job ledger has no owner; use a dedicated ledger"
+                )
+            conn.execute(
+                "UPDATE job_ledger_identity SET owner_key=? WHERE singleton=1",
+                (owner_key,),
             )
 
     def create_definition(self, definition: JobDefinition) -> JobDefinition:
