@@ -11,6 +11,8 @@ Example:
 """
 from __future__ import annotations
 
+from LiuXin_alpha.core.authorization import CoreTransportPolicy
+
 import json
 import socket
 import urllib.parse
@@ -236,7 +238,7 @@ def daemon_factory() -> Callable[..., Any]:
             contract.
         :return: An iterator yielding the normalized values described above.
         """
-        daemon = CoreHttpDaemon(runtime, host=host, port=port, endpoint_namespace=endpoint_namespace)
+        daemon = CoreHttpDaemon(runtime, host=host, port=port, endpoint_namespace=endpoint_namespace, policy=CoreTransportPolicy.trusted("test-core-parity"))
         daemon.start()
         try:
             yield daemon
@@ -275,7 +277,7 @@ def fetch_json() -> Callable[..., dict[str, Any]]:
         :return: The normalized value, metadata record, path, stream result or collection
             described above.
         """
-        request = urllib.request.Request(url=url, method="GET")
+        request = urllib.request.Request(url=url, method="GET", headers={"Authorization": "Bearer test-core-parity"})
         with urllib.request.urlopen(request, timeout=timeout) as response:
             return json.loads(response.read().decode("utf-8"))
 
@@ -312,7 +314,7 @@ def remote_proxy() -> Callable[..., RemoteLibraryProxy]:
         :return: The normalized value, metadata record, path, stream result or collection
             described above.
         """
-        return RemoteLibraryProxy(endpoint=daemon.base_url, timeout_seconds=timeout_seconds)
+        return RemoteLibraryProxy(endpoint=daemon.base_url, timeout_seconds=timeout_seconds, bearer_token="test-core-parity")
 
     return _build_remote_proxy
 

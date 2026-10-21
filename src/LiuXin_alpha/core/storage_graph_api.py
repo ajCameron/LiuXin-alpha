@@ -542,6 +542,7 @@ class CoreStorageGraphAPI:
             self.resources_describe,
             summary="Describe the closed managed-storage resource registry.",
             tags=("storage", "assets", "schema"),
+            remote_capabilities=("admin",),
         )
         query(
             "storage.resource.list",
@@ -554,6 +555,7 @@ class CoreStorageGraphAPI:
                 _field("offset", field_type="integer"),
             ),
             tags=("storage", "assets", "read"),
+            remote_capabilities=("admin",),
         )
         query(
             "storage.resource.get",
@@ -564,6 +566,7 @@ class CoreStorageGraphAPI:
                 _field("id", required=True, field_type="integer"),
             ),
             tags=("storage", "assets", "read"),
+            remote_capabilities=("admin",),
         )
         query(
             "storage.asset.get",
@@ -571,6 +574,7 @@ class CoreStorageGraphAPI:
             summary="Read one asset with replicas, item links, and policy status.",
             payload_fields=(_field("asset_id", required=True, field_type="integer"),),
             tags=("storage", "assets", "replicas", "read"),
+            remote_capabilities=("admin",),
         )
         query(
             "storage.policy.assess",
@@ -578,6 +582,7 @@ class CoreStorageGraphAPI:
             summary="Assess one asset against its replication and backup policies.",
             payload_fields=(_field("asset_id", required=True, field_type="integer"),),
             tags=("storage", "policies", "read"),
+            remote_capabilities=("admin",),
         )
         query(
             "storage.policy.plan",
@@ -585,6 +590,7 @@ class CoreStorageGraphAPI:
             summary="Plan additional store placements needed by one asset.",
             payload_fields=(_field("asset_id", required=True, field_type="integer"),),
             tags=("storage", "policies", "planning", "read"),
+            remote_capabilities=("admin",),
         )
         query(
             "storage.policy.violations",
@@ -595,6 +601,7 @@ class CoreStorageGraphAPI:
                 _field("offset", field_type="integer"),
             ),
             tags=("storage", "policies", "read"),
+            remote_capabilities=("admin",),
         )
 
         command(
@@ -606,6 +613,7 @@ class CoreStorageGraphAPI:
                 _field("values", required=True, field_type="object"),
             ),
             tags=("storage", "assets", "write"),
+            remote_capabilities=("admin",),
         )
         command(
             "storage.resource.update",
@@ -617,6 +625,7 @@ class CoreStorageGraphAPI:
                 _field("values", required=True, field_type="object"),
             ),
             tags=("storage", "assets", "write"),
+            remote_capabilities=("admin",),
         )
         command(
             "storage.resource.delete",
@@ -627,6 +636,7 @@ class CoreStorageGraphAPI:
                 _field("id", required=True, field_type="integer"),
             ),
             tags=("storage", "assets", "write"),
+            remote_capabilities=("admin",),
         )
         command(
             "storage.asset.policies.set",
@@ -638,6 +648,7 @@ class CoreStorageGraphAPI:
                 _field("backup_policy_id", field_type="integer|null"),
             ),
             tags=("storage", "assets", "policies", "write"),
+            remote_capabilities=("admin",),
         )
 
     @staticmethod

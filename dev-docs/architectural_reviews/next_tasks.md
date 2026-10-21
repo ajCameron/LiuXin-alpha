@@ -3,7 +3,7 @@
 Date: **2026-10-20**. Basis: documentation review at `a5406cf8`, A01 at `75b266ed`,
 A02 at `d5956d6e`, and A03's implementation on `database-create-safety`.
 
-Status: **A01–A05 are implemented for PR review; remaining runtime fixes are open.
+Status: **A01–A06 are implemented for PR review; remaining runtime fixes are open.
 Documentation progress is recorded in A14; A15's repaired full CI baseline is verified.** Recheck the named behaviour before starting each task, especially
 where evidence comes from an older review. The first safety slices were checked
 against their current source; A15 records fresh CI and branch-rule observations.
@@ -24,10 +24,9 @@ Finding IDs below refer to the
 
 ## Recommended order
 
-With **A15's repaired CI baseline verified** and A01–A05 implemented for review,
-enforce **A06's transport contract next**. It is independent of
-job consolidation. A07 is the next bounded read-model
-change; A08 continues the existing write-consolidation programme.
+With **A15's repaired CI baseline verified** and A01–A06 implemented for review,
+choose **A07's default WEMI selection policy next**. It is independent of job
+consolidation. A08 continues the existing write-consolidation programme.
 
 The order is a recommendation, not a requirement to finish every earlier item
 before starting an independent one. Dependencies are stated in each task.
@@ -39,8 +38,8 @@ before starting an independent one. Dependencies are stated in each task.
 | [A03](#a03-make-database-creation-nondestructive-by-default) | Implemented; PR review | Creation refuses collisions; explicit offline replacement retains a verified backup. | Databases and Core bootstrap |
 | [A04](#a04-separate-resource-lifetime-from-transaction-lifetime) | Implemented; PR review | Exceptions and nested mutations have one explicit transaction contract. | Databases, with Catalog/storage callers |
 | [A05](#a05-enforce-deletion-policy-at-the-mutation-boundary) | Implemented; PR review | Removing bytes cannot bypass retention/last-copy policy. | Storage manager |
-| [A06](#a06-enforce-transport-capabilities-on-the-server) | First | Remote/read-only clients cannot invoke privileged operations by name. | Core transport and surfaces |
-| [A07](#a07-choose-one-default-wemi-selection-policy) | Next | SQL projections and Catalog bundles apply an agreed path-selection policy. | Catalog and schema projections |
+| [A06](#a06-enforce-transport-capabilities-on-the-server) | Implemented; PR review | Remote/read-only clients cannot invoke privileged operations by name. | Core transport and surfaces |
+| [A07](#a07-choose-one-default-wemi-selection-policy) | First | SQL projections and Catalog bundles apply an agreed path-selection policy. | Catalog and schema projections |
 | [A08](#a08-complete-semantic-write-coverage) | Next | Missing validators enter the existing shared write boundary. | Metadata and Catalog |
 | [A09](#a09-converge-job-state-and-release-long-waits-from-core-dispatch) | Next | One real workflow has durable, observable execution without monopolizing dispatch. | Jobs and Core |
 | [A10](#a10-give-storage-record-mutations-one-owner) | Next | Reconcile and admin adapters share storage record invariants and receipts. | Storage, using database transactions |
@@ -158,26 +157,33 @@ A SQL rollback never promises restoration of erased external bytes.
 
 ## A06. Enforce transport capabilities on the server
 
-**Findings:** CO-4, SU-2/6. **First PR:** explicit remote endpoint permissions and
-read-only dispatch policy. **Dependencies:** none; integrate A05's destructive
-policy instead of duplicating it in HTTP.
+**Findings:** CO-4, SU-2/6. **Implemented for PR review, 2026-10-20.**
+**Dependencies:** A05 continues to enforce destructive storage policy.
 
-[`HTTP dispatch`](../../src/LiuXin_alpha/core/transport/http.py) accepts registered
-operation names; `transport_stable` describes encoding, not authorization. Define
-remote exposure and required capabilities explicitly. Deny generic `invoke` and
-privileged admin/executable-configuration operations unless an explicit trusted
-policy permits them. Bind capabilities to a server-established client identity or
-a fixed deployment policy; never trust a capability list in the request payload.
+Registrations now declare remote authority independently of `transport_stable`.
+HTTP defaults to declared reads; writable/privileged roles require authentication.
+The runtime checks the selected handler and declaration together before effects.
+A failed registration cannot pair a new handler with the old route's permission.
+Generic invocation, administrative mutations and executable configuration require
+explicit stronger grants; claimed request permissions do not affect the role.
 
-Give read-only surfaces a narrow client contract and enforce the same restriction
-on the server. Move refresh/maintenance side effects to an explicitly authorized
-path. Define authentication, request media-type and browser-origin handling for
-the supported deployment modes; loopback binding alone is not the policy.
+The [transport contract](../core/transport_permissions.md) defines bearer-token
+roles, Host/origin/media-type checks, protected deployment modes and credential
+handling. Read-only web/API/OPDS composition binds a restricted client and model.
+Local readers use the same runtime check; direct HTTP requests remain subject to
+the server's role. Refresh, maintenance and global event access are privileged.
+Ordinary trusted in-process calls retain their separate authority.
 
-**Done when:** direct HTTP requests cannot bypass restrictions by naming handlers,
-using the generic invoke route, setting executable paths or claiming permissions.
-Known allowed reads/writes still work under the intended policy, and rejections
-cause no side effects. Use real direct/HTTP parity tests, not just hidden UI controls.
+**Evidence:** the final focused selection passed 67 tests, including raw HTTP
+bypass attempts, explicit read/write parity, credentials and redirect refusal,
+CLI token files, failure-atomic registration, restricted surfaces and the A05
+last-copy rule through authenticated HTTP. Complete quality gates passed, with
+38 rejected negative examples in each type checker. The
+[handoff](../../working-memory/transport-permissions-2026-10-20.md) records broader
+caller selections and their corrected fixtures. Full PR CI is separate.
+
+Authentication identifies one deployment role. Per-user/row authorization and
+in-process plugin isolation are not claimed; TLS remains a deployment boundary.
 
 ## A07. Choose one default WEMI selection policy
 

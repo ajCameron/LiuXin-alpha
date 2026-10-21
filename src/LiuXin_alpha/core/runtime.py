@@ -20,6 +20,7 @@ from typing import Any, Callable, Mapping, Optional, cast
 
 from LiuXin_alpha.configuration import use_preferences
 from LiuXin_alpha.core.api import CoreAPI
+from LiuXin_alpha.core.authorization import KNOWN_CAPABILITIES, authorize_endpoint
 from LiuXin_alpha.core.commands import CoreCommand, CoreCommandResult
 from LiuXin_alpha.core.description import (
     CoreEndpointDescription,
@@ -188,12 +189,14 @@ class CoreRuntime(CoreAPI):
             ),
             tags=("generic", "invoke"),
             transport_stable=False,
+            remote_capabilities=("invoke",),
         )
         self.register_command_handler(
             "shutdown",
             self._handle_shutdown_command,
             summary="Shut the runtime down.",
             tags=("lifecycle",),
+            remote_capabilities=("admin",),
         )
         self.register_command_handler(
             "sync.store.start",
@@ -209,6 +212,7 @@ class CoreRuntime(CoreAPI):
                 CorePayloadFieldDescription(name="label", field_type="string"),
             ),
             tags=("sync", "jobs"),
+            remote_capabilities=("admin",),
         )
         self.register_command_handler(
             "sync.store.cancel",
@@ -220,6 +224,7 @@ class CoreRuntime(CoreAPI):
                 ),
             ),
             tags=("sync", "jobs"),
+            remote_capabilities=("admin",),
         )
         self.register_command_handler(
             "jobs.cancel",
@@ -231,6 +236,7 @@ class CoreRuntime(CoreAPI):
                 ),
             ),
             tags=("jobs",),
+            remote_capabilities=("admin",),
         )
         self.register_command_handler(
             "jobs.retry",
@@ -246,6 +252,7 @@ class CoreRuntime(CoreAPI):
                 ),
             ),
             tags=("jobs", "write"),
+            remote_capabilities=("admin",),
         )
         self.register_command_handler(
             "metadata.write",
@@ -265,6 +272,7 @@ class CoreRuntime(CoreAPI):
                 CorePayloadFieldDescription(name="mark_dirty", field_type="boolean"),
             ),
             tags=("metadata", "write"),
+            remote_capabilities=("write",),
         )
         self.register_command_handler(
             "metadata.tags.replace",
@@ -280,6 +288,7 @@ class CoreRuntime(CoreAPI):
                 CorePayloadFieldDescription(name="kind", field_type="string"),
             ),
             tags=("metadata", "tags", "write"),
+            remote_capabilities=("write",),
         )
         self.register_command_handler(
             "metadata.labels.replace",
@@ -295,6 +304,7 @@ class CoreRuntime(CoreAPI):
                 CorePayloadFieldDescription(name="kind", field_type="string"),
             ),
             tags=("metadata", "labels", "write"),
+            remote_capabilities=("write",),
         )
         self.register_command_handler(
             "metadata.genre.replace",
@@ -310,6 +320,7 @@ class CoreRuntime(CoreAPI):
                 CorePayloadFieldDescription(name="kind", field_type="string"),
             ),
             tags=("metadata", "genre", "write"),
+            remote_capabilities=("write",),
         )
         self.register_command_handler(
             "metadata.series.replace",
@@ -325,6 +336,7 @@ class CoreRuntime(CoreAPI):
                 CorePayloadFieldDescription(name="kind", field_type="string"),
             ),
             tags=("metadata", "series", "write"),
+            remote_capabilities=("write",),
         )
         self.register_command_handler(
             "metadata.identifiers.replace",
@@ -340,6 +352,7 @@ class CoreRuntime(CoreAPI):
                 CorePayloadFieldDescription(name="kind", field_type="string"),
             ),
             tags=("metadata", "identifiers", "write"),
+            remote_capabilities=("write",),
         )
         self.register_query_handler(
             "invoke",
@@ -358,12 +371,14 @@ class CoreRuntime(CoreAPI):
             ),
             tags=("generic", "invoke"),
             transport_stable=False,
+            remote_capabilities=("invoke",),
         )
         self.register_query_handler(
             "health",
             self._handle_health_query,
             summary="Return runtime health and registration state.",
             tags=("lifecycle", "health"),
+            remote_capabilities=("read",),
         )
         self.register_query_handler(
             "api.describe",
@@ -376,6 +391,7 @@ class CoreRuntime(CoreAPI):
                 CorePayloadFieldDescription(name="target", field_type="string"),
             ),
             tags=("api", "introspection"),
+            remote_capabilities=("read",),
         )
         self.register_query_handler(
             "jobs.list",
@@ -387,6 +403,7 @@ class CoreRuntime(CoreAPI):
                 CorePayloadFieldDescription(name="offset", field_type="integer"),
             ),
             tags=("jobs",),
+            remote_capabilities=("admin",),
         )
         self.register_query_handler(
             "jobs.get",
@@ -398,6 +415,7 @@ class CoreRuntime(CoreAPI):
                 ),
             ),
             tags=("jobs",),
+            remote_capabilities=("admin",),
         )
         self.register_query_handler(
             "jobs.wait",
@@ -410,6 +428,7 @@ class CoreRuntime(CoreAPI):
                 CorePayloadFieldDescription(name="timeout_s", field_type="number"),
             ),
             tags=("jobs",),
+            remote_capabilities=("admin",),
         )
         from LiuXin_alpha.core.application_api import install_application_api
 
@@ -698,14 +717,15 @@ class CoreRuntime(CoreAPI):
         | None = None,
         tags: tuple[str, ...] | list[str] | None = None,
         transport_stable: bool = True,
+        remote_capabilities: tuple[str, ...] | None = None,
     ) -> None:
         """
         Register or replace a normalized command route and its descriptive endpoint metadata.
 
         Names are stringified, stripped, and lowercased. Existing registrations are
         overwritten without collision checks or callable/signature validation.
-        Handler assignment precedes description construction, so a metadata error
-        can leave a new handler with old/missing metadata. Payload fields describe
+        Metadata is constructed before the handler/description pair is replaced,
+        so failed registration cannot inherit an old route's authority. Payload fields describe
         expectations; this registration does not install payload validation.
 
         Example:
@@ -718,6 +738,7 @@ class CoreRuntime(CoreAPI):
         :param description: Longer descriptive text; falsey input becomes empty text.
         :param payload_fields: Optional ordered field descriptions converted to a tuple without schema enforcement.
         :param tags: Optional tag values stringified in order without stripping or deduplication.
+        :param remote_capabilities: Explicit remote grants; None keeps this registration local-only.
         :param transport_stable: Truth-converted flag selecting result wire conversion during execution.
         :return: None after updating the command handler and description maps under their state lock.
         :raises ValueError: If the normalized route name is blank.
@@ -725,19 +746,25 @@ class CoreRuntime(CoreAPI):
         token = str(name).strip().lower()
         if not token:
             raise ValueError("Command name cannot be blank.")
+        if remote_capabilities is not None:
+            remote_capabilities = tuple(remote_capabilities)
+            if not set(remote_capabilities) <= KNOWN_CAPABILITIES:
+                raise ValueError("Unknown transport capability.")
+        metadata = CoreEndpointDescription(
+            name=token,
+            kind="command",
+            summary=str(
+                summary if summary is not None else self._doc_summary(handler)
+            ),
+            description=str(description or ""),
+            payload_fields=self._normalize_payload_fields(payload_fields),
+            tags=tuple(str(tag) for tag in (tags or ())),
+            transport_stable=bool(transport_stable),
+            remote_capabilities=remote_capabilities,
+        )
         with self._state_lock:
             self._command_handlers[token] = handler
-            self._command_descriptions[token] = CoreEndpointDescription(
-                name=token,
-                kind="command",
-                summary=str(
-                    summary if summary is not None else self._doc_summary(handler)
-                ),
-                description=str(description or ""),
-                payload_fields=self._normalize_payload_fields(payload_fields),
-                tags=tuple(str(tag) for tag in (tags or ())),
-                transport_stable=bool(transport_stable),
-            )
+            self._command_descriptions[token] = metadata
 
     def register_query_handler(
         self,
@@ -751,13 +778,14 @@ class CoreRuntime(CoreAPI):
         | None = None,
         tags: tuple[str, ...] | list[str] | None = None,
         transport_stable: bool = True,
+        remote_capabilities: tuple[str, ...] | None = None,
     ) -> None:
         """
         Register or replace a normalized query route and its description without proving read-only behavior.
 
         Registration accepts repeated names and does not verify callability,
-        signature, or declared payload fields. The handler map changes before
-        metadata construction, so a later metadata error is not rolled back.
+        signature, or declared payload fields. Metadata construction precedes the atomic handler/description replacement;
+        a failed declaration leaves the old pair unchanged.
 
         Example:
             >>> runtime.register_query_handler("example.lookup", handler, summary="Read an example.")  # doctest: +SKIP
@@ -769,6 +797,7 @@ class CoreRuntime(CoreAPI):
         :param description: Longer metadata text, with falsey values represented as empty text.
         :param payload_fields: Ordered descriptive field records, not executable validation rules.
         :param tags: Optional ordered tags stringified without deduplication.
+        :param remote_capabilities: Explicit remote grants; None keeps this registration local-only.
         :param transport_stable: Whether query results should be normalized by the Core wire encoder.
         :return: None after replacing the route and metadata under the state lock.
         :raises ValueError: If name normalization yields blank text.
@@ -776,19 +805,25 @@ class CoreRuntime(CoreAPI):
         token = str(name).strip().lower()
         if not token:
             raise ValueError("Query name cannot be blank.")
+        if remote_capabilities is not None:
+            remote_capabilities = tuple(remote_capabilities)
+            if not set(remote_capabilities) <= KNOWN_CAPABILITIES:
+                raise ValueError("Unknown transport capability.")
+        metadata = CoreEndpointDescription(
+            name=token,
+            kind="query",
+            summary=str(
+                summary if summary is not None else self._doc_summary(handler)
+            ),
+            description=str(description or ""),
+            payload_fields=self._normalize_payload_fields(payload_fields),
+            tags=tuple(str(tag) for tag in (tags or ())),
+            transport_stable=bool(transport_stable),
+            remote_capabilities=remote_capabilities,
+        )
         with self._state_lock:
             self._query_handlers[token] = handler
-            self._query_descriptions[token] = CoreEndpointDescription(
-                name=token,
-                kind="query",
-                summary=str(
-                    summary if summary is not None else self._doc_summary(handler)
-                ),
-                description=str(description or ""),
-                payload_fields=self._normalize_payload_fields(payload_fields),
-                tags=tuple(str(tag) for tag in (tags or ())),
-                transport_stable=bool(transport_stable),
-            )
+            self._query_descriptions[token] = metadata
 
     def subscribe(self, callback: EventSubscriber) -> Callable[[], None]:
         """
@@ -877,7 +912,9 @@ class CoreRuntime(CoreAPI):
                 continue
         return event
 
-    def execute_command(self, command: CoreCommand) -> CoreCommandResult:
+    def execute_command(
+        self, command: CoreCommand, *, capabilities: frozenset[str] | None = None
+    ) -> CoreCommandResult:
         """
         Execute a registered command under the handler lock, wire-normalize stable results, and emit lifecycle events.
 
@@ -896,6 +933,7 @@ class CoreRuntime(CoreAPI):
             >>> response = runtime.execute_command(CoreCommand("jobs.cancel", {"job_id": "job-1"}))  # doctest: +SKIP
 
 
+        :param capabilities: Server-established authority; None is trusted in-process execution.
         :param command: Envelope passed unchanged to the handler; only routing uses a normalized name.
         :return: Successful command envelope with the original request/correlation IDs and final result value.
         :raises CoreShutdownError: If shutdown was already flagged when execution began.
@@ -911,6 +949,8 @@ class CoreRuntime(CoreAPI):
 
         with self._state_lock:
             handler = self._command_handlers.get(token)
+            if capabilities is not None:
+                authorize_endpoint(self._command_descriptions.get(token), capabilities, command.payload)
         if handler is None:
             raise CoreDispatchError(
                 "Unknown command handler: {!r}".format(command.name)
@@ -1050,7 +1090,9 @@ class CoreRuntime(CoreAPI):
         payload["method"] = method
         return payload
 
-    def execute_query(self, query: CoreQuery) -> CoreQueryResult:
+    def execute_query(
+        self, query: CoreQuery, *, capabilities: frozenset[str] | None = None
+    ) -> CoreQueryResult:
         """
         Execute a query under the same lock as commands and convert stable results without command lifecycle events.
 
@@ -1063,6 +1105,7 @@ class CoreRuntime(CoreAPI):
             >>> response = runtime.execute_query(CoreQuery("health"))  # doctest: +SKIP
 
 
+        :param capabilities: Server-established authority; None is trusted in-process execution.
         :param query: Envelope passed unchanged to the selected handler after normalized-name routing.
         :return: Successful query envelope with request/correlation IDs and the optionally wire-converted result.
         :raises CoreShutdownError: If shutdown is already flagged at the initial check.
@@ -1078,6 +1121,8 @@ class CoreRuntime(CoreAPI):
 
         with self._state_lock:
             handler = self._query_handlers.get(token)
+            if capabilities is not None:
+                authorize_endpoint(self._query_descriptions.get(token), capabilities, query.payload)
         if handler is None:
             raise CoreDispatchError("Unknown query handler: {!r}".format(query.name))
 
@@ -1808,7 +1853,7 @@ class CoreRuntime(CoreAPI):
         """
         del runtime
         payload = dict(query.payload or {})
-        include_targets = bool(payload.get("include_targets", True))
+        include_targets = bool(payload.get("include_targets", bool(payload.get("target"))))
         target = payload.get("target", None)
         return self.describe_api(
             include_targets=include_targets,

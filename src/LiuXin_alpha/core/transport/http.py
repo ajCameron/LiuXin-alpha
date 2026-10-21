@@ -2,8 +2,9 @@
 Host a borrowed Core runtime through threaded HTTP JSON routes and bounded in-memory event history.
 
 Provides health, API descriptions, named command/query envelopes, and one-event
-long polling. Namespace prefixes route URLs; they are not authentication or
-authorization boundaries. This adapter supplies neither TLS nor access control.
+long polling. Namespace prefixes only route URLs. Explicit server policy controls
+endpoint authority, bearer authentication, Host checks and browser-origin refusal.
+This adapter does not terminate TLS.
 Declared request bodies are size-limited, but socket reads have no added deadline
 and event history is not a durable or lossless delivery service.
 """
@@ -11,7 +12,9 @@ and event history is not a durable or lossless delivery service.
 from __future__ import annotations
 
 import dataclasses
+import ipaddress
 import json
+import secrets
 import threading
 import urllib.parse
 
@@ -19,6 +22,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Callable, Optional
 
+from LiuXin_alpha.core.authorization import CoreAuthorizationError, CoreTransportPolicy
 from LiuXin_alpha.core.commands import CoreCommand
 from LiuXin_alpha.core.errors import core_error_details
 from LiuXin_alpha.core.events import CoreEvent
@@ -51,6 +55,7 @@ class CoreHttpDaemon:
         port: int = 0,
         endpoint_namespace: str | None = None,
         max_request_bytes: int = 1024 * 1024 * 1024,
+        policy: CoreTransportPolicy | None = None,
     ) -> None:
         """
         Borrow a runtime, normalize listener settings, and initialize empty event/lifecycle state.
@@ -70,6 +75,7 @@ class CoreHttpDaemon:
         :param port: Integer-coerced bind port; zero requests an OS-selected ephemeral port at start.
         :param endpoint_namespace: Optional URL prefix normalized by stripping whitespace and outer slashes.
         :param max_request_bytes: Positive integer limit on declared Content-Length before reading a JSON body.
+        :param policy: Server-owned authority and credentials; omitted means loopback read-only access.
         :return: ``None`` after storing configuration and initializing the condition/event buffer.
         :raises ValueError: If the converted request limit is below one or an integer conversion fails.
         """
@@ -80,6 +86,13 @@ class CoreHttpDaemon:
         self.max_request_bytes = int(max_request_bytes)
         if self.max_request_bytes < 1:
             raise ValueError("max_request_bytes must be >= 1.")
+        self.policy = policy or CoreTransportPolicy()
+        try:
+            loopback = ipaddress.ip_address(self.host).is_loopback
+        except ValueError:
+            loopback = self.host.lower() == "localhost"
+        if not loopback and self.policy.bearer_token is None:
+            raise ValueError("Non-loopback Core HTTP requires a bearer token.")
 
         self._server: Optional[ThreadingHTTPServer] = None
         self._thread: Optional[threading.Thread] = None
@@ -274,7 +287,7 @@ class CoreHttpDaemon:
         this daemon and exposes only the configured routes. The server/thread are
         installed before subscribing, and running is marked last; a later failure
         can leave a listener behind while stop still sees a false running flag.
-        Startup does not provide rollback or authenticate clients.
+        Startup does not provide rollback. Each HTTP request checks the configured authority.
 
         Example:
             >>> daemon.start()  # doctest: +SKIP
@@ -406,6 +419,59 @@ class CoreHttpDaemon:
                     raise ValueError("JSON payload must be an object.")
                 return payload
 
+            def _authorize_request(self, *, body: bool = False) -> bool:
+                """Reject browser, host, credential and media-type failures before dispatch.
+
+                Example:
+                    >>> allowed = handler._authorize_request(body=True)  # doctest: +SKIP
+                """
+                if self.headers.get("Origin") is not None or self.headers.get(
+                    "Sec-Fetch-Site", ""
+                ).lower() == "cross-site":
+                    self._send_json(HTTPStatus.FORBIDDEN, {
+                        "ok": False, "error": "Browser-origin RPC is not supported.",
+                        "error_code": "permission_denied",
+                    })
+                    return False
+                host = self.headers.get("Host", "").lower()
+                server_host, server_port = daemon.server_address
+                allowed = set(daemon.policy.allowed_hosts)
+                allowed.add(f"{daemon.host.lower()}:{server_port}")
+                allowed.add(f"{server_host.lower()}:{server_port}")
+                if server_host == "127.0.0.1":
+                    allowed.add(f"localhost:{server_port}")
+                if len(self.headers.get_all("Host", [])) != 1 or host not in allowed:
+                    self._send_json(HTTPStatus.FORBIDDEN, {
+                        "ok": False, "error": "Unrecognized HTTP Host.",
+                        "error_code": "permission_denied",
+                    })
+                    return False
+                expected = daemon.policy.bearer_token
+                if expected is not None:
+                    scheme, _, token = self.headers.get("Authorization", "").partition(" ")
+                    if (
+                        len(self.headers.get_all("Authorization", [])) != 1
+                        or scheme.lower() != "bearer"
+                        or not token.isascii()
+                        or not secrets.compare_digest(token, expected)
+                    ):
+                        self._send_json(HTTPStatus.UNAUTHORIZED, {
+                            "ok": False, "error": "Valid bearer authentication required.",
+                            "error_code": "authentication_required",
+                        })
+                        return False
+                if body and (
+                    len(self.headers.get_all("Content-Type", [])) != 1
+                    or self.headers.get_content_type() != "application/json"
+                    or self.headers.get_content_charset("utf-8").lower() != "utf-8"
+                ):
+                    self._send_json(HTTPStatus.UNSUPPORTED_MEDIA_TYPE, {
+                        "ok": False, "error": "UTF-8 application/json is required.",
+                        "error_code": "unsupported_media_type",
+                    })
+                    return False
+                return True
+
             def _resolve_relative_path(self) -> str | None:
                 """
                 Remove the literal namespace prefix from the parsed URL path when it matches a complete segment boundary.
@@ -509,6 +575,8 @@ class CoreHttpDaemon:
 
                 :return: ``None`` after sending the selected response or error response.
                 """
+                if not self._authorize_request():
+                    return
                 rel_path = self._resolve_relative_path()
                 if rel_path is None:
                     self._send_json(
@@ -523,11 +591,11 @@ class CoreHttpDaemon:
                 if rel_path == "/health":
                     try:
                         result = daemon.runtime.execute_query(
-                            CoreQuery(name="health")
+                            CoreQuery(name="health"), capabilities=daemon.policy.capabilities
                         ).result
                     except Exception as exc:
                         self._send_core_error(
-                            HTTPStatus.INTERNAL_SERVER_ERROR,
+                            HTTPStatus.FORBIDDEN if isinstance(exc, CoreAuthorizationError) else HTTPStatus.INTERNAL_SERVER_ERROR,
                             exc,
                         )
                         return
@@ -537,7 +605,7 @@ class CoreHttpDaemon:
                 if rel_path == "/api/describe":
                     payload: dict[str, Any] = {
                         "include_targets": self._safe_bool(
-                            query.get("include_targets", ["1"])[0], True
+                            query.get("include_targets", ["0"])[0], False
                         ),
                     }
                     target = str(query.get("target", [""])[0]).strip()
@@ -545,11 +613,12 @@ class CoreHttpDaemon:
                         payload["target"] = target
                     try:
                         result = daemon.runtime.execute_query(
-                            CoreQuery(name="api.describe", payload=payload)
+                            CoreQuery(name="api.describe", payload=payload),
+                            capabilities=daemon.policy.capabilities,
                         ).result
                     except Exception as exc:
                         self._send_core_error(
-                            HTTPStatus.INTERNAL_SERVER_ERROR,
+                            HTTPStatus.FORBIDDEN if isinstance(exc, CoreAuthorizationError) else HTTPStatus.INTERNAL_SERVER_ERROR,
                             exc,
                         )
                         return
@@ -557,6 +626,11 @@ class CoreHttpDaemon:
                     return
 
                 if rel_path == "/events/next":
+                    if "admin" not in daemon.policy.capabilities:
+                        self._send_core_error(HTTPStatus.FORBIDDEN, CoreAuthorizationError(
+                            "Global event history requires administrative authority."
+                        ))
+                        return
                     after = self._safe_int(query.get("after", ["0"])[0], 0)
                     timeout = self._safe_float(query.get("timeout", ["10"])[0], 10.0)
                     timeout = max(0.0, min(timeout, 60.0))
@@ -586,6 +660,8 @@ class CoreHttpDaemon:
 
                 :return: ``None`` after sending an envelope, route error, or payload/execution error response.
                 """
+                if not self._authorize_request(body=True):
+                    return
                 rel_path = self._resolve_relative_path()
                 if rel_path is None:
                     self._send_json(
@@ -631,9 +707,14 @@ class CoreHttpDaemon:
                         return
 
                     try:
-                        query_result = daemon.runtime.execute_query(query_envelope)
+                        query_result = daemon.runtime.execute_query(
+                            query_envelope, capabilities=daemon.policy.capabilities
+                        )
                     except Exception as exc:
-                        self._send_core_error(HTTPStatus.BAD_REQUEST, exc)
+                        self._send_core_error(
+                            HTTPStatus.FORBIDDEN if isinstance(exc, CoreAuthorizationError) else HTTPStatus.BAD_REQUEST,
+                            exc,
+                        )
                         return
                     self._send_json(
                         HTTPStatus.OK,
@@ -674,10 +755,13 @@ class CoreHttpDaemon:
 
                     try:
                         command_result = daemon.runtime.execute_command(
-                            command_envelope
+                            command_envelope, capabilities=daemon.policy.capabilities
                         )
                     except Exception as exc:
-                        self._send_core_error(HTTPStatus.BAD_REQUEST, exc)
+                        self._send_core_error(
+                            HTTPStatus.FORBIDDEN if isinstance(exc, CoreAuthorizationError) else HTTPStatus.BAD_REQUEST,
+                            exc,
+                        )
                         return
                     self._send_json(
                         HTTPStatus.OK,

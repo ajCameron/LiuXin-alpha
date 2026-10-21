@@ -205,6 +205,7 @@ class SurfaceCoreSession:
         enable_maintenance: bool = False,
         repair_bootstrap_rows: bool = False,
         timeout_seconds: float = 10.0,
+        bearer_token: str | None = None,
     ) -> "SurfaceCoreSession":
         """
         Configure a remote client or compose and own a local Core runtime, requiring exactly one source.
@@ -238,6 +239,7 @@ class SurfaceCoreSession:
         :param storage_startup_on_add: Whether locally bootstrapped stores start when added.
         :param enable_maintenance: Whether local database opening enables maintenance services.
         :param repair_bootstrap_rows: Whether local database bootstrap may repair required rows.
+        :param bearer_token: Optional server-role credential for authenticated HTTP requests.
         :param timeout_seconds: Remote request timeout in seconds, converted to float without range checks here.
         :return: Session of the requested class, owning only a runtime it composes locally.
         :raises ValueError: Unless exactly one connection source is supplied, or if downstream configuration is invalid.
@@ -251,6 +253,7 @@ class SurfaceCoreSession:
                 client=core_client(
                     endpoint=str(endpoint),
                     timeout_seconds=float(timeout_seconds),
+                    bearer_token=bearer_token,
                 )
             )
 
@@ -2305,6 +2308,7 @@ def add_core_client_arguments(
             "liuxin-system.json."
         ),
     )
+    parser.add_argument("--core-token-file", help="Read the Core bearer token from this private file.")
     parser.add_argument(
         "--core-timeout",
         type=float,
@@ -2358,6 +2362,7 @@ def open_surface_core_from_args(
     :raises ValueError: If no usable connection is selected, selectors conflict, or configuration conversion fails.
     """
     from LiuXin_alpha.core.settings import apply_system_profile
+    from LiuXin_alpha.core.authorization import read_bearer_token_file
 
     apply_system_profile(args)
     return SurfaceCoreSession.open(
@@ -2376,6 +2381,7 @@ def open_surface_core_from_args(
         enable_maintenance=enable_maintenance,
         repair_bootstrap_rows=repair_bootstrap_rows,
         timeout_seconds=float(getattr(args, "core_timeout", 10.0)),
+        bearer_token=read_bearer_token_file(getattr(args, "core_token_file", None)),
     )
 
 

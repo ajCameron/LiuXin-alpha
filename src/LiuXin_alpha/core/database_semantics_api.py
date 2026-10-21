@@ -508,6 +508,7 @@ class CoreDatabaseSemanticsAPI:
             self.identities_list,
             summary="List normalized row-identity declarations.",
             tags=("schema", "identity", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "schema.identity.get",
@@ -518,6 +519,7 @@ class CoreDatabaseSemanticsAPI:
                 _field("value_column", required=True, field_type="string"),
             ),
             tags=("schema", "identity", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "schema.identity.derive",
@@ -529,6 +531,7 @@ class CoreDatabaseSemanticsAPI:
                 _field("value", required=True),
             ),
             tags=("schema", "identity", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "schema.identity.resolve",
@@ -542,18 +545,21 @@ class CoreDatabaseSemanticsAPI:
                 _field("id_column", field_type="string|null"),
             ),
             tags=("schema", "identity", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "schema.identities.audit",
             self.identities_audit,
             summary="Audit normalized identities without changing the database.",
             tags=("schema", "identity", "maintenance", "read"),
+            remote_capabilities=("read",),
         )
         command(
             "schema.identities.migrate",
             self.identities_migrate,
             summary="Install, backfill, and index normalized identities.",
             tags=("schema", "identity", "maintenance", "write"),
+            remote_capabilities=("admin",),
         )
 
         query(
@@ -565,6 +571,7 @@ class CoreDatabaseSemanticsAPI:
                 _field("row_id", required=True, field_type="integer"),
             ),
             tags=("database", "tree", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "tree.children",
@@ -575,6 +582,7 @@ class CoreDatabaseSemanticsAPI:
                 _field("row_id", required=True, field_type="integer"),
             ),
             tags=("database", "tree", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "tree.lineage",
@@ -585,6 +593,7 @@ class CoreDatabaseSemanticsAPI:
                 _field("row_id", required=True, field_type="integer"),
             ),
             tags=("database", "tree", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "tree.walk",
@@ -595,6 +604,7 @@ class CoreDatabaseSemanticsAPI:
                 _field("row_id", required=True, field_type="integer"),
             ),
             tags=("database", "tree", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "tree.search",
@@ -606,6 +616,7 @@ class CoreDatabaseSemanticsAPI:
                 _field("row_ids", required=True, field_type="array"),
             ),
             tags=("database", "tree", "read"),
+            remote_capabilities=("read",),
         )
         command(
             "tree.nest",
@@ -617,6 +628,7 @@ class CoreDatabaseSemanticsAPI:
                 _field("child_ids", required=True, field_type="array"),
             ),
             tags=("database", "tree", "write"),
+            remote_capabilities=("admin",),
         )
         command(
             "tree.delete",
@@ -628,6 +640,7 @@ class CoreDatabaseSemanticsAPI:
                 _field("confirm", required=True, field_type="boolean"),
             ),
             tags=("database", "tree", "write", "destructive"),
+            remote_capabilities=("admin",),
         )
 
     @staticmethod

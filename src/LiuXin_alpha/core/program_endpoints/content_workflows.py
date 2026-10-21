@@ -45,6 +45,7 @@ def install_queries(
         api.ingest_formats,
         summary="List recognised ebook and metadata ingest extensions.",
         tags=("ingest", "capabilities"),
+        remote_capabilities=("admin",),
     )
 
     query(
@@ -52,6 +53,7 @@ def install_queries(
         api.metadata_file_formats,
         summary="List metadata file reader and writer support.",
         tags=("metadata", "files", "capabilities"),
+        remote_capabilities=("admin",),
     )
 
     query(
@@ -64,6 +66,7 @@ def install_queries(
             field("file_type", field_type="string"),
         ),
         tags=("metadata", "files", "read"),
+        remote_capabilities=("execute",),
     )
 
     query(
@@ -71,6 +74,7 @@ def install_queries(
         api.metadata_online_sources,
         summary="List configured online metadata and cover sources.",
         tags=("metadata", "online", "capabilities"),
+        remote_capabilities=("admin",),
     )
 
     query(
@@ -78,6 +82,7 @@ def install_queries(
         api.conversion_formats,
         summary="List available conversion input and output formats.",
         tags=("conversion", "capabilities"),
+        remote_capabilities=("admin",),
     )
 
     query(
@@ -89,6 +94,7 @@ def install_queries(
             field("output_path", required=True, field_type="string"),
         ),
         tags=("conversion", "capabilities"),
+        remote_capabilities=("execute",),
     )
 
 
@@ -130,6 +136,7 @@ def install_commands(
             field("metadata", field_type="object"),
         ),
         tags=("metadata", "files", "write"),
+        remote_capabilities=("execute",),
     )
 
     command(
@@ -144,6 +151,7 @@ def install_commands(
             field("allowed_plugins", field_type="array|null"),
         ),
         tags=("metadata", "online", "jobs", "write"),
+        remote_capabilities=("execute",),
     )
 
     command(
@@ -157,6 +165,7 @@ def install_commands(
             field("timeout_s", field_type="number"),
         ),
         tags=("metadata", "online", "jobs", "write"),
+        remote_capabilities=("execute",),
     )
 
     command(
@@ -174,6 +183,7 @@ def install_commands(
             field("refresh_storage_manager", field_type="boolean"),
         ),
         tags=("ingest", "jobs", "write"),
+        remote_capabilities=("execute",),
     )
 
     command(
@@ -185,6 +195,7 @@ def install_commands(
             field("options", required=True, field_type="object"),
         ),
         tags=("ingest", "remote", "jobs", "write"),
+        remote_capabilities=("execute",),
     )
 
     command(
@@ -197,4 +208,5 @@ def install_commands(
             field("options", field_type="object"),
         ),
         tags=("conversion", "jobs", "write"),
+        remote_capabilities=("execute",),
     )

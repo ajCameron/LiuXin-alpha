@@ -199,7 +199,7 @@ def test_core_http_daemon_and_remote_proxy_expose_api_description(
         assert described["core_version"] == "test-phase2"
         assert [entry["name"] for entry in described["targets"]] == ["database"]
 
-        proxy_described = proxy.describe_api(target="storage")
+        proxy_described = proxy.describe_api(include_targets=True, target="storage")
         assert [entry["name"] for entry in proxy_described["targets"]] == ["storage"]
         query_names = {entry["name"] for entry in proxy_described["queries"]}
         assert "api.describe" in query_names

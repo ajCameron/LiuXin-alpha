@@ -1178,6 +1178,7 @@ class CoreBrowseAPI:
             summary="List display-neutral top-level library browse categories.",
             payload_fields=(_field("category", field_type="string"),),
             tags=("browse", "catalog", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "browse.category.items",
@@ -1191,6 +1192,7 @@ class CoreBrowseAPI:
                 _field("ascending", field_type="boolean"),
             ),
             tags=("browse", "catalog", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "browse.works",
@@ -1206,6 +1208,7 @@ class CoreBrowseAPI:
                 _field("ascending", field_type="boolean"),
             ),
             tags=("browse", "catalog", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "browse.work",
@@ -1213,6 +1216,7 @@ class CoreBrowseAPI:
             summary="Return one work projection with related entities and formats.",
             payload_fields=(_field("work_id", required=True, field_type="integer"),),
             tags=("browse", "catalog", "acquisition", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "acquisition.formats",
@@ -1220,6 +1224,7 @@ class CoreBrowseAPI:
             summary="List downloadable legacy files and managed replicas for one work.",
             payload_fields=(_field("work_id", required=True, field_type="integer"),),
             tags=("acquisition", "storage", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "acquisition.resolve",
@@ -1230,6 +1235,7 @@ class CoreBrowseAPI:
                 _field("id", required=True, field_type="integer"),
             ),
             tags=("acquisition", "storage", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "acquisition.read",
@@ -1240,6 +1246,7 @@ class CoreBrowseAPI:
                 _field("id", required=True, field_type="integer"),
             ),
             tags=("acquisition", "storage", "read"),
+            remote_capabilities=("read",),
         )
         query(
             "acquisition.cover",
@@ -1247,6 +1254,7 @@ class CoreBrowseAPI:
             summary="Return cover candidates for one work.",
             payload_fields=(_field("work_id", required=True, field_type="integer"),),
             tags=("acquisition", "images", "read"),
+            remote_capabilities=("read",),
         )
 
     @staticmethod

@@ -68,9 +68,11 @@ environment-dependent action without probing internal subsystem objects.
 
 The command and query named `invoke` remain compatibility/diagnostic escape
 hatches and are marked `transport_stable=false`. New interface code must use a
-stable named operation. The flag does not hide or authorize an endpoint; current
-HTTP dispatch still accepts registered names. Server-enforced capabilities and
-read-only clients are outstanding work in [next tasks](next_tasks.md).
+stable named operation. The flag controls serialization only;
+`remote_capabilities` separately declares exposure. HTTP defaults to declared
+reads, and generic invocation needs an explicitly authenticated trusted policy.
+See [transport permissions](transport_permissions.md) for deployment roles and
+the restricted client used by read-only surfaces.
 
 ## Whole-program capability surface
 

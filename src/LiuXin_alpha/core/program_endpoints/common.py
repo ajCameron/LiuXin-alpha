@@ -47,6 +47,7 @@ class ProgramEndpointRegistrar(Protocol):
         | None = None,
         tags: tuple[str, ...] | list[str] | None = None,
         transport_stable: bool = True,
+        remote_capabilities: tuple[str, ...] | None = None,
     ) -> None:
         """
         Register a runtime-and-query callable with the metadata advertised to API clients.
@@ -64,6 +65,7 @@ class ProgramEndpointRegistrar(Protocol):
         :param description: Additional operation contract text for introspection.
         :param payload_fields: Optional ordered payload-field declarations; not request-validation rules.
         :param tags: Optional operation grouping labels for introspection.
+        :param remote_capabilities: Required remote authority, or None for local-only registration.
         :param transport_stable: Whether to advertise a stable transport-facing result contract.
         :return: None after the implementation has registered the query or raised an error.
         """
@@ -81,6 +83,7 @@ class ProgramEndpointRegistrar(Protocol):
         | None = None,
         tags: tuple[str, ...] | list[str] | None = None,
         transport_stable: bool = True,
+        remote_capabilities: tuple[str, ...] | None = None,
     ) -> None:
         """
         Register a runtime-and-command callable with the metadata advertised to API clients.
@@ -98,6 +101,7 @@ class ProgramEndpointRegistrar(Protocol):
         :param description: Additional operation contract text for introspection.
         :param payload_fields: Optional ordered payload-field declarations; not request-validation rules.
         :param tags: Optional operation grouping labels for introspection.
+        :param remote_capabilities: Required remote authority, or None for local-only registration.
         :param transport_stable: Whether to advertise a stable transport-facing result contract.
         :return: None after the implementation has registered the command or raised an error.
         """

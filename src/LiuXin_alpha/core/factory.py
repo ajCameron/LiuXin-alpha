@@ -177,6 +177,7 @@ def core_client(
     runtime: CoreRuntime | None = None,
     endpoint: str | None = None,
     timeout_seconds: float = 10.0,
+    bearer_token: str | None = None,
 ) -> CoreClientAPI:
     """
     Return a supplied runtime unchanged or construct an unconnected HTTP client, requiring exactly one choice.
@@ -199,6 +200,7 @@ def core_client(
 
     :param runtime: Existing in-process runtime to return directly, with no wrapper or health check.
     :param endpoint: HTTP(S) base URL for a new remote client, exclusive with ``runtime``.
+    :param bearer_token: Optional HTTP server-role credential; unused for trusted local execution.
     :param timeout_seconds: Remote request timeout converted to float; ignored for a supplied runtime.
     :return: Supplied runtime or newly configured RemoteCoreClient sharing the client protocol.
     :raises ValueError: Unless exactly one source is supplied, or if the remote endpoint prefix is invalid.
@@ -212,6 +214,7 @@ def core_client(
     return RemoteCoreClient(
         endpoint=endpoint,
         timeout_seconds=timeout_seconds,
+        bearer_token=bearer_token,
     )
 
 

@@ -1,12 +1,22 @@
 # Working Memory Index
 
 Latest implementation checkpoint, **2026-10-20**:
+[transport permissions](transport-permissions-2026-10-20.md) implements A06 on
+`core-transport-permissions`, based on A05 `47c5c0d3`. Server-owned authority,
+authentication and restricted read-only clients pass 67 final checks and all
+quality gates, including both 38-example negative type contracts. Published as
+[PR #134](https://github.com/ajCameron/LiuXin-alpha/pull/134); a CI boundary correction
+centralizes deployment roles in Core (41 checks and the quality runner passed).
+Its separate full CI is pending. A07 default WEMI selection follows. The full
+A01–A16 programme remains open; no PR has been merged.
+
+Latest implementation checkpoint, **2026-10-20**:
 [deletion policy](deletion-policy-2026-10-20.md) implements A05 on
 `storage-deletion-policy`, based on `e9efedc4`. Both manager deletion routes share
 policy, durable reservations and recovery evidence. The final isolated selection
 passed 110 tests with live PostgreSQL, SQLite, Core and CLI; full quality gates
-passed. Published as PR #133 (`938f9a22`); its full PR CI is pending. A06 transport authority
-is the next runtime task. The full A01–A16 programme remains open.
+passed. Published as PR #133, now `47c5c0d3` after Library/SquashFS CI corrections
+(10 and 18 passing targeted checks). Its new full PR CI is pending. The full A01–A16 programme remains open.
 
 [A04 transaction ownership](transaction-ownership-2026-10-20.md), PR #132, is green
 on `e9efedc4`: full CI passed 7,403 tests, 259 skipped, 17 xfailed. A15 PR #131 is

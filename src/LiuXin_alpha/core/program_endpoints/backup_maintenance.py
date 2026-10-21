@@ -54,6 +54,7 @@ def install_queries(
             field("output_key_prefix", field_type="string"),
         ),
         tags=("backup", "storage", "read"),
+        remote_capabilities=("admin",),
     )
 
     query(
@@ -65,6 +66,7 @@ def install_queries(
             field("offset", field_type="integer"),
         ),
         tags=("backup", "storage", "read"),
+        remote_capabilities=("admin",),
     )
 
     query(
@@ -73,6 +75,7 @@ def install_queries(
         summary="Return one durable backup workflow and resume state.",
         payload_fields=(field("workflow_id", required=True, field_type="integer"),),
         tags=("backup", "storage", "read"),
+        remote_capabilities=("admin",),
     )
 
     query(
@@ -80,6 +83,7 @@ def install_queries(
         api.maintenance_status,
         summary="Return maintenance plugins, queues, and dirty-record status.",
         tags=("maintenance", "read"),
+        remote_capabilities=("admin",),
     )
 
     query(
@@ -92,6 +96,7 @@ def install_queries(
             field("comparison", field_type="string"),
         ),
         tags=("maintenance", "duplicates", "read"),
+        remote_capabilities=("admin",),
     )
 
 
@@ -130,6 +135,7 @@ def install_commands(
             field("workflow_id", field_type="integer|null"),
         ),
         tags=("backup", "storage", "write"),
+        remote_capabilities=("admin",),
     )
 
     command(
@@ -138,6 +144,7 @@ def install_commands(
         summary="Submit a durable, resumable backup workflow.",
         payload_fields=(field("workflow_id", required=True, field_type="integer"),),
         tags=("backup", "storage", "jobs", "write"),
+        remote_capabilities=("execute",),
     )
 
     command(
@@ -151,6 +158,7 @@ def install_commands(
             field("staging_root", field_type="string|null"),
         ),
         tags=("backup", "storage", "jobs", "write"),
+        remote_capabilities=("execute",),
     )
 
     command(
@@ -168,6 +176,7 @@ def install_commands(
             field("refresh_storage_manager", field_type="boolean"),
         ),
         tags=("backup", "storage", "jobs", "write"),
+        remote_capabilities=("execute",),
     )
 
     command(
@@ -185,6 +194,7 @@ def install_commands(
             field("refresh_storage_manager", field_type="boolean"),
         ),
         tags=("backup", "storage", "jobs", "write"),
+        remote_capabilities=("execute",),
     )
 
     command(
@@ -193,6 +203,7 @@ def install_commands(
         summary="Run one bounded maintenance-engine pass.",
         payload_fields=(field("max_events", field_type="integer"),),
         tags=("maintenance", "write"),
+        remote_capabilities=("admin",),
     )
 
     command(
@@ -204,6 +215,7 @@ def install_commands(
             field("row_ids", required=True, field_type="array"),
         ),
         tags=("maintenance", "write"),
+        remote_capabilities=("admin",),
     )
 
     command(
@@ -216,4 +228,5 @@ def install_commands(
             field("merged_id", required=True, field_type="integer"),
         ),
         tags=("maintenance", "catalog", "write"),
+        remote_capabilities=("admin",),
     )
