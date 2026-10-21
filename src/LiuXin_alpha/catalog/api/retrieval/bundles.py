@@ -14,7 +14,9 @@ class BundleRetrieverAPI(Protocol):
     """
     Describe path retrieval with optional ancestors and descendants.
 
-    First repository-ordered relationships select the path. Multiple reads do not
+    Catalog's preferred WEM policy selects a complete path first, or the fullest
+    available partial path. Primary flags, ascending priorities and IDs rank
+    candidates independently of repository list order. Multiple reads do not
     guarantee snapshot consistency; use graph retrieval for bounded descendants.
 
     Example:
@@ -23,69 +25,63 @@ class BundleRetrieverAPI(Protocol):
     """
 
     def for_item(self, item_id: EntityId) -> WemiBundle:
-        """
-        Read one WEMI path through an existing Item.
+        """Read the preferred ancestor path through the requested Item.
 
-        Follow the Item's Manifestation, then the first linked Expression and Work. Repository ordering determines each first choice. Missing relationships leave
-        levels as None. Metadata collection and path reads do not share a snapshot transaction.
-        Missing owners and database errors propagate.
+        Keep the Item fixed. Rank all available ancestor paths by the Catalog WEM
+        selection policy; retain partial ancestors if no complete path exists.
+        Reads and metadata assembly do not share a snapshot transaction.
 
         Example:
-            For an existing Item, call ``catalog.retrieval.bundles.for_item(item_id)``;
-            check optional ancestor and descendant rows before reading their columns.
+            An Item embodying a novel and its introduction selects one path;
+            hierarchy/graph reads still expose both Works.
 
-
-        :param item_id: Existing Item ID; validation is delegated to its repository.
-        :return: Bundle containing the requested row, available path rows, and their attached metadata.
+        :param item_id: Existing Item ID; missing-owner errors propagate.
+        :return: Selected path and its attached metadata, including the requested Item.
         """
 
     def for_manifestation(self, manifestation_id: EntityId) -> WemiBundle:
-        """
-        Read one WEMI path through an existing Manifestation.
+        """Read the preferred ancestor path through the requested Manifestation.
 
-        Choose the first linked Expression, its first Work, and this Manifestation's first Item. Repository ordering determines each first choice. Missing relationships leave
-        levels as None. Metadata collection and path reads do not share a snapshot transaction.
-        Missing owners and database errors propagate.
+        Rank complete paths first, then available partial paths using the same
+        WEM selection key. Choose the lowest Item ID on this Manifestation.
+        Other Works embodied in it remain available through hierarchy/graph reads.
 
         Example:
-            For an existing Manifestation, call ``catalog.retrieval.bundles.for_manifestation(manifestation_id)``;
-            check optional ancestor and descendant rows before reading their columns.
+            A shared edition returns one preferred Work without removing its
+            introduction's separate Work from the catalogue.
 
-
-        :param manifestation_id: Existing Manifestation ID; validation is delegated to its repository.
-        :return: Bundle containing the requested row, available path rows, and their attached metadata.
+        :param manifestation_id: Existing Manifestation ID; missing-owner errors propagate.
+        :return: Selected path and its attached metadata, with optional ancestors/Item.
         """
 
     def for_expression(self, expression_id: EntityId) -> WemiBundle:
-        """
-        Read one WEMI path through an existing Expression.
+        """Read the preferred path through the requested Expression.
 
-        Choose the first linked Work and Manifestation, then that Manifestation's first Item. Repository ordering determines each first choice. Missing relationships leave
-        levels as None. Metadata collection and path reads do not share a snapshot transaction.
-        Missing owners and database errors propagate.
+        Rank its linked Works and Manifestations using the Catalog WEM policy,
+        then choose the lowest Item ID on the selected Manifestation. Missing
+        relationships remain None; selection does not cross a missing edge.
 
         Example:
-            For an existing Expression, call ``catalog.retrieval.bundles.for_expression(expression_id)``;
-            check optional ancestor and descendant rows before reading their columns.
+            An untranslated Expression with no edition still returns its Work
+            and Expression rather than disappearing from a complete-ray view.
 
-
-        :param expression_id: Existing Expression ID; validation is delegated to its repository.
-        :return: Bundle containing the requested row, available path rows, and their attached metadata.
+        :param expression_id: Existing Expression ID; missing-owner errors propagate.
+        :return: Selected path and its metadata; reads are not a snapshot transaction.
         """
 
     def for_work(self, work_id: EntityId) -> WemiBundle:
-        """
-        Read one WEMI path through an existing Work.
+        """Read the preferred path for a Work using SQL primary-ray semantics.
 
-        Choose the first Expression, its first Manifestation, and that Manifestation's first Item. Repository ordering determines each first choice. Missing relationships leave
-        levels as None. Metadata collection and path reads do not share a snapshot transaction.
-        Missing owners and database errors propagate.
+        Rank complete WEM paths by primary flags, ascending priorities and IDs.
+        A preferred Expression without an edition cannot hide another complete
+        path. If none is complete, retain the fullest available partial path.
+        The lowest Item ID on the selected Manifestation wins; Item availability
+        never changes bibliographic preference.
 
         Example:
-            For an existing Work, call ``catalog.retrieval.bundles.for_work(work_id)``;
-            check optional ancestor and descendant rows before reading their columns.
+            ``for_work(work_id)`` and ``wemi_primary_rays_v`` select the same
+            Expression and Manifestation whenever a complete ray exists.
 
-
-        :param work_id: Existing Work ID; validation is delegated to its repository.
-        :return: Bundle containing the requested row, available path rows, and their attached metadata.
+        :param work_id: Existing Work ID; missing-owner errors propagate.
+        :return: Selected path and its metadata; reads are not a snapshot transaction.
         """

@@ -1,6 +1,15 @@
 # Working Memory Index
 
 Latest implementation checkpoint, **2026-10-20**:
+[WEMI selection](wemi-selection-2026-10-20.md) implements A07 on
+`catalog-wemi-selection`, based on A06 PR #134 (`13d6e5aa`). Catalog bundles now
+match SQL complete-ray ranking and retain partial paths explicitly. Exact worked
+examples and the separate hydration relation contract pass 22 final parity tests;
+55 documentation checks and the complete quality runner also pass. Publication
+is next. A08 semantic write coverage follows.
+The full A01–A16 programme remains open; unrelated staged storage edits are preserved.
+
+Latest implementation checkpoint, **2026-10-20**:
 [transport permissions](transport-permissions-2026-10-20.md) implements A06 on
 `core-transport-permissions`, based on A05 `47c5c0d3`. Server-owned authority,
 authentication and restricted read-only clients pass 67 final checks and all

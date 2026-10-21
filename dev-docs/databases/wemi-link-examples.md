@@ -1,6 +1,9 @@
 # Worked examples: WEMI and other links
 
-Reviewed **2026-10-20**. Current generated link columns and ray-view ranking were rechecked. The SQL/Catalog default-selection difference remains open; see [DB03](next_tasks.md#db03-align-default-wemi-selection).
+Reviewed **2026-10-20**. A07 aligns Catalog bundles with the existing SQL complete-ray
+ranking; the [selection contract](../catalog/catalog-wemi-selection.md) states
+partial-path and metadata-hydration distinctions. The graph and selected outputs
+below are exercised by [real SQLite/APSW regressions](../../tests/catalog/retrieval/test_wemi_selection.py).
 
 Checked: **2026-10-19**, against the current FRBR SQLite schema and view definitions.
 
@@ -199,14 +202,14 @@ ORDER BY work_id;
 | 1 | `1:11:101` |
 | 2 | `2:11:101` |
 
-The current SQLite view ranks each Work's complete rays by:
+The SQLite view and Catalog bundles rank each Work's complete rays by:
 
 1. Work–Expression `primary`, descending, then its `priority`, ascending.
 2. Expression–Manifestation `primary`, descending, then its `priority`, ascending.
 3. Expression ID, then Manifestation ID, ascending, to break remaining ties.
 
 For this ranking, `NULL` primary/priority values become zero. A smaller priority
-therefore wins within an otherwise equal group in **this view**. Use explicit
+therefore wins within an otherwise equal group in **this preferred-path policy**. Use explicit
 priorities when creating multiple ordered links; current WEMI constraints require
 non-null priorities to be unique per Work or Expression at the corresponding
 parent boundary.
@@ -237,18 +240,30 @@ W–E and E–M links to appear in the ray view, regardless of its primary flags
 
 ### Default SQL view versus Catalog bundles
 
-These are currently different selection contracts. The SQLite default view uses
-the ranking above. Catalog `retrieval.bundles` follows the first
-repository-ordered relationship at each step; portable link reads order by
-**descending** priority, then destination ID, without promoting primary markers.
-For Work 1 in this example, that bundle selects Expression 12 and then the bilingual
-Manifestation 104, while the SQL default view selects the French EPUB 103 after
-the primary change. Do not treat them as interchangeable default selectors.
+Both now use the ranking above for complete rays. For the graph through example 4:
 
-A bundle for Item 1004 likewise selects one available ancestor path; it does not
+| Stage | SQL primary ray for Work 1 | Catalog `for_work(1)` IDs: W/E/M/I |
+| --- | --- | --- |
+| Before changing the primary link | `1:11:101` | `1 / 11 / 101 / 1001` |
+| After making French primary | `1:12:103` | `1 / 12 / 103 / None` |
+
+The French edition has no owned Item in this example. That does not make Catalog
+choose the bilingual paperback instead. Work 2 still selects `2:11:101`.
+Repository **lists** retain descending-priority order and all relationships;
+their first row is not the preferred-path API.
+
+If a preferred Expression has no Manifestation but another complete ray exists,
+both selectors choose a complete ray. If none exists, the SQL view has no row;
+Catalog retains the fullest available partial path, such as
+`Work 1 / Expression 12 / None / None`. These are intentional absence contracts.
+
+A bundle for Item 1004 selects one ranked ancestor path; it does not
 prove that the Item has only one Expression or Work ancestor. Use hierarchy or
 bounded graph retrieval when the operation needs the other relationships. See the
 [Catalog retrieval guide](../catalog/catalog-api-usage.md#bundles-and-projections).
+Metadata containers' primary-relation accessors select within one relation bucket,
+not across complete rays; their separate ordering and source-hint semantics are
+described in the [selection contract](../catalog/catalog-wemi-selection.md).
 
 ## 5. Roles on links: author, translator and payload
 
@@ -324,6 +339,11 @@ Each Expression has its own primary Manifestation link. These flags do not say
 which text is the main content of the volume, and these priorities do not encode
 the introduction's page order: they order Manifestations for each Expression.
 
+All link ranks tie here, so `catalog.retrieval.bundles.for_item(1005)` chooses
+`3 / 13 / 105 / 1005` by Expression ID. `for_work(4)` still returns
+`4 / 14 / 105 / 1005`. Choosing the novel as a default does not remove the
+introduction, and it is not a claim about its relative importance.
+
 ```mermaid
 flowchart TD
     W3["Work 3: The Winter Orchard"] --> E13["Expression 13: novel text"]
@@ -389,6 +409,10 @@ Add Manifestation **106**, the omnibus edition, and these
 Add Item **1006**, with `item_manifestation_id = 106`, `item_type = physical` and
 inventory code `OMNIBUS-001`. Inspect both new volumes:
 
+`for_item(1006)` selects `5 / 15 / 106 / 1006`: the omnibus is Expression 15's
+primary edition, while Expression 13 prefers Manifestation 105. Both Works
+remain reachable in the following complete-path query.
+
 ```sql
 SELECT ray_id, item_id
 FROM wemi_ray_items_v
@@ -426,6 +450,9 @@ accepted.
 For example, unlinking Work 1 from Expression 11 removes that edge while retaining
 the Expression, both Work records and the Manifestations. Work 2 still reaches
 Expression 11. Unlinking does not automatically promote another primary sibling.
+The next preferred-path read ranks the remaining candidates. For example,
+unlinking the newly primary French Expression 12 from Work 1 restores the English
+path `1:11:101` without changing its stored primary flag back to one.
 
 Linking Item 1004 to Manifestation 101 instead would update its single foreign key
 and replace its previous Manifestation 104 relationship. That operation accepts

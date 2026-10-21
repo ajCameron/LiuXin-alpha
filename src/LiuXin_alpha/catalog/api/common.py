@@ -483,8 +483,8 @@ class WemiBundle:
     """
     Carry a Work/Expression/Manifestation/Item slice and attached metadata rows.
 
-    Bundle retrieval follows one path, taking the first available repository result when several
-    relatives exist. It can leave absent levels as None; use graph retrieval for multiple
+    Bundle retrieval follows Catalog's preferred WEM path policy independently of
+    repository list order. It can leave absent levels as None; use graph retrieval for multiple
     descendants. Relationship metadata may appear under _catalog_link on rows. This record itself
     performs no retrieval, path validation, or copying, and may be constructed empty. Its frozen
     fields leave supplied row mappings and collection contents mutable.

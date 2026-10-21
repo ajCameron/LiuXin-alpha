@@ -1,6 +1,6 @@
 # Next database tasks
 
-Date: **2026-10-20**. DB01 and DB02 are implemented for PR review; the remaining entries are
+Date: **2026-10-20**. DB01–DB03 are implemented for PR review; the remaining entries are
 proposed work grounded in the driver/schema review. Cross-project order belongs
 to the [architecture tasks](../architectural_reviews/next_tasks.md).
 
@@ -25,13 +25,12 @@ records counts, optional legacy limitations and separate full-CI status.
 
 ## DB03. Align default WEMI selection
 
-**Next; Catalog owns the semantic choice, architecture A07.** SQL primary rays
-rank primary markers and ascending priorities; Catalog bundles currently traverse
-descending priorities without the same primary preference. Choose and test one
-default policy, retaining all reachable paths as a separate query.
-Use the bilingual, novel/introduction and omnibus fixtures in
-[worked examples](wemi-link-examples.md). Done when both read paths select the
-same default and unlinking has an explicit replacement policy.
+**Implemented for PR review, 2026-10-20; architecture A07.** Catalog's
+[selection policy](../catalog/catalog-wemi-selection.md) now matches the existing
+SQL complete-ray ranking. Partial bundles remain available when SQL has no
+complete row. Bilingual, novel/introduction and omnibus fixtures retain every
+reachable Work. Unlinking removes the edge without promoting flags; the next
+read ranks remaining candidates. Existing SQL views need no migration.
 
 ## DB04. Keep schema declarations and actual write enforcement distinct
 

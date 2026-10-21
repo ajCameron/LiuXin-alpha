@@ -86,7 +86,13 @@ JOIN `manifestations` m
 -- -----------------------------------------------------
 -- View: wemi_primary_rays_v
 --
--- A single default ray per Work, using primary markers and priority ordering.
+-- A single default complete ray per Work. Catalog owns the matching policy in
+-- catalog/retrieval/selection.py: primary descending, priority ascending at each
+-- W-E then E-M edge, then IDs. NULL flags/priorities mean zero. Do not move the
+-- Expression-ID tie breaker ahead of the E-M rank or prefer paths with Items.
+-- This view omits incomplete WEM paths; Catalog bundles retain the fullest
+-- partial path only when no complete one exists. Neither changes membership.
+-- Parity is exercised by tests/catalog/retrieval/test_wemi_selection.py.
 -- -----------------------------------------------------
 
 DROP VIEW IF EXISTS `wemi_primary_rays_v`;

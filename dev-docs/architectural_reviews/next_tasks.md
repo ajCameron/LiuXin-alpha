@@ -3,7 +3,7 @@
 Date: **2026-10-20**. Basis: documentation review at `a5406cf8`, A01 at `75b266ed`,
 A02 at `d5956d6e`, and A03's implementation on `database-create-safety`.
 
-Status: **A01–A06 are implemented for PR review; remaining runtime fixes are open.
+Status: **A01–A07 are implemented for PR review; remaining runtime fixes are open.
 Documentation progress is recorded in A14; A15's repaired full CI baseline is verified.** Recheck the named behaviour before starting each task, especially
 where evidence comes from an older review. The first safety slices were checked
 against their current source; A15 records fresh CI and branch-rule observations.
@@ -24,9 +24,10 @@ Finding IDs below refer to the
 
 ## Recommended order
 
-With **A15's repaired CI baseline verified** and A01–A06 implemented for review,
-choose **A07's default WEMI selection policy next**. It is independent of job
-consolidation. A08 continues the existing write-consolidation programme.
+With **A15's repaired CI baseline verified** and A01–A07 implemented for review,
+choose **A08's semantic write coverage next**, starting with one uncovered field
+family. A07 now records the shared complete-ray policy and distinct hydration
+relation contract; A09/A10 continue execution and storage ownership.
 
 The order is a recommendation, not a requirement to finish every earlier item
 before starting an independent one. Dependencies are stated in each task.
@@ -39,8 +40,8 @@ before starting an independent one. Dependencies are stated in each task.
 | [A04](#a04-separate-resource-lifetime-from-transaction-lifetime) | Implemented; PR review | Exceptions and nested mutations have one explicit transaction contract. | Databases, with Catalog/storage callers |
 | [A05](#a05-enforce-deletion-policy-at-the-mutation-boundary) | Implemented; PR review | Removing bytes cannot bypass retention/last-copy policy. | Storage manager |
 | [A06](#a06-enforce-transport-capabilities-on-the-server) | Implemented; PR review | Remote/read-only clients cannot invoke privileged operations by name. | Core transport and surfaces |
-| [A07](#a07-choose-one-default-wemi-selection-policy) | First | SQL projections and Catalog bundles apply an agreed path-selection policy. | Catalog and schema projections |
-| [A08](#a08-complete-semantic-write-coverage) | Next | Missing validators enter the existing shared write boundary. | Metadata and Catalog |
+| [A07](#a07-choose-one-default-wemi-selection-policy) | Implemented; PR review | SQL projections and Catalog bundles apply an agreed path-selection policy. | Catalog and schema projections |
+| [A08](#a08-complete-semantic-write-coverage) | First | Missing validators enter the existing shared write boundary. | Metadata and Catalog |
 | [A09](#a09-converge-job-state-and-release-long-waits-from-core-dispatch) | Next | One real workflow has durable, observable execution without monopolizing dispatch. | Jobs and Core |
 | [A10](#a10-give-storage-record-mutations-one-owner) | Next | Reconcile and admin adapters share storage record invariants and receipts. | Storage, using database transactions |
 | [A11](#a11-finish-lifecycle-caller-migration) | Following | Lower-layer path wrappers and obsolete opt-ins retire through caller migration. | Core, ingest and storage |
@@ -158,7 +159,9 @@ A SQL rollback never promises restoration of erased external bytes.
 ## A06. Enforce transport capabilities on the server
 
 **Findings:** CO-4, SU-2/6. **Implemented for PR review, 2026-10-20.**
-**Dependencies:** A05 continues to enforce destructive storage policy.
+**Dependencies:** A05 continues to enforce destructive storage policy. Published
+as [PR #134](https://github.com/ajCameron/LiuXin-alpha/pull/134); its follow-up
+centralizes role lookup in Core (41 boundary/HTTP checks and full quality passed).
 
 Registrations now declare remote authority independently of `transport_stable`.
 HTTP defaults to declared reads; writable/privileged roles require authentication.
@@ -187,23 +190,29 @@ in-process plugin isolation are not claimed; TLS remains a deployment boundary.
 
 ## A07. Choose one default WEMI selection policy
 
-**Findings:** remaining read-model work under SU-1, with the
-[worked SQL/Catalog discrepancy](../databases/wemi-link-examples.md#default-sql-view-versus-catalog-bundles).
-**First PR:** decision, shared selection semantics and parity cases.
-**Dependencies:** none of the execution refactors.
+**Findings:** remaining read-model work under SU-1. **Implemented for PR review,
+2026-10-20**, on `catalog-wemi-selection`, based on A06 PR #134 (`13d6e5aa`).
 
-Specify how explicit primary links, priority, missing relationships and ties
-select an expression/manifestation/item path. Choose the owner of that policy in
-Catalog, then align SQL projections and retrieval adapters. If two views
-intentionally answer different questions, name that difference in their contracts
-instead of making both claim to return the same default. Keep full bundle/list
-APIs distinct from a preferred-path projection.
+Catalog owns the [preferred-path policy](../catalog/catalog-wemi-selection.md).
+Bundles now match the existing SQL complete-ray rank: primary flags, ascending
+priorities and IDs, with Item availability excluded. If no complete WEM path
+exists, bundles retain the fullest partial path. Repository lists and full graph
+membership keep all related Works and their existing order.
 
-**Done when:** shared fixtures cover multiple translations, competing primary
-links, ties, incomplete paths and a manifestation embodying both an introduction
-and its novel. SQL and Catalog agree when answering the same question; neither
-silently loses the other Work. Update the worked examples with actual outputs,
-and retain Core's already-consolidated tag/label semantics.
+The real SQLite/APSW fixtures cover translations, competing primary flags, nulls,
+ties, incomplete paths, introductions, bilingual editions, omnibuses and public
+primary-change/unlink operations. Worked examples now show matching outputs.
+Metadata relation-local primary accessors explicitly answer a different question;
+a contrasting-output test preserves that distinction and both hydrated Works.
+Core's category/tag/label semantics are unchanged.
+
+**Evidence:** 22 final SQLite/APSW parity cases and 55 documentation/contract
+checks passed; the broader selection passed 52 cases before correcting two
+worked-example test API calls. Complete quality gates passed, including both
+38-example negative contracts. Counts overlap. The
+[handoff](../../working-memory/wemi-selection-2026-10-20.md) records scope and
+publication evidence. Query cost, multi-read snapshot consistency and broader
+search/acquisition projections remain separate work.
 
 ## A08. Complete semantic write coverage
 
