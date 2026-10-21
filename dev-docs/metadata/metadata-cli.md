@@ -1,5 +1,6 @@
-
 # Metadata CLI
+
+Reviewed **2026-10-20**. Current source and ownership were checked. [Next tasks](next_tasks.md) distinguishes implemented behaviour from the remaining contracts.
 
 The installed `liuxin metadata` command is the operational metadata surface.
 Every leaf command connects to exactly one LiuXin Core, either by opening a
@@ -42,7 +43,7 @@ The default dump is a versioned document:
 ```json
 {
   "format": "liuxin.metadata.dump",
-  "item_count": 1,
+  "item_count": 0,
   "items": [],
   "version": 1
 }
@@ -68,7 +69,7 @@ metadata writer: tags, labels, genre, subjects, series, and identifiers.
 liuxin metadata set --database /srv/liuxin/catalogue.sqlite 42 \
   --tag reviewed \
   --subject preservation \
-  --identifier isbn=9780000000000
+  --identifier isbn=9780306406157
 ```
 
 Values append by default. `--replace` makes every selected field
@@ -164,11 +165,11 @@ separate job monitor.
 liuxin metadata online identify \
   --database /srv/liuxin/catalogue.sqlite \
   --title "Example Book" --author "Example Author" \
-  --identifier isbn=9780000000000
+  --identifier isbn=9780306406157
 
 liuxin metadata online cover \
   --database /srv/liuxin/catalogue.sqlite \
-  --identifier isbn=9780000000000 \
+  --identifier isbn=9780306406157 \
   --cover-output /srv/liuxin/exports/cover.jpg
 ```
 

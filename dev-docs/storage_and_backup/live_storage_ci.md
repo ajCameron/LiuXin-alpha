@@ -1,10 +1,12 @@
 # Protected live storage contracts
 
+Reviewed **2026-10-20**. Current owners and operational limitations were checked. See [next tasks](next_tasks.md). Dated benchmarks and suite counts below remain historical evidence.
+
 The `Live Storage Read Contracts` GitHub Actions workflow exercises the four
 official remote read paths (HTTP, FTP, rclone, and S3) on a weekly schedule and
 by explicit dispatch. It is deliberately absent from pull-request triggers.
 
-The jobs use the protected `live-storage-readonly` GitHub Environment. Configure
+The workflow names the `live-storage-readonly` GitHub Environment. Its actual remote protection settings were not rechecked in this source review. Configure
 that environment with approval rules and credentials which can only read the
 dedicated test objects. Each backend requires matching `*_ROOT` and `*_KEY`
 secrets named in the workflow. S3 accepts the standard read-only AWS credential

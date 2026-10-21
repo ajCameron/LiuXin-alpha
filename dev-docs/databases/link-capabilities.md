@@ -1,13 +1,15 @@
 # Link capabilities
 
-Link tables may carry at least two - now more - optional, independent pieces of relation metadata:
+Reviewed **2026-10-20**. The capability API exists on Database, its wrapper and SQL drivers.
+
+`LinkCapabilities` classifies two independent optional columns:
 
 - a type column, which assigns a role or kind to the relation;
 - a priority column, which orders related rows.
 
 Use the same capability query at every database layer:
 
-# Todo: This should be retained - or reinstated - it's usefully clear
+`LinkKind` covers type/priority combinations only. Other edge fields such as `primary`, `origin`, `sequence_number` and `is_required` are described by the generated schema and Catalog link specifications; they are not additional `LinkKind` values.
 
 ```python
 capabilities = database.get_link_capabilities("agents", "works")

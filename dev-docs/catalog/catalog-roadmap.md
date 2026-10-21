@@ -1,55 +1,75 @@
 # Catalog roadmap
 
-Status: active, 2026-07-30.
+Reviewed **2026-10-20**. Current repositories, relationship ownership and retrieval boundaries were checked. See [next tasks](next_tasks.md) for remaining work; older run counts retain their original dates.
 
-Catalog is fit for its core semantic-persistence purpose. The remaining work is
-an ordered hardening and consolidation programme rather than completion of an
-unfinished facade.
+Reviewed: **2026-10-20**, against `fc5de7af` plus the current documentation changes.
 
-## Work list
+Status: **Current work list; completed migrations are recorded separately.**
 
-1. **Final matching policy — complete, 2026-07-22.** The arbitrary
-   average-field scorer has been replaced by the evidence-based policy in
-   `catalog-matching-policy.md`. Matching distinguishes a unique match, no
-   match, ambiguity, and contradictory evidence; exact identifiers and scoped
-   WEMI identity have explicit semantics; Tags, Labels, Genres, Subjects,
-   Series, Languages, Ratings, Comments, Synopses, Notes, Annotations, and raw
-   Item identifiers now have explicit exact-default policies; automatic
-   creation stops on ambiguity or conflict, and approximate value policy is
-   opt-in.
-2. **Legacy mutation migration — complete, 2026-07-23.** Production callers
-   now use repositories, coordinated mutations, or normalized writers. Both
-   the direct-import and indirect-facade allowlists are empty. The legacy
-   implementations remain frozen in place for later, measured pure-SQL fast
-   paths, with characterization coverage and a guard against new production
-   callers. The completed contract, caller map, and evidence live in
-   `catalog-legacy-mutation-migration.md`.
-3. **Modern Catalog/cache boundary — adopted, 2026-07-24.** With an attached
-   modern storage cache, application and library reads and writes should prefer
-   the cache facade. Cache writes delegate to Catalog for authoritative
-   semantic persistence and reconcile only after success; Catalog never calls
-   upward into cache state. The complete contract is in
-   `catalog-cache-boundary.md`.
-4. **Calibre compatibility ownership.** Move Calibre-cache search and the
-   remaining compatibility cache implementations under `utils`. Consolidate
-   duplicated field-metadata implementations behind one mapping contract.
-   Compatibility relocation must preserve the modern
-   `cache -> Catalog -> database` direction.
-5. **Database startup and test performance.** Profile full FRBR generation,
-   aggregate-view construction, and schema introspection. Retain correctness
-   while making catalog development and example startup predictable.
-6. **Graph retrieval policy — complete, 2026-07-30.** Deterministic WEMI-path
-   bundles remain the default coherent-slice read. Callers which need breadth
-   now use explicit immediate hierarchy traversal or a bounded full-descendant
-   Work graph. Graph results preserve every selected structural edge and report
-   exactly which levels were truncated by caller limits; the same contract is
-   exposed through Core direct and RPC clients.
-7. **Repository-wide static boundary.** Preserve catalog's isolated strict
-   type-clean surface while reducing the legacy import graph that prevents the
-   configured whole-project checks from being meaningful gates.
+Catalog has implemented repositories, matching, retrieval and semantic mutations.
+The remaining work hardens those contracts and resolves compatibility ownership.
+This list does not treat a completed caller migration as removal of every adapter.
+Use the [API guide](catalog-api-usage.md) for entry points and the
+[write contract](catalog-write-validation-contract.md) for guarantees and exclusions.
+
+## Implemented ownership changes
+
+| Area | Current implementation | Limits |
+| --- | --- | --- |
+| Matching | Evidence-based policy distinguishes unique matches, no match, ambiguity and conflicting evidence; scoped WEMI identity and opt-in approximate rules are explicit. | Matching policy is not a replacement for write validation or stored identity derivation. |
+| Shared writes | Repository preparation and `CatalogRelationships` serve semantic mutations, schema-driven writers, container writes and Row compatibility adapters for Catalog-owned tables. | Several public APIs remain; uncovered field validators and raw low-level writes are not made safe merely by the shared route. |
+| Text identity | Declared normalized keys use the pure metadata policy across repositories, row/driver writes and portable macros. | Sort keys and approximate matching remain distinct; there is no automatic old-schema upgrade or silent repair on reads. |
+| Legacy caller migration | `catalog_macros` has no production imports. Only `catalog/catalog.py` may import `catalog.metadata_tools`; database/library helper injection is gone. | `catalog.add`, `ensure`, `apply` and `intralink` are live compatibility adapters, deprecated for new code. |
+| Cache composition | `ReadCache` is Catalog-independent; Catalog retrieval may compose it. Writable `Cache` delegates mutations to Catalog and reconciles derived state. | External writes still need snapshot invalidation; older Calibre cache/search code remains. |
+| WEMI retrieval | Coherent path bundles, immediate hierarchy traversal and bounded descendant graphs are implemented. | Caller limits and truncation remain part of the result contract. |
+| Application categories | Core browse queries own source selection, totals and category entries across CLI/API/web/OPDS consumers. | Generic Work/search/acquisition projections retain adapters; transport paging does not bound Core's server-side scans or provide an atomic snapshot. |
+| Dependency checks | Whole-package layer and dynamic-import baselines, protected import-cycle checks and fresh-process budgets are active. | Reviewed legacy edges remain. Strict typing covers declared scopes, not every source file. |
+
+The [legacy migration record](catalog-legacy-mutation-migration.md) distinguishes
+retained adapters from frozen reference code. The
+[Catalog/cache contract](catalog-cache-boundary.md) defines reads and reconciliation;
+[matching policy](catalog-matching-policy.md) defines identity evidence.
+
+## Remaining work
+
+1. **Complete semantic rule coverage.** Inventory fields and operations without
+   domain validators, put pure value rules in metadata, and invoke them through
+   the shared preparation boundary. Keep raw database/storage operations explicitly
+   outside the guarantee. Changes need invalid-input and rollback coverage through
+   each public route, including partial updates and the supported database drivers.
+2. **Make historical-data remediation explicit.** Preserve tolerant reads and
+   collision-reporting audit/repair. Define any additional schema/profile migration
+   before applying it to existing libraries; normalization changes must not silently
+   merge rows or rewrite data during retrieval.
+3. **Resolve compatibility ownership.** Calibre search remains under `catalog.search`,
+   field-metadata implementations still overlap, and older caches remain under
+   `library.caches` and `plugins.cache`. Select their long-term owners with caller
+   and behaviour evidence. The earlier proposal to relocate compatibility under
+   `utils` is not an implemented destination or permission to move modern cache
+   policy there. Preserve the read/write cache split and the unified plugin host.
+4. **Finish read-model policy deliberately.** Core category semantics are shared;
+   broader Work/search/file/acquisition adapters and server-side listing costs
+   remain. Default path selection also differs between the SQLite primary-ray
+   view and Catalog bundles: the [worked examples](../databases/wemi-link-examples.md#default-sql-view-versus-catalog-bundles)
+   demonstrate their primary/priority rules. Decide the intended selection contract
+   before consolidating it, with parity and failure tests for the chosen behaviour.
+5. **Measure startup and retrieval costs.** Profile FRBR generation, aggregate
+   views, schema introspection and category listing on representative catalogues.
+   Preserve correctness and explicit completeness/truncation contracts when adding
+   a faster implementation.
+6. **Reduce reviewed dependency debt.** Tighten the exact layer baseline as old
+   edges disappear and expand meaningful typing coverage. The repository already
+   has executable gates; this task is to reduce their remaining debt, not introduce
+   the first static boundary.
+
+Jobs, ingest coordination and registry lifecycles are wider application work,
+tracked by the [ownership guide](<../04 - Seperation of Concerns.md>) and
+[architecture review](../architectural_reviews/architecture-review-2026-09-26.md).
+They should not become Catalog responsibilities simply because they persist data.
 
 ## Working rule
 
-Only one item should be considered active at a time. Each item needs a written
-contract, focused behavioral tests, real-database coverage where persistence
-matters, and an updated status here before the next item starts.
+Take one focused change at a time. State its contract and exclusions, verify the
+relevant behaviour and database drivers, and update this work list with the actual
+result. Keep historical test counts in dated records; they are not fresh evidence
+for a later checkout.

@@ -1,5 +1,7 @@
 # Metadata container test surface
 
+Reviewed **2026-10-20**. Value containers remain passive. Hydration belongs to Catalog; current API roots and the follow-up work are linked in [next tasks](next_tasks.md). Stage numbers and historical test totals below describe their original campaign.
+
 This note freezes the minimum regression-test surface for the metadata container cleanup pass.
 
 ## What stage 16 is meant to protect

@@ -1,5 +1,7 @@
 # Metadata DB source layer
 
+Reviewed **2026-10-20**. Value containers remain passive. Hydration belongs to Catalog; current API roots and the follow-up work are linked in [next tasks](next_tasks.md). Stage numbers and historical test totals below describe their original campaign.
+
 Ownership update: **2026-10-19**. The former
 `metadata.api.metadata_db_source` package has been retired. Its read contracts
 now belong to `catalog.api.retrieval.hydration`, with concrete sources/hydrators

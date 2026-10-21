@@ -1,5 +1,7 @@
 # Catalog writer architecture
 
+Reviewed **2026-10-20**. Current repositories, relationship ownership and retrieval boundaries were checked. See [next tasks](next_tasks.md) for remaining work; older run counts retain their original dates.
+
 Status: inheritance-oriented writer foundation implemented, 2026-07-21.
 
 This writer design is one implementation of the broader, dated
@@ -212,9 +214,7 @@ class CatalogLinkWriter[RawValueT, ValueT](CatalogValueWriter, ABC):
     def resolve_destination(self, value: ValueT) -> DstTableID: ...
 ```
 
-`build_update(...)` performs metadata adaptation, validation, resolution, and
-normalization without applying link changes. This makes the complete immutable
-instruction available for inspection, policy checks, or testing.
+`build_update(...)` prepares an immutable update without applying link changes. For `CatalogTableValueLinkWriter`, new values remain unresolved references; destination lookup/creation happens during `write(...)` inside the available macro transaction. Do not call `resolve_destination(...)` as a harmless preview: it may ensure a row. Custom writer subclasses must preserve the same preparation boundary.
 
 `write(...)` builds the same update, calls `catalog._apply_link_update(update)`
 exactly once, and returns that call's result unchanged. It does not catch or

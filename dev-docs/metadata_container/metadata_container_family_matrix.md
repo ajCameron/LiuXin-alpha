@@ -1,5 +1,7 @@
 # Metadata container family completeness matrix
 
+Reviewed **2026-10-20**. Value containers remain passive. Hydration belongs to Catalog; current API roots and the follow-up work are linked in [next tasks](next_tasks.md). Stage numbers and historical test totals below describe their original campaign.
+
 This note records the stage-8 audit of the metadata container families.
 
 See also: `metadata_container_boundaries.md` for the semantic category split added in stage 9.
@@ -78,8 +80,7 @@ These are not stage-8 blockers, but they are worth keeping visible:
 2. Core WEMI bundle implementations now have hydrators for work, expression, manifestation, and item.
 3. The old quarantine stub files have been removed; stale imports should fail
    clearly instead of passing through quarantine modules.
-4. The metadata DB source layer is still sparse and does not yet mirror the full
-   W/E/M/I family pattern.
+4. Catalog now owns the four W/E/M/I source/hydrator families. Further completeness work should test graph fidelity and error behaviour, rather than recreate a metadata-owned database source package.
 
 ## Exit condition for this stage
 
@@ -95,4 +96,4 @@ Families that expose runtime-installed convenience properties are governed by
 
 ## Source layer note
 
-The `metadata_db_source` package is a real read-side infrastructure layer. It should remain symmetric across Work / Expression / Manifestation / Item, with the deliberate agent exception (`identity` + `profile` + participation snapshot).
+Read contracts now live in `catalog.api.retrieval.hydration`, with implementations in `catalog.retrieval.hydration`. Keep Work / Expression / Manifestation / Item coverage symmetric and retain the Agent identity/profile/participation distinction.

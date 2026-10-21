@@ -1,5 +1,7 @@
 # Storage design patterns
 
+Reviewed **2026-10-20**. Current owners and operational limitations were checked. See [next tasks](next_tasks.md). Dated benchmarks and suite counts below remain historical evidence.
+
 This guide records recurring implementation patterns for
 `LiuXin_alpha.storage`. The [storage API guide](storage_api.md) remains the
 authority for subsystem boundaries; this document explains how related public
@@ -121,7 +123,7 @@ Use suffixes consistently:
   time.
 
 These values should not be substituted for one another merely because their
-fields overlap. See the project [style guide](<../Style Guide.md>) for the
+fields overlap. See the project [style guide](<../hacking/Style Guide.md>) for the
 complete public-value naming policy.
 
 ## Physical work and metadata transactions

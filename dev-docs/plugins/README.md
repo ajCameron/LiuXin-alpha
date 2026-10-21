@@ -1,5 +1,7 @@
 # Plugins
 
+Reviewed **2026-10-20** against the working tree based on `fc5de7af`.
+
 `LiuXin_alpha.plugins` owns plugin mechanics and application plugin
 composition. On 2026-10-19, the former `customize` package was consolidated in
 `78a01b61`; the subsequent naming follow-up renames `plugin_system` to `plugins`.
@@ -61,5 +63,8 @@ PYTHONPATH="$PWD/src" python scripts/check_import_footprint.py
 Package-structure tests reject the retired namespace; the
 [installed-wheel checks](../hacking/packaging.md) verify the distributed boundary.
 For resource telemetry and broader lanes, see [test streams](../hacking/test-streams.md).
+
+[Next tasks](next_tasks.md) records proposed changes, dependencies and completion
+checks. No runtime change is implied by this documentation review.
 
 Return to the [developer index](../README.md).

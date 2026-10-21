@@ -1,6 +1,8 @@
 # Read-only Surface Appliance Startup
 
-See the [developer documentation index](README.md) for architecture and related
+Reviewed **2026-10-20**. Entry-point composition and named Core operations were checked. See [next tasks](next_tasks.md); older stage counts remain dated evidence.
+
+See the [developer documentation index](../README.md) for architecture and related
 operational guides.
 
 This note is the operational startup checklist for bringing up the four
@@ -51,11 +53,11 @@ all default to `8080`.
    Use `0.0.0.0` only when the appliance firewall or reverse proxy is already
    controlling access.
 
-4. Confirm the interpreter and database exist:
+4. Confirm the interpreter exists; check the database file only in local-database mode:
 
    ```bash
    test -x .venv/bin/python
-   test -f "$LIUXIN_DB"
+   if [ -n "${LIUXIN_DB:-}" ]; then test -f "$LIUXIN_DB"; fi
    ```
 
 5. Confirm the planned ports are free:

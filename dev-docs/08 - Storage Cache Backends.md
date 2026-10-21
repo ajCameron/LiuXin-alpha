@@ -1,8 +1,16 @@
-# Storage Cache Backends
+# Storage cache backends: derived catalogue reads
 
-Storage cache plugins sit underneath the modern composed `Cache` facade.
+Reviewed: **2026-10-20**, against the composed cache and backend contracts.
 
-Its job is to expose:
+“Storage cache” here means table/row/field caching under `LiuXin_alpha.caches`.
+It does not mean a file-byte cache Store or the lifecycle of temporary payloads.
+The [Catalog/cache contract](catalog/catalog-cache-boundary.md) owns the semantic
+boundary; this guide explains backend choice and usage.
+
+Storage cache plugins sit underneath the composed `ReadCache` and writable
+`Cache` facades.
+
+A storage-cache backend supplies:
 
 - cached main-table objects
 - cached link-table objects
@@ -14,26 +22,37 @@ search policy.
 
 ## Application entry point
 
-Application code should construct the composed facade:
+Core normally supplies its composed cache. A standalone caller with an open
+`db` can construct and close its own writable facade:
 
 ```python
 from LiuXin_alpha.caches.api import CacheQuery, CacheSort
 from LiuXin_alpha.caches.cache import create_cache
 
 cache = create_cache(db, "schema_backed")
-page = cache.query(
-    CacheQuery(
-        table="works",
-        sort=(CacheSort("work_canonical_title"),),
-        limit=25,
+try:
+    page = cache.query(
+        CacheQuery(
+            table="works",
+            sort=(CacheSort("work_canonical_title"),),
+            limit=25,
+        )
     )
-)
+finally:
+    cache.close()
 ```
 
 `create_cache()` loads its storage plugin by default. It exposes lifecycle
 state, generation, immutable table/column introspection, exact lookup,
 structured queries, relationship traversal, explicit invalidation, and
-Catalog-delegating writes.
+Catalog-delegating writes. The facade borrows `db`; closing the cache does not
+close the database or a Core session. Do not close a borrowed Core-owned cache
+inside an individual operation.
+
+Use `caches.read_cache.create_read_cache()` for Catalog-independent structured
+reads, including Catalog hydration composition. The writable `Cache` adds the
+Catalog mutation bridge. Both expose the same read lifecycle; neither invents
+another metadata-validation owner.
 
 `create_storage_cache()` remains the low-level plugin-development seam. Its
 result intentionally has no Catalog writer API.
@@ -48,7 +67,10 @@ Plugin tests or backend development that wants a raw backend can use:
 from LiuXin_alpha.caches.cache_plugins import create_storage_cache
 
 cache = create_storage_cache(db, "schema_backed")
-cache.read()
+try:
+    cache.read()
+finally:
+    cache.close()
 ```
 
 Current builtin plugins are:
@@ -67,8 +89,10 @@ caps = get_cache_plugin_capabilities("database_backed")
 assert caps.live_reads is True
 ```
 
-Instance code can also inspect `cache.capabilities`.
-That is the runtime truth.
+A raw backend instance exposes `cache.capabilities`; the composed facade
+projects that into its own `CacheCapabilities` (including `consistency` as
+`LIVE` or `SNAPSHOT`). Inspect the instance-level contract rather than assuming
+the registry declaration describes every configured instance.
 This matters for optional backends such as `numpy_vectorized`, where the plugin
 declares vectorized helpers but one concrete cache instance may narrow that if
 numpy is unavailable.
@@ -159,7 +183,8 @@ The intended rule of thumb is:
 
 ## Query and miss semantics
 
-All built-in backends implement the same typed query contract:
+The composed facade provides the same typed query contract over all built-in
+backends:
 
 - exact equality preserves original stored values and Unicode forms;
 - free-text indexes use NFKC plus casefold without rewriting stored values;
@@ -173,9 +198,32 @@ report hit or miss plus completeness; queries report completeness. An
 application adapter may explicitly fall back only for an unavailable or
 incomplete operation. A known miss in a complete snapshot is final.
 
+Live backend freshness does not promise an atomic multi-query snapshot. A
+returned immutable result describes that query's observations; later requests
+can see later state. Free-text normalization supports searching and must not
+be reused as a competing writer of Catalog's stored identity keys.
+
 The old mutable `CacheView` contract has been removed. Query specifications and
 results are immutable; UI selection and navigation state belong above the
 cache.
+
+## Writes, invalidation and failures
+
+Cache writes delegate semantic validation/persistence to Catalog and reconcile
+only after authoritative success. If reconciliation fails after commit, the
+persisted mutation is not undone: inspect the receipt-bearing error and recover
+the cache rather than blindly submitting the mutation again.
+
+Direct Catalog/SQL writes do not update every independently held snapshot.
+Reload or invalidate the relevant dependencies explicitly. A dirty snapshot
+cannot refresh through an open macro transaction; wait for that transaction's
+outcome. See the [boundary contract](catalog/catalog-cache-boundary.md) for
+attachment, transaction and recovery rules.
+
+`database_backed` trades repeated refresh work for freshness; `numpy_vectorized`
+is not an automatic speedup for every query. Measure the actual read path and
+fixture before changing the default backend. Neither backend choice fixes
+application-level count or default-selection policy disagreements.
 
 ## Read-only surface startup
 
@@ -185,7 +233,7 @@ The live database remains the default.
 
 For the full appliance startup checklist, including explicit ports, smoke
 checks, and background-process commands, see
-[`read-only-surface-appliance-startup.md`](read-only-surface-appliance-startup.md).
+[`read-only-surface-appliance-startup.md`](surfaces/read-only-surface-appliance-startup.md).
 
 Use cache-backed metadata reads when startup can afford to load the cache and
 route handlers should avoid repeated direct database lookups:
@@ -239,4 +287,11 @@ That contract layer is where we should pin down backend-independent behavior suc
 - row helper/default semantics
 - lifecycle behavior
 
-Backend-specific tests should still exist where a plugin has unique behavior, but the common contract should stay shared.
+Backend-specific tests should still exist where a plugin has unique behavior,
+but the common contract should stay shared. Start with the
+[backend contract matrix](../tests/databases/caches/test_cache_plugin_contract.py)
+and [composed facade checks](../tests/databases/caches/test_modern_cache_facade.py).
+They cover freshness, held-child behaviour, Unicode, misses, mutation receipts
+and invalidation; they do not establish a throughput target.
+
+Return to the [Catalog index](catalog/README.md).

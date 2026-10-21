@@ -1,5 +1,7 @@
 # Configuration ownership
 
+Reviewed **2026-10-20** against the working tree based on `fc5de7af`.
+
 Core selects a deployment in `core/settings.py` and composes application settings
 before opening a local database, storage manager or cache. Surfaces parse arguments
 and pass the resolved paths into `create_core`. A remote surface leaves application
@@ -55,7 +57,8 @@ defaults are declared once; only actual LiuXin differences are retained separate
 Tweak inputs accept literal Python assignments, collections and documentation
 strings. Imports, calls and control flow are rejected with the input location;
 settings loading never executes their code. Configuration imports do not open the
-application store. Constructing/loading a store with `upgrade_on_load=False` reads
+application store. This guarantee covers the configuration leaves, not every
+utility import: `utils.ptempfiles` still reaches process-wide startup hooks. Constructing/loading a store with `upgrade_on_load=False` reads
 without creating or upgrading files. Explicit initialization retains the existing
 INI repair behavior; ordinary setting writes persist through that same store.
 
@@ -85,3 +88,6 @@ conversion option files retain distinct domains. Generic component stores captur
 the selected component directory or an explicit base path. Installation resources
 and plugin registries are separate from mutable application preferences. This
 change does not consolidate the job lifecycle, ingest coordinators or registries.
+Process-wide component singletons can also retain paths captured before a new
+profile is selected; use explicitly constructed components when profile isolation
+is required. See [next tasks](next_tasks.md) for remaining consumers and startup work.

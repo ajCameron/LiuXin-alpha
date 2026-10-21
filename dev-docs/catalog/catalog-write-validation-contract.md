@@ -1,8 +1,12 @@
 # Catalog write-validation contract
 
+Reviewed **2026-10-20**. Current repositories, relationship ownership and retrieval boundaries were checked. See [next tasks](next_tasks.md) for remaining work; older run counts retain their original dates.
+
 Decision date: **2026-10-11**
 
-Status: **adopted architectural contract; enforcement is incomplete**
+Implementation checked: **2026-10-20**, against `fc5de7af`.
+
+Status: **Shared write ownership implemented; field-level rule coverage remains incomplete.**
 
 ## Decision
 
@@ -134,15 +138,17 @@ This decision describes the required contract, not the complete current state:
   keys. Curated identifiers also validate their scheme/value pair, Agent writes
   serialize aliases, and immutable entities reject mutation. This does not
   invent semantic validators for fields that do not yet have one.
-- Legacy single-identifier and bulk-identifier writers apply intentionally
-  characterized but different validation behavior. Their codecs now have a
-  metadata owner, but convergence remains an explicit compatibility migration.
+- Historical single/bulk identifier codecs remain separately named pure helpers
+  in `metadata.identifiers`, with characterization tests. Their former
+  `library.legacy` / `library.backend` callers were retired; they are not live
+  alternative Catalog write routes. New Catalog writes use curated-pair policy.
 - Raw database, driver, macro and SQL operations remain available for schema,
   storage and repair work, outside the public Catalog validity guarantee.
 
-The separately maintained `library.legacy` single/bulk identifier contracts are
-not the current FRBR Catalog write route. They must not be used to implement
-new public Catalog mutations.
+The retained Row adapters are a separate compatibility case: for Catalog-owned
+tables they use shared preparation and relationships; non-Catalog tables retain
+low-level fallback paths. Neither a retained pure codec nor a raw fallback extends
+the semantic guarantee. See the [migration record](catalog-legacy-mutation-migration.md).
 
 ## Current identity policy
 
@@ -164,7 +170,13 @@ audit/repair operations remain explicit: they report collisions before changing
 data, never merge rows automatically, and repair changing keys transactionally.
 Plain reads do not repair stored values.
 
-## Migration order
+## Original migration sequence
+
+The sequence below records the 2026-10-11 implementation plan. Shared preparation,
+current-schema Row delegation, private-host API checks and identity audit/repair
+are now present; this is not a list of eight unstarted tasks. Remaining semantic
+rule coverage and further data migration belong to the
+[current roadmap](catalog-roadmap.md).
 
 1. Consolidate each pure semantic validator under its metadata owner and
    preserve characterized legacy behavior where contracts differ.
@@ -188,6 +200,20 @@ and observable supported behavior are preserved unless a separate, explicit
 decision authorizes a capability change.
 
 ## Implementation record
+
+### 2026-10-19 — source-checked ownership checkpoint
+
+- The shared routes below remain in use after the writes/normalization follow-up.
+  Agent aggregates and Row helper workflows participate in the portable macro
+  transaction; entity normalization and lookup use the declared identity policy.
+- Category reads now share Core source/count policy. That is an application read
+  contract, separate from Catalog's write guarantee.
+- `library.legacy` and `library.backend` were retired on 2026-10-17. Their historical
+  identifier-codec notes below describe the earlier checkpoint, not current live
+  persistence APIs.
+- The [API guide](catalog-api-usage.md), [cache contract](catalog-cache-boundary.md)
+  and [roadmap](catalog-roadmap.md) distinguish implemented delegation from missing
+  field-specific validators and remaining compatibility owners.
 
 ### 2026-10-15 — one current-schema mutation route
 
@@ -264,6 +290,9 @@ values pass the curated identifier validator.
   outside the Catalog semantic-validity guarantee.
 
 ### 2026-10-11 — legacy identifier containment
+
+Historical checkpoint: the Library callers described here were subsequently
+retired on 2026-10-17; the pure codecs and characterization tests remain.
 
 - `metadata.identifiers` now owns the historical logging, uncleaned ISBN-10/13
   checksum helpers used by the Library path and the exact legacy single-writer

@@ -1,5 +1,7 @@
 # Metadata dirtied queue + sidecar write-out
 
+Reviewed **2026-10-20**. Current source and ownership were checked. [Next tasks](next_tasks.md) distinguishes implemented behaviour from the remaining contracts.
+
 ## What problem does this solve?
 
 LiuXin needs a reliable way to notice *metadata-changing* operations (edits, imports, trigger-driven normalizations)
@@ -42,7 +44,9 @@ Column names may vary across fixture DB generations, so persistence code probes 
 
 ### Moving from queue -> table
 
-`Database.persist_dirtied_records(limit=None)` drains queued events and inserts rows into `metadata_dirtied_books`.
+`Database.persist_dirtied_records(limit=None)` drains queued events and submits rows to `metadata_dirtied_books`. It does not commit explicitly. The return value counts submitted rows, not a durable acknowledgement.
+
+The [implementation](../../src/LiuXin_alpha/databases/database/dirtied_mixin.py) is best-effort: malformed events can be consumed, conversion can fail after earlier events were drained, and insertion failure may leave partial SQL effects alongside requeued events. This is not a lossless transactional outbox.
 
 Why a separate step?
 - SQLite connections are typically not safe to use concurrently across many Python threads.
@@ -58,7 +62,7 @@ Why a separate step?
 
 A typical future sidecar writer can:
 
-1. Periodically call `db.persist_dirtied_records()` (or on shutdown) to ensure durable tracking.
+1. Replace best-effort draining with a transaction/acknowledgement contract before relying on it for durable delivery. Periodic calls alone do not provide that guarantee.
 2. Read persisted events from `metadata_dirtied_books` in a stable order.
 3. For each event, re-hydrate the metadata payload for `(table, row_id)` and write a sidecar file.
 4. Delete or mark-complete the processed dirtied records (a follow-up API will formalize this).

@@ -1,6 +1,41 @@
 # Working Memory Index
 
-Current branch: **rename-plugins-package**, based on merge `a5f77cfd`.
+Latest checkpoint, **2026-10-20**: the
+[subsystem documentation review](documentation-subsystems-2026-10-20.md) continues
+the top-level and architecture passes on `docs-ownership-contracts` at `fc5de7af`.
+All seventeen developer-documentation folders now have indexes and `next_tasks.md`;
+jobs, ingest and caches have dedicated documentation homes. The field guide matches
+all 67 explicit generated SQLite tables. Thirty focused checks passed, including
+the tracked-content link check after staging. The review belongs to
+[PR #127](https://github.com/ajCameron/LiuXin-alpha/pull/127); runtime safety findings
+remain implementation work. Unrelated staged source edits and the dirty data
+submodule remain separate. The previous PR head had CI failures; the new head
+needs its own CI result.
+
+Earlier checkpoint on the same branch:
+
+Current branch: **docs-ownership-contracts**, based on `15080c6e` after PR #126
+merged into `configuration-ownership`. The
+[ownership documentation pass](documentation-ownership-contracts-2026-10-19.md)
+reconciles guide 04, Catalog API/cache/write contracts and migration status with
+source. It records current work separately from historical findings and leaves
+jobs/ingest/registry consolidation explicit. The user-requested schema follow-up
+rewrites guide 03 against a fresh generated database, marks older linked models,
+updates normalized profiles and fixes one missed test/documentation path. All 42
+schema/documentation checks pass after that correction; the earlier 25-check
+ownership pass also passed. The follow-up adds seven worked WEMI/link examples,
+verified against a fresh schema and real Catalog calls, with 22 documentation
+checks passing. It documents the existing SQL-view/bundle default-selection
+difference and corrects the claimed unique upward Item path. The latest examples
+show a novel with a separately authored introduction and an omnibus sharing
+Manifestations across distinct Works; all seven scenarios and 22 documentation
+checks pass. The next slice rewrites guide 05 and the Calibre mapping/policy guides,
+separating current readers/projections from the proposed canonical importer and
+distinguishing source, ray and web Work IDs. Both guide snippets and all 45 focused
+checks pass; guide 06's mixed storage models are next. The user approved publishing
+this documentation review, with six unrelated storage edits preserved separately.
+
+Previous branch: **rename-plugins-package**, based on merge `a5f77cfd`.
 The [package rename](plugins-package-rename-2026-10-19.md) makes `plugins` the sole
 owner, migrating source, tests, documentation, quality scopes and distribution
 checks. Both `customize` and `plugin_system` are retired namespaces; persisted

@@ -28,7 +28,7 @@ publication; verification below describes this stage's checkpoint.
   Dependency replacement in tests targets consuming owners, not old imported
   globals in compatibility modules; no dynamic monkeypatch forwarding is added.
 
-Canonical guide: [CLI composition](../dev-docs/surfaces/cli-composition.md).
+Canonical guide: [CLI composition](../dev-docs/surfaces/cli/cli-composition.md).
 
 ## Enforcement
 

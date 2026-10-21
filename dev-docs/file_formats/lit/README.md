@@ -1,5 +1,7 @@
 # LIT File Format Notes
 
+Reviewed **2026-10-20**. Entry points, provider boundaries and the scope of the recorded hardening work were reviewed. See [next tasks](../next_tasks.md). Sign-off sections describe their dated fixture scope; they do not certify every input, optional dependency or installed provider today.
+
 ## Status
 
 LIT input conversion enters through `LITInput` in

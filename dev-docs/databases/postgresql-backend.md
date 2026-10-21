@@ -1,5 +1,7 @@
 # PostgreSQL Backend Runbook
 
+Reviewed **2026-10-20**. The driver, backend aliases and CLI entry points exist. Commands below are an operational runbook; this documentation review did not provision a server or rerun a live PostgreSQL deployment.
+
 LiuXin's PostgreSQL backend is intended for large libraries where SQLite is not
 the right persistence layer. The backend is registered as `PostgreSQL` with
 aliases `postgres`, `postgresql`, and `pg`.

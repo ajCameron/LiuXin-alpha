@@ -10,13 +10,39 @@ names and counts below describe their dated checkpoints. See the current
 
 Date: 2026-09-17
 
-Status: Review findings and recommendations; no architecture changes implemented.
+Status: **Historical recommendations with implemented follow-ups.** The initial
+review itself changed no architecture; the October 20 disposition below describes
+the later source, based on working tree `fc5de7af`.
 
 This note records the supplied architectural review and its follow-up. It is
 not a fresh repository-wide dependency audit. Verification findings below are
 attributed to the reviews that reported them.
 
+## Current disposition — 2026-10-20
+
+| Original theme | Implemented | Remaining work |
+| --- | --- | --- |
+| Core, Library and ingest ownership | `core.library_services.LibraryServices` owns graph lifecycle; Library borrows collaborators and mixed ingest requires an open Library. | Remove lower-layer path wrappers; decide durable maintenance and job/ingest execution ownership. |
+| Database storage bootstrap | Database defaults disable implicit storage and maintenance. Core composition creates owned services explicitly. | Retire opt-ins/back-references with their callers; transaction-on-close and creation safety remain separate issues. |
+| Metadata persistence | Pure value rules stay in metadata; Catalog owns hydration, semantic writes and stored identity preparation. ReadCache separates reads from the writable cache's Catalog bridge. | Fill validator coverage, reconcile other read projections and residual field-metadata coupling. |
+| Configuration | Core supplies resolved paths and one application preference store; DBPrefs and component options have distinct scopes. | Remove remaining startup hooks and implicit scratch defaults; make component lifetimes explicit. |
+| Plugin naming/composition | `plugins` unifies neutral mechanics and application composition. Both `customize` and `plugin_system` are removed. | Retire/report unsupported providers and clarify domain registries; no further top-level rename is needed. |
+
+See the [decision record](target-architecture.md),
+[opening-path review](lifecycle-opening-path-review-2026-10-09.md),
+[configuration contract](../core/configuration-ownership.md) and
+[plugin composition contract](../plugins/plugin-composition.md).
+The [annotated whole-repository review](architecture-review-2026-09-26.md)
+retains the broader safety and ownership findings. This follow-up does not mark
+all five themes complete or revalidate every original defect.
+
 ## Overall assessment
+
+The remaining sections preserve the earlier review and its dated October 13
+amendment. Their requests and module names describe those checkpoints. The
+module table includes that later `plugin_system` addition; use the current
+[package overview](<../02 - Top Level Structure.md>) for today's inventory.
+
 
 The essential modules are present and their broad responsibilities are sensible.
 The main opportunity is to clarify ownership and dependency boundaries within
@@ -118,6 +144,9 @@ and application registry composition. This makes the ownership boundary explicit
 without renaming the broad historical package or removing plugin behavior.
 
 ## Evidence and limits
+
+The following results belong to the original reviews; the folder
+[layer guide](layer-direction-ratchet.md) records the fresh October 20 checks.
 
 The review reported that the dependency check passed for **215 protected
 modules**. That result applies to the check's configured scope; it does not

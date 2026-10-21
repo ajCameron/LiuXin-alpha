@@ -1,5 +1,11 @@
 # Column metadata policy
 
+Reviewed **2026-10-20**. Declarations, canonical identity derivation and migration APIs were checked against current source. Data validation coverage remains a separate [Catalog contract](../catalog/catalog-write-validation-contract.md).
+
+Identity profiles checked: **2026-10-19**, against the current declarations and a
+fresh FRBR SQLite build. See the [schema overview](<../03 - Database Schema.md>)
+for table families and the distinction between physical schema and semantic writes.
+
 LiuXin stores one complete policy row for every physical table column in
 `column_metadata`. The policy describes intended equality, validation,
 empty-value handling, and merge behavior for consumers; it never changes,
@@ -33,7 +39,7 @@ Each `column_metadata` row stores:
 | Field | Meaning |
 | --- | --- |
 | `semantic_role` | The column's declared purpose. Display roles are joined by machine roles such as `identifier`, `relationship_key`, `code`, `boolean`, `number`, `ordering`, `date_time`, `locator`, `structured_data`, `hash`, `normalized_key`, `provenance`, and `scratch`. |
-| `normalization_profile` | Comparison normalization: `none`, `unicode_nfc`, `unicode_nfc_trim_casefold`, `tag_search_term`, or `title_search_term`. |
+| `normalization_profile` | Comparison normalization: `none`, `unicode_nfc`, `unicode_nfc_trim_casefold`, `unicode_nfkc_whitespace_casefold`, `tag_search_term`, or `title_search_term`. The last two retain historical search behaviour. Mere availability does not select them for current row identities. |
 | `comparison_column` | Optional derived key in the same table used for equality lookup. |
 | `empty_value_policy` | `null_is_missing`, `null_or_blank_is_missing`, or `preserve`. |
 | `merge_policy` | `replace`, `set_union`, `append`, or `preserve_existing`. |
@@ -42,9 +48,11 @@ Each `column_metadata` row stores:
 | `display_options` | Immutable JSON-compatible surface hints, such as `label`, `description`, `visible`, `editable`, `multiline`, `width`, or `alignment`. |
 
 All registered display columns treat `NULL` and blank text as missing. Titles,
-names, labels, and sort keys use Unicode NFC, trimming, and case folding.
-Verbatim prose uses NFC without case folding. Resource names use no
-normalization because case and filesystem spelling can be significant.
+names, labels, and sort keys normally use Unicode NFC, trimming, and case folding.
+Declared comparison keys override that default: tags, labels, genres, subjects
+and series use NFKC, case folding and whitespace collapse, preserving punctuation
+and complete words. Verbatim prose uses NFC without case folding. Resource names
+use no normalization because case and filesystem spelling can be significant.
 
 Taxonomy terms use `set_union`; `comments.comment`, `notes.note`, and
 `synopses.synopsis` use `append`; other display columns use `replace`.
@@ -93,11 +101,11 @@ The current derived comparison keys are:
 
 | Display column | Comparison column | Normalization |
 | --- | --- | --- |
-| `tags.tag` | `tags.tag_phash` | `tag_search_term` |
-| `labels.label_text` | `labels.label_text_norm` | `tag_search_term` |
-| `genres.genre` | `genres.genre_phash` | `title_search_term` |
-| `subjects.subject` | `subjects.subject_phash` | `title_search_term` |
-| `series.series` | `series.series_name_norm` | `title_search_term` |
+| `tags.tag` | `tags.tag_phash` | `unicode_nfkc_whitespace_casefold` |
+| `labels.label_text` | `labels.label_text_norm` | `unicode_nfkc_whitespace_casefold` |
+| `genres.genre` | `genres.genre_phash` | `unicode_nfkc_whitespace_casefold` |
+| `subjects.subject` | `subjects.subject_phash` | `unicode_nfkc_whitespace_casefold` |
+| `series.series` | `series.series_name_norm` | `unicode_nfkc_whitespace_casefold` |
 | `custom_columns.custom_column_label` | `custom_columns.custom_column_label_norm` | `unicode_nfc_trim_casefold` |
 | `custom_columns.custom_column_name` | `custom_columns.custom_column_name_norm` | `unicode_nfc_trim_casefold` |
 | `replication_policies.replication_policy_name` | `replication_policies.replication_policy_name_norm` | `unicode_nfc_trim_casefold` |

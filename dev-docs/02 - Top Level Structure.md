@@ -1,18 +1,11 @@
 # Top-level structure
 
-Reviewed: **2026-10-19**, against merged source at `a5f77cfd` on
-`configuration-ownership`, including documentation PR #124 and plugin PR #125.
-Naming follow-up: **2026-10-19**, on `rename-plugins-package`; the consolidated
-`plugin_system` package, tests and documentation are renamed to `plugins`.
+Reviewed: **2026-10-20**, against the working tree based on `fc5de7af`.
+This is an implementation overview of this checkout, not a statement about which
+branch or release has incorporated it. The consolidated package, tests and
+documentation use `plugins`; `customize` and `plugin_system` are retired namespaces.
 
 Status: **Current architecture overview, with remaining migrations identified.**
-The `main` checkpoint `54789496` includes the writes, category-read and
-configuration ownership changes from PRs #122/#123. The reviewed
-`configuration-ownership` checkpoint additionally includes the documentation
-reorganisation and the complete `customize` merger. This guide uses the final
-`plugins` name from the follow-up above. Those
-later changes are not in that `main` checkpoint. Branch history and implementation
-status are distinct; the remaining architectural work is identified below.
 
 Use this page to understand the major parts and find the owner of a change.
 The [separation-of-concerns guide][responsibilities] defines the policy for new
@@ -162,8 +155,13 @@ Storage manages bytes, assets, replicas, stores and physical placement. It perfo
 verification, backup execution and recovery through backend contracts, and records
 the resulting storage state through the database layer.
 
-See the [storage index][storage-guide] and [storage API][storage-api]. Bibliographic
-identity remains with Catalog. Cross-domain workflows coordinate the two; storage
+Start with the [storage overview](<06 - Storage.md>), then the
+[storage index][storage-guide] and [storage API][storage-api]. The application
+implementation is `storage.durable_manager.StorageManager`; the
+`storage.storage_manager` package owns its shared orchestration and persistence
+adapters. `StoreAPI` wraps one configured endpoint, and `StorageDriverAPI` owns
+raw byte mechanics. `Location` is a passive UUID/key value; bound handles delegate
+to a live router. Bibliographic identity remains with Catalog. Cross-domain workflows coordinate the two; storage
 does not decide which Work an imported file represents. Remaining deletion and
 recovery-policy boundaries are described below.
 
@@ -538,8 +536,8 @@ enforced scopes, not a claim of universal architectural correctness.
 [storage-guide]: storage_and_backup/README.md
 [storage-api]: storage_and_backup/storage_api.md
 [cache-contract]: catalog/catalog-cache-boundary.md
-[cli-composition]: surfaces/cli-composition.md
-[terminal-composition]: surfaces/terminal-composition.md
+[cli-composition]: surfaces/cli/cli-composition.md
+[terminal-composition]: surfaces/terminal/terminal-composition.md
 [ingest-guide]: storage_and_backup/mixed_ingest_operations.md
 [format-guide]: file_formats/README.md
 [plugin-index]: plugins/README.md
@@ -548,5 +546,5 @@ enforced scopes, not a claim of universal architectural correctness.
 [library-services]: ../src/LiuXin_alpha/core/library_services.py
 [core-factory]: ../src/LiuXin_alpha/core/factory.py
 [lifecycle-review]: architectural_reviews/lifecycle-opening-path-review-2026-10-09.md
-[read-failures]: read-model-failures.md
+[read-failures]: surfaces/read-model-failures.md
 [quality-gates]: architectural_reviews/maintainability-quality-gates.md

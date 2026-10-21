@@ -1,11 +1,20 @@
 # Malformed Input And Fuzz Testing
 
+Source reviewed **2026-10-20**, working tree based on `fc5de7af`.
+
 ## Purpose
 
-Malformed-input tests exist to prove that parsers, decoders, and metadata
-extractors fail deliberately. They should catch expensive decode paths, unsafe
+Malformed-input tests check that parsers, decoders and metadata extractors
+fail deliberately for the exercised corpus. They should catch expensive decode paths, unsafe
 allocation, raw internal exceptions, partial mutation, and format confusion
 before those behaviors reach production inputs.
+
+The rules below describe intended reader contracts and existing regression
+families, not proof of bounded behaviour on every possible input. Source entry
+points are [the registry](../../../src/LiuXin_alpha/metadata/file_sources/registry.py)
+and its format readers; [malformed-input tests](../../../tests/metadata/file_sources/test_malformed_input_fuzzing.py)
+and neighbouring edge-case suites record the tested cases. This documentation
+review did not run a new fuzzing campaign.
 
 ## Contract
 

@@ -1,5 +1,7 @@
 # Metadata
 
+Reviewed **2026-10-20**. Current source and ownership were checked. [Next tasks](next_tasks.md) distinguishes implemented behaviour from the remaining contracts.
+
 Metadata supplies values, pure rules, codecs and file metadata providers. Catalog
 owns persistence-aware hydration and bibliographic mutations; application workflows
 coordinate acquisition and file operations.

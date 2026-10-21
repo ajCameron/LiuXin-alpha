@@ -1,5 +1,7 @@
 # Storage backend behavior and safety
 
+Reviewed **2026-10-20**. Current owners and operational limitations were checked. See [next tasks](next_tasks.md). Dated benchmarks and suite counts below remain historical evidence.
+
 This guide records behavior that is specific to concrete storage backends. The
 shared driver, Store, and manager contracts remain in [Storage API
 architecture](storage_api.md). Configuration options described here are durable
@@ -19,6 +21,8 @@ architecture](storage_api.md). Configuration options described here are durable
 Static costs and limits are exposed through `StorageCharacteristics`; dynamic
 availability and warnings are exposed through `StoreStatus`. Unknown limits are
 reported as unknown, never treated as unlimited.
+
+The default-mode table describes backend families. Explicit `StoreConfiguration.read_only` does not yet survive every registry builder; see [STOR02](next_tasks.md#stor02-preserve-read-only-intent-through-construction). Check the constructed Store's actual behaviour before treating configuration as an enforced write boundary.
 
 ## Registered backend reference
 

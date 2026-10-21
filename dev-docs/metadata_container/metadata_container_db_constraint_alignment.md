@@ -1,5 +1,7 @@
 # Metadata container DB-constraint alignment
 
+Reviewed **2026-10-20**. Value containers remain passive. Hydration belongs to Catalog; current API roots and the follow-up work are linked in [next tasks](next_tasks.md). Stage numbers and historical test totals below describe their original campaign.
+
 This note freezes the stage-13 rule: where the database is meant to constrain an
 allowed metadata vocabulary, the FRBR generator should draw that constraint from the
 **same canonical source** as the Python container layer.

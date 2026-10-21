@@ -1,13 +1,15 @@
 # Optional Data Artifacts
 
+Source reviewed **2026-10-20**, working tree based on `fc5de7af`.
+
 These are used for testing - many of the tests rely on them existing and being in certain forms.
 
 Large LiuXin fixtures live in the private `LiuXin_alpha_data` checkout, not in
 the main source repository. Use the shell wrapper as the normal entry point:
 
 ```bash
-scripts/build_artifacts.sh list --data-root LiuXin_alpha_data
-scripts/build_artifacts.sh verify --data-root LiuXin_alpha_data
+scripts/build_artifacts.sh --skip-venv list --data-root LiuXin_alpha_data
+scripts/build_artifacts.sh --skip-venv verify --data-root LiuXin_alpha_data
 scripts/build_artifacts.sh build --artifact benchmark-smoke --data-root LiuXin_alpha_data --regenerate
 scripts/build_artifacts.sh build --artifact isfdb-current --data-root LiuXin_alpha_data --dump-zip backup-MySQL-55-2026-04-18.zip --force
 scripts/build_artifacts.sh write-manifest --data-root LiuXin_alpha_data --dump-zip backup-MySQL-55-2026-04-18.zip
@@ -16,10 +18,13 @@ scripts/build_artifacts.sh write-manifest --data-root LiuXin_alpha_data --dump-z
 `scripts/build_artifacts.sh` creates or refreshes `.venv` with
 `scripts/create_venv.sh`, then runs `scripts/build_artifacts.py` using the venv
 Python. Pass `--skip-install` to reuse the environment without reinstalling, or
-`--new-venv` to recreate it before building.
+`--new-venv` to recreate it before building. `--skip-venv` uses the existing
+interpreter without creating or updating the environment; use that for routine
+inspection. `build --regenerate`, `--force` and `write-manifest` mutate artifacts
+or their manifest and should be selected deliberately.
 
 The Python entry point can also be called directly when the environment is
-already prepared:
+already prepared (list/verify do not require environment installation):
 
 ```bash
 python3 scripts/build_artifacts.py list

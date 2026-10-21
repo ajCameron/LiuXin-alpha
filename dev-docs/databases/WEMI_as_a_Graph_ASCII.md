@@ -1,5 +1,7 @@
 # WEMI as a Graph (Not a Pyramid): Aggregates, Flip-Books, Anthologies, and Shared Content
 
+Reviewed **2026-10-20**. **Conceptual design note, not the installed schema.** The single-parent Expression recommendation below is a cataloguing choice: LiuXin currently permits many-to-many Work–Expression links. Items currently have one nullable `item_manifestation_id`; the bound-with join below is a proposal. Use the [worked examples](wemi-link-examples.md) for actual table names and traversal. The illustrative DDL/query blocks below describe this note's alternative model and are not database migrations.
+
 This note explains why the FRBR / LRM WEMI stack (Work -> Expression -> Manifestation -> Item) is not reliably a strict 
 "pyramid" in real cataloguing data, and how to model common "weird" cases (anthologies, dos-a-dos / tete-beche books, 
 collected editions, bound-with volumes, excerpts, etc.) without breaking your database design.
@@ -325,12 +327,12 @@ create table manifestations (
 create table manifestation_expressions (
   manifestation_id integer not null references manifestations(manifestation_id),
   expression_id integer not null references expressions(expression_id),
-  sequence integer,
+  sequence integer not null default 0,
   role text,
   extent_start text,
   extent_end text,
   note text,
-  primary key (manifestation_id, expression_id, ifnull(sequence, 0))
+  primary key (manifestation_id, expression_id, sequence)
 );
 
 -- Item (simple mode)
@@ -344,9 +346,9 @@ create table items (
 create table item_manifestations (
   item_id integer not null references items(item_id),
   manifestation_id integer not null references manifestations(manifestation_id),
-  sequence integer,
+  sequence integer not null default 0,
   note text,
-  primary key (item_id, manifestation_id, ifnull(sequence, 0))
+  primary key (item_id, manifestation_id, sequence)
 );
 ```
 

@@ -42,7 +42,7 @@ from LiuXin_alpha.catalog.api.retrieval import BundleRetrieverAPI
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 API_ROOT = REPO_ROOT / "src" / "LiuXin_alpha" / "catalog" / "api"
-USAGE_GUIDE = REPO_ROOT / "dev-docs" / "catalog-api-usage.md"
+USAGE_GUIDE = REPO_ROOT / "dev-docs" / "catalog" / "catalog-api-usage.md"
 EMPTY_DOC_FIELD = re.compile(
     r"(?m)^\s*:(?:param\s+[^:]+|return):\s*$"
 )

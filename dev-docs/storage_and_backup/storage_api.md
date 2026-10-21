@@ -1,12 +1,34 @@
 # Storage API architecture
 
-This document describes the replacement storage API in
-`LiuXin_alpha.storage.api`. The old `06 - Storage.md` model is deprecated and
-is retained only as salvage material.
+Reviewed **2026-10-20**. Current owners and operational limitations were checked. See [next tasks](next_tasks.md). Dated benchmarks and suite counts below remain historical evidence.
+
+This document describes the storage API in `LiuXin_alpha.storage.api`.
+The [top-level storage overview](<../06 - Storage.md>) introduces the current
+model and replaces the historical overview formerly at that path. Use the
+contracts and concrete implementations below when extending storage.
 
 See [storage design patterns](design-patterns.md) for the declaration-backed
 convenience façade used by manager, repository, and workflow creation APIs.
 For a task-oriented entry point, use the [storage developer guide](README.md).
+
+## Current implementation limits
+
+The API separates driver mechanics, configured Stores and manager policy, but
+these boundaries do not yet enforce every safety rule:
+
+- Backend construction does not consistently preserve `StoreConfiguration.read_only`
+  across all builders. A descriptor's default mode is not proof that a caller's
+  explicit read-only intent was enforced.
+- `manager.delete(location)` delegates physical deletion without updating Replica
+  claims or checking loss policy. `remove_replica(...)` can delete bytes before
+  metadata mutation; a later metadata failure cannot restore those bytes.
+- Backup cleanup can remove a caller-supplied staging root. Until STOR01 is fixed,
+  cleanup-enabled runs must receive a directory owned exclusively by that run.
+- Byte publication and catalogue transactions remain separate effects. Journals
+  and verification support recovery; they are not a distributed atomic transaction.
+
+See [next tasks](next_tasks.md) for the concrete fixes and acceptance criteria.
+These limitations also apply when a higher-level caller reaches the same paths.
 
 ## How to use this guide
 
@@ -1221,10 +1243,13 @@ state, exact recreatability, recoverability, and irrecoverability.
 Replicas to remove.
 Neither plan performs the transformation or deletion itself.
 
-The current SQL schemas constrain replication and backup minima to at least
-one. They require a migration to permit zero and to persist `loss_action` and
-`retention_priority`; until then, persistence adapters must reject these newer
-policies rather than store misleading partial policy.
+Checked 2026-10-20: the current SQLite schema permits zero replication/backup
+minima. The durable repository projects copy counts into scalar columns and
+retains the complete policy, including `loss_action` and `retention_priority`,
+in versioned envelopes. Existing database schemas/envelopes must still be checked
+and migrated where necessary; the fresh schema does not automatically upgrade an
+older library. See the [schema overview](<../03 - Database Schema.md>) and
+`storage/storage_manager/database_repository.py` for the current persistence path.
 
 `DigitalAssetStorageAssessment` deliberately separates current readability,
 replication satisfaction, backup satisfaction, at-risk state, and complete

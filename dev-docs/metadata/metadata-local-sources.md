@@ -1,5 +1,7 @@
 # Metadata Local Sources
 
+Reviewed **2026-10-20**. Current source and ownership were checked. [Next tasks](next_tasks.md) distinguishes implemented behaviour from the remaining contracts.
+
 This document captures the local development contract for metadata sources
 under `src/LiuXin_alpha/metadata/local_sources`.
 

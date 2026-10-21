@@ -1,5 +1,7 @@
 # CLI composition and dependency direction
 
+Reviewed **2026-10-20**. Entry-point composition and named Core operations were checked. See [next tasks](../next_tasks.md); older stage counts remain dated evidence.
+
 The operator CLI has one complete command grammar and one application dispatch
 path. The installed liuxin command targets app.main directly.
 

@@ -1,5 +1,7 @@
 # Metadata container naming conventions
 
+Reviewed **2026-10-20**. Value containers remain passive. Hydration belongs to Catalog; current API roots and the follow-up work are linked in [next tasks](next_tasks.md). Stage numbers and historical test totals below describe their original campaign.
+
 See also: `metadata_container_dynamic_convenience_policy.md` for the current policy on runtime-installed convenience properties.
 
 
@@ -10,7 +12,7 @@ architecture.
 
 - Use `...Kind`, `...Role`, and `...Scheme` for controlled classification values.
 - Use `target_id` and `target_kind` for the attached W/E/M/I target.
-- Use `as_write_payload()` for database-write serialisation.
+- Use `as_write_payload()` for a serializable value payload. It performs no persistence; Catalog validates the selected write operation again.
 - Use `to_text(sep=...)` for joining a single container into display text.
 - Use `kind_text(...)`, `role_text(...)`, or `scheme_text(...)` on top-level
   containers when selecting a classified subset.

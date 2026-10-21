@@ -1,7 +1,10 @@
 # Testing and diagnostics
 
-- [Test streams](../test-streams.md): focused commands, full-suite execution,
-  resource telemetry and scratch cleanup.
+Source reviewed **2026-10-20**, working tree based on `fc5de7af`.
+
+- [Test streams](../test-streams.md): focused commands and full-suite execution.
+- [Scratch cleanup and telemetry](<../../07 - Test Databases.md#scratch-cleanup-and-telemetry>):
+  bounded diagnostic runs, retained evidence and fixture lifetimes.
 - [CI ownership](continuous-integration.md): automated lanes and required environments.
 - [Test databases](<../../07 - Test Databases.md>) and [data artifacts](data-artifacts.md):
   fixture provenance, isolation and storage policy.

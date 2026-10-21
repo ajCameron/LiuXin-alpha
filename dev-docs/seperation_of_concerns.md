@@ -1,9 +1,8 @@
-
-# Todo: Update this and merge into top level structure
-
 # Historical separation model: `surfaces`, `library`, `cache`, and `database`
 
-Status: **superseded on 2026-10-11**
+Status: **superseded on 2026-10-11**. Historical classification checked
+**2026-10-20**; the earlier model below is retained, not a pending merger into
+the current architecture.
 
 This note preserves an earlier four-layer model for design history. It is not
 the current ownership contract: in particular, it predates the distinct

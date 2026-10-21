@@ -5,11 +5,12 @@ runs. They are not distributed with a clean checkout; the recorded results and
 tracked handoffs remain the portable evidence.
 
 Requested: 2026-09-15; completed 2026-09-16. The user asked to check for and remove
-the remaining shims. This is a functional cleanup separate from the paused
-documentation campaign.
+the remaining shims. This was a functional cleanup separate from the then-paused
+documentation campaign. Reviewed for current status **2026-10-20** against the
+working tree based on `fc5de7af`; the results below remain September evidence.
 
-Work proceeds by owner, with before-source snapshots and test command/exit records
-under working-memory/test-results/shim-removal-2026-09-15/.
+Work proceeded by owner, with before-source snapshots and test command/exit records
+under the local-only `working-memory/test-results/shim-removal-2026-09-15/`.
 
 | Group | Scope | Checkpoint |
 | --- | --- | --- |
@@ -35,18 +36,21 @@ type annotations need a concrete reason for removal. A keyword match alone does
 not justify deleting behavior. Record retained candidates and their purpose in
 the final audit.
 
-The documentation campaign remains paused at D095. Its live inventory has been
-reconciled after this functional change; older documentation-only proofs and
-baseline snapshots remain historical.
+At this campaign checkpoint the documentation work was paused at D095. It later
+completed on **2026-10-05**; see the
+[completion record](../../working-memory/project-docstrings-l001-l037-2026-10-05.md).
+Do not use the September pause or inventory as a current work queue.
 
 
 ## Audit decisions
 
-The cleanup removes 61 forwarding/stub modules, all module-level lazy export hooks,
-the storage backend/value aliases, the mixed-case database-driver loader, deprecated
+The September cleanup removed 61 forwarding/stub modules, the module-level lazy
+export hooks identified in that campaign, the storage backend/value aliases,
+the mixed-case database-driver loader, deprecated
 crawl/SQL/PDF worker entry points, and fake calibre namespace installation.
-Consumers import concrete owners. The installed liuxin entry point is now
-LiuXin_alpha.surfaces.cli.app:main; the editable installation has been refreshed.
+Consumers migrated to concrete owners. The entry point was set to
+`LiuXin_alpha.surfaces.cli.app:main`, and the editable installation was refreshed
+at that checkpoint. A new checkout still needs its own installation.
 
 These candidates remain because they provide behavior or define a current contract:
 
@@ -76,10 +80,32 @@ their corrections. Test selections overlap and must not be summed as unique test
 The complete configured quality runner passed. Repository-wide pytest collection
 succeeded with 7,117 tests; this is collection coverage, not a full-suite run.
 
-The documentation inventory now has 2,671 live files, 804 reviewed and 1,867
-remaining. Removed scopes are archived, and every surviving queued declaration
-still has one assignment within the existing four-file/forty-declaration limits.
-Affected files have explicit new functional baselines; historical documentation-only
-proofs and original hashes remain unchanged. D096 remains paused until requested.
+At September close-out the documentation inventory had 2,671 live files, 804
+reviewed and 1,867 remaining. Removed scopes were archived, and every surviving
+queued declaration retained one assignment within the existing four-file/forty-
+declaration limits. Affected files received explicit new functional baselines;
+historical documentation-only
+proofs and original hashes were preserved. The recorded D096 pause was later
+superseded by the completed documentation campaign.
 
 Final evidence (local-only output: `working-memory/test-results/shim-removal-2026-09-15/final-observations.json`) records exact commands, exit results, current source hashes and retained failed attempts.
+
+
+## Current interpretation — 2026-10-20
+
+This completed campaign is not a ban on every lazy import, facade or adapter.
+Later work deliberately uses lazy imports to keep passive APIs small; cold-import
+budgets and named ownership rules govern that behaviour.
+`storage.store_manager` is a retained forwarding module at this checkpoint, so
+“all shims are gone” would be an inaccurate whole-repository claim.
+
+The separate October plugin migration retired both `customize` and
+`plugin_system`; callers now use `plugins`. See the
+[plugin import migration](../plugins/plugin-composition.md#import-migration).
+Persisted ingest tags and backend-kind strings remain data contracts, not
+permission to resurrect removed Python namespaces.
+
+Before removing another adapter, identify its callers, external/data contracts,
+behaviour and replacement owner. Keep installed-wheel and focused caller tests
+with the change. The September collection count and quality result above have
+not been rerun by this documentation review.

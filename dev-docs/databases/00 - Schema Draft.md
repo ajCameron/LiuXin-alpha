@@ -1,5 +1,15 @@
 # Main Tables
 
+Status: **historical design note**; reviewed **2026-10-20** against the working
+tree based on `fc5de7af`.
+
+This early sketch predates generated WEMI links and the Asset/Replica model.
+In particular, changed intellectual content normally distinguishes an Expression;
+a Manifestation describes its edition/carrier. The old direct manifestation
+foreign-key example below is not the installed relationship shape.
+See the [current schema overview](<../03 - Database Schema.md>) and
+[worked WEMI links](wemi-link-examples.md). Original design text follows.
+
 Top level entities within the LiuXin database.
 
 For ADDED CLARITY (tm) every column is prepended with the name of the table it’s in. The aim is to cut down on writes to the wrong table (as several tables will, for example, have a “type” column).

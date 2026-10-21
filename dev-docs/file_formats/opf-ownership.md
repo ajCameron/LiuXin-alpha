@@ -1,5 +1,7 @@
 # OPF utility ownership
 
+Reviewed **2026-10-20**. Entry points, provider boundaries and the scope of the recorded hardening work were reviewed. See [next tasks](next_tasks.md). Sign-off sections describe their dated fixture scope; they do not certify every input, optional dependency or installed provider today.
+
 Decision date: **2026-10-13**
 
 OPF parsing, version parsing, language round-tripping, manifest-item creation,
@@ -17,7 +19,7 @@ These are ownership moves, not capability removals. The prior parsing,
 normalization, manifest mutation, pretty-printing, construction, and copy
 behaviors retain focused regression coverage.
 
-This seam materially reduces graph coupling. Relative to the reviewed
+The recorded ownership change reduced graph coupling. These counts describe that checkpoint, not a fresh graph measurement. Relative to the reviewed
 2026-10-12 baseline:
 
 - the largest runtime strongly connected component falls from 280 to 220;

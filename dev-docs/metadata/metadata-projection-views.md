@@ -1,7 +1,8 @@
 # Metadata Projection Views
 
-This document describes the intended read-only projection layer for metadata
-containers. It is a convenience layer over the WEMI relation graph, not a
+Reviewed **2026-10-20**. Current source and ownership were checked. [Next tasks](next_tasks.md) distinguishes implemented behaviour from the remaining contracts.
+
+This document describes the implemented read-only `values` and `text` projection layer in `metadata.containers.metadata_containers.wemi_containers.projection_views`. It is a convenience layer over the WEMI relation graph, not a
 replacement for relation links.
 
 ## Problem

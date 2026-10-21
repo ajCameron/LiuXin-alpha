@@ -1,6 +1,11 @@
 # Modern Catalog and cache boundary
 
-Status: adopted for the modern stack, 2026-07-24.
+Reviewed **2026-10-20**. Current repositories, relationship ownership and retrieval boundaries were checked. See [next tasks](next_tasks.md) for remaining work; older run counts retain their original dates.
+
+Decision date: **2026-07-24**. Implementation checked: **2026-10-20**, against
+`fc5de7af`.
+
+Status: **Current contract, including the read-only / writable facade split.**
 
 ## Decision
 
@@ -27,15 +32,30 @@ composed Cache facade
                               cache reconciliation
 ```
 
-The direction is deliberately one-way:
+The write direction is:
 
 ```text
-cache -> Catalog -> database
+caches.cache.Cache -> Catalog mutation -> database
 ```
 
-Cache code may call `Catalog`. `Catalog` must not import a cache
-implementation, receive a cache object, mutate cache maps, or invoke
-cache-update callbacks.
+Read composition has a different direction:
+
+```text
+Catalog metadata retrieval -> caches.read_cache.ReadCache -> storage-cache backend
+```
+
+`ReadCache` owns lifecycle and structured reads without importing Catalog. The
+writable `Cache` subclasses it and adds the Catalog mutation bridge. Catalog
+retrieval may receive a cache read capability, wrap a raw storage-cache plugin in
+`ReadCache`, or compose a reader explicitly. It does not import the writable
+facade to assemble that reader.
+
+Catalog mutations must not mutate cache maps or invoke reconciliation callbacks.
+Cache-owned reconciliation consumes their authoritative results. This read/write
+split, rather than a blanket ban on Catalog receiving caches, avoids the import
+cycle. See [read-cache implementation](../../src/LiuXin_alpha/caches/read_cache.py),
+[writable facade](../../src/LiuXin_alpha/caches/cache.py) and
+[metadata retrieval](../../src/LiuXin_alpha/catalog/retrieval/metadata.py).
 
 ## Read contract
 
@@ -130,8 +150,10 @@ exist after the write. The cache uses that information to decide whether to:
 - invalidate an affected object while an outer transaction is still open; or
 - update a cache-owned index whose dependencies are known.
 
-Catalog does not decide among those policies because it does not know whether
-a cache exists or which backend is attached.
+Catalog mutations do not select a reconciliation policy. That decision belongs
+to the cache facade holding the backend and its affected dependencies; a read
+cache supplied to metadata retrieval does not transfer write reconciliation into
+Catalog.
 
 ## Consistency and failure rules
 
@@ -162,7 +184,7 @@ dirtying after reconciliation failure, and recovery on the next safe read.
 | --- | --- | --- |
 | Composed Cache | Query/index service, immutable schema/results, lifecycle/generation, invalidation, Catalog-delegating writes, and reconciliation | Canonical metadata persistence, WEMI identity policy, or raw SQL |
 | StorageCache plugin | Cached storage-shaped rows, fields, links, and optional backend accelerators | Application query policy, Catalog writes, or UI state |
-| Catalog | Metadata semantics, matching, validation, normalized mutations, WEMI-aware persistence, and authoritative write results | Cache maps, cache lifecycle, cache backend selection, or reconciliation policy |
+| Catalog | Metadata semantics, matching, validation, WEMI-aware persistence, authoritative write results and hydration through an explicit read source | Cache map mutation or write reconciliation policy |
 | Database | Connections, transactions, SQL, schemas, constraints, migrations, and portable storage operations | Cache state or bibliographic policy |
 | Application/library | Choosing the attached cache facade as the preferred entry point and coordinating workflows | Reimplementing Catalog or cache consistency rules |
 
@@ -188,17 +210,20 @@ model:
 - frozen `catalog_macros` reference helpers which still display historical
   cache callback shapes but have no production callers.
 
-No new modern feature should depend on those shapes. The intended cleanup is
-to move Calibre compatibility under `utils`, while modern cache behavior
-remains behind `CacheAPI`. Compatibility relocation must not reverse
-the modern dependency direction or move cache reconciliation into `Catalog`.
+No new modern feature should depend on those shapes. Their long-term owners
+remain a [Catalog roadmap](catalog-roadmap.md) decision; the earlier `utils`
+relocation proposal has not been implemented. Modern cache behaviour remains
+behind its contracts. Any compatibility move must preserve the read/write split
+and must not move reconciliation into Catalog mutations.
 
 ## Enforcement
 
 Modern boundary tests should prove that:
 
-- the Catalog facade, repositories, matching, mutations, retrieval, and
-  normalized writers do not import cache implementations;
+- Catalog metadata retrieval composes only the Catalog-independent read facade,
+  while mutations and writers do not import writable cache implementations;
+- protected import checks and the whole-package baseline retain no Catalog/cache
+  dependency cycle;
 - direct Catalog writers never reconcile cache state;
 - cache-aware writes delegate to the same Catalog persistence seam;
 - failed writes leave cache state unchanged;

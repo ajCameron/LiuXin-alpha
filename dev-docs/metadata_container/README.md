@@ -1,5 +1,7 @@
 # Metadata containers
 
+Reviewed **2026-10-20**. Value containers remain passive. Hydration belongs to Catalog; current API roots and the follow-up work are linked in [next tasks](next_tasks.md). Stage numbers and historical test totals below describe their original campaign.
+
 Start with the [system guide](metadata_container_system_guide.md) and
 [architecture](<00 - metadata_container_architecture.md>). Containers describe
 values; database/cache reads and writes have separate Catalog owners.

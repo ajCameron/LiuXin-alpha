@@ -13,6 +13,21 @@ regression suite matches baseline at 95 passes. L is complete at **37/37 units,
 The user's finish-the-rest request authorizes the remaining F, A, S and L
 tracks. The authorized programme is complete.
 
+## Status of this record — 2026-10-20
+
+This is the completed campaign's historical record, reviewed against its final
+inventory and completion handoff. The inventory's `current` totals record all
+1,372 documentation units and 2,671 files complete; its 1,375 total unit records
+also include planning/maintenance units. All unit records are verified. The stale
+`active_batch.status` marker was reconciled from partial to verified without
+refreshing source hashes or reopening the campaign.
+
+Execution limits, stop rules, old paths and authorizations below describe the
+original campaign. They are not standing instructions for later documentation
+maintenance. Current conventions live in the [style guide](<Style Guide.md>);
+new work is routed through [next tasks](next_tasks.md). Historical hashes and
+source counts are not a certification of the current working tree.
+
 ## Baseline and navigation
 
 The baseline contains **2,730 Python files**, of which **662 are source-reviewed**:

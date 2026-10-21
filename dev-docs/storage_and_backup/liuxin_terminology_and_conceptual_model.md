@@ -1,5 +1,7 @@
 # LiuXin Terminology and Conceptual Model
 
+Reviewed **2026-10-20**. Current owners and operational limitations were checked. See [next tasks](next_tasks.md). Dated benchmarks and suite counts below remain historical evidence.
+
 ## Purpose
 
 This document defines the principal terms used within LiuXin and explains the relationships between them. 
@@ -1125,6 +1127,8 @@ The result depends on whether the destination remains under LiuXin’s control.
 ---
 
 ## Deletion
+
+This section defines the distinction, not universal enforcement. Current raw manager deletion and Replica removal still need the shared loss/retention boundary in [STOR03](next_tasks.md#stor03-enforce-retention-at-byte-deletion).
 
 Deletion should distinguish between deleting a Replica and deleting metadata.
 

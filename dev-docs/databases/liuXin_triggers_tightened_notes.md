@@ -1,5 +1,14 @@
 # Tightened triggers (tier-2) — notes
 
+Status: **historical design note**; reviewed **2026-10-20** against the working
+tree based on `fc5de7af`.
+
+These are proposed constraints from the earlier design, not a record that every
+listed rule is enforced in the installed generator. In particular, preferred-path
+selection still needs the SQL/Catalog policy comparison in the worked examples.
+See the [current schema overview](<../03 - Database Schema.md>) and
+[worked WEMI links](wemi-link-examples.md). Original design text follows.
+
 This adds a stricter layer of invariants designed to prevent subtle corruption.
 
 ## What’s new

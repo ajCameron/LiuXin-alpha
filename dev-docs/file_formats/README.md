@@ -1,5 +1,7 @@
 # File Format Development Notes
 
+Reviewed **2026-10-20**. Entry points, provider boundaries and the scope of the recorded hardening work were reviewed. See [next tasks](next_tasks.md). Sign-off sections describe their dated fixture scope; they do not certify every input, optional dependency or installed provider today.
+
 This directory holds durable, format-specific notes for conversion and reader
 hardening. Keep cross-format strategy in the parent development docs, and keep
 format dossiers here when a format grows enough edge cases to need its own

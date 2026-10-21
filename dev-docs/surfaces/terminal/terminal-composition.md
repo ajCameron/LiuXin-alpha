@@ -1,5 +1,7 @@
 # Terminal composition and dependency direction
 
+Reviewed **2026-10-20**. Entry-point composition and named Core operations were checked. See [next tasks](../next_tasks.md); older stage counts remain dated evidence.
+
 Terminal startup selects a plain shell, non-interactive commands, or the curses
 adapter. Browser execution does not select or import its presentation adapter.
 

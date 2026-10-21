@@ -1,6 +1,7 @@
 # Layer-direction ratchet
 
-Decision date: **2026-10-11**
+Decision date: **2026-10-11**. Source and checks reviewed **2026-10-20**,
+working tree based on `fc5de7af`.
 
 Status: **enforced whole-package baseline; existing debt remains explicit**
 
@@ -51,14 +52,19 @@ The authoritative host-prefix list is `PLUGIN_HOST_PREFIXES` in
 checker reuses it. Combining the packages did not relax those boundaries. See
 the [composition contract](../plugins/plugin-composition.md).
 
-Cache's long-term rank is intentionally absent until its role is decided.
+A broad source-package rule for `caches` is intentionally absent from
+`FORBIDDEN_TARGETS`. This does not leave its semantic ownership undecided:
+Catalog owns persistent metadata reads/writes, `ReadCache` supplies reusable read
+state, and writable `Cache` delegates mutations to Catalog. The
+[cache contract](../catalog/catalog-cache-boundary.md) governs those roles; the
+checker still needs a reviewed rule for the remaining mixed cache dependencies.
 
 ## Exact baseline
 
 `scripts/layer_direction_baseline.json` records:
 
 - every existing backward edge by source, target, and execution context;
-- every unresolved dynamic import with its source line and expression; and
+- every unresolved dynamic import with its source line and expression;
 - the largest domain, whole-runtime, and whole-combined strongly connected
   component sizes; and
 - zero-sized runtime and combined Catalog/cache cross-package components.
@@ -72,20 +78,37 @@ target rather than presenting sorted component members as a traversal path.
 To inspect candidate baseline data without modifying the repository:
 
 ```bash
-python scripts/check_layer_direction.py --print-baseline
+.venv/bin/python scripts/check_layer_direction.py --print-baseline
 ```
 
 Baseline changes require architectural review. The command never writes the
-baseline itself.
+baseline itself and does **not** check agreement with the existing baseline.
+Run the normal check to enforce it:
+
+```bash
+.venv/bin/python scripts/check_layer_direction.py
+```
 
 ## Current measurement
 
-At `78a01b61` on **2026-10-19**, the scanner covers 1,792 source modules. The
-reviewed baseline has 15 backward edges and 28 unresolved dynamic imports. The
-largest runtime and combined components each contain 217 modules; the domain
-component remains 9, and the Catalog/cache cross-package components remain zero.
-The package merger relocated three existing dynamic-import entries without
-adding an allowance or increasing a cycle ceiling.
+The normal check passed on **2026-10-20**: **1,792 source modules, 15 reviewed
+backward edges and 28 unresolved dynamic imports**. Candidate measurements agree
+with the checked-in baseline: largest runtime/combined components **217/217**,
+domain component **9**, Catalog/cache cross-package components **0/0**. The
+protected modern check separately passes for **243 modules**.
+
+A strongly connected component (SCC) is a set of mutually reachable modules. The
+domain measurement uses the induced graph of caches, Catalog, databases, metadata
+and surfaces; whole-runtime includes import-time and deferred edges, while
+whole-combined adds type-only edges. The Catalog/cache measurement detects SCCs
+containing both packages. These scopes are not interchangeable: a zero result
+there does not mean the entire graph is acyclic or that the packages have no edges.
+
+On October 19 the package merger relocated three dynamic-import entries without
+adding an allowance or increasing a cycle ceiling. These counts remain unchanged
+at this source checkpoint. Recognized literal imports do not resolve arbitrary
+dynamic expressions, and parent-package execution needs the complementary
+[cold-import check](import-footprint-ratchet.md).
 
 ## Measurement history
 

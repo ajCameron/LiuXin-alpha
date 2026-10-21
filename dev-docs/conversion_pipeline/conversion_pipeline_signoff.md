@@ -1,5 +1,7 @@
 # Conversion Pipeline Sign-Off Matrix
 
+Reviewed **2026-10-20**. **Historical May/June campaign record.** The current [pipeline guide](<00 - Conversion Pipeline.md>) and [next tasks](next_tasks.md) supersede its work ordering. In particular, format fixture sign-off did not close the DOCX EMF provider gap, process-CWD isolation or job-result loss reporting.
+
 Date: 2026-05-28
 
 ## Purpose

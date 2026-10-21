@@ -10,7 +10,8 @@ names and counts below describe their dated checkpoints. See the current
 
 Decision date: **2026-10-12**
 
-Status: **enforced in tests and the type/quality gate**
+Status: **enforced in tests and the type/quality gate**. Source and all 25
+budgets checked successfully **2026-10-20**, working tree based on `fc5de7af`.
 
 Importing a reusable contract or leaf policy must not assemble unrelated parts of
 the application. Static import graphs do not fully demonstrate this property because
@@ -36,7 +37,7 @@ catalog/cache/storage API surfaces. The authoritative budgets live in
 `scripts/check_import_footprint.py`; they are deliberately small ceilings, not
 performance targets to consume.
 
-## Current plugin boundaries — 2026-10-19
+## Current plugin boundaries — 2026-10-20
 
 The rename preserves the 25 cold-import budgets established at `78a01b61`.
 `plugins` has a two-module
@@ -50,6 +51,25 @@ The [composition contract](../plugins/plugin-composition.md#enforced-boundaries)
 lists the plugin and format ceilings. `customize`, `plugin_system` and their
 forwarding modules have been removed; their entries below are historical measurements, not supported
 imports or current budgets. Namespace and installed-wheel tests enforce retirement.
+
+## Diagnostics and limits
+
+Inspect one boundary without running budget enforcement:
+
+```bash
+.venv/bin/python scripts/check_import_footprint.py --probe LiuXin_alpha.catalog.api
+```
+
+`--probe` emits the observed module inventory as JSON; a successful probe is not
+a passing budget check. Use the normal command above for enforcement. The
+[checker source](../../scripts/check_import_footprint.py) defines all 25 budgets,
+including the domain and module-prefix prohibitions. A count alone is insufficient.
+
+Counts cover newly loaded project modules, not external modules, time, resident
+memory or every possible side effect. Use the same prepared interpreter when
+comparing results; optional dependencies and environment can affect resolution.
+A passive import is not proof that later plugin discovery or provider construction
+is cheap or safe. No telemetry or resource-use limit is implied by this ratchet.
 
 ## Measurement history
 

@@ -1,5 +1,7 @@
 # Metadata Writer Coverage Contract
 
+Reviewed **2026-10-20**. Current source and ownership were checked. [Next tasks](next_tasks.md) distinguishes implemented behaviour from the remaining contracts.
+
 This document defines the local quality bar for metadata writer tests. It is a
 coverage plan and a safety contract: writer tests should prove that metadata
 updates do not corrupt the target file or silently emit malformed metadata.
@@ -13,6 +15,8 @@ The writer lane covers metadata mutation paths in:
 - OPF serialization and embedded OPF replacement
 - archive/container formats such as EPUB, EXTZ, DOCX, ZIP-like wrappers
 - binary formats such as MOBI, PDF, PDB/eReader, Topaz, and RTF
+
+These are acceptance criteria for each writer, not a claim that every existing format already satisfies them. Catalogue persistence is a separate [Catalog write contract](../catalog/catalog-write-validation-contract.md).
 
 ## Core Invariants
 

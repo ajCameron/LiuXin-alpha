@@ -1,5 +1,7 @@
 # Continuous integration ownership
 
+Source reviewed **2026-10-20**, working tree based on `fc5de7af`.
+
 The [Tests workflow](../../../.github/workflows/tests-on-push.yml) is the single owner
 of general Python validation. Its full-suite job runs once per PR workflow run;
 the smaller lanes intentionally overlap that suite to give earlier feedback.
