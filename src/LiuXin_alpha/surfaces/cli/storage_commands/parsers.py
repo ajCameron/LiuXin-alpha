@@ -112,10 +112,13 @@ def build_storage_parser(
     ingest = storage_subparsers.add_parser(
         "ingest",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        help="Catalogue a mixed local tree with bounded recursive containers.",
+        help="Detect and ingest a local directory, filesystem image or block device.",
         description=(
             "Catalogue loose files and nested SquashFS, ISO/UDF, ZIP, TAR, RAR, "
             "and 7z containers without extracting into the source tree.\n\n"
+            "Linux shorthand: liuxin storage ingest SOURCE --system-root ROOT\n"
+            "SOURCE is detected and mounted read-only; image/device mount targets "
+            "are managed automatically. Use --preflight-only to check setup.\n\n"
             "Exit codes: 0 complete/ready; 1 completed with issues or failed; "
             "2 command configuration; 130 SIGINT; 143 SIGTERM."
         ),

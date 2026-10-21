@@ -11,6 +11,7 @@ from uuid import UUID
 
 from LiuXin_alpha.ingest.source_filesystem_mount import read_only_filesystem_mount
 from LiuXin_alpha.ingest.source_mount import SourceMountError, read_only_source_mount
+from LiuXin_alpha.ingest.source_mount_paths import prepare_managed_target
 from LiuXin_alpha.surfaces.cli.storage_commands.ingest import _cmd_storage_ingest
 
 
@@ -51,6 +52,8 @@ def _mount_context(
         # while removing dependence on the launcher's working directory. The
         # mount owner separately resolves and pins the current backing object.
         setattr(args, "source_device" if device else "source_image", str(source))
+        if getattr(args, "source_mount_managed", False):
+            prepare_managed_target(source, Path(args.source_root))
         return read_only_filesystem_mount(
             source,
             Path(args.source_root),

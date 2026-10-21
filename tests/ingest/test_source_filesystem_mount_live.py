@@ -20,6 +20,7 @@ import pytest
 
 from LiuXin_alpha.ingest.source_loop import read_only_loop
 from LiuXin_alpha.ingest.source_mount import mount_namespace_id
+from LiuXin_alpha.ingest.source_mount_paths import managed_mount_target
 
 REPO = Path(__file__).resolve().parents[2]
 UNSHARE = ["unshare", "--mount", "--propagation", "private", "--"]
@@ -93,8 +94,9 @@ def _digest(path: Path) -> tuple[str, int, int]:
 
 @pytest.mark.parametrize("filesystem", ["squashfs", "ext4"])
 @pytest.mark.parametrize("block_device", [False, True])
+@pytest.mark.parametrize("automatic", [False, True])
 def test_real_filesystem_mount_and_cli_repeat_preserve_source(
-    tmp_path: Path, filesystem: str, block_device: bool
+    tmp_path: Path, filesystem: str, block_device: bool, automatic: bool
 ) -> None:
     """Check kernel write refusal, owned cleanup and real catalogue repeat behavior."""
     image = _make_image(tmp_path, filesystem)
@@ -155,41 +157,65 @@ assert list(target.iterdir()) == []
             timeout=30,
         )
         assert probe.returncode == 0, probe.stdout + probe.stderr
+        run_id = None
         for attempt in range(2):
             report = tmp_path / f"report-{attempt}.json"
-            result = subprocess.run(
-                [
+            command = [
+                sys.executable,
+                "-m",
+                "LiuXin_alpha.surfaces.cli",
+                "storage",
+                "ingest",
+                *(
+                    [str(source)]
+                    if automatic
+                    else [
+                        "--source-root",
+                        str(target),
+                        "--source-device" if block_device else "--source-image",
+                        str(source),
+                        "--source-filesystem",
+                        filesystem,
+                    ]
+                ),
+                "--database",
+                str(tmp_path / "catalogue.sqlite"),
+                "--log-directory",
+                str(tmp_path / "logs"),
+                "--report-file",
+                str(report),
+                "--no-console-progress",
+            ]
+            if automatic and attempt:
+                command = [
                     sys.executable,
                     "-m",
                     "LiuXin_alpha.surfaces.cli",
-                    "storage",
                     "ingest",
-                    "--source-root",
-                    str(target),
-                    "--source-device" if block_device else "--source-image",
-                    str(source),
-                    "--source-filesystem",
-                    filesystem,
-                    "--database",
-                    str(tmp_path / "catalogue.sqlite"),
+                    "runs",
+                    "resume",
+                    str(run_id),
                     "--log-directory",
                     str(tmp_path / "logs"),
-                    "--report-file",
-                    str(report),
-                    "--no-console-progress",
-                ],
+                    "--yes",
+                ]
+            result = subprocess.run(
+                command,
                 capture_output=True,
                 text=True,
                 env=_environment(),
                 timeout=90,
             )
             assert result.returncode == 0, result.stdout + result.stderr
-            payload = json.loads(report.read_text())
+            payload = json.loads(result.stdout)
+            assert json.loads(Path(payload["report_file"]).read_text()) == payload
+            run_id = payload["run_id"]
             assert payload["source_mount"]["backing_kind"] == (
                 "block-device" if block_device else "image"
             )
             assert payload["source_mount"]["read_only_loop"]
-            assert payload["report"]["source_root"] == str(target)
+            mounted_root = managed_mount_target(source) if automatic else target
+            assert payload["report"]["source_root"] == str(mounted_root)
             assert payload["report"]["files_adopted"] == 1
             if block_device:
                 events = [
@@ -207,7 +233,7 @@ assert list(target.iterdir()) == []
                 assert payload["report"]["replicas_created"] == 0
             else:
                 assert payload["report"]["assets_created"] == 1
-            assert not list(target.iterdir())
+            assert not list(mounted_root.iterdir())
             assert _digest(image) == before
         if block_device:
             # The caller's earlier loop must remain attached and readable.

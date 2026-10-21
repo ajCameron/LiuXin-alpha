@@ -203,7 +203,10 @@ with read_only_source_mount(pathlib.Path(sys.argv[1]), parent_namespace=int(sys.
     assert not os.statvfs(source).f_flag & os.ST_RDONLY
 
 
-def test_cli_ingests_and_resumes_under_verified_readonly_mount(tmp_path: Path) -> None:
+@pytest.mark.parametrize("automatic", [False, True])
+def test_cli_ingests_and_resumes_under_verified_readonly_mount(
+    tmp_path: Path, automatic: bool
+) -> None:
     """Use real nested archives, catalogue reload and optional SquashFS through the public flag."""
     source = tmp_path / "source"
     source.mkdir()
@@ -240,8 +243,11 @@ def test_cli_ingests_and_resumes_under_verified_readonly_mount(tmp_path: Path) -
                 "LiuXin_alpha.surfaces.cli",
                 "storage",
                 "ingest",
-                "--source-root",
-                str(source),
+                *(
+                    [str(source)]
+                    if automatic
+                    else ["--source-root", str(source), "--mount-source-read-only"]
+                ),
                 "--database",
                 str(tmp_path / "catalogue.sqlite"),
                 "--materialization-root",
@@ -251,7 +257,6 @@ def test_cli_ingests_and_resumes_under_verified_readonly_mount(tmp_path: Path) -
                 "--report-file",
                 str(report),
                 "--no-console-progress",
-                "--mount-source-read-only",
             ],
             capture_output=True,
             text=True,

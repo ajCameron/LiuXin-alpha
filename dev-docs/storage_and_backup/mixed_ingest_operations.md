@@ -1,6 +1,6 @@
 # Mixed-format ingest operations
 
-Reviewed **2026-10-20**. Current owners and operational limitations were checked. See [next tasks](next_tasks.md). Dated benchmarks and suite counts below remain historical evidence.
+Reviewed **2026-10-21**. Current owners and operational limitations were checked, including Linux source detection and read-only mounting. See [next tasks](next_tasks.md). Dated benchmarks and suite counts below remain historical evidence.
 
 Updated: 2026-08-25
 
@@ -38,7 +38,7 @@ opts ZIP/RAR-like ebook containers into recursive expansion.
 
 ## Command surface
 
-The shortest first-run workflow is:
+The shortest first-run workflow on Linux is:
 
 ```bash
 liuxin init /srv/liuxin
@@ -54,8 +54,26 @@ connection.
 `init` creates the catalogue, managed primary Store, nested-materialization
 area, ingest log directory, and a non-secret system manifest. The concise
 `ingest SOURCE` form expands to the same bounded local operator described
-below. It is intentionally different from `liuxin ingest disk`, which submits
+below, with automatic source detection and a verified read-only mount. It is
+intentionally different from `liuxin ingest disk`, which submits
 a managed job whose path belongs to the Core host.
+
+With a catalogue already selected for the invoking account, either a directory
+or a standalone SquashFS/ext4 filesystem image can be supplied directly:
+
+```bash
+sudo liuxin storage ingest "/media/book archives"
+sudo liuxin storage ingest "/archives/books.squashfs"
+```
+
+The command detects an existing directory, filesystem image or block device.
+Directories receive a recursive read-only bind; images/devices receive a
+read-only filesystem mount at an automatically managed destination. Detection
+never chooses or creates a catalogue. `sudo` may use a different account's
+configuration, so pass `--system-root /srv/liuxin` if that account has no saved
+connection. `liuxin ingest PATH` and `liuxin ingest --source PATH` use the same
+automatic path. Existing `--source-root PATH` scripts retain opt-in mounting;
+that explicit directory form remains available on other operating systems.
 
 For an attended first run, `liuxin init --wizard` guides the database choice
 and location. Mixed local ingest currently consumes the SQLite/APSW
@@ -303,8 +321,15 @@ those destinations.
 
 ## Linux read-only source mounts
 
-Use `--mount-source-read-only` to have LiuXin establish and verify a read-only
-view of an existing source directory before opening the catalogue:
+The positional `SOURCE` form automatically establishes and verifies a read-only
+view before opening the catalogue. For an existing directory or mount:
+
+```bash
+sudo liuxin storage ingest "/media/book archives" --system-root /srv/liuxin
+```
+
+With the explicit `--source-root` interface, request the same protection using
+`--mount-source-read-only`:
 
 ```bash
 liuxin storage ingest \
@@ -330,7 +355,7 @@ This requires Linux 5.12 or later, a libc exposing `mount_setattr`, util-linux
 `unshare`, and permission to create mount namespaces (plus user namespaces for
 unprivileged directory binds). No automatic sudo or writable fallback is used.
 Unsupported systems and denied namespace/mount
-operations fail before catalogue startup. The flag also applies to discovery and
+operations fail before catalogue startup. Protection also applies to discovery and
 preflight, so preflight can exercise the actual mount setup. Run reports include
 `source_mount` verification evidence, and `ingest runs resume` retains the option
 and creates a fresh protected view.
@@ -352,11 +377,33 @@ from other processes. See
 
 ### Mount a filesystem image or block device
 
-Use `--source-image` or `--source-device` with an explicit `--source-filesystem`.
-These options imply read-only mounting; `--mount-source-read-only` is optional
-with them. `--source-root` becomes the stable mount target: create an empty
-directory outside the backing image location, and reuse it for repeat runs.
-Existing mounts and nonempty targets are refused.
+Supply the path directly to detect its filesystem and manage its mount target:
+
+```bash
+sudo liuxin storage ingest /archives/books.squashfs --system-root /srv/liuxin
+sudo liuxin storage ingest /dev/disk/by-id/your-source-disk-part1 --system-root /srv/liuxin
+```
+
+Detection uses uncached `blkid --probe` against a read-only descriptor. It
+requires util-linux `blkid` and recognizes actual filesystem signatures, not
+filename extensions. Unknown/unsupported filesystems, ambiguous signatures,
+partition-table images and special files are refused before ingest starts.
+Choose a filesystem partition explicitly when a device has a partition table.
+
+Automatic targets are private directories under
+`/tmp/liuxin-ingest-mounts-<effective UID>/<source-path hash>`. The absolute source
+selector determines that hash; file contents, inode numbers and the current
+resolution of a device alias do not. Repeat/resumed runs under the same account
+reuse the pathname, recreating it after a reboot if necessary. Empty directories
+remain after unmounting. Symlinks, foreign owners and non-private permissions in
+these managed directories cause refusal rather than automatic repair.
+
+`--source-image` and `--source-device` remain available, with optional
+`--source-filesystem squashfs|ext4` to specify the type explicitly. These options
+always imply read-only mounting. For an operator-selected stable destination,
+create an empty directory outside the backing image location and pass
+`--mount-point`; the older `--source-root` spelling is also supported with these
+explicit image/device selectors. Existing mounts and nonempty targets are refused.
 
 ```bash
 mkdir -p /mnt/liuxin-books
@@ -365,7 +412,7 @@ mkdir -p /mnt/liuxin-books
 sudo liuxin storage ingest \
   --source-image /archives/books.squashfs \
   --source-filesystem squashfs \
-  --source-root /mnt/liuxin-books \
+  --mount-point /mnt/liuxin-books \
   --database /srv/liuxin/catalogue.sqlite \
   --materialization-root /srv/liuxin/ingest-materialized \
   --log-directory /srv/liuxin/ingest-logs
@@ -374,7 +421,7 @@ sudo liuxin storage ingest \
 sudo liuxin storage ingest \
   --source-device /dev/disk/by-id/your-source-disk-part1 \
   --source-filesystem ext4 \
-  --source-root /mnt/liuxin-books \
+  --mount-point /mnt/liuxin-books \
   --database /srv/liuxin/catalogue.sqlite \
   --materialization-root /srv/liuxin/ingest-materialized \
   --log-directory /srv/liuxin/ingest-logs
@@ -399,8 +446,8 @@ remain outside this protection.
 
 The initial filesystem allowlist is **SquashFS and ext4**. Mounts use
 `ro,nosuid,nodev,noexec` from the first syscall; ext4 additionally uses `noload`
-to prevent journal replay. There is no filesystem autodetection, repair, writable
-retry, arbitrary mount-option passthrough, partition-table traversal, or support
+to prevent journal replay. There is no repair, writable retry, arbitrary
+mount-option passthrough, partition-table traversal, or support
 for multi-device filesystems. A dirty ext4 filesystem may present inconsistent
 or inaccessible content when recovery is suppressed; inspect/repair a separate
 copy if needed. A plain `ro` filesystem mount alone does not prevent ext4 journal

@@ -82,7 +82,17 @@ def ingest_main(argv: list[str] | None = None) -> int:
 
 
 def cmd_storage_ingest(args: argparse.Namespace) -> int:
-    """Dispatch ordinary ingest or opt into a verified private read-only source mount."""
+    """Resolve source shorthand, then dispatch ordinary or protected mounted ingest."""
+    from LiuXin_alpha.ingest.source_mount import SourceMountError
+    from LiuXin_alpha.surfaces.cli.storage_commands.ingest_sources import (
+        prepare_source_arguments,
+    )
+
+    try:
+        prepare_source_arguments(args)
+    except (OSError, ValueError, SourceMountError) as error:
+        print(f"ERROR: {error}", file=sys.stderr, flush=True)
+        return EXIT_USAGE
     if any(
         getattr(args, name, None)
         for name in (
