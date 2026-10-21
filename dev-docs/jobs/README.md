@@ -26,10 +26,11 @@ down when one library runtime closes. Explicitly injected managers and
 `close_job_manager_on_shutdown` need deliberate ownership at composition.
 See [Core lifecycle](../core/core-api.md).
 
-Core currently holds its command lock around handler dispatch, including
-`jobs.wait`. Long waits and some synchronous operations can therefore block
-other queries/commands. Moving work to a background helper does not by itself
-make that dispatch concurrent.
+Core serializes shared-service handlers, but its built-in `jobs.wait` and
+`jobs.result` registrations wait on the manager outside that lock. Other
+synchronous operations can still block dispatch. The
+[waiting contract](core-wait-dispatch.md) documents permissions, timeouts,
+replacement, shutdown and the remaining durable-state work.
 
 Cancellation is a request with backend/workflow-specific effects. A client
 timeout is not proof of server cancellation; a retry can repeat effects unless

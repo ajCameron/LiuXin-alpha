@@ -1,11 +1,13 @@
 """
 Compose Core services and dispatch named command/query envelopes with events, introspection, and job control.
 
-Handler bodies share one reentrant lock; registration/subscriber maps use a
-separate lock. Event delivery and result conversion are outside the handler lock.
+Handler bodies share one reentrant lock by default; explicitly concurrent job
+waits use only the thread-safe manager. Registration/subscriber maps use a
+separate lock. Result conversion is outside the handler lock.
 Transport-stable endpoints normalize results even for direct calls, while generic
-invoke retains compatibility values. These boundaries do not add transactions,
-authorization, or proof that a query cannot mutate its target.
+invoke retains compatibility values. Serialization does not add transactions or
+prove that a query cannot mutate its target. Endpoint registrations declare
+remote authority separately.
 """
 
 # pyright: reportImportCycles=false
@@ -16,6 +18,8 @@ import inspect
 import threading
 import uuid
 
+from contextlib import ExitStack
+from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Optional, cast
 
 from LiuXin_alpha.configuration import use_preferences
@@ -47,6 +51,15 @@ from LiuXin_alpha.utils.jobs.manager import JobManagerAPI, JobState
 CommandHandler = Callable[["CoreRuntime", CoreCommand], Any]
 QueryHandler = Callable[["CoreRuntime", CoreQuery], Any]
 EventSubscriber = Callable[[CoreEvent], None]
+
+
+@dataclass(frozen=True)
+class _QueryRegistration:
+    """Keep one handler's authority, execution policy and result contract together."""
+
+    handler: QueryHandler
+    description: CoreEndpointDescription
+    serialized: bool
 
 
 class CoreRuntime(CoreAPI):
@@ -104,7 +117,7 @@ class CoreRuntime(CoreAPI):
         :param core_uuid: Optional advertised identity; a falsey value generates a fresh UUID4 string.
         :param core_version: Runtime version label converted to text.
         :param api_version: Named-API contract version label converted to text.
-        :param job_manager: Optional borrowed manager; omission selects the process-global default.
+        :param job_manager: Optional borrowed manager supporting concurrent wait/result/state calls; omission selects the process-global default.
         :param catalog: Optional semantic Catalog facade injected into CoreServices.
         :param cache: Optional cache facade/backend injected instead of selecting a cache type.
         :param cache_type: Optional selector for a cache constructed by CoreServices.
@@ -161,13 +174,13 @@ class CoreRuntime(CoreAPI):
         self._close_job_manager_on_shutdown = bool(close_job_manager_on_shutdown)
 
         self._command_handlers: dict[str, CommandHandler] = {}
-        self._query_handlers: dict[str, QueryHandler] = {}
+        self._query_handlers: dict[str, _QueryRegistration] = {}
         self._command_descriptions: dict[str, CoreEndpointDescription] = {}
-        self._query_descriptions: dict[str, CoreEndpointDescription] = {}
         self._event_subscribers: list[EventSubscriber] = []
 
         # SQLite-backed runtimes may be reached from HTTP request threads.
-        # Serialize every handler against the shared local service graph.
+        # Serialize shared-graph access. Only explicitly independent queries
+        # (currently managed job waits/results) may bypass this lock.
         self._command_lock = threading.RLock()
         # Protects handler and subscriber maps.
         self._state_lock = threading.RLock()
@@ -429,6 +442,7 @@ class CoreRuntime(CoreAPI):
             ),
             tags=("jobs",),
             remote_capabilities=("admin",),
+            serialized=False,
         )
         from LiuXin_alpha.core.application_api import install_application_api
 
@@ -607,7 +621,9 @@ class CoreRuntime(CoreAPI):
         retrying failed cleanup. Opted-in manager shutdown runs in finally with
         wait false/cancel_pending true; its error can replace a service-close error.
         Cleanup failure prevents the shutdown event. Cleanup acquires the same
-        lock as command/query dispatch, but does not await managed jobs.
+        lock as serialized command/query dispatch, but does not await managed
+        jobs or concurrent waits on a borrowed manager. Queued serialized
+        handlers recheck the flag before touching services.
 
         Example:
             >>> exit_code = runtime.shutdown()  # doctest: +SKIP
@@ -779,13 +795,20 @@ class CoreRuntime(CoreAPI):
         tags: tuple[str, ...] | list[str] | None = None,
         transport_stable: bool = True,
         remote_capabilities: tuple[str, ...] | None = None,
+        serialized: bool = True,
     ) -> None:
         """
         Register or replace a normalized query route and its description without proving read-only behavior.
 
         Registration accepts repeated names and does not verify callability,
-        signature, or declared payload fields. Metadata construction precedes the atomic handler/description replacement;
-        a failed declaration leaves the old pair unchanged.
+        signature, or declared payload fields. Metadata construction precedes
+        atomic replacement of the handler, authority and execution/result policies;
+        a failed declaration leaves the old registration unchanged.
+
+        Serialized execution is the default for every registration, including
+        replacement of a concurrent route. Opting out is a trusted composition
+        decision: the handler must use independently thread-safe resources and
+        must never access the shared database connection or closing service graph.
 
         Example:
             >>> runtime.register_query_handler("example.lookup", handler, summary="Read an example.")  # doctest: +SKIP
@@ -799,12 +822,16 @@ class CoreRuntime(CoreAPI):
         :param tags: Optional ordered tags stringified without deduplication.
         :param remote_capabilities: Explicit remote grants; None keeps this registration local-only.
         :param transport_stable: Whether query results should be normalized by the Core wire encoder.
+        :param serialized: Hold the shared handler lock; False is only for independently safe handlers.
         :return: None after replacing the route and metadata under the state lock.
         :raises ValueError: If name normalization yields blank text.
+        :raises TypeError: If serialized is not a bool.
         """
         token = str(name).strip().lower()
         if not token:
             raise ValueError("Query name cannot be blank.")
+        if not isinstance(serialized, bool):
+            raise TypeError("serialized must be a bool.")
         if remote_capabilities is not None:
             remote_capabilities = tuple(remote_capabilities)
             if not set(remote_capabilities) <= KNOWN_CAPABILITIES:
@@ -822,8 +849,9 @@ class CoreRuntime(CoreAPI):
             remote_capabilities=remote_capabilities,
         )
         with self._state_lock:
-            self._query_handlers[token] = handler
-            self._query_descriptions[token] = metadata
+            self._query_handlers[token] = _QueryRegistration(
+                handler, metadata, serialized
+            )
 
     def subscribe(self, callback: EventSubscriber) -> Callable[[], None]:
         """
@@ -919,9 +947,11 @@ class CoreRuntime(CoreAPI):
         Execute a registered command under the handler lock, wire-normalize stable results, and emit lifecycle events.
 
         Shutdown/name/handler checks precede command.started and acquiring the
-        handler lock; shutdown is not rechecked after waiting. Ordinary handler
-        and wire-conversion failures emit command.failed and raise CoreHandlerError
-        when error classification succeeds. No rollback or automatic retry occurs.
+        handler lock; shutdown is rechecked after waiting. A queued command
+        rejected at that point emits command.failed and raises CoreShutdownError.
+        Ordinary handler and wire-conversion failures emit command.failed and
+        raise CoreHandlerError when error classification succeeds. No rollback or
+        automatic retry occurs.
 
         Conversion and completion events happen after releasing the handler lock.
         Stability metadata is looked up again after execution, so concurrent
@@ -936,7 +966,7 @@ class CoreRuntime(CoreAPI):
         :param capabilities: Server-established authority; None is trusted in-process execution.
         :param command: Envelope passed unchanged to the handler; only routing uses a normalized name.
         :return: Successful command envelope with the original request/correlation IDs and final result value.
-        :raises CoreShutdownError: If shutdown was already flagged when execution began.
+        :raises CoreShutdownError: If shutdown is flagged before handler execution.
         :raises CoreDispatchError: For a blank or unregistered command name.
         :raises CoreHandlerError: For ordinary handler or stable-result conversion failure after error classification.
         """
@@ -966,6 +996,17 @@ class CoreRuntime(CoreAPI):
         )
 
         with self._command_lock:
+            if self._shutdown:
+                self.emit_event(
+                    "command.failed",
+                    {
+                        "command_id": command.command_id,
+                        "name": token,
+                        "error": "Core is shut down.",
+                        "correlation_id": command.correlation_id,
+                    },
+                )
+                raise CoreShutdownError("Core is shut down.")
             try:
                 with use_preferences(self.services.preferences):
                     result = handler(self, command)
@@ -1094,12 +1135,14 @@ class CoreRuntime(CoreAPI):
         self, query: CoreQuery, *, capabilities: frozenset[str] | None = None
     ) -> CoreQueryResult:
         """
-        Execute a query under the same lock as commands and convert stable results without command lifecycle events.
+        Execute a captured query registration and convert stable results without command lifecycle events.
 
-        Query classification does not enforce read-only effects. Shutdown is tested
-        before waiting on the handler lock, not afterward. A long-running wait query
-        can therefore block other command/query handlers. Result conversion occurs
-        outside that lock using metadata read after the handler returns.
+        Query classification does not enforce read-only effects. By default the
+        handler shares the command lock and rechecks shutdown after acquiring it.
+        Explicitly concurrent registrations release that lock after resolving the
+        preference context; an admitted wait may finish after shutdown. Result
+        conversion uses the same registration captured for authorization, even if
+        the route is replaced during execution.
 
         Example:
             >>> response = runtime.execute_query(CoreQuery("health"))  # doctest: +SKIP
@@ -1108,7 +1151,7 @@ class CoreRuntime(CoreAPI):
         :param capabilities: Server-established authority; None is trusted in-process execution.
         :param query: Envelope passed unchanged to the selected handler after normalized-name routing.
         :return: Successful query envelope with request/correlation IDs and the optionally wire-converted result.
-        :raises CoreShutdownError: If shutdown is already flagged at the initial check.
+        :raises CoreShutdownError: If shutdown is flagged before handler execution.
         :raises CoreDispatchError: For a blank or unknown query route.
         :raises CoreHandlerError: For ordinary handler or stable-result conversion failure after error classification.
         """
@@ -1120,16 +1163,28 @@ class CoreRuntime(CoreAPI):
             raise CoreDispatchError("Query name cannot be blank.")
 
         with self._state_lock:
-            handler = self._query_handlers.get(token)
+            registration = self._query_handlers.get(token)
             if capabilities is not None:
-                authorize_endpoint(self._query_descriptions.get(token), capabilities, query.payload)
-        if handler is None:
+                authorize_endpoint(
+                    registration.description if registration is not None else None,
+                    capabilities,
+                    query.payload,
+                )
+        if registration is None:
             raise CoreDispatchError("Unknown query handler: {!r}".format(query.name))
 
-        with self._command_lock:
+        with ExitStack() as handler_scope:
+            handler_scope.enter_context(self._command_lock)
+            if self._shutdown:
+                raise CoreShutdownError("Core is shut down.")
             try:
-                with use_preferences(self.services.preferences):
-                    result = handler(self, query)
+                # Preference resolution may inspect the shared database facade.
+                # Retain the selected object before allowing independent waiting.
+                preferences = self.services.preferences
+                if not registration.serialized:
+                    handler_scope.close()
+                with use_preferences(preferences):
+                    result = registration.handler(self, query)
             except Exception as exc:
                 error_code, error_details = core_error_details(exc)
                 raise CoreHandlerError(
@@ -1137,9 +1192,7 @@ class CoreRuntime(CoreAPI):
                     code=error_code,
                     details=error_details,
                 ) from exc
-        with self._state_lock:
-            description = self._query_descriptions.get(token)
-        if description is not None and description.transport_stable:
+        if registration.description.transport_stable:
             try:
                 result = to_wire(result)
             except Exception as exc:
@@ -1477,8 +1530,8 @@ class CoreRuntime(CoreAPI):
                 for name in sorted(self._command_descriptions)
             ]
             queries = [
-                self._query_descriptions[name].to_dict()
-                for name in sorted(self._query_descriptions)
+                self._query_handlers[name].description.to_dict()
+                for name in sorted(self._query_handlers)
             ]
 
         payload: dict[str, Any] = {
@@ -2243,8 +2296,9 @@ class CoreRuntime(CoreAPI):
         """
         Delegate waiting to the manager and serialize the observed job, which may still be nonterminal after timeout.
 
-        When dispatched normally, this wait holds the shared command/query handler
-        lock. No second worker timeout or success-state assertion is added here.
+        The built-in registration waits outside the shared database handler lock.
+        It uses only the job manager; no second worker timeout or success-state
+        assertion is added here.
 
         Example:
             >>> payload = runtime._handle_jobs_wait_query(runtime, CoreQuery("jobs.wait", {"job_id": "job-1", "timeout_s": 1}))  # doctest: +SKIP

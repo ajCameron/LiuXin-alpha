@@ -19,9 +19,11 @@ def install_queries(api: SystemJobsHandlers, runtime: ProgramEndpointRegistrar) 
     """
     Bind capability listing, job-result retrieval, and bounded log reading with explicit introspection metadata.
 
-    Job results advertise an optional timeout; log reads advertise byte offset and
-    maximum byte count despite returning decoded text. Field declarations do not
-    check job existence, wait for completion, or validate bounds at registration.
+    Job results wait on the independently synchronized manager outside Core's
+    shared database handler lock. They advertise an optional timeout; log reads
+    advertise byte offset and maximum byte count despite returning decoded text.
+    Field declarations do not check job existence, wait for completion, or
+    validate bounds at registration.
 
     Example:
         >>> from unittest.mock import Mock
@@ -56,6 +58,7 @@ def install_queries(api: SystemJobsHandlers, runtime: ProgramEndpointRegistrar) 
         ),
         tags=("jobs", "read"),
         remote_capabilities=("admin",),
+        serialized=False,
     )
 
     query(
