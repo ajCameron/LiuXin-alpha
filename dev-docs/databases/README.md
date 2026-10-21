@@ -14,6 +14,8 @@ meaning belongs to metadata/Catalog; physical storage policy belongs to storage.
   credits and payload attachments.
 - [Fields](what-are-fields.md) and [column metadata](column-metadata.md).
 - [Link capabilities](link-capabilities.md).
+- [Creation and replacement](creation-and-replacement.md): create-only publication,
+  explicit offline replacement, recovery backups and server-schema refusal.
 - [Backend strategy](liuxin_database_backend_strategy.md) and
   [PostgreSQL runbook](postgresql-backend.md).
 - [Connection ownership](<02 - Connection ownership and stale connections.md>) and

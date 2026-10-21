@@ -262,18 +262,11 @@ class DatabaseAPI(
 
     @abc.abstractmethod
     def create_new_database(self, blank: bool = True, backup: bool = True) -> None:
-        """
-        Optionally back up and delete the database before requesting schema creation.
+        """Create a new database without replacing existing data.
 
-        Abstract declaration; subclasses supply the operation. In the concrete Database implementation: Operations run in backup, deletion, creation order. No rollback, driver reload or metadata refresh occurs here; backend failures propagate after any earlier side effects.
-
-        Example:
-            On a disposable configured backend, db.create_new_database(blank=False, backup=False) requests creation without first backing up or deleting it.
-
-
-        :param blank: Delete the existing database through the driver before creation.
-        :param backup: Request a backup before any deletion or creation.
-        :return: None.
+        Legacy ``blank`` and ``backup`` arguments do not authorize replacement.
+        Concrete file-backed creation rejects any existing destination; server
+        creation requires an absent or empty schema.
         """
 
     @abc.abstractmethod
@@ -583,4 +576,3 @@ class DatabaseAPI(
         :raises ValueError: A yielded table-name key cannot unpack into two values.
         :raises InputIntegrityError: Iteration finishes without finding the column.
         """
-

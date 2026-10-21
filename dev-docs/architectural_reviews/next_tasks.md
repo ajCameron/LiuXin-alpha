@@ -1,9 +1,9 @@
 # Next architecture tasks
 
 Date: **2026-10-20**. Basis: documentation review at `a5406cf8`, A01 at `75b266ed`,
-and A02's implementation on `store-read-only-intent`.
+A02 at `d5956d6e`, and A03's implementation on `database-create-safety`.
 
-Status: **A01 and A02 are implemented for PR review; remaining runtime fixes are open.
+Status: **A01–A03 are implemented for PR review; remaining runtime fixes are open.
 Documentation progress is recorded in A14.** Recheck the named behaviour before starting each task, especially
 where evidence comes from an older review. The first safety slices were checked
 against their current source while writing this list; external CI and GitHub
@@ -25,9 +25,11 @@ Finding IDs below refer to the
 
 ## Recommended order
 
-With A01 and A02 implemented for review, take **A03 as the next small PR**. Develop A06's transport
-contract in the same first group; it does not need to wait for job consolidation.
-Then close A04/A05's broader safety contracts. A07 is the next bounded read-model
+First repair the shared full-suite failures recorded under **A15** so subsequent
+runtime slices have a useful CI baseline. With A01–A03 implemented for review,
+take **A04's transaction contract next**,
+then enforce A05's deletion policy. A06's transport contract is independent of
+job consolidation and can proceed in the same safety group. A07 is the next bounded read-model
 change; A08 continues the existing write-consolidation programme.
 
 The order is a recommendation, not a requirement to finish every earlier item
@@ -37,7 +39,7 @@ before starting an independent one. Dependencies are stated in each task.
 | --- | --- | --- | --- |
 | [A01](#a01-preserve-caller-owned-backup-staging) | Implemented; PR review | Cleanup removes only scratch owned by the backup run. | Storage backup |
 | [A02](#a02-enforce-store-read-only-intent) | Implemented; PR review | Four affected builders preserve and enforce read-only intent through durable reload. | Storage registry and Stores |
-| [A03](#a03-make-database-creation-nondestructive-by-default) | First | Creating over an existing database requires an explicit replacement operation. | Databases and Core bootstrap |
+| [A03](#a03-make-database-creation-nondestructive-by-default) | Implemented; PR review | Creation refuses collisions; explicit offline replacement retains a verified backup. | Databases and Core bootstrap |
 | [A04](#a04-separate-resource-lifetime-from-transaction-lifetime) | First | Exceptions and nested mutations have one explicit transaction contract. | Databases, with Catalog/storage callers |
 | [A05](#a05-enforce-deletion-policy-at-the-mutation-boundary) | First | Removing bytes cannot bypass retention/last-copy policy. | Storage manager |
 | [A06](#a06-enforce-transport-capabilities-on-the-server) | First | Remote/read-only clients cannot invoke privileged operations by name. | Core transport and surfaces |
@@ -93,21 +95,21 @@ for WAL sidecar behaviour and scope. A05's retention/last-copy policy remains op
 
 ## A03. Make database creation nondestructive by default
 
-**Findings:** DB-1. **First PR:** separate create-new from explicit replacement.
+**Findings:** DB-1. **Implemented for PR review, 2026-10-20.**
 **Dependencies:** none; A04 handles transaction lifetime separately.
 
-[`Database.create_new_database`](../../src/LiuXin_alpha/databases/database/__init__.py)
-can delete an existing database when asked for a blank one. Make ordinary
-creation reject an existing target. Put intentional replacement behind an
-explicit operation with a stated backup, failure and recovery contract, then
-migrate bootstrap/CLI callers. Protect against a target appearing between the
-existence check and creation; a preflight path check alone is insufficient.
+[`Database`](../../src/LiuXin_alpha/databases/database/__init__.py) now initializes
+new SQLite/APSW databases privately and publishes create-only before opening its
+runtime connections. Registry, Core and terminal callers share that contract.
+Explicit offline replacement prepares a verified, create-only recovery backup
+before the final atomic rename. PostgreSQL creation accepts absent/empty schemas,
+serializes initializers and rejects populated namespaces.
 
-**Done when:** opening/creating against existing data leaves it intact by default;
-failed backup or replacement preparation preserves the original; new database
-creation still works. Exercise SQLite/APSW file behaviour and the corresponding
-server-backend contract where supported. No old-schema migration or user-library
-backfill is part of this task.
+The [creation contract](../databases/creation-and-replacement.md) states backup,
+failure, recovery and offline-exclusion requirements. Real file regressions cover
+collisions, partial failure and writable reopen; live PostgreSQL regressions cover
+refusal, concurrent creation and rollback. No user database or old schema was
+migrated. A04's general transaction/close semantics remain open.
 
 ## A04. Separate resource lifetime from transaction lifetime
 
@@ -341,6 +343,14 @@ benchmark/test counts as fresh results.
 **Findings:** RP-2/4/5/7/8. **First PR:** fresh artifact/dependency inventory and one
 bounded correction. **Dependencies:** none; check current remote state before
 proposing branch-rule changes.
+
+**Fresh evidence, 2026-10-20:** [PR #128's full run](https://github.com/ajCameron/LiuXin-alpha/actions/runs/39366322310)
+and [PR #129's full run](https://github.com/ajCameron/LiuXin-alpha/actions/runs/39368762975)
+have the same 40 failing test IDs. The latter passed 7,308 tests, with 242 skips
+and 17 expected failures. Failure groups include missing Ruff/encryption test
+dependencies, surface package state and image fallback behaviour. Reproduce and
+repair those groups; the green focused, architecture and wheel checks do not
+establish a green full-suite baseline.
 
 Classify tracked generated outputs, real fixtures and instance configuration from
 a fresh inventory. Remove only confirmed generated material from future commits,

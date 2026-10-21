@@ -124,6 +124,9 @@ select = ["E4", "E7", "E9", "F", "I", "UP", "B"]
 # Positive scope: directory entries also protect newly added Python modules.
 # Formatting does not implicitly expand the separate lint or typing ratchets.
 paths = [
+  "src/LiuXin_alpha/databases/creation.py",
+  "tests/databases/test_database_creation_safety.py",
+  "tests/databases/test_database_creation_postgres_live.py",
   "src/LiuXin_alpha/plugins/application.py",
   "src/LiuXin_alpha/plugins/loading.py",
   "tests/plugins/test_application_plugins.py",
@@ -214,6 +217,7 @@ paths = [
 [tool.basedpyright]
 typeCheckingMode = "standard"
 include = [
+  "src/LiuXin_alpha/databases/creation.py",
   "src/LiuXin_alpha/configuration.py",
   "src/LiuXin_alpha/configuration_defaults.py",
   "src/LiuXin_alpha/core/settings.py",
@@ -260,6 +264,7 @@ include = [
   "src/LiuXin_alpha/surfaces/cli/storage_commands",
 ]
 strict = [
+  "src/LiuXin_alpha/databases/creation.py",
   "src/LiuXin_alpha/surfaces/terminal/browser_components/models.py",
   "src/LiuXin_alpha/surfaces/terminal/windowed_components/models.py",
   "src/LiuXin_alpha/surfaces/terminal/presentation.py",
@@ -292,6 +297,7 @@ pythonVersion = "3.12"
 [tool.mypy]
 python_version = "3.12"
 files = [
+  "src/LiuXin_alpha/databases/creation.py",
   "src/LiuXin_alpha/configuration.py",
   "src/LiuXin_alpha/configuration_defaults.py",
   "src/LiuXin_alpha/core/settings.py",

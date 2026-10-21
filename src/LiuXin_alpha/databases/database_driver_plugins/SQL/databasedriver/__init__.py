@@ -521,34 +521,44 @@ class SQLBaseDriver:
     # - DB CREATION METHODS
 
     def direct_create_new_database(self) -> None:
+        """Build privately and publish to an absent path, rejecting existing files.
+
+        Construct the driver with ``set_conn=False`` so it does not create the target
+        before this operation. Preparation closes its connections on every exit.
         """
-        Create parent directories and build the schema at the configured path.
+        from LiuXin_alpha.databases.creation import create_sqlite_file
 
-        The backend builder supplies the schema. Language seeding/locking is best effort; the connection commits and closes on success, with no finally cleanup on failure.
+        create_sqlite_file(self.database_path, self._build_database_file)
 
-        Example:
-            ``driver.direct_create_new_database()`` initializes a new database path.
+    def direct_replace_database(self, *, backup_path: str | os.PathLike[str]) -> pathlib.Path:
+        """Replace an offline database with a required, create-only recovery backup.
 
-
-        :return: ``None``.
+        All users of the target must be stopped. This unconnected driver owns only
+        preparation resources; it does not close or invalidate borrowed connections.
         """
-        if not os.path.exists(os.path.dirname(self.database_path)):
-            os.makedirs(os.path.dirname(self.database_path))
+        from LiuXin_alpha.databases.creation import replace_sqlite_file
 
-        conn = self.get_connection()
-        self._create_new_database(conn)
+        if getattr(self, "conn", None) is not None or self._open_connections:
+            raise RuntimeError("Close database connections before explicit replacement.")
+        return replace_sqlite_file(
+            self.database_path, backup_path=backup_path, build=self._build_database_file
+        )
 
-        # Defensive: ensure FRBR constant tables are populated/locked.
-        # (Safe no-op on non-FRBR schemas.)
+    def _build_database_file(self, path: pathlib.Path) -> None:
+        """Build and check a candidate using a separate driver with owned connections."""
+        metadata = {**self.db_metadata, "database_path": str(path)}
+        builder = type(self)(metadata, db=None, set_conn=False)
         try:
+            conn = builder.get_connection()
+            self._create_new_database(conn)
             from LiuXin_alpha.utils.language_tools import ensure_languages_seeded_and_locked
 
             ensure_languages_seeded_and_locked(conn)
-        except Exception:
-            pass
-
-        conn.commit()
-        conn.close()
+            conn.commit()
+            if conn.execute("PRAGMA integrity_check").fetchone() != ("ok",):
+                raise DatabaseIntegrityError("New database failed its integrity check.")
+        finally:
+            builder.close()
 
     #
     # ----------------------------------------------------------------------------------------------------------------------

@@ -1,6 +1,15 @@
 # Working Memory Index
 
 Latest implementation checkpoint, **2026-10-20**:
+[database creation safety](database-create-safety-2026-10-20.md) continues the
+user-authorized full A01–A16 programme on `database-create-safety`. A03 adds
+create-only file publication, explicit backed-up offline replacement and
+PostgreSQL empty-schema enforcement. Full quality gates, 105 initial regressions,
+123 isolated checks, the final 60-test follow-up and nine live PostgreSQL checks
+passed. The note records the shared 40-failure CI baseline on #128/#129 and the
+preserved unrelated edits. Repair that baseline under A15 before continuing A04.
+
+Earlier implementation checkpoint, **2026-10-20**:
 [Store read-only intent](store-read-only-intent-2026-10-20.md) implements A02/STOR02
 on `store-read-only-intent`, based on `75b266ed`. The four affected local builders
 preserve read-only policy through drivers and catalogue reopen/reload. SQLite

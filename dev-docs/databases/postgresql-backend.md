@@ -96,6 +96,12 @@ Use `.pgpass`, `PGSERVICE`, `LIUXIN_POSTGRES_PASSWORD`, or the interactive
 password prompt for authentication. For non-interactive automation, add
 `--no-password-prompt` only after credentials are already configured.
 
+Initialization requires an absent or empty schema. It accepts the empty namespace
+prepared by `setup-sql`, but refuses populated schemas rather than seeding or
+repairing existing data. Use `postgres check` for an existing library. Concurrent
+initializers serialize, and failed creation rolls back schema objects; see the
+[creation contract](creation-and-replacement.md#postgresql).
+
 ## Check Runtime Readiness
 
 Run the strict checker as the runtime role:

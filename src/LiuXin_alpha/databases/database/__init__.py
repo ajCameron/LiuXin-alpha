@@ -246,8 +246,8 @@ class Database(
 
         :param metadata: Connection metadata; None selects the configured default database when no driver is supplied.
         :param db_type: Backend registry name, default SQLite.
-        :param create: Explicitly request schema creation; an existing file may be replaced.
-        :param backup: Back up an existing path before explicit recreation when True.
+        :param create: Explicitly request new schema creation; existing targets are rejected.
+        :param backup: Retained compatibility argument; creation never replaces or backs up an existing target.
         :param existing_driver: Already constructed driver; requires metadata=None.
         :param enable_storage_manager: Load configured Stores after database initialization when True.
         :param strict_storage_manager_bootstrap: Propagate storage loading failures and reject failed reports when True.
@@ -478,7 +478,10 @@ class Database(
         """
         Select a backend and create its schema when explicit or required for a new file.
 
-        Capture path existence before loading the driver. Server metadata bypasses file-based automatic creation; explicit create still requests schema creation. Recreating an existing file can back it up and delete it; a new path skips those steps. Reload the driver after creation. Table metadata and repairs require a positive existence check, but runtime wiring is attempted regardless.
+        Capture path existence before opening a driver. Build missing files privately
+        and publish create-only, so a competing creation cannot be overwritten.
+        Explicit server creation requires an absent or empty schema. Only after creation succeeds
+        open the ordinary driver and attach its wrapper.
 
         Example:
             The constructor calls this method for Database(metadata={"database_path": new_path}); a missing file path triggers creation even with create=False.
@@ -486,8 +489,8 @@ class Database(
 
         :param metadata: Connection hints, defaulting to the configured library path.
         :param db_type: Backend registry name.
-        :param create: Force schema creation even when the backend already exists.
-        :param backup: Back up an existing file before recreation.
+        :param create: Request new schema creation, rejecting existing targets.
+        :param backup: Compatibility argument; use replace_database for intentional replacement.
         :param repair_bootstrap_rows: Repair rating and null rows after schema discovery.
         :param enable_maintenance: Enable the background maintenance service.
         :return: None; binds the driver and runtime collaborators.
@@ -498,21 +501,20 @@ class Database(
         db_path = metadata.get("database_path")
         server_database = _metadata_uses_server_database(metadata, db_type)
         path_backed = not server_database
-        path_existed = bool(db_path) and path_backed and db_path != ":memory:" and os.path.exists(db_path)
+        path_existed = bool(db_path) and path_backed and db_path != ":memory:" and os.path.lexists(db_path)
 
         self.metadata = metadata
         self.type = db_type
-        self.set_driver(load_database_driver(db_type)(self.metadata, self))
+        driver_type = load_database_driver(db_type)
 
         if create or (path_backed and not path_existed and db_path not in (None, ":memory:")):
-            if path_existed:
-                self.create_new_database(blank=True, backup=backup)
-            else:
-                self.create_new_database(blank=False, backup=False)
+            initializer = driver_type(self.metadata, self, set_conn=False)
+            try:
+                initializer.direct_create_new_database()
+            finally:
+                initializer.close()
 
-            # reload driver after schema creation
-            self.set_driver(load_database_driver(db_type)(self.metadata, self))
-            self.lock = self.driver_wrapper.lock
+        self.set_driver(driver_type(self.metadata, self))
 
         # Check to see if the database currently exists
         self._exists = self.check_exists()
@@ -1090,26 +1092,28 @@ class Database(
         self.driver.make_scratch()
 
     def create_new_database(self, blank: bool = True, backup: bool = True) -> None:
+        """Request create-only initialization; never delete an existing database.
+
+        ``blank`` and ``backup`` remain accepted for source compatibility but cannot
+        authorize replacement. Use the separately named offline replacement operation.
         """
-        Optionally back up and delete the database before requesting schema creation.
-
-        Operations run in backup, deletion, creation order. No rollback, driver reload or metadata refresh occurs here; backend failures propagate after any earlier side effects.
-
-        Example:
-            On a disposable configured backend, db.create_new_database(blank=False, backup=False) requests creation without first backing up or deleting it.
-
-
-        :param blank: Delete the existing database through the driver before creation.
-        :param backup: Request a backup before any deletion or creation.
-        :return: None.
-        """
-        if backup:
-            self.driver.direct_backup()
-
-        if blank:
-            self.driver.direct_self_delete()
-
         self.driver.direct_create_new_database()
+
+    @classmethod
+    def replace_database(cls, metadata, *, backup_path, db_type: str = "SQLite"):
+        """Replace an offline file database after preparing a verified recovery backup.
+
+        Stop all database users first. The required backup path must be absent and
+        separate from the target. Preparation/backup failures preserve the original;
+        a published backup remains available if the final atomic replacement fails.
+        PostgreSQL replacement is unsupported by this file operation.
+        No facade is opened or returned; open the resulting database normally afterward.
+        """
+        driver = load_database_driver(db_type)(metadata, db=None, set_conn=False)
+        try:
+            return driver.direct_replace_database(backup_path=backup_path)
+        finally:
+            driver.close()
 
     # ----------------------------------------------------------------------------------------------------------------------
     #
