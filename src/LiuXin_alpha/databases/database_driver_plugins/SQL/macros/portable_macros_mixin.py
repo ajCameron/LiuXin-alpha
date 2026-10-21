@@ -3,8 +3,8 @@ Implement shared SQL macro infrastructure, row/link operations and identity tool
 
 SQLite and PostgreSQL-shaped drivers share validated identifiers, parameter bindings and
 link records. Driver hooks qualify relations and adapt connections. Reads reuse an
-active transaction connection or a cached driver connection. Outer macro writes manage a
-savepoint and commit/rollback; nested calls join that boundary. Further services include
+active transaction connection or a cached driver connection. Outer macro writes own an explicit
+transaction or borrow an existing one through a savepoint; nested calls use savepoints. Further services include
 policy-aware identities, temporary tables, orphan pruning and canonical table
 fingerprints.
 """
@@ -23,6 +23,8 @@ import re
 import threading
 import uuid
 from typing import Any, Iterator
+
+from LiuXin_alpha.databases.transactions import transaction_active, transaction_scope
 
 from LiuXin_alpha.databases.column_metadata import (
     COLUMN_METADATA_TABLE,
@@ -405,84 +407,44 @@ class SQLPortableMacrosMixin:
 
     @contextmanager
     def _macro_transaction(self) -> Iterator[Any]:
-        """
-        Manage the outer macro write boundary and reuse it for nested calls on this
-        thread.
+        """Own one write unit while preserving nested and caller-owned transactions.
 
-        At outer entry, prefer a dedicated connection from a callable
-        driver.get_connection; otherwise require driver.conn. Enter db.lock when it
-        supports context management, then record thread-local depth/connection and
-        create a savepoint. On normal exit release it and commit; an exception from the
-        body rolls back to it, releases it, calls connection.rollback and is re-raised.
-        Reset state and close only a connection obtained from the factory. Invalidate
-        caches after successful completion.
-
-        Nested entries only increment depth and yield the same connection. They
-        establish no independent savepoint: an inner error caught inside the outer body
-        does not itself roll back inner work. On a reused persistent connection,
-        commit/rollback also affects any surrounding pending work. Factory, SQL, cleanup
-        and invalidation errors propagate; the helper does not make caller-owned
-        transactions independent.
-
-        Example:
-            ``with macros._macro_transaction() as conn:`` uses the connection
-            shared by nested portable writes until the outer context exits.
-
-
-        :return: A context manager yielding the active connection; the outer context
-            owns commit/rollback.
+        A fresh driver connection belongs to this operation and is closed afterward.
+        A persistent fallback stays open; an existing transaction on it is borrowed
+        through a savepoint and is never committed or rolled back wholesale here.
+        Each nested entry has its own savepoint, so catching an inner failure cannot
+        retain its partial writes. The facade mutex only serializes threads.
         """
         state = vars(self).get("_macro_transaction_state")
         if state is None:
-            state = threading.local()
-            self._macro_transaction_state = state
+            state = vars(self).setdefault("_macro_transaction_state", threading.local())
         depth = getattr(state, "depth", 0)
         if depth:
-            conn = state.connection
             state.depth = depth + 1
             try:
-                yield conn
+                with transaction_scope(state.connection, owns_transaction=False) as conn:
+                    yield conn
             finally:
                 state.depth -= 1
             return
-        driver = self._macro_driver()
-        get_connection = getattr(driver, "get_connection", None)
-        owns_connection = callable(get_connection)
-        if owns_connection:
-            conn = get_connection()
-        else:
-            # Lightweight driver adapters and test harnesses historically
-            # expose only one persistent connection. Preserve that supported
-            # shape while using a dedicated connection whenever the real
-            # driver can provide one.
-            conn = getattr(driver, "conn", None)
-            if conn is None:
-                raise DatabaseIntegrityError(
-                    "Database driver has no connection for portable macros."
-                )
+
         lock = getattr(self.db, "lock", None)
-        lock_context = lock if hasattr(lock, "__enter__") else nullcontext()
+        # Lightweight legacy hosts may still expose a connection as `lock`.
+        # Entering that context would commit unrelated work on exit.
+        lock_context = lock if callable(getattr(lock, "acquire", None)) else nullcontext()
         with lock_context:
+            driver = self._macro_driver()
+            get_connection = getattr(driver, "get_connection", None)
+            owns_connection = callable(get_connection)
+            conn = get_connection() if owns_connection else getattr(driver, "conn", None)
+            if conn is None:
+                raise DatabaseIntegrityError("Database driver has no connection for portable macros.")
             state.depth = 1
             state.connection = conn
             try:
-                conn.execute("SAVEPOINT liuxin_portable_macro_transaction")
-                try:
+                owns_transaction = owns_connection or not transaction_active(conn)
+                with transaction_scope(conn, owns_transaction=owns_transaction):
                     yield conn
-                except BaseException:
-                    conn.execute(
-                        "ROLLBACK TO SAVEPOINT liuxin_portable_macro_transaction"
-                    )
-                    conn.execute(
-                        "RELEASE SAVEPOINT liuxin_portable_macro_transaction"
-                    )
-                    conn.rollback()
-                    raise
-                else:
-                    conn.execute(
-                        "RELEASE SAVEPOINT liuxin_portable_macro_transaction"
-                    )
-                    conn.commit()
             finally:
                 state.depth = 0
                 state.connection = None
@@ -497,8 +459,9 @@ class SQLPortableMacrosMixin:
 
         Calling this method alone performs no SQL. Entering delegates to
         _macro_transaction, including driver-dependent connection ownership, optional
-        locking, nested connection sharing and outer commit/rollback. Nested exceptions
-        must escape the outer body to trigger its rollback.
+        locking, nested savepoints and owned commit/rollback. A caught inner failure
+        rolls back that inner unit only. Borrowed transactions remain pending for
+        their caller; connections are closed only when acquired for this operation.
 
         Example:
             >>> import sqlite3
@@ -3858,12 +3821,11 @@ class SQLPortableMacrosMixin:
         the prefix, create the table and consume values through executemany, preserving
         duplicates and nulls subject to backend conversion. Yield the unqualified name.
 
-        Creation/population and cleanup use the connection's own context manager, not
-        the macro transaction manager; backend commit/rollback behavior can affect
-        pending work, so this is not an isolated nested macro savepoint. Finally drop
-        the table even if input consumption or the body fails. A failed drop triggers
-        rollback (ignoring rollback errors) and one retry; a retry failure propagates
-        and can mask an earlier error. The connection stays open.
+        An explicit transaction or borrowed savepoint covers creation, population,
+        the body and removal. Success drops the table; failure rolls back this
+        boundary, including table creation and body writes on this connection. Existing
+        caller work remains pending. Never commit or roll back a caller's whole
+        transaction to recover a failed drop. The connection stays open.
 
         Example:
             >>> import sqlite3
@@ -3904,28 +3866,20 @@ class SQLPortableMacrosMixin:
         table = f"{prefix}_{uuid.uuid4().hex}"
         table_sql = self._macro_temporary_table_sql(table)
         conn = self._macro_connection()
-        try:
-            with conn:
-                conn.execute(
-                    f"CREATE TEMP TABLE {_quoted(table)} "
-                    f"({_quoted(column)} {backend_declared_type})"
-                )
-                conn.executemany(
-                    f"INSERT INTO {table_sql} ({_quoted(column)}) VALUES (?)",
-                    ((value,) for value in values),
-                )
+        # Keep the connection-local table on the same connection as its reader,
+        # while borrowing any existing transaction through a savepoint. Rolling
+        # back that boundary removes the table on population/body/drop failure.
+        with transaction_scope(conn, owns_transaction=not transaction_active(conn)):
+            conn.execute(
+                f"CREATE TEMP TABLE {_quoted(table)} "
+                f"({_quoted(column)} {backend_declared_type})"
+            )
+            conn.executemany(
+                f"INSERT INTO {table_sql} ({_quoted(column)}) VALUES (?)",
+                ((value,) for value in values),
+            )
             yield table
-        finally:
-            try:
-                with conn:
-                    conn.execute(f"DROP TABLE IF EXISTS {table_sql}")
-            except Exception:
-                try:
-                    conn.rollback()
-                except Exception:
-                    pass
-                with conn:
-                    conn.execute(f"DROP TABLE IF EXISTS {table_sql}")
+            conn.execute(f"DROP TABLE IF EXISTS {table_sql}")
 
     def temporary_id_table(
         self,
@@ -3938,8 +3892,8 @@ class SQLPortableMacrosMixin:
         named id.
 
         Forward values and prefix without eagerly consuming or validating them. Context
-        entry, connection-level transaction side effects, cleanup retry and error
-        behavior are those of temporary_value_table. Duplicates and None are not
+        entry, transaction ownership, cleanup and error behavior are those of
+        temporary_value_table. Duplicates and None are not
         rejected, and Python integer types are not independently enforced.
 
         Example:

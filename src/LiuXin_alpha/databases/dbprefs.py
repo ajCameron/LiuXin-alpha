@@ -184,7 +184,7 @@ class DBPrefs(dict):
         """
         Persist a preference replacement before updating its cached value.
 
-        With disable_setting, assign directly without serialization or database access. Otherwise serialize first, enter db.lock, insert a missing row or update the first matching row only when raw JSON differs. Existing byte-valued JSON is decoded before comparison. The lock context belongs to the database host; this method makes no explicit commit call. Mutating a previously cached object in place is not detected automatically.
+        With disable_setting, assign directly without serialization or database access. Otherwise serialize first, enter db.lock, insert a missing row or update the first matching row only when raw JSON differs. Existing byte-valued JSON is decoded before comparison. The facade mutex serializes cooperating callers; the selected row writer owns its transaction. This method makes no explicit commit call and the mutex does not group arbitrary writes atomically. Mutating a previously cached object in place is not detected automatically.
 
         Example:
             prefs["columns"] = ["title", "authors"]

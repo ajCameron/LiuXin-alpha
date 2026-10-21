@@ -187,7 +187,7 @@ class Database(
     """
     Own a database driver, its row facade and optional runtime services.
 
-    Construction may create a schema, repair sentinel rows, start maintenance and load Stores. Most row helpers delegate backend work through driver_wrapper. Use close or a context manager to release database handles; closing attempts to commit pending work, including after a context-body exception. Backend operations and construction are not one atomic transaction.
+    Construction may create a schema, repair sentinel rows, start maintenance and load Stores. Most row helpers delegate backend work through driver_wrapper. Use close or a context manager to release database handles; cleanup rolls back pending work. Explicit semantic write units own their commits. Backend operations and construction are not one atomic transaction.
 
     Database is intentionally not a semantic metadata boundary. Direct row,
     macro, or driver writes may persist any value accepted by storage constraints.
@@ -203,7 +203,7 @@ class Database(
 
     # Legacy convenience aliases (kept for backwards compatibility / test contracts):
     # - conn: primary driver connection
-    # - lock: wrapper lock connection
+    # - lock: wrapper's reentrant mutex; it does not control SQL transactions
     # - execute / executemany / executescript / get: direct-SQL escape hatches
     #   NOTE: these are meaningful only for SQL-like backends (SQLite/sqlite3/apsw, etc.).
     #   Non-SQL drivers may leave them unset.
@@ -320,10 +320,10 @@ class Database(
     @property
     def driver_wrapper(self) -> DatabaseDriverWrapperAPI:
         """
-        Return the wrapper that provides facade operations and the lock connection.
+        Return the wrapper that provides facade operations and the reentrant mutex.
 
         Example:
-            For an open SQL db, db.driver_wrapper.lock is the wrapper connection rather than the primary driver connection.
+            For an open db, db.driver_wrapper.lock is shared with db.lock; use get_connection() for caller-owned SQL.
 
 
         :return: Current wrapper, or None after cleanup.
@@ -640,7 +640,7 @@ class Database(
         """
         Replace the driver and rebuild wrapper, macros and metadata SQL bindings.
 
-        Close the old wrapper first. For a different driver, try committing its primary connection, roll back only if commit fails, then close it and call the driver's close method to release its other connections. Auxiliary transactions are not committed. Cleanup errors are suppressed. Install the new wrapper and convenience aliases, including storage aliases, which may become None. This does not rerun schema discovery, queue wiring or all runtime back-references; failures during new setup leave partial state.
+        Close the old wrapper first. For a different driver, discard pending primary work with rollback, then close it and call the driver's close method to release its other connections. Auxiliary transactions are not committed. Cleanup errors are suppressed. Install the new wrapper and convenience aliases, including storage aliases, which may become None. This does not rerun schema discovery, queue wiring or all runtime back-references; failures during new setup leave partial state.
 
         Example:
             For a compatible open replacement driver, db.set_driver(replacement) releases the previous database connections before constructing its new wrapper.
@@ -649,7 +649,7 @@ class Database(
         :param new_driver: Driver to install; supplying the current driver retains its primary connection.
         :return: None.
         """
-        # Close any existing wrapper (it holds its own SQLite connection for locking)
+        # Release the old wrapper and mutex references without committing SQL.
         old_wrapper = getattr(self, "_driver_wrapper", None)
         if old_wrapper is not None:
             try:
@@ -664,12 +664,9 @@ class Database(
                 conn = getattr(old_driver, "conn", None)
                 if conn is not None:
                     try:
-                        conn.commit()
+                        conn.rollback()
                     except Exception:
-                        try:
-                            conn.rollback()
-                        except Exception:
-                            pass
+                        pass
                     try:
                         conn.close()
                     except Exception:
@@ -686,7 +683,7 @@ class Database(
                 pass
 
         self._driver = new_driver
-        # The wrapper is coupled to the driver and provides a locking connection.
+        # The wrapper is coupled to the driver and provides a reentrant mutex.
         self._driver_wrapper = DriverWrapper(self._driver)
         self.set_macros(self._driver.macros)
         self.set_metadata_sql(MetadataSQL(self))
@@ -763,10 +760,14 @@ class Database(
         """
         Stop maintenance and release database connections with best-effort cleanup.
 
-        Request maintenance stop and wait at most one second for its thread. Close the wrapper or fallback lock, then attempt to commit and close the primary connection; roll back only if that commit fails. Call the driver's close method to release its other connections without committing auxiliary transactions. Suppress ordinary cleanup errors. Repeated calls tolerate cleared state. This does not call StorageManager.close and cannot guarantee every reference cycle is removed.
+        Stop maintenance, release the wrapper, and roll back pending primary work
+        before closing connections. Cleanup never requests a commit. Auxiliary
+        connections belong to the driver and are closed through it. Ordinary cleanup
+        errors are suppressed so later resources still receive cleanup attempts.
+        Callers must finish active operations before closing the facade.
 
         Example:
-            Use db.close() in a finally block to release an open facade; pending primary-connection changes may be committed.
+            Use db.close() in a finally block; commit intended writes explicitly first.
 
 
         :return: None; connection aliases and selected collaborator references are cleared.
@@ -789,7 +790,7 @@ class Database(
         except Exception:
             pass
 
-        # Close the wrapper's lock connection
+        # Release the wrapper. The current lock is a mutex, not a connection.
         try:
             if wrapper is not None and hasattr(wrapper, "close"):
                 wrapper.close()
@@ -797,7 +798,7 @@ class Database(
                 lock = getattr(self, "lock", None)
                 if lock is not None:
                     try:
-                        lock.commit()
+                        lock.rollback()
                     except Exception:
                         pass
                     try:
@@ -813,13 +814,9 @@ class Database(
                 conn = getattr(driver, "conn", None)
                 if conn is not None:
                     try:
-                        conn.commit()
+                        conn.rollback()
                     except Exception:
-                        # If commit fails, try rollback then close
-                        try:
-                            conn.rollback()
-                        except Exception:
-                            pass
+                        pass
                     try:
                         conn.close()
                     except Exception:
@@ -880,10 +877,12 @@ class Database(
         """
         Close the facade and allow a context-body exception to propagate.
 
-        Exception details are ignored by close; pending work may be committed even on an exceptional exit.
+        Both normal and exceptional exits discard pending work. Already committed
+        operations remain durable; this resource context does not group writes.
 
         Example:
-            An exception raised inside with db: propagates after cleanup; use an explicit transaction API when rollback is required.
+            An exception inside with db: propagates after rollback and cleanup;
+            use macros.transaction() to group supported semantic writes.
 
 
         :param exc_type: Exception class passed by the context protocol, or None.

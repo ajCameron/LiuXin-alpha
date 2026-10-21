@@ -83,8 +83,10 @@ cannot undo every earlier file operation or database mutation.
   still attach the existing Database maintenance service; Core job scheduling
   has not replaced its thread/queues.
 - Specify transaction rollback and existing-database creation safety separately.
-  `Database.__exit__` closes the facade; it is not an exception-sensitive
-  transaction context.
+  `Database.__exit__` closes resources and discards pending work on either exit.
+  Explicit macro transactions own commit/rollback; nested and borrowed units use
+  savepoints. See the [transaction contract](../databases/transactions.md) for the
+  compatibility transition and remaining direct commit points.
 - Retire legacy opt-ins/back-references only after their supported consumers have
   migrated. `db.storage` is still used by current integration paths.
 - Design multi-library selection if a concrete caller needs it; do not describe
