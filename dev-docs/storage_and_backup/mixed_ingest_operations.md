@@ -315,8 +315,11 @@ liuxin storage ingest \
   --mount-source-read-only
 ```
 
-For directory protection the launcher starts a worker in new Linux user and mount namespaces, makes mount
-propagation private, and recursively bind-mounts the source over its own pathname.
+For directory protection the launcher starts a worker in a new Linux mount
+namespace, makes propagation private, and recursively bind-mounts the source over
+its own pathname. Ordinary users also receive a new user namespace; privileged
+runs retain their current user namespace so root can still traverse directories
+owned by other users.
 It applies `MOUNT_ATTR_RDONLY` through
 [`mount_setattr(2)`](https://man7.org/linux/man-pages/man2/mount_setattr.2.html),
 then checks the visible mount and every cloned submount in `/proc/self/mountinfo`.

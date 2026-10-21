@@ -186,9 +186,12 @@ assert list(target.iterdir()) == []
             )
             assert payload["source_mount"]["read_only_loop"]
             assert payload["report"]["source_root"] == str(target)
+            assert payload["report"]["files_adopted"] == 1
             if attempt:
                 assert payload["report"]["assets_created"] == 0
                 assert payload["report"]["replicas_created"] == 0
+            else:
+                assert payload["report"]["assets_created"] == 1
             assert not list(target.iterdir())
             assert _digest(image) == before
         if block_device:

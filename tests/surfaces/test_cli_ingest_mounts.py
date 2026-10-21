@@ -146,3 +146,45 @@ def test_launcher_forwards_signals_and_preserves_exit_status(monkeypatch) -> Non
     assert ingest_mount._wait_worker(Process(), b"{}") == 143
     assert sent == [signal.SIGTERM]
     assert handlers == {signal.SIGINT: signal.SIG_DFL, signal.SIGTERM: signal.SIG_DFL}
+
+
+@pytest.mark.parametrize(
+    "uid,direct,user_namespace",
+    [
+        (1000, False, True),
+        (0, False, False),
+        (1000, True, False),
+        (0, True, False),
+    ],
+)
+def test_launcher_retains_host_privileges_when_required(
+    monkeypatch, tmp_path: Path, uid, direct, user_namespace
+) -> None:
+    """Root must keep access to other users' private source/interpreter directories."""
+    parser = argparse.ArgumentParser()
+    add_storage_ingest_arguments(parser)
+    options = ["--source-root", str(tmp_path), "--mount-source-read-only"]
+    if direct:
+        options.extend(["--source-image", "books.img", "--source-filesystem", "ext4"])
+    args = parser.parse_args(options)
+    commands = []
+
+    class Process:
+        def __init__(self, command, **kwargs):
+            commands.append(command)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    monkeypatch.setattr(ingest_mount, "mount_namespace_id", lambda: 17)
+    monkeypatch.setattr(ingest_mount.shutil, "which", lambda name: "/usr/bin/unshare")
+    monkeypatch.setattr(ingest_mount.os, "geteuid", lambda: uid)
+    monkeypatch.setattr(ingest_mount.subprocess, "Popen", Process)
+    monkeypatch.setattr(ingest_mount, "_wait_worker", lambda process, payload: 0)
+    assert ingest_mount.launch_mounted_ingest(args) == 0
+    assert ("--user" in commands[0]) is user_namespace
+    assert "--mount" in commands[0]
+    assert commands[0][commands[0].index("--propagation") + 1] == "private"

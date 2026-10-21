@@ -46,11 +46,13 @@ def launch_mounted_ingest(args: argparse.Namespace) -> int:
             if not key.startswith("_") and not callable(value)
         }
         payload = json.dumps(values, default=str).encode()
-        # Kernel block filesystems need privileges in the original user namespace.
-        # Directory binds can instead use an unprivileged user namespace.
+        # Block filesystems need privileges in the original user namespace.
+        # Root also stays there for directory binds: a user namespace would
+        # discard DAC override on private directories owned by other host users.
+        # Ordinary users can establish directory binds via a new user namespace.
         command = [
             executable,
-            *([] if direct else ["--user", "--map-root-user"]),
+            *([] if direct or os.geteuid() == 0 else ["--user", "--map-root-user"]),
             "--mount",
             "--propagation",
             "private",

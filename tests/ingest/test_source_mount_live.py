@@ -24,8 +24,11 @@ from LiuXin_alpha.ingest.source_mount import mount_namespace_id
 REPO = Path(__file__).resolve().parents[2]
 UNSHARE = [
     "unshare",
-    "--user",
-    "--map-root-user",
+    *(
+        []
+        if getattr(os, "geteuid", lambda: -1)() == 0
+        else ["--user", "--map-root-user"]
+    ),
     "--mount",
     "--propagation",
     "private",
@@ -40,7 +43,9 @@ def namespace_support():
     if sys.platform != "linux" or shutil.which("unshare") is None:
         reason = "Linux and util-linux unshare are required"
     else:
-        result = subprocess.run([*UNSHARE, "true"], capture_output=True, timeout=10)
+        result = subprocess.run(
+            [*UNSHARE, sys.executable, "-c", "pass"], capture_output=True, timeout=10
+        )
         if result.returncode:
             reason = result.stderr.decode(errors="replace")
     if reason:
