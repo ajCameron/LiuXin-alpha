@@ -12,9 +12,8 @@ Example:
 
 from __future__ import annotations
 
-from LiuXin_alpha.core.authorization import CoreTransportPolicy
-
 import base64
+import hashlib
 import uuid
 import zipfile
 from dataclasses import dataclass, field
@@ -23,7 +22,15 @@ from typing import Any
 import pytest
 
 from LiuXin_alpha.core import CoreHttpDaemon, CoreRuntime, RemoteCoreClient
+from LiuXin_alpha.core.authorization import CoreTransportPolicy
 from LiuXin_alpha.library import Library
+from LiuXin_alpha.storage.api import (
+    Digest,
+    DigitalAssetDeclaration,
+    DigitalAssetMetadata,
+    Location,
+    ReplicaMode,
+)
 from LiuXin_alpha.utils.jobs import JobRequest
 
 
@@ -56,10 +63,10 @@ class _CapturingJobManager:
             described above.
         """
         self.requests.append(request)
-        return "captured-job-{}".format(len(self.requests))
+        return f"captured-job-{len(self.requests)}"
 
 
-def test_managed_storage_graph_local_and_rpc_round_trip(db) -> None:
+def test_managed_storage_graph_local_and_rpc_round_trip(db, tmp_path) -> None:
     """
     Perform the test managed storage graph local and rpc round trip operation under explicit file-format and conversion rules.
 
@@ -87,7 +94,7 @@ def test_managed_storage_graph_local_and_rpc_round_trip(db) -> None:
             {
                 "resource": "replication-policy",
                 "values": {
-                    "name": "core-replication-{}".format(token),
+                    "name": f"core-replication-{token}",
                     "min_copies": 1,
                     "target_copies": 1,
                 },
@@ -101,7 +108,7 @@ def test_managed_storage_graph_local_and_rpc_round_trip(db) -> None:
             {
                 "resource": "backup-policy",
                 "values": {
-                    "name": "core-backup-{}".format(token),
+                    "name": f"core-backup-{token}",
                     "min_backup_copies": 1,
                     "target_backup_copies": 1,
                 },
@@ -110,18 +117,20 @@ def test_managed_storage_graph_local_and_rpc_round_trip(db) -> None:
         backup_id = int(backup["id"])
         created.append(("backup-policy", backup_id))
 
-        asset = runtime.command(
-            "storage.resource.create",
-            {
-                "resource": "asset",
-                "values": {
-                    "name": "core-asset-{}".format(token),
-                    "extension": "epub",
-                    "media_category": "ebook",
-                },
-            },
+        manager = runtime.library.storage
+        content = ("core-owned-" + token).encode()
+        asset_record = manager.declare_digital_asset(
+            DigitalAssetDeclaration(
+                size_bytes=len(content),
+                digests=(Digest("sha256", hashlib.sha256(content).hexdigest()),),
+                metadata=DigitalAssetMetadata(
+                    name="core-asset-" + token,
+                    original_name="asset.epub",
+                    media_type="application/epub+zip",
+                ),
+            )
         )
-        asset_id = int(asset["id"])
+        asset_id = int(asset_record.digital_asset_id)
         created.append(("asset", asset_id))
         runtime.command(
             "storage.asset.policies.set",
@@ -139,21 +148,42 @@ def test_managed_storage_graph_local_and_rpc_round_trip(db) -> None:
         assert before["replication"]["meets_minimum"] is False
         assert before["backup"]["meets_minimum"] is False
 
+        root = tmp_path / "owned-replicas"
+        root.mkdir()
+        store_name = "core-claims-" + token
+        runtime.command(
+            "storage.store.save",
+            {
+                "store": {
+                    "store_name": store_name,
+                    "store_kind": "filesystem",
+                    "store_access_protocol": "file",
+                    "store_root_uri": str(root),
+                    "store_is_read_only": 0,
+                    "store_online_status": "online",
+                    "store_operational_role": "live",
+                }
+            },
+        )
+        runtime.command(
+            "storage.refresh",
+            {"startup_on_add": True, "clear_existing": True, "strict": True},
+        )
+        store_ref = next(
+            config.store_uuid
+            for config in manager.iter_store_configurations()
+            if config.store_name == store_name
+        )
         for mode in ("active", "backup"):
-            replica = runtime.command(
-                "storage.resource.create",
-                {
-                    "resource": "replica",
-                    "values": {
-                        "digital_asset_id": asset_id,
-                        "storage_key": "{}/{}.epub".format(token, mode),
-                        "mode": mode,
-                        "presence_status": "present",
-                        "integrity_status": "ok",
-                    },
-                },
+            key = mode + ".epub"
+            (root / key).write_bytes(content)
+            adopted = manager.adopt_location(
+                Location(store_ref, key),
+                digital_asset_id=asset_id,
+                replica_mode=ReplicaMode(mode),
+                verify=True,
             )
-            created.append(("replica", int(replica["id"])))
+            created.append(("replica", int(adopted.replica_record.replica_id)))
 
         assessment = runtime.query(
             "storage.policy.assess",
@@ -166,22 +196,18 @@ def test_managed_storage_graph_local_and_rpc_round_trip(db) -> None:
             "storage.asset.get",
             {"asset_id": asset_id},
         )
-        assert complete_asset["asset"]["values"]["name"] == (
-            "core-asset-{}".format(token)
-        )
+        assert complete_asset["asset"]["values"]["name"] == (f"core-asset-{token}")
         assert {
             replica["values"]["mode"] for replica in complete_asset["replicas"]
         } == {"active", "backup"}
 
-        updated = runtime.command(
-            "storage.resource.update",
-            {
-                "resource": "asset",
-                "id": asset_id,
-                "values": {"critical": False},
-            },
+        updated = manager.set_digital_asset_name(asset_id, "renamed-" + token)
+        assert (
+            runtime.query(
+                "storage.resource.get", {"resource": "asset", "id": asset_id}
+            )["record"]["values"]["name"]
+            == updated.metadata.name
         )
-        assert updated["record"]["values"]["critical"] in {False, 0}
 
         daemon = CoreHttpDaemon(
             runtime,
@@ -203,13 +229,16 @@ def test_managed_storage_graph_local_and_rpc_round_trip(db) -> None:
         if daemon is not None:
             daemon.stop()
         for resource, resource_id in reversed(created):
-            try:
-                runtime.command(
-                    "storage.resource.delete",
-                    {"resource": resource, "id": resource_id},
+            if resource == "replica":
+                runtime.library.storage.forget_replica(
+                    resource_id, require_bytes_absent=False
                 )
-            except Exception:
-                pass
+            elif resource == "asset":
+                runtime.library.storage.forget_digital_asset(resource_id)
+            else:
+                runtime.command(
+                    "storage.resource.delete", {"resource": resource, "id": resource_id}
+                )
         runtime.shutdown()
 
 
@@ -248,7 +277,7 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
             "storage.store.save",
             {
                 "store": {
-                    "store_name": "integrity-{}".format(uuid.uuid4().hex),
+                    "store_name": f"integrity-{uuid.uuid4().hex}",
                     "store_kind": "filesystem",
                     "store_access_protocol": "file",
                     "store_root_uri": str(root),
@@ -263,7 +292,7 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
             "storage.store.save",
             {
                 "store": {
-                    "store_name": "backup-{}".format(uuid.uuid4().hex),
+                    "store_name": f"backup-{uuid.uuid4().hex}",
                     "store_kind": "filesystem",
                     "store_access_protocol": "file",
                     "store_root_uri": str(backup_root),
@@ -278,7 +307,7 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
             "storage.store.save",
             {
                 "store": {
-                    "store_name": "evacuation-{}".format(uuid.uuid4().hex),
+                    "store_name": f"evacuation-{uuid.uuid4().hex}",
                     "store_kind": "filesystem",
                     "store_access_protocol": "file",
                     "store_root_uri": str(evacuation_root),
@@ -293,7 +322,7 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
             "storage.store.save",
             {
                 "store": {
-                    "store_name": "offline-{}".format(uuid.uuid4().hex),
+                    "store_name": f"offline-{uuid.uuid4().hex}",
                     "store_kind": "filesystem",
                     "store_access_protocol": "file",
                     "store_root_uri": str(offline_root),
@@ -589,7 +618,7 @@ def test_browse_projection_covers_work_list_detail_and_acquisition(
             database=db,
         ),
     )
-    title = "Core browse {}".format(uuid.uuid4().hex)
+    title = f"Core browse {uuid.uuid4().hex}"
     try:
         stack = runtime.command(
             "catalog.wemi.create",
@@ -619,7 +648,7 @@ def test_browse_projection_covers_work_list_detail_and_acquisition(
         person = runtime.command(
             "catalog.agent.create-person",
             {
-                "data": {"name": "Core Browse Author {}".format(uuid.uuid4().hex)},
+                "data": {"name": f"Core Browse Author {uuid.uuid4().hex}"},
                 "details": {},
             },
         )
@@ -669,7 +698,7 @@ def test_browse_projection_covers_work_list_detail_and_acquisition(
             "storage.store.save",
             {
                 "store": {
-                    "store_name": "core-managed-{}".format(uuid.uuid4().hex),
+                    "store_name": f"core-managed-{uuid.uuid4().hex}",
                     "store_kind": "on_disk_existing_managed_drive",
                     "store_access_protocol": "file",
                     "store_root_uri": str(store_root),
@@ -685,33 +714,26 @@ def test_browse_projection_covers_work_list_detail_and_acquisition(
                 }
             },
         )
-        store_id = int(saved_store["store"]["store_id"])
-        managed_asset = runtime.command(
-            "storage.resource.create",
-            {
-                "resource": "asset",
-                "values": {
-                    "name": "chapter.epub",
-                    "extension": "epub",
-                    "media_category": "ebook",
-                },
-            },
-        )
-        managed_asset_id = int(managed_asset["id"])
         runtime.command(
-            "storage.resource.create",
-            {
-                "resource": "replica",
-                "values": {
-                    "digital_asset_id": managed_asset_id,
-                    "store_id": store_id,
-                    "storage_key": "managed/chapter.epub",
-                    "name": "chapter.epub",
-                    "mode": "active",
-                    "presence_status": "present",
-                },
-            },
+            "storage.refresh",
+            {"startup_on_add": True, "clear_existing": True, "strict": True},
         )
+        store_ref = next(
+            config.store_uuid
+            for config in runtime.library.storage.iter_store_configurations()
+            if config.store_name == saved_store["store"]["store_name"]
+        )
+        adopted = runtime.library.storage.adopt_location(
+            Location(store_ref, "managed/chapter.epub"),
+            replica_mode=ReplicaMode.ACTIVE,
+            metadata=DigitalAssetMetadata(
+                name="chapter.epub",
+                original_name="chapter.epub",
+                media_type="application/epub+zip",
+            ),
+            verify=True,
+        )
+        managed_asset_id = int(adopted.asset_record.digital_asset_id)
         composite = runtime.command(
             "storage.resource.create",
             {
@@ -838,7 +860,7 @@ def test_database_identity_and_tree_semantics_are_core_operations(db) -> None:
                 {
                     "table": "series",
                     "values": {
-                        "series": "{}{}".format(name, token),
+                        "series": f"{name}{token}",
                     },
                 },
             )
@@ -914,13 +936,13 @@ def test_backup_workflow_persistence_is_available_directly_and_over_rpc(
             "backup.workflow.save",
             {
                 "workflow_spec": {
-                    "workflow_name": "core-backup-{}".format(token),
+                    "workflow_name": f"core-backup-{token}",
                     "workflow_kind": "squashfs_pack",
-                    "output_url": "/tmp/core-backup-{}.squashfs".format(token),
+                    "output_url": f"/tmp/core-backup-{token}.squashfs",
                     "sources": [
                         {
                             "source_kind": "local_path",
-                            "source_identifier": "/tmp/source-{}".format(token),
+                            "source_identifier": f"/tmp/source-{token}",
                             "archive_path": "books/source.epub",
                         }
                     ],
@@ -935,7 +957,7 @@ def test_backup_workflow_persistence_is_available_directly_and_over_rpc(
             "backup.workflow.get",
             {"workflow_id": workflow_id},
         )
-        assert detail["spec"]["workflow_name"] == ("core-backup-{}".format(token))
+        assert detail["spec"]["workflow_name"] == (f"core-backup-{token}")
         assert detail["state"]["status"] == "draft"
         assert detail["spec"]["sources"][0]["archive_path"] == ("books/source.epub")
 
@@ -988,7 +1010,7 @@ def test_program_discovery_and_local_support_cover_every_capability_family(
         ),
     )
     daemon = None
-    preference_key = "core-program-{}".format(uuid.uuid4().hex)
+    preference_key = f"core-program-{uuid.uuid4().hex}"
     try:
         capabilities = runtime.query("capabilities.list")
         assert capabilities["api_version"] == "2.0"
@@ -1115,7 +1137,7 @@ def test_named_workflows_submit_only_serializable_core_job_requests(db) -> None:
     try:
         runtime.command(
             "ingest.disk.start",
-            {"disk_path": "/tmp/core-ingest-{}".format(token)},
+            {"disk_path": f"/tmp/core-ingest-{token}"},
         )
         runtime.command(
             "ingest.remote-html.start",
@@ -1127,13 +1149,13 @@ def test_named_workflows_submit_only_serializable_core_job_requests(db) -> None:
         runtime.command(
             "conversion.start",
             {
-                "input_path": "/tmp/input-{}.epub".format(token),
-                "output_path": "/tmp/output-{}.txt".format(token),
+                "input_path": f"/tmp/input-{token}.epub",
+                "output_path": f"/tmp/output-{token}.txt",
             },
         )
         runtime.command(
             "metadata.identify.start",
-            {"title": "Core metadata {}".format(token)},
+            {"title": f"Core metadata {token}"},
         )
         runtime.command(
             "metadata.covers.start",
@@ -1143,9 +1165,9 @@ def test_named_workflows_submit_only_serializable_core_job_requests(db) -> None:
             "backup.workflow.save",
             {
                 "workflow_spec": {
-                    "workflow_name": "core-job-{}".format(token),
+                    "workflow_name": f"core-job-{token}",
                     "workflow_kind": "squashfs_pack",
-                    "output_url": "/tmp/core-job-{}.squashfs".format(token),
+                    "output_url": f"/tmp/core-job-{token}.squashfs",
                     "sources": [],
                 }
             },
@@ -1275,7 +1297,7 @@ def test_schema_policy_and_custom_fields_round_trip_through_core(db) -> None:
             database=db,
         ),
     )
-    label = "core_{}".format(uuid.uuid4().hex)
+    label = f"core_{uuid.uuid4().hex}"
     created_num = None
     try:
         policy = runtime.query(

@@ -1,6 +1,12 @@
 # Working Memory Index
 
 Active implementation checkpoint, **2026-10-20**:
+[storage record ownership](storage-record-owner-2026-10-20.md) implements A10's
+first admin/scanner family as a prerequisite for the durable Core audit.
+Branch `storage-owned-record-mutations` is based on PR #140 (`5cbd7a6b`).
+The full programme remains open; main's unrelated staged storage work is preserved.
+
+Active implementation checkpoint, **2026-10-20**:
 [durable submissions](durable-job-submissions-2026-10-20.md) continues A09 on
 `durable-job-submissions`, based on lease PR #139 at `ac3a6728`.
 Atomic delivery identity and explicit retry ancestry are implemented for review.

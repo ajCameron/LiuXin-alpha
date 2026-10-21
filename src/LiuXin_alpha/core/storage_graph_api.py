@@ -3,10 +3,12 @@ Expose managed-storage database resources and row-based policy assessments throu
 
 A closed resource registry selects tables and public field prefixes instead of
 accepting arbitrary table names. These are portable macro-backed row operations,
-not the storage manager's byte-transfer, verified-observation, or placement-policy
-workflows. Mutation receipts are reconciled after database calls; no transaction,
-rollback, or authorization layer is added here. Outer Core dispatch performs wire
-encoding for result values that remain backend-native at this boundary.
+not the storage manager's byte-transfer or placement workflows. Asset/Replica
+resources are inspectable only; mutations must use storage's owned operations.
+Explicit Asset policy assignment delegates to that owner, preserving its record,
+revision and transaction rules. Other writable resource families still use the
+retained row adapters. Outer Core dispatch owns authorization and wire encoding
+for result values that remain backend-native at this boundary.
 """
 
 # pyright: reportImportCycles=false
@@ -14,7 +16,7 @@ encoding for result values that remain backend-native at this boundary.
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping
 from typing import TYPE_CHECKING, Any, cast
 
 from LiuXin_alpha.core.description import CorePayloadFieldDescription
@@ -58,7 +60,7 @@ _RESOURCE_SPECS = tuple(
             "digital_asset_id",
             "digital_asset_",
             "asset",
-            True,
+            False,
         ),
         (
             "composite",
@@ -74,7 +76,7 @@ _RESOURCE_SPECS = tuple(
             "asset_replica_id",
             "asset_replica_",
             "replica",
-            True,
+            False,
         ),
         (
             "asset-item-link",
@@ -227,7 +229,7 @@ def _required_text(payload: Mapping[str, Any], name: str) -> str:
     """
     value = str(payload.get(name, "")).strip()
     if not value:
-        raise CoreDispatchError("`{}` is required.".format(name))
+        raise CoreDispatchError(f"`{name}` is required.")
     return value
 
 
@@ -250,11 +252,11 @@ def _required_int(payload: Mapping[str, Any], name: str) -> int:
     """
     value = payload.get(name)
     if value is None or isinstance(value, bool):
-        raise CoreDispatchError("`{}` must be an integer.".format(name))
+        raise CoreDispatchError(f"`{name}` must be an integer.")
     try:
         return int(value)
     except (TypeError, ValueError) as exc:
-        raise CoreDispatchError("`{}` must be an integer.".format(name)) from exc
+        raise CoreDispatchError(f"`{name}` must be an integer.") from exc
 
 
 def _mapping(payload: Mapping[str, Any], name: str) -> dict[str, Any]:
@@ -273,7 +275,7 @@ def _mapping(payload: Mapping[str, Any], name: str) -> dict[str, Any]:
     """
     value = payload.get(name)
     if not isinstance(value, Mapping):
-        raise CoreDispatchError("`{}` must be an object.".format(name))
+        raise CoreDispatchError(f"`{name}` must be an object.")
     return dict(value)
 
 
@@ -298,13 +300,13 @@ def _spec(payload: Mapping[str, Any]) -> _ResourceSpec:
         return _RESOURCES[resource]
     except KeyError as exc:
         raise CoreDispatchError(
-            "Unknown storage resource `{}`.".format(resource),
+            f"Unknown storage resource `{resource}`.",
             code="unknown_storage_resource",
             details={"resource": resource, "available": sorted(_RESOURCES)},
         ) from exc
 
 
-def _macros(runtime: "CoreRuntime") -> Any:
+def _macros(runtime: CoreRuntime) -> Any:
     """
     Require the full five-method portable persistence surface, including writers even for read handlers.
 
@@ -336,7 +338,7 @@ def _macros(runtime: "CoreRuntime") -> Any:
     return macros
 
 
-def _headings(runtime: "CoreRuntime", spec: _ResourceSpec) -> set[str]:
+def _headings(runtime: CoreRuntime, spec: _ResourceSpec) -> set[str]:
     """
     Try database then driver-wrapper headings, returning an empty set if neither call yields a result.
 
@@ -399,10 +401,10 @@ def _column_name(
     if token == spec.id_column or token.startswith(spec.prefix):
         candidate = token
     else:
-        candidate = "{}{}".format(spec.prefix, token)
+        candidate = f"{spec.prefix}{token}"
     if headings and candidate not in headings:
         raise CoreDispatchError(
-            "Unknown `{}` field `{}`.".format(spec.name, token),
+            f"Unknown `{spec.name}` field `{token}`.",
             code="unknown_storage_field",
             details={"resource": spec.name, "field": token},
         )
@@ -410,7 +412,7 @@ def _column_name(
 
 
 def _normalise_values(
-    runtime: "CoreRuntime",
+    runtime: CoreRuntime,
     spec: _ResourceSpec,
     values: Mapping[str, Any],
     *,
@@ -519,7 +521,7 @@ class CoreStorageGraphAPI:
         >>> adapter.install(runtime)  # doctest: +SKIP
     """
 
-    def install(self, runtime: "CoreRuntime") -> None:
+    def install(self, runtime: CoreRuntime) -> None:
         """
         Register seven graph/policy queries followed by four mutation commands with explicit metadata.
 
@@ -646,6 +648,7 @@ class CoreStorageGraphAPI:
                 _field("asset_id", required=True, field_type="integer"),
                 _field("replication_policy_id", field_type="integer|null"),
                 _field("backup_policy_id", field_type="integer|null"),
+                _field("if_revision", field_type="string|null"),
             ),
             tags=("storage", "assets", "policies", "write"),
             remote_capabilities=("admin",),
@@ -653,8 +656,8 @@ class CoreStorageGraphAPI:
 
     @staticmethod
     def resources_describe(
-        runtime: "CoreRuntime",
-        query: "CoreQuery",
+        runtime: CoreRuntime,
+        query: CoreQuery,
     ) -> dict[str, Any]:
         """
         Describe every registered resource and report whether the database has a non-None macros attribute.
@@ -689,8 +692,8 @@ class CoreStorageGraphAPI:
 
     @staticmethod
     def resource_list(
-        runtime: "CoreRuntime",
-        query: "CoreQuery",
+        runtime: CoreRuntime,
+        query: CoreQuery,
     ) -> dict[str, Any]:
         """
         Read all matching resource rows in ID order, then slice an offset/limit window in memory.
@@ -732,8 +735,8 @@ class CoreStorageGraphAPI:
 
     @staticmethod
     def resource_get(
-        runtime: "CoreRuntime",
-        query: "CoreQuery",
+        runtime: CoreRuntime,
+        query: CoreQuery,
     ) -> dict[str, Any]:
         """
         Read one resource row by integer-converted ID, representing absence with record=None.
@@ -761,8 +764,8 @@ class CoreStorageGraphAPI:
 
     def asset_get(
         self,
-        runtime: "CoreRuntime",
-        query: "CoreQuery",
+        runtime: CoreRuntime,
+        query: CoreQuery,
     ) -> dict[str, Any]:
         """
         Read an Asset, all its Replica/item-link rows, and a separate row-based policy assessment.
@@ -811,7 +814,7 @@ class CoreStorageGraphAPI:
         }
 
     @staticmethod
-    def _assess(runtime: "CoreRuntime", asset_id: int) -> dict[str, Any]:
+    def _assess(runtime: CoreRuntime, asset_id: int) -> dict[str, Any]:
         """
         Compare row-label-filtered Replica counts with the Asset's explicit replication/backup policy rows.
 
@@ -838,7 +841,7 @@ class CoreStorageGraphAPI:
         )
         if asset is None:
             raise CoreDispatchError(
-                "Unknown digital asset {}.".format(asset_id),
+                f"Unknown digital asset {asset_id}.",
                 code="storage_asset_not_found",
                 details={"asset_id": asset_id},
             )
@@ -916,8 +919,8 @@ class CoreStorageGraphAPI:
 
     def policy_assess(
         self,
-        runtime: "CoreRuntime",
-        query: "CoreQuery",
+        runtime: CoreRuntime,
+        query: CoreQuery,
     ) -> dict[str, Any]:
         """
         Validate the requested Asset ID and return the row-based count assessment.
@@ -937,8 +940,8 @@ class CoreStorageGraphAPI:
 
     def policy_plan(
         self,
-        runtime: "CoreRuntime",
-        query: "CoreQuery",
+        runtime: CoreRuntime,
+        query: CoreQuery,
     ) -> dict[str, Any]:
         """
         Suggest unoccupied, non-read-only Store rows for active and backup copies using row-based target counts.
@@ -1001,8 +1004,8 @@ class CoreStorageGraphAPI:
             count = max(0, int(state["target"]) - int(state["healthy_copies"]))
             selected: list[dict[str, Any]] = []
             for store in candidates:
-                capability = "store_supports_{}_replica_mode".format(mode)
-                if store.get(capability, True) in {False, 0}:
+                capability = f"store_supports_{mode}_replica_mode"
+                if store.get(capability, True) in {False}:
                     continue
                 selected.append(
                     {
@@ -1037,8 +1040,8 @@ class CoreStorageGraphAPI:
 
     def policy_violations(
         self,
-        runtime: "CoreRuntime",
-        query: "CoreQuery",
+        runtime: CoreRuntime,
+        query: CoreQuery,
     ) -> dict[str, Any]:
         """
         Assess every Asset and page those below replication or backup minimums, not merely below targets.
@@ -1082,8 +1085,8 @@ class CoreStorageGraphAPI:
 
     @staticmethod
     def resource_create(
-        runtime: "CoreRuntime",
-        command: "CoreCommand",
+        runtime: CoreRuntime,
+        command: CoreCommand,
     ) -> dict[str, Any]:
         """
         Insert a writable resource row, read it back, and reconcile the service cache.
@@ -1106,7 +1109,7 @@ class CoreStorageGraphAPI:
         spec = _spec(payload)
         if not spec.writable:
             raise CoreDispatchError(
-                "`{}` is workflow-owned and read-only.".format(spec.name),
+                f"`{spec.name}` is workflow-owned and read-only.",
                 code="storage_resource_read_only",
             )
         values = _normalise_values(runtime, spec, _mapping(payload, "values"))
@@ -1131,8 +1134,8 @@ class CoreStorageGraphAPI:
 
     @staticmethod
     def resource_update(
-        runtime: "CoreRuntime",
-        command: "CoreCommand",
+        runtime: CoreRuntime,
+        command: CoreCommand,
     ) -> dict[str, Any]:
         """
         Require an existing writable resource row, normalize edits, update it, read it back, and reconcile.
@@ -1154,7 +1157,7 @@ class CoreStorageGraphAPI:
         spec = _spec(payload)
         if not spec.writable:
             raise CoreDispatchError(
-                "`{}` is workflow-owned and read-only.".format(spec.name),
+                f"`{spec.name}` is workflow-owned and read-only.",
                 code="storage_resource_read_only",
             )
         resource_id = _required_int(payload, "id")
@@ -1168,7 +1171,7 @@ class CoreStorageGraphAPI:
             is None
         ):
             raise CoreDispatchError(
-                "Unknown {} {}.".format(spec.name, resource_id),
+                f"Unknown {spec.name} {resource_id}.",
                 code="storage_resource_not_found",
             )
         values = _normalise_values(runtime, spec, _mapping(payload, "values"))
@@ -1194,8 +1197,8 @@ class CoreStorageGraphAPI:
 
     @staticmethod
     def resource_delete(
-        runtime: "CoreRuntime",
-        command: "CoreCommand",
+        runtime: CoreRuntime,
+        command: CoreCommand,
     ) -> dict[str, Any]:
         """
         Delete a writable resource row if present, reconciling only when deletion was attempted.
@@ -1218,7 +1221,7 @@ class CoreStorageGraphAPI:
         spec = _spec(payload)
         if not spec.writable:
             raise CoreDispatchError(
-                "`{}` is workflow-owned and read-only.".format(spec.name),
+                f"`{spec.name}` is workflow-owned and read-only.",
                 code="storage_resource_read_only",
             )
         resource_id = _required_int(payload, "id")
@@ -1250,26 +1253,24 @@ class CoreStorageGraphAPI:
 
     @staticmethod
     def asset_policies_set(
-        runtime: "CoreRuntime",
-        command: "CoreCommand",
+        runtime: CoreRuntime,
+        command: CoreCommand,
     ) -> dict[str, Any]:
-        """
-        Assign or clear one or both explicit Asset policy references after checking supplied non-null policy IDs.
+        """Assign explicit policies through storage's atomic record/revision owner.
 
-        Omitted fields remain unchanged; None clears a reference. Non-null values
-        reject booleans but otherwise use int coercion. Every supplied policy is
-        checked before the single update, with no transaction across those reads
-        and the write. No copies are created, removed, or reconciled by a storage
-        policy executor; services.reconcile refreshes the post-write cache receipt.
+        Omitted fields are preserved and null clears an assignment. Payload/row
+        existence checks precede the manager call; the manager reloads current
+        state in its serialized metadata unit, validates recreation rules and
+        persists both scalar projections and the record envelope. if_revision
+        optionally rejects a stale caller. Reconciliation happens after commit,
+        so a later cache-refresh failure does not roll back the owned mutation.
 
         Example:
             >>> receipt = CoreStorageGraphAPI.asset_policies_set(runtime, command)  # doctest: +SKIP
 
-
-        :param runtime: Runtime providing Asset/policy row lookup, macro update, and cache reconciliation.
-        :param command: Command with asset_id and at least one of replication_policy_id or backup_policy_id, each integer-convertible/null.
-        :return: Reconciled updated=True receipt with only the supplied normalized policy assignments; no readback is performed.
-        :raises CoreDispatchError: If the Asset/policy is missing, no assignments are supplied, or required-value validation fails.
+        :param runtime: Runtime with an enabled storage manager and macro readers.
+        :param command: Asset ID, one or both policy assignments and optional if_revision.
+        :return: Applied assignments, updated=True and the committed record revision.
         """
         payload = _payload(command)
         asset_id = _required_int(payload, "asset_id")
@@ -1281,7 +1282,7 @@ class CoreStorageGraphAPI:
         )
         if asset is None:
             raise CoreDispatchError(
-                "Unknown digital asset {}.".format(asset_id),
+                f"Unknown digital asset {asset_id}.",
                 code="storage_asset_not_found",
             )
         values: dict[str, Any] = {}
@@ -1298,9 +1299,7 @@ class CoreStorageGraphAPI:
             policy_id = payload.get(name)
             if policy_id is not None:
                 if isinstance(policy_id, bool):
-                    raise CoreDispatchError(
-                        "`{}` must be an integer or null.".format(name)
-                    )
+                    raise CoreDispatchError(f"`{name}` must be an integer or null.")
                 policy_id = int(policy_id)
                 if (
                     macros.get_row(
@@ -1311,20 +1310,35 @@ class CoreStorageGraphAPI:
                     is None
                 ):
                     raise CoreDispatchError(
-                        "Unknown {} {}.".format(name, policy_id),
+                        f"Unknown {name} {policy_id}.",
                         code="storage_policy_not_found",
                     )
-            values["digital_asset_{}".format(name)] = policy_id
+            values[f"digital_asset_{name}"] = policy_id
         if not values:
             raise CoreDispatchError(
                 "Provide `replication_policy_id` or `backup_policy_id`."
             )
-        macros.update_row(
-            "digital_assets",
-            asset_id,
-            values,
-            id_column="digital_asset_id",
-        )
+        manager = runtime.library.storage
+        assignments = {
+            key.removeprefix("digital_asset_"): value for key, value in values.items()
+        }
+        revision = payload.get("if_revision")
+        if len(assignments) == 2:
+            record = manager.set_digital_asset_policies(
+                asset_id, if_revision=revision, **assignments
+            )
+        elif "replication_policy_id" in assignments:
+            record = manager.set_digital_asset_replication_policy(
+                asset_id,
+                assignments["replication_policy_id"],
+                if_revision=revision,
+            )
+        else:
+            record = manager.set_digital_asset_backup_policy(
+                asset_id,
+                assignments["backup_policy_id"],
+                if_revision=revision,
+            )
         return runtime.services.reconcile(
             {
                 "asset_id": asset_id,
@@ -1333,11 +1347,12 @@ class CoreStorageGraphAPI:
                     for key, value in values.items()
                 },
                 "updated": True,
+                "revision": record.revision,
             }
         )
 
 
-def install_storage_graph_api(runtime: "CoreRuntime") -> CoreStorageGraphAPI:
+def install_storage_graph_api(runtime: CoreRuntime) -> CoreStorageGraphAPI:
     """
     Construct a stateless storage-graph adapter, register all its routes, and return it.
 
