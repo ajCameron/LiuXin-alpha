@@ -121,8 +121,16 @@ liuxin storage ingest \
 ```
 
 The materialization directory must be outside the source root so cache output
-cannot become new input on a later scan. It is created lazily: top-level
-containers that already have a local unmanaged Replica do not get copied. If a
+cannot become new input on a later scan. The Python API applies the same check
+when selecting an existing cache with `materialization_store_ref`: its configured
+local root is resolved and checked before source adoption and again before nested
+materialization. This also covers an existing symlink into the source tree and
+coordinators reused with a different source. The check does not lock paths against
+concurrent filesystem or Store configuration changes; retain the read-only source
+mount described below for operating-system enforcement.
+
+The cache is created lazily: top-level containers that already have a local
+unmanaged Replica do not get copied. If a
 nested container is found without a configured cache, its bytes remain safely
 catalogued and the report contains an actionable issue. Use
 `--no-nested-containers` when top-level inventory is the intended boundary.
