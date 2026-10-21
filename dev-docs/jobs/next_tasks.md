@@ -18,6 +18,12 @@ This closes the wait-lock defect, not A09's durable workflow requirement.
 
 ## JOB02. Move one production workflow onto durable job state
 
+**Prerequisite implemented for review:** [durable claims](durable-claims.md)
+now enforce exclusive claiming, atomic state/events, stale-owner refusal and
+explicit recovery after lease expiry. Workers renew long-running claims and
+preserve completed-effect receipts when cancellation is acknowledged.
+Submission idempotency, retry ancestry and the production workflow remain open.
+
 **Next; architecture A09.** Select a real storage or conversion workflow. Connect definition, run, lease, heartbeat, attempts and receipt to Core operations, preserving existing client IDs through an explicit mapping where needed.
 
 Done when restart after submit, lease and side effect gives a deterministic recoverable state; duplicate submissions and retries do not silently repeat publication.

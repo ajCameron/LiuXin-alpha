@@ -1,6 +1,15 @@
 # Working Memory Index
 
 Active implementation checkpoint, **2026-10-20**:
+[durable job leases](durable-job-leases-2026-10-20.md) continues A09 on
+`durable-job-leases`, based on JOB01 PR #138 at `1e98ecf5`. Claim fencing,
+atomic transitions/events and explicit interruption pass all 32 durable-job
+cases. Final regressions passed 154 tests; the complete quality gates passed.
+Production workflow integration, submission
+identity and retry ancestry remain open; the full A01–A16 programme is unfinished.
+Unrelated staged storage work is preserved and no PR has been merged.
+
+Active implementation checkpoint, **2026-10-20**:
 [job wait dispatch](job-wait-dispatch-2026-10-20.md) continues JOB01/A09 on
 `core-job-wait-dispatch`, based on rating PR #137 at `875065b7`. All 16 new
 dispatch cases pass after nine reproduced failures on the parent. Broader
@@ -9,6 +18,10 @@ passed (overlapping selections). The focused PR targets `catalog-rating-validati
 `gh pr view core-job-wait-dispatch` reports its current review/CI status. A09's
 durable workflow integration and the full A01–A16 programme remain open.
 No PR has been merged; the six unrelated staged storage edits are preserved.
+
+Parent PR #137 full CI is green at `875065b7`: 7,525 passed, 289 skipped,
+17 xfailed. JOB01 is published as PR #138; its quick CI lanes are green and
+the full suite is pending.
 
 Active implementation checkpoint, **2026-10-20**:
 [rating validation](rating-validation-2026-10-20.md) continues A08 on

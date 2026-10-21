@@ -267,6 +267,12 @@ specified durable run-state contract. **Dependencies:** A06 for remote permissio
 A10 for workflows that mutate storage records. Pure execution contracts can start
 independently.
 
+The next prerequisite implements [durable claim ownership](../jobs/durable-claims.md):
+exclusive claims, atomic state/events, fenced callbacks, input snapshots and
+explicit interrupted-run recovery. It remains separate from Core's default
+manager; A09 is still open until a production workflow, submission identity and
+retry/recovery contract use it.
+
 Map the live Core utility manager, durable `jobs` repository/worker/scheduler and
 ingest journals by responsibility. Recommend durable jobs as the owner of
 restartable run state, with utility workers as execution mechanisms where useful.
