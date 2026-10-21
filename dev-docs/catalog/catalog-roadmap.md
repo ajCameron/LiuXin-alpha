@@ -18,6 +18,7 @@ Use the [API guide](catalog-api-usage.md) for entry points and the
 | --- | --- | --- |
 | Matching | Evidence-based policy distinguishes unique matches, no match, ambiguity and conflicting evidence; scoped WEMI identity and opt-in approximate rules are explicit. | Matching policy is not a replacement for write validation or stored identity derivation. |
 | Shared writes | Repository preparation and `CatalogRelationships` serve semantic mutations, schema-driven writers, container writes and Row compatibility adapters for Catalog-owned tables. | Several public APIs remain; uncovered field validators and raw low-level writes are not made safe merely by the shared route. |
+| Rating values | A08 adds pure value/scale rules, partial-pair validation, checked value reuse, fraction-preserving compatibility helpers and atomic retained metadata imports. See the [route matrix](catalog-rating-validation.md). | Modern container write-back does not support ratings. The retained Library importer still depends on SQLite compatibility projections, which PostgreSQL does not provide. Other field families remain open. |
 | Text identity | Declared normalized keys use the pure metadata policy across repositories, row/driver writes and portable macros. | Sort keys and approximate matching remain distinct; there is no automatic old-schema upgrade or silent repair on reads. |
 | Legacy caller migration | `catalog_macros` has no production imports. Only `catalog/catalog.py` may import `catalog.metadata_tools`; database/library helper injection is gone. | `catalog.add`, `ensure`, `apply` and `intralink` are live compatibility adapters, deprecated for new code. |
 | Cache composition | `ReadCache` is Catalog-independent; Catalog retrieval may compose it. Writable `Cache` delegates mutations to Catalog and reconciles derived state. | External writes still need snapshot invalidation; older Calibre cache/search code remains. |
@@ -37,6 +38,8 @@ retained adapters from frozen reference code. The
    the shared preparation boundary. Keep raw database/storage operations explicitly
    outside the guarantee. Changes need invalid-input and rollback coverage through
    each public route, including partial updates and the supported database drivers.
+   The first A08 slice covers Rating values and scales; use its explicit route
+   matrix as the model for the next family, not as evidence of universal coverage.
 2. **Make historical-data remediation explicit.** Preserve tolerant reads and
    collision-reporting audit/repair. Define any additional schema/profile migration
    before applying it to existing libraries; normalization changes must not silently

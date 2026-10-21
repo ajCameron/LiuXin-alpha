@@ -3,7 +3,7 @@
 Date: **2026-10-20**. Basis: documentation review at `a5406cf8`, A01 at `75b266ed`,
 A02 at `d5956d6e`, and A03's implementation on `database-create-safety`.
 
-Status: **A01–A07 are implemented for PR review; remaining runtime fixes are open.
+Status: **A01–A08 are implemented for PR review; later runtime fixes remain open.
 Documentation progress is recorded in A14; A15's repaired full CI baseline is verified.** Recheck the named behaviour before starting each task, especially
 where evidence comes from an older review. The first safety slices were checked
 against their current source; A15 records fresh CI and branch-rule observations.
@@ -24,10 +24,11 @@ Finding IDs below refer to the
 
 ## Recommended order
 
-With **A15's repaired CI baseline verified** and A01–A07 implemented for review,
-choose **A08's semantic write coverage next**, starting with one uncovered field
-family. A07 now records the shared complete-ray policy and distinct hydration
-relation contract; A09/A10 continue execution and storage ownership.
+With **A15's repaired CI baseline verified** and A01–A08 implemented for review,
+take **A09's durable job-state and responsive dispatch contract** next.
+A08's [route matrix](../catalog/catalog-rating-validation.md)
+records the selected field family and remaining exclusions. A09/A10 continue
+execution and storage ownership.
 
 The order is a recommendation, not a requirement to finish every earlier item
 before starting an independent one. Dependencies are stated in each task.
@@ -41,7 +42,7 @@ before starting an independent one. Dependencies are stated in each task.
 | [A05](#a05-enforce-deletion-policy-at-the-mutation-boundary) | Implemented; PR review | Removing bytes cannot bypass retention/last-copy policy. | Storage manager |
 | [A06](#a06-enforce-transport-capabilities-on-the-server) | Implemented; PR review | Remote/read-only clients cannot invoke privileged operations by name. | Core transport and surfaces |
 | [A07](#a07-choose-one-default-wemi-selection-policy) | Implemented; PR review | SQL projections and Catalog bundles apply an agreed path-selection policy. | Catalog and schema projections |
-| [A08](#a08-complete-semantic-write-coverage) | First | Missing validators enter the existing shared write boundary. | Metadata and Catalog |
+| [A08](#a08-complete-semantic-write-coverage) | First family implemented; PR review | Rating values/scales share preparation, checked reuse and transactional import. Other fields remain on the Catalog work list. | Metadata and Catalog |
 | [A09](#a09-converge-job-state-and-release-long-waits-from-core-dispatch) | Next | One real workflow has durable, observable execution without monopolizing dispatch. | Jobs and Core |
 | [A10](#a10-give-storage-record-mutations-one-owner) | Next | Reconcile and admin adapters share storage record invariants and receipts. | Storage, using database transactions |
 | [A11](#a11-finish-lifecycle-caller-migration) | Following | Lower-layer path wrappers and obsolete opt-ins retire through caller migration. | Core, ingest and storage |
@@ -220,6 +221,24 @@ search/acquisition projections remain separate work.
 **First PR:** one identified field or relationship family through all supported
 routes. **Dependencies:** preserve A04's transaction rules; do not wait for a
 wholesale cache redesign.
+
+**Rating slice implemented for PR review, 2026-10-20.**
+The [value/scale contract and coverage matrix](../catalog/catalog-rating-validation.md)
+place the pure rule in metadata and its enforcement in repository preparation.
+Schema writers, Row/Core adapters and legacy rating helpers share it; fractions
+are preserved, omitted fields stay unchanged, and historical reads remain tolerant.
+Retained Library metadata imports now use one transaction and read their newly
+written rows on that connection. Optional file/cover publication remains a
+separate effect boundary. Modern container write-back does not accept ratings;
+PostgreSQL lacks the retained importer's SQLite compatibility views.
+
+[PR #136](https://github.com/ajCameron/LiuXin-alpha/pull/136) fixes the prerequisite
+PostgreSQL link-name discovery and snapshot-cache index probes exposed by live
+testing. Rating bootstrap inserts now use the macro identity/transaction owner.
+The [aggregate-link inventory](../catalog/catalog-rating-validation.md#remaining-aggregate-link-operations)
+keeps coordinated WEMI/merge operations with their current domain owners;
+remaining cover/file links route to A10/A11. Other field families stay on the
+Catalog coverage work list.
 
 Use the [Catalog work list](../catalog/catalog-roadmap.md) and
 [write contract](../catalog/catalog-write-validation-contract.md) to make a concise

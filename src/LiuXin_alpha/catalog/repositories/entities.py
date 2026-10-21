@@ -11,11 +11,13 @@ match-or-create. Constants and alias mappings are shared with their specificatio
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from typing import ClassVar
 
 from LiuXin_alpha.databases.macro_types import LinkValue
+from LiuXin_alpha.metadata.ratings import normalise_rating_pair
 
-from ..api.common import EntityId, RowInput, RowMapping, WemiLevel
+from ..api.common import EntityId, MetadataCandidate, RowInput, RowMapping, WemiLevel
 from ..matching.entity_specs import (
     ANNOTATION_SPEC,
     COMMENT_SPEC,
@@ -202,9 +204,11 @@ class RatingRepository(ExactEntityRepository):
     RATING_SPEC configures ratings/rating_id. value addresses rating, out_of addresses
     rating_out_of, source addresses rating_source, and calibre_value addresses a display column
     outside identity. Candidate matching compares all supplied identity fields; source strings
-    case-fold, while scalar exact considers only the rating value. The repository adds no numeric
-    range or scale validation and has no approximate policy field, so use_policy cannot add fuzzy
-    fallback.
+    case-fold, while scalar exact considers only the rating value. Metadata owns finite,
+    nonnegative value and positive integral scale validation. Partial changes validate the
+    effective pair; omitted columns stay unchanged. Unrelated edits and reads retain historical
+    values without repair. No approximate policy field exists, so use_policy cannot add fuzzy
+    fallback. The separate compatibility display column is not automatically derived.
 
     Example:
         >>> repository = RatingRepository(None)
@@ -219,6 +223,60 @@ class RatingRepository(ExactEntityRepository):
     id_column = RATING_SPEC.id_column
     input_aliases: ClassVar[Mapping[str, str]] = RATING_SPEC.input_aliases
     match_spec = RATING_SPEC
+
+    def _prepare_write(
+        self, data: RowInput, *, existing: RowMapping | None = None
+    ) -> dict[str, object]:
+        """Apply the pure rating rule to creates and changes to either half of the pair."""
+        payload = super()._prepare_write(data, existing=existing)
+        if existing is not None and not {"rating", "rating_out_of"}.intersection(payload):
+            return payload
+        current = existing or {}
+        rating, scale = normalise_rating_pair(
+            payload.get("rating", current.get("rating")),
+            payload.get("rating_out_of", current.get("rating_out_of")),
+        )
+        if "rating" in payload:
+            payload["rating"] = rating
+        if "rating_out_of" in payload:
+            payload["rating_out_of"] = scale
+        return payload
+
+    def _prepare_reference(
+        self, data: RowInput, *, existing: RowMapping
+    ) -> dict[str, object]:
+        """Validate the full stored pair even when reuse matched only its source."""
+        payload = super()._prepare_reference(data, existing=existing)
+        normalise_rating_pair(
+            payload.get("rating", existing.get("rating")),
+            payload.get("rating_out_of", existing.get("rating_out_of")),
+        )
+        return payload
+
+    def match_or_create(
+        self, candidate: MetadataCandidate, *, use_policy: bool = False
+    ) -> EntityId:
+        """Validate supplied rating values before matching or creating an entity.
+
+        An existing historical match is checked with its stored scale before
+        reuse; ordinary match/require reads remain tolerant. Candidate provenance
+        and hints are retained, and fractional scores are never truncated.
+        Matching, creation and validated readback share one macro transaction.
+
+        Example:
+            ``match_or_create(MetadataCandidate({"value": 3.9}))`` retains 3.9.
+
+        :param candidate: Rating fields, provenance and optional matching hints.
+        :param use_policy: Preserve the repository's ordinary matching-policy selection.
+        :return: Valid existing or newly created Rating ID.
+        """
+        prepared = self._prepare_write(candidate.data)
+        with self._macros.transaction():
+            entity_id = super().match_or_create(
+                replace(candidate, data=prepared), use_policy=use_policy
+            )
+            self._prepare_reference(prepared, existing=self.require(entity_id))
+            return entity_id
 
 
 class CommentRepository(ExactEntityRepository):

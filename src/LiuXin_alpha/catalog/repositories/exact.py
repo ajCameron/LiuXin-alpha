@@ -53,6 +53,14 @@ class ExactEntityRepository(BaseRepository):
         self._require_mutable()
         return super()._prepare_write(data, existing=existing)
 
+    def _prepare_reference(
+        self, data: RowInput, *, existing: RowMapping
+    ) -> dict[str, object]:
+        """Validate value reuse while allowing links to immutable seeded constants."""
+        if not self.match_spec.mutable:
+            return BaseRepository._prepare_write(self, data, existing=existing)
+        return super()._prepare_reference(data, existing=existing)
+
     def _require_mutable(self) -> None:
         """
         Reject mutation when the configured spec marks this entity immutable.

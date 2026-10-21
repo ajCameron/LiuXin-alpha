@@ -4,7 +4,9 @@ Reviewed **2026-10-20**. Current repositories, relationship ownership and retrie
 
 Decision date: **2026-10-11**
 
-Implementation checked: **2026-10-20**, against `fc5de7af`.
+Implementation checked: **2026-10-20**. A08 adds the
+[rating value/scale contract](catalog-rating-validation.md) on the A07 baseline
+`f733f76b`; the earlier shared-boundary review used `fc5de7af`.
 
 Status: **Shared write ownership implemented; field-level rule coverage remains incomplete.**
 
@@ -138,6 +140,11 @@ This decision describes the required contract, not the complete current state:
   keys. Curated identifiers also validate their scheme/value pair, Agent writes
   serialize aliases, and immutable entities reject mutation. This does not
   invent semantic validators for fields that do not yet have one.
+- Rating writes now validate finite nonnegative values and optional positive
+  integral scales through the same preparation hook. Partial updates validate
+  the effective pair; value-based reuse also validates the stored counterpart.
+  The [coverage matrix](catalog-rating-validation.md#coverage-matrix) names the
+  supported routes and the modern container writer's unsupported ratings field.
 - Historical single/bulk identifier codecs remain separately named pure helpers
   in `metadata.identifiers`, with characterization tests. Their former
   `library.legacy` / `library.backend` callers were retired; they are not live

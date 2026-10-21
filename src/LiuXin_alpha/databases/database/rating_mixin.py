@@ -11,9 +11,6 @@ from typing import TYPE_CHECKING
 
 from LiuXin_alpha.utils.logging import default_log
 
-# Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
-
 if TYPE_CHECKING:
 
     from LiuXin_alpha.databases.api.database_api import DatabaseAPI
@@ -34,7 +31,10 @@ class DatabaseRatingMixin:
         """
         Insert missing standard ratings and synchronize incorrect numeric values.
 
-        ID i stores (i - 1) / 2. Missing rows are inserted through the wrapper using string IDs/values; existing values are compared as floats and repaired through Row.sync. Nonnumeric existing values can raise during conversion. Earlier repairs are not rolled back as a group.
+        ID i stores (i - 1) / 2. Macro writes keep explicit IDs and backend identity
+        allocation consistent. All repairs share a transaction, including when
+        called inside an existing unit. Nonnumeric existing values can raise
+        during conversion and roll back earlier repairs.
 
         Example:
             For an open writable database, db.check_rating_table() restores rating ID 1 to 0.0 and ID 11 to 5.0.
@@ -44,31 +44,20 @@ class DatabaseRatingMixin:
         :raises ValueError: An existing rating cannot be converted to float.
         :raises TypeError: An existing rating value does not support float conversion.
         """
-        for i in range(1, 12):
-            rating = six_unicode(i - 1)
-            rating_id = six_unicode(i)
-            rating_row = self.get_row_from_id("ratings", rating_id)
-
-            if rating_row is None:
-                new_row_dict = {
-                    "rating_id": rating_id,
-                    "rating": six_unicode(float(rating) / 2.0),
-                }
-                self.driver_wrapper.add_row(new_row_dict)
-
-            else:
-
-                if float(rating_row["rating"]) != float(rating) / 2.0:
+        with self.macros.transaction():
+            for rating_id in range(1, 12):
+                rating = (rating_id - 1) / 2.0
+                rating_row = self.macros.get_row("ratings", rating_id)
+                if rating_row is None:
+                    self.macros.insert_row(
+                        "ratings", {"rating_id": rating_id, "rating": rating}
+                    )
+                elif float(rating_row["rating"]) != rating:
                     err_str = "Rating row malformed - correcting"
                     default_log.log_variables(
                         err_str,
                         "INFO",
                         ("rating", rating),
-                        ('rating_row["rating"]', six_unicode(rating_row["rating"])),
+                        ('rating_row["rating"]', str(rating_row["rating"])),
                     )
-                    rating_row["rating"] = float(rating) / 2.0
-                    rating_row.sync()
-
-        # rating_11_row = self.get_row_from_id("ratings", 11)
-        # if rating_11_row is not None:
-        #     self.delete(rating_11_row)
+                    self.macros.update_row("ratings", rating_id, {"rating": rating})

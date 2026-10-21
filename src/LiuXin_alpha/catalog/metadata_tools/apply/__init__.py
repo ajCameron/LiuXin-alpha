@@ -511,16 +511,17 @@ class Apply(LabelApplyMixin):
     @atomic_write
     def rating(self, rating, rating_type, resource_row):
         """
-        Resolve a Rating and replace same-type links after an integrity error.
+        Resolve a validated Rating and attach it through the relationship owner.
 
-        Requests priority=not_set. Recovery is not wrapped in a transaction, so a
-        retry failure can leave existing same-type links removed.
+        Preserve fractional values. Existing Rating Rows are validated against
+        their stored pair before use. Resolution and linking share the macro
+        transaction; Catalog-owned resources do not use the raw retry fallback.
 
         Example:
-            On DatabaseIntegrityError, unlink all Ratings of rating_type and retry once.
+            Applying 4.25 creates or reuses 4.25 and rolls it back if linking fails.
 
 
-        :param rating: Concrete Row or numeric value; floats truncate to int and bool is accepted.
+        :param rating: Rating Row or finite nonnegative number; bool is rejected.
         :param rating_type: Link type used in creation and recovery deletion.
         :param resource_row: Resource Row used as a link endpoint; table compatibility is checked by the database.
         :return: Database link Row, not the attached metadata Row.
@@ -529,10 +530,16 @@ class Apply(LabelApplyMixin):
         # Apply a rating to the given resource
         if isinstance(rating, Row):
             rating_row = rating
-        elif isinstance(rating, int):
+            if rating_row.table != "ratings":
+                raise InputIntegrityError("Expected a Rating Row.")
+            repository = repository_for(self, "ratings")
+            stored = repository.require(rating_row.row_id)
+            repository._prepare_reference(
+                {"rating": stored.get("rating"), "rating_out_of": stored.get("rating_out_of")},
+                existing=stored,
+            )
+        elif isinstance(rating, (int, float)):
             rating_row = self.ensure.rating(rating)
-        elif isinstance(rating, float):
-            rating_row = self.ensure.rating(int(rating))
         else:
             err_str = "Unable to add rating - type not recognized"
             err_str = default_log.log_variables(

@@ -1,7 +1,7 @@
 # Target architecture and decision status
 
 Decision history begins **2026-09-26**. Implementation reviewed **2026-10-20**
-against the documentation pass and A01–A07 implementation slices (PR review).
+against the documentation pass and A01–A08 implementation slices (PR review).
 
 Status: **Accepted ownership decisions with explicit implementation limits.**
 This is the decision record and rationale. The [ownership guide](<../04 - Seperation of Concerns.md>)
@@ -126,6 +126,13 @@ Catalog-owned tables to those owners; non-Catalog tables retain lower-level
 contracts. Caches delegate semantic writes and reconcile derived state afterward.
 Stored identity profiles are declared by the schema and evaluated through pure
 metadata rules, rather than several unrelated cleaners writing the same key.
+
+A08 extends this boundary to [Rating values and scales](../catalog/catalog-rating-validation.md).
+Reference reuse validates the stored pair, while unrelated edits and reads leave
+historical values alone. The retained Library import coordinates metadata in one
+transaction; optional file and cover publication keeps a separate effect boundary.
+Its route matrix records the unsupported container-write field and PostgreSQL
+compatibility-view exclusions.
 
 This does not implement every field validator or retrospectively repair old
 records. An old-schema migration/backfill project was explicitly excluded from

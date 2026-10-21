@@ -11,6 +11,8 @@ and verification; their old test counts are not current checkout results.
 - [API usage](catalog-api-usage.md): public entry points and examples.
 - [Write validation](catalog-write-validation-contract.md): semantic boundary,
   stored identities and explicit exclusions.
+- [Rating validation](catalog-rating-validation.md): nullable value/scale rules,
+  partial updates, public-route coverage and compatibility import transactions.
 - [Matching policy](catalog-matching-policy.md): identity decisions.
 - [Preferred WEMI paths](catalog-wemi-selection.md): SQL/bundle ranking, partial
   paths and the distinct metadata relation-selection contract.
