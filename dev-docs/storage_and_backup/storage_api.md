@@ -16,9 +16,6 @@ For a task-oriented entry point, use the [storage developer guide](README.md).
 The API separates driver mechanics, configured Stores and manager policy, but
 these boundaries do not yet enforce every safety rule:
 
-- Backend construction does not consistently preserve `StoreConfiguration.read_only`
-  across all builders. A descriptor's default mode is not proof that a caller's
-  explicit read-only intent was enforced.
 - `manager.delete(location)` delegates physical deletion without updating Replica
   claims or checking loss policy. `remove_replica(...)` can delete bytes before
   metadata mutation; a later metadata failure cannot restore those bytes.
@@ -27,6 +24,42 @@ these boundaries do not yet enforce every safety rule:
 
 See [next tasks](next_tasks.md) for the concrete fixes and acceptance criteria.
 These limitations also apply when a higher-level caller reaches the same paths.
+
+## Read-only Store construction
+
+The managed-directory, flat, Calibre-like and SQLite registry builders preserve
+`StoreConfiguration.read_only` in both the configured Store and its raw driver.
+The policy also survives catalogue close/reopen and `reload_stores(...)`.
+A backend descriptor's access mode describes its default; it does not override
+explicit read-only intent. Intrinsically read-only families, such as unmanaged
+directories, cannot be made writable by requesting `read_only=False`.
+
+For these four families, Store writes, replacement, copy, move and deletion,
+manager put/delete/ingest, and driver mutations reject with `StorageReadOnly`
+before changing stored objects. Direct Store streaming and manager put leave
+borrowed streams unread. Manager ingest can hash/spool input and record failure
+diagnostics before refusal, but leaves no new Asset or Replica claim.
+Read-only filesystem startup
+does not create a missing root. SQLite requires an existing container with the
+object schema; construction validates its columns without creating directories,
+tables or indexes, or setting journal options. Writable construction retains
+its existing initialization and publication behaviour.
+
+SQLite connections use an escaped file URI with
+[`mode=ro`](https://www.sqlite.org/uri.html) and close explicitly after each
+operation. They retain normal locking and change detection, including visibility
+of another connection's committed WAL writes. SQLite's
+[read-only WAL requirements](https://www.sqlite.org/wal.html#read_only_databases)
+still apply: coordination may create or update sidecars when the directory is
+writable. This is not an immutable snapshot or a promise of no filesystem effects
+on a live WAL database.
+
+The [construction regressions](../../tests/storage/test_read_only_backend_construction.py)
+exercise all four real builders, writable controls, missing targets, SQLite
+engine-level refusal and durable reload on both catalogue drivers. They compare
+stored bytes and metadata before and after refusal. This closes A02/STOR02's four
+audited forwarding defects; provider-specific initialization and the separate
+retention/last-copy policy remain distinct contracts.
 
 ## Backup staging ownership
 

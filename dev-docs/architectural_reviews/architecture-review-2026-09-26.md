@@ -95,7 +95,7 @@ The original diagnosis was useful, but its present-tense headline is now too bro
 | Nobody owns lifecycle | `core.library_services.LibraryServices` now owns startup, rollback and teardown; `Library` borrows its collaborators and Database defaults to persistence-only construction. Legacy opt-ins, path wrappers and transaction-on-close behavior remain. |
 | Layer direction is aspirational | Whole-package checks now include deferred and literal dynamic imports, alongside cold-import budgets. Policy, hydration and conversion contracts have moved to their owners. Fifteen reviewed backward edges and a 217-module runtime component remain; passing a ratchet does not mean acyclic architecture. |
 | Several owners for one concept | Supported bibliographic writes and stored identities now converge on Catalog/schema-owned boundaries. Core owns category semantics, and #123 supplies one application settings store. Jobs, ingest coordination and overlapping registries remain open; unrelated component settings and per-library DBPrefs are intentionally distinct. |
-| Safety by convention | **Still a priority.** HTTP dispatch, physical deletion policy and compatibility-backend `read_only` forwarding retain the concrete gaps described below. A01's 2026-10-20 follow-up implements private backup staging and ownership-checked cleanup for PR review; see ST-6. |
+| Safety by convention | **Still a priority.** HTTP dispatch and physical deletion policy retain concrete gaps. The 2026-10-20 follow-ups implement private backup staging and ownership-checked cleanup (A01/ST-6), plus read-only propagation/enforcement through the four affected local builders and durable reload (A02/ST-2), for PR review. |
 | Legacy code looks live | Proven dead definitions, copy artifacts, the unused Qt blob and broken Library facades were removed; the fixture caller migrated. Other compatibility code is live or directly tested. Import-graph unreachability alone is not evidence for deletion. |
 
 Status vocabulary in the subsystem updates: **Resolved** closes the named
@@ -143,9 +143,9 @@ identify the earlier checkpoint, not a supported compatibility namespace.
 
 ### Remaining work in priority order
 
-1. Close CO-4/SU-6's transport and capability boundaries; implement ST-1/ST-2's
-   deletion/read-only enforcement and ST-6's staging ownership. Test refusals at
-   the actual public boundaries, not only higher-level evacuation workflows.
+1. Close CO-4/SU-6's transport and capability boundaries and ST-1's deletion
+   policy. ST-2's four builder fixes and ST-6's staging ownership are implemented
+   for PR review on 2026-10-20. Keep refusal tests at the actual public boundaries.
 2. Finish DB-1/DB-2's low-level transaction/creation semantics and ST-3's storage
    mutation ownership. A resource context and a transaction context need explicit,
    different contracts. Remove the remaining lower-layer opening wrappers.
@@ -279,8 +279,8 @@ the tables; they are not fourteen untouched tasks.
 | Action | Current disposition |
 |---|---|
 | 1 | **Open:** HTTP transport still forwards generic commands/queries, including `invoke`; wire encoding is not authorization. |
-| 2 | **Open:** manager deletion lacks the proposed loss-policy guard; four compatibility builders still drop `read_only`. |
-| 3 | **Partial:** LRF registration and the discarded plugin priority sort are fixed (the latter in the 2026-10-19 plugin follow-up). EMF import, exceptional Database exit and staging deletion remain. |
+| 2 | **Partial, updated 2026-10-20:** manager deletion still lacks the proposed loss-policy guard. A02 preserves and enforces `read_only` for all four affected compatibility builders, including durable reload, for PR review. |
+| 3 | **Partial, updated 2026-10-20:** LRF registration and the discarded plugin priority sort are fixed (the latter in the 2026-10-19 plugin follow-up). A01's staging ownership fix is implemented for PR review. EMF import and exceptional Database exit remain. |
 | 4 | **Partial:** lifecycle, installed-wheel, focused import and cold-budget checks exist. There is no demonstrated replacement for the proposed comprehensive unresolved-static-import inventory. Do not blindly import modules that execute code on import. |
 | 5 | **Open:** tracked-ignored cleanup is unfinished (fresh count above). Test scratch cleanup and removal of dead source assets solve different problems. |
 | 6 | **Implemented core boundary, partial migration:** `LibraryServices` owns the graph and failure unwind; maintenance job scheduling and removal of lower-layer path wrappers remain. Storage table ownership is separate. |
@@ -381,7 +381,7 @@ everywhere; and `database_repository.py` using only `db.macros`, with no SQL.
 | ID | Status | Concrete change and remaining action |
 |---|---|---|
 | ST-1 | Open | [remove_replica](../../src/LiuXin_alpha/storage/storage_manager/mixins/replicas.py) still defaults to deleting bytes and reaches [router.delete](../../src/LiuXin_alpha/storage/storage_manager/mixins/router.py) without mode/last-copy policy. Add one enforced loss-policy boundary with refusal tests across direct, Core and CLI paths. |
-| ST-2 | Open | Implementation moved to [utils/backend_registry](../../src/LiuXin_alpha/storage/utils/backend_registry.py), but `_common` still forwards only name/UUID; managed, flat, Calibre-like and SQLite builders omit `read_only`. Forward and enforce it through each resulting Store, including delete/write refusal tests. |
+| ST-2 | Implemented for PR review, 2026-10-20 | [Registry builders](../../src/LiuXin_alpha/storage/utils/backend_registry.py) now forward `read_only` through managed, flat, Calibre-like and SQLite Stores and drivers. SQLite opens existing schema with `mode=ro` without initialization writes. [Regressions](../../tests/storage/test_read_only_backend_construction.py) cover mutation refusals, writable controls, missing targets, engine-level refusal, WAL reads and catalogue reopen/reload on both drivers. |
 | ST-3 | Open | Reconcile still creates legacy `files`/`file_store_links`, and Core storage-graph CRUD still uses database macros. Catalog bibliographic consolidation does not make StorageManager the storage-table writer. Choose the storage mutation owner and reconcile cache/revision/transaction guarantees across all adapters. |
 | ST-4 | Open | Storage helpers moved and documentation improved, but the manager's mixin/shared-state design and durable mapping adapters remain; `storage/utils/store.py` still exists. Introduce cohesive injected services after mapping callers; old MRO/attribute counts are historical. |
 | ST-5 | Open | Crawler backends still depend on acquisition code in `ingest.sources`; registration/adoption paths remain split. Move acquisition orchestration above storage and retain backend adapters for byte access. Lifecycle delegation alone does not remove this cycle. |

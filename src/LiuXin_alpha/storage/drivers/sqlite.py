@@ -5,7 +5,7 @@ Rows retain complete payloads, sizes, SHA-256, integer versions, and modificatio
 times. Writes spool before materializing a payload for one transaction; reads
 load the full BLOB before applying ranges. Stored metadata is trusted rather
 than revalidated on every read. Connection contexts manage transaction completion
-without explicitly closing connections, and successful sessions retain their
+and close connections explicitly; successful sessions retain their
 spools until explicit or eventual cleanup.
 """
 
@@ -17,10 +17,9 @@ import io
 import os
 import sqlite3
 import tempfile
-
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from types import TracebackType
 from uuid import UUID, uuid4
@@ -45,6 +44,7 @@ from LiuXin_alpha.storage.api import (
     StorageNotFound,
     StoragePreconditionFailed,
     StoragePublicationModel,
+    StorageReadOnly,
     StorageTemporarySpaceRequirement,
     StorageTimeout,
     StorageUnavailable,
@@ -285,9 +285,9 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
     """
     Store opaque-keyed BLOBs and metadata in one SQLite database.
 
-    Startup creates the storage_objects schema; each database operation obtains its own connection
-    with WAL and FULL synchronous settings. The connection context manages transaction completion,
-    not explicit connection closure. Reads load full BLOBs before slicing, and writes publish a
+    Writable startup creates the storage_objects schema and uses WAL/FULL synchronous settings.
+    Read-only startup validates an existing schema through mode=ro without initialization writes.
+    Each operation owns and closes its connection. Reads load full BLOBs before slicing, and writes publish a
     fully materialized spool. Neither path imposes an object-size memory cap.
 
     SHA-256 is persisted with each row and trusted by stat. Per-key integer versions start at one
@@ -299,7 +299,10 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         >>> driver.startup()  # doctest: +SKIP
     """
 
-    def __init__(self, path: str | os.PathLike[str], *, address_space_uuid: UUID):
+    def __init__(
+        self, path: str | os.PathLike[str], *, address_space_uuid: UUID,
+        read_only: bool = False,
+    ):
         """
         Resolve a database path and configure scoped address ownership without opening the database.
 
@@ -309,10 +312,12 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
 
         :param path: Database filesystem path, expanded and resolved with strict=False.
         :param address_space_uuid: UUID required on SQLite object addresses accepted by this driver.
+        :param read_only: Open existing storage with mode=ro and refuse every mutation.
         :return: None after retaining the path/checker and clearing the started flag.
         """
 
         self._path = Path(path).expanduser().resolve(strict=False)
+        self._read_only = read_only
         self._checker = ScopedDriverObjectAddressChecker(
             SQLiteObjectAddress,
             address_space_uuid,
@@ -367,7 +372,7 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
     @property
     def capabilities(self) -> DriverCapabilities:
         """
-        Declare transactional mutation, versioned reads/deletes, inventory, and stored checksums.
+        Declare versioned reads, inventory, checksums and policy-permitted mutations.
 
         Keys are flat with lexical prefix enumeration. No native copy/move, paging, or external
         object URI flags are enabled. Concurrency and writability are declared mechanics, not
@@ -378,28 +383,29 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
             True
 
 
-        :return: DriverCapabilities with mutation support, authoritative stat digests, and recommended parallel reads of four.
+        :return: Capabilities with policy-masked mutations, authoritative stat digests, and recommended parallel reads of four.
         """
 
+        mutable = not self._read_only
         return DriverCapabilities(
             range_reads=True,
             conditional_read=True,
             enumeration=EnumerationCompleteness.COMPLETE,
             stat_digest_authoritative=True,
             native_digest=True,
-            create=True,
-            replace=True,
-            delete=True,
-            conditional_delete=True,
-            atomic_publish=True,
+            create=mutable,
+            replace=mutable,
+            delete=mutable,
+            conditional_delete=mutable,
+            atomic_publish=mutable,
             capacity_reporting=True,
-            object_address_allocation=True,
+            object_address_allocation=mutable,
             hierarchical_object_addresses=False,
             prefix_enumeration=True,
             concurrency=DriverConcurrencyCapabilities(
                 thread_safe=True,
                 concurrent_reads=True,
-                concurrent_writes=True,
+                concurrent_writes=mutable,
                 recommended_parallel_reads=4,
             ),
         )
@@ -407,29 +413,39 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
     @property
     def storage_characteristics(self) -> StorageCharacteristics:
         """
-        Describe per-object BLOB publication and object staging without whole-container rewriting.
+        Describe permitted BLOB publication or a read-only view without write staging.
 
         Example:
             >>> driver.storage_characteristics.temporary_space  # doctest: +SKIP
             <StorageTemporarySpaceRequirement.OBJECT_STAGE: 'object_stage'>
 
 
-        :return: General-write characteristics preserving unmodelled entries, without a calculated size/capacity limit.
+        :return: Configured read-only or general-write characteristics, preserving unmodelled entries.
         """
 
         return StorageCharacteristics(
-            publication_model=StoragePublicationModel.PER_OBJECT,
-            temporary_space=StorageTemporarySpaceRequirement.OBJECT_STAGE,
-            recommended_write_usage=StorageWriteUsage.GENERAL,
+            publication_model=(
+                StoragePublicationModel.READ_ONLY if self._read_only
+                else StoragePublicationModel.PER_OBJECT
+            ),
+            temporary_space=(
+                StorageTemporarySpaceRequirement.NONE if self._read_only
+                else StorageTemporarySpaceRequirement.OBJECT_STAGE
+            ),
+            recommended_write_usage=(
+                StorageWriteUsage.NOT_APPLICABLE if self._read_only
+                else StorageWriteUsage.GENERAL
+            ),
             preserves_unmodelled_entries=True,
             rewrites_container_format=False,
         )
 
     def startup(self) -> DriverStatus:
         """
-        Create the containing directory and storage schema if absent, then report status.
+        Validate existing read-only storage, or initialize writable storage, then report status.
 
-        CREATE IF NOT EXISTS preserves existing rows but does not migrate or validate every aspect
+        Read-only startup requires the current object columns and performs no DDL or directory
+        creation. Writable CREATE IF NOT EXISTS preserves existing rows but does not validate every aspect
         of a preexisting schema. Directory OS failures and SQLite failures follow their respective
         translators. The started flag is set before collecting status, whose later capacity or count
         failure may report unavailable.
@@ -439,9 +455,17 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
             True
 
 
-        :return: Fresh DriverStatus after schema setup; initialization errors may raise instead.
+        :return: Fresh DriverStatus after schema validation or setup; failures may raise instead.
         """
 
+        if self._read_only:
+            with self._connection("startup") as connection:
+                connection.execute(
+                    "SELECT object_key, object_size, sha256, object_bytes, version, modified_at "
+                    "FROM storage_objects LIMIT 0"
+                )
+            self._started = True
+            return self.status()
         try:
             self._path.parent.mkdir(parents=True, exist_ok=True)
         except OSError as error:
@@ -473,8 +497,8 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         """
         Open a configured connection, execute SELECT 1, then obtain normal status.
 
-        Connection setup can create a missing database file and change journal settings; this is not
-        a read-only probe or schema initializer. StorageUnavailable and StorageTimeout become
+        Writable connection setup can create a missing file and change journal settings; configured
+        read-only setup cannot. Neither probe initializes schema. StorageUnavailable and StorageTimeout become
         unavailable statuses, while other probe exceptions propagate.
 
         Example:
@@ -493,7 +517,7 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
             return DriverStatus(
                 False,
                 False,
-                checked_at=datetime.now(timezone.utc),
+                checked_at=datetime.now(UTC),
                 message=str(error),
             )
 
@@ -502,7 +526,7 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         Count stored rows and query containing-volume capacity without caching the result.
 
         An absent file returns unavailable before connecting. Count/volume OS and storage errors
-        become unavailable statuses. Success reports writable=True without an explicit write test.
+        become unavailable statuses. Success reflects configured write policy without a write test.
         Capacity uses statvfs available blocks and is observed separately from the row count.
 
         Example:
@@ -517,7 +541,7 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
             return DriverStatus(
                 False,
                 False,
-                checked_at=datetime.now(timezone.utc),
+                checked_at=datetime.now(UTC),
                 message=driver_failure_message(
                     "SQLite",
                     "status",
@@ -547,16 +571,16 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
             return DriverStatus(
                 False,
                 False,
-                checked_at=datetime.now(timezone.utc),
+                checked_at=datetime.now(UTC),
                 message=str(failure),
             )
         return DriverStatus(
             True,
-            True,
+            not self._read_only,
             total_bytes=stat.f_blocks * stat.f_frsize,
             free_bytes=stat.f_bavail * stat.f_frsize,
             object_count=count,
-            checked_at=datetime.now(timezone.utc),
+            checked_at=datetime.now(UTC),
             details=(("container", "sqlite"),),
         )
 
@@ -640,7 +664,7 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
             size=int(row[0]),
             digest=Digest("sha256", str(row[1])),
             version=str(row[2]),
-            modified_at=datetime.fromtimestamp(float(row[3]), timezone.utc),
+            modified_at=datetime.fromtimestamp(float(row[3]), UTC),
         )
 
     def open_read(
@@ -708,7 +732,7 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         metadata: tuple[tuple[str, str], ...] = (),
     ) -> _SQLiteWriteSession:
         """
-        Reject unsupported metadata or negative size, check address ownership, and create a spool.
+        Reject read-only policy, unsupported metadata or negative size before creating a spool.
 
         Mode passes through unchanged and must be a WriteMode member. Database startup is not
         performed here; schema availability is discovered when commit publishes. Spool-setup OS
@@ -726,6 +750,7 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         :return: New uncommitted _SQLiteWriteSession owning its spool.
         """
 
+        self._require_writable()
         if metadata:
             raise StorageUnsupportedOperation(
                 "SQLite BLOB storage does not persist native metadata."
@@ -778,7 +803,8 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         :return: None after normal transaction exit commits the row; errors roll back through the connection context.
         """
 
-        now = datetime.now(timezone.utc).timestamp()
+        self._require_writable()
+        now = datetime.now(UTC).timestamp()
         with self._connection("publish", target=self._target(address)) as connection:
             connection.execute("BEGIN IMMEDIATE")
             existing = connection.execute(
@@ -839,6 +865,7 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         :return: None after committed deletion or accepted absence; stale existing rows raise StoragePreconditionFailed.
         """
 
+        self._require_writable()
         checked = self.check_object_address(object_address)
         with self._connection("delete", target=self._target(checked)) as connection:
             connection.execute("BEGIN IMMEDIATE")
@@ -900,7 +927,7 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
                     digest=Digest("sha256", str(sha256)),
                     version=str(version),
                     modified_at=datetime.fromtimestamp(
-                        float(modified_at), timezone.utc
+                        float(modified_at), UTC
                     ),
                 )
 
@@ -928,6 +955,7 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         :return: Scoped flat address without publishing or reserving an object.
         """
 
+        self._require_writable()
         _ = (expected_size, name_hint)
         return self.parse_object_address(
             expected_digest.value if expected_digest is not None else uuid4().hex
@@ -972,11 +1000,13 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
 
     def _connect(self) -> sqlite3.Connection:
         """
-        Open SQLite with a 30-second lock timeout and configure foreign keys, WAL, and FULL sync.
+        Open SQLite with a 30-second timeout and the configured filesystem write policy.
 
-        Connection setup can create the database and change persistent journal mode. A PRAGMA
-        failure has no explicit close guard here. Returning a connection does not itself start a
-        storage write transaction or initialize the object schema.
+        Read-only connections use an escaped file URI with mode=ro. They neither create the
+        container nor set persistent journal options. SQLite's normal WAL coordination still
+        applies; immutable mode is deliberately avoided because another process may write.
+        Writable setup can create the database and configures foreign keys, WAL and FULL sync.
+        Failed setup closes its connection. Neither path initializes the object schema.
 
         Example:
             >>> connection = driver._connect()  # doctest: +SKIP
@@ -986,10 +1016,16 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         :return: New sqlite3.Connection; the caller is responsible for explicit connection closure.
         """
 
+        if self._read_only:
+            return sqlite3.connect(f"{self._path.as_uri()}?mode=ro", uri=True, timeout=30)
         connection = sqlite3.connect(self._path, timeout=30)
-        connection.execute("PRAGMA foreign_keys = ON")
-        connection.execute("PRAGMA journal_mode = WAL")
-        connection.execute("PRAGMA synchronous = FULL")
+        try:
+            connection.execute("PRAGMA foreign_keys = ON")
+            connection.execute("PRAGMA journal_mode = WAL")
+            connection.execute("PRAGMA synchronous = FULL")
+        except BaseException:
+            connection.close()
+            raise
         return connection
 
     @contextmanager
@@ -1003,8 +1039,8 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         Yield a connection under SQLite transaction handling and translate sqlite3.Error failures.
 
         Normal context exit commits an open transaction, while exceptional exit rolls it back. The
-        sqlite3 connection context does not close the connection, and this wrapper adds no explicit
-        close. Errors from setup, body, or transaction exit that are sqlite3.Error receive storage
+        wrapper then explicitly closes the connection on every exit. Errors from setup, body,
+        transaction exit or closure that are sqlite3.Error receive storage
         classification and cause chaining; other exception types propagate unchanged.
 
         Example:
@@ -1015,18 +1051,32 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
 
         :param operation: Context label used when translating SQLite failures.
         :param target: Optional diagnostic database/object text, or None to use the root URI.
-        :return: Context manager yielding the transaction-managed connection without an explicit close guarantee.
+        :return: Context manager yielding one owned connection and closing it after transaction exit.
         """
 
         try:
-            with self._connect() as connection:
-                yield connection
+            connection = self._connect()
+            try:
+                with connection:
+                    yield connection
+            finally:
+                connection.close()
         except sqlite3.Error as error:
             raise translate_sqlite_error(
                 error,
                 operation=operation,
                 target=self.root_uri if target is None else target,
             ) from error
+
+    def _require_writable(self) -> None:
+        """Reject mutation before spooling bytes, opening a transaction or allocating an address."""
+        if self._read_only:
+            raise StorageReadOnly(
+                driver_failure_message(
+                    "SQLite", "mutation", target=self._path,
+                    reason="the driver is configured read-only",
+                )
+            )
 
     def _target(self, address: SQLiteObjectAddress) -> str:
         """

@@ -1,6 +1,17 @@
 # Working Memory Index
 
 Latest implementation checkpoint, **2026-10-20**:
+[Store read-only intent](store-read-only-intent-2026-10-20.md) implements A02/STOR02
+on `store-read-only-intent`, based on `75b266ed`. The four affected local builders
+preserve read-only policy through drivers and catalogue reopen/reload. SQLite
+opens existing schema without initialization writes and closes each connection.
+All 139 targeted runtime checks passed. The final run also passed all 24 new
+regressions with Asset/Replica assertions and 22 documentation checks.
+The focused PR depends on backup PR #128 while it remains open. Next is A03,
+nondestructive database creation. Unrelated staged edits and the data submodule
+remain separate.
+
+Earlier implementation checkpoint, **2026-10-20**:
 [backup staging ownership](backup-staging-ownership-2026-10-20.md) implements
 A01/STOR01 on `backup-staging-ownership`, based on `a5406cf8`. Backup runs now own
 private workspaces, preserve their ownership through checkpoints, and retain

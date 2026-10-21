@@ -22,7 +22,13 @@ Static costs and limits are exposed through `StorageCharacteristics`; dynamic
 availability and warnings are exposed through `StoreStatus`. Unknown limits are
 reported as unknown, never treated as unlimited.
 
-The default-mode table describes backend families. Explicit `StoreConfiguration.read_only` does not yet survive every registry builder; see [STOR02](next_tasks.md#stor02-preserve-read-only-intent-through-construction). Check the constructed Store's actual behaviour before treating configuration as an enforced write boundary.
+The default-mode table describes backend families, not an override for explicit
+`StoreConfiguration.read_only`. The managed, flat, Calibre-like and SQLite builders
+now preserve that policy through construction and durable reload, with mutation
+refusal tests at Store, manager and driver boundaries. Intrinsically read-only
+families remain restricted even when writable configuration is requested. See
+the [construction contract](storage_api.md#read-only-store-construction), including
+SQLite's existing-schema requirement and normal WAL coordination.
 
 ## Registered backend reference
 

@@ -12,7 +12,6 @@ import dataclasses
 import hashlib
 import os
 import time
-
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -57,6 +56,7 @@ class OnDiskCalibreLikeStorageBackend(OnDiskExistingManagedStorageBackend):
         name: str | None = None,
         uuid: str | UUID | None = None,
         *,
+        read_only: bool = False,
         database: Any = None,
         store_id: int | None = None,
     ) -> None:
@@ -73,11 +73,12 @@ class OnDiskCalibreLikeStorageBackend(OnDiskExistingManagedStorageBackend):
         :param url: Filesystem root path or supported local file URI.
         :param name: Optional display name; None or empty text uses inherited root-name fallback.
         :param uuid: UUID or UUID string; None generates a Store identity.
+        :param read_only: Preserve read-only policy in the managed Store and its filesystem driver.
         :param database: Optional object consulted for get_row_from_id after successful writes.
         :param store_id: Value written to file_store_id on matching database rows, including None.
         :return: None after inherited configuration and retention of both database references.
         """
-        super().__init__(url, name=name, uuid=uuid)
+        super().__init__(url, name=name, uuid=uuid, read_only=read_only)
         self._database = database
         self._store_id = store_id
 

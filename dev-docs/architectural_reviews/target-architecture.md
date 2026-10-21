@@ -1,7 +1,7 @@
 # Target architecture and decision status
 
 Decision history begins **2026-09-26**. Implementation reviewed **2026-10-20**
-against the working tree based on `fc5de7af`.
+against the documentation pass and A01/A02 follow-ups based on `75b266ed`.
 
 Status: **Accepted ownership decisions with explicit implementation limits.**
 This is the decision record and rationale. The [ownership guide](<../04 - Seperation of Concerns.md>)
@@ -20,7 +20,7 @@ proposal in the same section implemented.
 | Configuration | Core resolves deployment settings and supplies one application preference store. | Legacy scratch/startup consumers and component-specific lifetimes; database preferences remain a separate scope. |
 | Formats and plugin composition | `plugins` unifies shared mechanics and application assembly, with internal dependency rules; formats retain standalone composition. | Unsupported providers, availability reporting and separate domain registries. |
 | Dependency enforcement | Protected acyclic scope, exact whole-package debt and cold-import budgets are enforced. | Existing exceptions and unmodelled/dynamic behaviour; no universal package ranking for cache sources. |
-| Storage | Manager → configured Store → raw driver; passive Locations, durable metadata adapters and ingest recovery exist. Backup runs own private staging workspaces with recovery/cleanup checks (A01, PR review). | Destructive-operation policy, legacy registrations and cross-workflow resource budgets. |
+| Storage | Manager → configured Store → raw driver; passive Locations, durable metadata adapters and ingest recovery exist. Backup runs own private staging workspaces with recovery/cleanup checks (A01). The four affected local builders preserve read-only intent through drivers and durable reload (A02). Both are implemented for PR review. | Retention/last-copy deletion policy, legacy registrations and cross-workflow resource budgets. |
 | Jobs and ingest | Durable jobs, Core execution and utility workers coexist; mixed ingest consumes an injected Library. | One coherent restart/cancellation/progress contract and durable maintenance signals. |
 | Transport and permissions | Named Core operations and shared read behaviour exist. | Server-enforced capabilities/authorization; a “read-only” surface name is not an access-control boundary. |
 

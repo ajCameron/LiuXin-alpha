@@ -1,9 +1,9 @@
 # Next architecture tasks
 
-Date: **2026-10-20**. Basis: documentation review at `a5406cf8`, followed by A01's
-implementation on `backup-staging-ownership`.
+Date: **2026-10-20**. Basis: documentation review at `a5406cf8`, A01 at `75b266ed`,
+and A02's implementation on `store-read-only-intent`.
 
-Status: **A01 is implemented for PR review; remaining runtime fixes are open.
+Status: **A01 and A02 are implemented for PR review; remaining runtime fixes are open.
 Documentation progress is recorded in A14.** Recheck the named behaviour before starting each task, especially
 where evidence comes from an older review. The first safety slices were checked
 against their current source while writing this list; external CI and GitHub
@@ -25,7 +25,7 @@ Finding IDs below refer to the
 
 ## Recommended order
 
-With A01 implemented for review, take **A02 and A03 as separate small PRs**. Develop A06's transport
+With A01 and A02 implemented for review, take **A03 as the next small PR**. Develop A06's transport
 contract in the same first group; it does not need to wait for job consolidation.
 Then close A04/A05's broader safety contracts. A07 is the next bounded read-model
 change; A08 continues the existing write-consolidation programme.
@@ -36,7 +36,7 @@ before starting an independent one. Dependencies are stated in each task.
 | Task | Priority | Concrete result | Main owner |
 | --- | --- | --- | --- |
 | [A01](#a01-preserve-caller-owned-backup-staging) | Implemented; PR review | Cleanup removes only scratch owned by the backup run. | Storage backup |
-| [A02](#a02-enforce-store-read-only-intent) | First | Backend construction preserves and enforces read-only intent. | Storage registry and Stores |
+| [A02](#a02-enforce-store-read-only-intent) | Implemented; PR review | Four affected builders preserve and enforce read-only intent through durable reload. | Storage registry and Stores |
 | [A03](#a03-make-database-creation-nondestructive-by-default) | First | Creating over an existing database requires an explicit replacement operation. | Databases and Core bootstrap |
 | [A04](#a04-separate-resource-lifetime-from-transaction-lifetime) | First | Exceptions and nested mutations have one explicit transaction contract. | Databases, with Catalog/storage callers |
 | [A05](#a05-enforce-deletion-policy-at-the-mutation-boundary) | First | Removing bytes cannot bypass retention/last-copy policy. | Storage manager |
@@ -72,21 +72,24 @@ remains outside this workflow's synchronization contract.
 
 ## A02. Enforce Store read-only intent
 
-**Findings:** ST-2. **First PR:** registry-to-Store policy propagation.
+**Findings:** ST-2. **Implemented for PR review, 2026-10-20.**
 **Dependencies:** none; use this result in A05.
 
 The compatibility builders in
 [`storage.utils.backend_registry`](../../src/LiuXin_alpha/storage/utils/backend_registry.py)
-lose `StoreConfiguration.read_only` for several writable families. Pass the
-configured policy through managed, flat, Calibre-like and SQLite construction,
-and verify that resulting Store operations enforce it. Check supported mutation
-methods, including byte deletion and publication, rather than only inspecting
-an attribute. Preserve intrinsically read-only backend restrictions.
+now preserve `StoreConfiguration.read_only` through managed, flat, Calibre-like
+and SQLite construction, including their raw drivers. SQLite opens existing
+containers with `mode=ro`, validates the object schema without initialization
+writes, and closes each operation's connection. Intrinsic read-only restrictions
+remain intact.
 
-**Done when:** direct Store and manager write/delete calls refuse before effects
-when configured read-only, while supported writes still work when enabled.
-Failures leave bytes and metadata unchanged. Tests cover each affected builder
-through the registry rather than substituting a preconfigured fake Store.
+[Regression tests](../../tests/storage/test_read_only_backend_construction.py)
+exercise Store and manager mutations, driver refusal, writable controls and
+catalogue reopen/reload on both database drivers. Refusals preserve stored bytes
+and metadata. SQLite cases also cover missing storage/schema, engine-level write
+refusal and live WAL commits. See the
+[construction contract](../storage_and_backup/storage_api.md#read-only-store-construction)
+for WAL sidecar behaviour and scope. A05's retention/last-copy policy remains open.
 
 ## A03. Make database creation nondestructive by default
 

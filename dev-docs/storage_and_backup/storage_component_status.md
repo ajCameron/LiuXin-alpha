@@ -8,8 +8,11 @@ Updated: 2026-10-08
 
 The A01/STOR01 follow-up now gives backup runs private staging workspaces and preserves
 caller-owned parents through cleanup and recovery; it is implemented for PR review.
-Inconsistent read-only configuration propagation and bypassable last-copy/retention
-checks remain the first [next tasks](next_tasks.md). `LibraryServices` now composes
+A02/STOR02 also preserves read-only policy through the four affected local
+builders, drivers and durable reload; see the
+[construction contract](storage_api.md#read-only-store-construction).
+Bypassable last-copy/retention checks remain the first storage
+[next task](next_tasks.md#stor03-enforce-retention-at-byte-deletion). `LibraryServices` now composes
 the owned application graph, including `CoreServices`; direct Database construction
 remains available and has a separate lifecycle contract.
 
