@@ -1,5 +1,11 @@
 # Working Memory Index
 
+Active work, **2026-10-20**: [policy-definition ownership](storage-policy-owner-2026-10-20.md)
+continues A10 on `storage-owned-policy-mutations`, based on published audit PR #142
+(`8e57d575`). Fourteen reproduced failures are corrected; initial regressions
+passed 41 tests; 32 final contract cases, 36 docs/tooling checks and all quality gates passed. The full programme remains
+open and main's unrelated staged storage edits are preserved.
+
 Active work, **2026-10-20**: [durable Core audit](core-durable-audit-2026-10-20.md) passed 91 final regression checks, 70 compatibility checks and full quality gates on `core-durable-storage-audit`, based on published storage-ownership PR #141 (`7f67a4d1`). PRs #139 and #140 have green full suites. The full A01–A16 programme remains open; preserve the six unrelated staged storage edits.
 
 Active implementation checkpoint, **2026-10-20**:

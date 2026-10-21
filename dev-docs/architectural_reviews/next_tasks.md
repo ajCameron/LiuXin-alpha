@@ -317,6 +317,12 @@ owner instead of changing identities and scalar rows directly. The
 compatibility change, historical fingerprint limitation and remaining families.
 This prerequisite lets A09 verification rely on those normal writers' revisions.
 
+The following policy-definition slice moves generic replication/backup policy
+CRUD through storage as well. Partial updates preserve the current definition,
+check its revision and retain committed receipts on readback/cache failure.
+Assigned-policy deletion uses the owner. Composite/link and legacy file adapters
+remain open.
+
 Choose the storage-owned boundary for Asset/Replica and retained files/link-table
 writes, building on the durable manager/repository adapters already present.
 Move reconciliation and Core storage-graph admin calls through it. Catalog keeps

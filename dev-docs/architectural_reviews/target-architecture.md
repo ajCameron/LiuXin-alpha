@@ -208,7 +208,7 @@ passive. Asset/Replica identity and recovery are separate from bibliographic
 matching. Database commits, backend publication and cleanup have distinct failure
 boundaries. A05 now enforces retention/last-copy policy at both manager deletion
 entries. A10's first [record-mutation family](../storage_and_backup/record-mutations.md)
-closes generic Asset/Replica writes and moves policy assignment and FRBR source
+closes generic Asset/Replica writes and moves policy assignment/definitions and FRBR source
 indexing through storage. Other mutation callers and recovery coordination remain
 open. See the [storage overview](<../06 - Storage.md>).
 
