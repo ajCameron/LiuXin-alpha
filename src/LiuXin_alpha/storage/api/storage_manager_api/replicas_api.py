@@ -209,9 +209,11 @@ class ReplicaLifecycleAPI(abc.ABC):
         """
         Coordinate optional physical deletion with a deleted-state tombstone or record removal.
 
-        Preserving bytes and retaining a tombstone is permitted. Backend deletion and metadata
-        mutation can fail separately; a removal report is produced only when the implementation
-        completes its sequence.
+        Preserving bytes and retaining a tombstone is permitted. When deleting bytes, use the same
+        retention/last-copy policy as manager.delete. The concrete manager commits a DELETING
+        reservation before external I/O, then finalizes metadata. Backend and metadata failures can
+        be separate; StorageDeletionError retains recovery evidence. Active reservations cannot be
+        forgotten, tombstoned by metadata-only removal, or silently re-verified.
 
         Example:
             >>> result = manager.remove_replica(replica_id, delete_bytes=False, retain_tombstone=True)  # doctest: +SKIP

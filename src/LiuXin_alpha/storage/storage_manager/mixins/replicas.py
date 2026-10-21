@@ -8,9 +8,7 @@ completed physical changes when a later phase fails.
 
 from __future__ import annotations
 
-import dataclasses
 from collections.abc import Iterable, Iterator
-from datetime import UTC, datetime
 from typing import override
 
 from LiuXin_alpha.storage.api import errors as storage_errors
@@ -214,7 +212,8 @@ class ReplicaLifecycleMixin(_StorageManagerState):
         The report becomes an observation with error messages joined by semicolons, then the update
         hook replaces metadata and advances revision/generation. Observation validation or
         persistence can fail after inspection. This method does not require the report to be
-        healthy, and it adds no revision precondition tying the update to the initially read record.
+        healthy. The initial record revision guards the update; stale inspections and pending or
+        deleted claims are refused rather than reviving evidence after a concurrent deletion.
 
         Example:
             >>> report = manager.verify_replica(replica_id, calculate_digests=True)  # doctest: +SKIP
@@ -239,7 +238,9 @@ class ReplicaLifecycleMixin(_StorageManagerState):
             checked_at=report.checked_at,
             failure_reason="; ".join(report.errors) if report.errors else None,
         )
-        self._update_replica_observation(replica_id, observation)
+        self._update_replica_observation(
+            replica_id, observation, if_revision=record.revision
+        )
         return report
 
     @override
@@ -381,82 +382,6 @@ class ReplicaLifecycleMixin(_StorageManagerState):
         )
 
     @override
-    def remove_replica(
-        self,
-        replica_id: manager_api.ReplicaID,
-        *,
-        delete_bytes: bool = True,
-        retain_tombstone: bool = True,
-    ) -> manager_api.ReplicaRemovalReport:
-        """
-        Optionally delete the claimed bytes, then tombstone or remove the current Replica record.
-
-        Only StoreNotFound from the initial stat is treated as already absent. Otherwise deletion
-        requests missing_ok=True and uses the observed version only when conditional deletion is
-        advertised. bytes_deleted becomes True after the delete call returns, regardless of its
-        return value; this is not a separate absence check.
-
-        Metadata is then changed under the lock and transaction hook without a revision
-        precondition. Tombstoning replaces the observation with DELETED at the current UTC time and
-        advances revision; either branch advances Replica generation. If bytes are deliberately
-        preserved with a tombstone, the report includes a warning. A later metadata error can follow
-        completed byte deletion, and no byte rollback is provided.
-
-        Example:
-            >>> report = manager.remove_replica(replica_id, retain_tombstone=True)  # doctest: +SKIP
-
-
-        :param replica_id: Manager-assigned Replica ID to resolve.
-        :param delete_bytes: Whether to stat and attempt deletion before metadata mutation.
-        :param retain_tombstone: Whether to replace observation with DELETED instead of deleting the record.
-        :return: Removal flags and warnings after both requested phases complete; unknown identities and unsuppressed failures raise.
-        """
-
-        record = self.get_replica_record(replica_id)
-        bytes_deleted = False
-        warnings: list[str] = []
-        if delete_bytes:
-            try:
-                info = self.stat(record.location)
-            except storage_errors.StoreNotFound:
-                pass
-            else:
-                capabilities = self.capabilities(record.location.store_ref)
-                version = info.version if capabilities.conditional_delete else None
-                self.delete(
-                    record.location,
-                    missing_ok=True,
-                    if_version=version,
-                )
-                bytes_deleted = True
-        elif retain_tombstone:
-            warnings.append("tombstone retained while physical bytes were preserved")
-
-        with self._lock, self._metadata_transaction():
-            current = self._require_replica_locked(replica_id)
-            if retain_tombstone:
-                self._replicas[replica_id] = dataclasses.replace(
-                    current,
-                    observation=manager_api.ReplicaObservation(
-                        manager_api.ReplicaState.DELETED,
-                        checked_at=datetime.now(UTC),
-                    ),
-                    revision=self._new_revision_locked(),
-                )
-                replica_forgotten = False
-            else:
-                del self._replicas[replica_id]
-                replica_forgotten = True
-            self._replica_generation += 1
-        return manager_api.ReplicaRemovalReport(
-            replica_id,
-            bytes_deleted,
-            replica_forgotten,
-            retain_tombstone,
-            tuple(warnings),
-        )
-
-    @override
     def forget_replica(
         self,
         replica_id: manager_api.ReplicaID,
@@ -506,6 +431,10 @@ class ReplicaLifecycleMixin(_StorageManagerState):
             if current is None:
                 return False
             self._check_revision(current.revision, if_revision)
+            if current.state is manager_api.ReplicaState.DELETING:
+                raise storage_errors.StoragePreconditionFailed(
+                    "Replica has a pending deletion reservation."
+                )
             del self._replicas[replica_id]
             self._replica_generation += 1
             return True

@@ -3800,7 +3800,7 @@ def test_reference_manager_records_exact_derivation_and_disposable_policy() -> N
     result_replica = next(
         manager.iter_replica_records(digital_asset_id=result.digital_asset_id)
     )
-    manager.remove_replica(result_replica.replica_id)
+    _simulate_replica_loss(manager, result_replica.replica_id)
     assessment = manager.assess_digital_asset(result.digital_asset_id)
 
     assert derivation.can_recreate_exactly
@@ -4636,8 +4636,8 @@ def test_recreation_plan_selects_shortest_route_and_orders_chain() -> None:
     assert available.already_available
     assert not available.requires_replay
 
-    manager.remove_replica(epub_ingest.replica_record.replica_id)
-    manager.remove_replica(mobi_ingest.replica_record.replica_id)
+    _simulate_replica_loss(manager, epub_ingest.replica_record.replica_id)
+    _simulate_replica_loss(manager, mobi_ingest.replica_record.replica_id)
 
     shortest = manager.plan_digital_asset_recreation(mobi.digital_asset_id)
     assert shortest.can_recreate_exactly
@@ -4930,7 +4930,7 @@ def test_uri_only_recipe_artifacts_require_an_availability_resolver() -> None:
     result_replica = next(
         manager.iter_replica_records(digital_asset_id=result.digital_asset_id)
     )
-    manager.remove_replica(result_replica.replica_id)
+    _simulate_replica_loss(manager, result_replica.replica_id)
     recreation_plan = manager.plan_digital_asset_recreation(result.digital_asset_id)
     assert not recreation_plan.can_recreate_exactly
     assert result.digital_asset_id in (recreation_plan.unavailable_digital_asset_ids)
@@ -4961,7 +4961,7 @@ def test_optional_composite_members_do_not_make_assessment_unreadable() -> None:
     )
     required = manager.ingest_bytes(b"required").asset_record
     optional_result = manager.ingest_bytes(b"optional")
-    manager.remove_replica(optional_result.replica_record.replica_id)
+    _simulate_replica_loss(manager, optional_result.replica_record.replica_id)
     composite = manager.declare_composite_digital_asset(
         api.CompositeDigitalAssetDeclaration(
             (
@@ -5582,3 +5582,10 @@ def test_convenience_provenance_hides_source_reference_objects() -> None:
         composite_derivation.declaration.sources[0].composite_digital_asset_id
         == composite.composite_digital_asset_id
     )
+
+
+def _simulate_replica_loss(manager, replica_id):
+    """Exercise loss/recreation after an external byte loss, outside managed deletion policy."""
+    record = manager.get_replica_record(replica_id)
+    manager.get_store(record.location.store_ref).delete(record.location)
+    manager.remove_replica(replica_id, delete_bytes=False)

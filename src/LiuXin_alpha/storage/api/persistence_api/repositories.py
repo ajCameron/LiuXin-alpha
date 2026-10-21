@@ -732,9 +732,7 @@ class DigitalAssetDerivationRepositoryAPI(Protocol):
         *,
         result_digital_asset_id: DigitalAssetID | None = None,
         source_digital_asset_id: DigitalAssetID | None = None,
-        source_composite_digital_asset_id: (
-            CompositeDigitalAssetID | None
-        ) = None,
+        source_composite_digital_asset_id: (CompositeDigitalAssetID | None) = None,
         workflow_id: int | None = None,
         workflow_reference: str | None = None,
         exact_only: bool = False,
@@ -1048,7 +1046,7 @@ class StorageUnitOfWorkFactoryAPI(Protocol):
         >>> unit_of_work = factory.begin()  # doctest: +SKIP
     """
 
-    def begin(self) -> StorageUnitOfWorkAPI:
+    def begin(self, *, serialized: bool = True, require_outermost: bool = False) -> StorageUnitOfWorkAPI:
         """
         Create a fresh metadata unit of work for subsequent context entry.
 
@@ -1060,6 +1058,9 @@ class StorageUnitOfWorkFactoryAPI(Protocol):
             >>> unit_of_work = factory.begin()  # doctest: +SKIP
 
 
+        :param serialized: Require the provider's cooperating writer reservation
+            before reading state. Unsupported providers must refuse before effects.
+        :param require_outermost: Refuse nesting or borrowing; successful exit must commit.
         :return: A fresh unit-of-work context object whose transaction starts according to the provider entry lifecycle.
         """
         ...

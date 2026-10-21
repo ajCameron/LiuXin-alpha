@@ -244,8 +244,9 @@ class StorageOperationalStatusMixin(_StorageManagerState):
         """
         Inspect stored Replica state without reading or verifying bytes. MISSING and CORRUPT produce
         error severity; UNAVAILABLE produces warning severity. Corruption has its own issue code,
-        while missing/unavailable share replica_unavailable. Each receives a replication suggestion;
-        other states are ignored.
+        while missing/unavailable share replica_unavailable. Each receives a replication suggestion.
+        DELETING produces a pending-deletion warning and a manual inspection action; it must not
+        trigger automatic repair while the byte operation may still be running. Other states are ignored.
 
         Example:
             >>> issues, actions = manager._replica_operational_findings()  # doctest: +SKIP
@@ -262,6 +263,28 @@ class StorageOperationalStatusMixin(_StorageManagerState):
             manager_api.ReplicaState.CORRUPT,
         }
         for replica in self.iter_replica_records():
+            if replica.state is manager_api.ReplicaState.DELETING:
+                issues.append(
+                    manager_api.StorageOperationalIssue(
+                        "replica_deletion_pending",
+                        manager_api.StorageOperationalSeverity.WARNING,
+                        f"Replica {replica.replica_id} has deletion reservation {replica.revision}; byte outcome may be unknown.",
+                        digital_asset_id=replica.digital_asset_id,
+                        replica_id=replica.replica_id,
+                        store_ref=replica.location.store_ref,
+                        recoverability=manager_api.StorageOperationalRecoverability.MANUAL,
+                    )
+                )
+                actions.append(
+                    manager_api.StorageRecoveryAction(
+                        "inspect_replica_deletion",
+                        "Stop the original operation; inspect bytes and exact reservation revision before privileged metadata repair.",
+                        digital_asset_id=replica.digital_asset_id,
+                        replica_id=replica.replica_id,
+                        store_ref=replica.location.store_ref,
+                    )
+                )
+                continue
             if replica.state not in unhealthy_states:
                 continue
             corrupt = replica.state is manager_api.ReplicaState.CORRUPT

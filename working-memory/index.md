@@ -1,12 +1,17 @@
 # Working Memory Index
 
 Latest implementation checkpoint, **2026-10-20**:
-[transaction ownership](transaction-ownership-2026-10-20.md) records A04's
-implementation, 426 passing caller checks, 62 passing PostgreSQL checks,
-52 documentation/API checks and complete quality gates on
-`database-transaction-ownership`, published as PR #132. A05 deletion policy is next.
-A15 PR #131 has green quality/packaging/format checks on `a0e4d2ed`; current-head
-full CI is still running. The full A01–A16 programme remains open.
+[deletion policy](deletion-policy-2026-10-20.md) implements A05 on
+`storage-deletion-policy`, based on `e9efedc4`. Both manager deletion routes share
+policy, durable reservations and recovery evidence. The final isolated selection
+passed 110 tests with live PostgreSQL, SQLite, Core and CLI; full quality gates
+passed. Published as PR #133 (`938f9a22`); its full PR CI is pending. A06 transport authority
+is the next runtime task. The full A01–A16 programme remains open.
+
+[A04 transaction ownership](transaction-ownership-2026-10-20.md), PR #132, is green
+on `e9efedc4`: full CI passed 7,403 tests, 259 skipped, 17 xfailed. A15 PR #131 is
+also green on `a0e4d2ed`: 7,388 passed, 249 skipped, 17 xfailed. Neither is merged.
+The six unrelated staged storage files and dirty data submodule remain preserved.
 
 Earlier implementation checkpoint, **2026-10-20**:
 [CI baseline repair](ci-baseline-repair-2026-10-20.md) continues the full A01–A16

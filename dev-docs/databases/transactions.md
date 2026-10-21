@@ -67,6 +67,23 @@ with db.macros.transaction():
 # Both inserts commit together; either failure rolls back this outer unit.
 ```
 
+## Serialized storage decisions
+
+A05 extends the same owner with `transaction(serialized=True)`: SQLite reserves
+its writer with `BEGIN IMMEDIATE`; PostgreSQL takes an advisory transaction lock
+shared by participating units in that database/schema. A nested serialized unit
+requires an already serialized outer owner; ordinary/borrowed units cannot be
+upgraded. Raw SQL and external Store byte operations do not participate in the
+PostgreSQL advisory contract.
+
+`require_outermost=True` refuses nesting or borrowing before effects. Successful
+exit must represent a real commit, so deletion reservations cannot remain hidden
+inside a caller's uncommitted transaction. Storage database units serialize by
+default, and their repository reads bypass per-facade caches while serialized.
+Explicit `serialized=False` is a lower-level escape, not a safe policy-decision
+boundary. See [managed deletion](../storage_and_backup/deletion_policy.md) for
+independent reservation, external byte and final metadata phases.
+
 ## Commit-point inventory and lower-level escapes
 
 The common write boundary does not turn every historical SQL helper into an
@@ -89,6 +106,12 @@ write paths must use the existing semantic owner. A08 and A10 track additional
 writer consolidation; A05 tracks metadata/byte-deletion policy and recovery.
 Transaction rollback does not promise undo of an already completed external
 effect or a commit whose outcome is unknown after connection loss.
+
+Storage callers composing manager units must reserve serialization at their
+outer boundary; an ordinary transaction cannot be upgraded after reads.
+[SquashFS publication](../../src/LiuXin_alpha/storage/reconcile/squashfs_db_sync.py)
+uses a serialized macro unit around source/archive registration so its nested
+manager writes retain the same transaction and writer reservation.
 
 ## Evidence
 

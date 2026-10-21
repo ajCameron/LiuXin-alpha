@@ -16,9 +16,11 @@ For a task-oriented entry point, use the [storage developer guide](README.md).
 The API separates driver mechanics, configured Stores and manager policy, but
 these boundaries do not yet enforce every safety rule:
 
-- `manager.delete(location)` delegates physical deletion without updating Replica
-  claims or checking loss policy. `remove_replica(...)` can delete bytes before
-  metadata mutation; a later metadata failure cannot restore those bytes.
+- `manager.delete(location)` and `remove_replica(...)` share the
+  [managed deletion contract](deletion_policy.md): protected modes, last-copy and
+  applicable retention/separation checks precede a committed reservation.
+  Partial byte/metadata outcomes retain recovery evidence; a SQL rollback cannot
+  restore deleted bytes. Raw Store/driver access remains privileged.
 - Byte publication and catalogue transactions remain separate effects. Journals
   and verification support recovery; they are not a distributed atomic transaction.
 
@@ -1057,6 +1059,9 @@ The public manager uses domain names only for domain operations:
 `STAGED` describes publication work that is not yet committed for serving. A
 STAGED Replica may be selected for verification or reconciliation work, but it
 is never returned as readable content or counted as a readable policy copy.
+`DELETING` records committed deletion intent and is also excluded from readable
+or surviving copies. Verification cannot revive pending or completed deletions;
+see [failure and recovery evidence](deletion_policy.md#failures-and-recovery-evidence).
 
 Manager lookup names state when they return records—for example,
 `get_digital_asset_record()` and `iter_replica_records()`. Equivalent database

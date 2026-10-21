@@ -136,7 +136,11 @@ def test_writable_registry_backends_still_publish_replace_and_delete(tmp_path, k
         assert store.read_bytes(existing) == b"replacement"
         new = store.store_bytes(b"new", location="new").location
         assert manager.read_bytes(new) == b"new"
-        manager.delete(existing)
+        # Manager deletion now requires registered claims and loss-policy evidence.
+        with pytest.raises(api.StoragePolicyUnsatisfied):
+            manager.delete(existing)
+        assert store.read_bytes(existing) == b"replacement"
+        store.delete(existing)
         store.delete(new)
         assert list(store.iter_locations()) == []
 

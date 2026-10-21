@@ -1,5 +1,5 @@
 """
-Export the twelve responsibility-specific storage-manager implementation mixins.
+Export the responsibility-specific storage-manager implementation mixins.
 
 These classes mirror Store administration, routing, Asset/Replica workflows,
 Item and Composite links, provenance, policy, reconciliation, and operational
@@ -14,6 +14,7 @@ from LiuXin_alpha.storage.storage_manager.mixins.catalog import (
 from LiuXin_alpha.storage.storage_manager.mixins.composites import (
     CompositeDigitalAssetMixin,
 )
+from LiuXin_alpha.storage.storage_manager.mixins.deletion import StorageDeletionMixin
 from LiuXin_alpha.storage.storage_manager.mixins.derivations import (
     DigitalAssetDerivationRegistryMixin,
 )
@@ -38,6 +39,7 @@ from LiuXin_alpha.storage.storage_manager.mixins.stores import StoreAdministrati
 __all__ = [
     "StoreAdministrationMixin",
     "StorageRouterMixin",
+    "StorageDeletionMixin",
     "DigitalAssetRegistryMixin",
     "DigitalAssetIngestMixin",
     "DigitalAssetRetrievalMixin",

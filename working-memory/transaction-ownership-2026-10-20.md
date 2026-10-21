@@ -89,3 +89,10 @@ without requiring its optional package. The parametrized driver fixture now
 skips only that driver when APSW is absent. The same file passes 19 tests with
 APSW installed and 15 with four explicit skips in the clean CI-like environment.
 Other full-run lanes passed. The follow-up full CI is pending.
+
+## Final CI outcome
+
+The corrected head `e9efedc4` passed full CI run 39450272043: **7,403 passed,
+259 skipped, 17 xfailed**, with quality, packaging and format lanes also green.
+This supersedes the pending statuses above. A15 also passed its final full run;
+A05 now has its own implementation and validation checkpoint. No PR was merged.

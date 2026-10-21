@@ -1704,8 +1704,9 @@ def _register_verified_digital_asset_replicas(
     outcomes: Sequence[Mapping[str, object]],
 ) -> tuple[int, int]:
     """
-    Adopt verified source/archive locations as two Replicas of one Digital Asset within a database
-    macro transaction.
+    Adopt verified source/archive locations as two Replicas of one Digital Asset within a
+    serialized database macro transaction. Reserve the shared metadata writer before the
+    nested StorageManager units begin; an ordinary outer transaction cannot be upgraded.
 
     Process only outcomes marked should_duplicate; require designation context, source/target Store
     UUIDs, and a database StorageManager. Adopt the source as ACTIVE and the same Asset in the
@@ -1743,7 +1744,7 @@ def _register_verified_digital_asset_replicas(
 
     asset_count = 0
     replica_count = 0
-    with db.macros.transaction():
+    with db.macros.transaction(serialized=True):
         for outcome in outcomes:
             if not bool(outcome.get("should_duplicate")):
                 continue

@@ -18,12 +18,14 @@ from __future__ import annotations
 import json
 from collections.abc import (
     Callable,
+    Generator,
     Iterable,
     Mapping,
 )
-from contextlib import AbstractContextManager
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Any, TypeVar, cast
+from threading import local
 from uuid import UUID
 
 from LiuXin_alpha.storage.api import errors as storage_errors
@@ -199,6 +201,7 @@ class DatabaseStorageMetadataRepository:
         self.db = db
         self.macros = db.macros
         self._types = _storage_value_types(additional_types)
+        self._transaction_reads = local()
         self.cache: Any | None = None
         self._cached_tables: frozenset[str] = frozenset()
         self._cache_tables: frozenset[str] = frozenset()
@@ -284,21 +287,38 @@ class DatabaseStorageMetadataRepository:
             return tuple(sorted(cls._REQUIRED_TABLES))
         return tuple(sorted(cls._REQUIRED_TABLES - tables))
 
-    def transaction(self) -> AbstractContextManager[Any]:
+    @contextmanager
+    def transaction(
+        self, *, serialized: bool = True, require_outermost: bool = False
+    ) -> Generator[Any, None, None]:
         """
-        Return macros.transaction() without entering it. Transaction nesting, commit, rollback, and
-        resource ownership belong to the database provider; this wrapper neither begins a with block
-        nor changes cache state.
+        Enter the provider's transaction and make serialized reads authoritative.
+
+        Serialized units reserve the cooperating database writer before reading metadata and bypass
+        per-facade record caches while active. This prevents a stale cache from concealing another
+        owner's deletion reservation. Nested units retain an existing authoritative-read context.
+        Commit, rollback and connection lifetime belong to the provider. require_outermost refuses
+        nesting so a successful phase exit commits before external effects.
 
         Example:
             >>> with repository.transaction():  # doctest: +SKIP
             ...     repository.upsert_asset(record)
 
 
+        :param serialized: Require a cooperating writer reservation before state reads.
+        :param require_outermost: Refuse nesting so exit commits before external byte effects.
         :return: The provider transaction context for the caller to enter.
         """
 
-        return cast(AbstractContextManager[Any], self.macros.transaction())
+        with self.macros.transaction(
+            serialized=serialized, require_outermost=require_outermost
+        ) as connection:
+            previous = getattr(self._transaction_reads, "authoritative", False)
+            self._transaction_reads.authoritative = previous or serialized
+            try:
+                yield connection
+            finally:
+                self._transaction_reads.authoritative = previous
 
     def migrate_envelopes(self) -> int:
         """
@@ -857,9 +877,10 @@ class DatabaseStorageMetadataRepository:
         row_id: int,
     ) -> Mapping[str, Any] | None:
         """
-        Read one row from a covered shared cache, otherwise call macros.get_row with the explicit
-        identity column. Cache misses return None without consulting macros, and cache errors remain
-        visible. Cached record values are returned without copying.
+        Serialized metadata units read macros directly, bypassing potentially stale shared caches.
+        Otherwise read a covered cache or call macros.get_row with the explicit identity column.
+        Cache misses return None without consulting macros, and cache errors remain visible.
+        Cached record values are returned without copying.
 
         Example:
             >>> row = repository._record_row("digital_assets", "digital_asset_id", 7)  # doctest: +SKIP
@@ -871,7 +892,11 @@ class DatabaseStorageMetadataRepository:
         :return: The raw row mapping, or None for a missing provider value.
         """
 
-        if self.cache is None or table not in self._cached_tables:
+        if (
+            getattr(self._transaction_reads, "authoritative", False)
+            or self.cache is None
+            or table not in self._cached_tables
+        ):
             return cast(
                 Mapping[str, Any] | None,
                 self.macros.get_row(table, row_id, id_column=id_column),
@@ -886,9 +911,10 @@ class DatabaseStorageMetadataRepository:
         order_by: tuple[str, ...],
     ) -> tuple[Mapping[str, Any], ...]:
         """
-        Materialize ordered row references from macros or a covered cache query. The cache path
-        creates one ascending CacheSort per requested column and returns record.values. Neither path
-        independently deep-copies rows, retries failure, or ensures a cross-table snapshot.
+        Materialize ordered row references directly from macros during serialized metadata units;
+        otherwise use macros or a covered cache query. The cache path creates one ascending
+        CacheSort per requested column and returns record.values. Neither path independently
+        deep-copies rows, retries failure, or ensures a cross-table snapshot.
 
         Example:
             >>> rows = repository._record_rows("digital_assets", order_by=("digital_asset_id",))  # doctest: +SKIP
@@ -899,7 +925,11 @@ class DatabaseStorageMetadataRepository:
         :return: A tuple of provider row mappings in the requested provider order.
         """
 
-        if self.cache is None or table not in self._cached_tables:
+        if (
+            getattr(self._transaction_reads, "authoritative", False)
+            or self.cache is None
+            or table not in self._cached_tables
+        ):
             return tuple(self.macros.get_rows(table, order_by=order_by))
         from LiuXin_alpha.caches.api import CacheQuery, CacheSort
 

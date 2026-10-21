@@ -12,22 +12,22 @@ import pytest
 from LiuXin_alpha.storage import api
 
 
-def test_delete_is_strict_by_default_and_optionally_idempotent(manager, location) -> None:
+def test_delete_is_strict_by_default_and_optionally_idempotent(store, location) -> None:
     """
     Require deleting an absent Location to raise StoreNotFound by default and complete without error
     when missing_ok=True. No object is published in this case.
 
     Example:
-        >>> test_delete_is_strict_by_default_and_optionally_idempotent(manager, location)  # doctest: +SKIP
+        >>> test_delete_is_strict_by_default_and_optionally_idempotent(store, location)  # doctest: +SKIP
 
 
-    :param manager: Fixture providing a transient manager attached to the primary and secondary filesystem Stores.
+    :param store: Privileged Store mechanism without manager-owned Replica policy.
     :param location: Primary Store Location for objects/book.epub; resolving it does not publish bytes.
     :return: None after the stated contract assertions pass.
     """
     with pytest.raises(api.StoreNotFound):
-        manager.delete(location)
-    manager.delete(location, missing_ok=True)
+        store.delete(location)
+    store.delete(location, missing_ok=True)
 
 
 def test_filesystem_delete_does_not_claim_an_atomic_version_precondition(
@@ -63,7 +63,7 @@ def test_stat_and_try_stat_do_not_hide_availability_categories(manager, location
         >>> test_stat_and_try_stat_do_not_hide_availability_categories(manager, location)  # doctest: +SKIP
 
 
-    :param manager: Fixture providing a transient manager attached to the primary and secondary filesystem Stores.
+    :param store: Privileged Store mechanism without manager-owned Replica policy.
     :param location: Primary Store Location for objects/book.epub; resolving it does not publish bytes.
     :return: None after the stated contract assertions pass.
     """

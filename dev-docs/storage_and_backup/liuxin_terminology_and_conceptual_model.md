@@ -1128,7 +1128,7 @@ The result depends on whether the destination remains under LiuXin’s control.
 
 ## Deletion
 
-This section defines the distinction, not universal enforcement. Current raw manager deletion and Replica removal still need the shared loss/retention boundary in [STOR03](next_tasks.md#stor03-enforce-retention-at-byte-deletion).
+The manager now enforces the [shared deletion policy](deletion_policy.md) for routed deletion and Replica removal. Raw Stores/drivers and direct persistence access remain privileged mechanisms; the conceptual distinction is not universal enforcement over external actors.
 
 Deletion should distinguish between deleting a Replica and deleting metadata.
 

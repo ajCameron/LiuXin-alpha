@@ -903,14 +903,16 @@ class _StorageManagerSupportMixin(_StorageManagerState):
         self,
         replica_id: manager_api.ReplicaID,
         observation: manager_api.ReplicaObservation,
+        *,
+        if_revision: str | None = None,
     ) -> manager_api.ReplicaRecord:
         """
         Replace one existing observation under the manager lock and metadata context.
 
         The supplied observation is retained without probing bytes. Allocate a new revision, assign
         the replacement record, and increment the global Replica generation even when evidence is
-        equal. No caller revision precondition is accepted; transaction rollback is
-        adapter-specific.
+        equal. Reject pending/deleted claims and stale supplied revisions so a verification
+        finishing after deletion cannot revive old evidence. Transaction rollback is adapter-specific.
 
         Example:
             >>> updated = manager._update_replica_observation(replica_id, observation)  # doctest: +SKIP
@@ -918,11 +920,21 @@ class _StorageManagerSupportMixin(_StorageManagerState):
 
         :param replica_id: Existing claim identity to look up under the lock.
         :param observation: New evidence replacing the previous observation wholesale.
+        :param if_revision: Expected claim revision at inspection; None omits comparison.
         :return: New stored Replica record; missing IDs and revision/repository failures propagate.
         """
 
         with self._lock, self._metadata_transaction():
             current = self._require_replica_locked(replica_id)
+            if current.state is manager_api.ReplicaState.DELETING:
+                raise storage_errors.StoragePreconditionFailed(
+                    "Replica has a pending deletion reservation."
+                )
+            if current.state is manager_api.ReplicaState.DELETED:
+                raise storage_errors.StoragePreconditionFailed(
+                    "Replica is already deleted."
+                )
+            self._check_revision(current.revision, if_revision)
             updated = dataclasses.replace(
                 current,
                 observation=observation,
