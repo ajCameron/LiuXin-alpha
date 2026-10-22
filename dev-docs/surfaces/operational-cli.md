@@ -172,9 +172,13 @@ There are two intentionally different path contracts:
   ingest journal without pretending lost stream inputs can be replayed.
   Common configuration changes use typed `storage store update` options;
   endpoint changes are refused while live Replica claims remain.
-- `ingest disk|remote-html` submits semantic workflows for paths or sources
+- `ingest disk|remote-html|web` submits semantic workflows for paths or sources
   visible to Core. This is distinct from the heavily instrumented, CLI-local
-  `storage ingest` mixed-tree run. `ingest runs list|show|issues|resume`
+  `storage ingest` mixed-tree run. `ingest web URL` records remote candidates;
+  `--download` acquires selected copies, and `--registered-only` uses previously
+  recorded candidates. `--list`, `--status RUN_ID` and `--resume RUN_ID` expose
+  observations and saved-run recovery. See the [web-ingest runbook](../ingest/web_ingest_operations.md)
+  for budgets and provenance. `ingest runs list|show|issues|resume`
   indexes the latter's durable reports and JSONL events. Resume reconstructs
   the original safety budget and paths from `cli_started`, reuses the run UUID,
   and refuses discovery/preflight attempts or a successful run without

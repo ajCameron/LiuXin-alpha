@@ -131,6 +131,20 @@ liuxin ingest runs issues RUN_UUID --system-root /srv/liuxin
 liuxin ingest runs resume RUN_UUID --system-root /srv/liuxin
 ```
 
+## Web ingest CLI
+
+Web sources can be recorded without mirroring, then downloaded selectively:
+
+```bash
+liuxin ingest web https://example.org/books/ --system-root /srv/liuxin
+liuxin ingest web https://example.org/books/ --download --registered-only \
+  --extension epub --system-root /srv/liuxin
+```
+
+See the [web-ingest runbook](dev-docs/ingest/web_ingest_operations.md) for native
+and wget discovery, limits, provenance and resume. Registration records observed
+links; only verified acquisitions become managed Assets and Replicas.
+
 ## Metadata CLI
 
 The packaged metadata surface supports hydrated catalogue reads, deterministic
