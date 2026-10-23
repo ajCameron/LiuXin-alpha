@@ -10,6 +10,7 @@ from pathlib import Path
 from uuid import UUID
 
 from LiuXin_alpha.ingest.resource_monitor import ResourceMonitor
+from LiuXin_alpha.surfaces.cli.storage_commands.constants import EXIT_ISSUES
 from LiuXin_alpha.surfaces.cli.storage_commands.ingest_config import resource_policy
 from LiuXin_alpha.surfaces.cli.storage_commands.ingest_reporting import _log
 from LiuXin_alpha.utils.logging.run_logging import RunLoggingSession
@@ -49,3 +50,31 @@ def resource_monitor(
         log_session.check_health()
 
     return ResourceMonitor(resource_policy(args), paths, emit)
+
+
+def apply_resource_result(
+    args: argparse.Namespace,
+    payload: dict[str, object],
+    resources: ResourceMonitor,
+    exit_code: int,
+) -> int:
+    """Attach final resource evidence and preserve preflight readiness on an early stop."""
+    summary = resources.summary()
+    payload["resources"] = summary
+    if resources.reason is not None:
+        exit_code = EXIT_ISSUES
+        payload["ok"] = False
+        payload["halt_reason"] = resources.reason
+    if args.preflight_only:
+        preflight = payload.setdefault("preflight", {"checks": []})
+        assert isinstance(preflight, dict)
+        preflight["ready"] = bool(payload["ok"])
+        preflight["resources"] = summary
+    payload["status"] = (
+        "resource_stopped"
+        if resources.reason
+        else "complete"
+        if exit_code == 0
+        else "issues"
+    )
+    return exit_code

@@ -47,7 +47,10 @@ from LiuXin_alpha.surfaces.cli.storage_commands.ingest_reporting import (
     _print_payload,
     _write_report,
 )
-from LiuXin_alpha.surfaces.cli.storage_commands.ingest_resources import resource_monitor
+from LiuXin_alpha.surfaces.cli.storage_commands.ingest_resources import (
+    apply_resource_result,
+    resource_monitor,
+)
 from LiuXin_alpha.surfaces.cli.storage_commands.ingest_run import _run_ingest
 from LiuXin_alpha.surfaces.cli.storage_commands.signals import SignalCancellation
 from LiuXin_alpha.utils.logging.run_logging import RunLoggingSession
@@ -288,16 +291,7 @@ def _run_logged_command(
                             cancellation_callback=controller.requested,
                             resources=resources,
                         )
-        payload["resources"] = resources.summary()
-        if resources.reason is not None:
-            exit_code = EXIT_ISSUES
-            payload["ok"] = False
-            payload["halt_reason"] = resources.reason
-        if args.preflight_only:
-            preflight = payload.setdefault("preflight", {"checks": []})
-            assert isinstance(preflight, dict)
-            preflight["ready"] = bool(payload["ok"])
-            preflight["resources"] = resources.summary()
+        exit_code = apply_resource_result(args, payload, resources, exit_code)
 
         received_signal = controller.signal_number
         if received_signal is not None:
@@ -305,14 +299,6 @@ def _run_logged_command(
             payload["ok"] = False
             payload["status"] = "cancelled"
             payload["signal"] = received_signal
-        else:
-            payload["status"] = (
-                "resource_stopped"
-                if resources.reason
-                else "complete"
-                if exit_code == EXIT_OK
-                else "issues"
-            )
         _enrich_terminal_payload(
             payload,
             args=args,
