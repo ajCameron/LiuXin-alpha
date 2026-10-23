@@ -4,6 +4,11 @@ Updated **2026-10-23**. These guides describe installed commands and everyday
 workflows. Start with [web ingest](web-ingest.md) to record files on a website
 without mirroring it, then acquire selected copies when needed.
 
+For first-time setup, run `liuxin init` in a terminal. The wizard offers to save
+the selected system as your default, so later commands can omit `--system-root`.
+See [setup and defaults](local-ingest.md#set-up-your-default-system) for scripted
+setup, selecting an existing installation, and per-user behaviour.
+
 For local directories and SquashFS collections, see
 [local ingest](local-ingest.md), including disk headroom, WSL host protection,
 resource telemetry and resume after a resource stop.

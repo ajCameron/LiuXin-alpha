@@ -2,9 +2,10 @@
 Initialize local catalogue layouts or guide an operator through backend setup.
 
 Path-backed initialization composes SQLite/APSW Core, registers an optional Store,
-and replaces a mode-0600 manifest after closing the session. Existing database
-files use the open path, not schema recreation. Interactive PostgreSQL setup
-delegates to its separate initializer. These workflows are not all-or-nothing:
+and replaces a mode-0600 manifest after closing the session. Successful setup can
+save that manifest as the per-user default using the existing connection owner.
+Existing database files use the open path, not schema recreation. Interactive
+PostgreSQL setup delegates to its separate initializer. These workflows are not all-or-nothing:
 directories, database/Store changes, and manifests can survive later failures.
 """
 
@@ -40,6 +41,9 @@ from LiuXin_alpha.core.settings import (
     SYSTEM_MANIFEST_FORMAT,
     SYSTEM_MANIFEST_NAME,
     SYSTEM_MANIFEST_VERSION,
+    active_connection_path,
+    load_system_profile,
+    persist_manifest_path,
 )
 
 
@@ -241,11 +245,48 @@ def _print_plan(title: str, entries: tuple[tuple[str, object], ...]) -> None:
         print("  {}: {}".format(label, value))
 
 
+def _choose_default(args: argparse.Namespace) -> bool:
+    """Include per-user default selection in the plan, respecting manifest opt-out."""
+    if getattr(args, "make_default", False):
+        return True
+    if args.no_manifest:
+        return False
+    return _prompt_yes_no(
+        "Use this system by default for future LiuXin commands for this user?",
+        default=True,
+    )
+
+
+def _save_default(manifest: Path) -> dict[str, object]:
+    """Validate and save through the existing connection owner after successful setup."""
+    resolved = load_system_profile(
+        profile=manifest, use_environment=False, use_persisted=False, required=True
+    )
+    assert resolved is not None
+    pointer = persist_manifest_path(resolved.path)
+    overridden = bool(
+        os.environ.get("LIUXIN_SYSTEM_ROOT") or os.environ.get("LIUXIN_PROFILE")
+    )
+    print(f"Saved default LiuXin system: {resolved.system_root}", file=sys.stderr)
+    if overridden:
+        print(
+            "LIUXIN_SYSTEM_ROOT or LIUXIN_PROFILE currently overrides this saved default; "
+            "unset it to use the new default.",
+            file=sys.stderr,
+        )
+    return {
+        "saved": True,
+        "manifest": str(resolved.path),
+        "connection_file": str(pointer),
+        "effective_now": not overridden,
+    }
+
+
 def _run_path_wizard(args: argparse.Namespace, backend: str) -> int:
     """
     Confirm a system-root layout and hand it to the noninteractive initializer.
 
-    Prompt for root and whether to configure a primary filesystem Store, then show
+    Prompt for root, primary filesystem Store, and saved default, then show
     the plan. Only after confirmation mutate args to disable the wizard, select
     the resolved root/backend, and reset database/store-root choices. Other options
     remain in args and may still cause later initialization validation failures.
@@ -268,6 +309,7 @@ def _run_path_wizard(args: argparse.Namespace, backend: str) -> int:
         "Create and configure the primary filesystem Store?",
         default=True,
     )
+    make_default = _choose_default(args)
     _print_plan(
         "Initialization plan",
         (
@@ -279,6 +321,11 @@ def _run_path_wizard(args: argparse.Namespace, backend: str) -> int:
                 system_root / "store" if configure_store else "not configured",
             ),
             ("existing data", "preserved"),
+            ("default for this user", "save" if make_default else "unchanged"),
+            (
+                "default connection file",
+                active_connection_path() if make_default else "unchanged",
+            ),
         ),
     )
     if not _prompt_yes_no("Apply this plan?", default=False):
@@ -290,6 +337,7 @@ def _run_path_wizard(args: argparse.Namespace, backend: str) -> int:
     args.db_type = backend
     args.no_store = not configure_store
     args.store_root = None
+    args.make_default = make_default
     return cmd_init(args)
 
 
@@ -312,10 +360,9 @@ def _run_postgres_wizard(args: argparse.Namespace) -> int:
         >>> _run_postgres_wizard(parsed_init_args)  # doctest: +SKIP
 
 
-    :param args: Caller init namespace accepted for the wizard interface; its fields
-        are not read or modified by this backend-specific path.
+    :param args: Init namespace supplying saved-default and manifest preferences.
     :return: Nonzero initializer result converted to int, or zero after optional
-        environment-file publication.
+        environment-file and saved-default publication.
     :raises ValueError: The PostgreSQL driver is unavailable or delegated validation fails.
     :raises _WizardCancelled: Input is interrupted or the final plan is declined.
     """
@@ -401,6 +448,11 @@ def _run_postgres_wizard(args: argparse.Namespace) -> int:
             ):
                 break
 
+    make_default = _choose_default(args)
+    if make_default and environment_file == active_connection_path():
+        raise ValueError(
+            "The PostgreSQL environment file must not replace the saved-connection file."
+        )
     redacted_target = redact_postgres_target(
         configured_postgres_target(
             explicit_url=url,
@@ -420,6 +472,11 @@ def _run_postgres_wizard(args: argparse.Namespace) -> int:
                 environment_file if environment_file is not None else "not written",
             ),
             ("password storage", "not added by the wizard"),
+            ("default for this user", "save" if make_default else "unchanged"),
+            (
+                "default connection file",
+                active_connection_path() if make_default else "unchanged",
+            ),
         ),
     )
     print(
@@ -460,6 +517,8 @@ def _run_postgres_wizard(args: argparse.Namespace) -> int:
             "PostgreSQL connection environment written: {}".format(written),
             file=sys.stderr,
         )
+    if make_default:
+        _save_default(system_root / SYSTEM_MANIFEST_NAME)
     return 0
 
 
@@ -483,6 +542,8 @@ def cmd_init_wizard(args: argparse.Namespace) -> int:
 
     if args.system_root or args.database:
         raise ValueError("Do not combine --wizard with SYSTEM_ROOT or --database.")
+    if args.no_manifest and getattr(args, "make_default", False):
+        raise ValueError("--make-default requires a system manifest; omit --no-manifest.")
     if not _stdin_is_interactive():
         raise ValueError(
             "The initialization wizard requires an interactive terminal. "
@@ -491,6 +552,8 @@ def cmd_init_wizard(args: argparse.Namespace) -> int:
         )
 
     print("LiuXin initialization wizard")
+    print("The system root holds the catalogue, managed Store, cache, logs and configuration.")
+    print("The saved default belongs to the current operating-system user.")
     print("No changes are made until you confirm the displayed plan.\n")
     try:
         backend = _prompt_choice(
@@ -557,6 +620,8 @@ def _layout(args: argparse.Namespace) -> dict[str, Any]:
     and no-manifest/manifest conflicts. A system root supplies catalogue.sqlite,
     optional store, materialization, log, and default manifest paths. An explicit
     database supplies no auxiliary paths unless a Store or manifest is requested.
+    Saving a default requires a published manifest, with the connection pointer
+    kept separate from database, manifest, and JSON-output destinations.
 
     Reject directory-valued databases, manifest/database equality, JSON-output
     equality with either, and databases lexically beneath the resolved Store root.
@@ -612,6 +677,19 @@ def _layout(args: argparse.Namespace) -> dict[str, Any]:
         log_directory = None
         manifest = None if not args.manifest else _resolved(args.manifest)
 
+    if getattr(args, "make_default", False):
+        if args.no_manifest or manifest is None:
+            raise ValueError(
+                "--make-default requires a system manifest; use SYSTEM_ROOT or --manifest."
+            )
+        pointer = active_connection_path()
+        output = getattr(args, "output", "-")
+        if pointer in (database, manifest) or (
+            output != "-" and _resolved(output) == pointer
+        ):
+            raise ValueError(
+                "Setup files and output must not replace the saved-connection file."
+            )
     if database.exists() and database.is_dir():
         raise ValueError("Database path is a directory: {!s}".format(database))
     if manifest is not None and manifest == database:
@@ -653,11 +731,15 @@ def cmd_init(args: argparse.Namespace) -> int:
     After session exit, replace the selected manifest with mode-0600 output unless
     disabled, then publish the command report. No transaction spans these steps:
     directory/database/Store effects and manifest writes remain after later failure.
-    Existing manifests are replaced, not merged with unknown fields.
+    Existing manifests are replaced, not merged with unknown fields. When requested,
+    a successful health result and published manifest precede saving the per-user
+    default through the same pointer owner as `connect`. Explicit/environment
+    selectors retain precedence. A later output failure does not undo that save.
 
     Result ok is always true if execution reaches publication; receipts are not
-    generally inspected for failures. Health summary tests shutdown, not receipt.ok,
-    and non-mapping health counts as ok. database_created reflects the earlier file
+    generally inspected for failures. Saving a default additionally requires a
+    mapping health result with no shutdown or explicit failure. Health summary
+    otherwise tests only shutdown. database_created reflects the earlier file
     check, and store.saved only tests that a receipt was non-None. Next-action
     tokens are suggestions, not executed commands.
 
@@ -752,6 +834,16 @@ def cmd_init(args: argparse.Namespace) -> int:
             )
         stores = core.query("storage.stores.list", {"refresh": False})
 
+    make_default = bool(getattr(args, "make_default", False))
+    if make_default and (
+        not isinstance(health, Mapping)
+        or bool(health.get("shutdown", False))
+        or not bool(health.get("ok", True))
+    ):
+        raise ValueError(
+            "Initialization health check failed; the default connection was not changed."
+        )
+
     manifest_payload = {
         "format": SYSTEM_MANIFEST_FORMAT,
         "version": SYSTEM_MANIFEST_VERSION,
@@ -787,6 +879,7 @@ def cmd_init(args: argparse.Namespace) -> int:
             mode=0o600,
         )
 
+    connection = _save_default(manifest_path) if make_default else None
     if layout["system_root"] is not None:
         next_ingest = [
             "liuxin",
@@ -803,6 +896,8 @@ def cmd_init(args: argparse.Namespace) -> int:
             "--database",
             str(database),
         ]
+    if connection is not None and connection["effective_now"]:
+        next_ingest = ["liuxin", "ingest", "/path/to/source"]
     health_summary = (
         {
             "ok": not bool(health.get("shutdown", False)),
@@ -828,7 +923,7 @@ def cmd_init(args: argparse.Namespace) -> int:
         else None
     )
     next_actions: dict[str, list[str]] = {"ingest": next_ingest}
-    if manifest_path is not None and not args.no_manifest:
+    if manifest_path is not None and not args.no_manifest and connection is None:
         next_actions["connect"] = (
             ["liuxin", "connect", str(layout["system_root"])]
             if layout["system_root"] is not None
@@ -838,6 +933,7 @@ def cmd_init(args: argparse.Namespace) -> int:
         "ok": True,
         "database": str(database),
         "database_created": not database_existed,
+        "default_connection": connection,
         "db_type": str(args.db_type),
         "created_directories": created_directories,
         "manifest": (
@@ -895,7 +991,8 @@ def build_init_parser(
             "Initialise a self-contained local system root, or an explicit "
             "path-backed catalogue. With no location in an interactive terminal, "
             "or with --wizard, choose SQLite/APSW/PostgreSQL through a guided "
-            "setup. The operation is idempotent and never deletes an existing "
+            "setup and optionally save it as your default. The operation is "
+            "idempotent and never deletes an existing "
             "Store or catalogue."
         ),
     )
@@ -914,8 +1011,13 @@ def build_init_parser(
         action="store_true",
         help=(
             "Interactively choose the database backend and location, display a "
-            "redacted plan, then initialize and check it."
+            "redacted plan, then initialize, check it, and optionally save the default."
         ),
+    )
+    parser.add_argument(
+        "--make-default",
+        action="store_true",
+        help="After successful setup, save this system as the default for the current user.",
     )
     parser.add_argument("--store-root", help="Managed local Store root.")
     parser.add_argument("--store-name", default="primary")

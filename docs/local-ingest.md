@@ -4,6 +4,51 @@ Updated **2026-10-23**. Local ingest registers source files and archive members
 in place. Nested archives can require copies in the configured materialization
 cache. It does not yet create bibliographic Works, Expressions or Manifestations.
 
+## Set up your default system
+
+Start the interactive wizard:
+
+```bash
+liuxin init
+# Explicitly request the same wizard:
+liuxin init --wizard
+```
+
+Choose SQLite for the local SquashFS workflow, a system-root directory, and
+whether to configure a managed primary Store. The wizard asks **“Use this system
+by default for future LiuXin commands for this user?”**, with Yes as the default.
+Review the plan and confirm it. The default is saved after successful setup.
+Declining that choice keeps your previous default; cancelling the plan creates
+nothing. Setup failures can leave created files; saving the default is the final
+setup step, after initialization and manifest publication succeed.
+
+For scripted setup, request saving explicitly:
+
+```bash
+liuxin init "$HOME/LiuXin" --make-default
+```
+
+To select an already configured installation, use `liuxin connect /path/to/system`.
+Later commands for the same operating-system user can omit the selector:
+
+```bash
+liuxin core health
+liuxin storage status
+liuxin ingest runs watch RUN_UUID
+liuxin connect status
+```
+
+The saved connection is a private pointer to `liuxin-system.json` in
+`$XDG_CONFIG_HOME/liuxin/active-connection.json`, normally
+`~/.config/liuxin/active-connection.json`. It is shared by the existing command
+selection mechanism. Explicit selectors override environment selectors, which
+override this saved default. Setup reports an active environment override.
+`liuxin disconnect` forgets the selection without deleting the installation.
+
+Defaults belong to the current account. A command run through `sudo` normally
+uses root's configuration, so the protected-ingest examples below retain an
+explicit `--system-root` to select your intended installation.
+
 ## Preflight and run
 
 With an initialized system root, preflight the same protected source path that
