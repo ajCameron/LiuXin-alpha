@@ -20,7 +20,6 @@ from uuid import UUID, uuid4
 from LiuXin_alpha.surfaces.cli.storage_commands.constants import (
     EXIT_INTERRUPTED,
     EXIT_ISSUES,
-    EXIT_OK,
     EXIT_USAGE,
     CLIUsageError,
 )
