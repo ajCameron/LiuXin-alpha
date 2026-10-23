@@ -1,0 +1,296 @@
+.TH LIUXIN-INGEST-WEB 1 "2026-10-23" "LiuXin-alpha" "User Commands"
+.SH NAME
+liuxin-ingest-web \- register remote files or acquire verified managed copies
+.SH SYNOPSIS
+.B liuxin ingest web
+.I URL
+.RB [ \-\-register-only | \-\-download ]
+.RI [ options ]
+.br
+.B liuxin ingest web
+.I URL
+.B \-\-list
+.RI [ connection/output-options ]
+.br
+.B liuxin ingest web
+.BR \-\-status " " RUN_UUID
+.RI [ connection/output-options ]
+.br
+.B liuxin ingest web
+.BR \-\-resume " " RUN_UUID
+.RI [ connection/job/output-options ]
+.SH DESCRIPTION
+Walk a bounded HTTP(S) source using native or wget discovery.
+Registration is the default and records matching remote links without acquiring
+book payloads into storage. Navigation pages and robots rules are still fetched;
+wget can also issue HEAD probes. A direct URL with an accepted file suffix can
+be registered without contacting it.
+.PP
+An observation is not proof of current availability or ebook validity.
+Download mode stages complete files, hashes them and publishes verified copies
+through the existing storage manager. Identical bytes deduplicate; changed
+bytes at a previously captured URL retain a new Asset and preserve the old one.
+Neither mode automatically creates bibliographic Works, Expressions or
+Manifestations, or a browsable mirror of the website.
+.PP
+Use a trailing slash for a directory root. Candidates must remain within the
+selected scheme, authority and path subtree. Native requests and all payload
+downloads check redirects before following them; the source host's robots
+document is the path exception. Wget retains its own navigation/redirect
+behavior and its results are filtered by the shared scope policy.
+.SH ACTIONS
+The following actions are mutually exclusive.
+.TP
+.B \-\-register-only
+Record candidates without acquiring book contents. This is the default.
+.TP
+.B \-\-download
+Acquire selected files into a configured writable managed Store.
+.TP
+.B \-\-list
+List recorded candidates, historical captures and saved run IDs for URL without
+contacting the site. Also finds runs whose workers never returned a report.
+Do not supply crawl/download controls with inspection.
+.TP
+.BI \-\-status " RUN_UUID"
+Inspect saved options, lease, received bytes, discovery state, last report and
+per-file receipts. Omit URL and crawl/download controls.
+.TP
+.BI \-\-resume " RUN_UUID"
+Replay a saved run's exact controls and pinned destination UUID. Omit URL and
+crawl/download controls. Connection, output and managed-job controls remain
+available. See RESULTS AND RECOVERY below.
+.SH SELECTION AND DESTINATION
+.TP
+.B \-\-registered-only
+Select stored candidates for the same root URL without re-crawling navigation
+pages. Combine with
+.B \-\-download
+to acquire recorded files later. Robots and selected payload requests still
+occur during downloads.
+.TP
+.B \-\-dry-run
+Discover candidates without adding web-ingest tables, observations, run records
+or staged files. Navigation requests still occur unless
+.B \-\-registered-only
+is also selected.
+.TP
+.BI \-\-extension " SUFFIX"
+Accept this filename suffix; repeat for alternatives. Explicit suffixes replace
+the default set of known book extensions, which excludes HTML navigation.
+Use
+.B \-\-extension html
+to deliberately select HTML itself. Query-only download endpoints are not
+detected by filename suffix.
+.TP
+.BI \-\-include " GLOB"
+Narrow selection to matching URL globs. Repeat for alternatives and quote each
+glob against shell expansion. A candidate must pass both the extension and glob
+filters.
+.TP
+.BI \-\-crawler " native|wget"
+Discovery adapter; default native. Wget must be installed to select wget.
+LiuXin's HTTP driver still performs requested payload downloads.
+.TP
+.BI \-\-destination " STORE_UUID"
+Writable managed Store to receive copies. Defaults to the configured default
+Store. Only valid in download mode. The Store must report available capacity.
+.TP
+.BI \-\-state-directory " PATH"
+Staging parent on the Core host. SQLite/APSW jobs default to
+.B web-ingest/
+beside the catalogue. Other database backends require an explicit directory
+for downloads. Each run uses its own private directory and owned marker;
+unsafe or unmarked pre-existing run directories are refused.
+.SH LIMITS
+MiB means 1,048,576 bytes. Integer limits must be positive except that depth and
+free-space headroom permit zero. Timeouts must be positive; request pacing
+permits zero to disable spacing.
+.TP
+.BI \-\-max-depth " N"
+Navigation depth; default 5. Native discovery permits root-page links at depth
+zero; the wget adapter renders a minimum recursive level of one.
+.TP
+.BI \-\-max-pages " N"
+Native crawler page ceiling; default 1000. This option does not bound wget pages.
+.TP
+.BI \-\-max-files " N"
+Selected candidates per run; default 1000. Reaching the ceiling still permits
+acquisition of the selected subset within other budgets, but reports limited.
+.TP
+.BI \-\-max-file-mib " N"
+Maximum retained bytes per file; default 256 MiB.
+.TP
+.BI \-\-max-total-mib " N"
+Received file-payload budget across this run and its resumes; default 2048 MiB.
+Failed transfers consume the budget. Navigation traffic, protocol overhead and
+operating-system buffering are outside this counter. Unknown-length streams can
+require one extra byte to detect overflow; it is counted but never published.
+.TP
+.BI \-\-min-free-mib " N"
+Headroom on staging and destination volumes; default 1024 MiB. Capacity checks
+allow for staging and a possible second publication copy. They do not reserve
+capacity against other writers.
+.TP
+.BI \-\-requests-per-hour " RATE"
+Request pacing. Defaults to the shared crawler preference, falling back to 1200
+requests per hour. Zero disables spacing.
+.TP
+.BI \-\-request-timeout " SECONDS"
+Network request timeout; default 30 seconds. Separate from the CLI wait timeout
+and the Core job execution timeout.
+.TP
+.BI \-\-max-seconds " SECONDS"
+Cooperative elapsed-time budget per attempt; default 3600 seconds.
+A blocking read, hash check or publication can finish after the deadline.
+.PP
+Native HTML bodies are capped at 2,000,000 bytes per page. Both adapters cap
+observed URLs at 100,000; wget retained output is capped at 8 MiB of decoded
+characters. Wget has no equivalent per-page HTML ceiling or hard navigation
+scratch quota. Prefer native discovery when this bound is needed.
+.SH CONNECTION OPTIONS
+Use one explicit selector, or the configured connection defaults.
+.TP
+.BI \-\-system-root " DIRECTORY"
+Read the system manifest in DIRECTORY.
+.TP
+.BI \-\-profile " PROFILE"
+Use a named profile, manifest path or directory containing a system manifest.
+.TP
+.BI \-\-database " PATH"
+Open Core against this local catalogue.
+.TP
+.BI \-\-db-type " TYPE"
+Database backend for a direct database selector; default SQLite.
+.TP
+.BI \-\-core-endpoint " URL"
+Connect to a running Core. Source requests, staging and Store access occur on
+that host, not on the CLI host. Web execution requires trusted authority.
+.TP
+.BI \-\-core-token-file " PATH"
+Read the remote Core bearer token from a private file.
+.TP
+.BI \-\-core-timeout " SECONDS"
+Timeout for calls to remote Core; default 10 seconds. This is not a crawl timeout.
+.TP
+.BI \-\-job-ledger " PATH"
+Select the local durable job database when opening a local Core.
+SQLite catalogues default to a sidecar ledger.
+.SH JOB AND OUTPUT OPTIONS
+Registration and downloads submit managed jobs and wait by default.
+.TP
+.B \-\-detach
+Return the submission receipt immediately. Acceptance does not prove acquisition
+completed; inspect the job and web run later.
+.TP
+.BI \-\-wait-timeout " SECONDS"
+Maximum CLI wait. Timing out does not cancel the Core job. By default there is
+no explicit CLI wait deadline.
+.TP
+.BI \-\-poll-interval " SECONDS"
+Job status poll interval; default 0.25 seconds.
+.TP
+.BI \-\-job-timeout " SECONDS"
+Core-side job execution timeout, separate from request and CLI wait timeouts.
+.TP
+.BI \-\-job-backend " NAME"
+Request a configured job backend.
+.TP
+.B \-\-job-no-output
+Ask the job manager not to retain worker output.
+.TP
+.BI \-\-label " TEXT"
+Operator-visible job label.
+.TP
+.BI \-\-output " PATH"
+Write JSON on the CLI host instead of standard output. Existing files are
+refused unless replacement is explicit.
+.TP
+.B \-\-replace-output
+Permit atomic replacement of an existing output file.
+.TP
+.B \-\-compact
+Emit compact JSON instead of indented JSON.
+.TP
+.BR \-h , " \-\-help"
+Show command help and exit.
+.SH RESULTS AND RECOVERY
+A completed job's
+.B execution.result.run_id
+is the web run UUID, distinct from its managed job ID. Use
+.B liuxin jobs
+for worker state and
+.B liuxin ingest web \-\-status RUN_UUID
+for saved selection and capture state. If a worker died before returning a
+report, recover the run UUID with
+.BR "liuxin ingest web URL \-\-list" .
+.PP
+Capture receipts retain source/final URLs, referring page when supplied,
+retrieval time, HTTP validators, size, SHA-256 and Asset/Replica IDs.
+Observation and retrieval times are Unix epoch milliseconds.
+.B last_capture
+is historical evidence, not a current availability check.
+.B downloaded_bytes
+counts received payload across attempts, including failed transfers.
+.PP
+Resume skips completed captures. Complete staged files are rehashed and reuse
+the storage publication identity; partial transfers restart from byte zero.
+An incomplete crawl is repeated while retaining previously selected candidates.
+Completed discovery requires no further navigation request on resume.
+.PP
+An active lease prevents overlapping resumes. After a crash, wait for the lease
+to expire. Missing or corrupt complete staging fails visibly; use a fresh run
+if the staging cannot be recovered. An exhausted total byte budget stays
+exhausted on resume. Start a new run to deliberately change its controls.
+.PP
+Successful publication removes the staged copy. Partial failure preserves
+observations and prior successful acquisitions. Complete means the selected
+bounded workflow finished, not that the entire website was inventoried.
+.SH EXIT STATUS
+.TP
+.B 0
+Successful inspection, completed workflow, or accepted detached job.
+.TP
+.B 1
+Job failure, CLI wait timeout, or a report marked partial, limited, failed or
+interrupted.
+.TP
+.B 2
+Argument errors or other dispatch/runtime errors handled by the CLI.
+.SH EXAMPLES
+Initialize a writable system directory and record a site:
+.PP
+.nf
+liuxin init "$HOME/LiuXin"
+liuxin ingest web https://example.org/books/ \e
+  \-\-register-only \-\-system-root "$HOME/LiuXin"
+.fi
+.PP
+Acquire only recorded EPUB links matching a quoted URL glob:
+.PP
+.nf
+liuxin ingest web https://example.org/books/ \e
+  \-\-download \-\-registered-only \-\-extension epub \e
+  \-\-include '*/selected-series/*' \-\-max-total-mib 512 \e
+  \-\-system-root "$HOME/LiuXin"
+.fi
+.PP
+Inspect and resume a saved run without overriding its controls:
+.PP
+.nf
+liuxin ingest web https://example.org/books/ \e
+  \-\-list \-\-system-root "$HOME/LiuXin"
+liuxin ingest web \-\-status RUN_UUID \e
+  \-\-system-root "$HOME/LiuXin"
+liuxin ingest web \-\-resume RUN_UUID \e
+  \-\-system-root "$HOME/LiuXin"
+.fi
+.SH SEE ALSO
+.BR liuxin (1),
+.BR liuxin-ingest (1),
+.BR wget (1)
+.PP
+The source checkout contains the worked guide in
+.B docs/web-ingest.md
+and ownership/recovery details in
+.BR dev-docs/ingest/web_ingest_operations.md .

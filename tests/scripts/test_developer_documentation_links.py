@@ -15,8 +15,12 @@ DOC_ROOT = REPO_ROOT / "dev-docs"
 
 
 def _documents() -> list[Path]:
-    """Include every developer guide, including dated reviews and new subfolders."""
-    return [REPO_ROOT / "README.md", *sorted(DOC_ROOT.rglob("*.md"))]
+    """Check both user and developer guides, including new documentation folders."""
+    return [
+        REPO_ROOT / "README.md",
+        *sorted((REPO_ROOT / "docs").rglob("*.md")),
+        *sorted(DOC_ROOT.rglob("*.md")),
+    ]
 
 
 def _destinations(markdown: str) -> list[str]:

@@ -1,0 +1,85 @@
+.TH LIUXIN-INGEST 1 "2026-10-23" "LiuXin-alpha" "User Commands"
+.SH NAME
+liuxin-ingest \- select a local or remote acquisition workflow
+.SH SYNOPSIS
+.B liuxin ingest
+.I SOURCE
+.RI [ options ]
+.br
+.B liuxin ingest web
+.RI [ URL ]
+.RI [ options ]
+.br
+.B liuxin ingest disk
+.I PATH
+.RI [ options ]
+.br
+.B liuxin ingest
+.I subcommand
+.B \-\-help
+.SH DESCRIPTION
+The ingest family exposes several source workflows.
+Choose the workflow according to where the source exists and whether remote
+files should merely be registered or also downloaded.
+.TP
+.B web URL
+Walk a bounded HTTP(S) source and record remote candidates by default.
+.B \-\-download
+acquires verified copies into managed storage;
+.B \-\-registered-only
+selects previously recorded candidates without re-crawling navigation pages.
+Use
+.BR liuxin-ingest-web (1)
+for filters, budgets, saved runs and complete examples.
+.TP
+.B SOURCE
+The concise local-host mixed-file workflow, equivalent to the detailed
+.B liuxin storage ingest
+operator. On Linux the positional source form detects directories,
+SquashFS/ext4 images and block devices and requires a verified read-only mount.
+Use
+.B liuxin storage ingest \-\-help
+for its source-protection, discovery, preflight and budget controls.
+.TP
+.B disk PATH
+Submit local-disk ingestion as a managed job on the Core host.
+The path must be visible to Core; a remote client does not upload it implicitly.
+.TP
+.B remote-html
+Retain the older native/wget HTML registration workflow for legacy files and
+Store declarations. It does not acquire payloads.
+New remote-registration and download workflows should use
+.BR web .
+.TP
+.B runs list|show|issues|resume
+Inspect and resume the CLI-local mixed-file workflow's reports.
+Web runs instead use
+.BR "web URL \-\-list" ,
+.B web \-\-status RUN_UUID
+and
+.BR "web \-\-resume RUN_UUID" .
+.TP
+.B formats
+Report available ingest format information.
+.SH CONNECTIONS
+Use
+.BR \-\-system-root " " DIRECTORY
+or another connection selector from
+.BR liuxin (1).
+Web requests and managed-job staging occur on the Core host.
+Web ingest needs no root privileges. Local Linux source mounting may require
+privileges; use an explicit system selector when invoking it through
+.BR sudo (8).
+.SH EXAMPLES
+.nf
+liuxin ingest web https://example.org/books/ \e
+  \-\-system-root "$HOME/LiuXin"
+liuxin ingest web https://example.org/books/ \e
+  \-\-download \-\-registered-only \-\-system-root "$HOME/LiuXin"
+liuxin ingest web \-\-status RUN_UUID \e
+  \-\-system-root "$HOME/LiuXin"
+liuxin storage ingest \-\-help
+.fi
+.SH SEE ALSO
+.BR liuxin (1),
+.BR liuxin-ingest-web (1)

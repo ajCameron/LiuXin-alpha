@@ -6,6 +6,10 @@ The installed `liuxin` command exposes named, stable Core operations as
 task-oriented command families. It deliberately does not expose a generic
 operation dispatcher.
 
+The [user documentation](../../docs/README.md) includes installed man pages and
+a [worked web-ingest guide](../../docs/web-ingest.md) for remote registration,
+selective acquisition and resume.
+
 ## Connection and output contract
 
 Every Core-backed leaf accepts one explicit transport or one system selector:

@@ -2,7 +2,9 @@
 
 Public, development fork of LiuXin. Alpha. DO NOT USE IN PROD.
 
-Start with the [developer documentation index](dev-docs/README.md) for
+Start with the [user guides and manual pages](docs/README.md) for installed
+commands, including [web registration and downloads](docs/web-ingest.md).
+Use the [developer documentation index](dev-docs/README.md) for
 architecture, subsystem guides, testing, and CI ownership. Dated implementation
 handoffs live in the [working-memory index](working-memory/index.md).
 
@@ -141,8 +143,8 @@ liuxin ingest web https://example.org/books/ --download --registered-only \
   --extension epub --system-root /srv/liuxin
 ```
 
-See the [web-ingest runbook](dev-docs/ingest/web_ingest_operations.md) for native
-and wget discovery, limits, provenance and resume. Registration records observed
+See the [web-ingest guide](docs/web-ingest.md) and `man liuxin-ingest-web` for
+native and wget discovery, limits, provenance and resume. Registration records observed
 links; only verified acquisitions become managed Assets and Replicas.
 
 ## Metadata CLI

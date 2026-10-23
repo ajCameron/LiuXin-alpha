@@ -4,6 +4,11 @@ Reviewed **2026-10-22**. `liuxin ingest web` walks a bounded HTTP(S) source
 and either records remote candidates or acquires selected files into a managed
 Store. Registration is the default. No root privileges are required.
 
+Operator documentation added **2026-10-23**: start with the
+[worked user guide](../../docs/web-ingest.md) or
+[liuxin-ingest-web(1)](../../docs/man/man1/liuxin-ingest-web.1).
+This runbook retains the implementation, ownership and validation details.
+
 ## Record first, download selectively
 
 ```bash
