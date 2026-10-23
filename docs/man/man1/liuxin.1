@@ -25,6 +25,33 @@ For remote-file registration and optional downloads, see
 .BR liuxin-ingest-web (1).
 For the distinction between web and local-file ingest, see
 .BR liuxin-ingest (1).
+.SH SETUP
+Run
+.B liuxin init
+in a terminal, or explicitly use
+.BR "liuxin init \-\-wizard" .
+Choose the database backend, system root, optional primary Store, and whether
+to use the system by default for future commands. Saving the default is offered
+with Yes selected. Confirm the displayed plan before initialization begins.
+The default is saved after successful setup; declining keeps the old selection.
+.PP
+For noninteractive path-backed setup, use
+.B liuxin init SYSTEM_ROOT \-\-make-default
+to request the same persistence. A system manifest is required.
+For an existing installation, use
+.BR "liuxin connect SYSTEM_ROOT" .
+Inspect the selection with
+.B liuxin connect status
+and forget it with
+.BR "liuxin disconnect" .
+Disconnect does not delete the catalogue or stored files.
+.PP
+Defaults belong to the current operating-system user and are saved in
+XDG_CONFIG_HOME/liuxin/active-connection.json, normally
+~/.config/liuxin/active-connection.json. The file contains a manifest pointer,
+not copied credentials. Commands run through sudo normally use root's separate
+configuration; supply an explicit system root when selecting another user's
+installation. Setup reports environment selectors that override the new default.
 .SH CONNECTION SELECTION
 Core-backed commands accept one of
 .BR \-\-system-root " " DIRECTORY ,
@@ -52,7 +79,8 @@ for a CLI-host output file.
 permits replacement of an existing output file.
 .SH EXAMPLES
 .nf
-liuxin init "$HOME/LiuXin"
+liuxin init "$HOME/LiuXin" \-\-make-default
+liuxin storage status
 liuxin storage status \-\-system-root "$HOME/LiuXin"
 liuxin ingest web https://example.org/books/ \e
   \-\-system-root "$HOME/LiuXin"

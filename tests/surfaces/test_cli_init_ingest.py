@@ -23,6 +23,14 @@ from LiuXin_alpha.surfaces.cli.app import main as cli_main
 from LiuXin_alpha.surfaces.cli.storage_commands import parsers as storage_parsers
 
 
+@pytest.fixture(autouse=True)
+def isolated_connection_selection(tmp_path, monkeypatch):
+    """Keep attended setup's saved default away from the operator's own configuration."""
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.delenv("LIUXIN_SYSTEM_ROOT", raising=False)
+    monkeypatch.delenv("LIUXIN_PROFILE", raising=False)
+
+
 class _Core:
     """
     Supply deterministic initializer receipts and record shallow command payloads.
@@ -281,7 +289,7 @@ def test_init_wizard_can_choose_apsw_system_root(
     monkeypatch.setattr(init_cli, "open_cli_core", opener)
     monkeypatch.setattr(
         "builtins.input",
-        _answers("2", str(root), "yes", "yes"),
+        _answers("2", str(root), "yes", "", "yes"),
     )
 
     # An attended bare `liuxin init` enters the same wizard automatically.
@@ -294,6 +302,8 @@ def test_init_wizard_can_choose_apsw_system_root(
     assert result["database"] == str(root / "catalogue.sqlite")
     assert result["default_store"]["selected"] is True
     assert (root / init_cli.SYSTEM_MANIFEST_NAME).is_file()
+    assert result["default_connection"]["saved"] is True
+    assert result["next"]["ingest"] == ["liuxin", "ingest", "/path/to/source"]
 
 
 def test_init_wizard_postgres_initializes_checks_and_redacts_target(
@@ -353,6 +363,7 @@ def test_init_wizard_postgres_initializes_checks_and_redacts_target(
             str(system_root),
             "yes",
             str(environment_file),
+            "no",  # This case checks optional environment output, not persistence.
             "yes",
         ),
     )
@@ -425,7 +436,7 @@ def test_init_wizard_cancellation_makes_no_layout(
     monkeypatch.setattr(init_cli, "_stdin_is_interactive", lambda: True)
     monkeypatch.setattr(
         "builtins.input",
-        _answers("1", str(root), "yes", "no"),
+        _answers("1", str(root), "yes", "yes", "no"),
     )
 
     assert cli_main(["init", "--wizard"]) == 1

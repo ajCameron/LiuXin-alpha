@@ -93,6 +93,12 @@ There are two intentionally different path contracts:
   idempotent. `init` with no location in an interactive terminal (or explicit
   `init --wizard`) selects SQLite, APSW, or PostgreSQL, displays a redacted
   confirmation plan, and runs the appropriate health/readiness checks.
+  The wizard offers to save the system as this user's default (Yes by default);
+  noninteractive setup opts in with `--make-default`. Persistence uses the same
+  atomic manifest-pointer owner as `connect`, after setup and manifest publication.
+  Explicit and environment selectors retain precedence. A default requires a
+  manifest; `--no-manifest` disables the wizard offer and conflicts with explicit
+  `--make-default`.
   The PostgreSQL wizard also asks for a system root and writes the reusable
   profile only after its readiness checks pass.
   PostgreSQL server/database/role provisioning remains explicit because those
@@ -273,6 +279,15 @@ liuxin init
 # or, explicitly:
 liuxin init --wizard
 ```
+
+The saved-default choice appears in the confirmation plan with its pointer path.
+It belongs to the current OS user; `sudo` normally selects root's separate
+configuration. `init --make-default` reports `default_connection` in its JSON
+receipt, including whether environment selection currently overrides it. The
+suggested ingest command omits the selector when the saved choice is effective.
+Cancellation, failed initialization and failed manifest publication leave the
+previous pointer untouched. A pointer-save error is reported after initialization;
+created catalogue/Store/manifest files remain available for `liuxin connect`.
 
 The wizard requires a terminal and makes no change until its displayed plan is
 confirmed. SQLite and APSW create the same self-contained system-root layout as
