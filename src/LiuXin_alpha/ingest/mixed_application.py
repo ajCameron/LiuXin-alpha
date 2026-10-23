@@ -121,6 +121,7 @@ class MixedIngestApplicationRequest:
     :ivar log_checkpoint_every: Positive coordinator logging checkpoint interval.
     :ivar progress_callback: Optional synchronous event-name/detail progress consumer.
     :ivar cancellation_callback: Optional polled predicate requesting cooperative stop.
+    :ivar resource_check_callback: Optional cache/temp byte admission check returning a stop reason.
     :ivar event_callback: Optional level/event/message/detail consumer for setup events.
     :ivar database_stdout: Optional caller-owned sink for database construction only.
     """
@@ -142,6 +143,7 @@ class MixedIngestApplicationRequest:
     log_checkpoint_every: int = 1_000
     progress_callback: ProgressCallback | None = None
     cancellation_callback: CancellationCallback | None = None
+    resource_check_callback: Callable[[int, int], str | None] | None = None
     event_callback: EventCallback | None = None
     database_stdout: TextOutput | None = None
 
@@ -272,6 +274,7 @@ def _coordinator(
         backend_timeout_s=request.backend_timeout_s,
         progress_callback=request.progress_callback,
         cancellation_callback=request.cancellation_callback,
+        resource_check_callback=request.resource_check_callback,
         log_checkpoint_every=request.log_checkpoint_every,
     )
 

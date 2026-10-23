@@ -257,6 +257,7 @@ class RunLoggingSession:
         max_text_bytes: int = 100 * 1024 * 1024,
         text_backup_count: int = 10,
         memory_events: int = 10_000,
+        always_events: tuple[str, ...] = (),
     ) -> None:
         """
         Initialize and validate the RunLoggingSession state.
@@ -275,6 +276,7 @@ class RunLoggingSession:
         :param text_backup_count: Value supplied for text backup count under the utility
             contract.
         :param memory_events: Value supplied for memory events under the utility contract.
+        :param always_events: INFO-or-higher event names retained in JSONL even with a higher text/log threshold.
         :return: None; validated state is stored on the receiving object.
         """
         if not prefix.strip():
@@ -292,6 +294,7 @@ class RunLoggingSession:
         self.max_text_bytes = int(max_text_bytes)
         self.text_backup_count = int(text_backup_count)
         self.memory_events = int(memory_events)
+        self.always_events = frozenset(always_events)
         self.paths: RunLogPaths | None = None
         self.event_log: InMemoryEventLog | None = None
         self._event_handler: EventLogHandler | None = None
@@ -331,7 +334,11 @@ class RunLoggingSession:
                 persist_path=paths.event_log,
                 include_level_name_in_jsonl=True,
             )
-            event_handler = EventLogHandler(event_log, level=self.level)
+            event_level = (
+                min(self.level, logging.INFO) if self.always_events else self.level
+            )
+            event_handler = EventLogHandler(event_log, level=event_level)
+            event_handler.addFilter(self._retain_event)
             text_handler = RotatingFileHandler(
                 paths.human_log,
                 maxBytes=self.max_text_bytes,
@@ -358,7 +365,7 @@ class RunLoggingSession:
         )
         root = logging.getLogger()
         old_level = root.level
-        root.setLevel(min(old_level, self.level) if old_level else self.level)
+        root.setLevel(min(old_level, event_level) if old_level else event_level)
         root.addHandler(event_handler)
         root.addHandler(text_handler)
         self.paths = paths
@@ -369,6 +376,20 @@ class RunLoggingSession:
         self._old_root_level = old_level
         self._entered = True
         return self
+
+    def _retain_event(self, record: logging.LogRecord) -> bool:
+        """Keep requested diagnostics plus mandatory recovery/resource events in JSONL."""
+        return (
+            record.levelno >= self.level
+            or getattr(record, "liuxin_event", None) in self.always_events
+        )
+
+    def check_health(self) -> None:
+        """Expose swallowed event-handler failures to workflows requiring durable telemetry."""
+        if self._event_handler is not None and self._event_handler.last_error is not None:
+            raise RuntimeError(
+                "run event log persistence failed"
+            ) from self._event_handler.last_error
 
     def flush(self) -> None:
         """
