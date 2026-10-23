@@ -59,6 +59,7 @@ REQUIRED_SCHEMA_SPECS = (
     "interlink_table_requests.toml",
     "intralink_table_requests.toml",
 )
+REQUIRED_MAN_PAGES = ("liuxin.1", "liuxin-ingest.1", "liuxin-ingest-web.1")
 EXCLUDED_PACKAGE_PREFIXES = (
     "LiuXin_alpha/customize/",
     "LiuXin_alpha/plugin_system/",
@@ -240,11 +241,22 @@ def inspect_wheel(wheel: Path, repo_root: Path = REPO_ROOT) -> dict[str, object]
             + ", ".join(missing_compatibility)
         )
 
+    missing_manuals = [
+        page
+        for page in REQUIRED_MAN_PAGES
+        if not any(name.endswith(f".data/data/share/man/man1/{page}") for name in names)
+    ]
+    if missing_manuals:
+        raise WheelVerificationError(
+            "Wheel is missing installed manual pages: " + ", ".join(missing_manuals)
+        )
+
     python_files = sum(name.endswith(".py") for name in names)
     return {
         "wheel": str(wheel),
         "entries": len(names),
         "python_files": python_files,
+        "man_pages": len(REQUIRED_MAN_PAGES),
         "runtime_assets": len(expected_runtime_assets(repo_root)),
         "calibre_resource_assets": sum(
             name.startswith(CALIBRE_RESOURCE_PACKAGE.as_posix() + "/") for name in names

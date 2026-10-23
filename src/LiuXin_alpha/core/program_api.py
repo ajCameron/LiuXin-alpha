@@ -322,6 +322,9 @@ class CoreProgramAPI:
     ingest_formats = staticmethod(ingest.ingest_formats)
     ingest_disk_start = staticmethod(ingest.ingest_disk_start)
     ingest_remote_html_start = staticmethod(ingest.ingest_remote_html_start)
+    ingest_web_start = staticmethod(ingest.ingest_web_start)
+    ingest_web_files = staticmethod(ingest.ingest_web_files)
+    ingest_web_status = staticmethod(ingest.ingest_web_status)
 
     backup_plan = staticmethod(backup.backup_plan)
     backup_workflows_list = staticmethod(backup.backup_workflows_list)

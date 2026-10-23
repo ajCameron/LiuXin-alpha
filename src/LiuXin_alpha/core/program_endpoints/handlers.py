@@ -598,6 +598,49 @@ class ContentWorkflowsHandlers(Protocol):
         """
         ...
 
+    def ingest_web_start(
+        self, runtime: CoreRuntime, command: CoreCommand
+    ) -> Mapping[str, object]:
+        """Validate a bounded web registration/acquisition request and submit its managed job.
+
+        See :func:`LiuXin_alpha.core.program_services.ingest.ingest_web_start`.
+
+        :param runtime: Runtime supplying a path-backed catalogue identity and job manager.
+        :param command: Command with validated options or a saved resume UUID, plus shared job controls.
+        :return: Managed-job submission receipt; the completed result contains the web run UUID.
+        :raises ValueError: Invalid web controls or resume UUID.
+        :raises CoreDispatchError: Resume replacements or unavailable catalogue/job services.
+        """
+        ...
+
+    def ingest_web_files(
+        self, runtime: CoreRuntime, query: CoreQuery
+    ) -> Mapping[str, object]:
+        """Read remote observations and their last capture receipts without network requests.
+
+        See :func:`LiuXin_alpha.core.program_services.ingest.ingest_web_files`.
+
+        :param runtime: Runtime supplying the catalogue; no storage backend is probed.
+        :param query: Query containing the root_url whose recorded candidates are requested.
+        :return: Normalized root, observed files with historical last_capture evidence, and saved run summaries.
+        :raises ValueError: The source URL fails web option validation.
+        """
+        ...
+
+    def ingest_web_status(
+        self, runtime: CoreRuntime, query: CoreQuery
+    ) -> Mapping[str, object]:
+        """Inspect a saved web run and its object states, including interrupted attempts.
+
+        See :func:`LiuXin_alpha.core.program_services.ingest.ingest_web_status`.
+
+        :param runtime: Runtime supplying the catalogue for read-only workflow inspection.
+        :param query: Query containing a saved web run_id UUID, distinct from the managed-job ID.
+        :return: Saved options, lease, byte counters, last report and per-file capture states.
+        :raises ValueError: The UUID is malformed or no matching web run exists.
+        """
+        ...
+
     def metadata_covers_start(
         self, runtime: CoreRuntime, command: CoreCommand
     ) -> Mapping[str, object]:

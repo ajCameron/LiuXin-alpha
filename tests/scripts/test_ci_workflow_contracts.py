@@ -161,6 +161,25 @@ def test_full_suite_preserves_telemetry_and_releases_scratch() -> None:
     assert upload["with"]["path"] == "${{ runner.temp }}/liuxin-test-telemetry"
 
 
+def test_web_ingest_requires_real_wget_coverage_with_bounded_scratch() -> None:
+    """A green quality lane must exercise the optional crawler, not silently skip it."""
+    steps = _workflow()["jobs"]["quality-modern"]["steps"]
+    commands = [step.get("run", "") for step in steps]
+    assert any(
+        "apt-get install" in command and "wget" in command for command in commands
+    )
+    step = next(
+        item
+        for item in steps
+        if item.get("name") == "Verify remote registration and managed acquisition"
+    )
+    assert step["env"]["LIUXIN_REQUIRE_WGET_TESTS"] == "1"
+    command = shlex.split(step["run"])
+    assert "tests/ingest/test_web_acquisition.py" in command
+    assert "tmp_path_retention_policy=none" in command
+    assert "--telemetry-dir=/tmp/liuxin-web-ingest-telemetry" in command
+
+
 def _run_summary(results: list[str]) -> subprocess.CompletedProcess[str]:
     """
     Perform the run summary operation under explicit file-format and conversion rules.

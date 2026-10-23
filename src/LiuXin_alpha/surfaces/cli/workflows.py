@@ -37,6 +37,7 @@ from LiuXin_alpha.surfaces.cli.common import (
     submit_job,
 )
 from LiuXin_alpha.surfaces.cli.ingest_runs import build_ingest_runs_parser
+from LiuXin_alpha.surfaces.cli.ingest_web import build_web_ingest_parser
 from LiuXin_alpha.core.settings import apply_system_profile
 
 
@@ -977,8 +978,8 @@ def build_ingest_parser(
             "Point LiuXin at a local mess with `liuxin ingest SOURCE "
             "--system-root ROOT`. On Linux, this detects directories, SquashFS/ext4 "
             "images and block devices and requires a verified read-only mount. "
-            "Use `liuxin storage ingest --help` for local options. The disk and "
-            "remote-html subcommands submit workflows on the Core host."
+            "Use `liuxin storage ingest --help` for local options. The disk, "
+            "remote-html and web subcommands submit workflows on the Core host."
         ),
         epilog=(
             "Simple local form: liuxin ingest /media/books --system-root "
@@ -991,6 +992,7 @@ def build_ingest_parser(
     )
     commands = parser.add_subparsers(dest="ingest_command", required=True)
     build_ingest_runs_parser(commands)
+    build_web_ingest_parser(commands)
     formats = commands.add_parser("formats")
     _core_json(formats)
     formats.set_defaults(handler=cmd_ingest_formats)
