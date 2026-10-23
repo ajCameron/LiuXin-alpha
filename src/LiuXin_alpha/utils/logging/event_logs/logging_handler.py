@@ -115,6 +115,10 @@ class EventLogHandler(logging.Handler):
     """
     Write Python log records into a LiuXin :class:`EventLogAPI`.
 
+    ``last_error`` retains a persistence/serialization failure even when normal
+    logging error handling suppresses it. Workflows requiring durable diagnostics
+    can inspect that latch and stop; ordinary logging keeps its existing behavior.
+
     Example:
         Exercise EventLogHandler through a consuming regression::
 
@@ -146,6 +150,7 @@ class EventLogHandler(logging.Handler):
         super().__init__(level)
         self.event_log = event_log
         self.close_event_log = bool(close_event_log)
+        self.last_error: Exception | None = None
 
     @override
     def emit(self, record: logging.LogRecord) -> None:
@@ -198,7 +203,8 @@ class EventLogHandler(logging.Handler):
                 ts=datetime.fromtimestamp(record.created, timezone.utc),
                 context=context,
             )
-        except Exception:
+        except Exception as error:
+            self.last_error = error
             self.handleError(record)
 
     @override

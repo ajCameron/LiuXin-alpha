@@ -34,9 +34,34 @@ def add_storage_ingest_arguments(parser: argparse.ArgumentParser) -> None:
     _add_source_options(parser)
     parser.set_defaults(source_mount_managed=False)
     _add_limits_options(parser)
+    _add_resource_options(parser)
     _add_backends_options(parser)
     _add_logging_group_options(parser)
     _add_locking_options(parser)
+
+
+def _add_resource_options(parser: argparse.ArgumentParser) -> None:
+    """Declare enforced disk headroom and independent resource telemetry controls."""
+    group = parser.add_argument_group("resource protection and telemetry")
+    group.add_argument(
+        "--min-free-mib",
+        type=int,
+        default=2048,
+        help="Minimum free MiB on every output/host volume (default: 2048).",
+    )
+    group.add_argument(
+        "--resource-interval-seconds",
+        type=float,
+        default=5.0,
+        help="Resource sampling interval, at least 0.1 seconds (default: 5).",
+    )
+    group.add_argument(
+        "--host-space-path",
+        action="append",
+        default=[],
+        metavar="PATH",
+        help="Monitor this existing host-drive directory; repeat for several volumes. On WSL, overrides automatic backing-drive detection.",
+    )
 
 
 def _uuid_argument(value: str) -> UUID:
@@ -295,7 +320,7 @@ def _add_logging_group_options(parser: argparse.ArgumentParser) -> None:
     """
     Declare run UUID, log rotation/checkpoints, reports, and console policies.
 
-    Defaults enable DEBUG logging, pretty report/stdout JSON, and console progress.
+    Defaults enable INFO checkpoints, pretty report/stdout JSON, and console progress.
     UUID generation, path selection, no-clobber publication, and numeric range
     checks occur during execution, not argument registration.
 
@@ -304,7 +329,7 @@ def _add_logging_group_options(parser: argparse.ArgumentParser) -> None:
         >>> _add_logging_group_options(parser)
         >>> args = parser.parse_args([])
         >>> args.run_id, args.log_level, args.log_max_mib, args.no_stdout_report
-        (None, 'DEBUG', 100, False)
+        (None, 'INFO', 100, False)
 
 
     :param parser: Parser receiving the logging and reports argument group.
@@ -327,8 +352,8 @@ def _add_logging_group_options(parser: argparse.ArgumentParser) -> None:
     logging_group.add_argument(
         "--log-level",
         choices=("DEBUG", "INFO", "WARNING", "ERROR"),
-        default="DEBUG",
-        help="Durable minimum level (default: DEBUG, including every object).",
+        default="INFO",
+        help="Durable minimum level (default: INFO checkpoints; DEBUG includes every object).",
     )
     logging_group.add_argument(
         "--log-max-mib",

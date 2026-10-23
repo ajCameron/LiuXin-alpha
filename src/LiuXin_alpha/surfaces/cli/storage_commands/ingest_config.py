@@ -11,9 +11,11 @@ backend observations owned by later validation/preflight steps.
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
 from LiuXin_alpha.core.settings import load_system_profile
 from LiuXin_alpha.ingest.mixed_application import MixedIngestBudget
+from LiuXin_alpha.ingest.resource_monitor import ResourcePolicy
 from LiuXin_alpha.surfaces.cli.storage_commands.constants import _GIB, CLIUsageError
 
 
@@ -160,6 +162,17 @@ def _gib(value: object, option: str) -> int:
     return int(number * _GIB)
 
 
+def resource_policy(args: argparse.Namespace) -> ResourcePolicy:
+    """Validate CLI units and retain explicit host filesystem selectors."""
+    return ResourcePolicy(
+        min_free_bytes=int(args.min_free_mib) * 1024**2,
+        interval_seconds=float(args.resource_interval_seconds),
+        host_paths=tuple(
+            Path(path).expanduser().resolve() for path in args.host_space_path
+        ),
+    )
+
+
 def _validate_early_options(args: argparse.Namespace) -> None:
     """
     Check database presence, log/lock/backend settings, and budget before logging starts.
@@ -191,3 +204,4 @@ def _validate_early_options(args: argparse.Namespace) -> None:
     if float(args.backend_timeout_seconds) <= 0:
         raise CLIUsageError("--backend-timeout-seconds must be positive")
     _ = _budget(args)
+    _ = resource_policy(args)

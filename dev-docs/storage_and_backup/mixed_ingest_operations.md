@@ -1,6 +1,6 @@
 # Mixed-format ingest operations
 
-Reviewed **2026-10-21**. Current owners and operational limitations were checked, including Linux source detection and read-only mounting. See [next tasks](next_tasks.md). Dated benchmarks and suite counts below remain historical evidence.
+Reviewed **2026-10-23**. Includes Linux source detection/read-only mounting and runtime resource protection. See the [local-ingest user guide](../../docs/local-ingest.md) and [next tasks](next_tasks.md). Dated benchmarks and suite counts below remain historical evidence.
 
 Updated: 2026-08-25
 
@@ -124,6 +124,12 @@ liuxin storage ingest \
   --preflight-only
 ```
 
+The command also enforces `--min-free-mib` (default 2048) on catalogue, cache,
+temporary, log, report and lock filesystems, and on the WSL backing drive when
+applicable. Unknown capacity or insufficient headroom makes preflight unready.
+The path/dependency helper reports capacity observations; the shared runtime
+resource monitor owns threshold decisions. Neither reserves disk space.
+
 Warnings describe degraded optional coverage; failed error-severity checks make
 `preflight.ready` false and return exit 1. Preflight deliberately cannot prove
 that nested containers use no additional backend, so keep the complete archive
@@ -191,7 +197,7 @@ same `run_id` appears in the report and every workflow event, making concurrent
 or repeated runs distinguishable.
 
 - `mixed-ingest-<UTC timestamp>-<run ID>.jsonl` is the authoritative,
-  append-only forensic stream. It is not rotated or sampled. At the default
+  append-only forensic stream. It is not rotated. At the opt-in
   `DEBUG` level it includes every classified/adopted source and member as well
   as Store identities, nested-container transitions, deduplication, verification
   results, safety decisions, issues, and tracebacks. Each event is flushed
@@ -283,9 +289,41 @@ jq -c 'select(.context.event == "source_checkpoint" or
 The logger deliberately records filenames and resolved Store/catalogue paths
 because they are required to diagnose a collection run. It does not dump the
 process environment, file contents, database rows, or credential values.
-`--log-level INFO` suppresses per-object DEBUG events when storage pressure is
-more important than a complete object audit; checkpoints and lifecycle events
-remain. `--no-console-progress` affects stderr only and never durable logs.
+`--log-level INFO` is now the default; it suppresses per-object DEBUG events,
+retaining checkpoints, lifecycle events and periodic resource samples.
+`--no-console-progress` affects stderr only and never durable logs or sampler
+activity context. JSONL always retains start/terminal and resource events even
+at WARNING/ERROR, so lower-volume logging still permits telemetry and resume.
+
+### Runtime headroom and resource telemetry
+
+`ingest.resource_monitor.ResourceMonitor` owns capacity observations and latched
+stop reasons. The CLI supplies output filesystem paths before catalogue startup;
+`MixedIngestApplicationRequest.resource_check_callback` forwards admission checks
+to the coordinator. Storage retains ownership of writes and copies. At safe
+boundaries a resource reason creates a fatal `resource_limit` issue, truncates the
+attempt and returns its partial report. No sampler thread touches the database.
+
+`--resource-interval-seconds` defaults to 5. Independent periodic sampling
+continues during blocking reads and hashes. `resource_sample`/`resource_stop`
+events include free space, Linux memory counters, current source/archive/member,
+and per-attempt reserved/confirmed cache bytes. Counters do not walk the cache or
+include extractor children in process RSS. The terminal `resources` summary is
+bounded; full history remains in JSONL. The cache and log volumes are monitored
+even when they differ from the catalogue volume.
+
+Known member size is admitted against temporary capacity before adoption (the
+SquashFS driver spools member reads). Nested materialization conservatively
+allows two cache copies plus a temporary copy, summing demands on shared devices.
+The reserve also applies to the Windows backing volume under WSL. Its registered
+location is discovered rather than assuming C:; missing interop/identity requires
+an explicit `--host-space-path` for the backing volume. The option is repeatable.
+
+A resource stop returns exit 1 and `status: resource_stopped`, retaining the run
+ID and replayable controls. After releasing space, use normal `ingest runs
+resume`. These are observations and cooperative admission checks, not hard
+quotas: active backend/database operations and other writers can outlast a check.
+There is no automatic cache deletion or log-history pruning.
 
 ## Remote supervision
 
