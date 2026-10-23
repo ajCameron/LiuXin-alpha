@@ -185,7 +185,7 @@ There are two intentionally different path contracts:
   `--download` acquires selected copies, and `--registered-only` uses previously
   recorded candidates. `--list`, `--status RUN_ID` and `--resume RUN_ID` expose
   observations and saved-run recovery. See the [web-ingest runbook](../ingest/web_ingest_operations.md)
-  for budgets and provenance. `ingest runs list|show|issues|resume`
+  for budgets and provenance. `ingest runs list|show|watch|issues|resume`
   indexes the latter's durable reports and JSONL events. Resume reconstructs
   the original safety budget and paths from `cli_started`, reuses the run UUID,
   and refuses discovery/preflight attempts or a successful run without

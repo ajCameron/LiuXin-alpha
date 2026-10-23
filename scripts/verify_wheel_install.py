@@ -115,7 +115,8 @@ def _origin_check_program(install_root: Path) -> str:
             (
                 "names = ('LiuXin_alpha', 'LiuXin_alpha.plugins.application', "
                 "'LiuXin_alpha.plugins.contracts', 'chardet', 'cssselect', 'cssutils', "
-                "'lxml', 'numpy', 'PIL', 'regex', 'past', 'past.builtins', "
+                "'lxml', 'numpy', 'PIL', 'regex', 'rich', 'past', 'past.builtins', "
+                "'LiuXin_alpha.surfaces.cli.ingest_display', "
                 "'LiuXin_alpha.utils.image_tools.img')"
             ),
             "origins = {}",
@@ -129,7 +130,13 @@ def _origin_check_program(install_root: Path) -> str:
             "assert host._initialized_plugins is None",
             "from LiuXin_alpha.utils.image_tools import img",
             "from PIL import Image",
-            "from io import BytesIO",
+            "from io import BytesIO, StringIO",
+            "from rich.console import Console",
+            "from LiuXin_alpha.surfaces.cli.ingest_display import render_panel",
+            "from LiuXin_alpha.surfaces.cli.ingest_status import IngestStatus",
+            "panel_output = StringIO()",
+            "Console(file=panel_output).print(render_panel(IngestStatus('installed-wheel-smoke')))",
+            "assert 'LiuXin import' in panel_output.getvalue()",
             "image = BytesIO()",
             "Image.new('RGBA', (20, 10), (255, 0, 0, 128)).save(image, format='PNG')",
             "width, height, data = img.scale_image(image.getvalue(), width=10, height=10, as_png=True)",

@@ -25,6 +25,55 @@ temporary storage, logs and reports outside the source. The
 [developer runbook](../dev-docs/storage_and_backup/mixed_ingest_operations.md)
 explains mount requirements, archive budgets and source-protection boundaries.
 
+## Watch a long import
+
+Interactive imports show a **Rich status panel on stderr** automatically. It
+shows the phase and current source/archive/member, elapsed time, adopted sources
+and members, containers processed, average member rate, cache bytes, process RSS,
+and free space against required headroom. Counts describe the current attempt:
+resuming visits existing records too. Nested discovery can reveal more work, so
+there is no overall percentage or ETA.
+
+Open another terminal and attach with the run ID printed at startup:
+
+```bash
+liuxin ingest runs watch RUN_UUID --system-root /srv/liuxin
+# A single snapshot, suitable for redirected output:
+liuxin ingest runs watch RUN_UUID --system-root /srv/liuxin --once --progress plain
+# Without a system profile:
+liuxin ingest runs watch RUN_UUID --log-directory /path/to/ingest/logs
+```
+
+The watcher needs read access to the original CLI host's logs. It selects the
+newest attempt once, exits when that attempt finishes, and never opens the
+catalogue or signals the importer. **Ctrl-C in the watcher only detaches**;
+Ctrl-C in the import terminal requests the existing cooperative stop. After
+resuming, attach again to select the new attempt. Watching does not make the
+import survive a closed terminal; use your normal process supervisor for that.
+The watcher returns zero when observation finishes or is detached; read the
+displayed status or the report for the import's outcome.
+
+`--progress auto|rich|plain` selects presentation for either command. Redirected
+stderr uses plain output in auto mode. `--no-console-progress` disables the
+import display, including an explicit Rich selection. JSON reports remain on
+stdout; panels and watcher output stay on stderr. `--no-stdout-report` still
+leaves stdout empty.
+
+Both displays read the same JSONL telemetry, including at `--log-level ERROR`.
+Resource values and current activity refresh at `--resource-interval-seconds`
+(default 5 seconds); watcher redraws default to 1 second and can be changed with
+`--refresh-seconds`. Sample age is visible. Silence longer than 15 seconds or
+three sample intervals, whichever is greater, is labelled **STALE; liveness
+unknown**. A process killed without a final event leaves the watcher waiting
+until detached. Older logs without samples show unknown metrics.
+
+Selection scans event-log names and modification times without loading historical
+reports. Readers retain only the latest state and read at most the most recent
+MiB per refresh, skipping malformed/oversized records with a notice. This allows
+attaching to large DEBUG logs without replaying their full history. Recent
+counter snapshots remain authoritative; a latest-issue message may omit older
+issues, which remain available through `ingest runs issues` and the report.
+
 ## Space protection
 
 Local ingest requires **2,048 MiB free by default** on each filesystem containing
@@ -70,6 +119,7 @@ continues while the ingest thread hashes or waits for a reader. Its
 - Linux process RSS, peak RSS and swap, plus system available memory and swap.
   Unsupported counters are null; process RSS excludes extractor children.
 - The current source, archive or member when available.
+- Per-attempt source, container and member counters, and adopted member bytes.
 - Cumulative cache reservations and confirmed newly materialized cache bytes
   for this attempt. These are logical byte counters, not a recursive measurement
   of existing cache contents or filesystem allocation.

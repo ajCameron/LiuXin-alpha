@@ -600,11 +600,40 @@ def _location_arguments(parser: argparse.ArgumentParser) -> None:
     group.add_argument("--log-directory")
 
 
+def cmd_ingest_runs_watch(args: argparse.Namespace) -> int:
+    """Select the newest log by mtime without loading potentially huge historical reports.
+
+    Reuse the history directory and filename identity rules. Keep only one path
+    while scanning, then follow that fixed attempt without contacting its writer.
+    Completed attempts are identified by their terminal event, not a report scan.
+    """
+    from LiuXin_alpha.surfaces.cli.ingest_watch import watch_attempt
+
+    directory = _log_directory(args)
+    try:
+        run_id = str(UUID(str(args.run_id)))
+    except ValueError as error:
+        raise ValueError("RUN_ID must be a UUID.") from error
+    latest: tuple[int, str] | None = None
+    for path in directory.glob("*.jsonl"):
+        if _run_id_from_path(path) != run_id:
+            continue
+        try:
+            candidate = (path.stat().st_mtime_ns, str(path))
+        except FileNotFoundError:
+            continue
+        if latest is None or candidate > latest:
+            latest = candidate
+    if latest is None:
+        raise FileNotFoundError(f"No mixed-ingest event log for {run_id} in {directory}")
+    return watch_attempt(args, {"run_id": run_id, "event_log": latest[1]})
+
+
 def build_ingest_runs_parser(
     commands: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
     """
-    Register local run listing, inspection, issue collection, and resume leaves.
+    Register local run listing, inspection, watching, issue collection, and resume leaves.
 
     List/show/issues receive JSON output controls; resume delegates normal ingest
     output and has only selectors, run ID, and completed-rerun confirmation here.
@@ -619,10 +648,10 @@ def build_ingest_runs_parser(
 
 
     :param commands: Ingest-family subparser collection receiving the runs subtree.
-    :return: None; four required action choices and handlers are installed in place.
+    :return: None; five required action choices and handlers are installed in place.
     """
     runs = commands.add_parser(
-        "runs", help="List, inspect, diagnose, or resume durable mixed-ingest runs."
+        "runs", help="List, inspect, watch, diagnose, or resume durable mixed-ingest runs."
     )
     subcommands = runs.add_subparsers(dest="ingest_runs_command", required=True)
     list_parser = subcommands.add_parser("list")
@@ -637,6 +666,18 @@ def build_ingest_runs_parser(
     show.add_argument("run_id")
     add_json_output(show)
     show.set_defaults(handler=cmd_ingest_runs_show)
+
+    watch = subcommands.add_parser(
+        "watch", help="Observe the newest attempt; Ctrl-C detaches only."
+    )
+    _location_arguments(watch)
+    watch.add_argument("run_id")
+    watch.add_argument(
+        "--once", action="store_true", help="Display one snapshot and exit."
+    )
+    watch.add_argument("--refresh-seconds", type=float, default=1.0)
+    watch.add_argument("--progress", choices=("auto", "rich", "plain"), default="auto")
+    watch.set_defaults(handler=cmd_ingest_runs_watch)
 
     issues = subcommands.add_parser("issues")
     _location_arguments(issues)
@@ -662,4 +703,5 @@ __all__ = [
     "cmd_ingest_runs_list",
     "cmd_ingest_runs_resume",
     "cmd_ingest_runs_show",
+    "cmd_ingest_runs_watch",
 ]

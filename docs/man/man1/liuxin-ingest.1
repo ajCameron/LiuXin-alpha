@@ -51,7 +51,7 @@ Store declarations. It does not acquire payloads.
 New remote-registration and download workflows should use
 .BR web .
 .TP
-.B runs list|show|issues|resume
+.B runs list|show|watch|issues|resume
 Inspect and resume the CLI-local mixed-file workflow's reports.
 Web runs instead use
 .BR "web URL \-\-list" ,
@@ -61,6 +61,44 @@ and
 .TP
 .B formats
 Report available ingest format information.
+.SH LOCAL LIVE STATUS
+Interactive local imports display a Rich panel on stderr with attempt counters,
+current activity, elapsed time, memory, cache bytes and free-space headroom.
+Nested discovery has no known overall total, so no percentage or ETA is shown.
+JSON receipts remain on stdout.
+.TP
+.BI \-\-progress " auto|rich|plain"
+Select the import or watcher display. Auto uses Rich on an interactive stderr
+and plain output when redirected. Rich explicitly forces terminal rendering.
+.TP
+.B \-\-no-console-progress
+Suppress the import display, including an explicit Rich selection.
+.PP
+Attach from another terminal using
+.B liuxin ingest runs watch RUN_UUID
+with
+.BR "\-\-system-root ROOT" ,
+.BR "\-\-profile PROFILE" ,
+or
+.BR "\-\-log-directory DIRECTORY" .
+The watcher selects the newest attempt once and exits on its terminal event.
+It reads local logs only. Ctrl-C detaches the watcher without signalling the
+import; Ctrl-C in the import terminal requests a cooperative stop.
+Attach again after resuming to select the new attempt.
+.TP
+.B \-\-once
+Watch option: display one snapshot and exit.
+.TP
+.BI \-\-refresh-seconds " SECONDS"
+Watch redraw interval; default 1, minimum 0.1. Resource observations still follow
+the import's resource-interval-seconds setting (default 5 seconds).
+.PP
+Sample age is displayed. Silence beyond the greater of 15 seconds or three
+resource intervals is marked stale, with liveness unknown. A killed importer
+without a terminal event leaves the watcher waiting until detached.
+Reads and partial-line buffers are bounded; large logs start at recent telemetry.
+Older logs may show unknown metrics. Watching does not supervise or daemonize
+the importer, and requires read access to its logs on the original CLI host.
 .SH LOCAL RESOURCE PROTECTION
 Local mixed ingest enforces a free-space reserve before catalogue startup and
 at safe boundaries during the run. It checks the catalogue, cache, temporary,
@@ -107,6 +145,10 @@ liuxin ingest web https://example.org/books/ \e
 liuxin ingest web \-\-status RUN_UUID \e
   \-\-system-root "$HOME/LiuXin"
 liuxin storage ingest \-\-help
+liuxin ingest runs watch RUN_UUID \e
+  \-\-system-root /srv/liuxin
+liuxin ingest runs watch RUN_UUID \e
+  \-\-log-directory /srv/liuxin/logs \-\-once \-\-progress plain
 .fi
 .SH SEE ALSO
 .BR liuxin (1),
