@@ -13,6 +13,7 @@ dependencies = [
   "cssselect>=1.2",
   "lxml>=5.0",
   "numpy>=1.26",
+  "rich>=14.1,<15",
 ]
 
 [project.scripts]
@@ -193,6 +194,9 @@ paths = [
   "src/LiuXin_alpha/surfaces/cli/__init__.py",
   "src/LiuXin_alpha/surfaces/cli/app.py",
   "src/LiuXin_alpha/surfaces/cli/ingest_web.py",
+  "src/LiuXin_alpha/surfaces/cli/ingest_status.py",
+  "src/LiuXin_alpha/surfaces/cli/ingest_display.py",
+  "src/LiuXin_alpha/surfaces/cli/ingest_watch.py",
   "src/LiuXin_alpha/surfaces/cli/completion.py",
   "src/LiuXin_alpha/surfaces/cli/parser_types.py",
   "src/LiuXin_alpha/surfaces/cli/parsers.py",
@@ -309,6 +313,9 @@ include = [
   "src/LiuXin_alpha/surfaces/cli/__init__.py",
   "src/LiuXin_alpha/surfaces/cli/app.py",
   "src/LiuXin_alpha/surfaces/cli/ingest_web.py",
+  "src/LiuXin_alpha/surfaces/cli/ingest_status.py",
+  "src/LiuXin_alpha/surfaces/cli/ingest_display.py",
+  "src/LiuXin_alpha/surfaces/cli/ingest_watch.py",
   "src/LiuXin_alpha/surfaces/cli/completion.py",
   "src/LiuXin_alpha/surfaces/cli/parser_types.py",
   "src/LiuXin_alpha/surfaces/cli/parsers.py",
@@ -415,6 +422,9 @@ files = [
   "src/LiuXin_alpha/surfaces/cli/__init__.py",
   "src/LiuXin_alpha/surfaces/cli/app.py",
   "src/LiuXin_alpha/surfaces/cli/ingest_web.py",
+  "src/LiuXin_alpha/surfaces/cli/ingest_status.py",
+  "src/LiuXin_alpha/surfaces/cli/ingest_display.py",
+  "src/LiuXin_alpha/surfaces/cli/ingest_watch.py",
   "src/LiuXin_alpha/surfaces/cli/completion.py",
   "src/LiuXin_alpha/surfaces/cli/parser_types.py",
   "src/LiuXin_alpha/surfaces/cli/parsers.py",

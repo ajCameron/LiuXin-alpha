@@ -160,6 +160,32 @@ def test_telemetry_write_failure_stops_work(tmp_path):
         assert "cannot persist resource telemetry" in monitor.check()
 
 
+def test_periodic_snapshots_include_attempt_totals_without_debug_logging(tmp_path):
+    """An attached reader can recover totals from one snapshot, without replaying events."""
+    with ResourceMonitor(ResourcePolicy(100), {}, lambda *args: None) as monitor:
+        monitor.progress("run_started", {"source_root": str(tmp_path)})
+        monitor.progress("discovery_complete", {"files_examined": 3})
+        monitor.progress("source_file_adopted", {})
+        monitor.progress("container_discovered", {})
+        monitor.progress(
+            "member_adopted", {"run_members_adopted": 7, "run_expanded_bytes": 100}
+        )
+        monitor.progress("container_complete", {})
+        monitor.sample(force_emit=True)
+        snapshot = monitor.latest
+        assert snapshot["source_root"] == str(tmp_path)
+        assert snapshot["counts"] == {
+            "files_examined": 3,
+            "files_adopted": 1,
+            "members_adopted": 7,
+            "containers_discovered": 1,
+            "containers_processed": 1,
+            "expanded_bytes": 100,
+        }
+        monitor.progress("source_file_adopted", {})
+        assert snapshot["counts"]["files_adopted"] == 1
+
+
 def test_changed_host_mount_is_not_mistaken_for_healthy_parent(tmp_path, monkeypatch):
     """An unmounted drive can leave a directory with plenty of unrelated Linux free space."""
     with ResourceMonitor(

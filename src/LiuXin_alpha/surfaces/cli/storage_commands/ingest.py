@@ -17,6 +17,7 @@ from contextlib import nullcontext
 from pathlib import Path
 from uuid import UUID, uuid4
 
+from LiuXin_alpha.surfaces.cli.ingest_display import import_panel
 from LiuXin_alpha.surfaces.cli.storage_commands.constants import (
     EXIT_INTERRUPTED,
     EXIT_ISSUES,
@@ -177,16 +178,17 @@ def _cmd_storage_ingest(args: argparse.Namespace) -> int:
             print(f"Report: {report_path}", file=sys.stderr, flush=True)
             if lock_path is not None:
                 print(f"Run lock: {lock_path}", file=sys.stderr, flush=True)
-            return _run_logged_command(
-                args,
-                source_root=source_root,
-                run_id=run_id,
-                report_path=report_path,
-                human_log=paths.human_log,
-                event_log=paths.event_log,
-                lock_path=lock_path,
-                log_session=log_session,
-            )
+            with import_panel(args, paths.event_log, str(run_id)):
+                return _run_logged_command(
+                    args,
+                    source_root=source_root,
+                    run_id=run_id,
+                    report_path=report_path,
+                    human_log=paths.human_log,
+                    event_log=paths.event_log,
+                    lock_path=lock_path,
+                    log_session=log_session,
+                )
     except CLIUsageError as error:
         print(f"ERROR: {error}", file=sys.stderr, flush=True)
         return EXIT_USAGE
@@ -326,6 +328,7 @@ def _run_logged_command(
             run_id=run_id,
             exit_code=exit_code,
             ok=bool(payload["ok"]),
+            status=payload["status"],
             signal=received_signal,
             report_file=str(report_path),
             human_log=str(human_log),
