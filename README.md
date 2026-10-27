@@ -2,7 +2,9 @@
 
 Public, development fork of LiuXin. Alpha. DO NOT USE IN PROD.
 
-Start with the [developer documentation index](dev-docs/README.md) for
+Start with the [user guides and manual pages](docs/README.md) for installed
+commands, including [web registration and downloads](docs/web-ingest.md).
+Use the [developer documentation index](dev-docs/README.md) for
 architecture, subsystem guides, testing, and CI ownership. Dated implementation
 handoffs live in the [working-memory index](working-memory/index.md).
 
@@ -79,7 +81,7 @@ claiming that inherited compatibility code is already strict. See
 
 ## Storage ingest CLI
 
-For a new local deployment, initialise a self-contained system root and then
+For a new local Linux deployment, initialise a self-contained system root and then
 point LiuXin at a mounted drive or untidy source tree:
 
 ```bash
@@ -97,7 +99,19 @@ database/login and runs the full backend readiness checker.
 `init` creates the catalogue, a managed primary Store, materialization and log
 directories, plus a non-secret `liuxin-system.json` manifest. It is idempotent
 and does not delete existing catalogue or Store state. The concise `ingest`
-form uses the bounded recursive mixed-file pipeline.
+form uses the bounded recursive mixed-file pipeline and requires a verified
+read-only source mount on Linux. It detects existing directories, SquashFS/ext4
+filesystem images and block devices:
+
+```bash
+sudo liuxin storage ingest "/archives/books.squashfs" --system-root /srv/liuxin
+```
+
+The system selector can be omitted when the invoking account has a saved
+connection; `sudo` may select a different account's configuration. Images and
+devices receive stable, automatically managed mount targets. The explicit
+`--source-root PATH` directory interface retains opt-in mounting and is also
+available on other operating systems.
 
 The full mixed-file ingest surface remains available after installation:
 
@@ -118,6 +132,20 @@ liuxin ingest runs list --system-root /srv/liuxin
 liuxin ingest runs issues RUN_UUID --system-root /srv/liuxin
 liuxin ingest runs resume RUN_UUID --system-root /srv/liuxin
 ```
+
+## Web ingest CLI
+
+Web sources can be recorded without mirroring, then downloaded selectively:
+
+```bash
+liuxin ingest web https://example.org/books/ --system-root /srv/liuxin
+liuxin ingest web https://example.org/books/ --download --registered-only \
+  --extension epub --system-root /srv/liuxin
+```
+
+See the [web-ingest guide](docs/web-ingest.md) and `man liuxin-ingest-web` for
+native and wget discovery, limits, provenance and resume. Registration records observed
+links; only verified acquisitions become managed Assets and Replicas.
 
 ## Metadata CLI
 

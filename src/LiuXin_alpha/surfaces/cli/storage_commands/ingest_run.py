@@ -21,6 +21,7 @@ from LiuXin_alpha.ingest.mixed_application import (
     MixedIngestApplicationRequest,
     execute_mixed_ingest,
 )
+from LiuXin_alpha.ingest.resource_monitor import ResourceMonitor
 from LiuXin_alpha.surfaces.cli.storage_commands.constants import EXIT_ISSUES, EXIT_OK
 from LiuXin_alpha.surfaces.cli.storage_commands.ingest_config import _budget
 from LiuXin_alpha.surfaces.cli.storage_commands.ingest_preflight import (
@@ -36,6 +37,7 @@ def _run_ingest(
     source_root: Path,
     run_id: UUID,
     cancellation_callback: Callable[[], bool],
+    resources: ResourceMonitor | None = None,
 ) -> tuple[int, dict[str, object]]:
     """
     Execute discovery or durable ingest and build a mode-specific receipt/status pair.
@@ -57,6 +59,7 @@ def _run_ingest(
     :param source_root: Prepared local source path forwarded unchanged to the application request.
     :param run_id: Run UUID forwarded to application events and the coordinator.
     :param cancellation_callback: Cooperative cancellation predicate supplied by the outer signal scope.
+    :param resources: Optional periodic monitor and safe-boundary capacity guard.
     :return: EXIT_OK/EXIT_ISSUES and a payload retaining the rich budget/report objects.
     :raises AssertionError: A non-discovery application result lacks its database path.
     """
@@ -100,6 +103,13 @@ def _run_ingest(
         """
         _log(level, event, message, run_id=run_id, **dict(details))
 
+    def progress(event: str, details: Mapping[str, object]) -> None:
+        """Update sampler context even when console progress is disabled."""
+        if resources is not None:
+            resources.progress(event, details)
+        if not args.no_console_progress:
+            _console_progress(event, details)
+
     request = MixedIngestApplicationRequest(
         source_root=source_root,
         run_id=run_id,
@@ -116,10 +126,9 @@ def _run_ingest(
         rar_extractor_exe=args.rar_extractor_exe,
         backend_timeout_s=float(args.backend_timeout_seconds),
         log_checkpoint_every=int(args.log_checkpoint_every),
-        progress_callback=(
-            None if bool(args.no_console_progress) else _console_progress
-        ),
+        progress_callback=progress,
         cancellation_callback=cancellation_callback,
+        resource_check_callback=None if resources is None else resources.check,
         event_callback=application_event,
         database_stdout=captured_stdout,
     )

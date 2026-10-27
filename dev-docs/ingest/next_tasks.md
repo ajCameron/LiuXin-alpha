@@ -2,6 +2,12 @@
 
 Date: **2026-10-20**. Proposed work; this list does not implement the changes.
 
+Progress **2026-10-22**: [web registration and acquisition](web_ingest_operations.md)
+now provide separate remote observations and verified capture receipts. They
+reuse the storage manager for publication and replay its operation identity after
+a publication/receipt failure. This addresses the web slice of ING03; it does
+not yet unify old `remote-html` registrations or every domain's job/run identity.
+
 Consolidate receipts and semantic boundaries before moving modules. Keep nested-container traversal with storage and provider parsing with its source owner.
 
 ## ING01. Define candidate-to-write receipts
