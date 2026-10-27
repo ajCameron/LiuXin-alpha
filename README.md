@@ -85,8 +85,7 @@ For a new local Linux deployment, initialise a self-contained system root and th
 point LiuXin at a mounted drive or untidy source tree:
 
 ```bash
-liuxin init /srv/liuxin
-liuxin connect /srv/liuxin
+liuxin init /srv/liuxin --make-default
 liuxin ingest /media/archive-drives/disk-01
 ```
 
@@ -95,6 +94,11 @@ guided initializer. It can select SQLite, APSW, or PostgreSQL, shows a plan
 before changing anything, and performs the appropriate post-initialization
 checks. The PostgreSQL route initializes LiuXin's schema in an existing
 database/login and runs the full backend readiness checker.
+The wizard also offers to save the system as the default for your account
+(Yes by default), after successful setup. Subsequent commands use that selection
+unless command options or environment selectors override it. `liuxin connect
+status` shows the selection; `liuxin disconnect` forgets it. For an existing
+installation, use `liuxin connect /path/to/system`.
 
 `init` creates the catalogue, a managed primary Store, materialization and log
 directories, plus a non-secret `liuxin-system.json` manifest. It is idempotent
