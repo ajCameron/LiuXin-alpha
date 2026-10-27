@@ -1,3 +1,4 @@
+
 """
 Bind a live configured Store to optional database-row persistence and cached status.
 
@@ -25,8 +26,9 @@ if TYPE_CHECKING:
 @dataclasses.dataclass(slots=True)
 class StoreContainer:
     """
-    Pair a borrowed Store with mutable configuration, row identity, and status cache. Construction
-    checks only that the configured UUID equals the live Store's reference. It does not inspect the
+    Pair a borrowed Store with mutable configuration, row identity, and status cache.
+
+    Construction checks only that the configured UUID equals the live Store's reference. It does not inspect the
     database row, start/probe the Store, or validate a supplied cache. Byte operations remain on
     store; manager policy remains outside this adapter. Reloading configuration does not rebuild the
     Store or invalidate status, and no Store/database lifetime is transferred.
@@ -115,6 +117,7 @@ class StoreContainer:
     def reload_configuration_from_db(self) -> StoreConfiguration:
         """
         Replace this adapter's configuration from its bound Store row after checking UUID identity.
+
         Require both database and row ID, fetch the row, and translate it using that ID as a
         fallback. Only a decoded UUID equal to the live Store reference is accepted. Missing rows,
         decoding errors, or identity mismatches leave the current configuration in place. Successful
@@ -122,7 +125,6 @@ class StoreContainer:
 
         Example:
             >>> configuration = container.reload_configuration_from_db()  # doctest: +SKIP
-
 
         :return: The newly assigned configuration; unbound adapters raise RuntimeError, absent rows raise KeyError, and identity mismatches raise ValueError.
         """
@@ -194,8 +196,9 @@ class StoreContainer:
 
     def delete_from_db(self) -> bool:
         """
-        Delete the bound metadata row and clear its ID only after successful deletion. Require
-        database and row identity. If the row is already absent, return False and retain store_id.
+        Delete the bound metadata row and clear its ID only after successful deletion.
+
+        Require database and row identity. If the row is already absent, return False and retain store_id.
         Database deletion owns constraint/cascade behavior. This does not delete physical Store
         contents, close the Store, or clear the database reference, configuration, or status cache.
 
@@ -203,7 +206,8 @@ class StoreContainer:
             >>> deleted = container.delete_from_db()  # doctest: +SKIP
 
 
-        :return: True after deletion and ID clearing, False for an absent row; unbound state raises RuntimeError and database errors propagate.
+        :return: True after deletion and ID clearing, False for an absent row;
+                 unbound state raises RuntimeError and database errors propagate.
         """
         if self.db is None or self.store_id is None:
             raise RuntimeError(

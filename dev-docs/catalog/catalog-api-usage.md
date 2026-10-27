@@ -1,6 +1,8 @@
+
 # Catalog API Usage Guide
 
-Reviewed **2026-10-20**. Current repositories, relationship ownership and retrieval boundaries were checked. See [next tasks](next_tasks.md) for remaining work; older run counts retain their original dates.
+Reviewed **2026-10-20**. Current repositories, relationship ownership and retrieval boundaries were checked. 
+See [next tasks](next_tasks.md) for remaining work; older run counts retain their original dates.
 
 This guide is the practical entry point for LiuXin's in-process Catalog API.
 It complements the structural protocols in `LiuXin_alpha.catalog.api`.

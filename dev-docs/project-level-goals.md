@@ -7,6 +7,14 @@ These goals guide design and review across LiuXin. They are not a release
 checklist; subsystem contracts and tests remain the authority for concrete
 behaviour.
 
+## Rich metadata
+
+We want to expose the entire WEMI stack - as elegantly as possible.
+
+The aim is to fully express all information about an object.
+Works have a number of roles and places within an information hierarchy.
+LiuXin aims to express those.
+
 ## Preserve information safely
 
 LiuXin should make the state and location of catalogue data and digital assets
@@ -17,8 +25,11 @@ preconditions, observable outcomes, and recoverable failure boundaries.
 
 Application-facing APIs should express what a caller is trying to accomplish.
 Infrastructure details, persistence rows, backend quirks, and orchestration
-steps should remain behind the boundary that owns them. Lower-level APIs remain
-available when their additional control is useful.
+steps should remain behind the boundary that owns them. 
+
+Lower-level APIs remain available when their additional control is useful.
+
+LiuXin should be usable as a component or service in a larger product.
 
 ## Make the code and APIs readable to humans and AI systems
 

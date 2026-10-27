@@ -1,3 +1,7 @@
+
+# Todo: this is unnecessary added complexity - just rename this module as StorageManager - and move it to the StorageManager module
+# Todo: Break down this module
+
 """
 Bind application storage orchestration to catalogue metadata and configured backends.
 
