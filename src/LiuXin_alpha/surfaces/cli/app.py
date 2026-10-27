@@ -54,7 +54,7 @@ def _normalise_shortcuts(argv: list[str]) -> list[str]:
 
     if len(argv) < 2 or argv[0] != "ingest":
         return argv
-    if argv[1] in {"disk", "formats", "remote-html", "runs", "-h", "--help"}:
+    if argv[1] in {"disk", "formats", "remote-html", "runs", "web", "-h", "--help"}:
         return argv
     if "--source" in argv:
         index = argv.index("--source")

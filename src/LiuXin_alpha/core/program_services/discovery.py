@@ -172,6 +172,9 @@ _PROGRAM_AREAS: dict[str, tuple[str, ...]] = {
         "ingest.formats",
         "ingest.disk.start",
         "ingest.remote-html.start",
+        "ingest.web.start",
+        "ingest.web.files",
+        "ingest.web.status",
     ),
     "conversion": (
         "conversion.formats",
@@ -203,6 +206,7 @@ _CONDITIONAL_OPERATIONS: dict[str, str] = {
     "storage.source.register": "Some source kinds require network access or external tools.",
     "ingest.disk.start": "Requires a path-backed database and readable local source.",
     "ingest.remote-html.start": "Requires a path-backed database and network access.",
+    "ingest.web.start": "Requires a path-backed database; downloads also need a writable managed Store and sufficient space.",
     "metadata.identify.start": "Results depend on configured online metadata plugins and network access.",
     "metadata.covers.start": "Results depend on configured cover plugins and network access.",
     "conversion.start": "Requires the input/output format plugins and any external tools they use.",

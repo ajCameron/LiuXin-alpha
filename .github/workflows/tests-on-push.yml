@@ -58,7 +58,7 @@ jobs:
       - name: Install Linux source mount test tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y squashfs-tools e2fsprogs
+          sudo apt-get install -y squashfs-tools e2fsprogs wget
           sudo modprobe loop
 
       - name: Verify Linux read-only source mounts
@@ -71,6 +71,18 @@ jobs:
           tests/ingest/test_source_mount_live.py tests/ingest/test_source_filesystem_mount_live.py
           -n 0 --basetemp=/tmp/liuxin-readonly-mount-tests
           --telemetry-dir=/tmp/liuxin-readonly-mount-telemetry
+          -o tmp_path_retention_policy=none
+
+      - name: Verify remote registration and managed acquisition
+        env:
+          PYTHONPATH: src
+          LIUXIN_REQUIRE_WGET_TESTS: "1"
+        run: >-
+          .venv/bin/python -m pytest -q -p no:cacheprovider
+          tests/ingest/test_web_repository.py tests/ingest/test_web_acquisition.py
+          tests/surfaces/test_cli_web_ingest.py
+          -n 0 --basetemp=/tmp/liuxin-web-ingest-tests
+          --telemetry-dir=/tmp/liuxin-web-ingest-telemetry
           -o tmp_path_retention_policy=none
 
       - name: Enforce application-surface ownership

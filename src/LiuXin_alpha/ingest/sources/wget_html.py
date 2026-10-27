@@ -83,6 +83,7 @@ class WgetBackendOptions:
     :ivar no_verbose: Whether generated arguments request reduced wget verbosity.
     :ivar max_observed_urls: Positive cap on extracted URL occurrences considered across callbacks.
     :ivar max_output_chars: Positive retained-output character ceiling passed to run_wget.
+    :ivar strict_callbacks: Propagate callback failures for durable consumers; default keeps legacy best-effort behavior.
     """
 
     wget_exe: str = "wget"
@@ -98,6 +99,7 @@ class WgetBackendOptions:
     user_agent: str | None = None
     no_verbose: bool = True
     max_observed_urls: int = 100_000
+    strict_callbacks: bool = False
     max_output_chars: int = 8 * 1024 * 1024
 
     def __post_init__(self) -> None:
@@ -302,7 +304,8 @@ class WgetHtmlDiscoverySource(DiscoverySourceAPI):
         tokens rejected by extraction are not counted.
 
         Acceptance means in-scope and dotted-path-leaf, not ebook validity or a
-        successful fetch. Ordinary user callback errors are swallowed; internal
+        successful fetch. Ordinary user callback errors are swallowed unless
+        strict_callbacks is enabled; internal
         limit errors propagate through the runner. Abort leaves old cache and
         earlier callback effects intact. Cache only after successful processing
         and return a separate list.
@@ -325,13 +328,15 @@ class WgetHtmlDiscoverySource(DiscoverySourceAPI):
                     try:
                         observed_url_callback({"url": url, "accepted": True, "reason": "accepted"})
                     except Exception:
-                        pass
+                        if self.options.strict_callbacks:
+                            raise
             if discovered_url_callback is not None:
                 for url in cached:
                     try:
                         discovered_url_callback(url)
                     except Exception:
-                        pass
+                        if self.options.strict_callbacks:
+                            raise
             return cached
 
         filtered: list[str] = []
@@ -382,7 +387,8 @@ class WgetHtmlDiscoverySource(DiscoverySourceAPI):
                         }
                     )
                 except Exception:
-                    pass
+                    if self.options.strict_callbacks:
+                        raise
             if not accepted:
                 return
             filtered.append(url)
@@ -390,7 +396,8 @@ class WgetHtmlDiscoverySource(DiscoverySourceAPI):
                 try:
                     discovered_url_callback(url)
                 except Exception:
-                    pass
+                    if self.options.strict_callbacks:
+                        raise
 
         def _on_wget_line(raw_line: str) -> None:
             """
@@ -410,7 +417,8 @@ class WgetHtmlDiscoverySource(DiscoverySourceAPI):
                 try:
                     log_line_callback(raw_line)
                 except Exception:
-                    pass
+                    if self.options.strict_callbacks:
+                        raise
             for candidate in extract_http_urls_from_wget_output(str(raw_line)):
                 _consider_url(candidate)
 

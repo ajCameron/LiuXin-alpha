@@ -63,6 +63,13 @@ typing = [
 [tool.setuptools]
 include-package-data = false
 
+[tool.setuptools.data-files]
+"share/man/man1" = [
+  "docs/man/man1/liuxin.1",
+  "docs/man/man1/liuxin-ingest.1",
+  "docs/man/man1/liuxin-ingest-web.1",
+]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["LiuXin_alpha*", "past*"]
@@ -185,6 +192,7 @@ paths = [
   "tests/surfaces/test_terminal_dependency_contracts.py",
   "src/LiuXin_alpha/surfaces/cli/__init__.py",
   "src/LiuXin_alpha/surfaces/cli/app.py",
+  "src/LiuXin_alpha/surfaces/cli/ingest_web.py",
   "src/LiuXin_alpha/surfaces/cli/completion.py",
   "src/LiuXin_alpha/surfaces/cli/parser_types.py",
   "src/LiuXin_alpha/surfaces/cli/parsers.py",
@@ -201,6 +209,7 @@ paths = [
   "src/LiuXin_alpha/surfaces/cli/storage_commands",
   "src/LiuXin_alpha/ingest/mixed_application.py",
   "src/LiuXin_alpha/ingest/source_mount.py",
+  "src/LiuXin_alpha/ingest/web",
   "src/LiuXin_alpha/ingest/source_detection.py",
   "src/LiuXin_alpha/ingest/source_mount_paths.py",
   "src/LiuXin_alpha/ingest/source_loop.py",
@@ -247,6 +256,9 @@ paths = [
   "tests/surfaces/test_cli_init_ingest.py",
   "tests/surfaces/test_cli_ingest_mounts.py",
   "tests/surfaces/test_cli_ingest_sources.py",
+  "tests/surfaces/test_cli_web_ingest.py",
+  "tests/ingest/test_web_repository.py",
+  "tests/ingest/test_web_acquisition.py",
   "tests/ingest/test_source_detection.py",
   "tests/ingest/test_source_mount_paths.py",
   "tests/ingest/test_source_mount.py",
@@ -294,6 +306,7 @@ include = [
   "src/LiuXin_alpha/surfaces/terminal/plugins/base.py",
   "src/LiuXin_alpha/surfaces/cli/__init__.py",
   "src/LiuXin_alpha/surfaces/cli/app.py",
+  "src/LiuXin_alpha/surfaces/cli/ingest_web.py",
   "src/LiuXin_alpha/surfaces/cli/completion.py",
   "src/LiuXin_alpha/surfaces/cli/parser_types.py",
   "src/LiuXin_alpha/surfaces/cli/parsers.py",
@@ -309,6 +322,7 @@ include = [
   "src/LiuXin_alpha/core/program_endpoints",
   "src/LiuXin_alpha/ingest/mixed_application.py",
   "src/LiuXin_alpha/ingest/source_mount.py",
+  "src/LiuXin_alpha/ingest/web",
   "src/LiuXin_alpha/ingest/source_detection.py",
   "src/LiuXin_alpha/ingest/source_mount_paths.py",
   "src/LiuXin_alpha/ingest/source_loop.py",
@@ -394,6 +408,7 @@ files = [
   "src/LiuXin_alpha/surfaces/terminal/plugins/base.py",
   "src/LiuXin_alpha/surfaces/cli/__init__.py",
   "src/LiuXin_alpha/surfaces/cli/app.py",
+  "src/LiuXin_alpha/surfaces/cli/ingest_web.py",
   "src/LiuXin_alpha/surfaces/cli/completion.py",
   "src/LiuXin_alpha/surfaces/cli/parser_types.py",
   "src/LiuXin_alpha/surfaces/cli/parsers.py",
@@ -409,6 +424,7 @@ files = [
   "src/LiuXin_alpha/core/program_endpoints",
   "src/LiuXin_alpha/ingest/mixed_application.py",
   "src/LiuXin_alpha/ingest/source_mount.py",
+  "src/LiuXin_alpha/ingest/web",
   "src/LiuXin_alpha/ingest/source_detection.py",
   "src/LiuXin_alpha/ingest/source_mount_paths.py",
   "src/LiuXin_alpha/ingest/source_loop.py",

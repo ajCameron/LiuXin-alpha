@@ -9,6 +9,7 @@ validate that submitted paths/URLs are reachable.
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING, Any
 
 from LiuXin_alpha.core.errors import CoreDispatchError
@@ -140,3 +141,121 @@ def ingest_remote_html_start(
         kwargs=kwargs,
         default_label=f"ingest {kind}",
     )
+
+
+def ingest_web_start(runtime: CoreRuntime, command: CoreCommand) -> dict[str, Any]:
+    """Validate a bounded web registration/acquisition request and submit its managed job.
+
+    :param runtime: Runtime supplying a path-backed catalogue identity and job manager.
+    :param command: Command with validated options or a saved resume UUID, plus shared job controls.
+    :return: Managed-job submission receipt; the completed result contains the web run UUID.
+    :raises ValueError: Invalid web controls or resume UUID.
+    :raises CoreDispatchError: Resume replacements or unavailable catalogue/job services.
+    """
+    from uuid import UUID
+
+    from LiuXin_alpha.ingest.web.models import WebIngestOptions
+
+    payload = _payload(command)
+    resume = payload.get("resume")
+    if resume:
+        resume = str(UUID(str(resume)))
+        if payload.get("options"):
+            raise CoreDispatchError(
+                "resume replays saved web options; do not supply replacements"
+            )
+        options = None
+    else:
+        options = WebIngestOptions.from_mapping(_mapping(payload, "options")).to_dict()
+    return _job_submit(
+        runtime,
+        payload,
+        function_name="run_ingest_web_job",
+        kwargs={
+            "database_path": _database_path(runtime),
+            "db_type": _database_type(runtime),
+            "options": options,
+            "resume": resume,
+        },
+        default_label="web ingest",
+    )
+
+
+def ingest_web_files(runtime: CoreRuntime, query: CoreQuery) -> dict[str, Any]:
+    """Read remote observations and their last capture receipts without network requests.
+
+    :param runtime: Runtime supplying the catalogue; no storage backend is probed.
+    :param query: Query containing the root_url whose recorded candidates are requested.
+    :return: Normalized root, observed files with historical last_capture evidence, and saved run summaries.
+    :raises ValueError: The source URL fails web option validation.
+    """
+    from LiuXin_alpha.ingest.web.models import WebIngestOptions
+    from LiuXin_alpha.ingest.web.repository import WebIngestRepository
+
+    payload = _payload(query)
+    root = WebIngestOptions(root_url=_required_text(payload, "root_url")).root_url
+    repository = WebIngestRepository(runtime.database, create=False)
+    rows = repository.files(root)
+    return {
+        "root_url": root,
+        "runs": [
+            {
+                "run_id": run["web_ingest_run_id"],
+                "status": run["web_ingest_run_status"],
+                "started": run["web_ingest_run_started"],
+                "lease_until": run["web_ingest_run_lease_until"],
+            }
+            for run in repository.runs(root)
+        ],
+        "files": [
+            {
+                "remote_file_id": row["remote_file_id"],
+                "url": row["remote_file_url"],
+                "referrer": row["remote_file_referrer"],
+                "first_seen": row["remote_file_first_seen"],
+                "last_seen": row["remote_file_last_seen"],
+                "last_capture": json.loads(row["remote_file_latest_capture_json"])
+                if row["remote_file_latest_capture_json"]
+                else None,
+            }
+            for row in rows
+        ],
+    }
+
+
+def ingest_web_status(runtime: CoreRuntime, query: CoreQuery) -> dict[str, Any]:
+    """Inspect a saved web run and its object states, including interrupted attempts.
+
+    :param runtime: Runtime supplying the catalogue for read-only workflow inspection.
+    :param query: Query containing a saved web run_id UUID, distinct from the managed-job ID.
+    :return: Saved options, lease, byte counters, last report and per-file capture states.
+    :raises ValueError: The UUID is malformed or no matching web run exists.
+    """
+    from uuid import UUID
+
+    from LiuXin_alpha.ingest.web.repository import WebIngestRepository
+
+    run_id = str(UUID(_required_text(_payload(query), "run_id")))
+    repository = WebIngestRepository(runtime.database, create=False)
+    saved = repository.run(run_id)
+    rows = repository.items(run_id)
+    return {
+        "run_id": run_id,
+        "status": saved["web_ingest_run_status"],
+        "lease_until": saved["web_ingest_run_lease_until"],
+        "received_bytes": saved["web_ingest_run_bytes_received"],
+        "discovery_complete": bool(saved["web_ingest_run_discovery_complete"]),
+        "options": json.loads(saved["web_ingest_run_options_json"]),
+        "report": json.loads(saved["web_ingest_run_report_json"])
+        if saved["web_ingest_run_report_json"]
+        else None,
+        "items": [
+            {
+                "remote_file_id": row["web_ingest_item_remote_file_id"],
+                "state": row["web_ingest_item_state"],
+                "error": row["web_ingest_item_error"],
+                "receipt": json.loads(row["web_ingest_item_receipt_json"]),
+            }
+            for row in rows
+        ],
+    }
