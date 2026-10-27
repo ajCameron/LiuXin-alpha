@@ -58,6 +58,17 @@ class ResourceMonitor:
         self.reason: str | None = None
         self.latest: dict[str, object] = {}
         self.activity: dict[str, object] = {}
+        self.source_root: str | None = None
+        self.counts: dict[str, int] = {
+            key: 0
+            for key in (
+                "files_adopted",
+                "members_adopted",
+                "containers_processed",
+                "containers_discovered",
+                "expanded_bytes",
+            )
+        }
         self.cache_materialized_bytes = 0
         self.cache_reserved_bytes = 0
         self.samples = 0
@@ -104,6 +115,8 @@ class ResourceMonitor:
     def progress(self, event: str, details: Mapping[str, object]) -> None:
         """Retain the current source/container/member without emitting per-object INFO logs."""
         with self._lock:
+            if details.get("source_root"):
+                self.source_root = str(details["source_root"])
             self.activity = {
                 "event": event,
                 **{
@@ -112,12 +125,30 @@ class ResourceMonitor:
                     if key in details
                 },
             }
+            self._update_counts(event, details)
             if event == "materialization_reserved":
                 self.cache_reserved_bytes = int(str(details["run_materialized_bytes"]))
             if event == "container_complete":
                 self.cache_materialized_bytes += int(
                     str(details.get("materialized_bytes", 0))
                 )
+
+    def _update_counts(self, event: str, details: Mapping[str, object]) -> None:
+        """Project callback totals into periodic snapshots, even at ERROR log level."""
+        increments = {
+            "source_file_adopted": "files_adopted",
+            "container_discovered": "containers_discovered",
+            "container_complete": "containers_processed",
+        }
+        if event in increments:
+            self.counts[increments[event]] += 1
+        if event in {"discovery_complete", "source_checkpoint", "complete"}:
+            for key in (*self.counts, "files_examined", "issue_count"):
+                if key in details:
+                    self.counts[key] = int(str(details[key]))
+        for key in ("members_adopted", "expanded_bytes"):
+            if "run_" + key in details:
+                self.counts[key] = int(str(details["run_" + key]))
 
     def check(self, cache_bytes: int = 0, temporary_bytes: int = 0) -> str | None:
         """Check headroom at safe boundaries and before known large allocations.
@@ -206,6 +237,9 @@ class ResourceMonitor:
             self._last_probe = now
             self.latest = {
                 "elapsed_seconds": now - self._started,
+                "interval_seconds": self.policy.interval_seconds,
+                "source_root": self.source_root,
+                "counts": dict(self.counts),
                 "disks": disks,
                 "memory": memory_snapshot(),
                 "activity": dict(self.activity),

@@ -393,6 +393,12 @@ def _add_logging_group_options(parser: argparse.ArgumentParser) -> None:
         help="Write only the report file; leave stdout empty.",
     )
     logging_group.add_argument(
+        "--progress",
+        choices=("auto", "rich", "plain"),
+        default="auto",
+        help="Stderr progress: Rich on interactive terminals by default, plain when redirected.",
+    )
+    logging_group.add_argument(
         "--no-console-progress",
         action="store_true",
         help="Suppress stderr progress; durable logs are unaffected.",

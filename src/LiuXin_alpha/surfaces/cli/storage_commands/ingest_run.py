@@ -22,6 +22,7 @@ from LiuXin_alpha.ingest.mixed_application import (
     execute_mixed_ingest,
 )
 from LiuXin_alpha.ingest.resource_monitor import ResourceMonitor
+from LiuXin_alpha.surfaces.cli.ingest_display import rich_enabled
 from LiuXin_alpha.surfaces.cli.storage_commands.constants import EXIT_ISSUES, EXIT_OK
 from LiuXin_alpha.surfaces.cli.storage_commands.ingest_config import _budget
 from LiuXin_alpha.surfaces.cli.storage_commands.ingest_preflight import (
@@ -102,12 +103,16 @@ def _run_ingest(
         :return: None after logging, without suppressing callback/logging failures.
         """
         _log(level, event, message, run_id=run_id, **dict(details))
+        if resources is not None:
+            resources.progress(event, details)
+
+    console_progress = not args.no_console_progress and not rich_enabled(args)
 
     def progress(event: str, details: Mapping[str, object]) -> None:
         """Update sampler context even when console progress is disabled."""
         if resources is not None:
             resources.progress(event, details)
-        if not args.no_console_progress:
+        if console_progress:
             _console_progress(event, details)
 
     request = MixedIngestApplicationRequest(

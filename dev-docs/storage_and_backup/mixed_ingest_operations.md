@@ -307,8 +307,8 @@ attempt and returns its partial report. No sampler thread touches the database.
 `--resource-interval-seconds` defaults to 5. Independent periodic sampling
 continues during blocking reads and hashes. `resource_sample`/`resource_stop`
 events include free space, Linux memory counters, current source/archive/member,
-and per-attempt reserved/confirmed cache bytes. Counters do not walk the cache or
-include extractor children in process RSS. The terminal `resources` summary is
+source/container/member counters, and per-attempt reserved/confirmed cache bytes.
+Counters do not walk the cache or include extractor children in process RSS. The terminal `resources` summary is
 bounded; full history remains in JSONL. The cache and log volumes are monitored
 even when they differ from the catalogue volume.
 
@@ -324,6 +324,38 @@ ID and replayable controls. After releasing space, use normal `ingest runs
 resume`. These are observations and cooperative admission checks, not hard
 quotas: active backend/database operations and other writers can outlast a check.
 There is no automatic cache deletion or log-history pruning.
+
+### Live and attached status
+
+`--progress auto` uses a Rich panel on interactive stderr and existing plain
+checkpoints when redirected. `rich` forces a panel; `plain` forces checkpoints;
+`--no-console-progress` takes precedence. stdout remains the JSON receipt stream.
+Rich is a runtime dependency imported only when rendering a panel.
+
+`liuxin ingest runs watch RUN_UUID --system-root /srv/liuxin` selects the newest
+event log once through the existing history owner's directory/UUID rules, using
+mtime and retaining one path without loading historical reports.
+`--log-directory` and `--profile` are alternative selectors; `--once` emits one snapshot.
+`--refresh-seconds` controls watcher redraws, not the writer's sampling cadence.
+Ctrl-C in the watcher detaches without sending signals or opening the catalogue.
+Ctrl-C in the foreground import retains its cooperative cancellation semantics.
+This is observation only; use the supervision below to survive a lost session.
+
+`surfaces.cli.ingest_status` owns bounded incremental JSONL decoding and the
+latest-state projection. `ingest_display` renders that state for both foreground
+and watcher; `ingest_watch` owns the observer loop. No UI is added to ingest or
+storage owners. `ResourceMonitor` projects existing progress callbacks into
+cumulative attempt snapshots even when per-object DEBUG logs are suppressed.
+Repeated adoption during resume contributes to attempt progress; it is not a
+count of newly created assets. There is no known run-wide nested-member total.
+
+Each read is capped at one MiB; long logs start at their tail. Partial lines are
+retained up to 256 KiB, malformed/oversized lines are skipped with a notice, and
+truncation/replacement resets state. The displayed issue is the latest observed
+issue, not a full history. Resource sample age beyond max(15 seconds, three
+sample intervals) is stale with liveness unknown. A missing terminal event never
+implies success or death. Old logs without snapshots display unknown metrics.
+The selected attempt stays fixed; attach again after resume.
 
 ## Remote supervision
 
